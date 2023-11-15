@@ -9,10 +9,10 @@ from .ImageFile import ImageFile
 split: Incomplete
 field: Incomplete
 if sys.platform == "win32":
-    gs_binary: Literal["gswin32c", "gswin64c", "gs", False, None]
-    gs_windows_binary: Literal["gswin32c", "gswin64c", "gs", False, None]
+    gs_binary: Literal["gswin32c", "gswin64c", "gs", False] | None
+    gs_windows_binary: Literal["gswin32c", "gswin64c", "gs", False] | None
 else:
-    gs_binary: Literal["gs", False, None]
+    gs_binary: Literal["gs", False] | None
     gs_windows_binary: None
 
 def has_ghostscript(): ...

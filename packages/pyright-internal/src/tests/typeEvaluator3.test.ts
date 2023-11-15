@@ -877,7 +877,7 @@ test('MethodOverride6', () => {
 
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['methodOverride6.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 2);
+    TestUtils.validateResults(analysisResults2, 3);
 });
 
 test('Enum1', () => {
@@ -1370,13 +1370,13 @@ test('EmptyContainers1', () => {
 test('InitSubclass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['initsubclass1.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('InitSubclass2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['initsubclass2.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('None1', () => {

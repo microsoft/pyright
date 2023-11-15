@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from typing import Generic, NoReturn
+from typing import NoReturn
 
 from .core import ACLCommands, DataAccessCommands, ManagementCommands, PubSubCommands, _StrType
 
@@ -31,12 +31,7 @@ class ClusterDataAccessCommands(DataAccessCommands[_StrType]):
     ): ...
 
 class RedisClusterCommands(
-    ClusterMultiKeyCommands,
-    ClusterManagementCommands,
-    ACLCommands[_StrType],
-    PubSubCommands,
-    ClusterDataAccessCommands[_StrType],
-    Generic[_StrType],
+    ClusterMultiKeyCommands, ClusterManagementCommands, ACLCommands[_StrType], PubSubCommands, ClusterDataAccessCommands[_StrType]
 ):
     def cluster_addslots(self, target_node, *slots): ...
     def cluster_countkeysinslot(self, slot_id): ...

@@ -15,6 +15,7 @@ import {
     ServiceProvider as ReadOnlyServiceProvider,
     SymbolDefinitionProvider,
     SymbolUsageProviderFactory,
+    DebugInfoInspector,
 } from './extensibility';
 import { FileSystem, TempFile } from './fileSystem';
 import { LogTracker } from './logTracker';
@@ -39,6 +40,7 @@ export namespace ServiceKeys {
     export const stateMutationListeners = new GroupServiceKey<StatusMutationListener>();
     export const tempFile = new ServiceKey<TempFile>();
     export const cacheManager = new ServiceKey<CacheManager>();
+    export const debugInfoInspector = new ServiceKey<DebugInfoInspector>();
 }
 
 export function createServiceProvider(...services: any): ServiceProvider {

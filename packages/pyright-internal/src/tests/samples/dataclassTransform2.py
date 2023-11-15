@@ -25,6 +25,8 @@ def model_field(
 class ModelMeta(type):
     not_a_field: str
 
+
+class ModelBase(metaclass=ModelMeta):
     def __init_subclass__(
         cls,
         *,
@@ -33,10 +35,6 @@ class ModelMeta(type):
         order: bool = True,
     ) -> None:
         ...
-
-
-class ModelBase(metaclass=ModelMeta):
-    ...
 
 
 class Customer1(ModelBase, frozen=True):

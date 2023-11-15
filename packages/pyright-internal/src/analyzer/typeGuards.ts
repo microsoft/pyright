@@ -1126,6 +1126,11 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
             // See if it's a match for None.
             if (isNoneInstance(subtype) === isPositiveTest) {
                 resultIncludesNoneSubtype = true;
+
+                if (isTypeVar(adjustedSubtype) && adjustedSubtype.details.isSynthesizedSelf) {
+                    return adjustedSubtype;
+                }
+
                 return subtype;
             }
 
@@ -1389,7 +1394,12 @@ function narrowTypeForIsInstance(
                     if (filterIsSuperclass) {
                         // If the variable type is a subclass of the isinstance filter,
                         // we haven't learned anything new about the variable type.
-                        filteredTypes.push(addConditionToType(concreteVarType, conditions));
+
+                        // If the varType is a constrained TypeVar, narrow to the specific
+                        // constraint. Otherwise retain the varType.
+                        const unnarrowedType =
+                            isTypeVar(varType) && varType.details.constraints.length > 0 ? concreteVarType : varType;
+                        filteredTypes.push(addConditionToType(unnarrowedType, conditions));
                     } else if (filterIsSubclass) {
                         if (
                             evaluator.assignType(
@@ -2044,6 +2054,15 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
         if (isAnyOrUnknown(concreteElementType)) {
             canNarrow = false;
             return referenceType;
+        }
+
+        // Handle the special case where the reference type is a dict or Mapping and
+        // the element type is a TypedDict. In this case, we can't say whether there
+        // is a type overlap, so don't apply narrowing.
+        if (isClassInstance(referenceType) && ClassType.isBuiltIn(referenceType, ['dict', 'Mapping'])) {
+            if (isClassInstance(concreteElementType) && ClassType.isTypedDictClass(concreteElementType)) {
+                return concreteElementType;
+            }
         }
 
         if (evaluator.assignType(referenceType, concreteElementType)) {

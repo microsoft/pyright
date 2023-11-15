@@ -2123,7 +2123,7 @@ export class CompletionProvider {
 
     private _getIndexKeyType(baseType: ClassType) {
         // Handle __getitem__.
-        const getItemType = this.evaluator.getBoundMethod(baseType, '__getitem__');
+        const getItemType = this.evaluator.getBoundMagicMethod(baseType, '__getitem__');
         if (getItemType) {
             const typesToCombine: Type[] = [];
 

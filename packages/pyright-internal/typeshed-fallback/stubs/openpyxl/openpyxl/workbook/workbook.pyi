@@ -1,10 +1,10 @@
-from _typeshed import Incomplete, StrPath
+from _typeshed import Incomplete
 from collections.abc import Iterator
 from datetime import datetime
-from typing import IO
 from typing_extensions import Final
+from zipfile import ZipFile
 
-from openpyxl import _Decodable
+from openpyxl import _Decodable, _ZipFileFileProtocol
 from openpyxl.chartsheet.chartsheet import Chartsheet
 from openpyxl.styles.named_styles import NamedStyle
 from openpyxl.workbook.child import _WorkbookChild
@@ -21,7 +21,7 @@ class Workbook:
     security: Incomplete
     shared_strings: Incomplete
     loaded_theme: Incomplete
-    vba_archive: Incomplete
+    vba_archive: ZipFile | None
     is_template: bool
     code_name: Incomplete
     encoding: str
@@ -77,7 +77,7 @@ class Workbook:
     def named_styles(self) -> list[str]: ...
     @property
     def mime_type(self) -> str: ...
-    def save(self, filename: StrPath | IO[bytes]) -> None: ...
+    def save(self, filename: _ZipFileFileProtocol) -> None: ...
     @property
     def style_names(self) -> list[str]: ...
     def copy_worksheet(self, from_worksheet: Worksheet) -> Worksheet | WriteOnlyWorksheet: ...

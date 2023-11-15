@@ -368,20 +368,28 @@ export function validateBinaryOperation(
                                 isClassInstance(leftSubtypeExpanded) &&
                                 isTupleClass(leftSubtypeExpanded) &&
                                 leftSubtypeExpanded.tupleTypeArguments &&
-                                !isUnboundedTupleClass(leftSubtypeExpanded) &&
                                 isClassInstance(rightSubtypeExpanded) &&
                                 isTupleClass(rightSubtypeExpanded) &&
                                 rightSubtypeExpanded.tupleTypeArguments &&
-                                !isUnboundedTupleClass(rightSubtypeExpanded) &&
                                 tupleClassType &&
                                 isInstantiableClass(tupleClassType)
                             ) {
-                                return ClassType.cloneAsInstance(
-                                    specializeTupleClass(tupleClassType, [
-                                        ...leftSubtypeExpanded.tupleTypeArguments,
-                                        ...rightSubtypeExpanded.tupleTypeArguments,
-                                    ])
-                                );
+                                // If at least one of the tuples is of fixed size, we can
+                                // combine them into a precise new type. If both are unbounded
+                                // (or contain an unbounded element), we cannot combine them
+                                // in this manner because tuples can contain at most one
+                                // unbounded element.
+                                if (
+                                    !isUnboundedTupleClass(leftSubtypeExpanded) ||
+                                    !isUnboundedTupleClass(rightSubtypeExpanded)
+                                ) {
+                                    return ClassType.cloneAsInstance(
+                                        specializeTupleClass(tupleClassType, [
+                                            ...leftSubtypeExpanded.tupleTypeArguments,
+                                            ...rightSubtypeExpanded.tupleTypeArguments,
+                                        ])
+                                    );
+                                }
                             }
 
                             const magicMethodName = binaryOperatorMap[operator][0];

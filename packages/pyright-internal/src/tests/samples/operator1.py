@@ -2,7 +2,7 @@
 # custom operator overrides.
 
 
-from typing import NoReturn
+from typing import NoReturn, Self
 
 
 class A:
@@ -109,3 +109,11 @@ class F:
 
 f = F() + ""
 reveal_type(f, expected_text="NoReturn")
+
+
+class G:
+    def __add__(self, other: int) -> Self:
+        return self
+
+    def method1(self) -> Self:
+        return self + 0

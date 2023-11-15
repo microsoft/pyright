@@ -1,9 +1,8 @@
 from _typeshed import Incomplete
 from collections.abc import Callable
-from io import TextIOWrapper
 from os import _Environ
 
-from .spawnbase import SpawnBase
+from .spawnbase import SpawnBase, _Logfile
 
 PY3: Incomplete
 
@@ -22,7 +21,7 @@ class spawn(SpawnBase):
         timeout: int = 30,
         maxread: int = 2000,
         searchwindowsize: int | None = None,
-        logfile: TextIOWrapper | None = None,
+        logfile: _Logfile | None = None,
         cwd: str | bytes | None = None,
         env: _Environ[Incomplete] | None = None,
         ignore_sighup: bool = False,

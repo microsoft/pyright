@@ -16,7 +16,7 @@ _T = TypeVar("_T")
 
 LOGGER: Incomplete
 
-class ClosableDeferredQueue(DeferredQueue[_T], Generic[_T]):  # pyright: ignore[reportUntypedBaseClass]
+class ClosableDeferredQueue(DeferredQueue[_T], Generic[_T]):  # pyright: ignore[reportUntypedBaseClass]  # noqa: Y060
     closed: Failure | BaseException | None
     def __init__(self, size: Incomplete | None = ..., backlog: Incomplete | None = ...) -> None: ...
     # Returns a Deferred with an error if fails. None if success

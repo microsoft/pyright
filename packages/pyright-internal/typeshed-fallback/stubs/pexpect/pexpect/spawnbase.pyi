@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 from collections.abc import Callable
 from re import Pattern
-from typing import AnyStr
+from typing import AnyStr, Protocol
 
 PY3: bool
 text_type: Callable[[Incomplete], Incomplete]
@@ -11,6 +11,10 @@ class _NullCoder:
     def encode(b: str, final: bool = False): ...
     @staticmethod
     def decode(b: str, final: bool = False): ...
+
+class _Logfile(Protocol):
+    def write(self, __s) -> object: ...
+    def flush(self) -> object: ...
 
 class SpawnBase:
     encoding: Incomplete
@@ -32,9 +36,9 @@ class SpawnBase:
     child_fd: int
     timeout: Incomplete
     delimiter: Incomplete
-    logfile: Incomplete
-    logfile_read: Incomplete
-    logfile_send: Incomplete
+    logfile: _Logfile
+    logfile_read: _Logfile
+    logfile_send: _Logfile
     maxread: Incomplete
     searchwindowsize: Incomplete
     delaybeforesend: float
@@ -57,7 +61,7 @@ class SpawnBase:
         timeout: int = 30,
         maxread: int = 2000,
         searchwindowsize: Incomplete | None = None,
-        logfile: Incomplete | None = None,
+        logfile: _Logfile | None = None,
         encoding: Incomplete | None = None,
         codec_errors: str = "strict",
     ) -> None: ...

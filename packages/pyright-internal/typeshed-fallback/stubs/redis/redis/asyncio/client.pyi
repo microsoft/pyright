@@ -2,7 +2,7 @@ from _typeshed import Incomplete, Unused
 from collections.abc import AsyncIterator, Awaitable, Callable, Generator, Iterable, Mapping, MutableMapping, Sequence
 from datetime import datetime, timedelta
 from types import TracebackType
-from typing import Any, ClassVar, Generic, NoReturn, Protocol, overload
+from typing import Any, ClassVar, NoReturn, Protocol, overload
 from typing_extensions import Literal, Self, TypeAlias, TypedDict
 
 from redis import RedisError
@@ -24,7 +24,7 @@ class AsyncResponseCallbackProtocol(Protocol):
 
 ResponseCallbackT: TypeAlias = ResponseCallbackProtocol | AsyncResponseCallbackProtocol
 
-class Redis(AbstractRedis, RedisModuleCommands, AsyncCoreCommands[_StrType], AsyncSentinelCommands, Generic[_StrType]):
+class Redis(AbstractRedis, RedisModuleCommands, AsyncCoreCommands[_StrType], AsyncSentinelCommands):
     response_callbacks: MutableMapping[str | bytes, ResponseCallbackT]
     auto_close_connection_pool: bool
     connection_pool: Any

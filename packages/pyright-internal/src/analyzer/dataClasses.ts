@@ -26,7 +26,7 @@ import {
 } from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { getFileInfo } from './analyzerNodeInfo';
-import { createFunctionFromConstructor } from './constructors';
+import { createFunctionFromConstructor, getBoundInitMethod } from './constructors';
 import { DeclarationType } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
 import { getClassFullName, getEnclosingClassOrFunction, getScopeIdForNode, getTypeSourceId } from './parseTreeUtils';
@@ -62,7 +62,6 @@ import {
     convertToInstance,
     getTypeVarScopeId,
     isLiteralType,
-    lookUpObjectMember,
     populateTypeVarContextForSelfType,
     requiresSpecialization,
     specializeTupleClass,
@@ -243,14 +242,14 @@ export function synthesizeDataClassMethods(
                                     statement.rightExpression.arguments
                                 );
                             } else if (isInstantiableClass(callType)) {
-                                const initCall = evaluator.getBoundMethod(callType, '__init__');
-                                if (initCall) {
-                                    if (isFunction(initCall)) {
-                                        callTarget = initCall;
-                                    } else if (isOverloadedFunction(initCall)) {
+                                const initMethodResult = getBoundInitMethod(evaluator, node.name, callType);
+                                if (initMethodResult) {
+                                    if (isFunction(initMethodResult.type)) {
+                                        callTarget = initMethodResult.type;
+                                    } else if (isOverloadedFunction(initMethodResult.type)) {
                                         callTarget = evaluator.getBestOverloadForArguments(
                                             statement.rightExpression,
-                                            { type: initCall },
+                                            { type: initMethodResult.type },
                                             statement.rightExpression.arguments
                                         );
                                     }
@@ -804,7 +803,7 @@ function getConverterAsFunction(
     }
 
     if (isClassInstance(converterType)) {
-        return evaluator.getBoundMethod(converterType, '__call__');
+        return evaluator.getBoundMagicMethod(converterType, '__call__');
     }
 
     if (isInstantiableClass(converterType)) {
@@ -904,23 +903,17 @@ function transformDescriptorType(evaluator: TypeEvaluator, type: Type): Type {
         return type;
     }
 
-    const setMethodInfo = lookUpObjectMember(type, '__set__');
-    if (!setMethodInfo) {
+    const setMethodType = evaluator.getBoundMagicMethod(type, '__set__');
+    if (!setMethodType) {
         return type;
     }
 
-    const setMethodType = evaluator.getTypeOfMember(setMethodInfo);
     if (!isFunction(setMethodType)) {
         return type;
     }
 
-    const boundSetMethod = evaluator.bindFunctionToClassOrObject(type, setMethodType);
-    if (!boundSetMethod || !isFunction(boundSetMethod) || boundSetMethod.details.parameters.length < 2) {
-        return type;
-    }
-
     // The value parameter for a bound __set__ method is parameter index 1.
-    return FunctionType.getEffectiveParameterType(boundSetMethod, 1);
+    return FunctionType.getEffectiveParameterType(setMethodType, 1);
 }
 
 // Builds a sorted list of dataclass entries that are inherited by

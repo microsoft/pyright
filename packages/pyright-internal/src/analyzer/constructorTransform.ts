@@ -95,13 +95,15 @@ function applyPartialTransform(
 
     const origFunctionTypeResult = evaluator.getTypeOfArgument(argList[0]);
     let origFunctionType = origFunctionTypeResult.type;
+    const origFunctionTypeConcrete = evaluator.makeTopLevelTypeVarsConcrete(origFunctionType);
 
-    if (isTypeVar(origFunctionType)) {
-        origFunctionType = evaluator.makeTopLevelTypeVarsConcrete(origFunctionType);
-    }
+    if (isInstantiableClass(origFunctionTypeConcrete)) {
+        const constructor = createFunctionFromConstructor(
+            evaluator,
+            origFunctionTypeConcrete,
+            isTypeVar(origFunctionType) ? convertToInstance(origFunctionType) : undefined
+        );
 
-    if (isInstantiableClass(origFunctionType)) {
-        const constructor = createFunctionFromConstructor(evaluator, origFunctionType);
         if (constructor) {
             origFunctionType = constructor;
         }

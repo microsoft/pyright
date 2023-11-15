@@ -8,7 +8,7 @@ from typing_extensions import Literal, Self
 from webob.response import Response
 
 class _JSONFormatter(Protocol):
-    def __call__(self, body: str, status: str, title: str, environ: WSGIEnvironment) -> str: ...
+    def __call__(self, *, body: str, status: str, title: str, environ: WSGIEnvironment) -> str: ...
 
 class HTTPException(Exception):
     wsgi_response: Response

@@ -24,7 +24,7 @@ class ClassC:
     @classmethod
     def test(cls: type[TC], id: int | TC):
         if isinstance(id, cls):
-            reveal_type(id, expected_text="object*")
+            reveal_type(id, expected_text="TC@test")
         else:
             reveal_type(id, expected_text="int")
 
@@ -36,7 +36,7 @@ class ClassD:
     @classmethod
     def test(cls: type[TD], id: int | TD):
         if isinstance(id, cls):
-            reveal_type(id, expected_text="ClassD*")
+            reveal_type(id, expected_text="TD@test")
         else:
             reveal_type(id, expected_text="int")
 
@@ -45,6 +45,6 @@ class ClassE:
     @classmethod
     def test(cls: type[Self], id: int | Self):
         if isinstance(id, cls):
-            reveal_type(id, expected_text="ClassE")
+            reveal_type(id, expected_text="Self@ClassE")
         else:
             reveal_type(id, expected_text="int")

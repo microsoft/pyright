@@ -1094,9 +1094,9 @@ export class TestState {
                 fileName,
                 position,
                 docFormat,
-                /*hasSignatureLabelOffsetCapability*/ true,
-                /*hasActiveParameterCapability*/ true,
-                /*context*/ undefined,
+                /* hasSignatureLabelOffsetCapability */ true,
+                /* hasActiveParameterCapability */ true,
+                /* context */ undefined,
                 CancellationToken.None
             ).getSignatureHelp();
 

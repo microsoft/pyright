@@ -1,8 +1,10 @@
 from typing import Any
 
+from markdown.core import Markdown
+
 from . import util
 
-def build_preprocessors(md, **kwargs): ...
+def build_preprocessors(md: Markdown, **kwargs) -> util.Registry[Preprocessor]: ...
 
 class Preprocessor(util.Processor):
     def run(self, lines: list[str]) -> list[str]: ...

@@ -2,6 +2,8 @@ from _typeshed import Incomplete
 
 from pexpect import ExceptionPexpect, spawn
 
+from .spawnbase import _Logfile
+
 class ExceptionPxssh(ExceptionPexpect): ...
 
 class pxssh(spawn):
@@ -19,7 +21,7 @@ class pxssh(spawn):
         timeout: int = 30,
         maxread: int = 2000,
         searchwindowsize: Incomplete | None = None,
-        logfile: Incomplete | None = None,
+        logfile: _Logfile | None = None,
         cwd: Incomplete | None = None,
         env: Incomplete | None = None,
         ignore_sighup: bool = True,

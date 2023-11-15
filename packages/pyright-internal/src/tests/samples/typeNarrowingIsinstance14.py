@@ -18,7 +18,7 @@ reveal_type(v1, expected_text="int")
 
 def func2(klass: type[T], obj: T | int) -> T:
     assert isinstance(obj, klass)
-    reveal_type(obj, expected_text="object*")
+    reveal_type(obj, expected_text="T@func2")
     return obj
 
 

@@ -1,6 +1,7 @@
 from _typeshed import Incomplete, Unused
-from typing import ClassVar
+from typing import ClassVar, TypeVar
 from typing_extensions import Literal, Self
+from zipfile import ZipFile
 
 from openpyxl.descriptors.base import Typed
 from openpyxl.descriptors.excel import ExtensionList
@@ -10,6 +11,9 @@ from openpyxl.styles.colors import ColorList
 from openpyxl.styles.named_styles import _NamedCellStyleList
 from openpyxl.styles.numbers import NumberFormatList
 from openpyxl.styles.table import TableStyleList
+from openpyxl.workbook.workbook import Workbook
+
+_WorkbookT = TypeVar("_WorkbookT", bound=Workbook)
 
 class Stylesheet(Serialisable):
     tagname: ClassVar[str]
@@ -50,5 +54,5 @@ class Stylesheet(Serialisable):
     def custom_formats(self) -> dict[int, str]: ...
     def to_tree(self, tagname: str | None = None, idx: Incomplete | None = None, namespace: str | None = None): ...
 
-def apply_stylesheet(archive, wb): ...
+def apply_stylesheet(archive: ZipFile, wb: _WorkbookT) -> _WorkbookT | None: ...
 def write_stylesheet(wb): ...

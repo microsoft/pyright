@@ -2,6 +2,9 @@
 # handle various class definition cases.
 
 
+from typing import Any
+
+
 class A:
     ...
 
@@ -17,7 +20,12 @@ class D(app.C):
     ...
 
 
-class E:
+class EMeta(type):
+    def __new__(mcls, *args: Any, **kwargs: Any):
+        ...
+
+
+class E(metaclass=EMeta):
     pass
 
 
