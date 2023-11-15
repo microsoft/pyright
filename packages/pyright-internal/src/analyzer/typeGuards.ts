@@ -1325,7 +1325,7 @@ function narrowTypeForIsInstance(
         return transformPossibleRecursiveTypeAlias(subtype);
     });
 
-    expandedTypes = evaluator.expandPromotionTypes(errorNode, type);
+    expandedTypes = evaluator.expandPromotionTypes(errorNode, expandedTypes);
 
     // Filters the varType by the parameters of the isinstance
     // and returns the list of types the varType could be after
