@@ -212,6 +212,9 @@ class RealFileSystem implements FileSystem {
     constructor(private _fileWatcherProvider: FileWatcherProvider, private _console: ConsoleInterface) {}
 
     existsSync(uri: Uri) {
+        if (uri.isEmpty()) {
+            return false;
+        }
         const path = this._getNormalizedPath(uri);
         try {
             // Catch zip open errors. existsSync is assumed to never throw by callers.

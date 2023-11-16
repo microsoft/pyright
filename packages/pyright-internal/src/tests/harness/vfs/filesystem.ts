@@ -495,6 +495,9 @@ export class TestFileSystem implements FileSystem, TempFile {
      * Determines whether a path exists.
      */
     existsSync(path: Uri) {
+        if (path.isEmpty()) {
+            return false;
+        }
         const result = this._walk(this._resolve(path.getFilePath()), /* noFollow */ true, () => 'stop');
         return result !== undefined && result.node !== undefined;
     }

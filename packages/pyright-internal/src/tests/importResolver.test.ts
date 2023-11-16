@@ -53,7 +53,7 @@ if (!usingTrueVenv()) {
             assert.strictEqual(
                 1,
                 importResult.resolvedPaths.filter(
-                    (f) => f.getFilePath() === combinePaths(libraryRoot, 'myLib', 'partialStub.pyi')
+                    (f) => !f.isEmpty() && f.getFilePath() === combinePaths(libraryRoot, 'myLib', 'partialStub.pyi')
                 ).length
             );
         });
@@ -356,7 +356,7 @@ describe('Import tests that can run with or without a true venv', () => {
         assert.strictEqual(
             1,
             importResult.resolvedPaths.filter(
-                (f) => f.getFilePath() === combinePaths(libraryRoot, 'myLib', 'partialStub.py')
+                (f) => !f.isEmpty() && f.getFilePath() === combinePaths(libraryRoot, 'myLib', 'partialStub.py')
             ).length
         );
     });
@@ -448,11 +448,15 @@ describe('Import tests that can run with or without a true venv', () => {
 
         assert.strictEqual(
             1,
-            importRoots.filter((f) => f.getFilePath() === combinePaths('/', typeshedFallback, 'stubs', 'aLib')).length
+            importRoots.filter(
+                (f) => !f.isEmpty() && f.getFilePath() === combinePaths('/', typeshedFallback, 'stubs', 'aLib')
+            ).length
         );
         assert.strictEqual(
             1,
-            importRoots.filter((f) => f.getFilePath() === combinePaths('/', typeshedFallback, 'stubs', 'bLib')).length
+            importRoots.filter(
+                (f) => !f.isEmpty() && f.getFilePath() === combinePaths('/', typeshedFallback, 'stubs', 'bLib')
+            ).length
         );
     });
 
