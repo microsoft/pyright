@@ -377,7 +377,6 @@
         "protocolBaseClassWithTypeArgs": "Аргументы типа не допускаются с классом протокола при использовании синтаксиса параметра типа",
         "protocolIllegal": "Ключевое слово \"Protocol\" можно использовать в Python версии не ниже 3.7",
         "protocolNotAllowedInTypeArgument": "\"Protocol\" не может использоваться в качестве аргумента типа",
-        "protocolUsedInCall": "Класс протокола нельзя использовать в вызове \"{name}\"",
         "protocolVarianceContravariant": "Переменная типа \"{variable}\", используемая в универсальном протоколе \"{class}\", должна быть контравариантной.",
         "protocolVarianceCovariant": "Переменная типа \"{variable}\", используемая в универсальном протоколе \"{class}\", должна быть ковариантной",
         "protocolVarianceInvariant": "Переменная типа \"{variable}\", используемая в универсальном протоколе \"{class}\", должна быть инвариантной",

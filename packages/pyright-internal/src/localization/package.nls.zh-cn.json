@@ -377,7 +377,6 @@
         "protocolBaseClassWithTypeArgs": "使用类型参数语法时，协议类不允许使用类型参数",
         "protocolIllegal": "使用 \"Protocol\" 需要 Python 3.7 或更高版本",
         "protocolNotAllowedInTypeArgument": "\"Protocol\"不能用作类型参数",
-        "protocolUsedInCall": "协议类不能在“{name}”调用中使用",
         "protocolVarianceContravariant": "泛型协议“{class}”中使用的类型变量“{variable}”应为逆变",
         "protocolVarianceCovariant": "泛型协议“{class}”中使用的类型变量“{variable}”应为协变",
         "protocolVarianceInvariant": "泛型协议“{class}”中使用的类型变量“{variable}”应为固定变量",

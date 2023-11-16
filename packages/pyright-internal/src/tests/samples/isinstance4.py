@@ -19,6 +19,10 @@ isinstance(4, MyProtocol1)
 issubclass(str, (str, MyProtocol1))
 
 
+def func1(t: type[MyProtocol1]):
+    isinstance(1, t)
+
+
 @runtime_checkable
 class MyProtocol2(Protocol):
     pass
@@ -50,9 +54,9 @@ def get_type_of_object(object: Union[Callable[..., Any], CustomClass]):
 _T1 = TypeVar("_T1", bound=CustomClass)
 
 
-def func1(cls: Type[_T1], val: _T1):
+def func2(cls: Type[_T1], val: _T1):
     if issubclass(cls, CustomClass):
-        reveal_type(cls, expected_text="type[_T1@func1]")
+        reveal_type(cls, expected_text="type[_T1@func2]")
     else:
         reveal_type(cls, expected_text="Never")
 
@@ -60,7 +64,7 @@ def func1(cls: Type[_T1], val: _T1):
 _T2 = TypeVar("_T2")
 
 
-def func2(x: _T2) -> Union[_T2, int]:
+def func3(x: _T2) -> Union[_T2, int]:
     if callable(x) and isfunction(x):
         return 1
     return x
