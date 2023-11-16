@@ -84,18 +84,8 @@ export abstract class BaseUri implements Uri {
         return this.getRootPath().length;
     }
 
-    /**
-     * Determines whether a path is an absolute disk path (e.g. starts with `/`, or a dos path
-     * like `c:`, `c:\` or `c:/`).
-     */
-    isRootDiskPath(): boolean {
-        return this.getRootPath().length > 0;
-    }
-
-    /**
-     * Determines whether a path consists only of a path root.
-     */
-    abstract isDiskPathRoot(): boolean;
+    // Determines whether a path consists only of a path root.
+    abstract isRoot(): boolean;
 
     // Determines whether a Uri is a child of some parent Uri.
     abstract isChild(parent: Uri, ignoreCase?: boolean): boolean;

@@ -13,7 +13,7 @@ import * as os from 'os';
 import * as path from 'path';
 
 import { expandPathVariables } from '../common/envVarUtils';
-import { normalizeSlashes } from '../common/pathUtils';
+import { isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { Uri } from '../common/uri/uri';
 import {
@@ -25,8 +25,8 @@ import {
 import * as vfs from './harness/vfs/filesystem';
 
 test('parse', () => {
-    // assert.throws(() => Uri.parse('\\c:\\foo : bar'));
-    // assert.throws(() => Uri.parse('foo:////server/b/c')); // No authority component
+    assert.throws(() => Uri.parse('\\c:\\foo : bar'));
+    assert.throws(() => Uri.parse('foo:////server/b/c')); // No authority component
     assert.ok(Uri.parse('foo:///a/b/c'));
     assert.ok(Uri.parse('foo:a/b/c'));
     assert.ok(Uri.parse('foo:/a/b/c'));
@@ -94,31 +94,29 @@ test('root', () => {
     const root2 = Uri.parse('foo:///').root;
     assert.equal(root2.toString(), 'foo:///');
     const root3 = Uri.parse('foo:///a/b/c/').root;
-    assert.equal(root3.toString(), 'foo:/');
-    assert.ok(root3.isDiskPathRoot());
+    assert.equal(root3.toString(), 'foo:///');
+    assert.ok(root3.isRoot());
     const root4 = Uri.parse('foo:///a/b/c.py').root;
-    assert.equal(root4.toString(), 'foo:/');
+    assert.equal(root4.toString(), 'foo:///');
     const root5 = Uri.parse('foo:///a/b/c.py?query#fragment').root;
-    assert.equal(root5.toString(), 'foo:/');
+    assert.equal(root5.toString(), 'foo:///');
     const root6 = Uri.file('/a/b/c.py.foo').root;
     assert.equal(root6.toString(), 'file:///');
     const root7 = Uri.parse('file:///a/b/c.py.foo').root;
     assert.equal(root7.toString(), 'file:///');
     assert.equal(root7.getRootPathLength(), 1);
     const root8 = Uri.parse('untitled:Untitled-1').root;
-    assert.equal(root8.toString(), 'untitled:');
+    assert.equal(root8.toString(), 'untitled://');
     assert.equal(root8.getRootPathLength(), 0);
-    assert.equal(root8.isDiskPathRoot(), false);
+    assert.equal(root8.isRoot(), false);
     const root9 = Uri.parse('file://a/b/c/d.py').root;
     assert.equal(root9.toString(), 'file://a/');
     assert.equal(root9.getRootPathLength(), 4);
-    assert.ok(root9.isRootDiskPath());
-    assert.ok(root9.isDiskPathRoot());
+    assert.ok(root9.isRoot());
     const root10 = Uri.parse('file://c%3A/b/c/d.py').root;
     assert.equal(root10.toString(), 'file://c:/');
     assert.equal(root10.getRootPathLength(), 5);
-    assert.ok(root10.isRootDiskPath());
-    assert.ok(root10.isDiskPathRoot());
+    assert.ok(root10.isRoot());
 });
 
 test('empty', () => {
@@ -247,6 +245,8 @@ test('equals', () => {
     const uri7 = Uri.parse('file://c%3A/b/c/d.py').root;
     const uri8 = Uri.parse('file://c:/');
     assert.ok(uri7.equals(uri8));
+    const uri9 = Uri.parse('foo:///a/b/c?query');
+    assert.ok(!uri9.equals(uri4));
 });
 
 test('startsWith', () => {
@@ -300,10 +300,10 @@ test('combinePaths', () => {
     assert.equal(uri6.toString(), rootedResult);
     const uri7 = Uri.parse('foo:');
     const uri8 = uri7.combinePaths('d', 'e');
-    assert.equal(uri8.toString(), 'foo:d/e');
+    assert.equal(uri8.toString(), 'foo://d/e');
     const uri9 = Uri.parse('foo:/');
     const uri10 = uri9.combinePaths('d', 'e');
-    assert.equal(uri10.toString(), 'foo:/d/e');
+    assert.equal(uri10.toString(), 'foo:///d/e');
     const uri11 = Uri.empty().combinePaths('d', 'e');
     assert.equal(uri11.toString(), Uri.empty().toString());
 });
@@ -456,17 +456,17 @@ test('getWildcardRegexPattern4', () => {
 
 test('getWildcardRoot1', () => {
     const p = getWildcardRoot(Uri.parse('foo:///users/me'), './blah/');
-    assert.equal(p.toString(), 'foo:/users/me/blah');
+    assert.equal(p.toString(), 'foo:///users/me/blah');
 });
 
 test('getWildcardRoot2', () => {
     const p = getWildcardRoot(Uri.parse('foo:///users/me'), './**/*.py?/');
-    assert.equal(p.toString(), 'foo:/users/me');
+    assert.equal(p.toString(), 'foo:///users/me');
 });
 
 test('getWildcardRoot with root', () => {
     const p = getWildcardRoot(Uri.parse('foo:///'), '.');
-    assert.equal(p.toString(), 'foo:/');
+    assert.equal(p.toString(), 'foo:///');
 });
 
 test('getWildcardRoot with drive letter', () => {
@@ -599,36 +599,36 @@ test('getRootLength9', () => {
     assert.equal(getUriRootLength('scheme://with/authority'), 1);
 });
 
-function isRootedDiskPath(uri: string) {
-    return Uri.file(uri).isRootDiskPath();
+function isRootedDiskUri(uri: string) {
+    return isRootedDiskPath(Uri.file(uri).getFilePath());
 }
 
 test('isRootedDiskPath1', () => {
-    assert(isRootedDiskPath('C:/a/b'));
+    assert(isRootedDiskUri('C:/a/b'));
 });
 
 test('isRootedDiskPath2', () => {
-    assert(isRootedDiskPath('/'));
+    assert(isRootedDiskUri('/'));
 });
 
 test('isRootedDiskPath3', () => {
-    assert(isRootedDiskPath('a/b'));
+    assert(isRootedDiskUri('a/b'));
 });
 
 test('isDiskPathRoot1', () => {
-    assert(isRootedDiskPath('/'));
+    assert(isRootedDiskUri('/'));
 });
 
 test('isDiskPathRoot2', () => {
-    assert(isRootedDiskPath('c:/'));
+    assert(isRootedDiskUri('c:/'));
 });
 
 test('isDiskPathRoot3', () => {
-    assert(isRootedDiskPath('c:'));
+    assert(isRootedDiskUri('c:'));
 });
 
 test('isDiskPathRoot4', () => {
-    assert(!isRootedDiskPath('c:d'));
+    assert(!isRootedDiskUri('c:d'));
 });
 
 function getRelativePath(parent: string, child: string) {

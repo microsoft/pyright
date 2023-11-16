@@ -12,7 +12,7 @@
  */
 
 import * as debug from '../debug';
-import { combinePaths, getRootLength, hasTrailingDirectorySeparator, normalizeSlashes } from '../pathUtils';
+import { getRootLength, hasTrailingDirectorySeparator, normalizeSlashes, resolvePaths } from '../pathUtils';
 import { BaseUri } from './baseUri';
 import { Uri } from './uri';
 
@@ -115,9 +115,8 @@ export class WebUri extends BaseUri {
         }
         return this._directory;
     }
-    override isDiskPathRoot(): boolean {
-        // Always false because not a disk path.
-        return false;
+    override isRoot(): boolean {
+        return this._path === this.getRootPath() && this._path.length > 0;
     }
     override isChild(parent: Uri, ignoreCase?: boolean): boolean {
         if (!WebUri.isWebUri(parent)) {
@@ -158,7 +157,13 @@ export class WebUri extends BaseUri {
         return this._path.length;
     }
     override combinePaths(...paths: string[]): Uri {
-        const combined = combinePaths(this._path, ...paths).replace(/\\/g, '/');
+        // Resolve and combine paths, never want URIs with '..' in the middle.
+        let combined = resolvePaths(this._path, ...paths);
+
+        // Make sure to remove any trailing directory chars.
+        if (hasTrailingDirectorySeparator(combined) && combined.length > 1) {
+            combined = combined.slice(0, combined.length - 1);
+        }
         if (combined !== this._path) {
             return WebUri.create(this._scheme, this._authority, combined, '', '', undefined, 'combinePaths');
         }

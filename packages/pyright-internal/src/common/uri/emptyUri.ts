@@ -64,7 +64,7 @@ export class EmptyUri extends BaseUri {
     override getDirectory(): Uri {
         return this;
     }
-    override isDiskPathRoot(): boolean {
+    override isRoot(): boolean {
         return false;
     }
     override isChild(parent: Uri, ignoreCase: boolean): boolean {

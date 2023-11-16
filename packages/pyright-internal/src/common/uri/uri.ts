@@ -7,6 +7,7 @@
  */
 
 import { URI, Utils } from 'vscode-uri';
+import { BaseUri } from './baseUri';
 import { EmptyUri } from './emptyUri';
 import { FileUri } from './fileUri';
 import { WebUri } from './webUri';
@@ -46,12 +47,8 @@ export interface Uri {
 
     getRootPathLength(): number;
 
-    // Determines whether a path is an absolute disk path (e.g. starts with `/`, or a dos path
-    //like `c:`, `c:\` or `c:/`).
-    isRootDiskPath(): boolean;
-
     // Determines whether a path consists only of a path root.
-    isDiskPathRoot(): boolean;
+    isRoot(): boolean;
 
     // Determines whether a Uri is a child of some parent Uri.
     isChild(parent: Uri, ignoreCase?: boolean): boolean;
@@ -147,7 +144,13 @@ export namespace Uri {
         const normalized = path.startsWith('file:') ? normalizeUri(path) : normalizeUri(URI.file(path));
 
         // Turn the path into a file URI.
-        return FileUri.create(getFilePath(normalized.uri), normalized.str, 'file');
+        return FileUri.create(
+            getFilePath(normalized.uri),
+            normalized.uri.query,
+            normalized.uri.fragment,
+            normalized.str,
+            'file'
+        );
     }
 
     export function empty(): Uri {
@@ -163,7 +166,13 @@ export namespace Uri {
         // '/' on the end of the path.
         const normalized = normalizeUri(value);
         if (normalized.uri.scheme === 'file') {
-            return FileUri.create(normalized.uri.fsPath, normalized.str, 'parse');
+            return FileUri.create(
+                getFilePath(normalized.uri),
+                normalized.uri.query,
+                normalized.uri.fragment,
+                normalized.str,
+                'parse'
+            );
         }
         return WebUri.create(
             normalized.uri.scheme,
@@ -183,5 +192,21 @@ export namespace Uri {
 
     export function isUri(thing: any): thing is Uri {
         return !!thing && typeof thing._key === 'string';
+    }
+
+    export function count(): number {
+        return BaseUri.count();
+    }
+
+    export function uniqueCount(): number {
+        return BaseUri.uniqueCount();
+    }
+
+    export function methods(): string[] {
+        return BaseUri.methods();
+    }
+
+    export function countPerMethod(method: string): number {
+        return BaseUri.countPerMethod(method);
     }
 }

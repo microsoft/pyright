@@ -8,7 +8,6 @@
 
 import { URI } from 'vscode-uri';
 import {
-    combinePaths,
     ensureTrailingDirectorySeparator,
     getDirectoryPath,
     getFileExtension,
@@ -18,6 +17,7 @@ import {
     hasTrailingDirectorySeparator,
     isDiskPathRoot,
     normalizeSlashes,
+    resolvePaths,
 } from '../pathUtils';
 import { BaseUri } from './baseUri';
 import { Uri } from './uri';
@@ -27,12 +27,14 @@ export class FileUri extends BaseUri {
     private _directory: FileUri | undefined;
     private static _cache = new Map<string, FileUri>();
     private constructor(
+        key: string,
         private readonly _filePath: string,
+        private readonly _query: string,
+        private readonly _fragment: string,
         private _originalString: string | undefined,
         creationMethod: string
     ) {
-        // Use the file path as the key.
-        super(_filePath, creationMethod);
+        super(key, creationMethod);
     }
 
     override get scheme(): string {
@@ -47,17 +49,24 @@ export class FileUri extends BaseUri {
     override get root(): Uri {
         const rootPath = this.getRootPath();
         if (rootPath !== this._filePath) {
-            return new FileUri(rootPath, undefined, 'root');
+            return FileUri.create(rootPath, '', '', undefined, 'root');
         }
         return this;
     }
 
-    static create(filePath: string, originalString: string | undefined, creationMethod: string): FileUri {
+    static create(
+        filePath: string,
+        query: string,
+        fragment: string,
+        originalString: string | undefined,
+        creationMethod: string
+    ): FileUri {
+        const key = FileUri._createKey(filePath, query, fragment);
         // Skip creating if we already have one. This is a perf optimization.
-        if (!FileUri._cache.has(filePath)) {
-            FileUri._cache.set(filePath, new FileUri(filePath, originalString, creationMethod));
+        if (!FileUri._cache.has(key)) {
+            FileUri._cache.set(key, new FileUri(key, filePath, query, fragment, originalString, creationMethod));
         }
-        return FileUri._cache.get(filePath)!;
+        return FileUri._cache.get(key)!;
     }
 
     static isFileUri(uri: Uri): uri is FileUri {
@@ -72,7 +81,9 @@ export class FileUri extends BaseUri {
 
     override toString(): string {
         if (!this._formattedString) {
-            this._formattedString = this._originalString || URI.file(this._filePath).toString();
+            this._formattedString =
+                this._originalString ||
+                URI.file(this._filePath).with({ query: this._query, fragment: this._fragment }).toString();
         }
         return this._formattedString;
     }
@@ -80,7 +91,7 @@ export class FileUri extends BaseUri {
         return this._filePath;
     }
     override addPath(extra: string): Uri {
-        return FileUri.create(this._filePath + extra, undefined, 'addPath');
+        return FileUri.create(this._filePath + extra, '', '', undefined, 'addPath');
     }
     override getDirectory(): Uri {
         // Cache the directory as this gets called a lot.
@@ -94,14 +105,14 @@ export class FileUri extends BaseUri {
             if (dir !== filePath) {
                 // Path has to not end with a separator.
                 const normalized = hasTrailingDirectorySeparator(dir) && dir.length > 1 ? dir.slice(0, -1) : dir;
-                this._directory = FileUri.create(normalized, undefined, 'getDirectory');
+                this._directory = FileUri.create(normalized, '', '', undefined, 'getDirectory');
             } else {
                 this._directory = this;
             }
         }
         return this._directory;
     }
-    override isDiskPathRoot(): boolean {
+    override isRoot(): boolean {
         return isDiskPathRoot(this._filePath);
     }
     override isChild(parent: Uri, ignoreCase?: boolean): boolean {
@@ -143,9 +154,15 @@ export class FileUri extends BaseUri {
         return this._filePath.length;
     }
     override combinePaths(...paths: string[]): Uri {
-        const combined = combinePaths(this._filePath, ...paths);
+        // Resolve and combine paths, never want URIs with '..' in the middle.
+        let combined = resolvePaths(this._filePath, ...paths);
+
+        // Make sure to remove any trailing directory chars.
+        if (hasTrailingDirectorySeparator(combined) && combined.length > 1) {
+            combined = combined.slice(0, combined.length - 1);
+        }
         if (combined !== this._filePath) {
-            return FileUri.create(combined, undefined, 'combinePaths');
+            return FileUri.create(combined, '', '', undefined, 'combinePaths');
         }
         return this;
     }
@@ -169,5 +186,9 @@ export class FileUri extends BaseUri {
     }
     protected override getComparablePath(): string {
         return normalizeSlashes(this._filePath);
+    }
+
+    private static _createKey(filePath: string, query: string, fragment: string) {
+        return `${filePath}${query ? '?' + query : ''}${fragment ? '#' + fragment : ''}`;
     }
 }

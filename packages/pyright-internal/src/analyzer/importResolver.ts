@@ -2661,7 +2661,7 @@ export class ImportResolver {
     }
 
     private _tryWalkUp(current: Uri | undefined): [success: boolean, path: Uri | undefined] {
-        if (!current || current.isDiskPathRoot()) {
+        if (!current || current.isRoot()) {
             return [false, undefined];
         }
 

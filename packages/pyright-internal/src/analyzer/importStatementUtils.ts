@@ -905,7 +905,7 @@ export function getRelativeModuleName(
 export function getDirectoryLeadingDotsPointsTo(fromDirectory: Uri, leadingDots: number) {
     let currentDirectory = fromDirectory;
     for (let i = 1; i < leadingDots; i++) {
-        if (currentDirectory.isDiskPathRoot()) {
+        if (currentDirectory.isRoot()) {
             return undefined;
         }
 
