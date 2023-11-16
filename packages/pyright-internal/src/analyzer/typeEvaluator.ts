@@ -1136,7 +1136,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.AssignmentExpression: {
-                typeResult = getTypeOfExpression(node.rightExpression);
+                typeResult = getTypeOfExpression(node.rightExpression, flags, inferenceContext);
                 assignTypeToExpression(
                     node.name,
                     typeResult.type,
@@ -2144,6 +2144,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         selfType?: ClassType | TypeVarType | undefined,
         recursionCount = 0
     ): FunctionType | OverloadedFunctionType | undefined {
+        if (recursionCount > maxTypeRecursionCount) {
+            return undefined;
+        }
+        recursionCount++;
+
         const boundMethodResult = getTypeOfBoundMember(
             /* errorNode */ undefined,
             classType,
@@ -2161,6 +2166,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isFunction(boundMethodResult.type) || isOverloadedFunction(boundMethodResult.type)) {
             return boundMethodResult.type;
+        }
+
+        if (isClassInstance(boundMethodResult.type)) {
+            return getBoundMagicMethod(
+                boundMethodResult.type,
+                '__call__',
+                selfType ?? ClassType.cloneAsInstance(classType),
+                recursionCount
+            );
         }
 
         if (isAnyOrUnknown(boundMethodResult.type)) {
@@ -10050,15 +10064,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else if (isParamSpec(argType) && argType.paramSpecAccess === 'args') {
                     listElementType = undefined;
                 } else {
-                    const valueExpr = argList[argIndex].valueExpression;
-                    const iteratorType = valueExpr
-                        ? getTypeOfIterator(
-                              { type: argType, isIncomplete: argTypeResult.isIncomplete },
-                              /* isAsync */ false,
-                              valueExpr
-                          )?.type
-                        : undefined;
-                    listElementType = iteratorType ?? UnknownType.create();
+                    listElementType =
+                        getTypeOfIterator(
+                            { type: argType, isIncomplete: argTypeResult.isIncomplete },
+                            /* isAsync */ false,
+                            errorNode,
+                            /* emitNotIterableError */ false
+                        )?.type ?? UnknownType.create();
 
                     if (paramDetails.params[paramIndex].param.category !== ParameterCategory.ArgsList) {
                         matchedUnpackedListOfUnknownLength = true;

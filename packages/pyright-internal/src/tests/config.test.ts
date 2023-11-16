@@ -312,11 +312,13 @@ test('BasicPyprojectTomlParsing', () => {
 test('FindFilesInMemoryOnly', () => {
     const cwd = normalizePath(process.cwd());
     const service = createAnalyzer();
-    const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ true);
+    const commandLineOptions = new CommandLineOptions('', /* fromVsCodeExtension */ true);
+    // Force a lookup of the typeshed path. This causes us to try and generate a module path for the untitled file.
+    commandLineOptions.typeshedPath = combinePaths(cwd, 'src', 'tests', 'samples');
     service.setOptions(commandLineOptions);
 
     // Open a file that is not backed by the file system.
-    const untitled = Uri.file(combinePaths(cwd, 'untitled.py'));
+    const untitled = Uri.parse('untitled:Untitled-1.py');
     service.setFileOpened(untitled, 1, '# empty');
 
     const fileList = service.test_getFileNamesFromFileSpecs();

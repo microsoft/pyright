@@ -777,8 +777,6 @@ export namespace Localizer {
         export const protocolIllegal = () => getRawString('Diagnostic.protocolIllegal');
         export const protocolNotAllowedInTypeArgument = () =>
             getRawString('Diagnostic.protocolNotAllowedInTypeArgument');
-        export const protocolUsedInCall = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.protocolUsedInCall'));
         export const protocolVarianceContravariant = () =>
             new ParameterizedString<{ variable: string; class: string }>(
                 getRawString('Diagnostic.protocolVarianceContravariant')

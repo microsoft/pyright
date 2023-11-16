@@ -377,7 +377,6 @@
         "protocolBaseClassWithTypeArgs": "Typargumente sind mit der Protokollklasse nicht zulässig, wenn die Typparametersyntax verwendet wird.",
         "protocolIllegal": "Die Verwendung von \"Protocol\" erfordert Python 3.7 oder höher.",
         "protocolNotAllowedInTypeArgument": "\"Protocol\" kann nicht als Typargument verwendet werden.",
-        "protocolUsedInCall": "Die Protokollklasse kann nicht im Aufruf \"{name}\" verwendet werden.",
         "protocolVarianceContravariant": "Die Typvariable \"{variable}\", die im generischen Protokoll \"{class}\" verwendet wird, muss \"contravariant\" sein.",
         "protocolVarianceCovariant": "Die Typvariable \"{variable}\", die im generischen Protokoll \"{class}\" verwendet wird, muss \"covariant\" sein.",
         "protocolVarianceInvariant": "Die Typvariable \"{variable}\", die im generischen Protokoll \"{class}\" verwendet wird, muss \"invariant\" sein.",

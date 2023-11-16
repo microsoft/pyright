@@ -377,7 +377,6 @@
         "protocolBaseClassWithTypeArgs": "Gli argomenti tipo non sono consentiti con la classe Protocollo quando si usa la sintassi dei parametri tipo",
         "protocolIllegal": "L'uso del \"protocollo\" richiede Python 3.7 o versione successiva",
         "protocolNotAllowedInTypeArgument": "Impossibile utilizzare \"Protocol\" come argomento di tipo",
-        "protocolUsedInCall": "Non è possibile usare la classe protocollo nella chiamata \"{name}\"",
         "protocolVarianceContravariant": "La variabile di tipo \"{variable}\" usata nel protocollo generico \"{class}\" deve essere controvariante",
         "protocolVarianceCovariant": "La variabile di tipo \"{variable}\" usata nel protocollo generico \"{class}\" deve essere covariante",
         "protocolVarianceInvariant": "La variabile di tipo \"{variable}\" usata nel protocollo generico \"{class}\" deve essere invariabile",

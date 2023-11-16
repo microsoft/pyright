@@ -377,7 +377,6 @@
         "protocolBaseClassWithTypeArgs": "使用型別參數語法時，通訊協定類別不允許使用型別引數",
         "protocolIllegal": "使用 \"Protocol\" 需要 Python 3.7 或更新版本",
         "protocolNotAllowedInTypeArgument": "\"Protocol\" 不能作為類型引數使用",
-        "protocolUsedInCall": "通訊協定類別不能用於 \"{name}\" 呼叫",
         "protocolVarianceContravariant": "一般通訊協定 \"{class}\" 中使用的型別變數 \"{variable}\" 必須為逆變數",
         "protocolVarianceCovariant": "一般通訊協定 \"{class}\" 中使用的型別變數 \"{variable}\" 必須為共變數",
         "protocolVarianceInvariant": "一般通訊協定 \"{class}\" 中使用的型別變數 \"{variable}\" 必須為不變數",

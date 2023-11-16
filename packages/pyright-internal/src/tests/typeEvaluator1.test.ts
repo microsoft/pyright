@@ -1195,6 +1195,12 @@ test('Operator10', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Operator11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator11.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

@@ -2661,11 +2661,16 @@ export class ImportResolver {
     }
 
     private _tryWalkUp(current: Uri | undefined): [success: boolean, path: Uri | undefined] {
-        if (!current || current.isRoot()) {
+        if (!current || current.isEmpty() || current.isRoot()) {
             return [false, undefined];
         }
 
-        return [true, current.combinePaths('..')];
+        // Ensure we don't go around forever even if isRoot returns false.
+        const next = current.combinePaths('..');
+        if (next.equals(current)) {
+            return [false, undefined];
+        }
+        return [true, next];
     }
 
     private _shouldWalkUp(current: Uri | undefined, root: Uri, execEnv: ExecutionEnvironment) {
