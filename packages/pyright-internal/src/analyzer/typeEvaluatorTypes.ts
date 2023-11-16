@@ -545,6 +545,7 @@ export interface TypeEvaluator {
     getBoundMagicMethod: (
         classType: ClassType,
         memberName: string,
+        selfType?: ClassType | TypeVarType,
         recursionCount?: number
     ) => FunctionType | OverloadedFunctionType | undefined;
     getTypeOfMagicMethodCall: (

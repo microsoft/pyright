@@ -2140,8 +2140,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getBoundMagicMethod(
         classType: ClassType,
         memberName: string,
+        selfType?: ClassType | TypeVarType,
         recursionCount = 0
     ): FunctionType | OverloadedFunctionType | undefined {
+        if (recursionCount > maxTypeRecursionCount) {
+            return undefined;
+        }
+        recursionCount++;
+
         const boundMethodResult = getTypeOfBoundMember(
             /* errorNode */ undefined,
             classType,
@@ -2149,7 +2155,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* usage */ undefined,
             /* diag */ undefined,
             MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride,
-            /* selfType */ undefined,
+            selfType,
             recursionCount
         );
 
@@ -2159,6 +2165,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isFunction(boundMethodResult.type) || isOverloadedFunction(boundMethodResult.type)) {
             return boundMethodResult.type;
+        }
+
+        if (isClassInstance(boundMethodResult.type)) {
+            return getBoundMagicMethod(
+                boundMethodResult.type,
+                '__call__',
+                selfType ?? ClassType.cloneAsInstance(classType),
+                recursionCount
+            );
         }
 
         if (isAnyOrUnknown(boundMethodResult.type)) {
@@ -22911,7 +22926,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
 
             if (isClassInstance(concreteSrcType)) {
-                const boundMethod = getBoundMagicMethod(concreteSrcType, '__call__', recursionCount);
+                const boundMethod = getBoundMagicMethod(
+                    concreteSrcType,
+                    '__call__',
+                    /* selfType */ undefined,
+                    recursionCount
+                );
                 if (boundMethod) {
                     concreteSrcType = removeParamSpecVariadicsFromSignature(boundMethod);
                 }
@@ -23718,7 +23738,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const boundMethod = getBoundMagicMethod(objType, '__call__', recursionCount);
+        const boundMethod = getBoundMagicMethod(objType, '__call__', /* selfType */ undefined, recursionCount);
         if (boundMethod) {
             return removeParamSpecVariadicsFromSignature(boundMethod);
         }
