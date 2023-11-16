@@ -10049,15 +10049,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else if (isParamSpec(argType) && argType.paramSpecAccess === 'args') {
                     listElementType = undefined;
                 } else {
-                    const valueExpr = argList[argIndex].valueExpression;
-                    const iteratorType = valueExpr
-                        ? getTypeOfIterator(
-                              { type: argType, isIncomplete: argTypeResult.isIncomplete },
-                              /* isAsync */ false,
-                              valueExpr
-                          )?.type
-                        : undefined;
-                    listElementType = iteratorType ?? UnknownType.create();
+                    listElementType =
+                        getTypeOfIterator(
+                            { type: argType, isIncomplete: argTypeResult.isIncomplete },
+                            /* isAsync */ false,
+                            errorNode,
+                            /* emitNotIterableError */ false
+                        )?.type ?? UnknownType.create();
 
                     if (paramDetails.params[paramIndex].param.category !== ParameterCategory.ArgsList) {
                         matchedUnpackedListOfUnknownLength = true;
