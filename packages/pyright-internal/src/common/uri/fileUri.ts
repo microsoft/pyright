@@ -19,9 +19,10 @@ import {
     isDiskPathRoot,
     normalizeSlashes,
 } from '../pathUtils';
+import { BaseUri } from './baseUri';
 import { Uri } from './uri';
 
-export class FileUri extends Uri {
+export class FileUri extends BaseUri {
     private _formattedString: string | undefined;
     private _directory: FileUri | undefined;
     private static _cache = new Map<string, FileUri>();

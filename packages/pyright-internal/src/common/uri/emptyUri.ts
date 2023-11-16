@@ -7,11 +7,12 @@
  */
 
 import * as debug from '../debug';
+import { BaseUri } from './baseUri';
 import { Uri } from './uri';
 
 const EmptyKey = '<empty>';
 
-export class EmptyUri extends Uri {
+export class EmptyUri extends BaseUri {
     private static _instance = new EmptyUri();
     private constructor() {
         super(EmptyKey, 'empty');

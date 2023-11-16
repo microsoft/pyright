@@ -13,9 +13,10 @@
 
 import * as debug from '../debug';
 import { combinePaths, getRootLength, hasTrailingDirectorySeparator, normalizeSlashes } from '../pathUtils';
+import { BaseUri } from './baseUri';
 import { Uri } from './uri';
 
-export class WebUri extends Uri {
+export class WebUri extends BaseUri {
     private _directory: WebUri | undefined;
     private static _cache = new Map<string, WebUri>();
     private constructor(
