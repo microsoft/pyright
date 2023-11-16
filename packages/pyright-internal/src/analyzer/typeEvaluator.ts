@@ -1135,7 +1135,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.AssignmentExpression: {
-                typeResult = getTypeOfExpression(node.rightExpression);
+                typeResult = getTypeOfExpression(node.rightExpression, flags, inferenceContext);
                 assignTypeToExpression(
                     node.name,
                     typeResult.type,
