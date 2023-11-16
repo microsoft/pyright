@@ -14,7 +14,7 @@ import { appendArray } from '../common/collectionUtils';
 import { ExecutionEnvironment } from '../common/configOptions';
 import { isDefined } from '../common/core';
 import { assertNever } from '../common/debug';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { ClassNode, ImportFromNode, ModuleNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import {
     AliasDeclaration,

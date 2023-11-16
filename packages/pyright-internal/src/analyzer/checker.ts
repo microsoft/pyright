@@ -22,7 +22,7 @@ import { ActionKind, Diagnostic, DiagnosticAddendum, RenameShadowedFileAction } 
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { PythonVersion, versionToString } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { DefinitionProvider } from '../languageService/definitionProvider';
 import { Localizer } from '../localization/localize';
 import {

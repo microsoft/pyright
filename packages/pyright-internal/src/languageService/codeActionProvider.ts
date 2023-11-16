@@ -18,7 +18,7 @@ import {
 } from '../common/diagnostic';
 import { FileEditActions } from '../common/editAction';
 import { Range } from '../common/textRange';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { convertToWorkspaceEdit } from '../common/workspaceEditUtils';
 import { Localizer } from '../localization/localize';
 import { Workspace } from '../workspaceFactory';

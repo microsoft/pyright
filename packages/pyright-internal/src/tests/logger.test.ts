@@ -12,7 +12,7 @@ import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, ConsoleWithLogLevel, LogLevel } from '../common/console';
 import { test_setDebugMode } from '../common/core';
 import { timingStats } from '../common/timing';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
 class TestConsole implements ConsoleInterface {

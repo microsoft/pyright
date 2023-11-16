@@ -10,7 +10,7 @@ import assert from 'assert';
 
 import { combinePaths, getFileName, normalizeSlashes } from '../common/pathUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { runFourSlashTestContent } from './harness/fourslash/runner';
 import { parseAndGetTestState } from './harness/fourslash/testState';

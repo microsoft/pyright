@@ -8,7 +8,7 @@
  */
 
 import { assert } from '../common/debug';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { ArgumentNode, ExpressionNode, NameNode, ParameterCategory } from '../parser/parseNodes';
 import { FunctionDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';

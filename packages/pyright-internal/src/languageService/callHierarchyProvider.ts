@@ -32,7 +32,7 @@ import { getSymbolKind } from '../common/lspUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Position, rangesAreEqual } from '../common/textRange';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { CallNode, MemberAccessNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';

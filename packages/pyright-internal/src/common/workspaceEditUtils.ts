@@ -26,7 +26,7 @@ import { EditableProgram, SourceFileInfo } from './extensibility';
 import { convertRangeToTextRange, convertTextRangeToRange } from './positionUtils';
 import { TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
-import { Uri } from './uri';
+import { Uri } from './uri/uri';
 
 export function convertToTextEdits(editActions: TextEditAction[]): TextEdit[] {
     return editActions.map((editAction) => ({

@@ -25,7 +25,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { stripFileExtension } from '../common/pathUtils';
 import { convertTextRangeToRange } from '../common/positionUtils';
 import { TextRange, getEmptyRange } from '../common/textRange';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,

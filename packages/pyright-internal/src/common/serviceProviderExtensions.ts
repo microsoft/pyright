@@ -11,16 +11,16 @@ import { IPythonMode, SourceFile, SourceFileEditMode } from '../analyzer/sourceF
 import { SupportPartialStubs } from '../pyrightFileSystem';
 import { ConsoleInterface } from './console';
 import {
+    DebugInfoInspector,
     ServiceProvider as ReadOnlyServiceProvider,
     StatusMutationListener,
     SymbolDefinitionProvider,
     SymbolUsageProviderFactory,
-    DebugInfoInspector,
 } from './extensibility';
 import { FileSystem, TempFile } from './fileSystem';
 import { LogTracker } from './logTracker';
 import { GroupServiceKey, ServiceKey, ServiceProvider } from './serviceProvider';
-import { Uri } from './uri';
+import { Uri } from './uri/uri';
 
 declare module './serviceProvider' {
     interface ServiceProvider {

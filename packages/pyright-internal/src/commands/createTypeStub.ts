@@ -9,7 +9,7 @@
 import { CancellationToken, ExecuteCommandParams } from 'vscode-languageserver';
 
 import { OperationCanceledException } from '../common/cancellationUtils';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { LanguageServerInterface } from '../languageServerBase';
 import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecutor';
 import { ServerCommand } from './commandController';

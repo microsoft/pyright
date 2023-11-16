@@ -15,13 +15,13 @@ import * as path from 'path';
 import { expandPathVariables } from '../common/envVarUtils';
 import { normalizeSlashes } from '../common/pathUtils';
 import { createFromRealFileSystem } from '../common/realFileSystem';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import {
     deduplicateFolders,
     getWildcardRegexPattern,
     getWildcardRoot,
     isFileSystemCaseSensitiveInternal,
-} from '../common/uriUtils';
+} from '../common/uri/uriUtils';
 import * as vfs from './harness/vfs/filesystem';
 
 test('parse', () => {
@@ -200,12 +200,6 @@ test('addPath', () => {
     const uri = Uri.parse('file:///a/b/c.pyi?query#fragment');
     const uri2 = uri.addPath('d');
     assert.equal(uri2.toString(), 'file:///a/b/c.pyid');
-});
-
-test('remove', () => {
-    const uri = Uri.parse('file:///a/b/c.pyi?query#fragment');
-    const uri2 = uri.remove('c.pyi');
-    assert.equal(uri2.toString(), 'file:///a/b');
 });
 
 test('directory', () => {
@@ -695,15 +689,16 @@ test('Realcase', () => {
     const fs = createFromRealFileSystem();
     const cwd = process.cwd();
     const dir = Uri.file(path.join(cwd, 'src', 'tests', '..', 'tests'));
+    const dirFilePath = dir.getFilePath()!;
     const entries = nodefs
-        .readdirSync(dir.getFilePath())
-        .map((entry) => path.basename(nodefs.realpathSync(path.join(dir.getFilePath(), entry))));
+        .readdirSync(dirFilePath)
+        .map((entry) => path.basename(nodefs.realpathSync(path.join(dirFilePath, entry))));
     const normalizedEntries = lowerCaseDrive(entries);
     const fsentries = fs.readdirSync(dir);
     assert.deepStrictEqual(normalizedEntries, fsentries);
 
-    const paths = entries.map((entry) => nodefs.realpathSync(path.join(dir.getFilePath(), entry)));
-    const fspaths = fsentries.map((entry) => fs.realCasePath(dir.combinePaths(entry)).getFilePath());
+    const paths = entries.map((entry) => nodefs.realpathSync(path.join(dirFilePath, entry)));
+    const fspaths = fsentries.map((entry) => fs.realCasePath(dir.combinePaths(entry)).getFilePath()!);
     assert.deepStrictEqual(lowerCaseDrive(paths), fspaths);
 
     // Check that the '..' has been removed.

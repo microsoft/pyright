@@ -6,7 +6,7 @@
  * Tests documentSymbolCollector
  */
 
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 import { verifyReferencesAtPosition } from './testStateUtils';
 

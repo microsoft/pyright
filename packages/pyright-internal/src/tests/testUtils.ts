@@ -23,7 +23,7 @@ import { DiagnosticSink } from '../common/diagnosticSink';
 import { FullAccessHost } from '../common/fullAccessHost';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { ParseOptions, ParseResults, Parser } from '../parser/parser';
 
 // This is a bit gross, but it's necessary to allow the fallback typeshed

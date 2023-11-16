@@ -19,7 +19,7 @@ import { combinePaths, normalizePath, normalizeSlashes } from '../common/pathUti
 import { PythonVersion } from '../common/pythonVersion';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { TestAccessHost } from './harness/testAccessHost';
 import { TestFileSystem } from './harness/vfs/filesystem';
 

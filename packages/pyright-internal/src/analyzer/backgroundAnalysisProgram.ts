@@ -16,7 +16,7 @@ import { FileDiagnostics } from '../common/diagnosticSink';
 import { ServiceProvider } from '../common/serviceProvider';
 import '../common/serviceProviderExtensions';
 import { Range } from '../common/textRange';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { ImportResolver } from './importResolver';
 import { MaxAnalysisTime, OpenFileOptions, Program } from './program';

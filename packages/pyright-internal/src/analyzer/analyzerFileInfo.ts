@@ -13,7 +13,7 @@ import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { Scope } from './scope';
 import { IPythonMode } from './sourceFile';
 import { SymbolTable } from './symbol';

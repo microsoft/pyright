@@ -46,8 +46,8 @@ import { createServiceProvider } from '../../../common/serviceProviderExtensions
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../../common/stringUtils';
 import { DocumentRange, Position, Range as PositionRange, TextRange, rangesAreEqual } from '../../../common/textRange';
 import { TextRangeCollection } from '../../../common/textRangeCollection';
-import { Uri } from '../../../common/uri';
-import { getFileSpec, setTestingMode } from '../../../common/uriUtils';
+import { Uri } from '../../../common/uri/uri';
+import { getFileSpec, setTestingMode } from '../../../common/uri/uriUtils';
 import { convertToWorkspaceEdit } from '../../../common/workspaceEditUtils';
 import { LanguageServerInterface } from '../../../languageServerBase';
 import { CallHierarchyProvider } from '../../../languageService/callHierarchyProvider';

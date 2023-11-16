@@ -8,7 +8,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 
 function runTests(p: string): void {
     const zipRoot = Uri.file(path.resolve(path.dirname(module.filename), p));

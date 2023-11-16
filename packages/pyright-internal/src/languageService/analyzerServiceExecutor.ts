@@ -12,7 +12,7 @@ import { AnalyzerService, getNextServiceId } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { LogLevel } from '../common/console';
 import { FileSystem } from '../common/fileSystem';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { LanguageServerInterface, ServerSettings } from '../languageServerBase';
 import { WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../workspaceFactory';
 

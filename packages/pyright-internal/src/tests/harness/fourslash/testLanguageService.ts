@@ -23,7 +23,7 @@ import * as debug from '../../../common/debug';
 import { FileSystem } from '../../../common/fileSystem';
 import { ServiceProvider } from '../../../common/serviceProvider';
 import { Range } from '../../../common/textRange';
-import { Uri } from '../../../common/uri';
+import { Uri } from '../../../common/uri/uri';
 import { LanguageServerInterface, MessageAction, ServerSettings, WindowInterface } from '../../../languageServerBase';
 import { CodeActionProvider } from '../../../languageService/codeActionProvider';
 import {

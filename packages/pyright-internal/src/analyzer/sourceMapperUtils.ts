@@ -5,7 +5,7 @@
  */
 
 import { CancellationToken } from 'vscode-jsonrpc';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 
 const MAX_TREE_SEARCH_COUNT = 1000;
 

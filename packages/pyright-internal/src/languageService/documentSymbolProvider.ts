@@ -13,7 +13,7 @@ import { CancellationToken, DocumentSymbol, Location, SymbolInformation } from '
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ProgramView } from '../common/extensibility';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { ParseResults } from '../parser/parser';
 import { IndexSymbolData, SymbolIndexer } from './symbolIndexer';
 

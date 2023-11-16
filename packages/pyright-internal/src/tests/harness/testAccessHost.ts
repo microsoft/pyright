@@ -8,7 +8,7 @@
 
 import { PythonPathResult } from '../../analyzer/pythonPathUtils';
 import { NoAccessHost } from '../../common/host';
-import { Uri } from '../../common/uri';
+import { Uri } from '../../common/uri/uri';
 
 export class TestAccessHost extends NoAccessHost {
     constructor(private _modulePath = Uri.empty(), private _searchPaths: Uri[] = []) {

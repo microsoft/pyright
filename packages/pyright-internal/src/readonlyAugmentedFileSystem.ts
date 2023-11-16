@@ -12,7 +12,7 @@ import type * as fs from 'fs';
 import { appendArray, getOrAdd } from './common/collectionUtils';
 import { FileSystem, MkDirOptions, Stats, VirtualDirent } from './common/fileSystem';
 import { FileWatcher, FileWatcherEventHandler } from './common/fileWatcher';
-import { Uri } from './common/uri';
+import { Uri } from './common/uri/uri';
 
 export class ReadOnlyAugmentedFileSystem implements FileSystem {
     // Mapped file to original file map

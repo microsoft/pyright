@@ -16,7 +16,7 @@ import { FileEditAction } from '../common/editAction';
 import { ProgramView, ReferenceUseCase } from '../common/extensibility';
 import { convertTextRangeToRange } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { convertToWorkspaceEdit } from '../common/workspaceEditUtils';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { ParseResults } from '../parser/parser';

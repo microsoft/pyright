@@ -36,7 +36,7 @@ import * as debug from './debug';
 import { FileEditAction } from './editAction';
 import { convertOffsetToPosition, convertTextRangeToRange } from './positionUtils';
 import { doesRangeContain, doRangesIntersect, extendRange, Range, TextRange } from './textRange';
-import { Uri } from './uri';
+import { Uri } from './uri/uri';
 
 export class TextEditTracker {
     private readonly _nodesRemoved: Map<ParseNode, ParseResults> = new Map<ParseNode, ParseResults>();

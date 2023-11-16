@@ -15,8 +15,8 @@ import { getPyTypedInfo } from './analyzer/pyTypedUtils';
 import { ExecutionEnvironment } from './common/configOptions';
 import { FileSystem, MkDirOptions } from './common/fileSystem';
 import { stubsSuffix } from './common/pathConsts';
-import { Uri } from './common/uri';
-import { isDirectory, tryStat } from './common/uriUtils';
+import { Uri } from './common/uri/uri';
+import { isDirectory, tryStat } from './common/uri/uriUtils';
 import { ReadOnlyAugmentedFileSystem } from './readonlyAugmentedFileSystem';
 
 export interface SupportPartialStubs {

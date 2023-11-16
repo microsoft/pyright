@@ -9,7 +9,7 @@
 import { isNumber, isString } from '../common/core';
 import { assertNever } from '../common/debug';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { ParseNode, ParseNodeType, isExpressionNode } from '../parser/parseNodes';
 import { AbsoluteModuleDescriptor } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';

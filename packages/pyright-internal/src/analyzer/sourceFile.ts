@@ -27,7 +27,7 @@ import * as StringUtils from '../common/stringUtils';
 import { Range, TextRange, getEmptyRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { Localizer } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
 import { IParser, ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';

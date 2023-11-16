@@ -11,7 +11,7 @@
 // * NOTE * except tests, this should be only file that import "fs"
 import type * as fs from 'fs';
 import { FileWatcher, FileWatcherEventHandler } from './fileWatcher';
-import { Uri } from './uri';
+import { Uri } from './uri/uri';
 
 export interface Stats {
     size: number;

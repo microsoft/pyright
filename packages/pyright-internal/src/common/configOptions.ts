@@ -21,8 +21,8 @@ import { Host } from './host';
 import { PythonVersion, latestStablePythonVersion, versionFromString, versionToString } from './pythonVersion';
 import { ServiceProvider } from './serviceProvider';
 import { ServiceKeys } from './serviceProviderExtensions';
-import { Uri } from './uri';
-import { FileSpec, getFileSpec, isDirectory } from './uriUtils';
+import { Uri } from './uri/uri';
+import { FileSpec, getFileSpec, isDirectory } from './uri/uriUtils';
 
 export enum PythonPlatform {
     Darwin = 'Darwin',

@@ -21,8 +21,8 @@ import {
     nullFileWatcherProvider,
 } from './fileWatcher';
 import { getRootLength } from './pathUtils';
-import { Uri } from './uri';
-import { getRootUri } from './uriUtils';
+import { Uri } from './uri/uri';
+import { getRootUri } from './uri/uriUtils';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();

@@ -26,7 +26,7 @@ import {
 } from '../analyzer/types';
 import { SignatureDisplayType } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { getToolTipForType } from './tooltipUtils';
 
 export interface Edits {

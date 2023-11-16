@@ -8,7 +8,7 @@
  * and analyzed python source file.
  */
 
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import {
     ArgumentCategory,
     AssignmentNode,

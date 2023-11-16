@@ -36,7 +36,7 @@ import { Host, HostKind } from './common/host';
 import { LogTracker } from './common/logTracker';
 import { ServiceProvider } from './common/serviceProvider';
 import { Range } from './common/textRange';
-import { Uri } from './common/uri';
+import { Uri } from './common/uri/uri';
 
 export class BackgroundAnalysisBase {
     private _worker: Worker | undefined;

@@ -24,7 +24,7 @@ import { ConsoleInterface } from './console';
 import { ReadOnlyFileSystem } from './fileSystem';
 import { GroupServiceKey, ServiceKey } from './serviceProvider';
 import { Range } from './textRange';
-import { Uri } from './uri';
+import { Uri } from './uri/uri';
 
 export interface SourceFile {
     // See whether we can convert these to regular properties.

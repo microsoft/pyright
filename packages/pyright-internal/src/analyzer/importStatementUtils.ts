@@ -17,8 +17,8 @@ import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
 import { Position, Range, TextRange } from '../common/textRange';
-import { Uri } from '../common/uri';
-import { isFile } from '../common/uriUtils';
+import { Uri } from '../common/uri/uri';
+import { isFile } from '../common/uri/uriUtils';
 import {
     ImportAsNode,
     ImportFromAsNode,
@@ -30,12 +30,12 @@ import {
     ParseNodeType,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { TokenType } from '../parser/tokenizerTypes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ModuleNameAndType } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
-import * as SymbolNameUtils from './symbolNameUtils';
 import { findTokenAfter, getTokenAt } from './parseTreeUtils';
-import { TokenType } from '../parser/tokenizerTypes';
+import * as SymbolNameUtils from './symbolNameUtils';
 
 export interface ImportStatement {
     node: ImportNode | ImportFromNode;

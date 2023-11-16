@@ -23,7 +23,7 @@ import { isArray } from '../common/core';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { rangesAreEqual } from '../common/textRange';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { NameNode } from '../parser/parseNodes';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';

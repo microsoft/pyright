@@ -29,7 +29,7 @@ import { isNumber, isString } from '../common/core';
 import { convertOffsetToPosition, convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { LanguageServerInterface } from '../languageServerBase';
 import {
     ArgumentCategory,

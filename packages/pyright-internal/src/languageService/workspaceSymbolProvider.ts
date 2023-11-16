@@ -13,7 +13,7 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { ProgramView } from '../common/extensibility';
 import * as StringUtils from '../common/stringUtils';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { Workspace } from '../workspaceFactory';
 import { IndexSymbolData, SymbolIndexer } from './symbolIndexer';
 

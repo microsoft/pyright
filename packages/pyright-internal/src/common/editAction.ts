@@ -8,7 +8,7 @@
  */
 
 import { Range, rangesAreEqual } from './textRange';
-import { Uri } from './uri';
+import { Uri } from './uri/uri';
 
 export interface TextEditAction {
     range: Range;

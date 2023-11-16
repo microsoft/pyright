@@ -10,7 +10,7 @@
 
 import { ConfigOptions } from '../common/configOptions';
 import { PythonVersion } from '../common/pythonVersion';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
 test('Module1', () => {

@@ -6,7 +6,7 @@
  * file watcher related functionality.
  */
 import { Stats } from './fileSystem';
-import { Uri } from './uri';
+import { Uri } from './uri/uri';
 
 export type FileWatcherEventType = 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir';
 export type FileWatcherEventHandler = (eventName: FileWatcherEventType, uri: Uri, stats?: Stats) => void;

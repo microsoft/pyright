@@ -9,7 +9,7 @@ import { InitializeParams, WorkspaceFoldersChangeEvent } from 'vscode-languagese
 import { AnalyzerService } from './analyzer/service';
 import { ConsoleInterface } from './common/console';
 import { createDeferred } from './common/deferred';
-import { Uri } from './common/uri';
+import { Uri } from './common/uri/uri';
 
 let WorkspaceFactoryIdCounter = 0;
 

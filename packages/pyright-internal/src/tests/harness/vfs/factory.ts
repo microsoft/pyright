@@ -8,7 +8,7 @@
 
 import * as pathConsts from '../../../common/pathConsts';
 import { combinePaths, getDirectoryPath, normalizeSlashes, resolvePaths } from '../../../common/pathUtils';
-import { Uri } from '../../../common/uri';
+import { Uri } from '../../../common/uri/uri';
 import { GlobalMetadataOptionNames } from '../fourslash/fourSlashTypes';
 import { TestHost } from '../testHost';
 import { bufferFrom } from '../utils';

@@ -13,8 +13,8 @@ import { FileSystem } from '../common/fileSystem';
 import { Host } from '../common/host';
 import * as pathConsts from '../common/pathConsts';
 import { PythonVersion, versionToString } from '../common/pythonVersion';
-import { Uri } from '../common/uri';
-import { getFileSystemEntries, isDirectory, tryStat } from '../common/uriUtils';
+import { Uri } from '../common/uri/uri';
+import { getFileSystemEntries, isDirectory, tryStat } from '../common/uri/uriUtils';
 
 export interface PythonPathResult {
     paths: Uri[];

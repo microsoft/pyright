@@ -9,7 +9,7 @@ import * as assert from 'assert';
 import { CancellationToken, CancellationTokenSource } from 'vscode-jsonrpc';
 
 import { buildImportTree as buildImportTreeImpl } from '../analyzer/sourceMapperUtils';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 
 function buildImportTree(
     sourceFile: string,

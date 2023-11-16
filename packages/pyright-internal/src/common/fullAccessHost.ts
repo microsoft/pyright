@@ -17,8 +17,8 @@ import { FileSystem } from './fileSystem';
 import { HostKind, NoAccessHost, ScriptOutput } from './host';
 import { normalizePath } from './pathUtils';
 import { PythonVersion, versionFromMajorMinor } from './pythonVersion';
-import { Uri } from './uri';
-import { isDirectory } from './uriUtils';
+import { Uri } from './uri/uri';
+import { isDirectory } from './uri/uriUtils';
 
 // preventLocalImports removes the working directory from sys.path.
 // The -c flag adds it automatically, which can allow some stdlib

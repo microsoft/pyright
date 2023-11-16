@@ -11,8 +11,8 @@ import { NullConsole } from '../../common/console';
 import { combinePaths, FileSystemEntries, resolvePaths } from '../../common/pathUtils';
 import { createFromRealFileSystem } from '../../common/realFileSystem';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../common/stringUtils';
-import { Uri } from '../../common/uri';
-import { directoryExists, fileExists, getFileSize } from '../../common/uriUtils';
+import { Uri } from '../../common/uri/uri';
+import { directoryExists, fileExists, getFileSize } from '../../common/uri/uriUtils';
 
 export const HOST: TestHost = createHost();
 

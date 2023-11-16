@@ -8,15 +8,15 @@
 
 import type { Dirent } from 'fs';
 
-import { randomBytesHex } from './crypto';
-import { ServiceProvider } from './extensibility';
-import { FileSystem, ReadOnlyFileSystem, Stats, TempFile } from './fileSystem';
+import { randomBytesHex } from '../crypto';
+import { ServiceProvider } from '../extensibility';
+import { FileSystem, ReadOnlyFileSystem, Stats, TempFile } from '../fileSystem';
 import {
     getRegexEscapedSeparator,
     isDirectoryWildcardPatternPresent,
     stripTrailingDirectorySeparator,
-} from './pathUtils';
-import { ServiceKeys } from './serviceProviderExtensions';
+} from '../pathUtils';
+import { ServiceKeys } from '../serviceProviderExtensions';
 import { Uri } from './uri';
 
 let _fsCaseSensitivity: boolean | undefined = undefined;
@@ -90,7 +90,7 @@ export function forEachAncestorDirectory(
 
 // Creates a directory hierarchy for a path, starting from some ancestor path.
 export function makeDirectories(fs: FileSystem, dir: Uri, startingFrom: Uri) {
-    if (!dir.startsWith(startingFrom)) {
+    if (!dir.startsWith(startingFrom, false)) {
         return;
     }
 

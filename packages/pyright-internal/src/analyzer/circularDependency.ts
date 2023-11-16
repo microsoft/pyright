@@ -10,7 +10,7 @@
  * by picking the alphabetically-first module in the cycle.
  */
 
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 
 export class CircularDependency {
     private _paths: Uri[] = [];

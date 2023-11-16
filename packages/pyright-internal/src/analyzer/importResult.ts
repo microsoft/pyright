@@ -7,7 +7,7 @@
  * Interface that describes the output of the import resolver.
  */
 
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { PyTypedInfo } from './pyTypedUtils';
 
 export const enum ImportType {

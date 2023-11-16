@@ -20,7 +20,7 @@ import { ServiceProvider } from '../common/serviceProvider';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import {
     getFileSystemEntriesFromDirEntries,
     isDirectory,
@@ -28,7 +28,7 @@ import {
     isFileSystemCaseSensitive,
     tryRealpath,
     tryStat,
-} from '../common/uriUtils';
+} from '../common/uri/uriUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';

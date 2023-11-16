@@ -8,7 +8,7 @@
 
 import { CancellationToken, ExecuteCommandParams } from 'vscode-languageserver';
 
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { convertToFileTextEdits, convertToWorkspaceEdit } from '../common/workspaceEditUtils';
 import { LanguageServerInterface } from '../languageServerBase';
 import { performQuickAction } from '../languageService/quickActions';

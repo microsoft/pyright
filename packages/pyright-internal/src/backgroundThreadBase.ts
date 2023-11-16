@@ -16,8 +16,8 @@ import { createFromRealFileSystem, RealTempFile } from './common/realFileSystem'
 import { ServiceProvider } from './common/serviceProvider';
 import './common/serviceProviderExtensions';
 import { ServiceKeys } from './common/serviceProviderExtensions';
-import { Uri } from './common/uri';
-import { FileSpec } from './common/uriUtils';
+import { Uri } from './common/uri/uri';
+import { FileSpec } from './common/uri/uriUtils';
 
 export class BackgroundConsole implements ConsoleInterface {
     // We always generate logs in the background. For the foreground,

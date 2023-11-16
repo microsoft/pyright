@@ -18,7 +18,7 @@ import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/path
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { ServiceProvider } from '../common/serviceProvider';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { TestAccessHost } from './harness/testAccessHost';
 import { TestFileSystem } from './harness/vfs/filesystem';

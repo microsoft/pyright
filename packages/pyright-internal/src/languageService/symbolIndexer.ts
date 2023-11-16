@@ -16,7 +16,7 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { getSymbolKind } from '../common/lspUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { Range } from '../common/textRange';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { ParseResults } from '../parser/parser';
 import { convertSymbolKindToCompletionItemKind } from './autoImporter';
 

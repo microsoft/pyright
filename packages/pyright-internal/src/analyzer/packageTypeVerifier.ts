@@ -17,8 +17,8 @@ import { FullAccessHost } from '../common/fullAccessHost';
 import { getFileExtension, stripFileExtension } from '../common/pathUtils';
 import { ServiceProvider } from '../common/serviceProvider';
 import { getEmptyRange, Range } from '../common/textRange';
-import { Uri } from '../common/uri';
-import { tryStat } from '../common/uriUtils';
+import { Uri } from '../common/uri/uri';
+import { tryStat } from '../common/uri/uriUtils';
 import { DeclarationType, FunctionDeclaration, VariableDeclaration } from './declaration';
 import { createImportedModuleDescriptor, ImportResolver } from './importResolver';
 import {

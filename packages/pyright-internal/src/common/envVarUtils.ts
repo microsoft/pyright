@@ -8,7 +8,7 @@
 
 import * as os from 'os';
 
-import { Uri } from './uri';
+import { Uri } from './uri/uri';
 
 // Expands certain predefined variables supported within VS Code settings.
 // Ideally, VS Code would provide an API for doing this expansion, but

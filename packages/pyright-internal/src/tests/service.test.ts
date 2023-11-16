@@ -9,7 +9,7 @@ import assert from 'assert';
 import { CancellationToken } from 'vscode-jsonrpc';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { combinePaths, getDirectoryPath } from '../common/pathUtils';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 
 test('random library file changed', () => {

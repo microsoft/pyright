@@ -10,7 +10,7 @@ import { CancellationToken } from 'vscode-jsonrpc';
 import { findNodeByOffset } from '../analyzer/parseTreeUtils';
 import { FileEditAction } from '../common/editAction';
 import { TextEditTracker } from '../common/textEditTracker';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
 import { convertRangeToFileEditAction } from './testStateUtils';

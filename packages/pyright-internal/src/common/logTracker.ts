@@ -9,7 +9,7 @@
 import { ConsoleInterface, LogLevel } from './console';
 import { ReadOnlyFileSystem } from './fileSystem';
 import { Duration, timingStats } from './timing';
-import { Uri } from './uri';
+import { Uri } from './uri/uri';
 
 // Consider an operation "long running" if it goes longer than this.
 const durationThresholdForInfoInMs = 2000;

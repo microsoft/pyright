@@ -33,7 +33,7 @@ import {
     TypeCategory,
 } from '../analyzer/types';
 import { addIfNotNull, appendArray } from '../common/collectionUtils';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { ModuleNode, ParseNodeType } from '../parser/parseNodes';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {

@@ -26,7 +26,7 @@ import { ProgramView, ServiceProvider } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 

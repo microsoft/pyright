@@ -17,7 +17,7 @@ import { ConsoleInterface } from './common/console';
 import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
 import { ServiceProvider } from './common/serviceProvider';
-import { getRootUri } from './common/uriUtils';
+import { getRootUri } from './common/uri/uriUtils';
 
 export class BackgroundAnalysis extends BackgroundAnalysisBase {
     constructor(console: ConsoleInterface) {

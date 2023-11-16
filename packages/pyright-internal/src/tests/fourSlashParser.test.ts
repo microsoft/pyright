@@ -11,7 +11,7 @@ import assert from 'assert';
 
 import { getBaseFileName, normalizeSlashes } from '../common/pathUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { CompilerSettings } from './harness/fourslash/fourSlashTypes';
 import * as host from './harness/testHost';

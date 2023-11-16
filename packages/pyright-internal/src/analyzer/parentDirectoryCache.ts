@@ -9,7 +9,7 @@
 
 import { getOrAdd } from '../common/collectionUtils';
 import { FileSystem } from '../common/fileSystem';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { ImportResult } from './importResult';
 
 export type ImportPath = { importPath: Uri | undefined };

@@ -25,7 +25,7 @@ import {
     printExpression,
 } from '../analyzer/parseTreeUtils';
 import { TextRange, rangesAreEqual } from '../common/textRange';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { MemberAccessNode, NameNode, ParseNodeType, StringNode, isExpressionNode } from '../parser/parseNodes';
 import { TestState, getNodeAtMarker, getNodeForRange, parseAndGetTestState } from './harness/fourslash/testState';
 

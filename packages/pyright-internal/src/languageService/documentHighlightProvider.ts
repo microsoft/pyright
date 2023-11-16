@@ -15,7 +15,7 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ProgramView, ReferenceUseCase } from '../common/extensibility';
 import { convertOffsetsToRange, convertPositionToOffset } from '../common/positionUtils';
 import { Position, TextRange } from '../common/textRange';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { DocumentSymbolCollector } from './documentSymbolCollector';

@@ -10,7 +10,7 @@
  */
 
 import { Diagnostic, DiagnosticWithinFile } from '../common/diagnostic';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { ScopeType } from './scope';
 
 export enum SymbolCategory {

@@ -10,7 +10,7 @@ import assert from 'assert';
 import { CancellationToken, MarkupKind } from 'vscode-languageserver';
 
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { SignatureHelpProvider } from '../languageService/signatureHelpProvider';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 

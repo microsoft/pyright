@@ -15,7 +15,7 @@ import { FullAccessHost } from '../common/fullAccessHost';
 import { combinePaths } from '../common/pathUtils';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 
 test('Empty', () => {

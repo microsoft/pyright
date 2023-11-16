@@ -34,8 +34,8 @@ import { RealTempFile, createFromRealFileSystem } from './common/realFileSystem'
 import { ServiceProvider } from './common/serviceProvider';
 import { createServiceProvider } from './common/serviceProviderExtensions';
 import { Range, isEmptyRange } from './common/textRange';
-import { Uri } from './common/uri';
-import { getFileSpec, tryStat } from './common/uriUtils';
+import { Uri } from './common/uri/uri';
+import { getFileSpec, tryStat } from './common/uri/uriUtils';
 import { PyrightFileSystem } from './pyrightFileSystem';
 
 const toolName = 'pyright';

@@ -11,6 +11,8 @@ import * as path from 'path';
 
 import { Char } from './charCodes';
 import { some } from './collectionUtils';
+import { GetCanonicalFileName, identity } from './core';
+import * as debug from './debug';
 import { equateStringsCaseInsensitive, equateStringsCaseSensitive } from './stringUtils';
 
 export interface FileSpec {
@@ -687,4 +689,3 @@ function getPathComponentsRelativeTo(
     }
     return ['', ...relative, ...components];
 }
-

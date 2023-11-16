@@ -18,7 +18,7 @@ import { NullConsole } from '../common/console';
 import { normalizeSlashes } from '../common/pathUtils';
 import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positionUtils';
 import { ServiceProvider } from '../common/serviceProvider';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { CompletionProvider } from '../languageService/completionProvider';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { TestAccessHost } from './harness/testAccessHost';

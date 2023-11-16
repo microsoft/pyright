@@ -11,7 +11,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { PythonPathResult } from '../analyzer/pythonPathUtils';
 import { PythonPlatform } from './configOptions';
 import { PythonVersion } from './pythonVersion';
-import { Uri } from './uri';
+import { Uri } from './uri/uri';
 
 export const enum HostKind {
     FullAccess,

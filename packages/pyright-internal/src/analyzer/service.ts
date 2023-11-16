@@ -28,7 +28,7 @@ import { ServiceProvider } from '../common/serviceProvider';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import {
     FileSpec,
     forEachAncestorDirectory,
@@ -41,7 +41,7 @@ import {
     makeDirectories,
     tryRealpath,
     tryStat,
-} from '../common/uriUtils';
+} from '../common/uri/uriUtils';
 import { AnalysisCompleteCallback } from './analysis';
 import {
     BackgroundAnalysisProgram,

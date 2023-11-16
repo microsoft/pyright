@@ -10,7 +10,7 @@
  */
 
 import { Range } from '../common/textRange';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import {
     ClassNode,
     ExpressionNode,

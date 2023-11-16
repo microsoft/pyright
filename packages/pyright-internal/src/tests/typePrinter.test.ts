@@ -23,7 +23,7 @@ import {
     UnboundType,
     UnknownType,
 } from '../analyzer/types';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { ParameterCategory } from '../parser/parseNodes';
 
 function returnTypeCallback(type: FunctionType) {

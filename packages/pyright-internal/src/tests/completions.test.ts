@@ -8,7 +8,7 @@ import assert from 'assert';
 import { CancellationToken } from 'vscode-languageserver';
 import { CompletionItemKind, MarkupKind } from 'vscode-languageserver-types';
 
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { CompletionOptions, CompletionProvider } from '../languageService/completionProvider';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 

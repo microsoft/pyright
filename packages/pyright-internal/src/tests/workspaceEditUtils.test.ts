@@ -13,7 +13,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { AnalyzerService } from '../analyzer/service';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { combinePaths, getDirectoryPath } from '../common/pathUtils';
-import { Uri } from '../common/uri';
+import { Uri } from '../common/uri/uri';
 import { applyWorkspaceEdit, generateWorkspaceEdit } from '../common/workspaceEditUtils';
 import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecutor';
 import { TestLanguageService } from './harness/fourslash/testLanguageService';

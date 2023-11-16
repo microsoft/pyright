@@ -11,7 +11,7 @@ import { Commands } from '../commands/commands';
 import { appendArray } from './collectionUtils';
 import { DiagnosticLevel } from './configOptions';
 import { Range, TextRange } from './textRange';
-import { Uri } from './uri';
+import { Uri } from './uri/uri';
 
 const defaultMaxDepth = 5;
 const defaultMaxLineCount = 8;

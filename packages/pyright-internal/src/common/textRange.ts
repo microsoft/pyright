@@ -7,7 +7,7 @@
  * Specifies the range of text within a larger string.
  */
 
-import { Uri } from './uri';
+import { Uri } from './uri/uri';
 
 export interface TextRange {
     readonly start: number;
