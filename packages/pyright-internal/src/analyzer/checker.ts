@@ -3677,16 +3677,6 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        // According to PEP 544, protocol classes cannot be used as the right-hand
-        // argument to isinstance or issubclass unless they are annotated as
-        // "runtime checkable".
-        if (classTypeList.some((type) => ClassType.isProtocolClass(type) && !ClassType.isRuntimeCheckable(type))) {
-            this._evaluator.addError(
-                Localizer.Diagnostic.protocolUsedInCall().format({ name: callName }),
-                node.arguments[1].valueExpression
-            );
-        }
-
         if (derivesFromAnyOrUnknown(arg0Type)) {
             return;
         }
@@ -3826,7 +3816,14 @@ export class Checker extends ParseTreeWalker {
                         // type arguments. This will result in a TypeError exception.
                         diag.addMessage(Localizer.DiagnosticAddendum.genericClassNotAllowed());
                         isSupported = false;
-                    } else if (ClassType.isProtocolClass(subtype) && !ClassType.isRuntimeCheckable(subtype)) {
+                    } else if (
+                        ClassType.isProtocolClass(subtype) &&
+                        !ClassType.isRuntimeCheckable(subtype) &&
+                        !subtype.includeSubclasses
+                    ) {
+                        // According to PEP 544, protocol classes cannot be used as the right-hand
+                        // argument to isinstance or issubclass unless they are annotated as
+                        // "runtime checkable".
                         diag.addMessage(Localizer.DiagnosticAddendum.protocolRequiresRuntimeCheckable());
                         isSupported = false;
                     }

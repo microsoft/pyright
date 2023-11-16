@@ -377,7 +377,6 @@
         "protocolBaseClassWithTypeArgs": "형식 매개 변수 구문을 사용할 때는 Protocol 클래스에 형식 인수가 허용되지 않습니다.",
         "protocolIllegal": "\"프로토콜\"을 사용하려면 Python 3.7 이상이 필요합니다.",
         "protocolNotAllowedInTypeArgument": "\"Protocol\"은 형식 인수로 사용할 수 없습니다.",
-        "protocolUsedInCall": "프로토콜 클래스는 \"{name}\" 호출에서 사용할 수 없습니다.",
         "protocolVarianceContravariant": "‘{class}‘ 제네릭 프로토콜에서 사용되는 ’{variable}‘ 형식 변수는 반공변이어야 합니다.",
         "protocolVarianceCovariant": "‘{class}‘ 제네릭 프로토콜에서 사용되는 ’{variable}‘ 형식 변수는 공변이어야 합니다",
         "protocolVarianceInvariant": "‘{class}‘ 제네릭 프로토콜에서 사용되는 ’{variable}‘ 형식 변수는 고정 변수여야 합니다.",
