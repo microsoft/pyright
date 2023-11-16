@@ -199,7 +199,7 @@ export class ImportResolver {
             );
 
             let success;
-            [success, current] = this._tryWalkUp(current);
+            [success, current] = this._(current);
             if (!success) {
                 break;
             }
@@ -576,7 +576,7 @@ export class ImportResolver {
             }
 
             let success;
-            [success, current] = this._tryWalkUp(current);
+            [success, current] = this._(current);
             if (!success) {
                 break;
             }
@@ -1247,7 +1247,7 @@ export class ImportResolver {
                 }
 
                 let success;
-                [success, current] = this._tryWalkUp(current);
+                [success, current] = this._(current);
                 if (!success) {
                     break;
                 }
@@ -2682,7 +2682,7 @@ export class ImportResolver {
         if (next === current) {
             return [false, ''];
         }
-        return [true, ];
+        return [true, next];
     }
 
     private _shouldWalkUp(current: string, root: string, execEnv: ExecutionEnvironment) {
