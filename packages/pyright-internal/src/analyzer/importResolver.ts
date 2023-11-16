@@ -199,7 +199,7 @@ export class ImportResolver {
             );
 
             let success;
-            [success, current] = this._(current);
+            [success, current] = this._tryWalkUp(current);
             if (!success) {
                 break;
             }
@@ -576,7 +576,7 @@ export class ImportResolver {
             }
 
             let success;
-            [success, current] = this._(current);
+            [success, current] = this._tryWalkUp(current);
             if (!success) {
                 break;
             }
@@ -1247,7 +1247,7 @@ export class ImportResolver {
                 }
 
                 let success;
-                [success, current] = this._(current);
+                [success, current] = this._tryWalkUp(current);
                 if (!success) {
                     break;
                 }
