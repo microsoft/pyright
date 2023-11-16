@@ -2143,6 +2143,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         selfType?: ClassType | TypeVarType | undefined,
         recursionCount = 0
     ): FunctionType | OverloadedFunctionType | undefined {
+        if (recursionCount > maxTypeRecursionCount) {
+            return undefined;
+        }
+        recursionCount++;
+
         const boundMethodResult = getTypeOfBoundMember(
             /* errorNode */ undefined,
             classType,
@@ -2160,6 +2165,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isFunction(boundMethodResult.type) || isOverloadedFunction(boundMethodResult.type)) {
             return boundMethodResult.type;
+        }
+
+        if (isClassInstance(boundMethodResult.type)) {
+            return getBoundMagicMethod(
+                boundMethodResult.type,
+                '__call__',
+                selfType ?? ClassType.cloneAsInstance(classType),
+                recursionCount
+            );
         }
 
         if (isAnyOrUnknown(boundMethodResult.type)) {
