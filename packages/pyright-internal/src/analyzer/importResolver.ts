@@ -2677,7 +2677,12 @@ export class ImportResolver {
             return [false, ''];
         }
 
-        return [true, ensureTrailingDirectorySeparator(normalizePath(combinePaths(current, '..')))];
+        // Ensure we don't go around forever even if isDiskPathRoot returns false.
+        const next = ensureTrailingDirectorySeparator(normalizePath(combinePaths(current, '..')));
+        if (next === current) {
+            return [false, ''];
+        }
+        return [true, ];
     }
 
     private _shouldWalkUp(current: string, root: string, execEnv: ExecutionEnvironment) {
