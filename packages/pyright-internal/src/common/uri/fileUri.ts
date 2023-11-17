@@ -19,7 +19,7 @@ import {
     normalizeSlashes,
     resolvePaths,
 } from '../pathUtils';
-import { BaseUri, staticFuncCache } from './baseUri';
+import { BaseUri, cache, staticFuncCache } from './baseUri';
 import { Uri } from './uri';
 
 export class FileUri extends BaseUri {
@@ -39,7 +39,12 @@ export class FileUri extends BaseUri {
     }
 
     @staticFuncCache()
-    static create(filePath: string, query: string, fragment: string, originalString: string | undefined): FileUri {
+    static createFileUri(
+        filePath: string,
+        query: string,
+        fragment: string,
+        originalString: string | undefined
+    ): FileUri {
         const key = FileUri._createKey(filePath, query, fragment);
         return new FileUri(key, filePath, query, fragment, originalString);
     }
@@ -66,7 +71,7 @@ export class FileUri extends BaseUri {
         return this._filePath;
     }
     override addPath(extra: string): Uri {
-        return FileUri.create(this._filePath + extra, '', '', undefined);
+        return FileUri.createFileUri(this._filePath + extra, '', '', undefined);
     }
     override isRoot(): boolean {
         return isDiskPathRoot(this._filePath);
@@ -115,6 +120,22 @@ export class FileUri extends BaseUri {
     override getFilePath(): string {
         return this._filePath;
     }
+
+    @cache(false)
+    override combinePaths(...paths: string[]): Uri {
+        // Resolve and combine paths, never want URIs with '..' in the middle.
+        let combined = resolvePaths(this._filePath, ...paths);
+
+        // Make sure to remove any trailing directory chars.
+        if (hasTrailingDirectorySeparator(combined) && combined.length > 1) {
+            combined = combined.slice(0, combined.length - 1);
+        }
+        if (combined !== this._filePath) {
+            return FileUri.createFileUri(combined, '', '', undefined);
+        }
+        return this;
+    }
+
     protected override getPathComponentsImpl(): string[] {
         const components = getPathComponents(this._filePath);
         // Remove the first one if it's empty. The new algorithm doesn't
@@ -137,30 +158,16 @@ export class FileUri extends BaseUri {
             dir = dir.slice(0, -1);
         }
         if (dir !== filePath) {
-            return FileUri.create(dir, '', '', undefined);
+            return FileUri.createFileUri(dir, '', '', undefined);
         } else {
             return this;
         }
     }
 
-    protected override combinePathsImpl(...paths: string[]): Uri {
-        // Resolve and combine paths, never want URIs with '..' in the middle.
-        let combined = resolvePaths(this._filePath, ...paths);
-
-        // Make sure to remove any trailing directory chars.
-        if (hasTrailingDirectorySeparator(combined) && combined.length > 1) {
-            combined = combined.slice(0, combined.length - 1);
-        }
-        if (combined !== this._filePath) {
-            return FileUri.create(combined, '', '', undefined);
-        }
-        return this;
-    }
-
     protected override getRootImpl(): Uri {
         const rootPath = this.getRootPath();
         if (rootPath !== this._filePath) {
-            return FileUri.create(rootPath, '', '', undefined);
+            return FileUri.createFileUri(rootPath, '', '', undefined);
         }
         return this;
     }

@@ -382,8 +382,24 @@ export class AnalyzerService {
         this._console.info(`Total number of URIs created: ${Uri.count()}`);
         this._console.info(`Counts per method:`);
         let timeSpentInUri = 0;
+        let longestMethodName = 0;
+        let longestCount = 0;
         Uri.methods().forEach((m) => {
-            this._console.info(`  ${m}: ${Uri.countPerMethod(m)} - ${Uri.timePerMethod(m)}ms`);
+            if (m.length > longestMethodName) {
+                longestMethodName = m.length;
+            }
+            if (Uri.countPerMethod(m) > longestCount) {
+                longestCount = Uri.countPerMethod(m);
+            }
+        });
+        Uri.methods().forEach((m) => {
+            const totalCount = Uri.countPerMethod(m);
+            const percentageCached = Math.round((Uri.cachedPerMethod(m) / totalCount) * 100);
+            const methodSpacing = ' '.repeat(5 + (longestMethodName - m.length));
+            const countSpacing = ' '.repeat(3 + (longestCount.toString().length - totalCount.toString().length));
+            this._console.info(
+                `  ${m}:${methodSpacing}${totalCount}${countSpacing}${percentageCached}% - ${Uri.timePerMethod(m)}ms`
+            );
             timeSpentInUri += Uri.timePerMethod(m);
         });
         this._console.info(`Total time spent in URI methods: ${timeSpentInUri}ms`);

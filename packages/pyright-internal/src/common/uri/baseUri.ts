@@ -13,6 +13,7 @@ import { Uri } from './uri';
 
 let _counter = 0;
 const _countPerMethod = new Map<string, number>();
+const _cachedPerMethod = new Map<string, number>();
 const _timePerMethod = new Map<string, number>();
 
 // Times and keeps track of method calls. Used for performance analysis.
@@ -31,20 +32,28 @@ function timeMethod<T>(functionName: string, func: () => T) {
 // that's what Jest and webpack are using.
 //
 // Typescript 5 decorators look a bit different: https://devblogs.microsoft.com/typescript/announcing-typescript-5-0/#decorators
-function cache(useZeroArgs: boolean) {
+export function cache(useZeroArgs: boolean) {
     return function (target: any, functionName: string, descriptor: PropertyDescriptor) {
         const originalMethod = descriptor.value;
         const cacheKey = `_cache_${functionName}`; // One cache per function name.
         const multipleArgsFunc = function (this: any, ...args: any) {
             return timeMethod(functionName, () => {
-                const key = args.map((a: any) => a.toString()).join(',');
                 let cachedResult: any;
+                let key = '';
+
+                // Small perf optimization, don't use join as it allocates another array, just add
+                // to the string.
+                for (let i = 0; i < args.length; i++) {
+                    key += args[i]?.toString();
+                }
+
                 const cache = (this[cacheKey] as Map<string, any>) || new Map<string, any>();
                 if (!cache.has(key)) {
                     cachedResult = originalMethod.apply(this, args);
                     cache.set(key, cachedResult);
                 } else {
                     cachedResult = cache.get(key);
+                    _cachedPerMethod.set(functionName, (_cachedPerMethod.get(functionName) || 0) + 1);
                 }
                 if (!this[cacheKey]) {
                     // Dynamically add the cache to the object.
@@ -61,6 +70,7 @@ function cache(useZeroArgs: boolean) {
                     this[cacheKey] = cachedResult;
                 } else {
                     cachedResult = this[cacheKey];
+                    _cachedPerMethod.set(functionName, (_cachedPerMethod.get(functionName) || 0) + 1);
                 }
                 return cachedResult;
             });
@@ -86,6 +96,7 @@ export function staticFuncCache() {
                     staticCache.set(key, cachedResult);
                 } else {
                     cachedResult = staticCache.get(key);
+                    _cachedPerMethod.set(functionName, (_cachedPerMethod.get(functionName) || 0) + 1);
                 }
                 return cachedResult;
             });
@@ -136,6 +147,10 @@ export abstract class BaseUri implements Uri {
 
     static timePerMethod(method: string): number {
         return _timePerMethod.get(method) ?? 0;
+    }
+
+    static cachedPerMethod(method: string): number {
+        return _cachedPerMethod.get(method) ?? 0;
     }
 
     isEmpty(): boolean {
@@ -216,10 +231,8 @@ export abstract class BaseUri implements Uri {
     // How long the path for this Uri is.
     abstract getPathLength(): number;
 
-    @cache(false)
-    combinePaths(...paths: string[]): Uri {
-        return this.combinePathsImpl(...paths);
-    }
+    // Combines paths to create a new Uri. Any '..' or '.' path components will be normalized.
+    abstract combinePaths(...paths: string[]): Uri;
 
     @cache(false)
     getRelativePath(child: Uri): string | undefined {
@@ -306,8 +319,6 @@ export abstract class BaseUri implements Uri {
     protected abstract getRootPath(): string;
 
     protected abstract getDirectoryImpl(): Uri;
-
-    protected abstract combinePathsImpl(...paths: string[]): Uri;
 
     protected reducePathComponents(components: string[]): string[] {
         if (!some(components)) {

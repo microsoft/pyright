@@ -144,7 +144,7 @@ export namespace Uri {
         const normalized = path.startsWith('file:') ? normalizeUri(path) : normalizeUri(URI.file(path));
 
         // Turn the path into a file URI.
-        return FileUri.create(
+        return FileUri.createFileUri(
             getFilePath(normalized.uri),
             normalized.uri.query,
             normalized.uri.fragment,
@@ -165,14 +165,14 @@ export namespace Uri {
         // '/' on the end of the path.
         const normalized = normalizeUri(value);
         if (normalized.uri.scheme === 'file') {
-            return FileUri.create(
+            return FileUri.createFileUri(
                 getFilePath(normalized.uri),
                 normalized.uri.query,
                 normalized.uri.fragment,
                 normalized.str
             );
         }
-        return WebUri.create(
+        return WebUri.createWebUri(
             normalized.uri.scheme,
             normalized.uri.authority,
             normalized.uri.path,
@@ -205,5 +205,9 @@ export namespace Uri {
 
     export function timePerMethod(method: string): number {
         return BaseUri.timePerMethod(method);
+    }
+
+    export function cachedPerMethod(method: string): number {
+        return BaseUri.cachedPerMethod(method);
     }
 }

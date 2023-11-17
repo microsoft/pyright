@@ -13,7 +13,7 @@
 
 import * as debug from '../debug';
 import { getRootLength, hasTrailingDirectorySeparator, normalizeSlashes, resolvePaths } from '../pathUtils';
-import { BaseUri } from './baseUri';
+import { BaseUri, cache, staticFuncCache } from './baseUri';
 import { Uri } from './uri';
 
 export class WebUri extends BaseUri {
@@ -33,7 +33,9 @@ export class WebUri extends BaseUri {
     override get scheme(): string {
         return this._scheme;
     }
-    static create(
+
+    @staticFuncCache()
+    static createWebUri(
         scheme: string,
         authority: string,
         path: string,
@@ -42,10 +44,7 @@ export class WebUri extends BaseUri {
         originalString: string | undefined
     ): WebUri {
         const key = WebUri._createKey(scheme, authority, path, query, fragment);
-        if (!WebUri._cache.has(key)) {
-            WebUri._cache.set(key, new WebUri(scheme, authority, path, query, fragment, originalString, key));
-        }
-        return WebUri._cache.get(key)!;
+        return new WebUri(scheme, authority, path, query, fragment, originalString, key);
     }
 
     override toString(): string {
@@ -68,7 +67,7 @@ export class WebUri extends BaseUri {
     }
     override addPath(extra: string): Uri {
         const newPath = this._path + extra;
-        return WebUri.create(this._scheme, this._authority, newPath, this._query, this._fragment, undefined);
+        return WebUri.createWebUri(this._scheme, this._authority, newPath, this._query, this._fragment, undefined);
     }
     override isRoot(): boolean {
         return this._path === this.getRootPath() && this._path.length > 0;
@@ -117,10 +116,26 @@ export class WebUri extends BaseUri {
     override getFilePath(): string {
         debug.fail(`${this} is not a file based URI.`);
     }
+
+    @cache(false)
+    override combinePaths(...paths: string[]): Uri {
+        // Resolve and combine paths, never want URIs with '..' in the middle.
+        let combined = resolvePaths(this._path, ...paths);
+
+        // Make sure to remove any trailing directory chars.
+        if (hasTrailingDirectorySeparator(combined) && combined.length > 1) {
+            combined = combined.slice(0, combined.length - 1);
+        }
+        if (combined !== this._path) {
+            return WebUri.createWebUri(this._scheme, this._authority, combined, '', '', undefined);
+        }
+        return this;
+    }
+
     protected override getDirectoryImpl(): Uri {
         const index = this._path.lastIndexOf('/');
         if (index > 0) {
-            return WebUri.create(
+            return WebUri.createWebUri(
                 this._scheme,
                 this._authority,
                 this._path.slice(0, index),
@@ -146,24 +161,11 @@ export class WebUri extends BaseUri {
     protected override getComparablePathImpl(): string {
         return normalizeSlashes(this._path);
     }
-    protected override combinePathsImpl(...paths: string[]): Uri {
-        // Resolve and combine paths, never want URIs with '..' in the middle.
-        let combined = resolvePaths(this._path, ...paths);
-
-        // Make sure to remove any trailing directory chars.
-        if (hasTrailingDirectorySeparator(combined) && combined.length > 1) {
-            combined = combined.slice(0, combined.length - 1);
-        }
-        if (combined !== this._path) {
-            return WebUri.create(this._scheme, this._authority, combined, '', '', undefined);
-        }
-        return this;
-    }
 
     protected override getRootImpl(): Uri {
         const rootPath = this.getRootPath();
         if (rootPath !== this._path) {
-            return WebUri.create(this._scheme, this._authority, rootPath, '', '', undefined);
+            return WebUri.createWebUri(this._scheme, this._authority, rootPath, '', '', undefined);
         }
         return this;
     }
