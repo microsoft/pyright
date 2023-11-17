@@ -14,4 +14,4 @@ jobs:
         with:
           token: ${{ secrets.PYLANCE_PAT }} 
           repository: microsoft/pyrx   
-          event-type: new-release
+          event-type: new-pyright-release
