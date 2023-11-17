@@ -111,6 +111,7 @@ export class ImportResolver {
     private _cachedTypeshedThirdPartyPackagePaths: Map<string, Uri[]> | undefined;
     private _cachedTypeshedThirdPartyPackageRoots: Uri[] | undefined;
     private _cachedEntriesForPath = new Map<string, Dirent[]>();
+    private _cachedFilesForPath = new Map<string, Uri[]>();
     private _stdlibModules: Set<string> | undefined;
     protected cachedParentImportResults: ParentDirectoryCache;
 
@@ -1268,6 +1269,7 @@ export class ImportResolver {
 
     private _invalidateFileSystemCache() {
         this._cachedEntriesForPath.clear();
+        this._cachedFilesForPath.clear();
     }
 
     // Splits a path into the name of the containing directory and
@@ -2292,18 +2294,30 @@ export class ImportResolver {
     }
 
     private _getFilesInDirectory(dirPath: Uri): Uri[] {
-        const entriesInDir = this.readdirEntriesCached(dirPath);
-        const filesInDir = entriesInDir.filter((f) => f.isFile()).map((f) => dirPath.combinePaths(f.name));
+        const cachedValue = this._cachedFilesForPath.get(dirPath.key);
+        if (cachedValue) {
+            return cachedValue;
+        }
 
-        // Add any symbolic links that point to files.
-        entriesInDir.forEach((f) => {
-            const linkPath = dirPath.combinePaths(f.name);
-            if (f.isSymbolicLink() && tryStat(this.fileSystem, linkPath)?.isFile()) {
-                filesInDir.push(linkPath);
-            }
-        });
+        let newCacheValue: Uri[] = [];
+        try {
+            const entriesInDir = this.readdirEntriesCached(dirPath);
+            const filesInDir = entriesInDir.filter((f) => f.isFile());
 
-        return filesInDir;
+            // Add any symbolic links that point to files.
+            entriesInDir.forEach((f) => {
+                if (f.isSymbolicLink() && tryStat(this.fileSystem, dirPath.combinePaths(f.name))?.isFile()) {
+                    filesInDir.push(f);
+                }
+            });
+
+            newCacheValue = filesInDir.map((f) => dirPath.combinePaths(f.name));
+        } catch {
+            newCacheValue = [];
+        }
+
+        this._cachedFilesForPath.set(dirPath.key, newCacheValue);
+        return newCacheValue;
     }
 
     private _getCompletionSuggestionsAbsolute(
@@ -2644,7 +2658,7 @@ export class ImportResolver {
         // that excludes all (multi-part) file extensions. This allows us to
         // handle file names like "foo.cpython-32m.so".
         const fileExtension = fileUri.extname;
-        const withoutExtension = fileUri.stripAllExtensions().basename;
+        const withoutExtension = stripFileExtension(fileUri.basename, true);
         return (
             this._isNativeModuleFileExtension(fileExtension) &&
             equateStringsCaseInsensitive(moduleName, withoutExtension)
