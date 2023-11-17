@@ -19,7 +19,8 @@ import {
     normalizeSlashes,
     resolvePaths,
 } from '../pathUtils';
-import { BaseUri, staticFuncCache } from './baseUri';
+import { BaseUri } from './baseUri';
+import { cacheStaticFunc } from './memoization';
 import { Uri } from './uri';
 
 export class FileUri extends BaseUri {
@@ -38,7 +39,7 @@ export class FileUri extends BaseUri {
         return 'file';
     }
 
-    @staticFuncCache()
+    @cacheStaticFunc()
     static createFileUri(
         filePath: string,
         query: string,

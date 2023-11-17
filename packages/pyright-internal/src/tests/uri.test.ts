@@ -209,6 +209,8 @@ test('directory', () => {
     const uri4 = Uri.parse('file:///a/b/');
     const uri5 = uri4.getDirectory();
     assert.equal(uri5.toString(), 'file:///a');
+    const uri6 = uri4.getDirectory();
+    assert.ok(uri6.equals(uri5));
 });
 
 test('isChild', () => {

@@ -394,11 +394,11 @@ export class AnalyzerService {
         });
         Uri.methods().forEach((m) => {
             const totalCount = Uri.countPerMethod(m);
-            const percentageCached = Math.round((Uri.cachedPerMethod(m) / totalCount) * 100);
+            const percentageMissed = Math.round((Uri.cacheMissesPerMethod(m) / totalCount) * 100);
             const methodSpacing = ' '.repeat(5 + (longestMethodName - m.length));
             const countSpacing = ' '.repeat(3 + (longestCount.toString().length - totalCount.toString().length));
             this._console.info(
-                `  ${m}:${methodSpacing}${totalCount}${countSpacing}${percentageCached}% - ${Uri.timePerMethod(m)}ms`
+                `  ${m}:${methodSpacing}${totalCount}${countSpacing}${percentageMissed}% - ${Uri.timePerMethod(m)}ms`
             );
             timeSpentInUri += Uri.timePerMethod(m);
         });

@@ -7,9 +7,9 @@
  */
 
 import { URI, Utils } from 'vscode-uri';
-import { BaseUri } from './baseUri';
 import { EmptyUri } from './emptyUri';
 import { FileUri } from './fileUri';
+import * as memoization from './memoization';
 import { WebUri } from './webUri';
 
 export interface Uri {
@@ -192,22 +192,22 @@ export namespace Uri {
     }
 
     export function count(): number {
-        return BaseUri.count();
+        return memoization.getCounter();
     }
 
     export function methods(): string[] {
-        return BaseUri.methods();
+        return memoization.getMethods();
     }
 
     export function countPerMethod(method: string): number {
-        return BaseUri.countPerMethod(method);
+        return memoization.getCountPerMethod(method);
     }
 
     export function timePerMethod(method: string): number {
-        return BaseUri.timePerMethod(method);
+        return memoization.getTimePerMethod(method);
     }
 
-    export function cachedPerMethod(method: string): number {
-        return BaseUri.cachedPerMethod(method);
+    export function cacheMissesPerMethod(method: string): number {
+        return memoization.getCachedMissesPerMethod(method);
     }
 }
