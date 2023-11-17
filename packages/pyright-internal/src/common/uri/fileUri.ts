@@ -20,7 +20,7 @@ import {
     resolvePaths,
 } from '../pathUtils';
 import { BaseUri } from './baseUri';
-import { cacheStaticFunc } from './memoization';
+import { cacheStaticFunc, cacheUriMethod, cacheUriMethodWithNoArgs } from './memoization';
 import { Uri } from './uri';
 
 export class FileUri extends BaseUri {
@@ -74,9 +74,13 @@ export class FileUri extends BaseUri {
     override addPath(extra: string): Uri {
         return FileUri.createFileUri(this._filePath + extra, '', '', undefined);
     }
+
+    @cacheUriMethodWithNoArgs()
     override isRoot(): boolean {
         return isDiskPathRoot(this._filePath);
     }
+
+    @cacheUriMethod()
     override isChild(parent: Uri, ignoreCase?: boolean): boolean {
         if (!FileUri.isFileUri(parent)) {
             return false;
@@ -87,6 +91,8 @@ export class FileUri extends BaseUri {
     override isLocal(): boolean {
         return true;
     }
+
+    @cacheUriMethod()
     override startsWith(other: Uri | undefined, ignoreCase?: boolean): boolean {
         if (!other || !FileUri.isFileUri(other)) {
             return false;
