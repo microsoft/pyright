@@ -12,6 +12,7 @@ let _counter = 0;
 const _countPerMethod = new Map<string, number>();
 const _cacheMissPerMethod = new Map<string, number>();
 const _timePerMethod = new Map<string, number>();
+const _argKeys = new Map<string, number>();
 
 // Times and keeps track of method calls. Used for performance analysis.
 function timeUriMethod<T>(functionName: string, func: () => T) {
@@ -51,6 +52,14 @@ export function getMethods(): string[] {
     return [..._countPerMethod.keys()];
 }
 
+export function getArgKeys(): string[] {
+    // Return them sorted by count.
+    return [..._argKeys.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map((a) => `${a[0]}: ${a[1]}`)
+        .slice(0, 100);
+}
+
 // Create a decorator to memoize (cache) the results of a method.
 //
 // This is using the Typescript 4 version of decorators as
@@ -77,8 +86,10 @@ export function cacheUriMethod() {
                     cache.set(key, result);
                     addCacheMiss(functionName);
                     this[cacheKey] = cache;
+                    //_argKeys.set(key, (_argKeys.get(key) || 0) + 1);
                     return result;
                 } else {
+                    //_argKeys.set(key, (_argKeys.get(key) || 0) + 1);
                     return cache.get(key)!;
                 }
             });
@@ -97,6 +108,8 @@ export function cacheUriMethodWithNoArgs() {
 
                 // Then we replace the original function with one that just returns the result.
                 this[functionName] = () => {
+                    // Note that this poses a risk. The result is passed by reference, so if the caller
+                    // modifies the result, it will modify the cached result.
                     return timeUriMethod(functionName, () => result);
                 };
                 return result;

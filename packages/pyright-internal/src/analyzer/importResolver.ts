@@ -260,7 +260,7 @@ export class ImportResolver {
             const relativeStubPaths: string[] = [];
             for (const importRootPath of importRootPaths) {
                 if (stubFileUri.isChild(importRootPath, !isFileSystemCaseSensitive(this.fileSystem, this.tmp))) {
-                    const parts = importRootPath.getRelativePathComponents(stubFileUri);
+                    const parts = Array.from(importRootPath.getRelativePathComponents(stubFileUri));
 
                     if (parts.length >= 1) {
                         // Handle the case where the symbol was resolved to a stubs package
@@ -287,14 +287,14 @@ export class ImportResolver {
                         if (filePathWithoutExtension.pathEndsWith('__init__')) {
                             // Did not match: <root>/package/__init__.py
                             // Try equivalent: <root>/package.py
-                            absoluteSourcePath = filePathWithoutExtension.getDirectory().addExtension('.py');
+                            absoluteSourcePath = filePathWithoutExtension.getDirectory().packageUri;
                             if (this.fileExistsCached(absoluteSourcePath)) {
                                 sourceFileUris.push(absoluteSourcePath);
                             }
                         } else {
                             // Did not match: <root>/package.py
                             // Try equivalent: <root>/package/__init__.py
-                            absoluteSourcePath = filePathWithoutExtension.combinePaths('__init__.py');
+                            absoluteSourcePath = filePathWithoutExtension.initFileUri;
                             if (this.fileExistsCached(absoluteSourcePath)) {
                                 sourceFileUris.push(absoluteSourcePath);
                             }
@@ -783,7 +783,7 @@ export class ImportResolver {
             filePathWithoutExtension = filePathWithoutExtension.getDirectory();
         }
 
-        const parts = containerPath.getRelativePathComponents(filePathWithoutExtension);
+        const parts = Array.from(containerPath.getRelativePathComponents(filePathWithoutExtension));
         if (stripTopContainerDir) {
             if (parts.length === 0) {
                 return undefined;
@@ -1226,7 +1226,7 @@ export class ImportResolver {
             // Go up directories one by one looking for a py.typed file.
             let current: Uri | undefined = fileUri.getDirectory();
             while (this._shouldWalkUp(current, root, execEnv)) {
-                if (this.fileExistsCached(current!.combinePaths('py.typed'))) {
+                if (this.fileExistsCached(current!.pytypedUri)) {
                     const pyTypedInfo = getPyTypedInfo(this.fileSystem, current!);
                     if (pyTypedInfo && !pyTypedInfo.isPartiallyTyped) {
                         isThirdPartyPyTypedPresent = true;
@@ -1317,9 +1317,8 @@ export class ImportResolver {
 
         // Handle the "from . import XXX" case.
         if (moduleDescriptor.nameParts.length === 0) {
-            const fileNameWithoutExtension = '__init__';
-            const pyFilePath = dirPath.combinePaths(fileNameWithoutExtension + '.py');
-            const pyiFilePath = dirPath.combinePaths(fileNameWithoutExtension + '.pyi');
+            const pyFilePath = dirPath.initFileUri;
+            const pyiFilePath = dirPath.initStubUri;
 
             if (allowPyi && this.fileExistsCached(pyiFilePath)) {
                 importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
@@ -1355,9 +1354,8 @@ export class ImportResolver {
                     }
 
                     // See if we can find an __init__.py[i] in this directory.
-                    const fileNameWithoutExtension = '__init__';
-                    const pyFilePath = dirPath.combinePaths(fileNameWithoutExtension + '.py');
-                    const pyiFilePath = dirPath.combinePaths(fileNameWithoutExtension + '.pyi');
+                    const pyFilePath = dirPath.initFileUri;
+                    const pyiFilePath = dirPath.initStubUri;
                     isInitFilePresent = false;
 
                     if (allowPyi && this.fileExistsCached(pyiFilePath)) {
@@ -1374,7 +1372,7 @@ export class ImportResolver {
                     }
 
                     if (!pyTypedInfo && lookForPyTyped) {
-                        if (this.fileExistsCached(dirPath.combinePaths('py.typed'))) {
+                        if (this.fileExistsCached(dirPath.pytypedUri)) {
                             pyTypedInfo = getPyTypedInfo(this.fileSystem, dirPath);
                         }
                     }
@@ -1402,10 +1400,9 @@ export class ImportResolver {
                 // We weren't able to find a directory or we found a directory with
                 // no __init__.py[i] file. See if we can find a ".py" or ".pyi" file
                 // with this name.
-                const fileNameWithoutExtension = dirPath.basename;
+                const pyFilePath = dirPath.packageUri;
+                const pyiFilePath = dirPath.packageStubUri;
                 const fileDirectory = dirPath.getDirectory();
-                const pyFilePath = fileDirectory.combinePaths(fileNameWithoutExtension + '.py');
-                const pyiFilePath = fileDirectory.combinePaths(fileNameWithoutExtension + '.pyi');
 
                 if (allowPyi && this.fileExistsCached(pyiFilePath)) {
                     importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
@@ -1419,9 +1416,7 @@ export class ImportResolver {
                 } else {
                     if (allowNativeLib && this.dirExistsCached(fileDirectory)) {
                         const filesInDir = this._getFilesInDirectory(fileDirectory);
-                        const nativeLibPath = filesInDir.find((f) =>
-                            this._isNativeModuleFileName(fileNameWithoutExtension, f)
-                        );
+                        const nativeLibPath = filesInDir.find((f) => this._isNativeModuleFileName(dirPath.basename, f));
                         if (nativeLibPath) {
                             // Try resolving native library to a custom stub.
                             isNativeLib = this._resolveNativeModuleStub(
@@ -1448,7 +1443,7 @@ export class ImportResolver {
                 }
 
                 if (!pyTypedInfo && lookForPyTyped) {
-                    if (this.fileExistsCached(fileDirectory.combinePaths('py.typed'))) {
+                    if (this.fileExistsCached(fileDirectory.pytypedUri)) {
                         pyTypedInfo = getPyTypedInfo(this.fileSystem, fileDirectory);
                     }
                 }
@@ -2442,13 +2437,13 @@ export class ImportResolver {
                 return;
             }
 
-            const initPyiPath = dir.combinePaths('__init__.pyi');
+            const initPyiPath = dir.initStubUri;
             if (this.fileExistsCached(initPyiPath)) {
                 suggestions.set(dirSuggestion, initPyiPath);
                 return;
             }
 
-            const initPyPath = dir.combinePaths('__init__.py');
+            const initPyPath = dir.initFileUri;
             if (this.fileExistsCached(initPyPath)) {
                 suggestions.set(dirSuggestion, initPyPath);
                 return;

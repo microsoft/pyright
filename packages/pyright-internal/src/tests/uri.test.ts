@@ -213,6 +213,31 @@ test('directory', () => {
     assert.ok(uri6.equals(uri5));
 });
 
+test('init and pytyped', () => {
+    const uri = Uri.parse('file:///a/b/c?query#fragment');
+    const uri2 = uri.pytypedUri;
+    assert.equal(uri2.toString(), 'file:///a/b/c/py.typed');
+    const uri3 = uri.initFileUri;
+    assert.equal(uri3.toString(), 'file:///a/b/c/__init__.py');
+    const uri4 = uri.initStubUri;
+    assert.equal(uri4.toString(), 'file:///a/b/c/__init__.pyi');
+    const uri5 = uri.packageUri;
+    assert.equal(uri5.toString(), 'file:///a/b/c.py');
+    const uri6 = uri.packageStubUri;
+    assert.equal(uri6.toString(), 'file:///a/b/c.pyi');
+    const uri7 = Uri.parse('foo://microsoft.com/a/b/c.py');
+    const uri8 = uri7.pytypedUri;
+    assert.equal(uri8.toString(), 'foo://microsoft.com/a/b/c.py/py.typed');
+    const uri9 = uri7.initFileUri;
+    assert.equal(uri9.toString(), 'foo://microsoft.com/a/b/c.py/__init__.py');
+    const uri10 = uri7.initStubUri;
+    assert.equal(uri10.toString(), 'foo://microsoft.com/a/b/c.py/__init__.pyi');
+    const uri11 = uri7.packageUri;
+    assert.equal(uri11.toString(), 'foo://microsoft.com/a/b/c.py.py');
+    const uri12 = uri7.packageStubUri;
+    assert.equal(uri12.toString(), 'foo://microsoft.com/a/b/c.py.pyi');
+});
+
 test('isChild', () => {
     const parent = Uri.parse('file:///a/b/?query#fragment');
     const child = Uri.parse('file:///a/b/c.pyi?query#fragment');

@@ -455,7 +455,7 @@ export function stripTrailingDirectorySeparator(pathString: string) {
     if (!hasTrailingDirectorySeparator(pathString)) {
         return pathString;
     }
-    return pathString.substr(0, pathString.length - 1);
+    return pathString.slice(0, pathString.length - 1);
 }
 
 export function getFileExtension(fileName: string, multiDotExtension = false) {
@@ -465,7 +465,7 @@ export function getFileExtension(fileName: string, multiDotExtension = false) {
 
     fileName = getFileName(fileName);
     const firstDotIndex = fileName.indexOf('.');
-    return fileName.substr(firstDotIndex);
+    return fileName.slice(firstDotIndex);
 }
 
 export function getFileName(pathString: string) {

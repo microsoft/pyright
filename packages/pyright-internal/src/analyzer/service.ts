@@ -403,6 +403,11 @@ export class AnalyzerService {
             timeSpentInUri += Uri.timePerMethod(m);
         });
         this._console.info(`Total time spent in URI methods: ${timeSpentInUri}ms`);
+
+        this._console.info(`Most common arguments for multi-URI methods:`);
+        Uri.getArgKeys().forEach((k) => {
+            this._console.info(`  ${k}`);
+        });
     }
 
     printDetailedAnalysisTimes() {

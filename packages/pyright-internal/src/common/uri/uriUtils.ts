@@ -216,7 +216,7 @@ export function setTestingMode(underTest: boolean) {
 // that can be used for matching against.
 export function getWildcardRegexPattern(root: Uri, fileSpec: string): string {
     const absolutePath = root.combinePaths(fileSpec);
-    const pathComponents = absolutePath.getPathComponents();
+    const pathComponents = Array.from(absolutePath.getPathComponents());
     const escapedSeparator = getRegexEscapedSeparator('/');
     const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}][^${escapedSeparator}]*)*?`;
     const reservedCharacterPattern = new RegExp(`[^\\w\\s${escapedSeparator}]`, 'g');
@@ -258,7 +258,8 @@ export function getWildcardRegexPattern(root: Uri, fileSpec: string): string {
 // Returns the topmost path that contains no wildcard characters.
 export function getWildcardRoot(root: Uri, fileSpec: string): Uri {
     const absolutePath = root.combinePaths(fileSpec);
-    const pathComponents = absolutePath.getPathComponents();
+    // make a copy of the path components so we can modify them.
+    const pathComponents = Array.from(absolutePath.getPathComponents());
     let wildcardRoot = absolutePath.root;
 
     // Strip the directory separator from the root component.

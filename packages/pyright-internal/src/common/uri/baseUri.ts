@@ -42,6 +42,41 @@ export abstract class BaseUri implements Uri {
         return this.getRootImpl();
     }
 
+    // Returns a URI where the path contains the path with .py appended.
+    @cacheUriProperty()
+    get packageUri(): Uri {
+        // This is assuming that the current path is a directory already.
+        return this.addPath('.py');
+    }
+
+    // Returns a URI where the path contains the path with .pyi appended.
+    @cacheUriProperty()
+    get packageStubUri(): Uri {
+        // This is assuming that the current path is a directory already.
+        return this.addPath('.pyi');
+    }
+
+    // Returns a URI where the path has __init__.py appended.
+    @cacheUriProperty()
+    get initFileUri(): Uri {
+        // This is assuming that the current path is a directory already.
+        return this.combinePaths('__init__.py');
+    }
+
+    // Returns a URI where the path has __init__.pyi appended.
+    @cacheUriProperty()
+    get initStubUri(): Uri {
+        // This is assuming that the current path is a directory already.
+        return this.combinePaths('__init__.pyi');
+    }
+
+    // Returns a URI where the path has py.typed appended.
+    @cacheUriProperty()
+    get pytypedUri(): Uri {
+        // This is assuming that the current path is a directory already.
+        return this.combinePaths('py.typed');
+    }
+
     isEmpty(): boolean {
         return false;
     }
@@ -144,8 +179,9 @@ export abstract class BaseUri implements Uri {
     }
 
     @cacheUriMethodWithNoArgs()
-    getPathComponents(): string[] {
-        return this.getPathComponentsImpl();
+    getPathComponents(): readonly string[] {
+        // Make sure to freeze the result so that it can't be modified.
+        return Object.freeze(this.getPathComponentsImpl());
     }
 
     abstract getPath(): string;
@@ -153,7 +189,7 @@ export abstract class BaseUri implements Uri {
     abstract getFilePath(): string;
 
     @cacheUriMethod()
-    getRelativePathComponents(to: Uri): string[] {
+    getRelativePathComponents(to: Uri): readonly string[] {
         const fromComponents = this.getPathComponents();
         const toComponents = to.getPathComponents();
 

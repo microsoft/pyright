@@ -28,6 +28,21 @@ export interface Uri {
     // Returns a URI where the path just contains the root folder.
     readonly root: Uri;
 
+    // Returns a URI where the path contains the directory name with .py appended.
+    readonly packageUri: Uri;
+
+    // Returns a URI where the path contains the directory name with .pyi appended.
+    readonly packageStubUri: Uri;
+
+    // Returns a URI where the path has __init__.py appended.
+    readonly initFileUri: Uri;
+
+    // Returns a URI where the path has __init__.pyi appended.
+    readonly initStubUri: Uri;
+
+    // Returns a URI where the path has py.typed appended.
+    readonly pytypedUri: Uri;
+
     isEmpty(): boolean;
 
     toString(): string;
@@ -74,13 +89,13 @@ export interface Uri {
 
     getRelativePath(child: Uri): string | undefined;
 
-    getPathComponents(): string[];
+    getPathComponents(): readonly string[];
 
     getPath(): string;
 
     getFilePath(): string;
 
-    getRelativePathComponents(to: Uri): string[];
+    getRelativePathComponents(to: Uri): readonly string[];
     getShortenedFileName(maxDirLength?: number): string;
 
     stripExtension(): Uri;
@@ -209,5 +224,9 @@ export namespace Uri {
 
     export function cacheMissesPerMethod(method: string): number {
         return memoization.getCachedMissesPerMethod(method);
+    }
+
+    export function getArgKeys(): string[] {
+        return memoization.getArgKeys();
     }
 }
