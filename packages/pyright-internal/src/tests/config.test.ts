@@ -10,6 +10,7 @@
 import assert from 'assert';
 
 import { AnalyzerService } from '../analyzer/service';
+import { createConfigOptionsFrom } from '../backgroundThreadBase';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../common/console';
@@ -17,10 +18,9 @@ import { NoAccessHost } from '../common/host';
 import { combinePaths, getBaseFileName, normalizePath, normalizeSlashes, realCasePath } from '../common/pathUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { createFromRealFileSystem } from '../common/realFileSystem';
-import { TestFileSystem } from './harness/vfs/filesystem';
-import { createConfigOptionsFrom } from '../backgroundThreadBase';
-import { TestAccessHost } from './harness/testAccessHost';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
+import { TestAccessHost } from './harness/testAccessHost';
+import { TestFileSystem } from './harness/vfs/filesystem';
 
 function createAnalyzer(console?: ConsoleInterface) {
     const cons = console ?? new NullConsole();
@@ -308,11 +308,13 @@ test('BasicPyprojectTomlParsing', () => {
 test('FindFilesInMemoryOnly', () => {
     const cwd = normalizePath(process.cwd());
     const service = createAnalyzer();
-    const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ true);
+    const commandLineOptions = new CommandLineOptions('', /* fromVsCodeExtension */ true);
+    // Force a lookup of the typeshed path. This causes us to try and generate a module path for the untitled file.
+    commandLineOptions.typeshedPath = combinePaths(cwd, 'src', 'tests', 'samples');
     service.setOptions(commandLineOptions);
 
     // Open a file that is not backed by the file system.
-    const untitled = combinePaths(cwd, 'untitled.py');
+    const untitled = 'untitled:Untitled-1.py';
     service.setFileOpened(untitled, 1, '# empty');
 
     const fileList = service.test_getFileNamesFromFileSpecs();
