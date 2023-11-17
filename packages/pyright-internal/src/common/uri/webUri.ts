@@ -33,19 +33,6 @@ export class WebUri extends BaseUri {
     override get scheme(): string {
         return this._scheme;
     }
-    override get basename(): string {
-        // Path should already be normalized, just get the last on a split of '/'.
-        const components = this._path.split('/');
-        return components[components.length - 1];
-    }
-    override get extname(): string {
-        const basename = this.basename;
-        const index = basename.lastIndexOf('.');
-        if (index >= 0) {
-            return basename.slice(index);
-        }
-        return '';
-    }
     static create(
         scheme: string,
         authority: string,
@@ -124,12 +111,6 @@ export class WebUri extends BaseUri {
     override getPathLength(): number {
         return this._path.length;
     }
-    override getPathComponents(): string[] {
-        // Get the root path and the rest of the path components.
-        const rootPath = this.getRootPath();
-        const otherPaths = this._path.slice(rootPath.length).split('/');
-        return this.reducePathComponents([rootPath, ...otherPaths]);
-    }
     override getPath(): string {
         return this._path;
     }
@@ -151,12 +132,18 @@ export class WebUri extends BaseUri {
             return this;
         }
     }
+    protected override getPathComponentsImpl(): string[] {
+        // Get the root path and the rest of the path components.
+        const rootPath = this.getRootPath();
+        const otherPaths = this._path.slice(rootPath.length).split('/');
+        return this.reducePathComponents([rootPath, ...otherPaths]);
+    }
 
     protected override getRootPath(): string {
         const rootLength = getRootLength(this._path, '/');
         return this._path.slice(0, rootLength);
     }
-    protected override getComparablePath(): string {
+    protected override getComparablePathImpl(): string {
         return normalizeSlashes(this._path);
     }
     protected override combinePathsImpl(...paths: string[]): Uri {
@@ -173,13 +160,27 @@ export class WebUri extends BaseUri {
         return this;
     }
 
-    protected override getRoot(): Uri {
+    protected override getRootImpl(): Uri {
         const rootPath = this.getRootPath();
         if (rootPath !== this._path) {
             return WebUri.create(this._scheme, this._authority, rootPath, '', '', undefined);
         }
         return this;
     }
+    protected override getBasenameImpl(): string {
+        // Path should already be normalized, just get the last on a split of '/'.
+        const components = this._path.split('/');
+        return components[components.length - 1];
+    }
+    protected override getExtnameImpl(): string {
+        const basename = this.basename;
+        const index = basename.lastIndexOf('.');
+        if (index >= 0) {
+            return basename.slice(index);
+        }
+        return '';
+    }
+
     private static _createKey(scheme: string, authority: string, path: string, query: string, fragment: string) {
         return `${scheme}://${authority}${path}${query ? '?' + query : ''}${fragment ? '#' + fragment : ''}`;
     }

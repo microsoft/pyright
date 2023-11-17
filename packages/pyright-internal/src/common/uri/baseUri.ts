@@ -11,13 +11,92 @@ import { some } from '../collectionUtils';
 import { getShortenedFileName, normalizeSlashes } from '../pathUtils';
 import { Uri } from './uri';
 
+let _counter = 0;
+const _countPerMethod = new Map<string, number>();
+const _timePerMethod = new Map<string, number>();
+
+// Times and keeps track of method calls. Used for performance analysis.
+function timeMethod<T>(functionName: string, func: () => T) {
+    const now = performance.now();
+    const result = func();
+    const elapsed = performance.now() - now;
+    _countPerMethod.set(functionName, (_countPerMethod.get(functionName) || 0) + 1);
+    _timePerMethod.set(functionName, (_timePerMethod.get(functionName) || 0) + elapsed);
+    return result;
+}
+
+// Create a decorator to memoize (cache) the results of a method.
+//
+// This is using the Typescript 4 version of decorators as
+// that's what Jest and webpack are using.
+//
+// Typescript 5 decorators look a bit different: https://devblogs.microsoft.com/typescript/announcing-typescript-5-0/#decorators
+function cache(useZeroArgs: boolean) {
+    return function (target: any, functionName: string, descriptor: PropertyDescriptor) {
+        const originalMethod = descriptor.value;
+        const cacheKey = `_cache_${functionName}`; // One cache per function name.
+        const multipleArgsFunc = function (this: any, ...args: any) {
+            return timeMethod(functionName, () => {
+                const key = args.map((a: any) => a.toString()).join(',');
+                let cachedResult: any;
+                const cache = (this[cacheKey] as Map<string, any>) || new Map<string, any>();
+                if (!cache.has(key)) {
+                    cachedResult = originalMethod.apply(this, args);
+                    cache.set(key, cachedResult);
+                } else {
+                    cachedResult = cache.get(key);
+                }
+                if (!this[cacheKey]) {
+                    // Dynamically add the cache to the object.
+                    this[cacheKey] = cache;
+                }
+                return cachedResult;
+            });
+        };
+        const zeroArgsFunc = function (this: any, ...args: any) {
+            return timeMethod(functionName, () => {
+                let cachedResult: any;
+                if (this[cacheKey] === undefined) {
+                    cachedResult = originalMethod.apply(this, args);
+                    this[cacheKey] = cachedResult;
+                } else {
+                    cachedResult = this[cacheKey];
+                }
+                return cachedResult;
+            });
+        };
+
+        // Use the 'quicker' cache if possible. For those functions that don't take any arguments.
+        descriptor.value = useZeroArgs ? zeroArgsFunc : multipleArgsFunc;
+        return descriptor;
+    };
+}
+
+const staticCache = new Map<string, any>();
+// Create a decorator to memoize (cache) the results of a static method.
+export function staticFuncCache() {
+    return function (target: any, functionName: string, descriptor: PropertyDescriptor) {
+        const originalMethod = descriptor.value;
+        descriptor.value = function (...args: any) {
+            return timeMethod(functionName, () => {
+                const key = `${functionName}+${args.map((a: any) => a?.toString()).join(',')}`;
+                let cachedResult: any;
+                if (!staticCache.has(key)) {
+                    cachedResult = originalMethod.apply(this, args);
+                    staticCache.set(key, cachedResult);
+                } else {
+                    cachedResult = staticCache.get(key);
+                }
+                return cachedResult;
+            });
+        };
+        return descriptor;
+    };
+}
+
 export abstract class BaseUri implements Uri {
-    private _resultCache = new Map<string, Uri>();
-    private static _counter = 0;
-    private static _countPerMethod = new Map<string, number>();
-    private static _timePerMethod = new Map<string, number>();
     protected constructor(private readonly _key: string) {
-        BaseUri._counter++;
+        _counter++;
     }
 
     // Unique key for storing in maps.
@@ -29,30 +108,34 @@ export abstract class BaseUri implements Uri {
     abstract get scheme(): string;
 
     // Returns the last segment of the URI, similar to the UNIX basename command.
-    abstract get basename(): string;
+    get basename() {
+        return this.getBasename();
+    }
 
     // Returns the extension of the URI, similar to the UNIX extname command.
-    abstract get extname(): string;
+    get extname() {
+        return this.getExtname();
+    }
 
     // Returns a URI where the path just contains the root folder.
     get root(): Uri {
-        return this._timeMethod('root', 'root', () => this.getRoot());
+        return this.getRoot();
     }
 
     static count(): number {
-        return BaseUri._counter;
+        return _counter;
     }
 
     static methods(): string[] {
-        return Array.from(BaseUri._countPerMethod.keys());
+        return Array.from(_countPerMethod.keys());
     }
 
     static countPerMethod(method: string): number {
-        return BaseUri._countPerMethod.get(method) ?? 0;
+        return _countPerMethod.get(method) ?? 0;
     }
 
     static timePerMethod(method: string): number {
-        return BaseUri._timePerMethod.get(method) ?? 0;
+        return _timePerMethod.get(method) ?? 0;
     }
 
     isEmpty(): boolean {
@@ -65,6 +148,7 @@ export abstract class BaseUri implements Uri {
 
     abstract matchesRegex(regex: RegExp): boolean;
 
+    @cache(false)
     replaceExtension(ext: string): Uri {
         const dir = this.getDirectory();
         const base = this.basename;
@@ -72,6 +156,7 @@ export abstract class BaseUri implements Uri {
         return dir.combinePaths(newBase);
     }
 
+    @cache(false)
     addExtension(ext: string): Uri {
         return this.addPath(ext);
     }
@@ -79,10 +164,12 @@ export abstract class BaseUri implements Uri {
     abstract addPath(extra: string): Uri;
 
     // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
+    @cache(true)
     getDirectory(): Uri {
-        return this._timeMethod('getDirectory', 'getDirectory', () => this.getDirectoryImpl());
+        return this.getDirectoryImpl();
     }
 
+    @cache(true)
     getRootPathLength(): number {
         return this.getRootPath().length;
     }
@@ -129,10 +216,12 @@ export abstract class BaseUri implements Uri {
     // How long the path for this Uri is.
     abstract getPathLength(): number;
 
+    @cache(false)
     combinePaths(...paths: string[]): Uri {
-        return this._timeMethod('combinePaths', paths.join(','), () => this.combinePathsImpl(...paths));
+        return this.combinePathsImpl(...paths);
     }
 
+    @cache(false)
     getRelativePath(child: Uri): string | undefined {
         if (this.scheme !== child.scheme) {
             return undefined;
@@ -149,12 +238,16 @@ export abstract class BaseUri implements Uri {
         return undefined;
     }
 
-    abstract getPathComponents(): string[];
+    @cache(true)
+    getPathComponents(): string[] {
+        return this.getPathComponentsImpl();
+    }
 
     abstract getPath(): string;
 
     abstract getFilePath(): string;
 
+    @cache(false)
     getRelativePathComponents(to: Uri): string[] {
         const fromComponents = this.getPathComponents();
         const toComponents = to.getPathComponents();
@@ -184,6 +277,7 @@ export abstract class BaseUri implements Uri {
         return getShortenedFileName(this.getPath(), maxDirLength);
     }
 
+    @cache(true)
     stripExtension(): Uri {
         const base = this.basename;
         const index = base.lastIndexOf('.');
@@ -194,6 +288,7 @@ export abstract class BaseUri implements Uri {
         return this;
     }
 
+    @cache(true)
     stripAllExtensions(): Uri {
         const base = this.basename;
         const stripped = base.split('.')[0];
@@ -203,7 +298,11 @@ export abstract class BaseUri implements Uri {
         return this.getDirectory().combinePaths(stripped);
     }
 
-    protected abstract getRoot(): Uri;
+    @cache(true)
+    protected getRoot(): Uri {
+        return this.getRootImpl();
+    }
+    protected abstract getRootImpl(): Uri;
     protected abstract getRootPath(): string;
 
     protected abstract getDirectoryImpl(): Uri;
@@ -240,17 +339,26 @@ export abstract class BaseUri implements Uri {
         return reduced;
     }
 
-    protected abstract getComparablePath(): string;
-
-    private _timeMethod(method: string, key: string, generator: () => Uri): Uri {
-        const now = performance.now();
-        const result = this._resultCache.get(key) ?? generator();
-        const elapsed = performance.now() - now;
-        const current = BaseUri._timePerMethod.get(method) || 0;
-        BaseUri._timePerMethod.set(method, current + elapsed);
-        const currentCount = BaseUri._countPerMethod.get(method) || 0;
-        BaseUri._countPerMethod.set(method, currentCount + 1);
-        this._resultCache.set(key, result);
-        return result;
+    @cache(true)
+    protected getComparablePath(): string {
+        return this.getComparablePathImpl();
     }
+
+    protected abstract getComparablePathImpl(): string;
+
+    protected abstract getPathComponentsImpl(): string[];
+
+    @cache(true)
+    protected getBasename(): string {
+        return this.getBasenameImpl();
+    }
+
+    protected abstract getBasenameImpl(): string;
+
+    @cache(true)
+    protected getExtname(): string {
+        return this.getExtnameImpl();
+    }
+
+    protected abstract getExtnameImpl(): string;
 }

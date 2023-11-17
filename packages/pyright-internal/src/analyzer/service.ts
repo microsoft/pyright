@@ -381,9 +381,12 @@ export class AnalyzerService {
         this._console.info('URI stats');
         this._console.info(`Total number of URIs created: ${Uri.count()}`);
         this._console.info(`Counts per method:`);
+        let timeSpentInUri = 0;
         Uri.methods().forEach((m) => {
             this._console.info(`  ${m}: ${Uri.countPerMethod(m)} - ${Uri.timePerMethod(m)}ms`);
+            timeSpentInUri += Uri.timePerMethod(m);
         });
+        this._console.info(`Total time spent in URI methods: ${timeSpentInUri}ms`);
     }
 
     printDetailedAnalysisTimes() {

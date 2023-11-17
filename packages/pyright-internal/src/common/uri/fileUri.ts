@@ -19,12 +19,11 @@ import {
     normalizeSlashes,
     resolvePaths,
 } from '../pathUtils';
-import { BaseUri } from './baseUri';
+import { BaseUri, staticFuncCache } from './baseUri';
 import { Uri } from './uri';
 
 export class FileUri extends BaseUri {
     private _formattedString: string | undefined;
-    private static _cache = new Map<string, FileUri>();
     private constructor(
         key: string,
         private readonly _filePath: string,
@@ -38,19 +37,11 @@ export class FileUri extends BaseUri {
     override get scheme(): string {
         return 'file';
     }
-    override get basename(): string {
-        return getFileName(this._filePath);
-    }
-    override get extname(): string {
-        return getFileExtension(this._filePath);
-    }
+
+    @staticFuncCache()
     static create(filePath: string, query: string, fragment: string, originalString: string | undefined): FileUri {
         const key = FileUri._createKey(filePath, query, fragment);
-        // Skip creating if we already have one. This is a perf optimization.
-        if (!FileUri._cache.has(key)) {
-            FileUri._cache.set(key, new FileUri(key, filePath, query, fragment, originalString));
-        }
-        return FileUri._cache.get(key)!;
+        return new FileUri(key, filePath, query, fragment, originalString);
     }
 
     static isFileUri(uri: Uri): uri is FileUri {
@@ -118,7 +109,13 @@ export class FileUri extends BaseUri {
     override getPathLength(): number {
         return this._filePath.length;
     }
-    override getPathComponents(): string[] {
+    override getPath(): string {
+        return this._filePath;
+    }
+    override getFilePath(): string {
+        return this._filePath;
+    }
+    protected override getPathComponentsImpl(): string[] {
         const components = getPathComponents(this._filePath);
         // Remove the first one if it's empty. The new algorithm doesn't
         // expect this to be there.
@@ -127,16 +124,10 @@ export class FileUri extends BaseUri {
         }
         return components;
     }
-    override getPath(): string {
-        return this._filePath;
-    }
-    override getFilePath(): string {
-        return this._filePath;
-    }
     protected override getRootPath(): string {
         return this._filePath.slice(0, getRootLength(this._filePath));
     }
-    protected override getComparablePath(): string {
+    protected override getComparablePathImpl(): string {
         return normalizeSlashes(this._filePath);
     }
     protected override getDirectoryImpl(): Uri {
@@ -166,12 +157,18 @@ export class FileUri extends BaseUri {
         return this;
     }
 
-    protected override getRoot(): Uri {
+    protected override getRootImpl(): Uri {
         const rootPath = this.getRootPath();
         if (rootPath !== this._filePath) {
             return FileUri.create(rootPath, '', '', undefined);
         }
         return this;
+    }
+    protected override getBasenameImpl(): string {
+        return getFileName(this._filePath);
+    }
+    protected override getExtnameImpl(): string {
+        return getFileExtension(this._filePath);
     }
 
     private static _createKey(filePath: string, query: string, fragment: string) {

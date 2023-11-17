@@ -25,12 +25,6 @@ export class EmptyUri extends BaseUri {
     override get scheme(): string {
         return '';
     }
-    override get basename(): string {
-        return '';
-    }
-    override get extname(): string {
-        return '';
-    }
     override isEmpty(): boolean {
         return true;
     }
@@ -76,22 +70,28 @@ export class EmptyUri extends BaseUri {
     override combinePathsImpl(...paths: string[]): Uri {
         return this;
     }
-    override getPathComponents(): string[] {
-        return [];
-    }
     override getShortenedFileName(maxDirLength: number): string {
         return '';
     }
     override stripExtension(): Uri {
         return this;
     }
+    protected override getPathComponentsImpl(): string[] {
+        return [];
+    }
     protected override getRootPath(): string {
         return '';
     }
-    protected override getComparablePath(): string {
+    protected override getComparablePathImpl(): string {
         return '';
     }
-    protected override getRoot(): Uri {
+    protected override getRootImpl(): Uri {
         return this;
+    }
+    protected override getBasenameImpl(): string {
+        return '';
+    }
+    protected override getExtnameImpl(): string {
+        return '';
     }
 }
