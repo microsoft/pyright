@@ -1227,13 +1227,11 @@ export class ImportResolver {
             // Go up directories one by one looking for a py.typed file.
             let current: Uri | undefined = fileUri.getDirectory();
             while (this._shouldWalkUp(current, root, execEnv)) {
-                if (this.fileExistsCached(current!.pytypedUri)) {
-                    const pyTypedInfo = getPyTypedInfo(this.fileSystem, current!);
-                    if (pyTypedInfo && !pyTypedInfo.isPartiallyTyped) {
-                        isThirdPartyPyTypedPresent = true;
-                    }
-                    break;
+                const pyTypedInfo = this._getPyTypedInfo(current!);
+                if (pyTypedInfo && !pyTypedInfo.isPartiallyTyped) {
+                    isThirdPartyPyTypedPresent = true;
                 }
+                break;
 
                 let success;
                 [success, current] = this._tryWalkUp(current);
@@ -1374,9 +1372,7 @@ export class ImportResolver {
                     }
 
                     if (!pyTypedInfo && lookForPyTyped) {
-                        if (this.fileExistsCached(dirPath.pytypedUri)) {
-                            pyTypedInfo = getPyTypedInfo(this.fileSystem, dirPath);
-                        }
+                        pyTypedInfo = this._getPyTypedInfo(dirPath);
                     }
 
                     if (!isLastPart) {
@@ -1445,9 +1441,7 @@ export class ImportResolver {
                 }
 
                 if (!pyTypedInfo && lookForPyTyped) {
-                    if (this.fileExistsCached(fileDirectory.pytypedUri)) {
-                        pyTypedInfo = getPyTypedInfo(this.fileSystem, fileDirectory);
-                    }
+                    pyTypedInfo = this._getPyTypedInfo(fileDirectory);
                 }
                 break;
             }
@@ -2614,7 +2608,7 @@ export class ImportResolver {
                         isNativeLib: false,
                         name: dirPath.basename,
                         path,
-                        pyTypedInfo: getPyTypedInfo(this.fileSystem, dirPath),
+                        pyTypedInfo: this._getPyTypedInfo(dirPath),
                     };
 
                     implicitImportMap.set(implicitImport.name, implicitImport);
@@ -2623,6 +2617,13 @@ export class ImportResolver {
         }
 
         return implicitImportMap;
+    }
+
+    private _getPyTypedInfo(filePath: Uri): PyTypedInfo | undefined {
+        if (!this.fileExistsCached(filePath.pytypedUri)) {
+            return undefined;
+        }
+        return getPyTypedInfo(this.fileSystem, filePath);
     }
 
     private _resolveNativeModuleStub(

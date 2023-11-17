@@ -16,17 +16,15 @@ export interface PyTypedInfo {
     isPartiallyTyped: boolean;
 }
 
-const _pyTypedFileName = 'py.typed';
-
 export function getPyTypedInfo(fileSystem: FileSystem, dirPath: Uri): PyTypedInfo | undefined {
     if (!fileSystem.existsSync(dirPath) || !isDirectory(fileSystem, dirPath)) {
         return undefined;
     }
 
     let isPartiallyTyped = false;
-    const pyTypedPath = dirPath.combinePaths(_pyTypedFileName);
+    const pyTypedPath = dirPath.pytypedUri;
 
-    if (!fileSystem.existsSync(dirPath) || !isFile(fileSystem, pyTypedPath)) {
+    if (!fileSystem.existsSync(pyTypedPath) || !isFile(fileSystem, pyTypedPath)) {
         return undefined;
     }
 
