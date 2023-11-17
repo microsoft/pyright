@@ -130,3 +130,14 @@ p5_1: Proto5[float, int]
 # This should generate an error because the second type argument
 # corresponds to _B, which is bound to int.
 p5_2: Proto5[int, float]
+
+
+def func1():
+    # This should generate an error because Protocol isn't
+    # allowed in a type annotation.
+    v: Protocol | int
+
+
+# This should generate an error because Protocol isn't
+# allowed in a TypeVar bound.
+T = TypeVar("T", bound=Protocol | int)

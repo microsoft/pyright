@@ -784,9 +784,9 @@ export class PackageTypeVerifier {
                 // Properties require special handling.
                 if (TypeBase.isInstance(type) && ClassType.isPropertyClass(type)) {
                     const propMethodInfo: [string, (c: ClassType) => FunctionType | undefined][] = [
-                        ['fget', (c) => c.fgetFunction],
-                        ['fset', (c) => c.fsetFunction],
-                        ['fdel', (c) => c.fdelFunction],
+                        ['fget', (c) => c.fgetInfo?.methodType],
+                        ['fset', (c) => c.fsetInfo?.methodType],
+                        ['fdel', (c) => c.fdelInfo?.methodType],
                     ];
 
                     const propertyClass = type;

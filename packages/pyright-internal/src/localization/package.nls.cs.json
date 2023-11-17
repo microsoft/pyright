@@ -376,7 +376,6 @@
         "protocolBaseClass": "Třída protokolu „{classType}“ se nemůže odvozovat od třídy,která není protokolem „{baseType}“",
         "protocolBaseClassWithTypeArgs": "Argumenty typu nejsou u třídy Protocol povoleny při použití syntaxe parametru typu",
         "protocolIllegal": "Použití protokolu vyžaduje Python 3.7 nebo novější",
-        "protocolNotAllowedInTypeArgument": "Protocol není možné použít jako argument typu",
         "protocolVarianceContravariant": "Proměnná typu „{variable}“ použitá v obecném protokolu „{class}“ by měla být kontravariantní",
         "protocolVarianceCovariant": "Proměnná typu „{variable}“ použitá v obecném protokolu „{class}“ by měla být kovariantní",
         "protocolVarianceInvariant": "Proměnná typu „{variable}“ použitá v obecném protokolu „{class}“ by měla být invariantní",

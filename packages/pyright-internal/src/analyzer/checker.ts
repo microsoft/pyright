@@ -5692,8 +5692,8 @@ export class Checker extends ParseTreeWalker {
         } else if (isOverloadedFunction(overrideType)) {
             overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
         } else if (isClassInstance(overrideType) && ClassType.isPropertyClass(overrideType)) {
-            if (overrideType.fgetFunction) {
-                overrideFunction = overrideType.fgetFunction;
+            if (overrideType.fgetInfo) {
+                overrideFunction = overrideType.fgetInfo.methodType;
             }
         }
 
@@ -5735,8 +5735,8 @@ export class Checker extends ParseTreeWalker {
         } else if (isOverloadedFunction(overrideType)) {
             overrideFunction = OverloadedFunctionType.getImplementation(overrideType);
         } else if (isClassInstance(overrideType) && ClassType.isPropertyClass(overrideType)) {
-            if (overrideType.fgetFunction) {
-                overrideFunction = overrideType.fgetFunction;
+            if (overrideType.fgetInfo) {
+                overrideFunction = overrideType.fgetInfo.methodType;
             }
         }
 
@@ -5926,9 +5926,9 @@ export class Checker extends ParseTreeWalker {
             } else {
                 const baseClassType = baseClass;
                 const propMethodInfo: [string, (c: ClassType) => FunctionType | undefined][] = [
-                    ['fget', (c) => c.fgetFunction],
-                    ['fset', (c) => c.fsetFunction],
-                    ['fdel', (c) => c.fdelFunction],
+                    ['fget', (c) => c.fgetInfo?.methodType],
+                    ['fset', (c) => c.fsetInfo?.methodType],
+                    ['fdel', (c) => c.fdelInfo?.methodType],
                 ];
 
                 propMethodInfo.forEach((info) => {

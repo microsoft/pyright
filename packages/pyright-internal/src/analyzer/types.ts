@@ -610,6 +610,14 @@ export interface TupleTypeArgument {
     isUnbounded: boolean;
 }
 
+export interface PropertyMethodInfo {
+    // The decorated function (fget, fset, fdel) for a property
+    methodType: FunctionType;
+
+    // The class that declared this function
+    classType: ClassType | undefined;
+}
+
 export interface ClassType extends TypeBase {
     category: TypeCategory.Class;
 
@@ -690,9 +698,9 @@ export interface ClassType extends TypeBase {
     isAsymmetricAttributeAccessor?: boolean;
 
     // Special-case fields for property classes.
-    fgetFunction?: FunctionType | undefined;
-    fsetFunction?: FunctionType | undefined;
-    fdelFunction?: FunctionType | undefined;
+    fgetInfo?: PropertyMethodInfo | undefined;
+    fsetInfo?: PropertyMethodInfo | undefined;
+    fdelInfo?: PropertyMethodInfo | undefined;
 }
 
 export namespace ClassType {
@@ -1375,6 +1383,9 @@ interface FunctionDetails {
     builtInName?: string | undefined;
     docString?: string | undefined;
     deprecatedMessage?: string | undefined;
+
+    // If this is a method, this refers to the class that contains it.
+    methodClass?: ClassType | undefined;
 
     // Transforms to apply if this function is used
     // as a decorator.

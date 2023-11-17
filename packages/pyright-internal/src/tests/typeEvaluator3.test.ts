@@ -479,6 +479,12 @@ test('Comprehension10', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Comprehension11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['comprehension11.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Literals1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals1.py']);
 
@@ -1539,7 +1545,7 @@ test('Constructor24', () => {
 
     configOptions.diagnosticRuleSet.strictParameterNoneValue = true;
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor24.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Constructor25', () => {

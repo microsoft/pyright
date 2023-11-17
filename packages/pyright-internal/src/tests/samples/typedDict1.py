@@ -1,6 +1,6 @@
 # This sample tests the type analyzer's handling of TypedDict classes.
 
-from typing import Any, TypedDict
+from typing import Any, TypeVar, TypedDict
 
 not_total = False
 
@@ -68,3 +68,12 @@ class TD6(TD3, NotATD):
 # base classes shouldn't be allowed for TD classes.
 class TD7(NotATD, TypedDict):
     pass
+
+
+# This should generate an error because TypedDict can't
+# be used in a type annotation.
+v1: TypedDict | int
+
+# This should generate an error because TypedDict can't
+# be used in a TypeVar bound.
+T = TypeVar("T", bound=TypedDict | int)
