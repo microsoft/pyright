@@ -2657,8 +2657,8 @@ export class ImportResolver {
         // Strip off the final file extension and the part of the file name
         // that excludes all (multi-part) file extensions. This allows us to
         // handle file names like "foo.cpython-32m.so".
-        const fileExtension = fileUri.extname;
-        const withoutExtension = stripFileExtension(fileUri.basename, true);
+        const fileExtension = fileUri.extname.toLowerCase();
+        const withoutExtension = fileUri.withoutExtension;
         return (
             this._isNativeModuleFileExtension(fileExtension) &&
             equateStringsCaseInsensitive(moduleName, withoutExtension)

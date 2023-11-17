@@ -43,6 +43,9 @@ export interface Uri {
     // Returns a URI where the path has py.typed appended.
     readonly pytypedUri: Uri;
 
+    // Returns the basename without any extensions
+    readonly withoutExtension: string;
+
     isEmpty(): boolean;
 
     toString(): string;

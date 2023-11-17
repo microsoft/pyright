@@ -30,6 +30,18 @@ export abstract class BaseUri implements Uri {
         return this.getBasenameImpl();
     }
 
+    // Returns the basename without any extensions
+    @cacheUriProperty()
+    get withoutExtension(): string {
+        const base = this.basename;
+        const index = base.lastIndexOf('.');
+        if (index > 0) {
+            return base.slice(0, index);
+        } else {
+            return base;
+        }
+    }
+
     // Returns the extension of the URI, similar to the UNIX extname command.
     @cacheUriProperty()
     get extname(): string {
