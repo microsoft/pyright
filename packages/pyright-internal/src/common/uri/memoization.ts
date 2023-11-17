@@ -63,7 +63,6 @@ export function cacheUriMethod() {
         const cacheKey = `_cache_${functionName}`; // One cache per function name.
         descriptor.value = function (this: any, ...args: any) {
             return timeUriMethod(functionName, () => {
-                let cachedResult: any;
                 let key = '';
 
                 // Small perf optimization, don't use join as it allocates another array, just add
@@ -74,16 +73,14 @@ export function cacheUriMethod() {
 
                 const cache = (this[cacheKey] as Map<string, any>) || new Map<string, any>();
                 if (!cache.has(key)) {
-                    cachedResult = originalMethod.apply(this, args);
-                    cache.set(key, cachedResult);
+                    const result = originalMethod.apply(this, args);
+                    cache.set(key, result);
                     addCacheMiss(functionName);
+                    this[cacheKey] = cache;
+                    return result;
                 } else {
-                    cachedResult = cache.get(key);
+                    return cache.get(key)!;
                 }
-
-                // Always add the cache to the object. This is faster than checking.
-                this[cacheKey] = cache;
-                return cachedResult;
             });
         };
         return descriptor;
