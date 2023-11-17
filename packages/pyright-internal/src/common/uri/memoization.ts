@@ -80,10 +80,9 @@ export function cacheUriMethod() {
                 } else {
                     cachedResult = cache.get(key);
                 }
-                if (!this[cacheKey]) {
-                    // Dynamically add the cache to the object.
-                    this[cacheKey] = cache;
-                }
+
+                // Always add the cache to the object. This is faster than checking.
+                this[cacheKey] = cache;
                 return cachedResult;
             });
         };
