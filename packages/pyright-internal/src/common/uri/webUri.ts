@@ -13,7 +13,7 @@
 
 import * as debug from '../debug';
 import { getRootLength, hasTrailingDirectorySeparator, normalizeSlashes, resolvePaths } from '../pathUtils';
-import { BaseUri, cache, staticFuncCache } from './baseUri';
+import { BaseUri, staticFuncCache } from './baseUri';
 import { Uri } from './uri';
 
 export class WebUri extends BaseUri {
@@ -117,8 +117,7 @@ export class WebUri extends BaseUri {
         debug.fail(`${this} is not a file based URI.`);
     }
 
-    @cache(false)
-    override combinePaths(...paths: string[]): Uri {
+    protected override combinePathsImpl(...paths: string[]): Uri {
         // Resolve and combine paths, never want URIs with '..' in the middle.
         let combined = resolvePaths(this._path, ...paths);
 

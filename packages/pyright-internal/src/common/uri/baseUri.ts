@@ -17,13 +17,17 @@ const _cachedPerMethod = new Map<string, number>();
 const _timePerMethod = new Map<string, number>();
 
 // Times and keeps track of method calls. Used for performance analysis.
-function timeMethod<T>(functionName: string, func: () => T) {
+function timeUriMethod<T>(functionName: string, func: () => T) {
     const now = performance.now();
     const result = func();
     const elapsed = performance.now() - now;
     _countPerMethod.set(functionName, (_countPerMethod.get(functionName) || 0) + 1);
     _timePerMethod.set(functionName, (_timePerMethod.get(functionName) || 0) + elapsed);
     return result;
+}
+
+function addCacheAccess(method: string) {
+    _cachedPerMethod.set(method, (_cachedPerMethod.get(method) || 0) + 1);
 }
 
 // Create a decorator to memoize (cache) the results of a method.
@@ -37,7 +41,7 @@ export function cache(useZeroArgs: boolean) {
         const originalMethod = descriptor.value;
         const cacheKey = `_cache_${functionName}`; // One cache per function name.
         const multipleArgsFunc = function (this: any, ...args: any) {
-            return timeMethod(functionName, () => {
+            return timeUriMethod(functionName, () => {
                 let cachedResult: any;
                 let key = '';
 
@@ -53,7 +57,7 @@ export function cache(useZeroArgs: boolean) {
                     cache.set(key, cachedResult);
                 } else {
                     cachedResult = cache.get(key);
-                    _cachedPerMethod.set(functionName, (_cachedPerMethod.get(functionName) || 0) + 1);
+                    addCacheAccess(functionName);
                 }
                 if (!this[cacheKey]) {
                     // Dynamically add the cache to the object.
@@ -63,14 +67,14 @@ export function cache(useZeroArgs: boolean) {
             });
         };
         const zeroArgsFunc = function (this: any, ...args: any) {
-            return timeMethod(functionName, () => {
+            return timeUriMethod(functionName, () => {
                 let cachedResult: any;
                 if (this[cacheKey] === undefined) {
                     cachedResult = originalMethod.apply(this, args);
                     this[cacheKey] = cachedResult;
                 } else {
                     cachedResult = this[cacheKey];
-                    _cachedPerMethod.set(functionName, (_cachedPerMethod.get(functionName) || 0) + 1);
+                    addCacheAccess(functionName);
                 }
                 return cachedResult;
             });
@@ -88,7 +92,7 @@ export function staticFuncCache() {
     return function (target: any, functionName: string, descriptor: PropertyDescriptor) {
         const originalMethod = descriptor.value;
         descriptor.value = function (...args: any) {
-            return timeMethod(functionName, () => {
+            return timeUriMethod(functionName, () => {
                 const key = `${functionName}+${args.map((a: any) => a?.toString()).join(',')}`;
                 let cachedResult: any;
                 if (!staticCache.has(key)) {
@@ -106,6 +110,15 @@ export function staticFuncCache() {
 }
 
 export abstract class BaseUri implements Uri {
+    // Non dynamic caches for very common operations. This avoids the
+    // extra check in the @cache decorator for the cache's existence.
+    private _combinePathCache = new Map<string, Uri>();
+    private _basename: string | undefined;
+    private _extname: string | undefined;
+    private _dir: Uri | undefined;
+    private _stripAllExtensions: Uri | undefined;
+    private _stripExtension: Uri | undefined;
+
     protected constructor(private readonly _key: string) {
         _counter++;
     }
@@ -119,18 +132,32 @@ export abstract class BaseUri implements Uri {
     abstract get scheme(): string;
 
     // Returns the last segment of the URI, similar to the UNIX basename command.
-    get basename() {
-        return this.getBasename();
+    get basename(): string {
+        return timeUriMethod('basename', () => {
+            if (this._basename === undefined) {
+                this._basename = this.getBasenameImpl();
+            } else {
+                addCacheAccess('basename');
+            }
+            return this._basename;
+        });
     }
 
     // Returns the extension of the URI, similar to the UNIX extname command.
-    get extname() {
-        return this.getExtname();
+    get extname(): string {
+        return timeUriMethod('extname', () => {
+            if (this._extname === undefined) {
+                this._extname = this.getExtnameImpl();
+            } else {
+                addCacheAccess('extname');
+            }
+            return this._extname;
+        });
     }
 
     // Returns a URI where the path just contains the root folder.
     get root(): Uri {
-        return this.getRoot();
+        return timeUriMethod('root', () => this.getRootImpl());
     }
 
     static count(): number {
@@ -179,9 +206,15 @@ export abstract class BaseUri implements Uri {
     abstract addPath(extra: string): Uri;
 
     // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
-    @cache(true)
     getDirectory(): Uri {
-        return this.getDirectoryImpl();
+        return timeUriMethod('getDirectory', () => {
+            if (this._dir === undefined) {
+                this._dir = this.getDirectoryImpl();
+            } else {
+                addCacheAccess('getDirectory');
+            }
+            return this._dir;
+        });
     }
 
     @cache(true)
@@ -232,7 +265,22 @@ export abstract class BaseUri implements Uri {
     abstract getPathLength(): number;
 
     // Combines paths to create a new Uri. Any '..' or '.' path components will be normalized.
-    abstract combinePaths(...paths: string[]): Uri;
+    combinePaths(...paths: string[]): Uri {
+        return timeUriMethod('combinePaths', () => {
+            let key = '';
+            for (const path of paths) {
+                key += path;
+            }
+            let combined = this._combinePathCache.get(key);
+            if (combined === undefined) {
+                combined = this.combinePathsImpl(...paths);
+                this._combinePathCache.set(key, combined);
+            } else {
+                addCacheAccess('combinePaths');
+            }
+            return combined;
+        });
+    }
 
     @cache(false)
     getRelativePath(child: Uri): string | undefined {
@@ -292,23 +340,39 @@ export abstract class BaseUri implements Uri {
 
     @cache(true)
     stripExtension(): Uri {
-        const base = this.basename;
-        const index = base.lastIndexOf('.');
-        if (index > 0) {
-            const stripped = base.slice(0, index);
-            return this.getDirectory().combinePaths(stripped);
-        }
-        return this;
+        return timeUriMethod('stripExtension', () => {
+            if (this._stripExtension === undefined) {
+                const base = this.basename;
+                const index = base.lastIndexOf('.');
+                if (index > 0) {
+                    const stripped = base.slice(0, index);
+                    this._stripExtension = this.getDirectory().combinePaths(stripped);
+                } else {
+                    this._stripExtension = this;
+                }
+            } else {
+                addCacheAccess('stripExtension');
+            }
+            return this._stripExtension;
+        });
     }
 
     @cache(true)
     stripAllExtensions(): Uri {
-        const base = this.basename;
-        const stripped = base.split('.')[0];
-        if (stripped === base) {
-            return this;
-        }
-        return this.getDirectory().combinePaths(stripped);
+        return timeUriMethod('stripAllExtensions', () => {
+            if (this._stripAllExtensions === undefined) {
+                const base = this.basename;
+                const stripped = base.split('.')[0];
+                if (stripped === base) {
+                    this._stripAllExtensions = this;
+                } else {
+                    this._stripAllExtensions = this.getDirectory().combinePaths(stripped);
+                }
+            } else {
+                addCacheAccess('stripAllExtensions');
+            }
+            return this._stripAllExtensions;
+        });
     }
 
     @cache(true)
@@ -355,21 +419,13 @@ export abstract class BaseUri implements Uri {
         return this.getComparablePathImpl();
     }
 
+    protected abstract combinePathsImpl(...paths: string[]): Uri;
+
     protected abstract getComparablePathImpl(): string;
 
     protected abstract getPathComponentsImpl(): string[];
 
-    @cache(true)
-    protected getBasename(): string {
-        return this.getBasenameImpl();
-    }
-
     protected abstract getBasenameImpl(): string;
-
-    @cache(true)
-    protected getExtname(): string {
-        return this.getExtnameImpl();
-    }
 
     protected abstract getExtnameImpl(): string;
 }

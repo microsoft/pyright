@@ -67,7 +67,7 @@ export class EmptyUri extends BaseUri {
     override getPathLength(): number {
         return 0;
     }
-    override combinePaths(...paths: string[]): Uri {
+    override combinePathsImpl(...paths: string[]): Uri {
         return this;
     }
     override getShortenedFileName(maxDirLength: number): string {

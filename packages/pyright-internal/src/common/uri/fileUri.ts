@@ -19,7 +19,7 @@ import {
     normalizeSlashes,
     resolvePaths,
 } from '../pathUtils';
-import { BaseUri, cache, staticFuncCache } from './baseUri';
+import { BaseUri, staticFuncCache } from './baseUri';
 import { Uri } from './uri';
 
 export class FileUri extends BaseUri {
@@ -121,8 +121,7 @@ export class FileUri extends BaseUri {
         return this._filePath;
     }
 
-    @cache(false)
-    override combinePaths(...paths: string[]): Uri {
+    protected override combinePathsImpl(...paths: string[]): Uri {
         // Resolve and combine paths, never want URIs with '..' in the middle.
         let combined = resolvePaths(this._filePath, ...paths);
 
