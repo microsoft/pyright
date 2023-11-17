@@ -24,17 +24,15 @@ import { Uri } from './uri';
 
 export class FileUri extends BaseUri {
     private _formattedString: string | undefined;
-    private _directory: FileUri | undefined;
     private static _cache = new Map<string, FileUri>();
     private constructor(
         key: string,
         private readonly _filePath: string,
         private readonly _query: string,
         private readonly _fragment: string,
-        private _originalString: string | undefined,
-        creationMethod: string
+        private _originalString: string | undefined
     ) {
-        super(key, creationMethod);
+        super(key);
     }
 
     override get scheme(): string {
@@ -46,25 +44,11 @@ export class FileUri extends BaseUri {
     override get extname(): string {
         return getFileExtension(this._filePath);
     }
-    override get root(): Uri {
-        const rootPath = this.getRootPath();
-        if (rootPath !== this._filePath) {
-            return FileUri.create(rootPath, '', '', undefined, 'root');
-        }
-        return this;
-    }
-
-    static create(
-        filePath: string,
-        query: string,
-        fragment: string,
-        originalString: string | undefined,
-        creationMethod: string
-    ): FileUri {
+    static create(filePath: string, query: string, fragment: string, originalString: string | undefined): FileUri {
         const key = FileUri._createKey(filePath, query, fragment);
         // Skip creating if we already have one. This is a perf optimization.
         if (!FileUri._cache.has(key)) {
-            FileUri._cache.set(key, new FileUri(key, filePath, query, fragment, originalString, creationMethod));
+            FileUri._cache.set(key, new FileUri(key, filePath, query, fragment, originalString));
         }
         return FileUri._cache.get(key)!;
     }
@@ -91,26 +75,7 @@ export class FileUri extends BaseUri {
         return this._filePath;
     }
     override addPath(extra: string): Uri {
-        return FileUri.create(this._filePath + extra, '', '', undefined, 'addPath');
-    }
-    override getDirectory(): Uri {
-        // Cache the directory as this gets called a lot.
-        if (!this._directory) {
-            // Remove the separator on the end if there is one.
-            const filePath =
-                hasTrailingDirectorySeparator(this._filePath) && this._filePath.length > 1
-                    ? this._filePath.slice(0, -1)
-                    : this._filePath;
-            const dir = getDirectoryPath(filePath);
-            if (dir !== filePath) {
-                // Path has to not end with a separator.
-                const normalized = hasTrailingDirectorySeparator(dir) && dir.length > 1 ? dir.slice(0, -1) : dir;
-                this._directory = FileUri.create(normalized, '', '', undefined, 'getDirectory');
-            } else {
-                this._directory = this;
-            }
-        }
-        return this._directory;
+        return FileUri.create(this._filePath + extra, '', '', undefined);
     }
     override isRoot(): boolean {
         return isDiskPathRoot(this._filePath);
@@ -153,19 +118,6 @@ export class FileUri extends BaseUri {
     override getPathLength(): number {
         return this._filePath.length;
     }
-    override combinePaths(...paths: string[]): Uri {
-        // Resolve and combine paths, never want URIs with '..' in the middle.
-        let combined = resolvePaths(this._filePath, ...paths);
-
-        // Make sure to remove any trailing directory chars.
-        if (hasTrailingDirectorySeparator(combined) && combined.length > 1) {
-            combined = combined.slice(0, combined.length - 1);
-        }
-        if (combined !== this._filePath) {
-            return FileUri.create(combined, '', '', undefined, 'combinePaths');
-        }
-        return this;
-    }
     override getPathComponents(): string[] {
         const components = getPathComponents(this._filePath);
         // Remove the first one if it's empty. The new algorithm doesn't
@@ -186,6 +138,40 @@ export class FileUri extends BaseUri {
     }
     protected override getComparablePath(): string {
         return normalizeSlashes(this._filePath);
+    }
+    protected override getDirectoryImpl(): Uri {
+        const filePath = this._filePath;
+        let dir = getDirectoryPath(filePath);
+        if (hasTrailingDirectorySeparator(dir) && dir.length > 1) {
+            dir = dir.slice(0, -1);
+        }
+        if (dir !== filePath) {
+            return FileUri.create(dir, '', '', undefined);
+        } else {
+            return this;
+        }
+    }
+
+    protected override combinePathsImpl(...paths: string[]): Uri {
+        // Resolve and combine paths, never want URIs with '..' in the middle.
+        let combined = resolvePaths(this._filePath, ...paths);
+
+        // Make sure to remove any trailing directory chars.
+        if (hasTrailingDirectorySeparator(combined) && combined.length > 1) {
+            combined = combined.slice(0, combined.length - 1);
+        }
+        if (combined !== this._filePath) {
+            return FileUri.create(combined, '', '', undefined);
+        }
+        return this;
+    }
+
+    protected override getRoot(): Uri {
+        const rootPath = this.getRootPath();
+        if (rootPath !== this._filePath) {
+            return FileUri.create(rootPath, '', '', undefined);
+        }
+        return this;
     }
 
     private static _createKey(filePath: string, query: string, fragment: string) {

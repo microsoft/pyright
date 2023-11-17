@@ -15,7 +15,7 @@ const EmptyKey = '<empty>';
 export class EmptyUri extends BaseUri {
     private static _instance = new EmptyUri();
     private constructor() {
-        super(EmptyKey, 'empty');
+        super(EmptyKey);
     }
 
     static get instance() {
@@ -30,9 +30,6 @@ export class EmptyUri extends BaseUri {
     }
     override get extname(): string {
         return '';
-    }
-    override get root(): Uri {
-        return this;
     }
     override isEmpty(): boolean {
         return true;
@@ -61,7 +58,7 @@ export class EmptyUri extends BaseUri {
     override addPath(extra: string): Uri {
         return this;
     }
-    override getDirectory(): Uri {
+    override getDirectoryImpl(): Uri {
         return this;
     }
     override isRoot(): boolean {
@@ -76,7 +73,7 @@ export class EmptyUri extends BaseUri {
     override getPathLength(): number {
         return 0;
     }
-    override combinePaths(...paths: string[]): Uri {
+    override combinePathsImpl(...paths: string[]): Uri {
         return this;
     }
     override getPathComponents(): string[] {
@@ -93,5 +90,8 @@ export class EmptyUri extends BaseUri {
     }
     protected override getComparablePath(): string {
         return '';
+    }
+    protected override getRoot(): Uri {
+        return this;
     }
 }

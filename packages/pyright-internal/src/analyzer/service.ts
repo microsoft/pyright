@@ -380,10 +380,9 @@ export class AnalyzerService {
 
         this._console.info('URI stats');
         this._console.info(`Total number of URIs created: ${Uri.count()}`);
-        this._console.info(`Total number of unique URIs created: ${Uri.uniqueCount()}`);
-        this._console.info(`Counts per method of creation:`);
+        this._console.info(`Counts per method:`);
         Uri.methods().forEach((m) => {
-            this._console.info(`  ${m}: ${Uri.countPerMethod(m)}`);
+            this._console.info(`  ${m}: ${Uri.countPerMethod(m)} - ${Uri.timePerMethod(m)}ms`);
         });
     }
 

@@ -148,8 +148,7 @@ export namespace Uri {
             getFilePath(normalized.uri),
             normalized.uri.query,
             normalized.uri.fragment,
-            normalized.str,
-            'file'
+            normalized.str
         );
     }
 
@@ -170,8 +169,7 @@ export namespace Uri {
                 getFilePath(normalized.uri),
                 normalized.uri.query,
                 normalized.uri.fragment,
-                normalized.str,
-                'parse'
+                normalized.str
             );
         }
         return WebUri.create(
@@ -180,8 +178,7 @@ export namespace Uri {
             normalized.uri.path,
             normalized.uri.query,
             normalized.uri.fragment,
-            normalized.str,
-            'parse'
+            normalized.str
         );
     }
 
@@ -198,15 +195,15 @@ export namespace Uri {
         return BaseUri.count();
     }
 
-    export function uniqueCount(): number {
-        return BaseUri.uniqueCount();
-    }
-
     export function methods(): string[] {
         return BaseUri.methods();
     }
 
     export function countPerMethod(method: string): number {
         return BaseUri.countPerMethod(method);
+    }
+
+    export function timePerMethod(method: string): number {
+        return BaseUri.timePerMethod(method);
     }
 }

@@ -6,19 +6,18 @@
  * URI class for storing and manipulating URIs.
  */
 
+import { performance } from 'perf_hooks';
 import { some } from '../collectionUtils';
 import { getShortenedFileName, normalizeSlashes } from '../pathUtils';
 import { Uri } from './uri';
 
 export abstract class BaseUri implements Uri {
+    private _resultCache = new Map<string, Uri>();
     private static _counter = 0;
-    private static _uniqueUris = new Set<string>();
     private static _countPerMethod = new Map<string, number>();
-    protected constructor(private readonly _key: string, creationMethod: string) {
+    private static _timePerMethod = new Map<string, number>();
+    protected constructor(private readonly _key: string) {
         BaseUri._counter++;
-        BaseUri._uniqueUris.add(_key);
-        const currentCount = BaseUri._countPerMethod.get(creationMethod) || 0;
-        BaseUri._countPerMethod.set(creationMethod, currentCount + 1);
     }
 
     // Unique key for storing in maps.
@@ -36,14 +35,12 @@ export abstract class BaseUri implements Uri {
     abstract get extname(): string;
 
     // Returns a URI where the path just contains the root folder.
-    abstract get root(): Uri;
+    get root(): Uri {
+        return this._timeMethod('root', 'root', () => this.getRoot());
+    }
 
     static count(): number {
         return BaseUri._counter;
-    }
-
-    static uniqueCount(): number {
-        return BaseUri._uniqueUris.size;
     }
 
     static methods(): string[] {
@@ -52,6 +49,10 @@ export abstract class BaseUri implements Uri {
 
     static countPerMethod(method: string): number {
         return BaseUri._countPerMethod.get(method) ?? 0;
+    }
+
+    static timePerMethod(method: string): number {
+        return BaseUri._timePerMethod.get(method) ?? 0;
     }
 
     isEmpty(): boolean {
@@ -78,7 +79,9 @@ export abstract class BaseUri implements Uri {
     abstract addPath(extra: string): Uri;
 
     // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
-    abstract getDirectory(): Uri;
+    getDirectory(): Uri {
+        return this._timeMethod('getDirectory', 'getDirectory', () => this.getDirectoryImpl());
+    }
 
     getRootPathLength(): number {
         return this.getRootPath().length;
@@ -126,7 +129,9 @@ export abstract class BaseUri implements Uri {
     // How long the path for this Uri is.
     abstract getPathLength(): number;
 
-    abstract combinePaths(...paths: string[]): Uri;
+    combinePaths(...paths: string[]): Uri {
+        return this._timeMethod('combinePaths', paths.join(','), () => this.combinePathsImpl(...paths));
+    }
 
     getRelativePath(child: Uri): string | undefined {
         if (this.scheme !== child.scheme) {
@@ -198,7 +203,12 @@ export abstract class BaseUri implements Uri {
         return this.getDirectory().combinePaths(stripped);
     }
 
+    protected abstract getRoot(): Uri;
     protected abstract getRootPath(): string;
+
+    protected abstract getDirectoryImpl(): Uri;
+
+    protected abstract combinePathsImpl(...paths: string[]): Uri;
 
     protected reducePathComponents(components: string[]): string[] {
         if (!some(components)) {
@@ -231,4 +241,16 @@ export abstract class BaseUri implements Uri {
     }
 
     protected abstract getComparablePath(): string;
+
+    private _timeMethod(method: string, key: string, generator: () => Uri): Uri {
+        const now = performance.now();
+        const result = this._resultCache.get(key) ?? generator();
+        const elapsed = performance.now() - now;
+        const current = BaseUri._timePerMethod.get(method) || 0;
+        BaseUri._timePerMethod.set(method, current + elapsed);
+        const currentCount = BaseUri._countPerMethod.get(method) || 0;
+        BaseUri._countPerMethod.set(method, currentCount + 1);
+        this._resultCache.set(key, result);
+        return result;
+    }
 }

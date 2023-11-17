@@ -17,7 +17,6 @@ import { BaseUri } from './baseUri';
 import { Uri } from './uri';
 
 export class WebUri extends BaseUri {
-    private _directory: WebUri | undefined;
     private static _cache = new Map<string, WebUri>();
     private constructor(
         private readonly _scheme: string,
@@ -26,10 +25,9 @@ export class WebUri extends BaseUri {
         private readonly _query: string,
         private readonly _fragment: string,
         private readonly _originalString: string | undefined,
-        key: string,
-        creationMethod: string
+        key: string
     ) {
-        super(key, creationMethod);
+        super(key);
     }
 
     override get scheme(): string {
@@ -48,28 +46,17 @@ export class WebUri extends BaseUri {
         }
         return '';
     }
-    override get root(): Uri {
-        const rootPath = this.getRootPath();
-        if (rootPath !== this._path) {
-            return WebUri.create(this._scheme, this._authority, rootPath, '', '', undefined, 'root');
-        }
-        return this;
-    }
     static create(
         scheme: string,
         authority: string,
         path: string,
         query: string,
         fragment: string,
-        originalString: string | undefined,
-        creationMethod: string
+        originalString: string | undefined
     ): WebUri {
         const key = WebUri._createKey(scheme, authority, path, query, fragment);
         if (!WebUri._cache.has(key)) {
-            WebUri._cache.set(
-                key,
-                new WebUri(scheme, authority, path, query, fragment, originalString, key, creationMethod)
-            );
+            WebUri._cache.set(key, new WebUri(scheme, authority, path, query, fragment, originalString, key));
         }
         return WebUri._cache.get(key)!;
     }
@@ -94,26 +81,7 @@ export class WebUri extends BaseUri {
     }
     override addPath(extra: string): Uri {
         const newPath = this._path + extra;
-        return WebUri.create(this._scheme, this._authority, newPath, this._query, this._fragment, undefined, 'addPath');
-    }
-    override getDirectory(): Uri {
-        if (!this._directory) {
-            const index = this._path.lastIndexOf('/');
-            if (index > 0) {
-                this._directory = WebUri.create(
-                    this._scheme,
-                    this._authority,
-                    this._path.slice(0, index),
-                    this._query,
-                    this._fragment,
-                    undefined,
-                    'getDirectory'
-                );
-            } else {
-                this._directory = this;
-            }
-        }
-        return this._directory;
+        return WebUri.create(this._scheme, this._authority, newPath, this._query, this._fragment, undefined);
     }
     override isRoot(): boolean {
         return this._path === this.getRootPath() && this._path.length > 0;
@@ -156,19 +124,6 @@ export class WebUri extends BaseUri {
     override getPathLength(): number {
         return this._path.length;
     }
-    override combinePaths(...paths: string[]): Uri {
-        // Resolve and combine paths, never want URIs with '..' in the middle.
-        let combined = resolvePaths(this._path, ...paths);
-
-        // Make sure to remove any trailing directory chars.
-        if (hasTrailingDirectorySeparator(combined) && combined.length > 1) {
-            combined = combined.slice(0, combined.length - 1);
-        }
-        if (combined !== this._path) {
-            return WebUri.create(this._scheme, this._authority, combined, '', '', undefined, 'combinePaths');
-        }
-        return this;
-    }
     override getPathComponents(): string[] {
         // Get the root path and the rest of the path components.
         const rootPath = this.getRootPath();
@@ -181,6 +136,21 @@ export class WebUri extends BaseUri {
     override getFilePath(): string {
         debug.fail(`${this} is not a file based URI.`);
     }
+    protected override getDirectoryImpl(): Uri {
+        const index = this._path.lastIndexOf('/');
+        if (index > 0) {
+            return WebUri.create(
+                this._scheme,
+                this._authority,
+                this._path.slice(0, index),
+                this._query,
+                this._fragment,
+                undefined
+            );
+        } else {
+            return this;
+        }
+    }
 
     protected override getRootPath(): string {
         const rootLength = getRootLength(this._path, '/');
@@ -189,7 +159,27 @@ export class WebUri extends BaseUri {
     protected override getComparablePath(): string {
         return normalizeSlashes(this._path);
     }
+    protected override combinePathsImpl(...paths: string[]): Uri {
+        // Resolve and combine paths, never want URIs with '..' in the middle.
+        let combined = resolvePaths(this._path, ...paths);
 
+        // Make sure to remove any trailing directory chars.
+        if (hasTrailingDirectorySeparator(combined) && combined.length > 1) {
+            combined = combined.slice(0, combined.length - 1);
+        }
+        if (combined !== this._path) {
+            return WebUri.create(this._scheme, this._authority, combined, '', '', undefined);
+        }
+        return this;
+    }
+
+    protected override getRoot(): Uri {
+        const rootPath = this.getRootPath();
+        if (rootPath !== this._path) {
+            return WebUri.create(this._scheme, this._authority, rootPath, '', '', undefined);
+        }
+        return this;
+    }
     private static _createKey(scheme: string, authority: string, path: string, query: string, fragment: string) {
         return `${scheme}://${authority}${path}${query ? '?' + query : ''}${fragment ? '#' + fragment : ''}`;
     }
