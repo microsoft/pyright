@@ -11,6 +11,6 @@ jobs:
       - name: Repository Dispatch
         uses: peter-evans/repository-dispatch@v2
         with:
-          token: ${{ secrets.PYLANCE_PAT }} 
-          repository: microsoft/pyrx   
+          token: ${{ secrets.PYLANCE_PAT }}
+          repository: microsoft/pyrx
           event-type: new-pyright-release
