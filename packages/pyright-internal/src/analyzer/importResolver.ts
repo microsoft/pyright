@@ -2540,8 +2540,8 @@ export class ImportResolver {
                 strippedFileName = stripFileExtension(filePath.basename);
             } else if (
                 this._isNativeModuleFileExtension(fileExt) &&
-                !this.fileExistsCached(filePath.addExtension('.py')) &&
-                !this.fileExistsCached(filePath.addExtension('.pyi'))
+                !this.fileExistsCached(filePath.packageUri) &&
+                !this.fileExistsCached(filePath.packageStubUri)
             ) {
                 // Native module.
                 strippedFileName = filePath.stripAllExtensions().basename;
@@ -2581,8 +2581,8 @@ export class ImportResolver {
 
         // Add implicit directory-based modules.
         for (const dirPath of entries.directories) {
-            const pyFilePath = dirPath.combinePaths('__init__.py');
-            const pyiFilePath = dirPath.combinePaths('__init__.pyi');
+            const pyFilePath = dirPath.initFileUri;
+            const pyiFilePath = dirPath.initStubUri;
             let isStubFile = false;
             let path: Uri | undefined;
 
