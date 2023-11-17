@@ -63,11 +63,11 @@ export function cacheUriMethod() {
         const cacheKey = `_cache_${functionName}`; // One cache per function name.
         descriptor.value = function (this: any, ...args: any) {
             return timeUriMethod(functionName, () => {
-                let key = '';
+                let key = args[0]?.toString() || '';
 
                 // Small perf optimization, don't use join as it allocates another array, just add
                 // to the string.
-                for (let i = 0; i < args.length; i++) {
+                for (let i = 1; i < args.length; i++) {
                     key += args[i]?.toString();
                 }
 
