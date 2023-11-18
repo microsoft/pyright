@@ -8,13 +8,11 @@
 
 import { some } from '../collectionUtils';
 import { getShortenedFileName, normalizeSlashes } from '../pathUtils';
-import { cacheUriMethod, cacheUriMethodWithNoArgs, cacheUriProperty, incrementCounter } from './memoization';
+import { cacheMethodWithArgs, cacheMethodWithNoArgs, cacheProperty } from './memoization';
 import { Uri } from './uri';
 
 export abstract class BaseUri implements Uri {
-    protected constructor(private readonly _key: string) {
-        incrementCounter();
-    }
+    protected constructor(private readonly _key: string) {}
 
     // Unique key for storing in maps.
     get key() {
@@ -25,13 +23,13 @@ export abstract class BaseUri implements Uri {
     abstract get scheme(): string;
 
     // Returns the last segment of the URI, similar to the UNIX basename command.
-    @cacheUriProperty()
+    @cacheProperty()
     get basename(): string {
         return this.getBasenameImpl();
     }
 
     // Returns the basename without any extensions
-    @cacheUriProperty()
+    @cacheProperty()
     get withoutExtension(): string {
         const base = this.basename;
         const index = base.lastIndexOf('.');
@@ -43,47 +41,47 @@ export abstract class BaseUri implements Uri {
     }
 
     // Returns the extension of the URI, similar to the UNIX extname command.
-    @cacheUriProperty()
+    @cacheProperty()
     get extname(): string {
         return this.getExtnameImpl();
     }
 
     // Returns a URI where the path just contains the root folder.
-    @cacheUriProperty()
+    @cacheProperty()
     get root(): Uri {
         return this.getRootImpl();
     }
 
     // Returns a URI where the path contains the path with .py appended.
-    @cacheUriProperty()
+    @cacheProperty()
     get packageUri(): Uri {
         // This is assuming that the current path is a directory already.
         return this.addPath('.py');
     }
 
     // Returns a URI where the path contains the path with .pyi appended.
-    @cacheUriProperty()
+    @cacheProperty()
     get packageStubUri(): Uri {
         // This is assuming that the current path is a directory already.
         return this.addPath('.pyi');
     }
 
     // Returns a URI where the path has __init__.py appended.
-    @cacheUriProperty()
+    @cacheProperty()
     get initFileUri(): Uri {
         // This is assuming that the current path is a directory already.
         return this.combinePaths('__init__.py');
     }
 
     // Returns a URI where the path has __init__.pyi appended.
-    @cacheUriProperty()
+    @cacheProperty()
     get initStubUri(): Uri {
         // This is assuming that the current path is a directory already.
         return this.combinePaths('__init__.pyi');
     }
 
     // Returns a URI where the path has py.typed appended.
-    @cacheUriProperty()
+    @cacheProperty()
     get pytypedUri(): Uri {
         // This is assuming that the current path is a directory already.
         return this.combinePaths('py.typed');
@@ -99,7 +97,7 @@ export abstract class BaseUri implements Uri {
 
     abstract matchesRegex(regex: RegExp): boolean;
 
-    @cacheUriMethod()
+    @cacheMethodWithArgs()
     replaceExtension(ext: string): Uri {
         const dir = this.getDirectory();
         const base = this.basename;
@@ -107,7 +105,7 @@ export abstract class BaseUri implements Uri {
         return dir.combinePaths(newBase);
     }
 
-    @cacheUriMethod()
+    @cacheMethodWithArgs()
     addExtension(ext: string): Uri {
         return this.addPath(ext);
     }
@@ -115,12 +113,12 @@ export abstract class BaseUri implements Uri {
     abstract addPath(extra: string): Uri;
 
     // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
-    @cacheUriMethodWithNoArgs()
+    @cacheMethodWithNoArgs()
     getDirectory(): Uri {
         return this.getDirectoryImpl();
     }
 
-    @cacheUriMethodWithNoArgs()
+    @cacheMethodWithNoArgs()
     getRootPathLength(): number {
         return this.getRootPath().length;
     }
@@ -168,12 +166,12 @@ export abstract class BaseUri implements Uri {
     abstract getPathLength(): number;
 
     // Combines paths to create a new Uri. Any '..' or '.' path components will be normalized.
-    @cacheUriMethod()
+    @cacheMethodWithArgs()
     combinePaths(...paths: string[]): Uri {
         return this.combinePathsImpl(...paths);
     }
 
-    @cacheUriMethod()
+    @cacheMethodWithArgs()
     getRelativePath(child: Uri): string | undefined {
         if (this.scheme !== child.scheme) {
             return undefined;
@@ -190,7 +188,7 @@ export abstract class BaseUri implements Uri {
         return undefined;
     }
 
-    @cacheUriMethodWithNoArgs()
+    @cacheMethodWithNoArgs()
     getPathComponents(): readonly string[] {
         // Make sure to freeze the result so that it can't be modified.
         return Object.freeze(this.getPathComponentsImpl());
@@ -200,7 +198,7 @@ export abstract class BaseUri implements Uri {
 
     abstract getFilePath(): string;
 
-    @cacheUriMethod()
+    @cacheMethodWithArgs()
     getRelativePathComponents(to: Uri): readonly string[] {
         const fromComponents = this.getPathComponents();
         const toComponents = to.getPathComponents();
@@ -230,7 +228,7 @@ export abstract class BaseUri implements Uri {
         return getShortenedFileName(this.getPath(), maxDirLength);
     }
 
-    @cacheUriMethodWithNoArgs()
+    @cacheMethodWithNoArgs()
     stripExtension(): Uri {
         const base = this.basename;
         const index = base.lastIndexOf('.');
@@ -242,7 +240,7 @@ export abstract class BaseUri implements Uri {
         }
     }
 
-    @cacheUriMethodWithNoArgs()
+    @cacheMethodWithNoArgs()
     stripAllExtensions(): Uri {
         const base = this.basename;
         const stripped = base.split('.')[0];
@@ -253,7 +251,7 @@ export abstract class BaseUri implements Uri {
         }
     }
 
-    @cacheUriMethodWithNoArgs()
+    @cacheMethodWithNoArgs()
     protected getRoot(): Uri {
         return this.getRootImpl();
     }
@@ -292,7 +290,7 @@ export abstract class BaseUri implements Uri {
         return reduced;
     }
 
-    @cacheUriMethodWithNoArgs()
+    @cacheMethodWithNoArgs()
     protected getComparablePath(): string {
         return this.getComparablePathImpl();
     }

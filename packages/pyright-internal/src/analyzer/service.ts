@@ -380,7 +380,6 @@ export class AnalyzerService {
         this._console.info('Total files checked: ' + checkedFileCount.toString());
 
         this._console.info('URI stats');
-        this._console.info(`Total number of URIs created: ${Uri.count()}`);
         this._console.info(`Counts per method:`);
         let timeSpentInUri = 0;
         let longestMethodName = 0;

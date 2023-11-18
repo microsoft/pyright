@@ -9,7 +9,7 @@
 import { URI, Utils } from 'vscode-uri';
 import { EmptyUri } from './emptyUri';
 import { FileUri } from './fileUri';
-import * as memoization from './memoization';
+import * as memoization from './memoization_instrumenting';
 import { WebUri } from './webUri';
 
 export interface Uri {
@@ -207,10 +207,6 @@ export namespace Uri {
 
     export function isUri(thing: any): thing is Uri {
         return !!thing && typeof thing._key === 'string';
-    }
-
-    export function count(): number {
-        return memoization.getCounter();
     }
 
     export function methods(): string[] {
