@@ -24,6 +24,7 @@ import { FileSystem } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
 import { defaultStubsDirectory } from '../common/pathConsts';
+import { isRootedDiskPath } from '../common/pathUtils';
 import { ServiceProvider } from '../common/serviceProvider';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Range } from '../common/textRange';
@@ -549,7 +550,11 @@ export class AnalyzerService {
             // If the config file path was specified, determine whether it's
             // a directory (in which case the default config file name is assumed)
             // or a file.
-            configFilePath = this.fs.realCasePath(projectRoot.combinePaths(commandLineOptions.configFilePath));
+            configFilePath = this.fs.realCasePath(
+                isRootedDiskPath(commandLineOptions.configFilePath)
+                    ? Uri.file(commandLineOptions.configFilePath)
+                    : projectRoot.combinePaths(commandLineOptions.configFilePath)
+            );
             if (!this.fs.existsSync(configFilePath)) {
                 this._console.info(`Configuration file not found at ${configFilePath}.`);
                 configFilePath = projectRoot;

@@ -29,6 +29,7 @@
         "@types/node": "^17.0.45",
         "copy-webpack-plugin": "^11.0.0",
         "esbuild-loader": "^3.0.1",
+        "pprof": "^3.2.1",
         "shx": "^0.3.4",
         "ts-loader": "^9.4.4",
         "typescript": "~4.4.4",

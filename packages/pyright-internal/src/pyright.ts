@@ -27,6 +27,7 @@ import { fail } from './common/debug';
 import { createDeferred } from './common/deferred';
 import { Diagnostic, DiagnosticCategory } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
+import { expandPathVariables } from './common/envVarUtils';
 import { FullAccessHost } from './common/fullAccessHost';
 import { combinePaths, normalizePath } from './common/pathUtils';
 import { versionFromString } from './common/pythonVersion';
@@ -129,6 +130,12 @@ const cancellationNone = Object.freeze({
         };
     },
 });
+
+function rootPath(relativePath: string) {
+    const rootUri = Uri.file(process.cwd());
+    const expanded = expandPathVariables(rootUri, relativePath);
+    return normalizePath(combinePaths(process.cwd(), expanded));
+}
 
 async function processArgs(): Promise<ExitStatus> {
     const optionDefinitions: OptionDefinition[] = [
@@ -242,7 +249,7 @@ async function processArgs(): Promise<ExitStatus> {
         }
 
         options.includeFileSpecsOverride = fileSpecList;
-        options.includeFileSpecsOverride = options.includeFileSpecsOverride.map((f) => combinePaths(process.cwd(), f));
+        options.includeFileSpecsOverride = options.includeFileSpecsOverride.map((f) => rootPath(f));
 
         // Verify the specified file specs to make sure their wildcard roots exist.
         const tempFileSystem = new PyrightFileSystem(createFromRealFileSystem());
@@ -263,7 +270,7 @@ async function processArgs(): Promise<ExitStatus> {
     }
 
     if (args.project) {
-        options.configFilePath = combinePaths(process.cwd(), normalizePath(args.project));
+        options.configFilePath = rootPath(normalizePath(args.project));
     }
 
     if (args.pythonplatform) {
@@ -296,25 +303,25 @@ async function processArgs(): Promise<ExitStatus> {
             }
         }
 
-        options.pythonPath = combinePaths(process.cwd(), normalizePath(args['pythonpath']));
+        options.pythonPath = rootPath(normalizePath(args['pythonpath']));
     }
 
     if (args['venv-path']) {
         console.warn(`'venv-path' option is deprecated; use 'venvpath' instead`);
-        options.venvPath = combinePaths(process.cwd(), normalizePath(args['venv-path']));
+        options.venvPath = rootPath(normalizePath(args['venv-path']));
     }
 
     if (args['venvpath']) {
-        options.venvPath = combinePaths(process.cwd(), normalizePath(args['venvpath']));
+        options.venvPath = rootPath(normalizePath(args['venvpath']));
     }
 
     if (args['typeshed-path']) {
         console.warn(`'typeshed-path' option is deprecated; use 'typeshedpath' instead`);
-        options.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshed-path']));
+        options.typeshedPath = rootPath(normalizePath(args['typeshed-path']));
     }
 
     if (args['typeshedpath']) {
-        options.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshedpath']));
+        options.typeshedPath = rootPath(normalizePath(args['typeshedpath']));
     }
 
     if (args.createstub) {

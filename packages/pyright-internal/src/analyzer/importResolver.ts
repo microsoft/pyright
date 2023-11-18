@@ -112,6 +112,7 @@ export class ImportResolver {
     private _cachedTypeshedThirdPartyPackageRoots: Uri[] | undefined;
     private _cachedEntriesForPath = new Map<string, Dirent[]>();
     private _cachedFilesForPath = new Map<string, Uri[]>();
+    private _cachedDirExistenceForRoot = new Map<string, boolean>();
     private _stdlibModules: Set<string> | undefined;
     protected cachedParentImportResults: ParentDirectoryCache;
 
@@ -516,7 +517,6 @@ export class ImportResolver {
         // If the import is absolute and no other method works, try resolving the
         // absolute in the importing file's directory, then the parent directory,
         // and so on, until the import root is reached.
-        sourceFileUri = this.fileSystem.realCasePath(sourceFileUri);
         const origin = sourceFileUri.getDirectory();
 
         const result = this.cachedParentImportResults.getImportResult(origin, importName, importResult);
@@ -578,20 +578,14 @@ export class ImportResolver {
     }
 
     protected fileExistsCached(uri: Uri): boolean {
-        if (uri.isEmpty()) {
+        const directory = uri.getDirectory();
+        if (directory === uri) {
+            // Started at root, so this can't be a file
             return false;
         }
-        const splitPath = this._splitUri(uri);
-
-        if (splitPath[0].isEmpty() || !splitPath[1]) {
-            if (!this.fileSystem.existsSync(uri)) {
-                return false;
-            }
-            return tryStat(this.fileSystem, uri)?.isFile() ?? false;
-        }
-
-        const entries = this.readdirEntriesCached(splitPath[0]);
-        const entry = entries.find((entry) => entry.name === splitPath[1]);
+        const fileName = uri.basename;
+        const entries = this.readdirEntriesCached(directory);
+        const entry = entries.find((entry) => entry.name === fileName);
         if (entry?.isFile()) {
             return true;
         }
@@ -607,21 +601,23 @@ export class ImportResolver {
     }
 
     protected dirExistsCached(uri: Uri): boolean {
-        if (uri.isEmpty()) {
-            return false;
-        }
-
-        const splitPath = this._splitUri(uri);
-
-        if (splitPath[0].isEmpty() || !splitPath[1]) {
-            if (!this.fileSystem.existsSync(uri)) {
-                return false;
+        const parent = uri.getDirectory();
+        if (parent === uri) {
+            // Started at root. No entries to read so have to
+            // check ourselves
+            let cachedExistence = this._cachedDirExistenceForRoot.get(uri.key);
+            if (cachedExistence === undefined) {
+                cachedExistence = tryStat(this.fileSystem, uri)?.isDirectory() ?? false;
+                this._cachedDirExistenceForRoot.set(uri.key, cachedExistence);
             }
-            return tryStat(this.fileSystem, uri)?.isDirectory() ?? false;
+            return cachedExistence;
         }
 
-        const entries = this.readdirEntriesCached(splitPath[0]);
-        const entry = entries.find((entry) => entry.name === splitPath[1]);
+        // Otherwise not a root, so read the entries we have cached to see if
+        // the directory exists or not.
+        const directoryName = uri.basename;
+        const entries = this.readdirEntriesCached(parent);
+        const entry = entries.find((entry) => entry.name === directoryName);
         if (entry?.isDirectory()) {
             return true;
         }
@@ -1268,20 +1264,7 @@ export class ImportResolver {
     private _invalidateFileSystemCache() {
         this._cachedEntriesForPath.clear();
         this._cachedFilesForPath.clear();
-    }
-
-    // Splits a path into the name of the containing directory and
-    // a file or dir within that containing directory.
-    private _splitUri(uri: Uri): [Uri, string] {
-        const pathComponents = uri.getPathComponents();
-        if (pathComponents.length <= 1) {
-            return [uri, ''];
-        }
-
-        const containingPath = uri.getDirectory();
-        const fileOrDirName = pathComponents[pathComponents.length - 1];
-
-        return [containingPath, fileOrDirName];
+        this._cachedDirExistenceForRoot.clear();
     }
 
     private _resolveAbsoluteImport(
@@ -1414,7 +1397,8 @@ export class ImportResolver {
                 } else {
                     if (allowNativeLib && this.dirExistsCached(fileDirectory)) {
                         const filesInDir = this._getFilesInDirectory(fileDirectory);
-                        const nativeLibPath = filesInDir.find((f) => this._isNativeModuleFileName(dirPath.basename, f));
+                        const dirName = dirPath.basename;
+                        const nativeLibPath = filesInDir.find((f) => this._isNativeModuleFileName(dirName, f));
                         if (nativeLibPath) {
                             // Try resolving native library to a custom stub.
                             isNativeLib = this._resolveNativeModuleStub(
