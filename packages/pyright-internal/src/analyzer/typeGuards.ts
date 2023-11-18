@@ -1395,11 +1395,12 @@ function narrowTypeForIsInstance(
                         // If the variable type is a subclass of the isinstance filter,
                         // we haven't learned anything new about the variable type.
 
-                        // If the varType is a constrained TypeVar, narrow to the specific
-                        // constraint. Otherwise retain the varType.
-                        const unnarrowedType =
-                            isTypeVar(varType) && varType.details.constraints.length > 0 ? concreteVarType : varType;
-                        filteredTypes.push(addConditionToType(unnarrowedType, conditions));
+                        // If the varType is a Self or type[Self], retain the unnarrowedType.
+                        if (isTypeVar(varType) && varType.details.isSynthesizedSelf) {
+                            filteredTypes.push(addConditionToType(varType, conditions));
+                        } else {
+                            filteredTypes.push(addConditionToType(concreteVarType, conditions));
+                        }
                     } else if (filterIsSubclass) {
                         if (
                             evaluator.assignType(
