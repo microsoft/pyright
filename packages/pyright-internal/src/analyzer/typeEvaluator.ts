@@ -13744,9 +13744,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): TypeResult {
         let isIncomplete = !!inferenceContext?.isTypeIncomplete;
         let paramsArePositionOnly = true;
-        const expectedParamDetails = expectedType ? getParameterListDetails(expectedType) : undefined;
 
-        const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.PartiallyEvaluated);
+        let expectedReturnType: Type | undefined;
+        let expectedParamDetails: ParameterListDetails | undefined;
+
+        if (expectedType) {
+            const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+            expectedType = transformExpectedType(expectedType, liveTypeVarScopes, node.start) as FunctionType;
+
+            expectedParamDetails = getParameterListDetails(expectedType);
+            expectedReturnType = getFunctionEffectiveReturnType(expectedType);
+        }
+
+        let functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.PartiallyEvaluated);
         functionType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
 
         // Pre-cache the incomplete function type in case the evaluation of the
@@ -13848,7 +13858,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        const expectedReturnType = expectedType ? getFunctionEffectiveReturnType(expectedType) : undefined;
         let typeErrors = false;
 
         // If we're speculatively evaluating the lambda, create another speculative
@@ -13876,6 +13885,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (returnTypeResult.typeErrors) {
                     typeErrors = true;
+                } else if (expectedReturnType) {
+                    // If the expectedReturnType is generic, see if the actual return type
+                    // provides types for some or all type variables.
+                    if (requiresSpecialization(expectedReturnType)) {
+                        const typeVarContext = new TypeVarContext(getTypeVarScopeId(functionType));
+                        if (
+                            assignType(expectedReturnType, returnTypeResult.type, /* diag */ undefined, typeVarContext)
+                        ) {
+                            functionType = applySolvedTypeVars(functionType, typeVarContext, {
+                                applyInScopePlaceholders: true,
+                            }) as FunctionType;
+                        }
+                    }
                 }
             },
             {
