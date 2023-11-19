@@ -782,6 +782,12 @@ test('SolverHigherOrder10', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('SolverHigherOrder11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverHigherOrder11.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('SolverLiteral1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverLiteral1.py']);
 
