@@ -1748,36 +1748,46 @@ export function getPatternSubtypeNarrowingCallback(
                 const unnarrowedReferenceType = unnarrowedReferenceTypeResult.type;
 
                 return (narrowedSubjectType: Type) => {
-                    let narrowedType: Type | undefined;
+                    let canNarrow = true;
+                    const typesToCombine: Type[] = [];
 
-                    if (isNever(narrowedSubjectType)) {
-                        narrowedType = NeverType.createNever();
-                    } else if (isClassInstance(narrowedSubjectType) && narrowedSubjectType.literalValue !== undefined) {
-                        if (ClassType.isBuiltIn(indexType, 'str')) {
-                            narrowedType = narrowTypeForDiscriminatedDictEntryComparison(
-                                evaluator,
-                                unnarrowedReferenceType,
-                                indexType,
-                                narrowedSubjectType,
-                                /* isPositiveTest */ true
-                            );
-                        } else {
-                            narrowedType = narrowTypeForDiscriminatedTupleComparison(
-                                evaluator,
-                                unnarrowedReferenceType,
-                                indexType,
-                                narrowedSubjectType,
-                                /* isPositiveTest */ true
-                            );
+                    doForEachSubtype(narrowedSubjectType, (subtype) => {
+                        subtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
+                        if (isClassInstance(subtype) && subtype.literalValue !== undefined) {
+                            if (ClassType.isBuiltIn(indexType, 'str')) {
+                                typesToCombine.push(
+                                    narrowTypeForDiscriminatedDictEntryComparison(
+                                        evaluator,
+                                        unnarrowedReferenceType,
+                                        indexType,
+                                        subtype,
+                                        /* isPositiveTest */ true
+                                    )
+                                );
+                            } else {
+                                typesToCombine.push(
+                                    narrowTypeForDiscriminatedTupleComparison(
+                                        evaluator,
+                                        unnarrowedReferenceType,
+                                        indexType,
+                                        subtype,
+                                        /* isPositiveTest */ true
+                                    )
+                                );
+                            }
+                        } else if (!isNever(subtype)) {
+                            // We don't know how to narrow in this case.
+                            canNarrow = false;
                         }
-                    }
+                    });
 
-                    if (!narrowedType) {
+                    if (!canNarrow) {
                         return undefined;
                     }
 
                     return {
-                        type: narrowedType,
+                        type: combineTypes(typesToCombine),
                         isIncomplete: indexTypeResult.isIncomplete || unnarrowedReferenceTypeResult.isIncomplete,
                     };
                 };
