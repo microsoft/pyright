@@ -153,6 +153,12 @@ export function assignTypeToTypeVar(
         }
     }
 
+    // An in-scope placeholder TypeVar can always be assigned to itself,
+    // but we won't record this in the typeVarContext.
+    if (isTypeSame(destType, srcType) && destType.isInScopePlaceholder) {
+        return true;
+    }
+
     if ((flags & AssignTypeFlags.SkipSolveTypeVars) !== 0) {
         return evaluator.assignType(
             evaluator.makeTopLevelTypeVarsConcrete(destType),
