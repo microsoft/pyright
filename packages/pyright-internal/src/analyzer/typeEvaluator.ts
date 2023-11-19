@@ -13358,43 +13358,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isIncomplete = false;
         let typeErrors = false;
         const verifyHashable = node.nodeType === ParseNodeType.Set;
-        let expectedEntryType: Type;
 
-        if (isAnyOrUnknown(inferenceContext.expectedType)) {
-            expectedEntryType = inferenceContext.expectedType;
-        } else {
-            if (!isClassInstance(inferenceContext.expectedType)) {
-                return undefined;
-            }
-
-            const builtInListOrSet = getBuiltInObject(node, builtInClassName);
-            if (!isClassInstance(builtInListOrSet)) {
-                return undefined;
-            }
-
-            const typeVarContext = new TypeVarContext(getTypeVarScopeId(builtInListOrSet));
-            if (
-                !populateTypeVarContextBasedOnExpectedType(
-                    evaluatorInterface,
-                    builtInListOrSet,
-                    inferenceContext.expectedType,
-                    typeVarContext,
-                    ParseTreeUtils.getTypeVarScopesForNode(node),
-                    node.start
-                )
-            ) {
-                return undefined;
-            }
-
-            const specializedListOrSet = applySolvedTypeVars(
-                ClassType.cloneAsInstantiable(builtInListOrSet),
-                typeVarContext
-            ) as ClassType;
-            if (!specializedListOrSet.typeArguments || specializedListOrSet.typeArguments.length !== 1) {
-                return undefined;
-            }
-
-            expectedEntryType = specializedListOrSet.typeArguments[0];
+        const expectedEntryType = getExpectedEntryTypeForIterable(
+            node,
+            getBuiltInType(node, builtInClassName),
+            inferenceContext
+        );
+        if (!expectedEntryType) {
+            return undefined;
         }
 
         const entryTypes: Type[] = [];
@@ -13445,6 +13416,49 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const type = getBuiltInObject(node, builtInClassName, [specializedEntryType]);
         return { type, isIncomplete, typeErrors, expectedTypeDiagAddendum };
+    }
+
+    function getExpectedEntryTypeForIterable(
+        node: ListNode | SetNode | ListComprehensionNode,
+        expectedClassType: Type | undefined,
+        inferenceContext?: InferenceContext
+    ): Type | undefined {
+        if (!inferenceContext) {
+            return undefined;
+        }
+
+        if (!expectedClassType || !isInstantiableClass(expectedClassType)) {
+            return undefined;
+        }
+
+        if (isAnyOrUnknown(inferenceContext.expectedType)) {
+            return inferenceContext.expectedType;
+        }
+
+        if (!isClassInstance(inferenceContext.expectedType)) {
+            return undefined;
+        }
+
+        const typeVarContext = new TypeVarContext(getTypeVarScopeId(expectedClassType));
+        if (
+            !populateTypeVarContextBasedOnExpectedType(
+                evaluatorInterface,
+                ClassType.cloneAsInstance(expectedClassType),
+                inferenceContext.expectedType,
+                typeVarContext,
+                ParseTreeUtils.getTypeVarScopesForNode(node),
+                node.start
+            )
+        ) {
+            return undefined;
+        }
+
+        const specializedListOrSet = applySolvedTypeVars(expectedClassType, typeVarContext) as ClassType;
+        if (!specializedListOrSet.typeArguments || specializedListOrSet.typeArguments.length !== 1) {
+            return undefined;
+        }
+
+        return specializedListOrSet.typeArguments[0];
     }
 
     // Attempts to infer the type of a list or set statement with no "expected type".
@@ -13900,17 +13914,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isAsync = true;
         }
 
-        let expectedElementType: Type | undefined;
-        if (inferenceContext) {
-            expectedElementType = getTypeOfIterator(
-                { type: inferenceContext.expectedType },
-                isAsync,
-                node,
-                /* emitNotIterableError */ false
-            )?.type;
-        }
-
-        const elementTypeResult = getElementTypeFromListComprehension(node, expectedElementType);
+        const expectedEntryType = getExpectedEntryTypeForIterable(
+            node,
+            getTypingType(node, 'Iterable'),
+            inferenceContext
+        );
+        const elementTypeResult = getElementTypeFromListComprehension(node, expectedEntryType);
         if (elementTypeResult.isIncomplete) {
             isIncomplete = true;
         }
