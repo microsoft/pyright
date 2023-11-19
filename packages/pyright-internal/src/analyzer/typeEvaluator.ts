@@ -5918,13 +5918,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // generic but are not defined that way. Because of this, we use type variables
             // in the synthesized methods (e.g. __get__) for the property class that are
             // defined in the class that declares the fget method.
-            const specializedType = partiallySpecializeType(
-                methodType,
-                memberInfo.classType,
-                selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : classType
-            );
-            if (isFunction(specializedType) || isOverloadedFunction(specializedType)) {
-                methodType = specializedType;
+            let accessMethodClass: ClassType | undefined;
+            if (usage.method === 'get') {
+                accessMethodClass = concreteMemberType.fgetInfo?.classType;
+            } else if (usage.method === 'set') {
+                accessMethodClass = concreteMemberType.fsetInfo?.classType;
+            } else {
+                accessMethodClass = concreteMemberType.fdelInfo?.classType;
+            }
+
+            if (accessMethodClass) {
+                const typeVarContext = new TypeVarContext(getTypeVarScopeId(accessMethodClass));
+                accessMethodClass = selfSpecializeClass(accessMethodClass);
+                assignType(
+                    ClassType.cloneAsInstance(accessMethodClass),
+                    ClassType.cloneAsInstance(memberInfo.classType),
+                    /* diag */ undefined,
+                    typeVarContext
+                );
+                accessMethodClass = applySolvedTypeVars(accessMethodClass, typeVarContext) as ClassType;
+
+                const specializedType = partiallySpecializeType(
+                    methodType,
+                    accessMethodClass,
+                    selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : classType
+                );
+
+                if (isFunction(specializedType) || isOverloadedFunction(specializedType)) {
+                    methodType = specializedType;
+                }
             }
         }
 
@@ -17015,6 +17037,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         functionType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
         functionType.details.deprecatedMessage = functionInfo.deprecationMessage;
+        functionType.details.methodClass = containingClassType;
 
         if (node.name.value === '__init__' || node.name.value === '__new__') {
             if (containingClassNode) {
@@ -22088,8 +22111,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        if (propertyClass.fgetFunction) {
-            return getFunctionEffectiveReturnType(propertyClass.fgetFunction, /* args */ undefined, inferTypeIfNeeded);
+        if (propertyClass.fgetInfo) {
+            return getFunctionEffectiveReturnType(
+                propertyClass.fgetInfo.methodType,
+                /* args */ undefined,
+                inferTypeIfNeeded
+            );
         }
 
         return undefined;

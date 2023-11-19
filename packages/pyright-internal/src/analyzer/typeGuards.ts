@@ -2239,7 +2239,7 @@ function narrowTypeForDiscriminatedLiteralFieldComparison(
             // Handle the case where the field is a property
             // that has a declared literal return type for its getter.
             if (isClassInstance(subtype) && isClassInstance(memberType) && isProperty(memberType)) {
-                const getterType = memberType.fgetFunction;
+                const getterType = memberType.fgetInfo?.methodType;
                 if (getterType && getterType.details.declaredReturnType) {
                     const getterReturnType = FunctionType.getSpecializedReturnType(getterType);
                     if (getterReturnType) {
