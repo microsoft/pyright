@@ -6795,6 +6795,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             baseTypeResult.type,
             /* conditionFilter */ undefined,
             (concreteSubtype, unexpandedSubtype) => {
+                const selfType = isTypeVar(unexpandedSubtype) ? unexpandedSubtype : undefined;
+
                 if (isAnyOrUnknown(concreteSubtype)) {
                     return concreteSubtype;
                 }
@@ -6843,7 +6845,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         if (itemMethodType) {
-                            return getTypeOfIndexedObjectOrClass(node, concreteSubtype, usage).type;
+                            return getTypeOfIndexedObjectOrClass(node, concreteSubtype, selfType, usage).type;
                         }
                     }
 
@@ -6976,7 +6978,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (isClassInstance(concreteSubtype)) {
-                    const typeResult = getTypeOfIndexedObjectOrClass(node, concreteSubtype, usage);
+                    const typeResult = getTypeOfIndexedObjectOrClass(node, concreteSubtype, selfType, usage);
                     if (typeResult.isIncomplete) {
                         isIncomplete = true;
                     }
@@ -7140,7 +7142,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
-    function getTypeOfIndexedObjectOrClass(node: IndexNode, baseType: ClassType, usage: EvaluatorUsage): TypeResult {
+    function getTypeOfIndexedObjectOrClass(
+        node: IndexNode,
+        baseType: ClassType,
+        selfType: ClassType | TypeVarType | undefined,
+        usage: EvaluatorUsage
+    ): TypeResult {
         // Handle index operations for TypedDict classes specially.
         if (isClassInstance(baseType) && ClassType.isTypedDictClass(baseType)) {
             const typeFromTypedDict = getTypeOfIndexedTypedDict(evaluatorInterface, node, baseType, usage);
@@ -7150,7 +7157,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const magicMethodName = getIndexAccessMagicMethodName(usage);
-        const itemMethodType = getBoundMagicMethod(baseType, magicMethodName);
+        const itemMethodType = getBoundMagicMethod(baseType, magicMethodName, selfType);
 
         if (!itemMethodType) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
