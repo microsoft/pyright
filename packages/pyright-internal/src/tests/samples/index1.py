@@ -2,7 +2,7 @@
 # when used with the __getitem__ and __setitem__ method.
 
 
-from typing import Generic, Type, TypeVar, Any
+from typing import Generic, Self, Type, TypeVar, Any
 
 
 class MyInt:
@@ -95,3 +95,12 @@ v_e = e["test"]
 
 # This should generate an error
 e["test"] = 3
+
+
+class ClassF(Generic[T]):
+    def __getitem__(self, args: int) -> Self:
+        ...
+
+    def get(self, index: int) -> Self:
+        reveal_type(self[index], expected_text="Self@ClassF[T@ClassF]")
+        return self[index]
