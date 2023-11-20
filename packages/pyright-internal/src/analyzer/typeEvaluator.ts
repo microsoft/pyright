@@ -23263,7 +23263,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // First attempt to match all of the non-generic types in the dest
             // to non-generic types in the source.
-            destType.subtypes.forEach((destSubtype) => {
+            sortTypes(destType.subtypes).forEach((destSubtype) => {
                 if (requiresSpecialization(destSubtype)) {
                     remainingDestSubtypes.push(destSubtype);
                 } else {
@@ -23282,7 +23282,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // For all remaining source subtypes, attempt to find a dest subtype
             // whose primary type matches.
             remainingSrcSubtypes.forEach((srcSubtype) => {
-                const destTypeIndex = remainingDestSubtypes.findIndex((destSubtype) => {
+                // Start by looking for a subtype that is either an exact match or
+                // very close (e.g. same class but different type args). This heuristic
+                // will help produce better (more logical) TypeVar solutions.
+                let destTypeIndex = remainingDestSubtypes.findIndex((destSubtype) => {
                     if (isTypeSame(destSubtype, srcSubtype)) {
                         return true;
                     }
@@ -23304,6 +23307,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     return false;
                 });
+
+                // If we couldn't find a close match, see if we can at least find
+                // an assignable subtype.
+                if (destTypeIndex < 0) {
+                    destTypeIndex = remainingDestSubtypes.findIndex((destSubtype) =>
+                        assignType(
+                            destSubtype,
+                            srcSubtype,
+                            /* diag */ undefined,
+                            destTypeVarContext?.clone(),
+                            srcTypeVarContext?.clone(),
+                            flags,
+                            recursionCount
+                        )
+                    );
+                }
 
                 if (destTypeIndex >= 0) {
                     if (
@@ -23346,7 +23365,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const isReversed = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
                 const effectiveDestSubtypes = isReversed ? remainingSrcSubtypes : remainingDestSubtypes;
 
-                if (effectiveDestSubtypes.length === 0 || effectiveDestSubtypes.some((t) => !isTypeVar(t))) {
+                if (effectiveDestSubtypes.length === 0 || !effectiveDestSubtypes.some((t) => isTypeVar(t))) {
                     canUseFastPath = false;
 
                     // We can avoid checking the source subtypes that have already been checked.

@@ -633,11 +633,11 @@ function compareTypes(a: Type, b: Type, recursionCount = 0): number {
         case TypeCategory.Class: {
             const bClass = b as ClassType;
 
-            // Sort instances before instantiables.
+            // Sort instantiables before instances.
             if (isClassInstance(a) && isInstantiableClass(bClass)) {
-                return -1;
-            } else if (isInstantiableClass(a) && isClassInstance(bClass)) {
                 return 1;
+            } else if (isInstantiableClass(a) && isClassInstance(bClass)) {
+                return -1;
             }
 
             // Sort literals before non-literals.
