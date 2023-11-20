@@ -384,7 +384,7 @@ export function assignTypeToTypeVar(
                     curNarrowTypeBound,
                     adjSrcType,
                     diagAddendum,
-                    /* destTypeVarContext */ undefined,
+                    typeVarContext,
                     /* srcTypeVarContext */ undefined,
                     flags,
                     recursionCount
@@ -400,7 +400,7 @@ export function assignTypeToTypeVar(
                         adjSrcType,
                         curNarrowTypeBound,
                         /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
+                        typeVarContext,
                         /* srcTypeVarContext */ undefined,
                         flags & AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
@@ -417,7 +417,7 @@ export function assignTypeToTypeVar(
                     evaluator.makeTopLevelTypeVarsConcrete(curNarrowTypeBound),
                     adjSrcType,
                     diagAddendum,
-                    /* destTypeVarContext */ undefined,
+                    typeVarContext,
                     /* srcTypeVarContext */ undefined,
                     flags,
                     recursionCount
@@ -443,7 +443,7 @@ export function assignTypeToTypeVar(
                         adjSrcType,
                         curNarrowTypeBound,
                         /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
+                        typeVarContext,
                         /* srcTypeVarContext */ undefined,
                         flags & AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
@@ -519,7 +519,7 @@ export function assignTypeToTypeVar(
                         adjWideTypeBound,
                         newNarrowTypeBound,
                         diag?.createAddendum(),
-                        /* destTypeVarContext */ undefined,
+                        typeVarContext,
                         /* srcTypeVarContext */ undefined,
                         AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
