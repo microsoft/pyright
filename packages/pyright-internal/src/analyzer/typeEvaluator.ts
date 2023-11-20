@@ -23297,10 +23297,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (
                         isClass(srcSubtype) &&
                         isClass(destSubtype) &&
-                        TypeBase.isInstance(srcSubtype) === TypeBase.isInstance(destSubtype) &&
-                        ClassType.isSameGenericClass(srcSubtype, destSubtype)
+                        TypeBase.isInstance(srcSubtype) === TypeBase.isInstance(destSubtype)
                     ) {
-                        return true;
+                        if (ClassType.isSameGenericClass(srcSubtype, destSubtype)) {
+                            return true;
+                        }
+
+                        // Are they equivalent TypedDicts?
+                        if (ClassType.isTypedDictClass(srcSubtype) && ClassType.isTypedDictClass(destSubtype)) {
+                            if (
+                                assignType(
+                                    srcSubtype,
+                                    destSubtype,
+                                    /* diag */ undefined,
+                                    /* destTypeVarContext */ undefined,
+                                    /* srcTypeVarContext */ undefined,
+                                    flags,
+                                    recursionCount
+                                )
+                            ) {
+                                return true;
+                            }
+                        }
                     }
 
                     if (isFunction(srcSubtype) || isOverloadedFunction(srcSubtype)) {
