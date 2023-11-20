@@ -6913,7 +6913,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // This feature is currently experimental.
                     const supportsTypedDictTypeArg =
                         AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures &&
-                        ClassType.isBuiltIn(concreteSubtype, ['dict', 'TypedDict']) &&
+                        ClassType.isBuiltIn(concreteSubtype, 'dict') &&
                         !ClassType.isBuiltIn(concreteSubtype, 'Dict');
 
                     let typeArgs = getTypeArgs(node, flags, {
@@ -7552,11 +7552,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (node.nodeType === ParseNodeType.Dictionary) {
                 addError(Localizer.Diagnostic.dictInAnnotation(), node);
-            }
-
-            // "Protocol" is not allowed as a type argument.
-            if (isClass(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'Protocol')) {
-                addError(Localizer.Diagnostic.protocolNotAllowedInTypeArgument(), node);
             }
 
             if ((flags & EvaluatorFlags.DisallowClassVar) !== 0) {
@@ -12033,7 +12028,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else {
                         const argType =
                             argList[i].typeResult?.type ??
-                            getTypeOfExpressionExpectingType(argList[i].valueExpression!).type;
+                            getTypeOfExpressionExpectingType(argList[i].valueExpression!, {
+                                disallowProtocolAndTypedDict: true,
+                            }).type;
                         if (
                             requiresSpecialization(argType, { ignorePseudoGeneric: true, ignoreImplicitTypeArgs: true })
                         ) {
@@ -19257,6 +19254,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Protocol': {
+                    if (
+                        (flags &
+                            (EvaluatorFlags.DisallowProtocolAndTypedDict | EvaluatorFlags.ExpectingTypeAnnotation)) !==
+                        0
+                    ) {
+                        addError(Localizer.Diagnostic.protocolNotAllowed(), errorNode);
+                    }
+
                     return {
                         type: createSpecialType(
                             classType,
@@ -19265,6 +19270,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             /* allowParamSpec */ true
                         ),
                     };
+                }
+
+                case 'TypedDict': {
+                    if (
+                        (flags &
+                            (EvaluatorFlags.DisallowProtocolAndTypedDict | EvaluatorFlags.ExpectingTypeAnnotation)) !==
+                        0
+                    ) {
+                        addError(Localizer.Diagnostic.typedDictNotAllowed(), errorNode);
+                    }
+                    break;
                 }
 
                 case 'Tuple': {
@@ -19706,7 +19722,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             flags |= EvaluatorFlags.InterpreterParsesStringLiteral;
         }
 
-        if (!options?.allowFinal) {
+        if (!options || !options.allowFinal) {
             flags |= EvaluatorFlags.DisallowFinal;
         }
 
@@ -19720,12 +19736,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             flags |= EvaluatorFlags.DisallowTypeVarTuple;
         }
 
-        if (!options?.allowParamSpec) {
+        if (!options || !options.allowParamSpec) {
             flags |= EvaluatorFlags.DisallowParamSpec;
         }
 
         if (options?.enforceTypeAnnotationRules) {
             flags |= EvaluatorFlags.ExpectingTypeAnnotation;
+        }
+
+        if (options?.disallowProtocolAndTypedDict) {
+            flags |= EvaluatorFlags.DisallowProtocolAndTypedDict;
         }
 
         return getTypeOfExpression(node, flags);
@@ -20411,7 +20431,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (node.boundExpression) {
             if (node.boundExpression.nodeType === ParseNodeType.Tuple) {
                 const constraints = node.boundExpression.expressions.map((constraint) => {
-                    const constraintType = getTypeOfExpressionExpectingType(constraint).type;
+                    const constraintType = getTypeOfExpressionExpectingType(constraint, {
+                        disallowProtocolAndTypedDict: true,
+                    }).type;
 
                     if (
                         requiresSpecialization(constraintType, {

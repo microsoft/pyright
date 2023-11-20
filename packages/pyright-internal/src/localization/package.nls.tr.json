@@ -376,7 +376,6 @@
         "protocolBaseClass": "Protokol sınıfı \"{classType}\", protokol olmayan \"{baseType}\" sınıfı türevi olamaz",
         "protocolBaseClassWithTypeArgs": "Tür parametresi söz dizimi kullanılırken, tür bağımsız değişkenlerinin Protokol sınıfıyla kullanılmasına izin verilmez",
         "protocolIllegal": "\"Protocol\" kullanımı için Python 3.7 veya daha yeni bir sürümü gerekiyor",
-        "protocolNotAllowedInTypeArgument": "\"Protocol\" tür bağımsız değişkeni olarak kullanılamaz",
         "protocolVarianceContravariant": "\"{class}\" genel protokolünde kullanılan \"{variable}\" tür değişkeni, değişken karşıtı olmalıdır",
         "protocolVarianceCovariant": "\"{class}\" genel protokolünde kullanılan \"{variable}\" tür değişkeni birlikte değişen olmalıdır",
         "protocolVarianceInvariant": "\"{class}\" genel protokolünde kullanılan \"{variable}\" tür değişkeni sabit olmalıdır",

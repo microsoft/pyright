@@ -775,8 +775,7 @@ export namespace Localizer {
             );
         export const protocolBaseClassWithTypeArgs = () => getRawString('Diagnostic.protocolBaseClassWithTypeArgs');
         export const protocolIllegal = () => getRawString('Diagnostic.protocolIllegal');
-        export const protocolNotAllowedInTypeArgument = () =>
-            getRawString('Diagnostic.protocolNotAllowedInTypeArgument');
+        export const protocolNotAllowed = () => getRawString('Diagnostic.protocolNotAllowed');
         export const protocolVarianceContravariant = () =>
             new ParameterizedString<{ variable: string; class: string }>(
                 getRawString('Diagnostic.protocolVarianceContravariant')
@@ -938,6 +937,7 @@ export namespace Localizer {
         export const typedDictFieldTypeRedefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldTypeRedefinition'));
         export const typedDictFirstArg = () => getRawString('Diagnostic.typedDictFirstArg');
+        export const typedDictNotAllowed = () => getRawString('Diagnostic.typedDictNotAllowed');
         export const typedDictSecondArgDict = () => getRawString('Diagnostic.typedDictSecondArgDict');
         export const typedDictSecondArgDictEntry = () => getRawString('Diagnostic.typedDictSecondArgDictEntry');
         export const typedDictSet = () => getRawString('Diagnostic.typedDictSet');
