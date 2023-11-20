@@ -376,7 +376,6 @@
         "protocolBaseClass": "Klasa protokołu typu „{classType}” nie może pochodzić od klasy niebędącej klasą protokołu typu „{baseType}”",
         "protocolBaseClassWithTypeArgs": "Argumenty typu są niedozwolone w przypadku klasy protokołu, gdy jest używana składnia parametru typu",
         "protocolIllegal": "Użycie elementu „Protocol” wymaga języka Python w wersji 3.7 lub nowszej",
-        "protocolNotAllowedInTypeArgument": "„Protokół” nie może być użyty jako argument typu",
         "protocolVarianceContravariant": "Zmienna typu „{variable}” używana w klasie protokołu ogólnego „{class}” powinna być kontrawariantna",
         "protocolVarianceCovariant": "Zmienna typu „{variable}” używana w klasie protokołu ogólnego „{class}” powinna być kowariantna",
         "protocolVarianceInvariant": "Zmienna typu „{variable}” używana w klasie protokołu ogólnego „{class}” powinna być niezmienna",

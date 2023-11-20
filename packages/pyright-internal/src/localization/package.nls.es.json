@@ -376,7 +376,6 @@
         "protocolBaseClass": "La clase de protocolo \"{classType}\" no se puede derivar de la clase que no es de protocolo \"{baseType}\"",
         "protocolBaseClassWithTypeArgs": "No se permiten argumentos de tipo con la clase Protocol cuando se usa la sintaxis de parámetro de tipo",
         "protocolIllegal": "El uso de \"Protocolo\" requiere Python 3.7 o posterior.",
-        "protocolNotAllowedInTypeArgument": "\"Protocol\" no puede utilizarse como argumento de tipo",
         "protocolVarianceContravariant": "La variable de tipo \"{variable}\" usada en el protocolo genérico \"{class}\" debe ser contravariante.",
         "protocolVarianceCovariant": "La variable de tipo \"{variable}\" usada en el protocolo genérico \"{class}\" debe ser covariante",
         "protocolVarianceInvariant": "La variable de tipo \"{variable}\" usada en el protocolo genérico \"{class}\" debe ser invariable.",
