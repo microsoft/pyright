@@ -23297,10 +23297,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (
                         isClass(srcSubtype) &&
                         isClass(destSubtype) &&
-                        TypeBase.isInstance(srcSubtype) === TypeBase.isInstance(destSubtype) &&
-                        ClassType.isSameGenericClass(srcSubtype, destSubtype)
+                        TypeBase.isInstance(srcSubtype) === TypeBase.isInstance(destSubtype)
                     ) {
-                        return true;
+                        if (ClassType.isSameGenericClass(srcSubtype, destSubtype)) {
+                            return true;
+                        }
+
+                        // Are they equivalent TypedDicts?
+                        if (ClassType.isTypedDictClass(srcSubtype) && ClassType.isTypedDictClass(destSubtype)) {
+                            if (
+                                assignType(
+                                    srcSubtype,
+                                    destSubtype,
+                                    /* diag */ undefined,
+                                    /* destTypeVarContext */ undefined,
+                                    /* srcTypeVarContext */ undefined,
+                                    flags,
+                                    recursionCount
+                                )
+                            ) {
+                                return true;
+                            }
+                        }
                     }
 
                     if (isFunction(srcSubtype) || isOverloadedFunction(srcSubtype)) {
@@ -23353,7 +23371,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const isReversed = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
                 const effectiveDestSubtypes = isReversed ? remainingSrcSubtypes : remainingDestSubtypes;
 
-                if (effectiveDestSubtypes.length === 0 || effectiveDestSubtypes.some((t) => !isTypeVar(t))) {
+                if (effectiveDestSubtypes.length === 0 || !effectiveDestSubtypes.some((t) => isTypeVar(t))) {
                     canUseFastPath = false;
 
                     // We can avoid checking the source subtypes that have already been checked.
