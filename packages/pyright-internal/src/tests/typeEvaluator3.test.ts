@@ -1544,7 +1544,7 @@ test('Constructor24', () => {
 
     configOptions.diagnosticRuleSet.strictParameterNoneValue = true;
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor24.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Constructor25', () => {

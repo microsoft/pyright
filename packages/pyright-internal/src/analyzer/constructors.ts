@@ -736,7 +736,7 @@ function applyExpectedTypeForConstructor(
     // If this isn't a generic type or it's a type that has already been
     // explicitly specialized, the expected type isn't applicable.
     if (type.details.typeParameters.length === 0 || type.typeArguments) {
-        return ClassType.cloneAsInstance(type);
+        return applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarContext, { applyInScopePlaceholders: true });
     }
 
     if (inferenceContext) {
