@@ -1,9 +1,9 @@
 /*
- * uri.ts
+ * baseUri.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * URI class for storing and manipulating URIs.
+ * Base URI class for storing and manipulating URIs.
  */
 
 import { some } from '../collectionUtils';
