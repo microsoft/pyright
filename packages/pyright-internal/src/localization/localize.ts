@@ -1468,6 +1468,8 @@ export namespace Localizer {
         export const typeVarNotAllowed = () => getRawString('DiagnosticAddendum.typeVarNotAllowed');
         export const typeVarTupleRequiresKnownLength = () =>
             getRawString('DiagnosticAddendum.typeVarTupleRequiresKnownLength');
+        export const typeVarUnnecessarySuggestion = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.typeVarUnnecessarySuggestion'));
         export const typeVarUnsolvableRemedy = () => getRawString('DiagnosticAddendum.typeVarUnsolvableRemedy');
         export const unhashableType = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.unhashableType'));

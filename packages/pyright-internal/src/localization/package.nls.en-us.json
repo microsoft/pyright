@@ -722,6 +722,7 @@
         "typeVarIsCovariant": "Type parameter \"{name}\" is covariant, but \"{sourceType}\" is not a subtype of \"{destType}\"",
         "typeVarIsInvariant": "Type parameter \"{name}\" is invariant, but \"{sourceType}\" is not the same as \"{destType}\"",
         "typeVarNotAllowed": "TypeVar not allowed for instance or class checks",
+        "typeVarUnnecessarySuggestion": "Use {type} instead",
         "typeVarUnsolvableRemedy": "Provide an overload that specifies the return type when the argument is not supplied",
         "typeVarsMissing": "Missing type variables: {names}",
         "typeVarTupleRequiresKnownLength": "TypeVarTuple cannot be bound to a tuple of unknown length",
