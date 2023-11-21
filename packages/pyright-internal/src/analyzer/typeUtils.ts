@@ -1313,7 +1313,9 @@ export function populateTypeVarContextForSelfType(
         return subtype;
     });
 
-    typeVarContext.setTypeVarType(synthesizedSelfTypeVar, selfInstance, selfWithoutLiteral);
+    if (!isTypeSame(synthesizedSelfTypeVar, selfWithoutLiteral)) {
+        typeVarContext.setTypeVarType(synthesizedSelfTypeVar, selfInstance, selfWithoutLiteral);
+    }
 }
 
 // Looks for duplicate function types within the type and ensures that
@@ -2883,6 +2885,11 @@ export function requiresSpecialization(
 }
 
 function _requiresSpecialization(type: Type, options?: RequiresSpecializationOptions, recursionCount = 0): boolean {
+    // If the type is conditioned on a TypeVar, it may need to be specialized.
+    if (type.condition) {
+        return true;
+    }
+
     switch (type.category) {
         case TypeCategory.Class: {
             if (ClassType.isPseudoGenericClass(type) && options?.ignorePseudoGeneric) {
@@ -3323,6 +3330,12 @@ class TypeVarTransformer {
 
         type = this.transformGenericTypeAlias(type, recursionCount);
 
+        // If the type is conditioned on a type variable, see if the condition
+        // still applies.
+        if (type.condition) {
+            type = this.transformConditionalType(type, recursionCount);
+        }
+
         // Shortcut the operation if possible.
         if (!requiresSpecialization(type)) {
             return type;
@@ -3547,6 +3560,11 @@ class TypeVarTransformer {
                   newTypeArgs
               )
             : type;
+    }
+
+    transformConditionalType(type: Type, recursionCount: number): Type {
+        // By default, do not perform any transform.
+        return type;
     }
 
     transformTypeVarsInClassType(classType: ClassType, recursionCount: number): ClassType {
@@ -4242,6 +4260,41 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         }
 
         return undefined;
+    }
+
+    override transformConditionalType(type: Type, recursionCount: number): Type {
+        if (!type.condition) {
+            return type;
+        }
+
+        const signatureContext = this._typeVarContext.getSignatureContext(
+            this._activeTypeVarSignatureContextIndex ?? 0
+        );
+
+        for (const condition of type.condition) {
+            // This doesn't apply to bound type variables.
+            if (!condition.isConstrainedTypeVar) {
+                continue;
+            }
+
+            const typeVarEntry = signatureContext.getTypeVarByName(condition.typeVarName);
+            if (!typeVarEntry || condition.constraintIndex >= typeVarEntry.typeVar.details.constraints.length) {
+                continue;
+            }
+
+            const value = signatureContext.getTypeVarType(typeVarEntry.typeVar);
+            if (!value) {
+                continue;
+            }
+
+            const constraintType = typeVarEntry.typeVar.details.constraints[condition.constraintIndex];
+
+            // If this violates the constraint, substitute a Never type.
+            if (!isTypeSame(constraintType, value)) {
+                return NeverType.createNever();
+            }
+        }
+        return type;
     }
 
     override doForEachSignatureContext(callback: () => FunctionType): FunctionType | OverloadedFunctionType {

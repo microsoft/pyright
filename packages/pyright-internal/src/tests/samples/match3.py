@@ -13,9 +13,14 @@ class TD2(TypedDict):
     other_extra_value: int
 
 
+class TD3(TypedDict):
+    name: Literal["c"]
+    extra_value: int
+
+
 def func1(item: TD1 | TD2):
     match item["name"]:
-        case "c":
+        case "d":
             reveal_type(item, expected_text="Never")
         case "a":
             reveal_type(item, expected_text="TD1")
@@ -23,11 +28,19 @@ def func1(item: TD1 | TD2):
             reveal_type(item, expected_text="TD2")
 
 
+def func2(item: TD1 | TD2 | TD3):
+    match item["name"]:
+        case "a" | "c":
+            reveal_type(item, expected_text="TD1 | TD3")
+        case _:
+            reveal_type(item, expected_text="TD2")
+
+
 T1 = tuple[Literal[0], int]
 T2 = tuple[Literal[1], str]
 
 
-def func2(item: T1 | T2):
+def func3(item: T1 | T2):
     match item[0]:
         case 0:
             reveal_type(item, expected_text="tuple[Literal[0], int]")
@@ -35,7 +48,7 @@ def func2(item: T1 | T2):
             reveal_type(item, expected_text="tuple[Literal[1], str]")
 
 
-def func3(a: object, b: int) -> None:
+def func4(a: object, b: int) -> None:
     match a, b:
         case (complex(), 3):
             reveal_type(a, expected_text="complex")
@@ -50,7 +63,7 @@ Token = (
 )
 
 
-def func4(token: Token):
+def func5(token: Token):
     match token:
         case str(x):
             reveal_type(token, expected_text="str")

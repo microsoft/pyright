@@ -1,0 +1,16 @@
+name: Trigger Pylance Dispatch on Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  triggerDispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.PYLANCE_PAT }}
+          repository: microsoft/pyrx
+          event-type: new-pyright-release

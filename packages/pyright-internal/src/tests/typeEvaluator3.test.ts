@@ -478,6 +478,12 @@ test('Comprehension10', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Comprehension11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['comprehension11.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Literals1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals1.py']);
 
@@ -877,7 +883,7 @@ test('MethodOverride6', () => {
 
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['methodOverride6.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 2);
+    TestUtils.validateResults(analysisResults2, 3);
 });
 
 test('Enum1', () => {
@@ -1370,13 +1376,13 @@ test('EmptyContainers1', () => {
 test('InitSubclass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['initsubclass1.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('InitSubclass2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['initsubclass2.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('None1', () => {
@@ -1538,7 +1544,7 @@ test('Constructor24', () => {
 
     configOptions.diagnosticRuleSet.strictParameterNoneValue = true;
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor24.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Constructor25', () => {

@@ -1,4 +1,4 @@
-# This sample tests handling of the @abc.abstractpropery decorator.
+# This sample tests handling of the @abc.abstractproperty decorator.
 
 import abc
 

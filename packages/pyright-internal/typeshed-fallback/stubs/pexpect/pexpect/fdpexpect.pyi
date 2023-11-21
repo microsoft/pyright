@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 
-from .spawnbase import SpawnBase
+from .spawnbase import SpawnBase, _Logfile
 
 class fdspawn(SpawnBase):
     args: Incomplete
@@ -17,7 +17,7 @@ class fdspawn(SpawnBase):
         timeout: int = 30,
         maxread: int = 2000,
         searchwindowsize: Incomplete | None = None,
-        logfile: Incomplete | None = None,
+        logfile: _Logfile | None = None,
         encoding: Incomplete | None = None,
         codec_errors: str = "strict",
         use_poll: bool = False,

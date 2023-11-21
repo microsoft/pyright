@@ -153,6 +153,12 @@ export function assignTypeToTypeVar(
         }
     }
 
+    // An in-scope placeholder TypeVar can always be assigned to itself,
+    // but we won't record this in the typeVarContext.
+    if (isTypeSame(destType, srcType) && destType.isInScopePlaceholder) {
+        return true;
+    }
+
     if ((flags & AssignTypeFlags.SkipSolveTypeVars) !== 0) {
         return evaluator.assignType(
             evaluator.makeTopLevelTypeVarsConcrete(destType),
@@ -378,7 +384,7 @@ export function assignTypeToTypeVar(
                     curNarrowTypeBound,
                     adjSrcType,
                     diagAddendum,
-                    /* destTypeVarContext */ undefined,
+                    typeVarContext,
                     /* srcTypeVarContext */ undefined,
                     flags,
                     recursionCount
@@ -394,7 +400,7 @@ export function assignTypeToTypeVar(
                         adjSrcType,
                         curNarrowTypeBound,
                         /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
+                        typeVarContext,
                         /* srcTypeVarContext */ undefined,
                         flags & AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
@@ -404,6 +410,23 @@ export function assignTypeToTypeVar(
                 } else {
                     newNarrowTypeBound = applySolvedTypeVars(curNarrowTypeBound, typeVarContext);
                 }
+            } else if (
+                isTypeVar(curNarrowTypeBound) &&
+                !isTypeVar(adjSrcType) &&
+                evaluator.assignType(
+                    evaluator.makeTopLevelTypeVarsConcrete(curNarrowTypeBound),
+                    adjSrcType,
+                    diagAddendum,
+                    typeVarContext,
+                    /* srcTypeVarContext */ undefined,
+                    flags,
+                    recursionCount
+                )
+            ) {
+                // If the existing narrow type bound was a TypeVar that is not
+                // part of the current context we can replace it with the new
+                // source type.
+                newNarrowTypeBound = adjSrcType;
             } else {
                 // We need to widen the type.
                 if (typeVarContext.isLocked()) {
@@ -420,7 +443,7 @@ export function assignTypeToTypeVar(
                         adjSrcType,
                         curNarrowTypeBound,
                         /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
+                        typeVarContext,
                         /* srcTypeVarContext */ undefined,
                         flags & AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
@@ -496,7 +519,7 @@ export function assignTypeToTypeVar(
                         adjWideTypeBound,
                         newNarrowTypeBound,
                         diag?.createAddendum(),
-                        /* destTypeVarContext */ undefined,
+                        typeVarContext,
                         /* srcTypeVarContext */ undefined,
                         AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount

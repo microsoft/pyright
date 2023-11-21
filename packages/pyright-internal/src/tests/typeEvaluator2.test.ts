@@ -499,6 +499,12 @@ test('ConstrainedTypeVar17', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('ConstrainedTypeVar18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constrainedTypeVar18.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MissingTypeArg1', () => {
     const configOptions = new ConfigOptions('.');
 
@@ -692,6 +698,12 @@ test('Solver30', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Solver31', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver31.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('SolverScoring1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverScoring1.py']);
 
@@ -772,6 +784,12 @@ test('SolverHigherOrder9', () => {
 
 test('SolverHigherOrder10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverHigherOrder10.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('SolverHigherOrder11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverHigherOrder11.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
@@ -1067,7 +1085,7 @@ test('GenericType45', () => {
 test('Protocol1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol1.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('Protocol2', () => {
@@ -1353,7 +1371,7 @@ test('Protocol47', () => {
 test('TypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict1.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 9);
 });
 
 test('TypedDict2', () => {

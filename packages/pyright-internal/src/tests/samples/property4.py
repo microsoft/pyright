@@ -7,11 +7,11 @@ from typing import TypeVar
 _P = TypeVar("_P", bound=str)
 
 
-class Foo(str):
+class ClassA(str):
     @property
     def parent(self: _P) -> _P:
         ...
 
 
-p = Foo().parent
-reveal_type(p, expected_text="Foo")
+p = ClassA().parent
+reveal_type(p, expected_text="ClassA")

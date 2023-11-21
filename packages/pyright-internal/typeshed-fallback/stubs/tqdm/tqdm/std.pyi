@@ -31,7 +31,7 @@ class TqdmMonitorWarning(TqdmWarning, RuntimeWarning): ...
 
 _T = TypeVar("_T")
 
-class tqdm(Iterable[_T], Comparable, Generic[_T]):
+class tqdm(Comparable, Generic[_T]):
     monitor_interval: ClassVar[int]
     monitor: ClassVar[TMonitor | None]
 

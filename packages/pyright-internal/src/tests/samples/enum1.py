@@ -57,6 +57,7 @@ b = TestEnum3.B
 # a valid member.
 z = TestEnum3.Z
 
+reveal_type(TestEnum3["A"], expected_text="TestEnum3")
 
 # Test that enum classes are iterable.
 list1 = list(TestEnum3)

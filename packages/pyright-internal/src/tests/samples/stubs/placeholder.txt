@@ -1,0 +1,2 @@
+Placeholder file to ensure this folder exists.
+See https://archive.kernel.org/oldwiki/git.wiki.kernel.org/index.php/GitFaq.html#Can_I_add_empty_directories.3F

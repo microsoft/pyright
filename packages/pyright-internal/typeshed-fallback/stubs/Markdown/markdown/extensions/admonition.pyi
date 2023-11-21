@@ -1,6 +1,8 @@
-from re import Pattern
+from re import Match, Pattern
 from typing import Any
+from xml.etree.ElementTree import Element
 
+from markdown import blockparser
 from markdown.blockprocessors import BlockProcessor
 from markdown.extensions import Extension
 
@@ -11,6 +13,8 @@ class AdmonitionProcessor(BlockProcessor):
     CLASSNAME_TITLE: str
     RE: Pattern[str]
     RE_SPACES: Any
-    def get_class_and_title(self, match): ...
+    def __init__(self, parser: blockparser.BlockParser): ...
+    def parse_content(self, parent: Element, block: str) -> tuple[Element | None, str, str]: ...
+    def get_class_and_title(self, match: Match[str]) -> tuple[str, str | None]: ...
 
-def makeExtension(**kwargs): ...
+def makeExtension(**kwargs) -> AdmonitionExtension: ...

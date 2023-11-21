@@ -1325,7 +1325,7 @@ function narrowTypeForIsInstance(
         return transformPossibleRecursiveTypeAlias(subtype);
     });
 
-    expandedTypes = evaluator.expandPromotionTypes(errorNode, type);
+    expandedTypes = evaluator.expandPromotionTypes(errorNode, expandedTypes);
 
     // Filters the varType by the parameters of the isinstance
     // and returns the list of types the varType could be after
@@ -1394,7 +1394,13 @@ function narrowTypeForIsInstance(
                     if (filterIsSuperclass) {
                         // If the variable type is a subclass of the isinstance filter,
                         // we haven't learned anything new about the variable type.
-                        filteredTypes.push(addConditionToType(concreteVarType, conditions));
+
+                        // If the varType is a Self or type[Self], retain the unnarrowedType.
+                        if (isTypeVar(varType) && varType.details.isSynthesizedSelf) {
+                            filteredTypes.push(addConditionToType(varType, conditions));
+                        } else {
+                            filteredTypes.push(addConditionToType(concreteVarType, conditions));
+                        }
                     } else if (filterIsSubclass) {
                         if (
                             evaluator.assignType(
@@ -2051,6 +2057,15 @@ export function narrowTypeForContainerElementType(evaluator: TypeEvaluator, refe
             return referenceType;
         }
 
+        // Handle the special case where the reference type is a dict or Mapping and
+        // the element type is a TypedDict. In this case, we can't say whether there
+        // is a type overlap, so don't apply narrowing.
+        if (isClassInstance(referenceType) && ClassType.isBuiltIn(referenceType, ['dict', 'Mapping'])) {
+            if (isClassInstance(concreteElementType) && ClassType.isTypedDictClass(concreteElementType)) {
+                return concreteElementType;
+            }
+        }
+
         if (evaluator.assignType(referenceType, concreteElementType)) {
             return concreteElementType;
         }
@@ -2224,7 +2239,7 @@ function narrowTypeForDiscriminatedLiteralFieldComparison(
             // Handle the case where the field is a property
             // that has a declared literal return type for its getter.
             if (isClassInstance(subtype) && isClassInstance(memberType) && isProperty(memberType)) {
-                const getterType = memberType.fgetFunction;
+                const getterType = memberType.fgetInfo?.methodType;
                 if (getterType && getterType.details.declaredReturnType) {
                     const getterReturnType = FunctionType.getSpecializedReturnType(getterType);
                     if (getterReturnType) {

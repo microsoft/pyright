@@ -90,7 +90,12 @@ import {
     DiagnosticSeverityOverridesMap,
     getDiagnosticSeverityOverrides,
 } from './common/commandLineOptions';
-import { ConfigOptions, SignatureDisplayType, getDiagLevelDiagnosticRules } from './common/configOptions';
+import {
+    ConfigOptions,
+    SignatureDisplayType,
+    getDiagLevelDiagnosticRules,
+    parseDiagLevel,
+} from './common/configOptions';
 import { ConsoleInterface, ConsoleWithLogLevel, LogLevel } from './common/console';
 import {
     Diagnostic as AnalyzerDiagnostic,
@@ -581,8 +586,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         return diagnosticMode !== 'workspace';
     }
 
-    protected getSeverityOverrides(value: string): DiagnosticSeverityOverrides | undefined {
-        const enumValue = value as DiagnosticSeverityOverrides;
+    protected getSeverityOverrides(value: string | boolean): DiagnosticSeverityOverrides | undefined {
+        const enumValue = parseDiagLevel(value);
+        if (!enumValue) {
+            return undefined;
+        }
         if (getDiagnosticSeverityOverrides().includes(enumValue)) {
             return enumValue;
         }
@@ -665,9 +673,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.connection.onRenameRequest(async (params, token) => this.onRenameRequest(params, token));
 
         const callHierarchy = this.connection.languages.callHierarchy;
-        callHierarchy.onPrepare(async (params, token) => this.onPrepare(params, token));
-        callHierarchy.onIncomingCalls(async (params, token) => this.onIncomingCalls(params, token));
-        callHierarchy.onOutgoingCalls(async (params, token) => this.onOutgoingCalls(params, token));
+        callHierarchy.onPrepare(async (params, token) => this.onCallHierarchyPrepare(params, token));
+        callHierarchy.onIncomingCalls(async (params, token) => this.onCallHierarchyIncomingCalls(params, token));
+        callHierarchy.onOutgoingCalls(async (params, token) => this.onCallHierarchyOutgoingCalls(params, token));
 
         this.connection.onDidOpenTextDocument(async (params) => this.onDidOpenTextDocument(params));
         this.connection.onDidChangeTextDocument(async (params) => this.onDidChangeTextDocument(params));
@@ -1155,7 +1163,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }, token);
     }
 
-    protected async onPrepare(
+    protected async onCallHierarchyPrepare(
         params: CallHierarchyPrepareParams,
         token: CancellationToken
     ): Promise<CallHierarchyItem[] | null> {
@@ -1171,7 +1179,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }, token);
     }
 
-    protected async onIncomingCalls(params: CallHierarchyIncomingCallsParams, token: CancellationToken) {
+    protected async onCallHierarchyIncomingCalls(params: CallHierarchyIncomingCallsParams, token: CancellationToken) {
         const { filePath, position } = this.uriParser.decodeTextDocumentPosition(params.item, params.item.range.start);
 
         const workspace = await this.getWorkspaceForFile(filePath);
@@ -1184,7 +1192,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         }, token);
     }
 
-    protected async onOutgoingCalls(
+    protected async onCallHierarchyOutgoingCalls(
         params: CallHierarchyOutgoingCallsParams,
         token: CancellationToken
     ): Promise<CallHierarchyOutgoingCall[] | null> {

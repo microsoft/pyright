@@ -198,3 +198,14 @@ def func11(x: Proto1):
         reveal_type(x, expected_text="Proto2")
     else:
         reveal_type(x, expected_text="Proto1")
+
+
+TA1 = list["TA2"] | dict[str, "TA2"]
+TA2 = str | TA1
+
+
+def func12(x: TA2) -> None:
+    if isinstance(x, dict):
+        reveal_type(x, expected_text="dict[str, str | list[TA2] | dict[str, TA2]]")
+    else:
+        reveal_type(x, expected_text="str | list[str | ... | dict[str, TA2]]")

@@ -24,7 +24,6 @@ class X:
 reveal_type(X.number_cls, expected_text="int")
 reveal_type(X().number_cls, expected_text="int")
 
-# This should generate an error
 X.number_cls = "hi"
 
 X().number_cls = "hi"

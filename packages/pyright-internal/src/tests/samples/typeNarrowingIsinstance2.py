@@ -45,6 +45,6 @@ class ClassE:
     @classmethod
     def test(cls: type[Self], id: int | Self):
         if isinstance(id, cls):
-            reveal_type(id, expected_text="ClassE")
+            reveal_type(id, expected_text="Self@ClassE")
         else:
             reveal_type(id, expected_text="int")

@@ -1,4 +1,4 @@
-# This sample verifies the case where a property returns a callable
+# This sample verifies the case where a property returns a callable.
 
 from typing import Callable
 

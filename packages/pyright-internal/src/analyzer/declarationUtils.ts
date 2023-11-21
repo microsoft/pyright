@@ -109,7 +109,7 @@ export function areDeclarationsSame(
             return true;
         }
 
-        if (decl1.firstNamePart !== decl2.firstNamePart) {
+        if (decl1.node !== decl2.node) {
             return false;
         }
     }
@@ -136,7 +136,10 @@ export function getNameFromDeclaration(declaration: Declaration) {
 
         case DeclarationType.Intrinsic:
         case DeclarationType.SpecialBuiltInClass:
-            return undefined;
+            return declaration.node.nodeType === ParseNodeType.TypeAnnotation &&
+                declaration.node.valueExpression.nodeType === ParseNodeType.Name
+                ? declaration.node.valueExpression.value
+                : undefined;
     }
 
     throw new Error(`Shouldn't reach here`);
@@ -322,7 +325,7 @@ export function resolveAliasDeclaration(
             return undefined;
         }
 
-        if (symbol.isPrivateMember()) {
+        if (symbol.isPrivateMember() && !sawPyTypedTransition) {
             isPrivate = true;
         }
 

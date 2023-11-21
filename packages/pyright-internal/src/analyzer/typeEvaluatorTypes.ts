@@ -149,6 +149,9 @@ export const enum EvaluatorFlags {
     // not convert it to its corresponding ParamSpec runtime object.
     SkipConvertParamSpecToRuntimeObject = 1 << 25,
 
+    // Protocol and TypedDict are not allowed in this context.
+    DisallowProtocolAndTypedDict = 1 << 26,
+
     // Defaults used for evaluating the LHS of a call expression.
     CallBaseDefaults = DoNotSpecialize | DisallowPep695TypeAlias,
 
@@ -182,7 +185,7 @@ export interface TypeResult<T extends Type = Type> {
     // Type consistency errors detected when evaluating this type.
     typeErrors?: boolean | undefined;
 
-    // Used for getTypeOfObjectMember to indicate that class
+    // Used for getTypeOfBoundMember to indicate that class
     // that declares the member.
     classType?: ClassType | UnknownType | AnyType;
 
@@ -326,6 +329,7 @@ export interface ExpectedTypeOptions {
     allowForwardReference?: boolean;
     allowTypeVarsWithoutScopeId?: boolean;
     enforceTypeAnnotationRules?: boolean;
+    disallowProtocolAndTypedDict?: boolean;
 }
 
 export interface ExpectedTypeResult {
@@ -533,7 +537,7 @@ export interface TypeEvaluator {
     ) => FunctionType | undefined;
     getBuiltInType: (node: ParseNode, name: string) => Type;
     getTypeOfMember: (member: ClassMember) => Type;
-    getTypeOfObjectMember(
+    getTypeOfBoundMember(
         errorNode: ExpressionNode,
         objectType: ClassType,
         memberName: string,
@@ -542,11 +546,11 @@ export interface TypeEvaluator {
         flags?: MemberAccessFlags,
         selfType?: ClassType | TypeVarType
     ): TypeResult | undefined;
-    getBoundMethod: (
+    getBoundMagicMethod: (
         classType: ClassType,
         memberName: string,
-        recursionCount?: number,
-        treatConstructorAsClassMember?: boolean
+        selfType?: ClassType | TypeVarType | undefined,
+        recursionCount?: number
     ) => FunctionType | OverloadedFunctionType | undefined;
     getTypeOfMagicMethodCall: (
         objType: Type,

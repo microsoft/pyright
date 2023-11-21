@@ -746,31 +746,6 @@ Returns:
     _testConvertToMarkdown(docstring, markdown);
 });
 
-test('GoogleWithInvalidTypes', () => {
-    const docstring = `
-    Example function with types documented in the docstring.
-
-    Args:
-        param1: (int|bool))): The first parameter.
-        param2: (list[str] with others): The second parameter.
-
-    Returns:
-        bool: The return value. True for success, False otherwise.
-`;
-
-    const markdown = `
-Example function with types documented in the docstring.
-
-Args:  
-&nbsp;&nbsp;&nbsp;&nbsp;param1: (int|bool))): The first parameter.
-param2: (list\\[str\\] with others): The second parameter.
-
-Returns:  
-&nbsp;&nbsp;&nbsp;&nbsp;bool: The return value. True for success, False otherwise.`;
-
-    _testConvertToMarkdown(docstring, markdown);
-});
-
 test('FieldListDontAddLineBreaksToHeaders', () => {
     const docstring = `
     Parameters

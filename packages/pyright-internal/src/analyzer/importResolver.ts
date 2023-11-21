@@ -104,7 +104,7 @@ interface SupportedVersionRange {
 
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
 const supportedSourceFileExtensions = ['.py', '.pyi'];
-const supportedFileExtensions = [...supportedSourceFileExtensions, ...supportedNativeLibExtensions];
+export const supportedFileExtensions = [...supportedSourceFileExtensions, ...supportedNativeLibExtensions];
 
 // Should we allow partial resolution for third-party packages? Some use tricks
 // to populate their package namespaces, so we might be able to partially resolve
@@ -1775,6 +1775,12 @@ export class ImportResolver {
                 }
             }
 
+            // Prefer local over third-party. We check local first, so we should never
+            // see the reverse.
+            if (bestImportSoFar.importType === ImportType.Local && newImport.importType === ImportType.ThirdParty) {
+                return bestImportSoFar;
+            }
+
             // Prefer py.typed over non-py.typed.
             if (bestImportSoFar.pyTypedInfo && !newImport.pyTypedInfo) {
                 return bestImportSoFar;
@@ -2671,7 +2677,12 @@ export class ImportResolver {
             return [false, ''];
         }
 
-        return [true, ensureTrailingDirectorySeparator(normalizePath(combinePaths(current, '..')))];
+        // Ensure we don't go around forever even if isDiskPathRoot returns false.
+        const next = ensureTrailingDirectorySeparator(normalizePath(combinePaths(current, '..')));
+        if (next === current) {
+            return [false, ''];
+        }
+        return [true, next];
     }
 
     private _shouldWalkUp(current: string, root: string, execEnv: ExecutionEnvironment) {

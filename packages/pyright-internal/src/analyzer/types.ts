@@ -557,7 +557,6 @@ export interface DataClassBehaviors {
 export interface ProtocolCompatibility {
     srcType: Type;
     destType: Type;
-    treatSourceAsInstantiable: boolean;
     flags: number; // AssignTypeFlags
     isCompatible: boolean;
 }
@@ -608,6 +607,14 @@ export interface TupleTypeArgument {
     // Does the type argument represent a single value or
     // an "unbounded" (zero or more) arguments?
     isUnbounded: boolean;
+}
+
+export interface PropertyMethodInfo {
+    // The decorated function (fget, fset, fdel) for a property
+    methodType: FunctionType;
+
+    // The class that declared this function
+    classType: ClassType | undefined;
 }
 
 export interface ClassType extends TypeBase {
@@ -690,9 +697,9 @@ export interface ClassType extends TypeBase {
     isAsymmetricAttributeAccessor?: boolean;
 
     // Special-case fields for property classes.
-    fgetFunction?: FunctionType | undefined;
-    fsetFunction?: FunctionType | undefined;
-    fdelFunction?: FunctionType | undefined;
+    fgetInfo?: PropertyMethodInfo | undefined;
+    fsetInfo?: PropertyMethodInfo | undefined;
+    fdelInfo?: PropertyMethodInfo | undefined;
 }
 
 export namespace ClassType {
@@ -1115,7 +1122,7 @@ export namespace ClassType {
         );
     }
 
-    // Same as isSame except that it doesn't compare type arguments.
+    // Same as isTypeSame except that it doesn't compare type arguments.
     export function isSameGenericClass(classType: ClassType, type2: ClassType, recursionCount = 0) {
         if (recursionCount > maxTypeRecursionCount) {
             return true;
@@ -1375,6 +1382,9 @@ interface FunctionDetails {
     builtInName?: string | undefined;
     docString?: string | undefined;
     deprecatedMessage?: string | undefined;
+
+    // If this is a method, this refers to the class that contains it.
+    methodClass?: ClassType | undefined;
 
     // Transforms to apply if this function is used
     // as a decorator.
@@ -2035,10 +2045,20 @@ export namespace FunctionType {
         }
     }
 
-    export function getSpecializedReturnType(type: FunctionType) {
-        return type.specializedTypes && type.specializedTypes.returnType
-            ? type.specializedTypes.returnType
-            : type.details.declaredReturnType;
+    export function getSpecializedReturnType(type: FunctionType, includeInferred = true) {
+        if (type.specializedTypes?.returnType) {
+            return type.specializedTypes.returnType;
+        }
+
+        if (type.details.declaredReturnType) {
+            return type.details.declaredReturnType;
+        }
+
+        if (includeInferred) {
+            return type.inferredReturnType;
+        }
+
+        return undefined;
     }
 }
 

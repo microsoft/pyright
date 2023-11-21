@@ -1,6 +1,7 @@
 from re import Pattern
-from typing import ClassVar
+from typing import Any, ClassVar
 
+from markdown import blockparser
 from markdown.blockprocessors import BlockProcessor
 from markdown.extensions import Extension
 
@@ -13,8 +14,8 @@ class TableProcessor(BlockProcessor):
     RE_END_BORDER: ClassVar[Pattern[str]]
     border: bool
     separator: str
-    def __init__(self, parser, config) -> None: ...
+    def __init__(self, parser: blockparser.BlockParser, config: dict[str, Any]) -> None: ...
 
 class TableExtension(Extension): ...
 
-def makeExtension(**kwargs): ...
+def makeExtension(**kwargs) -> TableExtension: ...
