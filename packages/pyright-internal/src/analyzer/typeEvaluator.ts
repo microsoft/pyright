@@ -19256,7 +19256,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 case 'Protocol': {
                     if (
                         (flags &
-                            (EvaluatorFlags.DisallowProtocolAndTypedDict | EvaluatorFlags.ExpectingTypeAnnotation)) !==
+                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeAnnotation)) !==
                         0
                     ) {
                         addError(Localizer.Diagnostic.protocolNotAllowed(), errorNode);
@@ -19275,10 +19275,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 case 'TypedDict': {
                     if (
                         (flags &
-                            (EvaluatorFlags.DisallowProtocolAndTypedDict | EvaluatorFlags.ExpectingTypeAnnotation)) !==
+                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeAnnotation)) !==
                         0
                     ) {
                         addError(Localizer.Diagnostic.typedDictNotAllowed(), errorNode);
+                    }
+                    break;
+                }
+
+                case 'Literal': {
+                    if (
+                        (flags &
+                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeAnnotation)) !==
+                        0
+                    ) {
+                        addError(Localizer.Diagnostic.literalNotAllowed(), errorNode);
                     }
                     break;
                 }
@@ -19745,7 +19756,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (options?.disallowProtocolAndTypedDict) {
-            flags |= EvaluatorFlags.DisallowProtocolAndTypedDict;
+            flags |= EvaluatorFlags.DisallowNonTypeSpecialForms;
         }
 
         return getTypeOfExpression(node, flags);

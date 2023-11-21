@@ -150,7 +150,7 @@ export const enum EvaluatorFlags {
     SkipConvertParamSpecToRuntimeObject = 1 << 25,
 
     // Protocol and TypedDict are not allowed in this context.
-    DisallowProtocolAndTypedDict = 1 << 26,
+    DisallowNonTypeSpecialForms = 1 << 26,
 
     // Defaults used for evaluating the LHS of a call expression.
     CallBaseDefaults = DoNotSpecialize | DisallowPep695TypeAlias,

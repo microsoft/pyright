@@ -597,6 +597,7 @@ export namespace Localizer {
         export const listInAnnotation = () => getRawString('Diagnostic.listInAnnotation');
         export const literalUnsupportedType = () => getRawString('Diagnostic.literalUnsupportedType');
         export const literalEmptyArgs = () => getRawString('Diagnostic.literalEmptyArgs');
+        export const literalNotAllowed = () => getRawString('Diagnostic.literalNotAllowed');
         export const literalNotCallable = () => getRawString('Diagnostic.literalNotCallable');
         export const matchIncompatible = () => getRawString('Diagnostic.matchIncompatible');
         export const matchIsNotExhaustive = () => getRawString('Diagnostic.matchIsNotExhaustive');
