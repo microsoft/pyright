@@ -135,8 +135,6 @@ def func4(x: str | int):
     return x
 
 
-# This will generate a warning because "R" is not used
-# in an explicit return type.
 def callable5(f: Callable[P, R]):
     def inner(*args: P.args, **kwargs: P.kwargs) -> list[R]:
         return [f(*args, **kwargs)]
