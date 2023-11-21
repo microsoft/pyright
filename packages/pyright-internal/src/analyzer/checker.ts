@@ -2329,15 +2329,13 @@ export class Checker extends ParseTreeWalker {
             if (nameType && isTypeVar(nameType) && !nameType.details.isSynthesizedSelf) {
                 // Does this name refer to a TypeVar that is scoped to this function?
                 if (nameType.scopeId === ParseTreeUtils.getScopeIdForNode(node)) {
-                    // We exempt constrained TypeVars, bound TypeVars that are type arguments of
+                    // We exempt constrained TypeVars, TypeVars that are type arguments of
                     // other types, and ParamSpecs. There are legitimate uses for singleton
                     // instances in these particular cases.
                     let isExempt =
                         nameType.details.constraints.length > 0 ||
                         !!nameType.details.defaultType ||
-                        (exemptBoundTypeVar &&
-                            nameType.details.boundType !== undefined &&
-                            subscriptIndex !== undefined) ||
+                        (exemptBoundTypeVar && subscriptIndex !== undefined) ||
                         isParamSpec(nameType);
 
                     if (!isExempt && baseExpression && subscriptIndex !== undefined) {
@@ -2442,11 +2440,11 @@ export class Checker extends ParseTreeWalker {
                 let altTypeText: string;
 
                 if (usage.typeVar.details.isVariadic) {
-                    altTypeText = '"tuple[object, ...]" or "tuple[Any, ...]"';
+                    altTypeText = '"tuple[object, ...]"';
                 } else if (usage.typeVar.details.boundType) {
                     altTypeText = `"${this._evaluator.printType(convertToInstance(usage.typeVar.details.boundType))}"`;
                 } else {
-                    altTypeText = '"object" or "Any"';
+                    altTypeText = '"object"';
                 }
 
                 const diag = new DiagnosticAddendum();
