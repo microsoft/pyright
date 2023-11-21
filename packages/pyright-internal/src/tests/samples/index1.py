@@ -104,3 +104,12 @@ class ClassF(Generic[T]):
     def get(self, index: int) -> Self:
         reveal_type(self[index], expected_text="Self@ClassF[T@ClassF]")
         return self[index]
+
+
+class ClassG:
+    __slots__ = ["x"]
+
+
+def func3(g: ClassG):
+    reveal_type(g.x, expected_text="Unbound")
+    reveal_type(g.x[0], expected_text="Unknown")

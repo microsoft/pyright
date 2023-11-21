@@ -6985,7 +6985,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return typeResult.type;
                 }
 
-                if (isNever(concreteSubtype) || isUnbound(concreteSubtype)) {
+                if (isNever(concreteSubtype)) {
                     return NeverType.createNever();
                 }
 
