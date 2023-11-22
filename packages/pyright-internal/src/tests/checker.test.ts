@@ -582,7 +582,7 @@ test('Deprecated4', () => {
 });
 
 test('Deprecated5', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['deprecated5.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 2);
