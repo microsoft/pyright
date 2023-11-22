@@ -104,8 +104,10 @@ export type TypeSourceId = number;
 // This constant controls the maximum number of nested types (i.e. types
 // used as type arguments or parameter types in other types) before we
 // give up. This constant was previously set to 32, but there were certain
-// pathological recursive types where this resulted in a hang.
-export const maxTypeRecursionCount = 10;
+// pathological recursive types where this resulted in a hang. It was also
+// previously lowered to 10, but this caused some legitimate failures in
+// code that used numpy.
+export const maxTypeRecursionCount = 12;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
