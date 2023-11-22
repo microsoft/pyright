@@ -73,7 +73,7 @@ export class BackgroundAnalysisProgram {
         return this._backgroundAnalysis;
     }
 
-    hasSourceFile(filePath: Uri): boolean {
+    hasSourceFile(fileUri: Uri): boolean {
         return !!this._program.getSourceFile(filePath);
     }
 
