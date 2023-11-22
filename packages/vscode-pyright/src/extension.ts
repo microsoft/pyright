@@ -71,9 +71,7 @@ export async function activate(context: ExtensionContext) {
 
     const bundlePath = context.asAbsolutePath(path.join('dist', 'server.js'));
     const runOptions = { execArgv: [`--max-old-space-size=${defaultHeapSize}`] };
-    const debugOptions = {
-        execArgv: ['--nolazy', '--inspect=6600', `--max-old-space-size=${defaultHeapSize}`],
-    };
+    const debugOptions = { execArgv: ['--nolazy', '--inspect=6600', `--max-old-space-size=${defaultHeapSize}`] };
 
     // If the extension is launched in debug mode, then the debug server options are used.
     const serverOptions: ServerOptions = {
