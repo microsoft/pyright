@@ -764,7 +764,7 @@ export class ImportResolver {
         fileUri: Uri,
         stripTopContainerDir = false
     ): ModuleNameInfoFromPath | undefined {
-        let filePathWithoutExtension = fileUri.stripExtension();
+        let fileUriWithoutExtension = fileUri.stripExtension();
 
         // If module is native, strip platform part, such as 'cp36-win_amd64' in 'mtrand.cp36-win_amd64'.
         if (this._isNativeModuleFileExtension(fileUri.extname)) {
