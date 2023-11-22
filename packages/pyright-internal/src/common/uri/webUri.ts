@@ -125,7 +125,7 @@ export class WebUri extends BaseUri {
 
     protected override combinePathsImpl(...paths: string[]): Uri {
         // Resolve and combine paths, never want URIs with '..' in the middle.
-        let combined = resolvePaths(this._path, ...paths);
+        let combined = resolvePaths(this._path, ...paths).replace(/\\/g, '/');
 
         // Make sure to remove any trailing directory chars.
         if (hasTrailingDirectorySeparator(combined) && combined.length > 1) {
@@ -156,7 +156,7 @@ export class WebUri extends BaseUri {
         // Get the root path and the rest of the path components.
         const rootPath = this.getRootPath();
         const otherPaths = this._path.slice(rootPath.length).split('/');
-        return this.reducePathComponents([rootPath, ...otherPaths]);
+        return this.reducePathComponents([rootPath, ...otherPaths]).map((component) => component.replace(/\\/g, '/'));
     }
 
     protected override getRootPath(): string {

@@ -262,13 +262,9 @@ export function getWildcardRoot(root: Uri, fileSpec: string): Uri {
     const pathComponents = Array.from(absolutePath.getPathComponents());
     let wildcardRoot = absolutePath.root;
 
-    // Strip the directory separator from the root component.
+    // Remove the root component.
     if (pathComponents.length > 0) {
-        pathComponents[0] = stripTrailingDirectorySeparator(pathComponents[0]);
-    }
-
-    if (pathComponents.length === 1 && pathComponents[0].length === 1) {
-        return wildcardRoot;
+        pathComponents.shift();
     }
 
     for (const component of pathComponents) {

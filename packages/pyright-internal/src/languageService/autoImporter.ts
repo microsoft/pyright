@@ -48,6 +48,7 @@ export interface AutoImportSymbol {
 }
 
 export interface ModuleSymbolTable {
+    uri: Uri;
     forEach(callbackfn: (symbol: AutoImportSymbol, name: string, library: boolean) => void): void;
 }
 
@@ -122,6 +123,7 @@ export function addModuleSymbolsMap(files: readonly SourceFileInfo[], moduleSymb
         }
 
         moduleSymbolMap.set(uri.key, {
+            uri,
             forEach(callbackfn: (value: AutoImportSymbol, key: string, library: boolean) => void): void {
                 symbolTable.forEach((symbol, name) => {
                     if (!isVisibleExternally(symbol)) {
@@ -207,13 +209,12 @@ export class AutoImporter {
         results: AutoImportResultMap,
         token: CancellationToken
     ) {
-        this.moduleSymbolMap.forEach((topLevelSymbols, uriKey) => {
-            const uri = Uri.fromKey(uriKey);
+        this.moduleSymbolMap.forEach((topLevelSymbols, key) => {
             // See if this file should be offered as an implicit import.
-            const isStubFileOrHasInit = this.isStubFileOrHasInit(this.moduleSymbolMap!, uri);
+            const isStubFileOrHasInit = this.isStubFileOrHasInit(this.moduleSymbolMap!, topLevelSymbols.uri);
             this.processModuleSymbolTable(
                 topLevelSymbols,
-                uri,
+                topLevelSymbols.uri,
                 word,
                 similarityLimit,
                 isStubFileOrHasInit,

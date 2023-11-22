@@ -122,7 +122,7 @@ export class FileUri extends BaseUri {
         return this._filePath.length;
     }
     override getPath(): string {
-        return this._filePath;
+        return this._filePath.replace(/\\/g, '/');
     }
     override getFilePath(): string {
         return this._filePath;
@@ -149,7 +149,7 @@ export class FileUri extends BaseUri {
         if (components.length > 0 && components[0] === '') {
             components.shift();
         }
-        return components;
+        return components.map((component) => component.replace(/\\/g, '/'));
     }
     protected override getRootPath(): string {
         return this._filePath.slice(0, getRootLength(this._filePath));

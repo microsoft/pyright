@@ -200,11 +200,6 @@ export namespace Uri {
         );
     }
 
-    export function fromKey(key: string): Uri {
-        // Right now the key is the same as the original string. Just parse it.
-        return Uri.parse(key);
-    }
-
     export function isUri(thing: any): thing is Uri {
         return !!thing && typeof thing._key === 'string';
     }
