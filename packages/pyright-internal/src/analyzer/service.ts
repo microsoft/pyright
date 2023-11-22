@@ -378,9 +378,6 @@ export class AnalyzerService {
 
         const checkedFileCount = this._program.getUserFileCount();
         this._console.info('Total files checked: ' + checkedFileCount.toString());
-
-        const config = this._program.configOptions;
-        this._console.info('Configu options: ' + JSON.stringify(config, undefined, 4));
     }
 
     printDetailedAnalysisTimes() {
