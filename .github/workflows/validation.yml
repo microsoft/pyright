@@ -139,7 +139,7 @@ jobs:
 
       - name: Run import tests with venv
         env:
-          CI_IMPORT_TEST_VENVPATH: '../../'
+          CI_IMPORT_TEST_VENVPATH: '../../../'
           CI_IMPORT_TEST_VENV: '.venv'
         run: npm run test:imports
         working-directory: packages/pyright-internal
