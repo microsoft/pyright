@@ -525,7 +525,7 @@ export class AnalyzerService {
                     : projectRoot.combinePaths(commandLineOptions.configFilePath)
             );
             if (!this.fs.existsSync(configFilePath)) {
-                this._console.info(`Configuration file not found at ${configFilePath}.`);
+                this._console.info(`Configuration file not found at ${configFilePath.toUserVisibleString()}.`);
                 configFilePath = projectRoot;
             } else {
                 if (configFilePath.extname.endsWith('.json')) {
@@ -534,7 +534,7 @@ export class AnalyzerService {
                     projectRoot = configFilePath;
                     configFilePath = this._findConfigFile(configFilePath);
                     if (!configFilePath) {
-                        this._console.info(`Configuration file not found at ${projectRoot}.`);
+                        this._console.info(`Configuration file not found at ${projectRoot.toUserVisibleString()}.`);
                     }
                 }
             }
@@ -568,7 +568,7 @@ export class AnalyzerService {
 
             if (pyprojectFilePath) {
                 projectRoot = pyprojectFilePath.getDirectory();
-                this._console.log(`pyproject.toml file found at ${projectRoot}.`);
+                this._console.log(`pyproject.toml file found at ${projectRoot.toUserVisibleString()}.`);
             } else {
                 this._console.log(`No pyproject.toml file found.`);
             }
@@ -641,10 +641,10 @@ export class AnalyzerService {
         // If we found a config file, parse it to compute the effective options.
         let configJsonObj: object | undefined;
         if (configFilePath) {
-            this._console.info(`Loading configuration file at ${configFilePath}`);
+            this._console.info(`Loading configuration file at ${configFilePath.toUserVisibleString()}`);
             configJsonObj = this._parseJsonConfigFile(configFilePath);
         } else if (pyprojectFilePath) {
-            this._console.info(`Loading pyproject.toml file at ${pyprojectFilePath}`);
+            this._console.info(`Loading pyproject.toml file at ${pyprojectFilePath.toUserVisibleString()}`);
             configJsonObj = this._parsePyprojectTomlFile(pyprojectFilePath);
         }
 
@@ -662,7 +662,7 @@ export class AnalyzerService {
             // If no include paths were provided, assume that all files within
             // the project should be included.
             if (configOptions.include.length === 0) {
-                this._console.info(`No include entries specified; assuming ${configFileDir}`);
+                this._console.info(`No include entries specified; assuming ${configFileDir.toUserVisibleString()}`);
                 configOptions.include.push(getFileSpec(this.serviceProvider, configFileDir, '.'));
             }
 

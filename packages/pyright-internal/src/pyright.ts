@@ -900,7 +900,7 @@ function reportDiagnosticsAsText(
         );
 
         if (fileErrorsAndWarnings.length > 0) {
-            console.info(`${fileDiagnostics.fileUri}`);
+            console.info(`${fileDiagnostics.fileUri.toUserVisibleString()}`);
             fileErrorsAndWarnings.forEach((diag) => {
                 const jsonDiag = convertDiagnosticToJson(fileDiagnostics.fileUri, diag);
                 logDiagnosticToConsole(jsonDiag);
