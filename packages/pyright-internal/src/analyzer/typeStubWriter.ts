@@ -165,7 +165,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         // As a heuristic, we'll include all of the import statements
         // in "__init__.pyi" files even if they're not locally referenced
         // because these are often used as ways to re-export symbols.
-        if (this._stubPath.pathEndsWith('__init__.pyi')) {
+        if (this._stubPath.filename === '__init__.pyi') {
             this._includeAllImports = true;
         }
     }

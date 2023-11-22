@@ -8,6 +8,7 @@
 
 import { isNumber, isString } from '../common/core';
 import { assertNever } from '../common/debug';
+import { stripFileExtension } from '../common/pathUtils';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { Uri } from '../common/uri/uri';
 import { ParseNode, ParseNodeType, isExpressionNode } from '../parser/parseNodes';
@@ -42,7 +43,7 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
                 for (const root of roots) {
                     if (fileUriOrModule.isChild(root)) {
                         const subFile = root.getRelativePath(fileUriOrModule);
-                        return subFile!.split('.')[0].replace(separatorRegExp, '.');
+                        return stripFileExtension(subFile!).replace(separatorRegExp, '.');
                     }
                 }
 

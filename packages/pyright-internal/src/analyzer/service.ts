@@ -1640,7 +1640,7 @@ export class AnalyzerService {
                 log(this._console, logLevel, `Search paths for ${execEnv.root || '<default>'}`);
                 const roots = importResolver.getImportRoots(execEnv, /* forLogging */ true);
                 roots.forEach((path) => {
-                    log(this._console, logLevel, `  ${path}`);
+                    log(this._console, logLevel, `  ${path.toUserVisibleString()}`);
                 });
             }
         }

@@ -505,14 +505,14 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         }
     }
 
-    protected handleAnalyzeFile(fileUri: Uri, token: CancellationToken) {
+    protected handleAnalyzeFile(fileUri: string, token: CancellationToken) {
         throwIfCancellationRequested(token);
-        return this.program.analyzeFile(fileUri, token);
+        return this.program.analyzeFile(Uri.parse(fileUri), token);
     }
 
-    protected handleGetDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken) {
+    protected handleGetDiagnosticsForRange(fileUri: string, range: Range, token: CancellationToken) {
         throwIfCancellationRequested(token);
-        return this.program.getDiagnosticsForRange(fileUri, range);
+        return this.program.getDiagnosticsForRange(Uri.parse(fileUri), range);
     }
 
     protected handleWriteTypeStub(
@@ -571,25 +571,25 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected handleSetFileOpened(
-        fileUri: Uri,
+        fileUri: string,
         version: number | null,
         contents: string,
         options: OpenFileOptions | undefined
     ) {
-        this.program.setFileOpened(fileUri, version, contents, options);
+        this.program.setFileOpened(Uri.parse(fileUri), version, contents, options);
     }
 
-    protected handleUpdateChainedfileUri(fileUri: Uri, chainedfileUri: Uri | undefined) {
-        this.program.updateChainedUri(fileUri, chainedfileUri);
+    protected handleUpdateChainedfileUri(fileUri: string, chainedfileUri: string | undefined) {
+        this.program.updateChainedUri(Uri.parse(fileUri), chainedfileUri ? Uri.parse(chainedfileUri) : undefined);
     }
 
-    protected handleSetFileClosed(fileUri: Uri, isTracked: boolean | undefined) {
-        const diagnostics = this.program.setFileClosed(fileUri, isTracked);
+    protected handleSetFileClosed(fileUri: string, isTracked: boolean | undefined) {
+        const diagnostics = this.program.setFileClosed(Uri.parse(fileUri), isTracked);
         this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
     }
 
-    protected handleAddInterimFile(fileUri: Uri) {
-        this.program.addInterimFile(fileUri);
+    protected handleAddInterimFile(fileUri: string) {
+        this.program.addInterimFile(Uri.parse(fileUri));
     }
 
     protected handleMarkFilesDirty(fileUris: string[], evenIfContentsAreSame: boolean) {
