@@ -42,7 +42,10 @@ test('file', () => {
     const cwd = process.cwd();
     const uri1 = Uri.file('a/b/c', true);
     assert.ok(uri1.getFilePath().length > 6);
-    assert.ok(uri1.getFilePath().startsWith(cwd));
+    assert.ok(
+        uri1.getFilePath().toLowerCase().startsWith(cwd.toLowerCase()),
+        `${uri1.getFilePath()} does not start with ${cwd}`
+    );
     const uri2 = Uri.file('a/b/c', false);
     assert.equal(uri2.getFilePath().length, 6);
 });
