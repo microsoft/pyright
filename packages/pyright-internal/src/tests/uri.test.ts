@@ -38,6 +38,15 @@ test('parse', () => {
     assert.ok(Uri.parse(undefined));
 });
 
+test('file', () => {
+    const cwd = process.cwd();
+    const uri1 = Uri.file('a/b/c', true);
+    assert.ok(uri1.getFilePath().length > 6);
+    assert.ok(uri1.getFilePath().startsWith(cwd));
+    const uri2 = Uri.file('a/b/c', false);
+    assert.equal(uri2.getFilePath().length, 6);
+});
+
 test('key', () => {
     const key = Uri.parse('foo:///a/b/c').key;
     const key2 = Uri.parse('foo:///a/b/c').key;

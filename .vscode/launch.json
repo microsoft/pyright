@@ -10,7 +10,7 @@
             "args": [
                 "--stats",
                 "-p",
-                "~/source/pandas/pyproject.toml"
+                "/home/rich/source/spack"
             ],
             "cwd": "${workspaceRoot}/packages/pyright",
             "internalConsoleOptions": "openOnSessionStart",

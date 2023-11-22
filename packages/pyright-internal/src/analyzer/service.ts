@@ -378,6 +378,9 @@ export class AnalyzerService {
 
         const checkedFileCount = this._program.getUserFileCount();
         this._console.info('Total files checked: ' + checkedFileCount.toString());
+
+        const config = this._program.configOptions;
+        this._console.info('Configu options: ' + JSON.stringify(config, undefined, 4));
     }
 
     printDetailedAnalysisTimes() {
@@ -511,7 +514,10 @@ export class AnalyzerService {
     // Calculates the effective options based on the command-line options,
     // an optional config file, and default values.
     private _getConfigOptions(host: Host, commandLineOptions: CommandLineOptions): ConfigOptions {
-        let projectRoot = this.fs.realCasePath(Uri.file(commandLineOptions.executionRoot));
+        let projectRoot = this.fs.realCasePath(Uri.file(commandLineOptions.executionRoot, /* checkRelative */ true));
+        const executionRoot = this.fs.realCasePath(
+            Uri.file(commandLineOptions.executionRoot, /* checkRelative */ true)
+        );
         let configFilePath: Uri | undefined;
         let pyprojectFilePath: Uri | undefined;
 
@@ -521,7 +527,7 @@ export class AnalyzerService {
             // or a file.
             configFilePath = this.fs.realCasePath(
                 isRootedDiskPath(commandLineOptions.configFilePath)
-                    ? Uri.file(commandLineOptions.configFilePath)
+                    ? Uri.file(commandLineOptions.configFilePath, /* checkRelative */ true)
                     : projectRoot.combinePaths(commandLineOptions.configFilePath)
             );
             if (!this.fs.existsSync(configFilePath)) {
@@ -581,7 +587,9 @@ export class AnalyzerService {
             this._console.info(
                 `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
             );
-            configOptions.pythonPath = this.fs.realCasePath(Uri.file(commandLineOptions.pythonPath));
+            configOptions.pythonPath = this.fs.realCasePath(
+                Uri.file(commandLineOptions.pythonPath, /* checkRelative */ true)
+            );
         }
 
         if (commandLineOptions.pythonEnvironmentName) {
@@ -625,13 +633,13 @@ export class AnalyzerService {
                 // If no config file was found and there are no explicit include
                 // paths specified, assume the caller wants to include all source
                 // files under the execution root path.
-                configOptions.include.push(getFileSpec(this.serviceProvider, projectRoot, '.'));
+                configOptions.include.push(getFileSpec(this.serviceProvider, executionRoot, '.'));
             }
 
             if (commandLineOptions.excludeFileSpecs.length === 0) {
                 // Add a few common excludes to avoid long scan times.
                 defaultExcludes.forEach((exclude) => {
-                    configOptions.exclude.push(getFileSpec(this.serviceProvider, projectRoot, exclude));
+                    configOptions.exclude.push(getFileSpec(this.serviceProvider, executionRoot, exclude));
                 });
             }
         }
@@ -692,7 +700,9 @@ export class AnalyzerService {
         if (commandLineOptions.includeFileSpecsOverride) {
             configOptions.include = [];
             commandLineOptions.includeFileSpecsOverride.forEach((include) => {
-                configOptions.include.push(getFileSpec(this.serviceProvider, projectRoot, include));
+                configOptions.include.push(
+                    getFileSpec(this.serviceProvider, Uri.file(include, /* checkRelative */ true), '.')
+                );
             });
         }
 
@@ -742,7 +752,7 @@ export class AnalyzerService {
             this._console.info(`Excluding typeshed stdlib stubs according to VERSIONS file:`);
             excludeList.forEach((exclude) => {
                 this._console.info(`    ${exclude}`);
-                configOptions.exclude.push(getFileSpec(this.serviceProvider, projectRoot, exclude.getFilePath()));
+                configOptions.exclude.push(getFileSpec(this.serviceProvider, executionRoot, exclude.getFilePath()));
             });
         }
 

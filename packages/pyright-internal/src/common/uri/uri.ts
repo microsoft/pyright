@@ -10,6 +10,7 @@ import { URI, Utils } from 'vscode-uri';
 import { EmptyUri } from './emptyUri';
 import { FileUri } from './fileUri';
 //import * as memoization from './memoization_instrumenting';
+import { combinePaths, isRootedDiskPath } from '../pathUtils';
 import { WebUri } from './webUri';
 
 export interface Uri {
@@ -154,7 +155,10 @@ function normalizeUri(uri: string | URI): { uri: URI; str: string } {
 }
 
 export namespace Uri {
-    export function file(path: string): Uri {
+    export function file(path: string, checkRelative = false): Uri {
+        // Fix path if we're checking for relative paths and this is not a rooted path.
+        path = checkRelative && !isRootedDiskPath(path) ? combinePaths(process.cwd(), path) : path;
+
         // If this already starts with 'file:', then we can
         // parse it normally. It's actually a uri string. Otherwise parse it as a file path.
         const normalized = path.startsWith('file:') ? normalizeUri(path) : normalizeUri(URI.file(path));
