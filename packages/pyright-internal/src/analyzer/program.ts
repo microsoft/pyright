@@ -605,7 +605,10 @@ export class Program {
     }
 
     getSourceFileInfo(uri: Uri): SourceFileInfo | undefined {
-        return this._sourceFileMap.get(uri.key);
+        if (!uri.isEmpty()) {
+            return this._sourceFileMap.get(uri.key);
+        }
+        return undefined;
     }
 
     getBoundSourceFileInfo(uri: Uri, content?: string, force?: boolean): SourceFileInfo | undefined {
@@ -1344,7 +1347,7 @@ export class Program {
                 if (this._isImportAllowed(sourceFileInfo, importResult, importResult.isStubFile)) {
                     if (importResult.resolvedUris.length > 0) {
                         const fileUri = importResult.resolvedUris[importResult.resolvedUris.length - 1];
-                        if (fileUri) {
+                        if (!fileUri.isEmpty()) {
                             const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
                             newImportPathMap.set(fileUri.key, {
                                 path: fileUri,
@@ -1487,6 +1490,9 @@ export class Program {
 
         // We should never add a file with the same path twice.
         assert(!this._sourceFileMap.has(fileUri.key));
+
+        // We should never have an empty URI for a source file.
+        assert(!fileInfo.sourceFile.getUri().isEmpty());
 
         this._sourceFileList.push(fileInfo);
         this._sourceFileMap.set(fileUri.key, fileInfo);
