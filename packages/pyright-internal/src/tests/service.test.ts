@@ -326,7 +326,7 @@ test('service runEditMode', () => {
     const options = {
         isTracked: true,
         ipythonMode: IPythonMode.None,
-        chainedUri: newFileUri,
+        chainedFileUri: newFileUri,
     };
 
     // try run edit mode
