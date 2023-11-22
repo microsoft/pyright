@@ -1105,7 +1105,7 @@ export class SourceFile {
                         '\n' +
                         cirDep
                             .getPaths()
-                            .map((path) => '  ' + path)
+                            .map((path) => '  ' + path.toUserVisibleString())
                             .join('\n'),
                     getEmptyRange()
                 );
