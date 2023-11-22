@@ -936,7 +936,9 @@ export class AnalyzerService {
                 throw e;
             }
 
-            this._console.info(`Pyproject file "${pyprojectPath}" has no "[tool.pyright]" section.`);
+            this._console.info(
+                `Pyproject file "${pyprojectPath.toUserVisibleString()}" has no "[tool.pyright]" section.`
+            );
             return undefined;
         });
     }
@@ -1137,7 +1139,7 @@ export class AnalyzerService {
                         );
                     }
 
-                    this._console.info(`Auto-excluding ${absolutePath}`);
+                    this._console.info(`Auto-excluding ${absolutePath.toUserVisibleString()}`);
                     return;
                 }
             }
@@ -1583,7 +1585,7 @@ export class AnalyzerService {
         this._updateConfigFileWatcher();
 
         if (this._configFilePath) {
-            this._console.info(`Reloading configuration file at ${this._configFilePath}`);
+            this._console.info(`Reloading configuration file at ${this._configFilePath.toUserVisibleString()}`);
 
             const host = this._backgroundAnalysisProgram.host;
 
