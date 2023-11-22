@@ -30,7 +30,7 @@ export interface LookupImportOptions {
 }
 
 export type ImportLookup = (
-    filePathOrModule: Uri | AbsoluteModuleDescriptor,
+    fileUriOrModule: Uri | AbsoluteModuleDescriptor,
     options?: LookupImportOptions
 ) => ImportLookupResult | undefined;
 
