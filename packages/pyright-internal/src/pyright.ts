@@ -933,7 +933,7 @@ function reportDiagnosticsAsText(
 function logDiagnosticToConsole(diag: PyrightJsonDiagnostic, prefix = '  ') {
     let message = prefix;
     if (!diag.uri.isEmpty()) {
-        message += `${diag.uri}:`;
+        message += `${diag.uri.toUserVisibleString()}:`;
     }
     if (diag.range && !isEmptyRange(diag.range)) {
         message +=
