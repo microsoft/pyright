@@ -735,6 +735,12 @@ function getImportResultImpl(
         importedSymbols: new Set<string>(),
     });
 
+    // Add the config venvpath to the import result so we can output it on failure.
+    if (!importResult.isImportFound) {
+        importResult.importFailureInfo = importResult.importFailureInfo ?? [];
+        importResult.importFailureInfo.push(`venvPath: ${configOptions.venvPath}`);
+    }
+
     return importResult;
 }
 function createTestFileSystem(files: { path: string; content: string }[]): TestFileSystem {
