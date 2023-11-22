@@ -140,7 +140,7 @@ export function applyDocumentChanges(program: EditableProgram, fileInfo: SourceF
         program.setFileOpened(fileInfo.sourceFile.getUri(), 0, fileContent ?? '', {
             isTracked: fileInfo.isTracked,
             ipythonMode: fileInfo.sourceFile.getIPythonMode(),
-            chainedUri: fileInfo.chainedSourceFile?.sourceFile.getUri(),
+            chainedFileUri: fileInfo.chainedSourceFile?.sourceFile.getUri(),
         });
     }
 
@@ -152,7 +152,7 @@ export function applyDocumentChanges(program: EditableProgram, fileInfo: SourceF
     program.setFileOpened(fileUri, version + 1, TextDocument.applyEdits(sourceDoc, edits), {
         isTracked: fileInfo.isTracked,
         ipythonMode: fileInfo.sourceFile.getIPythonMode(),
-        chainedUri: fileInfo.chainedSourceFile?.sourceFile.getUri(),
+        chainedFileUri: fileInfo.chainedSourceFile?.sourceFile.getUri(),
     });
 }
 

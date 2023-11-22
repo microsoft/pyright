@@ -97,7 +97,7 @@ export namespace ISourceFileFactory {
 export interface OpenFileOptions {
     isTracked: boolean;
     ipythonMode: IPythonMode;
-    chainedUri: Uri | undefined;
+    chainedFileUri: Uri | undefined;
 }
 
 // Track edit mode related information.
@@ -397,7 +397,7 @@ export class Program {
                 this._logTracker,
                 options?.ipythonMode ?? IPythonMode.None
             );
-            const chainedFilePath = options?.chainedUri;
+            const chainedFilePath = options?.chainedFileUri;
             sourceFileInfo = new SourceFileInfo(
                 sourceFile,
                 /* isTypeshedFile */ false,
@@ -961,7 +961,7 @@ export class Program {
                 version,
                 fileInfo.sourceFile.getOpenFileContents() ?? '',
                 {
-                    chainedUri: fileInfo.chainedSourceFile?.sourceFile.getUri(),
+                    chainedFileUri: fileInfo.chainedSourceFile?.sourceFile.getUri(),
                     ipythonMode: fileInfo.sourceFile.getIPythonMode(),
                     isTracked: fileInfo.isTracked,
                 }

@@ -317,7 +317,7 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.setFileOpened(uri, version, contents, {
             isTracked: this.isTracked(uri) || ipythonMode !== IPythonMode.None,
             ipythonMode,
-            chainedUri: chainedFileUri,
+            chainedFileUri: chainedFileUri,
         });
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
@@ -335,7 +335,7 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.updateOpenFileContents(uri, version, contents, {
             isTracked: this.isTracked(uri),
             ipythonMode,
-            chainedUri: undefined,
+            chainedFileUri: undefined,
         });
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
