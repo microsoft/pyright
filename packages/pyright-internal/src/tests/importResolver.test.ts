@@ -14,7 +14,7 @@ import { FileWatcher, FileWatcherEventHandler } from '../common/fileWatcher';
 import { FullAccessHost } from '../common/fullAccessHost';
 import { Host } from '../common/host';
 import { lib, sitePackages, typeshedFallback } from '../common/pathConsts';
-import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
+import { combinePaths, getDirectoryPath, isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { ServiceProvider } from '../common/serviceProvider';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
@@ -692,14 +692,18 @@ function getImportResult(
     if (process.env.CI_IMPORT_TEST_VENVPATH) {
         configModifier = (c: ConfigOptions) => {
             defaultSetup(c);
-            c.venvPath = Uri.file(process.env.CI_IMPORT_TEST_VENVPATH!);
+            c.venvPath = isRootedDiskPath(process.env.CI_IMPORT_TEST_VENVPATH!)
+                ? Uri.file(process.env.CI_IMPORT_TEST_VENVPATH!)
+                : Uri.file(process.cwd()).combinePaths(process.env.CI_IMPORT_TEST_VENVPATH!);
             c.venv = process.env.CI_IMPORT_TEST_VENV;
         };
         spFactory = (files: { path: string; content: string }[]) => createServiceProviderWithCombinedFs(files);
     } else if (process.env.CI_IMPORT_TEST_PYTHONPATH) {
         configModifier = (c: ConfigOptions) => {
             defaultSetup(c);
-            c.pythonPath = Uri.file(process.env.CI_IMPORT_TEST_PYTHONPATH!);
+            c.pythonPath = isRootedDiskPath(process.env.CI_IMPORT_TEST_PYTHONPATH!)
+                ? Uri.file(process.env.CI_IMPORT_TEST_PYTHONPATH!)
+                : Uri.file(process.cwd()).combinePaths(process.env.CI_IMPORT_TEST_PYTHONPATH!);
         };
         hostFactory = (sp: ServiceProvider) => new TruePythonTestAccessHost();
         spFactory = (files: { path: string; content: string }[]) => createServiceProviderWithCombinedFs(files);

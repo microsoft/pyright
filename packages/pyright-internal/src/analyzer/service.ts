@@ -789,7 +789,9 @@ export class AnalyzerService {
         // or inconsistent information.
         if (configOptions.venvPath) {
             if (!this.fs.existsSync(configOptions.venvPath) || !isDirectory(this.fs, configOptions.venvPath)) {
-                this._console.error(`venvPath ${configOptions.venvPath} is not a valid directory.`);
+                this._console.error(
+                    `venvPath ${configOptions.venvPath.toUserVisibleString()} is not a valid directory.`
+                );
             }
 
             // venvPath without venv means it won't do anything while resolveImport.
@@ -801,14 +803,16 @@ export class AnalyzerService {
 
                 if (!this.fs.existsSync(fullVenvPath) || !isDirectory(this.fs, fullVenvPath)) {
                     this._console.error(
-                        `venv ${configOptions.venv} subdirectory not found in venv path ${configOptions.venvPath}.`
+                        `venv ${
+                            configOptions.venv
+                        } subdirectory not found in venv path ${configOptions.venvPath.toUserVisibleString()}.`
                     );
                 } else {
                     const importFailureInfo: string[] = [];
                     if (findPythonSearchPaths(this.fs, configOptions, host, importFailureInfo) === undefined) {
                         this._console.error(
                             `site-packages directory cannot be located for venvPath ` +
-                                `${configOptions.venvPath} and venv ${configOptions.venv}.`
+                                `${configOptions.venvPath.toUserVisibleString()} and venv ${configOptions.venv}.`
                         );
 
                         if (configOptions.verboseOutput) {
@@ -830,7 +834,9 @@ export class AnalyzerService {
 
         if (configOptions.typeshedPath) {
             if (!this.fs.existsSync(configOptions.typeshedPath) || !isDirectory(this.fs, configOptions.typeshedPath)) {
-                this._console.error(`typeshedPath ${configOptions.typeshedPath} is not a valid directory.`);
+                this._console.error(
+                    `typeshedPath ${configOptions.typeshedPath.toUserVisibleString()} is not a valid directory.`
+                );
             }
         }
 
@@ -863,7 +869,7 @@ export class AnalyzerService {
                 this.fs.mkdirSync(stubPath);
             }
         } catch (e: any) {
-            const errMsg = `Could not create typings directory '${stubPath}'`;
+            const errMsg = `Could not create typings directory '${stubPath.toUserVisibleString()}'`;
             this._console.error(errMsg);
             throw new Error(errMsg);
         }
@@ -878,7 +884,7 @@ export class AnalyzerService {
                 makeDirectories(this.fs, typingsSubdirHierarchy, stubPath);
             }
         } catch (e: any) {
-            const errMsg = `Could not create typings subdirectory '${typingsSubdirHierarchy}'`;
+            const errMsg = `Could not create typings subdirectory '${typingsSubdirHierarchy.toUserVisibleString()}'`;
             this._console.error(errMsg);
             throw new Error(errMsg);
         }
@@ -955,7 +961,7 @@ export class AnalyzerService {
             try {
                 fileContents = this.fs.readFileSync(fileUri, 'utf8');
             } catch {
-                this._console.error(`Config file "${fileUri}" could not be read.`);
+                this._console.error(`Config file "${fileUri.toUserVisibleString()}" could not be read.`);
                 this._reportConfigParseError();
                 return undefined;
             }
@@ -976,7 +982,9 @@ export class AnalyzerService {
             // may have been partially written when we read it, resulting in parse
             // errors. We'll give it a little more time and try again.
             if (parseAttemptCount++ >= 5) {
-                this._console.error(`Config file "${fileUri}" could not be parsed. Verify that format is correct.`);
+                this._console.error(
+                    `Config file "${fileUri.toUserVisibleString()}" could not be parsed. Verify that format is correct.`
+                );
                 this._reportConfigParseError();
                 return undefined;
             }
@@ -1196,7 +1204,9 @@ export class AnalyzerService {
                 }
 
                 if (!foundFileSpec) {
-                    this._console.error(`File or directory "${includeSpec.wildcardRoot}" does not exist.`);
+                    this._console.error(
+                        `File or directory "${includeSpec.wildcardRoot.toUserVisibleString()}" does not exist.`
+                    );
                 }
             }
         });
@@ -1280,7 +1290,11 @@ export class AnalyzerService {
                     this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
                 });
             } catch {
-                this._console.error(`Exception caught when installing fs watcher for:\n ${fileList.join('\n')}`);
+                this._console.error(
+                    `Exception caught when installing fs watcher for:\n ${fileList
+                        .map((f) => f.toUserVisibleString())
+                        .join('\n')}`
+                );
             }
         }
 
@@ -1437,7 +1451,11 @@ export class AnalyzerService {
                     this._scheduleLibraryAnalysis(isChange);
                 });
             } catch {
-                this._console.error(`Exception caught when installing fs watcher for:\n ${watchList.join('\n')}`);
+                this._console.error(
+                    `Exception caught when installing fs watcher for:\n ${watchList
+                        .map((w) => w.toUserVisibleString())
+                        .join('\n')}`
+                );
             }
         }
     }
