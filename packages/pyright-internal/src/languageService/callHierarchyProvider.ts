@@ -547,7 +547,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         let callSource: CallHierarchyItem;
         if (executionNode.nodeType === ParseNodeType.Module) {
             const moduleRange = convertOffsetsToRange(0, 0, this._parseResults.tokenizerOutput.lines);
-            const fileName = this._fileUri.basename;
+            const fileName = this._fileUri.filename;
 
             callSource = {
                 name: `(module) ${fileName}`,

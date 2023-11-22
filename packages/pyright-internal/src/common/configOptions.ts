@@ -31,10 +31,9 @@ export enum PythonPlatform {
 }
 
 export class ExecutionEnvironment {
-    // Root directory for execution - absolute or relative to the
-    // project root.
+    // Root directory for execution.
     // Undefined if this is a rootless environment (e.g., open file mode).
-    root?: string | Uri;
+    root?: Uri;
 
     // Name of a virtual environment if there is one, otherwise
     // just the path to the python executable.
@@ -52,13 +51,13 @@ export class ExecutionEnvironment {
     // Default to "." which indicates every file in the project.
     constructor(
         name: string,
-        root: string | Uri,
+        root: Uri,
         defaultPythonVersion: PythonVersion | undefined,
         defaultPythonPlatform: string | undefined,
         defaultExtraPaths: Uri[] | undefined
     ) {
         this.name = name;
-        this.root = root || undefined;
+        this.root = root;
         this.pythonVersion = defaultPythonVersion || latestStablePythonVersion;
         this.pythonPlatform = defaultPythonPlatform;
         this.extraPaths = Array.from(defaultExtraPaths ?? []);

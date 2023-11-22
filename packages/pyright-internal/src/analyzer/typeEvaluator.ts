@@ -18310,7 +18310,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const importInfo = AnalyzerNodeInfo.getImportInfo(parentNode.module);
             if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib) {
-                const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+                const resolvedPath = importInfo.resolvedUris[importInfo.resolvedUris.length - 1];
 
                 const importLookupInfo = importLookup(resolvedPath);
                 let reportError = false;
@@ -20154,15 +20154,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 namePartIndex >= 0 &&
                 importInfo &&
                 !importInfo.isNativeLib &&
-                namePartIndex < importInfo.resolvedPaths.length
+                namePartIndex < importInfo.resolvedUris.length
             ) {
-                if (importInfo.resolvedPaths[namePartIndex]) {
+                if (importInfo.resolvedUris[namePartIndex]) {
                     evaluateTypesForStatement(node);
 
                     // Synthesize an alias declaration for this name part. The only
                     // time this case is used is for IDE services such as
                     // the find all references, hover provider and etc.
-                    declarations.push(createSynthesizedAliasDeclaration(importInfo.resolvedPaths[namePartIndex]));
+                    declarations.push(createSynthesizedAliasDeclaration(importInfo.resolvedUris[namePartIndex]));
                 }
             }
         } else if (node.parent && node.parent.nodeType === ParseNodeType.Argument && node === node.parent.name) {

@@ -20,9 +20,9 @@ export interface Uri {
     readonly scheme: string;
 
     // Returns the last segment of the URI, similar to the UNIX basename command.
-    readonly basename: string;
+    readonly filename: string;
 
-    // Returns the extension of the URI, similar to the UNIX extname command.
+    // Returns the extension of the URI, similar to the UNIX extname command. This includes '.' on the extension.
     readonly extname: string;
 
     // Returns a URI where the path just contains the root folder.
@@ -35,15 +35,15 @@ export interface Uri {
     readonly packageStubUri: Uri;
 
     // Returns a URI where the path has __init__.py appended.
-    readonly initFileUri: Uri;
+    readonly initPyUri: Uri;
 
     // Returns a URI where the path has __init__.pyi appended.
-    readonly initStubUri: Uri;
+    readonly initPyiUri: Uri;
 
     // Returns a URI where the path has py.typed appended.
     readonly pytypedUri: Uri;
 
-    // Returns the basename without any extensions
+    // Returns the filename without any extensions
     readonly withoutExtension: string;
 
     isEmpty(): boolean;
@@ -51,19 +51,6 @@ export interface Uri {
     toString(): string;
 
     toUserVisibleString(): string;
-
-    matchesRegex(regex: RegExp): boolean;
-
-    replaceExtension(ext: string): Uri;
-
-    addExtension(ext: string): Uri;
-
-    addPath(extra: string): Uri;
-
-    // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
-    getDirectory(): Uri;
-
-    getRootPathLength(): number;
 
     // Determines whether a path consists only of a path root.
     isRoot(): boolean;
@@ -84,6 +71,14 @@ export interface Uri {
     pathEndsWith(name: string): boolean;
 
     pathIncludes(include: string): boolean;
+    matchesRegex(regex: RegExp): boolean;
+
+    addPath(extra: string): Uri;
+
+    // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
+    getDirectory(): Uri;
+
+    getRootPathLength(): number;
 
     // How long the path for this Uri is.
     getPathLength(): number;
@@ -104,6 +99,9 @@ export interface Uri {
     stripExtension(): Uri;
 
     stripAllExtensions(): Uri;
+    replaceExtension(ext: string): Uri;
+
+    addExtension(ext: string): Uri;
 }
 
 // Returns just the fsPath path portion of a vscode URI.

@@ -1743,7 +1743,7 @@ export class Binder extends ParseTreeWalker {
 
         let resolvedPath = Uri.empty();
         if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib) {
-            resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+            resolvedPath = importInfo.resolvedUris[importInfo.resolvedUris.length - 1];
         }
 
         // If this file is a module __init__.py(i), relative imports of submodules
@@ -1752,7 +1752,7 @@ export class Binder extends ParseTreeWalker {
         // symbols below) in case one of the imported symbols is the same name as the
         // submodule. In that case, we want to the symbol to appear later in the
         // declaration list because it should "win" when resolving the alias.
-        const fileName = stripFileExtension(this._fileInfo.fileUri.basename);
+        const fileName = stripFileExtension(this._fileInfo.fileUri.filename);
         const isModuleInitFile =
             fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length === 1;
 
@@ -2519,14 +2519,14 @@ export class Binder extends ParseTreeWalker {
             .find((decl) => decl.type === DeclarationType.Alias && decl.firstNamePart === firstNamePartValue);
         let newDecl: AliasDeclaration;
         let uriOfLastSubmodule: Uri;
-        if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedPaths.length > 0) {
-            uriOfLastSubmodule = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+        if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedUris.length > 0) {
+            uriOfLastSubmodule = importInfo.resolvedUris[importInfo.resolvedUris.length - 1];
         } else {
             uriOfLastSubmodule = UnresolvedModuleMarker;
         }
 
         const isResolved =
-            importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedPaths.length > 0;
+            importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedUris.length > 0;
 
         if (existingDecl) {
             newDecl = existingDecl as AliasDeclaration;
@@ -2563,8 +2563,8 @@ export class Binder extends ParseTreeWalker {
         // See if there is import info for this part of the path. This allows us
         // to implicitly import all of the modules in a multi-part module name.
         const implicitImportInfo = AnalyzerNodeInfo.getImportInfo(node.module.nameParts[0]);
-        if (implicitImportInfo && implicitImportInfo.resolvedPaths.length) {
-            newDecl.uri = implicitImportInfo.resolvedPaths[0];
+        if (implicitImportInfo && implicitImportInfo.resolvedUris.length) {
+            newDecl.uri = implicitImportInfo.resolvedUris[0];
             newDecl.loadSymbolsFromPath = true;
             this._addImplicitImportsToLoaderActions(implicitImportInfo, newDecl);
         }
@@ -2592,8 +2592,8 @@ export class Binder extends ParseTreeWalker {
                     : undefined;
                 if (!loaderActions) {
                     const loaderActionPath =
-                        importInfo && i < importInfo.resolvedPaths.length
-                            ? importInfo.resolvedPaths[i]
+                        importInfo && i < importInfo.resolvedUris.length
+                            ? importInfo.resolvedUris[i]
                             : UnresolvedModuleMarker;
 
                     // Allocate a new loader action.
@@ -2612,8 +2612,8 @@ export class Binder extends ParseTreeWalker {
                 if (i === node.module.nameParts.length - 1) {
                     // If this is the last name part we're resolving, add in the
                     // implicit imports as well.
-                    if (importInfo && i < importInfo.resolvedPaths.length) {
-                        loaderActions.uri = importInfo.resolvedPaths[i];
+                    if (importInfo && i < importInfo.resolvedUris.length) {
+                        loaderActions.uri = importInfo.resolvedUris[i];
                         loaderActions.loadSymbolsFromPath = true;
                         this._addImplicitImportsToLoaderActions(importInfo, loaderActions);
                     }
@@ -2623,8 +2623,8 @@ export class Binder extends ParseTreeWalker {
                     // import all of the modules in a multi-part module name (e.g. "import a.b.c"
                     // imports "a" and "a.b" and "a.b.c").
                     const implicitImportInfo = AnalyzerNodeInfo.getImportInfo(node.module.nameParts[i]);
-                    if (implicitImportInfo && implicitImportInfo.resolvedPaths.length) {
-                        loaderActions.uri = implicitImportInfo.resolvedPaths[i];
+                    if (implicitImportInfo && implicitImportInfo.resolvedUris.length) {
+                        loaderActions.uri = implicitImportInfo.resolvedUris[i];
                         loaderActions.loadSymbolsFromPath = true;
                         this._addImplicitImportsToLoaderActions(implicitImportInfo, loaderActions);
                     }

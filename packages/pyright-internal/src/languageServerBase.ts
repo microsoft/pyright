@@ -522,7 +522,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         typeStubTargetImportName?: string
     ) {
         AnalyzerServiceExecutor.runWithOptions(this.rootUri, workspace, serverSettings, typeStubTargetImportName);
-        workspace.searchPathsToWatch = workspace.service.librarySearchPathsToWatch ?? [];
+        workspace.searchPathsToWatch = workspace.service.librarySearchUrisToWatch ?? [];
     }
 
     protected abstract executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
@@ -1469,7 +1469,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
             foldersToWatch.forEach((p) => {
                 const globPattern = isFile(this.fs, p, /* treatZipDirectoryAsFile */ true)
-                    ? { baseUri: p.getDirectory().toString(), pattern: p.basename }
+                    ? { baseUri: p.getDirectory().toString(), pattern: p.filename }
                     : { baseUri: p.toString(), pattern: '**' };
 
                 watchers.push({ globPattern, kind: watchKind });

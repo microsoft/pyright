@@ -267,7 +267,7 @@ export class PackageTypeVerifier {
         const importResult = this._resolveImport(moduleName);
 
         if (importResult.isImportFound) {
-            const modulePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+            const modulePath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
             this._program.addTrackedFiles([modulePath], /* isThirdPartyImport */ true, /* isInPyTypedPackage */ true);
 
             const sourceFile = this._program.getBoundSourceFile(modulePath);
@@ -378,7 +378,7 @@ export class PackageTypeVerifier {
                 )
             );
         } else {
-            const modulePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+            const modulePath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
 
             const module: ModuleInfo = {
                 name: moduleName,
@@ -1453,7 +1453,7 @@ export class PackageTypeVerifier {
         );
 
         if (importResult.isImportFound) {
-            const resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+            const resolvedPath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
 
             // If it's a namespace package with no __init__.py(i), use the package
             // directory instead.
@@ -1461,7 +1461,7 @@ export class PackageTypeVerifier {
                 ? resolvedPath.getDirectory()
                 : importResult.packageDirectory ?? Uri.empty();
             let isModuleSingleFile = false;
-            if (resolvedPath && stripFileExtension(resolvedPath.basename) !== '__init__') {
+            if (resolvedPath && stripFileExtension(resolvedPath.filename) !== '__init__') {
                 isModuleSingleFile = true;
             }
 

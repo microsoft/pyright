@@ -74,7 +74,7 @@ export class BackgroundAnalysisProgram {
     }
 
     hasSourceFile(fileUri: Uri): boolean {
-        return !!this._program.getSourceFile(filePath);
+        return !!this._program.getSourceFile(fileUri);
     }
 
     setConfigOptions(configOptions: ConfigOptions) {
@@ -111,26 +111,26 @@ export class BackgroundAnalysisProgram {
         return this._program.getChainedUri(fileUri);
     }
 
-    updateChainedUri(filePath: Uri, chainedUri: Uri | undefined) {
-        this._backgroundAnalysis?.updateChainedUri(filePath, chainedUri);
-        this._program.updateChainedUri(filePath, chainedUri);
+    updateChainedUri(fileUri: Uri, chainedUri: Uri | undefined) {
+        this._backgroundAnalysis?.updateChainedUri(fileUri, chainedUri);
+        this._program.updateChainedUri(fileUri, chainedUri);
     }
 
-    updateOpenFileContents(path: Uri, version: number | null, contents: string, options: OpenFileOptions) {
-        this._backgroundAnalysis?.setFileOpened(path, version, contents, options);
-        this._program.setFileOpened(path, version, contents, options);
-        this.markFilesDirty([path], /* evenIfContentsAreSame */ true);
+    updateOpenFileContents(uri: Uri, version: number | null, contents: string, options: OpenFileOptions) {
+        this._backgroundAnalysis?.setFileOpened(uri, version, contents, options);
+        this._program.setFileOpened(uri, version, contents, options);
+        this.markFilesDirty([uri], /* evenIfContentsAreSame */ true);
     }
 
-    setFileClosed(filePath: Uri, isTracked?: boolean) {
-        this._backgroundAnalysis?.setFileClosed(filePath, isTracked);
-        const diagnostics = this._program.setFileClosed(filePath, isTracked);
+    setFileClosed(fileUri: Uri, isTracked?: boolean) {
+        this._backgroundAnalysis?.setFileClosed(fileUri, isTracked);
+        const diagnostics = this._program.setFileClosed(fileUri, isTracked);
         this._reportDiagnosticsForRemovedFiles(diagnostics);
     }
 
-    addInterimFile(filePath: Uri) {
-        this._backgroundAnalysis?.addInterimFile(filePath);
-        this._program.addInterimFile(filePath);
+    addInterimFile(fileUri: Uri) {
+        this._backgroundAnalysis?.addInterimFile(fileUri);
+        this._program.addInterimFile(fileUri);
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean) {
@@ -138,9 +138,9 @@ export class BackgroundAnalysisProgram {
         this._program.markAllFilesDirty(evenIfContentsAreSame);
     }
 
-    markFilesDirty(filePaths: Uri[], evenIfContentsAreSame: boolean) {
-        this._backgroundAnalysis?.markFilesDirty(filePaths, evenIfContentsAreSame);
-        this._program.markFilesDirty(filePaths, evenIfContentsAreSame);
+    markFilesDirty(fileUris: Uri[], evenIfContentsAreSame: boolean) {
+        this._backgroundAnalysis?.markFilesDirty(fileUris, evenIfContentsAreSame);
+        this._program.markFilesDirty(fileUris, evenIfContentsAreSame);
     }
 
     setCompletionCallback(callback?: AnalysisCompleteCallback) {
@@ -164,34 +164,34 @@ export class BackgroundAnalysisProgram {
         );
     }
 
-    async analyzeFile(filePath: Uri, token: CancellationToken): Promise<boolean> {
+    async analyzeFile(fileUri: Uri, token: CancellationToken): Promise<boolean> {
         if (this._backgroundAnalysis) {
-            return this._backgroundAnalysis.analyzeFile(filePath, token);
+            return this._backgroundAnalysis.analyzeFile(fileUri, token);
         }
 
-        return this._program.analyzeFile(filePath, token);
+        return this._program.analyzeFile(fileUri, token);
     }
 
     libraryUpdated() {
         // empty
     }
 
-    async getDiagnosticsForRange(filePath: Uri, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
+    async getDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
         if (this._backgroundAnalysis) {
-            return this._backgroundAnalysis.getDiagnosticsForRange(filePath, range, token);
+            return this._backgroundAnalysis.getDiagnosticsForRange(fileUri, range, token);
         }
 
-        return this._program.getDiagnosticsForRange(filePath, range);
+        return this._program.getDiagnosticsForRange(fileUri, range);
     }
 
     async writeTypeStub(
-        targetImportPath: Uri,
+        targetImportUri: Uri,
         targetIsSingleFile: boolean,
-        stubPath: Uri,
+        stubUri: Uri,
         token: CancellationToken
     ): Promise<any> {
         if (this._backgroundAnalysis) {
-            return this._backgroundAnalysis.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
+            return this._backgroundAnalysis.writeTypeStub(targetImportUri, targetIsSingleFile, stubUri, token);
         }
 
         analyzeProgram(
@@ -202,7 +202,7 @@ export class BackgroundAnalysisProgram {
             this._serviceProvider.console(),
             token
         );
-        return this._program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
+        return this._program.writeTypeStub(targetImportUri, targetIsSingleFile, stubUri, token);
     }
 
     invalidateAndForceReanalysis(reason: InvalidatedReason) {

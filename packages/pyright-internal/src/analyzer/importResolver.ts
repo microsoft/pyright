@@ -191,11 +191,7 @@ export class ImportResolver {
                 /* strictOnly */ false
             );
 
-            let success;
-            [success, current] = this._tryWalkUp(current);
-            if (!success) {
-                break;
-            }
+            current = this._tryWalkUp(current);
         }
 
         return suggestions;
@@ -220,11 +216,11 @@ export class ImportResolver {
         this._cachedImportResults.forEach((map) => {
             map.forEach((result) => {
                 if (result.isStubFile && result.isImportFound && result.nonStubImportResult) {
-                    if (result.resolvedPaths[result.resolvedPaths.length - 1].equals(stubFileUri)) {
+                    if (result.resolvedUris[result.resolvedUris.length - 1].equals(stubFileUri)) {
                         if (result.nonStubImportResult.isImportFound) {
                             const nonEmptyPath =
-                                result.nonStubImportResult.resolvedPaths[
-                                    result.nonStubImportResult.resolvedPaths.length - 1
+                                result.nonStubImportResult.resolvedUris[
+                                    result.nonStubImportResult.resolvedUris.length - 1
                                 ];
 
                             if (nonEmptyPath.pathEndsWith('.py') || nonEmptyPath.pathEndsWith('.pyi')) {
@@ -296,7 +292,7 @@ export class ImportResolver {
                         } else {
                             // Did not match: <root>/package.py
                             // Try equivalent: <root>/package/__init__.py
-                            absoluteSourcePath = filePathWithoutExtension.initFileUri;
+                            absoluteSourcePath = filePathWithoutExtension.initPyUri;
                             if (this.fileExistsCached(absoluteSourcePath)) {
                                 sourceFileUris.push(absoluteSourcePath);
                             }
@@ -319,7 +315,11 @@ export class ImportResolver {
         detectPyTyped = false
     ) {
         // Cache results of the reverse of resolveImport as we cache resolveImport.
-        const cache = getOrAdd(this._cachedModuleNameResults, execEnv.root, () => new Map<string, ModuleImportInfo>());
+        const cache = getOrAdd(
+            this._cachedModuleNameResults,
+            execEnv.root?.key,
+            () => new Map<string, ModuleImportInfo>()
+        );
         const key = `${allowInvalidModuleName}.${detectPyTyped}.${fileUri.key}`;
         return getOrAdd(cache, key, () =>
             this._getModuleNameForImport(fileUri, execEnv, allowInvalidModuleName, detectPyTyped)
@@ -564,11 +564,7 @@ export class ImportResolver {
                 return this.filterImplicitImports(result, moduleDescriptor.importedSymbols);
             }
 
-            let success;
-            [success, current] = this._tryWalkUp(current);
-            if (!success) {
-                break;
-            }
+            current = this._tryWalkUp(current);
         }
 
         if (current) {
@@ -583,7 +579,7 @@ export class ImportResolver {
             // Started at root, so this can't be a file
             return false;
         }
-        const fileName = uri.basename;
+        const fileName = uri.filename;
         const entries = this.readdirEntriesCached(directory);
         const entry = entries.find((entry) => entry.name === fileName);
         if (entry?.isFile()) {
@@ -615,7 +611,7 @@ export class ImportResolver {
 
         // Otherwise not a root, so read the entries we have cached to see if
         // the directory exists or not.
-        const directoryName = uri.basename;
+        const directoryName = uri.filename;
         const entries = this.readdirEntriesCached(parent);
         const entry = entries.find((entry) => entry.name === directoryName);
         if (entry?.isDirectory()) {
@@ -643,7 +639,7 @@ export class ImportResolver {
         // If the import is relative, include the source file path in the key.
         const relativesourceFileUri = moduleDescriptor && moduleDescriptor.leadingDots > 0 ? sourceFileUri : undefined;
 
-        getOrAdd(this._cachedImportResults, execEnv.root, () => new Map<string, ImportResult>()).set(
+        getOrAdd(this._cachedImportResults, execEnv.root?.key, () => new Map<string, ImportResult>()).set(
             this._getImportCacheKey(relativesourceFileUri, importName, fromUserFile),
             importResult
         );
@@ -741,7 +737,7 @@ export class ImportResolver {
     protected getNativeModuleName(uri: Uri): string | undefined {
         const fileExtension = uri.extname.toLowerCase();
         if (this._isNativeModuleFileExtension(fileExtension)) {
-            return stripFileExtension(uri.basename, true);
+            return stripFileExtension(uri.filename, true);
         }
         return undefined;
     }
@@ -768,19 +764,19 @@ export class ImportResolver {
 
         // If module is native, strip platform part, such as 'cp36-win_amd64' in 'mtrand.cp36-win_amd64'.
         if (this._isNativeModuleFileExtension(fileUri.extname)) {
-            filePathWithoutExtension = filePathWithoutExtension.stripExtension();
+            fileUriWithoutExtension = fileUriWithoutExtension.stripExtension();
         }
 
-        if (!filePathWithoutExtension.startsWith(containerPath)) {
+        if (!fileUriWithoutExtension.startsWith(containerPath)) {
             return undefined;
         }
 
         // Strip off the '/__init__' if it's present.
-        if (filePathWithoutExtension.pathEndsWith('__init__')) {
-            filePathWithoutExtension = filePathWithoutExtension.getDirectory();
+        if (fileUriWithoutExtension.pathEndsWith('__init__')) {
+            fileUriWithoutExtension = fileUriWithoutExtension.getDirectory();
         }
 
-        const parts = Array.from(containerPath.getRelativePathComponents(filePathWithoutExtension));
+        const parts = Array.from(containerPath.getRelativePathComponents(fileUriWithoutExtension));
         if (stripTopContainerDir) {
             if (parts.length === 0) {
                 return undefined;
@@ -873,7 +869,7 @@ export class ImportResolver {
             isInitFilePresent: false,
             isStubPackage: false,
             importFailureInfo,
-            resolvedPaths: [],
+            resolvedUris: [],
             importType: ImportType.Local,
             isStubFile: false,
             isNativeLib: false,
@@ -1229,11 +1225,7 @@ export class ImportResolver {
                 }
                 break;
 
-                let success;
-                [success, current] = this._tryWalkUp(current);
-                if (!success) {
-                    break;
-                }
+                current = this._tryWalkUp(current);
             }
         }
 
@@ -1300,8 +1292,8 @@ export class ImportResolver {
 
         // Handle the "from . import XXX" case.
         if (moduleDescriptor.nameParts.length === 0) {
-            const pyFilePath = dirPath.initFileUri;
-            const pyiFilePath = dirPath.initStubUri;
+            const pyFilePath = dirPath.initPyUri;
+            const pyiFilePath = dirPath.initPyiUri;
 
             if (allowPyi && this.fileExistsCached(pyiFilePath)) {
                 importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
@@ -1321,11 +1313,10 @@ export class ImportResolver {
             for (let i = 0; i < moduleDescriptor.nameParts.length; i++) {
                 const isFirstPart = i === 0;
                 const isLastPart = i === moduleDescriptor.nameParts.length - 1;
-                const oldDirPath = dirPath;
                 dirPath = dirPath.combinePaths(moduleDescriptor.nameParts[i]);
 
                 if (useStubPackage && isFirstPart) {
-                    dirPath = oldDirPath.combinePaths(`${moduleDescriptor.nameParts[i]}${stubsSuffix}`);
+                    dirPath = dirPath.addPath(stubsSuffix);
                     isStubPackage = true;
                 }
 
@@ -1337,8 +1328,8 @@ export class ImportResolver {
                     }
 
                     // See if we can find an __init__.py[i] in this directory.
-                    const pyFilePath = dirPath.initFileUri;
-                    const pyiFilePath = dirPath.initStubUri;
+                    const pyFilePath = dirPath.initPyUri;
+                    const pyiFilePath = dirPath.initPyiUri;
                     isInitFilePresent = false;
 
                     if (allowPyi && this.fileExistsCached(pyiFilePath)) {
@@ -1397,7 +1388,7 @@ export class ImportResolver {
                 } else {
                     if (allowNativeLib && this.dirExistsCached(fileDirectory)) {
                         const filesInDir = this._getFilesInDirectory(fileDirectory);
-                        const dirName = dirPath.basename;
+                        const dirName = dirPath.filename;
                         const nativeLibPath = filesInDir.find((f) => this._isNativeModuleFileName(dirName, f));
                         if (nativeLibPath) {
                             // Try resolving native library to a custom stub.
@@ -1449,7 +1440,7 @@ export class ImportResolver {
             isPartlyResolved,
             importFailureInfo,
             importType: ImportType.Local,
-            resolvedPaths,
+            resolvedUris: resolvedPaths,
             searchPath: rootPath,
             isStubFile,
             isNativeLib,
@@ -1545,7 +1536,7 @@ export class ImportResolver {
                 // skip the typings import and continue searching.
                 if (
                     typingsImport.isNamespacePackage &&
-                    !typingsImport.resolvedPaths[typingsImport.resolvedPaths.length - 1]
+                    !typingsImport.resolvedUris[typingsImport.resolvedUris.length - 1]
                 ) {
                     if (this._isNamespacePackageResolved(moduleDescriptor, typingsImport.implicitImports)) {
                         return typingsImport;
@@ -1702,8 +1693,8 @@ export class ImportResolver {
 
         if (newImport.isImportFound) {
             // Prefer traditional packages over namespace packages.
-            const soFarIndex = bestImportSoFar.resolvedPaths.findIndex((path) => !path.isEmpty());
-            const newIndex = newImport.resolvedPaths.findIndex((path) => !path.isEmpty());
+            const soFarIndex = bestImportSoFar.resolvedUris.findIndex((path) => !path.isEmpty());
+            const newIndex = newImport.resolvedUris.findIndex((path) => !path.isEmpty());
             if (soFarIndex !== newIndex) {
                 if (soFarIndex < 0) {
                     return newImport;
@@ -1760,7 +1751,7 @@ export class ImportResolver {
             }
 
             // All else equal, prefer shorter resolution paths.
-            if (bestImportSoFar.resolvedPaths.length > newImport.resolvedPaths.length) {
+            if (bestImportSoFar.resolvedUris.length > newImport.resolvedUris.length) {
                 return newImport;
             }
         } else if (newImport.isPartlyResolved) {
@@ -1773,8 +1764,8 @@ export class ImportResolver {
             //  bestSoFar: a/~b/~c/~d   new: a      Result: bestSoFar wins
             //  bestSoFar: ~a/~b/~c/~d  new: a      Result: new wins
             //  bestSoFar: a/~b/~c/~d   new: a/b    Result: new wins
-            const soFarIndex = bestImportSoFar.resolvedPaths.findIndex((path) => !path.isEmpty());
-            const newIndex = newImport.resolvedPaths.findIndex((path) => !path.isEmpty());
+            const soFarIndex = bestImportSoFar.resolvedUris.findIndex((path) => !path.isEmpty());
+            const newIndex = newImport.resolvedUris.findIndex((path) => !path.isEmpty());
 
             if (soFarIndex !== newIndex) {
                 if (soFarIndex < 0) {
@@ -1863,7 +1854,7 @@ export class ImportResolver {
                         const dirRoot = root.combinePaths(entry.name);
                         readDir(dirRoot, prefix ? `${prefix}.${entry.name}` : entry.name);
                     } else if (entry.name.includes('.py')) {
-                        const stripped = entry.name.split('.py')[0];
+                        const stripped = stripFileExtension(entry.name);
                         // Skip anything starting with an underscore.
                         if (!stripped.startsWith('_')) {
                             cache.add(prefix ? `${prefix}.${stripped}` : stripped);
@@ -1904,7 +1895,7 @@ export class ImportResolver {
                             }
                         } else if (innerEntry.isFile()) {
                             if (innerEntry.name.endsWith('.pyi')) {
-                                const strippedFileName = innerEntry.name.slice(0, -3);
+                                const strippedFileName = stripFileExtension(innerEntry.name);
                                 const pathList = this._cachedTypeshedThirdPartyPackagePaths!.get(strippedFileName);
                                 if (pathList) {
                                     pathList.push(innerDirPath);
@@ -2242,7 +2233,7 @@ export class ImportResolver {
                 isNamespacePackage: false,
                 isStubPackage: false,
                 importFailureInfo,
-                resolvedPaths: [],
+                resolvedUris: [],
                 importType: ImportType.Local,
                 isStubFile: false,
                 isNativeLib: false,
@@ -2380,7 +2371,7 @@ export class ImportResolver {
         entries.files.forEach((file) => {
             // Strip multi-dot extensions to handle file names like "foo.cpython-32m.so". We want
             // to detect the ".so" but strip off the entire ".cpython-32m.so" extension.
-            const fileWithoutExtension = file.stripAllExtensions().basename;
+            const fileWithoutExtension = file.stripAllExtensions().filename;
 
             if (ImportResolver.isSupportedImportFile(file)) {
                 if (fileWithoutExtension === '__init__') {
@@ -2410,7 +2401,7 @@ export class ImportResolver {
         });
 
         entries.directories.forEach((dir) => {
-            const dirSuggestion = dir.basename;
+            const dirSuggestion = dir.filename;
             if (filter && !dirSuggestion.startsWith(filter)) {
                 return;
             }
@@ -2429,13 +2420,13 @@ export class ImportResolver {
                 return;
             }
 
-            const initPyiPath = dir.initStubUri;
+            const initPyiPath = dir.initPyiUri;
             if (this.fileExistsCached(initPyiPath)) {
                 suggestions.set(dirSuggestion, initPyiPath);
                 return;
             }
 
-            const initPyPath = dir.initFileUri;
+            const initPyPath = dir.initPyUri;
             if (this.fileExistsCached(initPyPath)) {
                 suggestions.set(dirSuggestion, initPyPath);
                 return;
@@ -2529,14 +2520,14 @@ export class ImportResolver {
             let isNativeLib = false;
 
             if (fileExt === '.py' || fileExt === '.pyi') {
-                strippedFileName = stripFileExtension(filePath.basename);
+                strippedFileName = stripFileExtension(filePath.filename);
             } else if (
                 this._isNativeModuleFileExtension(fileExt) &&
                 !this.fileExistsCached(filePath.packageUri) &&
                 !this.fileExistsCached(filePath.packageStubUri)
             ) {
                 // Native module.
-                strippedFileName = filePath.stripAllExtensions().basename;
+                strippedFileName = filePath.stripAllExtensions().filename;
                 isNativeLib = true;
             } else {
                 continue;
@@ -2573,8 +2564,8 @@ export class ImportResolver {
 
         // Add implicit directory-based modules.
         for (const dirPath of entries.directories) {
-            const pyFilePath = dirPath.initFileUri;
-            const pyiFilePath = dirPath.initStubUri;
+            const pyFilePath = dirPath.initPyUri;
+            const pyiFilePath = dirPath.initPyiUri;
             let isStubFile = false;
             let path: Uri | undefined;
 
@@ -2590,7 +2581,7 @@ export class ImportResolver {
                     const implicitImport: ImplicitImport = {
                         isStubFile,
                         isNativeLib: false,
-                        name: dirPath.basename,
+                        name: dirPath.filename,
                         path,
                         pyTypedInfo: this._getPyTypedInfo(dirPath),
                     };
@@ -2654,17 +2645,17 @@ export class ImportResolver {
         return supportedNativeLibExtensions.some((ext) => ext === fileExtension);
     }
 
-    private _tryWalkUp(current: Uri | undefined): [success: boolean, path: Uri | undefined] {
+    private _tryWalkUp(current: Uri | undefined): Uri | undefined {
         if (!current || current.isEmpty() || current.isRoot()) {
-            return [false, undefined];
+            return undefined;
         }
 
         // Ensure we don't go around forever even if isRoot returns false.
         const next = current.combinePaths('..');
         if (next.equals(current)) {
-            return [false, undefined];
+            return undefined;
         }
-        return [true, next];
+        return next;
     }
 
     private _shouldWalkUp(current: Uri | undefined, root: Uri, execEnv: ExecutionEnvironment) {

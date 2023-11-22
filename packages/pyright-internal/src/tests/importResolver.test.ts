@@ -52,7 +52,7 @@ if (!usingTrueVenv()) {
             assert(importResult.isStubFile);
             assert.strictEqual(
                 1,
-                importResult.resolvedPaths.filter(
+                importResult.resolvedUris.filter(
                     (f) => !f.isEmpty() && f.getFilePath() === combinePaths(libraryRoot, 'myLib', 'partialStub.pyi')
                 ).length
             );
@@ -79,7 +79,7 @@ if (!usingTrueVenv()) {
             assert(importResult.isStubFile);
             assert.strictEqual(
                 1,
-                importResult.resolvedPaths.filter(
+                importResult.resolvedUris.filter(
                     (f) => f.getFilePath() === combinePaths(libraryRoot, 'myLib', '__init__.pyi')
                 ).length
             );
@@ -128,7 +128,7 @@ if (!usingTrueVenv()) {
             assert(importResult.isStubFile);
             assert.strictEqual(
                 1,
-                importResult.resolvedPaths.filter(
+                importResult.resolvedUris.filter(
                     (f) => f.getFilePath() === combinePaths(libraryRoot, 'myLib', '__init__.pyi')
                 ).length
             );
@@ -161,7 +161,7 @@ if (!usingTrueVenv()) {
             assert(importResult.isStubFile);
             assert.strictEqual(
                 1,
-                importResult.resolvedPaths.filter(
+                importResult.resolvedUris.filter(
                     (f) => f.getFilePath() === combinePaths(libraryRoot, 'myLib', '__init__.pyi')
                 ).length
             );
@@ -193,7 +193,7 @@ if (!usingTrueVenv()) {
             assert(importResult.isStubFile);
             assert.strictEqual(
                 1,
-                importResult.resolvedPaths.filter(
+                importResult.resolvedUris.filter(
                     (f) => f.getFilePath() === combinePaths(libraryRoot, 'myLib', '__init__.pyi')
                 ).length
             );
@@ -245,7 +245,7 @@ if (!usingTrueVenv()) {
             assert(importResult.isImportFound);
             assert.strictEqual(
                 files[0].path,
-                importResult.resolvedPaths[importResult.resolvedPaths.length - 1].getFilePath()
+                importResult.resolvedUris[importResult.resolvedUris.length - 1].getFilePath()
             );
         });
 
@@ -320,7 +320,7 @@ describe('Import tests that can run with or without a true venv', () => {
         assert(sideBySideResult.isStubFile);
 
         const sideBySideStubFile = Uri.file(combinePaths(libraryRoot, 'myLib', 'partialStub.pyi'));
-        assert.strictEqual(1, sideBySideResult.resolvedPaths.filter((f) => f.key === sideBySideStubFile.key).length);
+        assert.strictEqual(1, sideBySideResult.resolvedUris.filter((f) => f.key === sideBySideStubFile.key).length);
         assert.strictEqual('def test(): ...', sp.fs().readFileSync(sideBySideStubFile, 'utf8'));
 
         // Side by side stub doesn't completely disable partial stub.
@@ -334,7 +334,7 @@ describe('Import tests that can run with or without a true venv', () => {
         assert(partialStubResult.isStubFile);
 
         const partialStubFile = Uri.file(combinePaths(libraryRoot, 'myLib', 'partialStub2.pyi'));
-        assert.strictEqual(1, partialStubResult.resolvedPaths.filter((f) => f.key === partialStubFile.key).length);
+        assert.strictEqual(1, partialStubResult.resolvedUris.filter((f) => f.key === partialStubFile.key).length);
     });
 
     test('stub namespace package', () => {
@@ -355,7 +355,7 @@ describe('Import tests that can run with or without a true venv', () => {
         assert(!importResult.isStubFile);
         assert.strictEqual(
             1,
-            importResult.resolvedPaths.filter(
+            importResult.resolvedUris.filter(
                 (f) => !f.isEmpty() && f.getFilePath() === combinePaths(libraryRoot, 'myLib', 'partialStub.py')
             ).length
         );
@@ -388,7 +388,7 @@ describe('Import tests that can run with or without a true venv', () => {
         assert(importResult.isStubFile);
         assert.strictEqual(
             0,
-            importResult.resolvedPaths.filter(
+            importResult.resolvedUris.filter(
                 (f) => f.getFilePath() === combinePaths(libraryRoot, 'myLib', '__init__.pyi')
             ).length
         );
@@ -410,7 +410,7 @@ describe('Import tests that can run with or without a true venv', () => {
         assert(importResult.isImportFound);
         assert.strictEqual(
             files[1].path,
-            importResult.resolvedPaths[importResult.resolvedPaths.length - 1].getFilePath()
+            importResult.resolvedUris[importResult.resolvedUris.length - 1].getFilePath()
         );
     });
 
@@ -476,7 +476,7 @@ describe('Import tests that can run with or without a true venv', () => {
         assert(importResult.isImportFound);
         assert.strictEqual(
             1,
-            importResult.resolvedPaths.filter((f) => f.getFilePath() === combinePaths('/', 'file1.py')).length
+            importResult.resolvedUris.filter((f) => f.getFilePath() === combinePaths('/', 'file1.py')).length
         );
     });
 
@@ -496,7 +496,7 @@ describe('Import tests that can run with or without a true venv', () => {
         assert(importResult.isImportFound);
         assert.strictEqual(
             1,
-            importResult.resolvedPaths.filter((f) => f.getFilePath() === combinePaths('/test', 'file1.py')).length
+            importResult.resolvedUris.filter((f) => f.getFilePath() === combinePaths('/test', 'file1.py')).length
         );
     });
 
@@ -516,7 +516,7 @@ describe('Import tests that can run with or without a true venv', () => {
         assert(importResult.isImportFound);
         assert.strictEqual(
             1,
-            importResult.resolvedPaths.filter((f) => f.getFilePath() === combinePaths('/src/nested', 'file1.py')).length
+            importResult.resolvedUris.filter((f) => f.getFilePath() === combinePaths('/src/nested', 'file1.py')).length
         );
     });
 
@@ -536,7 +536,7 @@ describe('Import tests that can run with or without a true venv', () => {
         assert(importResult.isImportFound);
         assert.strictEqual(
             1,
-            importResult.resolvedPaths.filter((f) => f.getFilePath() === combinePaths('/src/nested', 'file1.py')).length
+            importResult.resolvedUris.filter((f) => f.getFilePath() === combinePaths('/src/nested', 'file1.py')).length
         );
     });
 

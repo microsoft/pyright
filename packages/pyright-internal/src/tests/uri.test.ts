@@ -56,17 +56,17 @@ test('key', () => {
 });
 
 test('basename', () => {
-    const basename = Uri.parse('foo:///a/b/c').basename;
+    const basename = Uri.parse('foo:///a/b/c').filename;
     assert.equal(basename, 'c');
-    const basename2 = Uri.parse('foo:///a/b/c/').basename;
+    const basename2 = Uri.parse('foo:///a/b/c/').filename;
     assert.equal(basename2, 'c');
-    const basename3 = Uri.parse('foo:///a/b/c.py').basename;
+    const basename3 = Uri.parse('foo:///a/b/c.py').filename;
     assert.equal(basename3, 'c.py');
-    const basename4 = Uri.parse('foo:///a/b/c.py?query#fragment').basename;
+    const basename4 = Uri.parse('foo:///a/b/c.py?query#fragment').filename;
     assert.equal(basename4, 'c.py');
-    const basename5 = Uri.file('/a/b/c').basename;
+    const basename5 = Uri.file('/a/b/c').filename;
     assert.equal(basename5, 'c');
-    const basename6 = Uri.parse('file:///a/b/c').basename;
+    const basename6 = Uri.parse('file:///a/b/c').filename;
     assert.equal(basename6, 'c');
 });
 
@@ -217,9 +217,9 @@ test('init and pytyped', () => {
     const uri = Uri.parse('file:///a/b/c?query#fragment');
     const uri2 = uri.pytypedUri;
     assert.equal(uri2.toString(), 'file:///a/b/c/py.typed');
-    const uri3 = uri.initFileUri;
+    const uri3 = uri.initPyUri;
     assert.equal(uri3.toString(), 'file:///a/b/c/__init__.py');
-    const uri4 = uri.initStubUri;
+    const uri4 = uri.initPyiUri;
     assert.equal(uri4.toString(), 'file:///a/b/c/__init__.pyi');
     const uri5 = uri.packageUri;
     assert.equal(uri5.toString(), 'file:///a/b/c.py');
@@ -228,9 +228,9 @@ test('init and pytyped', () => {
     const uri7 = Uri.parse('foo://microsoft.com/a/b/c.py');
     const uri8 = uri7.pytypedUri;
     assert.equal(uri8.toString(), 'foo://microsoft.com/a/b/c.py/py.typed');
-    const uri9 = uri7.initFileUri;
+    const uri9 = uri7.initPyUri;
     assert.equal(uri9.toString(), 'foo://microsoft.com/a/b/c.py/__init__.py');
-    const uri10 = uri7.initStubUri;
+    const uri10 = uri7.initPyiUri;
     assert.equal(uri10.toString(), 'foo://microsoft.com/a/b/c.py/__init__.pyi');
     const uri11 = uri7.packageUri;
     assert.equal(uri11.toString(), 'foo://microsoft.com/a/b/c.py.py');
@@ -432,12 +432,12 @@ test('getFileExtension1', () => {
 });
 
 test('getFileName1', () => {
-    const fileName = Uri.parse('foo:///blah.blah/HeLLo.JsOn').basename;
+    const fileName = Uri.parse('foo:///blah.blah/HeLLo.JsOn').filename;
     assert.equal(fileName, 'HeLLo.JsOn');
 });
 
 test('getFileName2', () => {
-    const fileName1 = Uri.parse('foo:///blah.blah/hello.cpython-32m.so').basename;
+    const fileName1 = Uri.parse('foo:///blah.blah/hello.cpython-32m.so').filename;
     assert.equal(fileName1, 'hello.cpython-32m.so');
 });
 
@@ -571,7 +571,7 @@ test('getAnyExtension1', () => {
 });
 
 function getBaseFileName(uri: string): string {
-    return Uri.parse(uri).basename;
+    return Uri.parse(uri).filename;
 }
 
 test('getBaseFileName1', () => {

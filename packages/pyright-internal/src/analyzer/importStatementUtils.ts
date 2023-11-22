@@ -623,7 +623,7 @@ function _processImportNode(node: ImportNode, localImports: ImportStatements, fo
         let resolvedPath: Uri | undefined;
 
         if (importResult && importResult.isImportFound) {
-            resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+            resolvedPath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
         }
 
         const localImport: ImportStatement = {
@@ -659,7 +659,7 @@ function _processImportFromNode(
     let resolvedPath: Uri | undefined;
 
     if (importResult && importResult.isImportFound) {
-        resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+        resolvedPath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
     }
 
     if (includeImplicitImports && importResult) {
@@ -861,7 +861,7 @@ export function getRelativeModuleName(
     if (sourceIsFile) {
         destPath = targetPath.getDirectory();
 
-        const fileName = targetPath.stripAllExtensions().basename;
+        const fileName = targetPath.stripAllExtensions().filename;
         if (fileName !== '__init__') {
             // ex) src: a.py, dest: b.py -> ".b" will be returned.
             symbolName = fileName;
@@ -870,7 +870,7 @@ export function getRelativeModuleName(
             //     like how it would return for sibling folder.
             //
             // if folder structure is not ignored, ".." will be returned
-            symbolName = destPath.basename;
+            symbolName = destPath.filename;
             destPath = destPath.getDirectory();
         }
     }
@@ -916,11 +916,11 @@ export function getDirectoryLeadingDotsPointsTo(fromDirectory: Uri, leadingDots:
 }
 
 export function getResolvedFilePath(importResult: ImportResult | undefined) {
-    if (!importResult || !importResult.isImportFound || importResult.resolvedPaths.length === 0) {
+    if (!importResult || !importResult.isImportFound || importResult.resolvedUris.length === 0) {
         return undefined;
     }
 
-    if (importResult.resolvedPaths.length === 1 && importResult.resolvedPaths[0].equals(Uri.empty())) {
+    if (importResult.resolvedUris.length === 1 && importResult.resolvedUris[0].equals(Uri.empty())) {
         // Import is resolved to namespace package folder.
         if (importResult.packageDirectory) {
             return importResult.packageDirectory;
@@ -935,7 +935,7 @@ export function getResolvedFilePath(importResult: ImportResult | undefined) {
     }
 
     // Regular case.
-    return importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+    return importResult.resolvedUris[importResult.resolvedUris.length - 1];
 }
 
 export function haveSameParentModule(module1: string[], module2: string[]) {

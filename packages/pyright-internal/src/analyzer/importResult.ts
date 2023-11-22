@@ -63,7 +63,7 @@ export interface ImportResult {
     // The resolved absolute paths for each of the files in the module name.
     // Parts that have no files (e.g. directories within a namespace
     // package) have empty strings for a resolvedPath.
-    resolvedPaths: Uri[];
+    resolvedUris: Uri[];
 
     // For absolute imports, the search path that was used to resolve
     // (or partially resolve) the module.

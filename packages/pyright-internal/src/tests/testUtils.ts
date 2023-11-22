@@ -77,7 +77,7 @@ export function parseSampleFile(
     diagSink: DiagnosticSink,
     execEnvironment = new ExecutionEnvironment(
         'python',
-        '.',
+        Uri.file('.'),
         /* defaultPythonVersion */ undefined,
         /* defaultPythonPlatform */ undefined,
         /* defaultExtraPaths */ undefined

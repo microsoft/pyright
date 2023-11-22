@@ -68,7 +68,7 @@ test('FindFilesVirtualEnvAutoDetectExclude', () => {
 
     // There are 3 python files in the workspace, outside of myvenv
     // There is 1 python file in myvenv, which should be excluded
-    const fileNames = fileList.map((p) => p.basename).sort();
+    const fileNames = fileList.map((p) => p.filename).sort();
     assert.deepStrictEqual(fileNames, ['sample1.py', 'sample2.py', 'sample3.py']);
 });
 
@@ -86,7 +86,7 @@ test('FindFilesVirtualEnvAutoDetectInclude', () => {
     // There are 3 python files in the workspace, outside of myvenv
     // There is 1 more python file in excluded folder
     // There is 1 python file in myvenv, which should be included
-    const fileNames = fileList.map((p) => p.basename).sort();
+    const fileNames = fileList.map((p) => p.filename).sort();
     assert.deepStrictEqual(fileNames, ['library1.py', 'sample1.py', 'sample2.py', 'sample3.py']);
 });
 
@@ -164,7 +164,7 @@ test('FindExecEnv1', () => {
     // Build a config option with three execution environments.
     const execEnv1 = new ExecutionEnvironment(
         'python',
-        'src/foo',
+        cwd.combinePaths('src/foo'),
         /* defaultPythonVersion */ undefined,
         /* defaultPythonPlatform */ undefined,
         /* defaultExtraPaths */ undefined
@@ -172,7 +172,7 @@ test('FindExecEnv1', () => {
     configOptions.executionEnvironments.push(execEnv1);
     const execEnv2 = new ExecutionEnvironment(
         'python',
-        'src',
+        cwd.combinePaths('src'),
         /* defaultPythonVersion */ undefined,
         /* defaultPythonPlatform */ undefined,
         /* defaultExtraPaths */ undefined

@@ -114,7 +114,7 @@ export function addModuleSymbolsMap(files: readonly SourceFileInfo[], moduleSymb
             return;
         }
 
-        const fileName = stripFileExtension(uri.basename);
+        const fileName = stripFileExtension(uri.filename);
 
         // Don't offer imports from files that are named with private
         // naming semantics like "_ast.py".
@@ -534,7 +534,7 @@ export class AutoImporter {
     }
 
     private _getImportParts(uri: Uri) {
-        const name = stripFileExtension(uri.basename);
+        const name = stripFileExtension(uri.filename);
 
         // See if we can import module as "import xxx"
         if (name === '__init__') {

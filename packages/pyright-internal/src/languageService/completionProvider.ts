@@ -2735,8 +2735,8 @@ export class CompletionProvider {
 
         const completionMap = new CompletionMap();
         const resolvedPath =
-            importInfo.resolvedPaths.length > 0
-                ? importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1]
+            importInfo.resolvedUris.length > 0
+                ? importInfo.resolvedUris[importInfo.resolvedUris.length - 1]
                 : Uri.empty();
 
         const parseResults = this.program.getParseResults(resolvedPath);

@@ -488,7 +488,7 @@ export class Program {
         fileUris.forEach((fileUri) => {
             const sourceFileInfo = this.getSourceFileInfo(fileUri);
             if (sourceFileInfo) {
-                const fileName = fileUri.basename;
+                const fileName = fileUri.filename;
 
                 // Handle builtins and __builtins__ specially. They are implicitly
                 // included by all source files.
@@ -1342,8 +1342,8 @@ export class Program {
         imports.forEach((importResult) => {
             if (importResult.isImportFound) {
                 if (this._isImportAllowed(sourceFileInfo, importResult, importResult.isStubFile)) {
-                    if (importResult.resolvedPaths.length > 0) {
-                        const fileUri = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+                    if (importResult.resolvedUris.length > 0) {
+                        const fileUri = importResult.resolvedUris[importResult.resolvedUris.length - 1];
                         if (fileUri) {
                             const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
                             newImportPathMap.set(fileUri.key, {
@@ -1470,7 +1470,7 @@ export class Program {
         sourceFileInfo.builtinsImport = undefined;
         const builtinsImport = sourceFileInfo.sourceFile.getBuiltinsImport();
         if (builtinsImport && builtinsImport.isImportFound) {
-            const resolvedBuiltinsPath = builtinsImport.resolvedPaths[builtinsImport.resolvedPaths.length - 1];
+            const resolvedBuiltinsPath = builtinsImport.resolvedUris[builtinsImport.resolvedUris.length - 1];
             sourceFileInfo.builtinsImport = this.getSourceFileInfo(resolvedBuiltinsPath);
         }
 
@@ -1782,8 +1782,8 @@ export class Program {
                 }
             );
 
-            if (importResult.isImportFound && !importResult.isNativeLib && importResult.resolvedPaths.length > 0) {
-                const resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+            if (importResult.isImportFound && !importResult.isNativeLib && importResult.resolvedUris.length > 0) {
+                const resolvedPath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
                 if (resolvedPath) {
                     // See if the source file already exists in the program.
                     sourceFileInfo = this.getSourceFileInfo(resolvedPath);

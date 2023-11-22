@@ -24,14 +24,14 @@ export abstract class BaseUri implements Uri {
 
     // Returns the last segment of the URI, similar to the UNIX basename command.
     @cacheProperty()
-    get basename(): string {
+    get filename(): string {
         return this.getBasenameImpl();
     }
 
     // Returns the basename without any extensions
     @cacheProperty()
     get withoutExtension(): string {
-        const base = this.basename;
+        const base = this.filename;
         const index = base.lastIndexOf('.');
         if (index > 0) {
             return base.slice(0, index);
@@ -68,14 +68,14 @@ export abstract class BaseUri implements Uri {
 
     // Returns a URI where the path has __init__.py appended.
     @cacheProperty()
-    get initFileUri(): Uri {
+    get initPyUri(): Uri {
         // This is assuming that the current path is a directory already.
         return this.combinePaths('__init__.py');
     }
 
     // Returns a URI where the path has __init__.pyi appended.
     @cacheProperty()
-    get initStubUri(): Uri {
+    get initPyiUri(): Uri {
         // This is assuming that the current path is a directory already.
         return this.combinePaths('__init__.pyi');
     }
@@ -100,7 +100,7 @@ export abstract class BaseUri implements Uri {
     @cacheMethodWithArgs()
     replaceExtension(ext: string): Uri {
         const dir = this.getDirectory();
-        const base = this.basename;
+        const base = this.filename;
         const newBase = base.slice(0, base.length - this.extname.length) + ext;
         return dir.combinePaths(newBase);
     }
@@ -230,7 +230,7 @@ export abstract class BaseUri implements Uri {
 
     @cacheMethodWithNoArgs()
     stripExtension(): Uri {
-        const base = this.basename;
+        const base = this.filename;
         const index = base.lastIndexOf('.');
         if (index > 0) {
             const stripped = base.slice(0, index);
@@ -242,7 +242,7 @@ export abstract class BaseUri implements Uri {
 
     @cacheMethodWithNoArgs()
     stripAllExtensions(): Uri {
-        const base = this.basename;
+        const base = this.filename;
         const stripped = base.split('.')[0];
         if (stripped === base) {
             return this;

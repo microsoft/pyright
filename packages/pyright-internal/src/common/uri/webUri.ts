@@ -180,7 +180,7 @@ export class WebUri extends BaseUri {
         return components[components.length - 1];
     }
     protected override getExtnameImpl(): string {
-        const basename = this.basename;
+        const basename = this.filename;
         const index = basename.lastIndexOf('.');
         if (index >= 0) {
             return basename.slice(index);

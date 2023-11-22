@@ -165,7 +165,7 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         const directory = mappeduri.getDirectory();
         const folderInfo = getOrAdd(this._folderMap, directory.key, () => []);
 
-        const name = mappeduri.basename;
+        const name = mappeduri.filename;
         if (!folderInfo.some((entry) => entry.name === name)) {
             folderInfo.push({ name, isFile });
         }

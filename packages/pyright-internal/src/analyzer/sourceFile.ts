@@ -247,7 +247,7 @@ export class SourceFile {
         this._isStubFile = uri.extname === '.pyi';
         this._isThirdPartyImport = isThirdPartyImport;
         this._isThirdPartyPyTypedPresent = isThirdPartyPyTypedPresent;
-        const fileName = uri.basename;
+        const fileName = uri.filename;
         this._isTypingStubFile =
             this._isStubFile && (this._uri.pathEndsWith('stdlib/typing.pyi') || fileName === 'typing_extensions.pyi');
         this._isTypingExtensionsStubFile = this._isStubFile && fileName === 'typing_extensions.pyi';
@@ -290,7 +290,7 @@ export class SourceFile {
         }
 
         // Synthesize a module name using the file path.
-        return stripFileExtension(this._uri.basename);
+        return stripFileExtension(this._uri.filename);
     }
 
     setModuleName(name: string) {
@@ -1300,7 +1300,7 @@ export class SourceFile {
             }
 
             // Avoid importing module from the module file itself.
-            if (importResult.resolvedPaths.length === 0 || importResult.resolvedPaths[0] !== this._uri) {
+            if (importResult.resolvedUris.length === 0 || importResult.resolvedUris[0] !== this._uri) {
                 imports.push(importResult);
                 return importResult;
             }

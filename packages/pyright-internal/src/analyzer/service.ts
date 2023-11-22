@@ -92,16 +92,16 @@ export class AnalyzerService {
     private readonly _backgroundAnalysisProgram: BackgroundAnalysisProgram;
     private readonly _serviceProvider: ServiceProvider;
 
-    private _executionRootPath: Uri;
-    private _typeStubTargetPath: Uri | undefined;
+    private _executionRootUri: Uri;
+    private _typeStubTargetUri: Uri | undefined;
     private _typeStubTargetIsSingleFile = false;
     private _sourceFileWatcher: FileWatcher | undefined;
     private _reloadConfigTimer: any;
     private _libraryReanalysisTimer: any;
-    private _configFilePath: Uri | undefined;
+    private _configFileUri: Uri | undefined;
     private _configFileWatcher: FileWatcher | undefined;
     private _libraryFileWatcher: FileWatcher | undefined;
-    private _librarySearchPathsToWatch: Uri[] | undefined;
+    private _librarySearchUrisToWatch: Uri[] | undefined;
     private _onCompletionCallback: AnalysisCompleteCallback | undefined;
     private _commandLineOptions: CommandLineOptions | undefined;
     private _analyzeTimer: any;
@@ -115,7 +115,7 @@ export class AnalyzerService {
     constructor(instanceName: string, serviceProvider: ServiceProvider, options: AnalyzerServiceOptions) {
         this._instanceName = instanceName;
 
-        this._executionRootPath = Uri.empty();
+        this._executionRootUri = Uri.empty();
         this._options = options;
 
         this._options.serviceId = this._options.serviceId ?? getNextServiceId(instanceName);
@@ -180,8 +180,8 @@ export class AnalyzerService {
         return this._options.cancellationProvider!;
     }
 
-    get librarySearchPathsToWatch() {
-        return this._librarySearchPathsToWatch;
+    get librarySearchUrisToWatch() {
+        return this._librarySearchUrisToWatch;
     }
 
     get backgroundAnalysisProgram(): BackgroundAnalysisProgram {
@@ -284,7 +284,7 @@ export class AnalyzerService {
 
         this._backgroundAnalysisProgram.setConfigOptions(configOptions);
 
-        this._executionRootPath = configOptions.projectRoot;
+        this._executionRootUri = configOptions.projectRoot;
         this._applyConfigOptions(host);
     }
 
@@ -305,56 +305,56 @@ export class AnalyzerService {
     }
 
     setFileOpened(
-        path: Uri,
+        uri: Uri,
         version: number | null,
         contents: string,
         ipythonMode = IPythonMode.None,
-        chainedFilePath?: Uri
+        chainedFileUri?: Uri
     ) {
         // Open the file. Notebook cells are always tracked as they aren't 3rd party library files.
         // This is how it's worked in the past since each notebook used to have its own
         // workspace and the workspace include setting marked all cells as tracked.
-        this._backgroundAnalysisProgram.setFileOpened(path, version, contents, {
-            isTracked: this.isTracked(path) || ipythonMode !== IPythonMode.None,
+        this._backgroundAnalysisProgram.setFileOpened(uri, version, contents, {
+            isTracked: this.isTracked(uri) || ipythonMode !== IPythonMode.None,
             ipythonMode,
-            chainedUri: chainedFilePath,
+            chainedUri: chainedFileUri,
         });
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
-    getChainedUri(path: Uri): Uri | undefined {
-        return this._backgroundAnalysisProgram.getChainedUri(path);
+    getChainedUri(uri: Uri): Uri | undefined {
+        return this._backgroundAnalysisProgram.getChainedUri(uri);
     }
 
-    updateChainedUri(path: Uri, chainedFilePath: Uri | undefined) {
-        this._backgroundAnalysisProgram.updateChainedUri(path, chainedFilePath);
+    updateChainedUri(uri: Uri, chaineFileUri: Uri | undefined) {
+        this._backgroundAnalysisProgram.updateChainedUri(uri, chaineFileUri);
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
-    updateOpenFileContents(path: Uri, version: number | null, contents: string, ipythonMode = IPythonMode.None) {
-        this._backgroundAnalysisProgram.updateOpenFileContents(path, version, contents, {
-            isTracked: this.isTracked(path),
+    updateOpenFileContents(uri: Uri, version: number | null, contents: string, ipythonMode = IPythonMode.None) {
+        this._backgroundAnalysisProgram.updateOpenFileContents(uri, version, contents, {
+            isTracked: this.isTracked(uri),
             ipythonMode,
             chainedUri: undefined,
         });
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
-    setFileClosed(path: Uri, isTracked?: boolean) {
-        this._backgroundAnalysisProgram.setFileClosed(path, isTracked);
+    setFileClosed(uri: Uri, isTracked?: boolean) {
+        this._backgroundAnalysisProgram.setFileClosed(uri, isTracked);
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
-    addInterimFile(path: Uri) {
-        this._backgroundAnalysisProgram.addInterimFile(path);
+    addInterimFile(uri: Uri) {
+        this._backgroundAnalysisProgram.addInterimFile(uri);
     }
 
-    getParseResult(path: Uri) {
-        return this._program.getParseResults(path);
+    getParseResult(uri: Uri) {
+        return this._program.getParseResults(uri);
     }
 
-    getSourceFile(path: Uri) {
-        return this._program.getBoundSourceFile(path);
+    getSourceFile(uri: Uri) {
+        return this._program.getBoundSourceFile(uri);
     }
 
     getTextOnRange(fileUri: Uri, range: Range, token: CancellationToken) {
@@ -385,7 +385,7 @@ export class AnalyzerService {
     }
 
     printDependencies(verbose: boolean) {
-        this._program.printDependencies(this._executionRootPath, verbose);
+        this._program.printDependencies(this._executionRootUri, verbose);
     }
 
     analyzeFile(fileUri: Uri, token: CancellationToken): Promise<boolean> {
@@ -422,32 +422,32 @@ export class AnalyzerService {
         return this._getFileNamesFromFileSpecs();
     }
 
-    test_shouldHandleSourceFileWatchChanges(path: Uri, isFile: boolean) {
-        return this._shouldHandleSourceFileWatchChanges(path, isFile);
+    test_shouldHandleSourceFileWatchChanges(uri: Uri, isFile: boolean) {
+        return this._shouldHandleSourceFileWatchChanges(uri, isFile);
     }
 
-    test_shouldHandleLibraryFileWatchChanges(path: Uri, libSearchPaths: Uri[]) {
-        return this._shouldHandleLibraryFileWatchChanges(path, libSearchPaths);
+    test_shouldHandleLibraryFileWatchChanges(uri: Uri, libSearchUris: Uri[]) {
+        return this._shouldHandleLibraryFileWatchChanges(uri, libSearchUris);
     }
 
     writeTypeStub(token: CancellationToken): void {
-        const typingsSubdirPath = this._getTypeStubFolder();
+        const typingsSubdirUri = this._getTypeStubFolder();
 
         this._program.writeTypeStub(
-            this._typeStubTargetPath ?? Uri.empty(),
+            this._typeStubTargetUri ?? Uri.empty(),
             this._typeStubTargetIsSingleFile,
-            typingsSubdirPath,
+            typingsSubdirUri,
             token
         );
     }
 
     writeTypeStubInBackground(token: CancellationToken): Promise<any> {
-        const typingsSubdirPath = this._getTypeStubFolder();
+        const typingsSubdirUri = this._getTypeStubFolder();
 
         return this._backgroundAnalysisProgram.writeTypeStub(
-            this._typeStubTargetPath ?? Uri.empty(),
+            this._typeStubTargetUri ?? Uri.empty(),
             this._typeStubTargetIsSingleFile,
-            typingsSubdirPath,
+            typingsSubdirUri,
             token
         );
     }
@@ -636,7 +636,7 @@ export class AnalyzerService {
             }
         }
 
-        this._configFilePath = configFilePath || pyprojectFilePath;
+        this._configFileUri = configFilePath || pyprojectFilePath;
 
         // If we found a config file, parse it to compute the effective options.
         let configJsonObj: object | undefined;
@@ -657,7 +657,7 @@ export class AnalyzerService {
                 commandLineOptions.diagnosticSeverityOverrides
             );
 
-            const configFileDir = this._configFilePath!.getDirectory();
+            const configFileDir = this._configFileUri!.getDirectory();
 
             // If no include paths were provided, assume that all files within
             // the project should be included.
@@ -848,7 +848,7 @@ export class AnalyzerService {
             this._configOptions.stubPath ??
             this.fs.realCasePath(this._configOptions.projectRoot.combinePaths(defaultStubsDirectory));
 
-        if (!this._typeStubTargetPath || !this._typeStubTargetImportName) {
+        if (!this._typeStubTargetUri || !this._typeStubTargetImportName) {
             const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
             this._console.error(errMsg);
             throw new Error(errMsg);
@@ -1026,7 +1026,7 @@ export class AnalyzerService {
         // Are we in type stub generation mode? If so, we need to search
         // for a different set of files.
         if (this._typeStubTargetImportName) {
-            const execEnv = this._configOptions.findExecEnvironment(this._executionRootPath);
+            const execEnv = this._configOptions.findExecEnvironment(this._executionRootUri);
             const moduleDescriptor = createImportedModuleDescriptor(this._typeStubTargetImportName);
             const importResult = this._backgroundAnalysisProgram.importResolver.resolveImport(
                 Uri.empty(),
@@ -1038,10 +1038,10 @@ export class AnalyzerService {
                 const filesToImport: Uri[] = [];
 
                 // Determine the directory that contains the root package.
-                const finalResolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+                const finalResolvedPath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
                 const isFinalPathFile = isFile(this.fs, finalResolvedPath);
                 const isFinalPathInitFile =
-                    isFinalPathFile && finalResolvedPath.stripAllExtensions().basename === '__init__';
+                    isFinalPathFile && finalResolvedPath.stripAllExtensions().filename === '__init__';
 
                 let rootPackagePath = finalResolvedPath;
 
@@ -1050,9 +1050,9 @@ export class AnalyzerService {
                     rootPackagePath = rootPackagePath.getDirectory();
                 }
 
-                for (let i = importResult.resolvedPaths.length - 2; i >= 0; i--) {
-                    if (!importResult.resolvedPaths[i].isEmpty()) {
-                        rootPackagePath = importResult.resolvedPaths[i];
+                for (let i = importResult.resolvedUris.length - 2; i >= 0; i--) {
+                    if (!importResult.resolvedUris[i].isEmpty()) {
+                        rootPackagePath = importResult.resolvedUris[i];
                     } else {
                         // If there was no file corresponding to this portion
                         // of the name path, assume that it's contained
@@ -1062,18 +1062,18 @@ export class AnalyzerService {
                 }
 
                 if (isDirectory(this.fs, rootPackagePath)) {
-                    this._typeStubTargetPath = rootPackagePath;
+                    this._typeStubTargetUri = rootPackagePath;
                 } else if (isFile(this.fs, rootPackagePath)) {
                     // This can occur if there is a "dir/__init__.py" at the same level as a
                     // module "dir/module.py" that is specifically targeted for stub generation.
-                    this._typeStubTargetPath = rootPackagePath.getDirectory();
+                    this._typeStubTargetUri = rootPackagePath.getDirectory();
                 }
 
                 if (!finalResolvedPath) {
                     this._typeStubTargetIsSingleFile = false;
                 } else {
                     filesToImport.push(finalResolvedPath);
-                    this._typeStubTargetIsSingleFile = importResult.resolvedPaths.length === 1 && !isFinalPathInitFile;
+                    this._typeStubTargetIsSingleFile = importResult.resolvedUris.length === 1 && !isFinalPathInitFile;
                 }
 
                 // Add the implicit import paths.
@@ -1384,7 +1384,7 @@ export class AnalyzerService {
             // alongside the original file and name them "x.py.<temp-id>.py" where
             // <temp-id> is a 32-character random string of hex digits. We don't
             // want these events to trigger a full reanalysis.
-            const fileName = path.basename;
+            const fileName = path.filename;
             const fileNameSplit = fileName.split('.');
             if (fileNameSplit.length === 4) {
                 if (fileNameSplit[3] === fileNameSplit[1] && fileNameSplit[2].length === 32) {
@@ -1407,22 +1407,22 @@ export class AnalyzerService {
         this._removeLibraryFileWatcher();
 
         if (!this._watchForLibraryChanges) {
-            this._librarySearchPathsToWatch = undefined;
+            this._librarySearchUrisToWatch = undefined;
             return;
         }
 
         // Watch the library paths for package install/uninstall.
         const importFailureInfo: string[] = [];
-        this._librarySearchPathsToWatch = findPythonSearchPaths(
+        this._librarySearchUrisToWatch = findPythonSearchPaths(
             this.fs,
             this._backgroundAnalysisProgram.configOptions,
             this._backgroundAnalysisProgram.host,
             importFailureInfo,
             /* includeWatchPathsOnly */ true,
-            this._executionRootPath
+            this._executionRootUri
         );
 
-        const watchList = this._librarySearchPathsToWatch;
+        const watchList = this._librarySearchUrisToWatch;
         if (watchList && watchList.length > 0) {
             try {
                 if (this._verboseOutput) {
@@ -1551,21 +1551,21 @@ export class AnalyzerService {
             return;
         }
 
-        if (this._configFilePath) {
-            this._configFileWatcher = this.fs.createFileSystemWatcher([this._configFilePath], (event) => {
+        if (this._configFileUri) {
+            this._configFileWatcher = this.fs.createFileSystemWatcher([this._configFileUri], (event) => {
                 if (this._verboseOutput) {
                     this._console.info(`Received fs event '${event}' for config file`);
                 }
                 this._scheduleReloadConfigFile();
             });
-        } else if (this._executionRootPath) {
-            this._configFileWatcher = this.fs.createFileSystemWatcher([this._executionRootPath], (event, path) => {
+        } else if (this._executionRootUri) {
+            this._configFileWatcher = this.fs.createFileSystemWatcher([this._executionRootUri], (event, path) => {
                 if (!path) {
                     return;
                 }
 
                 if (event === 'add' || event === 'change') {
-                    const fileName = path.basename;
+                    const fileName = path.filename;
                     if (fileName && configFileNames.some((name) => name === fileName)) {
                         if (this._verboseOutput) {
                             this._console.info(`Received fs event '${event}' for config file`);
@@ -1602,8 +1602,8 @@ export class AnalyzerService {
     private _reloadConfigFile() {
         this._updateConfigFileWatcher();
 
-        if (this._configFilePath) {
-            this._console.info(`Reloading configuration file at ${this._configFilePath.toUserVisibleString()}`);
+        if (this._configFileUri) {
+            this._console.info(`Reloading configuration file at ${this._configFileUri.toUserVisibleString()}`);
 
             const host = this._backgroundAnalysisProgram.host;
 
