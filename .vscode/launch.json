@@ -8,11 +8,9 @@
             "program": "${workspaceRoot}/packages/pyright/index.js",
             "preLaunchTask": "npm: build:cli:dev",
             "args": [
-                "--stats",
-                "-p",
-                "/home/rich/source/spack"
+                "--verifytypes",
+                "pandas.core.reshape.concat",
             ],
-            "cwd": "${workspaceRoot}/packages/pyright",
             "internalConsoleOptions": "openOnSessionStart",
             "outFiles": [
                 "${workspaceRoot}/packages/pyright/dist/**/*.js"
