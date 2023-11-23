@@ -15,13 +15,7 @@ import { getPyTypedInfo } from './analyzer/pyTypedUtils';
 import { ExecutionEnvironment } from './common/configOptions';
 import { FileSystem, MkDirOptions } from './common/fileSystem';
 import { stubsSuffix } from './common/pathConsts';
-import {
-    combinePaths,
-    ensureTrailingDirectorySeparator,
-    getPathComponents,
-    isDirectory,
-    tryStat,
-} from './common/pathUtils';
+import { combinePaths, ensureTrailingDirectorySeparator, isDirectory, tryStat } from './common/pathUtils';
 import { ReadOnlyAugmentedFileSystem } from './readonlyAugmentedFileSystem';
 
 export interface SupportPartialStubs {
@@ -157,23 +151,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
                         for (const partialStub of partialStubs) {
                             const originalPyiFile = combinePaths(partialStubPackagePath, partialStub);
                             const mappedPyiFile = combinePaths(packagePath, partialStub);
-
-                            this.recordMovedEntry(mappedPyiFile, originalPyiFile);
-
-                            // Record directory structure too.
-                            const stubParts = getPathComponents(partialStub);
-                            for (let i = 1; i < stubParts.length - 1; i++) {
-                                const originalDir = combinePaths(partialStubPackagePath, ...stubParts.slice(1, i + 1));
-                                const mappedDir = combinePaths(packagePath, ...stubParts.slice(1, i + 1));
-                                if (!this.isMovedEntry(originalDir)) {
-                                    this.recordMovedEntry(
-                                        mappedDir,
-                                        originalDir,
-                                        /* reversible */ true,
-                                        /* isFile */ false
-                                    );
-                                }
-                            }
+                            this.recordMovedEntry(mappedPyiFile, originalPyiFile, packagePath);
                         }
                     } catch {
                         // ignore

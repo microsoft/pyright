@@ -12,7 +12,13 @@ import type * as fs from 'fs';
 import { appendArray, getOrAdd } from './common/collectionUtils';
 import { FileSystem, MkDirOptions, Stats, VirtualDirent } from './common/fileSystem';
 import { FileWatcher, FileWatcherEventHandler } from './common/fileWatcher';
-import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath, getFileName } from './common/pathUtils';
+import {
+    combinePaths,
+    ensureTrailingDirectorySeparator,
+    getDirectoryPath,
+    getFileName,
+    getRelativePathComponentsFromDirectory,
+} from './common/pathUtils';
 
 export class ReadOnlyAugmentedFileSystem implements FileSystem {
     // Mapped file to original file map
@@ -161,19 +167,28 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         return this.realFS.isInZip(path);
     }
 
-    protected recordMovedEntry(mappedPath: string, originalPath: string, reversible = true, isFile = true) {
+    protected recordMovedEntry(mappedPath: string, originalPath: string, rootPath: string) {
         this._entryMap.set(mappedPath, originalPath);
-
-        if (reversible) {
-            this._reverseEntryMap.set(originalPath, mappedPath);
-        }
+        this._reverseEntryMap.set(originalPath, mappedPath);
 
         const directory = ensureTrailingDirectorySeparator(getDirectoryPath(mappedPath));
         const folderInfo = getOrAdd(this._folderMap, directory, () => []);
 
         const name = getFileName(mappedPath);
         if (!folderInfo.some((entry) => entry.name === name)) {
-            folderInfo.push({ name, isFile });
+            folderInfo.push({ name, isFile: true });
+        }
+
+        // Add the directory entries for the sub paths as well.
+        const subPathEntries = getRelativePathComponentsFromDirectory(rootPath, mappedPath, false);
+        for (let i = 1; i < subPathEntries.length - 1; i++) {
+            const subdir = combinePaths(rootPath, ...subPathEntries.slice(1, i + 1));
+            const parent = ensureTrailingDirectorySeparator(getDirectoryPath(subdir));
+            const dirInfo = getOrAdd(this._folderMap, parent, () => []);
+            const dirName = getFileName(subdir);
+            if (!dirInfo.some((entry) => entry.name === dirName)) {
+                dirInfo.push({ name: dirName, isFile: false });
+            }
         }
     }
 
