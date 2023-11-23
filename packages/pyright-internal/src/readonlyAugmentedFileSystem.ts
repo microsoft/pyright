@@ -155,19 +155,28 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         return this.realFS.isInZip(uri);
     }
 
-    protected recordMovedEntry(mappeduri: Uri, originaluri: Uri, reversible = true, isFile = true) {
+    protected recordMovedEntry(mappeduri: Uri, originaluri: Uri, rootPath: Uri) {
         this._entryMap.set(mappeduri.key, originaluri);
-
-        if (reversible) {
-            this._reverseEntryMap.set(originaluri.key, mappeduri);
-        }
+        this._reverseEntryMap.set(originaluri.key, mappeduri);
 
         const directory = mappeduri.getDirectory();
         const folderInfo = getOrAdd(this._folderMap, directory.key, () => []);
 
         const name = mappeduri.filename;
         if (!folderInfo.some((entry) => entry.name === name)) {
-            folderInfo.push({ name, isFile });
+            folderInfo.push({ name, isFile: true });
+        }
+
+        // Add the directory entries for the sub paths as well.
+        const subPathEntries = rootPath.getRelativePathComponents(directory);
+        for (let i = 1; i < subPathEntries.length; i++) {
+            const subdir = rootPath.combinePaths(...subPathEntries.slice(1, i + 1));
+            const parent = subdir.getDirectory().key;
+            const dirInfo = getOrAdd(this._folderMap, parent, () => []);
+            const dirName = subdir.filename;
+            if (!dirInfo.some((entry) => entry.name === dirName)) {
+                dirInfo.push({ name: dirName, isFile: false });
+            }
         }
     }
 

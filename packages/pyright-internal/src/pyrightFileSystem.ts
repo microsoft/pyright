@@ -148,8 +148,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
                         for (const partialStub of partialStubs) {
                             const originalPyiFile = partialStubPackagePath.combinePaths(partialStub);
                             const mappedPyiFile = packagePath.combinePaths(partialStub);
-
-                            this.recordMovedEntry(mappedPyiFile, originalPyiFile);
+                            this.recordMovedEntry(mappedPyiFile, originalPyiFile, partialStub);
                         }
                     } catch {
                         // ignore

@@ -225,6 +225,13 @@ def func(a, b=0, c=None):
 reveal_type(func)  # (a: Unknown, b: int, c: Unknown | None) -> None
 ```
 
+This inference technique also applies to lambdas whose input parameters include default arguments.
+
+```python
+cb = lambda x = "": x
+reveal_type(cb)  # (x: str = "" -> str)
+```
+
 #### Literals
 
 Python 3.8 introduced support for _literal types_. This allows a type checker like Pyright to track specific literal values of str, bytes, int, bool, and enum values. As with other types, literal types can be declared.

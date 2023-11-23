@@ -3571,7 +3571,11 @@ class TypeVarTransformer {
         const typeParams = ClassType.getTypeParameters(classType);
 
         // Handle the common case where the class has no type parameters.
-        if (typeParams.length === 0 && !ClassType.isSpecialBuiltIn(classType)) {
+        if (
+            typeParams.length === 0 &&
+            !ClassType.isSpecialBuiltIn(classType) &&
+            !ClassType.isBuiltIn(classType, 'type')
+        ) {
             return classType;
         }
 
