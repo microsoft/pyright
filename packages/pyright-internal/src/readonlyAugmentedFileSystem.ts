@@ -169,8 +169,8 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
 
         // Add the directory entries for the sub paths as well.
         const subPathEntries = rootPath.getRelativePathComponents(directory);
-        for (let i = 1; i < subPathEntries.length; i++) {
-            const subdir = rootPath.combinePaths(...subPathEntries.slice(1, i + 1));
+        for (let i = 0; i < subPathEntries.length; i++) {
+            const subdir = rootPath.combinePaths(...subPathEntries.slice(0, i + 1));
             const parent = subdir.getDirectory().key;
             const dirInfo = getOrAdd(this._folderMap, parent, () => []);
             const dirName = subdir.filename;
