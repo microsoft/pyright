@@ -46,14 +46,14 @@ test('virtual file exists', () => {
     const entries = fs.readdirEntriesSync(myLib);
     assert.strictEqual(3, entries.length);
 
-    const subDirFile = combinePaths(libraryRoot, 'myLib', 'subdir', '__init__.pyi');
+    const subDirFile = libraryRootUri.combinePaths('myLib', 'subdir', '__init__.pyi');
     assert(fs.existsSync(subDirFile));
-    assert(fs.isMappedFilePath(subDirFile));
+    assert(fs.isMappedUri(subDirFile));
 
     const fakeFile = entries.filter((e) => e.name.endsWith('.pyi'))[0];
     assert(fakeFile.isFile());
 
-    assert(!fs.existsSync(combinePaths(libraryRoot, 'myLib-stubs')));
+    assert(!fs.existsSync(libraryRootUri.combinePaths('myLib-stubs')));
 });
 
 test('virtual file coexists with real', () => {
@@ -81,20 +81,21 @@ test('virtual file coexists with real', () => {
     ];
 
     const fs = createFileSystem(files);
-    fs.processPartialStubPackages([libraryRoot], [libraryRoot]);
+    fs.processPartialStubPackages([libraryRootUri], [libraryRootUri]);
 
-    const stubFile = combinePaths(libraryRoot, 'myLib', 'partialStub.pyi');
+    const stubFile = libraryRootUri.combinePaths('myLib', 'partialStub.pyi');
     assert(fs.existsSync(stubFile));
-    assert(fs.isMappedFilePath(stubFile));
+    assert(fs.isMappedUri(stubFile));
 
-    const myLib = combinePaths(libraryRoot, 'myLib');
+    const myLib = libraryRootUri.combinePaths('myLib');
     const entries = fs.readdirEntriesSync(myLib);
     assert.strictEqual(3, entries.length);
 
-    const subDirFile = combinePaths(libraryRoot, 'myLib', 'subdir', '__init__.py');
+    const subDirFile = libraryRootUri.combinePaths('myLib', 'subdir', '__init__.pyi');
     assert(fs.existsSync(subDirFile));
-    assert(!fs.isMappedFilePath(subDirFile));
-    const subDirPyiFile = combinePaths(libraryRoot, 'myLib', 'subdir', '__init__.pyi');
+    assert(fs.isMappedUri(subDirFile));
+
+    const subDirPyiFile = libraryRootUri.combinePaths('myLib', 'subdir', '__init__.pyi');
     assert(fs.existsSync(subDirPyiFile));
 
     const fakeFile = entries.filter((e) => e.name.endsWith('.pyi'))[0];
