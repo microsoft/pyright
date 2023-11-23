@@ -67,19 +67,19 @@ test('key', () => {
     assert.equal(key6, key8);
 });
 
-test('basename', () => {
-    const basename = Uri.parse('foo:///a/b/c').filename;
-    assert.equal(basename, 'c');
-    const basename2 = Uri.parse('foo:///a/b/c/').filename;
-    assert.equal(basename2, 'c');
-    const basename3 = Uri.parse('foo:///a/b/c.py').filename;
-    assert.equal(basename3, 'c.py');
-    const basename4 = Uri.parse('foo:///a/b/c.py?query#fragment').filename;
-    assert.equal(basename4, 'c.py');
-    const basename5 = Uri.file('/a/b/c').filename;
-    assert.equal(basename5, 'c');
-    const basename6 = Uri.parse('file:///a/b/c').filename;
-    assert.equal(basename6, 'c');
+test('filename', () => {
+    const filename = Uri.parse('foo:///a/b/c').filename;
+    assert.equal(filename, 'c');
+    const filename2 = Uri.parse('foo:///a/b/c/').filename;
+    assert.equal(filename2, 'c');
+    const filename3 = Uri.parse('foo:///a/b/c.py').filename;
+    assert.equal(filename3, 'c.py');
+    const filename4 = Uri.parse('foo:///a/b/c.py?query#fragment').filename;
+    assert.equal(filename4, 'c.py');
+    const filename5 = Uri.file('/a/b/c').filename;
+    assert.equal(filename5, 'c');
+    const filename6 = Uri.parse('file:///a/b/c').filename;
+    assert.equal(filename6, 'c');
 });
 
 test('extname', () => {

@@ -18375,7 +18375,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         }
                     }
-                } else if (!resolvedPath) {
+                } else if (resolvedPath.isEmpty()) {
                     // This corresponds to the "from . import a" form.
                     reportError = true;
                 }
