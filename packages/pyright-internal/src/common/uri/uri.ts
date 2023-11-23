@@ -7,10 +7,10 @@
  */
 
 import { URI, Utils } from 'vscode-uri';
+import { combinePaths, isRootedDiskPath } from '../pathUtils';
 import { EmptyUri } from './emptyUri';
 import { FileUri } from './fileUri';
-//import * as memoization from './memoization_instrumenting';
-import { combinePaths, isRootedDiskPath } from '../pathUtils';
+import * as memoization from './memoization_instrumented';
 import { WebUri } from './webUri';
 
 export interface Uri {
@@ -204,5 +204,25 @@ export namespace Uri {
 
     export function isUri(thing: any): thing is Uri {
         return !!thing && typeof thing._key === 'string';
+    }
+
+    export function methods(): string[] {
+        return memoization.getMethods();
+    }
+
+    export function countPerMethod(method: string): number {
+        return memoization.getCountPerMethod(method);
+    }
+
+    export function timePerMethod(method: string): number {
+        return memoization.getTimePerMethod(method);
+    }
+
+    export function cacheMissesPerMethod(method: string): number {
+        return memoization.getCachedMissesPerMethod(method);
+    }
+
+    export function getArgKeys(): string[] {
+        return memoization.getArgKeys();
     }
 }

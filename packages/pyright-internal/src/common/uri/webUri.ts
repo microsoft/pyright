@@ -14,7 +14,7 @@
 import * as debug from '../debug';
 import { getRootLength, hasTrailingDirectorySeparator, normalizeSlashes, resolvePaths } from '../pathUtils';
 import { BaseUri } from './baseUri';
-import { cacheMethodWithArgs, cacheMethodWithNoArgs, cacheStaticFunc } from './memoization';
+import { cacheMethodWithArgs, cacheMethodWithNoArgs, cacheStaticFunc } from './memoization_instrumented';
 import { Uri } from './uri';
 
 export class WebUri extends BaseUri {

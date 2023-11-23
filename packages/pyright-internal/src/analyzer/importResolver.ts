@@ -575,7 +575,7 @@ export class ImportResolver {
 
     protected fileExistsCached(uri: Uri): boolean {
         const directory = uri.getDirectory();
-        if (directory === uri) {
+        if (directory.equals(uri)) {
             // Started at root, so this can't be a file
             return false;
         }
@@ -598,7 +598,7 @@ export class ImportResolver {
 
     protected dirExistsCached(uri: Uri): boolean {
         const parent = uri.getDirectory();
-        if (parent === uri) {
+        if (parent.equals(uri)) {
             // Started at root. No entries to read so have to
             // check ourselves
             let cachedExistence = this._cachedDirExistenceForRoot.get(uri.key);
@@ -2577,7 +2577,7 @@ export class ImportResolver {
             }
 
             if (path) {
-                if (!exclusions.find((exclusion) => exclusion === path)) {
+                if (!exclusions.find((exclusion) => exclusion.equals(path))) {
                     const implicitImport: ImplicitImport = {
                         isStubFile,
                         isNativeLib: false,
