@@ -179,8 +179,9 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
             folderInfo.push({ name, isFile: true });
         }
 
-        // Add the directory entries for the sub paths as well.
-        const subPathEntries = getRelativePathComponentsFromDirectory(rootPath, directory, false);
+        // Add the directory entries for the sub paths as well. We should ignoreCase here because
+        // the paths are just combining of already known paths.
+        const subPathEntries = getRelativePathComponentsFromDirectory(rootPath, directory, /* ignoreCase */ false);
         for (let i = 1; i < subPathEntries.length; i++) {
             const subdir = combinePaths(rootPath, ...subPathEntries.slice(1, i + 1));
             const parent = ensureTrailingDirectorySeparator(getDirectoryPath(subdir));
