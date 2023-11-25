@@ -23,8 +23,7 @@ def func1(a: bool):
 
     val3 = val2
 
-    # This would normally generate an error, but because it comes from
-    # a [] expression, it's allowed.
+    # This should generate an error because val3 is partially unknown.
     print(val3)
     reveal_type(val3, expected_text="list[Unknown]")
 
@@ -55,8 +54,7 @@ def func2(a: bool):
 
     val3 = val2
 
-    # This would normally generate an error, but because it comes from
-    # a {} expression, it's allowed.
+    # This should generate an error because val3 is partially unknown.
     print(val3)
     reveal_type(val3, expected_text="dict[Unknown, Unknown]")
 

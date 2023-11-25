@@ -1370,7 +1370,7 @@ test('Comparison2', () => {
 
 test('EmptyContainers1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['emptyContainers1.py']);
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('InitSubclass1', () => {
