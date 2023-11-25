@@ -187,6 +187,8 @@ class ZipFile:
     if sys.version_info >= (3, 11):
         def mkdir(self, zinfo_or_directory_name: str | ZipInfo, mode: int = 0o777) -> None: ...
 
+    def __del__(self) -> None: ...
+
 class PyZipFile(ZipFile):
     def __init__(
         self, file: str | IO[bytes], mode: _ZipFileMode = "r", compression: int = 0, allowZip64: bool = True, optimize: int = -1
@@ -231,7 +233,7 @@ if sys.version_info >= (3, 8):
         def make(cls, source: ZipFile) -> CompleteDirs: ...
         @overload
         @classmethod
-        def make(cls: type[Self], source: StrPath | IO[bytes]) -> Self: ...
+        def make(cls, source: StrPath | IO[bytes]) -> Self: ...
 
     class Path:
         root: CompleteDirs

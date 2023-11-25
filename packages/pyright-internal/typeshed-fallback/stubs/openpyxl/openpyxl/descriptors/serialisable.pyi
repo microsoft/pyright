@@ -21,7 +21,7 @@ class Serialisable(metaclass=MetaSerialisable):
     __elements__: ClassVar[tuple[str, ...]]
     __namespaced__: ClassVar[tuple[tuple[str, str], ...]]
     idx_base: int
-    # Needs overrides in many sub-classes. But a lot of subclasses are instanciated without overriding it, so can't be abstract
+    # Needs overrides in many sub-classes. But a lot of subclasses are instantiated without overriding it, so can't be abstract
     # Subclasses "overrides" this property with a ClassVar, and Serialisable is too widely used,
     # so it can't be typed as NoReturn either without introducing many false-positives.
     @property

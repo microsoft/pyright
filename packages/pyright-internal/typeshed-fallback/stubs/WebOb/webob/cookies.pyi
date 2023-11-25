@@ -13,7 +13,7 @@ from webob.response import Response
 _T = TypeVar("_T")
 # we accept both the official spelling and the one used in the WebOb docs
 # the implementation compares after lower() so technically there are more
-# valid spellings, but it seems mor natural to support these two spellings
+# valid spellings, but it seems more natural to support these two spellings
 _SameSitePolicy: TypeAlias = Literal["Strict", "Lax", "None", "strict", "lax", "none"]
 
 class _Serializer(Protocol):

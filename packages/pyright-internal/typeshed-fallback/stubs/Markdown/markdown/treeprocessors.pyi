@@ -13,10 +13,10 @@ class Treeprocessor(util.Processor):
     def run(self, root: Element) -> Element | None: ...
 
 class InlineProcessor(Treeprocessor):
-    inlinePatterns: Any
-    ancestors: Any
-    def __init__(self, md) -> None: ...
-    stashed_nodes: Any
+    inlinePatterns: util.Registry[InlineProcessor]
+    ancestors: list[str]
+    def __init__(self, md: Markdown) -> None: ...
+    stashed_nodes: dict[str, Element | str]
     parent_map: Any
     def run(self, tree: Element, ancestors: list[str] | None = None) -> Element: ...
 

@@ -81,7 +81,7 @@ class Convertible(Typed[_T, _N]):
         allow_none: Literal[False] = False,
     ) -> None: ...
     # NOTE: It is currently impossible to make a generic based on the parameter type of another generic
-    # So we implement explicitely the types used internally
+    # So we implement explicitly the types used internally
     # MultiCellRange
     @overload
     def __set__(
@@ -265,9 +265,7 @@ class Bool(Convertible[bool, _N]):
     def __init__(self: Bool[Literal[True]], name: str | None = None, *, allow_none: Literal[True]) -> None: ...
     @overload
     def __init__(self: Bool[Literal[False]], name: str | None = None, *, allow_none: Literal[False] = False) -> None: ...
-    def __set__(  # type:ignore[override]  # Different restrictions
-        self, instance: Serialisable | Strict, value: _ConvertibleToBool
-    ) -> None: ...
+    def __set__(self, instance: Serialisable | Strict, value: _ConvertibleToBool) -> None: ...
 
 class String(Typed[str, _N]):
     allow_none: _N
@@ -297,8 +295,8 @@ class Default(Typed[_T, _N]):  # unused
     ) -> None: ...
     def __call__(self) -> _T: ...
 
-# Note: Aliases types can't be infered. Anyway an alias means there's another option
-# incomplete: Make it generic with explicit getter/setter type arguments ?
+# Note: Aliases types can't be inferred. Anyway an alias means there's another option.
+# Incomplete: Make it generic with explicit getter/setter type arguments?
 class Alias(Descriptor[Incomplete]):
     alias: str
     def __init__(self, alias: str) -> None: ...

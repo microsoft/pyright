@@ -85,7 +85,7 @@ class Field:
     def process_formdata(self, valuelist: list[Any]) -> None: ...
     def populate_obj(self, obj: object, name: str) -> None: ...
 
-    # this is a workaround for what is essentialy illegal in static type checking
+    # this is a workaround for what is essentially illegal in static type checking
     # Field.__new__ would return an UnboundField, unless the _form parameter is
     # specified. We can't really work around it by making UnboundField a subclass
     # of Field, since all subclasses of Field still need to return an UnboundField

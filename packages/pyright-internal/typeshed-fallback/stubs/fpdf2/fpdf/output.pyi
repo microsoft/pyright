@@ -39,19 +39,6 @@ class PDFFont(PDFObject):
         w: Incomplete | None = None,
     ) -> None: ...
 
-class PDFFontDescriptor(PDFObject):
-    type: Name
-    ascent: Incomplete
-    descent: Incomplete
-    cap_height: Incomplete
-    flags: Incomplete
-    font_b_box: Incomplete
-    italic_angle: Incomplete
-    stem_v: Incomplete
-    missing_width: Incomplete
-    font_name: Incomplete | None
-    def __init__(self, ascent, descent, cap_height, flags, font_b_box, italic_angle, stem_v, missing_width) -> None: ...
-
 class CIDSystemInfo(PDFObject):
     registry: PDFString
     ordering: PDFString

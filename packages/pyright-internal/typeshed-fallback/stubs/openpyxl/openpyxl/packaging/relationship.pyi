@@ -47,7 +47,7 @@ def get_rels_path(path): ...
 def get_dependents(archive: ZipFile, filename: str) -> RelationshipList: ...
 
 # If `id` is None, `cls` needs to have ClassVar `rel_type`.
-# The `deps` attribute used at runtime is for internal use immediatly after the return.
+# The `deps` attribute used at runtime is for internal use immediately after the return.
 # `cls` cannot be None
 @overload
 def get_rel(
