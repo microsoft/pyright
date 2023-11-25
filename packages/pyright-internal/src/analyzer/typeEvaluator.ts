@@ -222,6 +222,7 @@ import {
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
     getTypeVarScopeIds,
+    getUnknownTypeForParamSpec,
     isCallableType,
     isDescriptorInstance,
     isEffectivelyInstantiable,
@@ -6595,6 +6596,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const typeVarContext = new TypeVarContext(baseType.typeAliasInfo.typeVarScopeId);
         const diag = new DiagnosticAddendum();
+
         typeParameters.forEach((param, index) => {
             if (param.details.isParamSpec && index < typeArgs.length) {
                 const typeArgType = typeArgs[index].type;
@@ -6741,11 +6743,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isParamSpec(typeParam)) {
                 const paramSpecType = primarySignatureContext.getParamSpecType(typeParam);
                 typeVarType = paramSpecType ? convertParamSpecValueToType(paramSpecType) : UnknownType.create();
+
+                if (!typeVarType) {
+                    typeVarType = getUnknownTypeForParamSpec();
+                    primarySignatureContext.setTypeVarType(typeParam, typeVarType);
+                }
             } else {
                 typeVarType = primarySignatureContext.getTypeVarType(typeParam);
+
+                if (!typeVarType) {
+                    typeVarType = UnknownType.create();
+                    primarySignatureContext.setTypeVarType(typeParam, typeVarType);
+                }
             }
 
-            aliasTypeArgs.push(typeVarType || UnknownType.create());
+            aliasTypeArgs.push(typeVarType);
         });
 
         const type = TypeBase.cloneForTypeAlias(
@@ -8061,12 +8073,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (
             !isTypeSame(assertedType, arg0TypeResult.type, { treatAnySameAsUnknown: true, ignorePseudoGeneric: true })
         ) {
+            const srcDestTypes = printSrcDestTypes(arg0TypeResult.type, assertedType, { expandTypeAlias: true });
+
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.assertTypeTypeMismatch().format({
-                    expected: printType(assertedType),
-                    received: printType(arg0TypeResult.type),
+                    expected: srcDestTypes.destType,
+                    received: srcDestTypes.sourceType,
                 }),
                 node.arguments[0].valueExpression
             );
@@ -25949,16 +25963,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Prints two types and determines whether they need to be output in
     // fully-qualified form for disambiguation.
-    function printSrcDestTypes(srcType: Type, destType: Type): { sourceType: string; destType: string } {
-        const simpleSrcType = printType(srcType);
-        const simpleDestType = printType(destType);
+    function printSrcDestTypes(
+        srcType: Type,
+        destType: Type,
+        options?: PrintTypeOptions
+    ): { sourceType: string; destType: string } {
+        const simpleSrcType = printType(srcType, options);
+        const simpleDestType = printType(destType, options);
 
         if (simpleSrcType !== simpleDestType) {
             return { sourceType: simpleSrcType, destType: simpleDestType };
         }
 
-        const fullSrcType = printType(srcType, { useFullyQualifiedNames: true });
-        const fullDestType = printType(destType, { useFullyQualifiedNames: true });
+        const fullSrcType = printType(srcType, { ...(options ?? {}), useFullyQualifiedNames: true });
+        const fullDestType = printType(destType, { ...(options ?? {}), useFullyQualifiedNames: true });
 
         if (fullSrcType !== fullDestType) {
             return { sourceType: fullSrcType, destType: fullDestType };
