@@ -11974,12 +11974,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         suppressPartialUnknown = true;
                     }
 
-                    // If the argument type comes from a `[]` or `{}` expression,
-                    // don't bother reporting it.
-                    if (isClassInstance(simplifiedType) && simplifiedType.isEmptyContainer) {
-                        suppressPartialUnknown = true;
-                    }
-
                     if (!suppressPartialUnknown) {
                         const diagAddendum = getDiagAddendum();
                         diagAddendum.addMessage(
