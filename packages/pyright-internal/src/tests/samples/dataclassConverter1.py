@@ -45,7 +45,7 @@ class ConverterClass:
 
 
 @dataclass
-class Foo:
+class DC1:
     # This should generate an error because "converter" is not an official property yet.
     field0: int = field(converter=converter_simple)
 
@@ -69,8 +69,8 @@ class Foo:
 
 
 reveal_type(
-    Foo.__init__,
-    expected_text="(self: Foo, field0: str, field1: str, field2: str, field3: str, field4: str, field5: str, field6: str | bytes) -> None",
+    DC1.__init__,
+    expected_text="(self: DC1, field0: str, field1: str, field2: str, field3: str, field4: str, field5: str, field6: str | bytes) -> None",
 )
 
 
