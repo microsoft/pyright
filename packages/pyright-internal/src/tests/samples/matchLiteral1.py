@@ -2,6 +2,9 @@
 # described in PEP 634) that contain literal patterns.
 
 
+from typing import Literal, TypeVar
+
+
 def test_unknown(value_to_match):
     match value_to_match:
         case 3 as a1, -3 as a2:
@@ -74,3 +77,16 @@ def test_subclass(a: A):
             reveal_type(m, expected_text="A")
         case x:
             reveal_type(x, expected_text="A")
+
+
+T1 = TypeVar("T1", Literal["A"], Literal["B"])
+
+
+def test_constrained_typevar(subj: T1):
+    match subj:
+        case "A":
+            reveal_type(subj, expected_text="Literal['A']")
+        case "B":
+            reveal_type(subj, expected_text="Literal['B']")
+        case x:
+            reveal_type(x, expected_text="Never")

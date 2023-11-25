@@ -595,56 +595,69 @@ function narrowTypeBasedOnLiteralPattern(
     const literalType = evaluator.getTypeOfExpression(pattern.expression).type;
 
     if (!isPositiveTest) {
-        return mapSubtypes(type, (subtype) => {
+        return evaluator.mapSubtypesExpandTypeVars(
+            type,
+            /* conditionFilter */ undefined,
+            (expandedSubtype, unexpandedSubtype) => {
+                if (
+                    isClassInstance(literalType) &&
+                    isLiteralType(literalType) &&
+                    isClassInstance(expandedSubtype) &&
+                    isLiteralType(expandedSubtype) &&
+                    evaluator.assignType(literalType, expandedSubtype)
+                ) {
+                    return undefined;
+                }
+
+                if (isNoneInstance(expandedSubtype) && isNoneInstance(literalType)) {
+                    return undefined;
+                }
+
+                // Narrow a non-literal bool based on a literal bool pattern.
+                if (
+                    isClassInstance(expandedSubtype) &&
+                    ClassType.isBuiltIn(expandedSubtype, 'bool') &&
+                    expandedSubtype.literalValue === undefined &&
+                    isClassInstance(literalType) &&
+                    ClassType.isBuiltIn(literalType, 'bool') &&
+                    literalType.literalValue !== undefined
+                ) {
+                    return ClassType.cloneWithLiteral(literalType, !(literalType.literalValue as boolean));
+                }
+
+                return expandedSubtype;
+            }
+        );
+    }
+
+    return evaluator.mapSubtypesExpandTypeVars(
+        type,
+        /* conditionFilter */ undefined,
+        (expandedSubtype, unexpandedSubtype) => {
+            if (evaluator.assignType(expandedSubtype, literalType)) {
+                return literalType;
+            }
+
+            // See if the subtype is a subclass of the literal's class. For example,
+            // if it's a literal str, see if the subtype is subclass of str.
             if (
                 isClassInstance(literalType) &&
                 isLiteralType(literalType) &&
-                isClassInstance(subtype) &&
-                isLiteralType(subtype) &&
-                evaluator.assignType(literalType, subtype)
+                isClassInstance(expandedSubtype) &&
+                !isLiteralType(expandedSubtype)
             ) {
-                return undefined;
+                if (
+                    evaluator.assignType(
+                        ClassType.cloneWithLiteral(literalType, /* value */ undefined),
+                        expandedSubtype
+                    )
+                ) {
+                    return expandedSubtype;
+                }
             }
-
-            if (isNoneInstance(subtype) && isNoneInstance(literalType)) {
-                return undefined;
-            }
-
-            // Narrow a non-literal bool based on a literal bool pattern.
-            if (
-                isClassInstance(subtype) &&
-                ClassType.isBuiltIn(subtype, 'bool') &&
-                subtype.literalValue === undefined &&
-                isClassInstance(literalType) &&
-                ClassType.isBuiltIn(literalType, 'bool') &&
-                literalType.literalValue !== undefined
-            ) {
-                return ClassType.cloneWithLiteral(literalType, !(literalType.literalValue as boolean));
-            }
-
-            return subtype;
-        });
-    }
-
-    return mapSubtypes(type, (subtype) => {
-        if (evaluator.assignType(subtype, literalType)) {
-            return literalType;
+            return undefined;
         }
-
-        // See if the subtype is a subclass of the literal's class. For example,
-        // if it's a literal str, see if the subtype is subclass of str.
-        if (
-            isClassInstance(literalType) &&
-            isLiteralType(literalType) &&
-            isClassInstance(subtype) &&
-            !isLiteralType(subtype)
-        ) {
-            if (evaluator.assignType(ClassType.cloneWithLiteral(literalType, /* value */ undefined), subtype)) {
-                return subtype;
-            }
-        }
-        return undefined;
-    });
+    );
 }
 
 function narrowTypeBasedOnClassPattern(
