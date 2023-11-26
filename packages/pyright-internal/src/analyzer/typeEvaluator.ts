@@ -5998,7 +5998,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (ClassType.isClassProperty(concreteMemberType)) {
             // Handle "class properties" as a special case. We need to pass
             // the class rather than the object instance in this case.
-            objArgType = classType;
+            objArgType = isAccessedThroughObject ? ClassType.cloneAsInstantiable(classType) : classType;
         } else if (isAccessedThroughObject) {
             objArgType = selfType ?? ClassType.cloneAsInstance(classType);
         } else {
