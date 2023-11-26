@@ -13,7 +13,6 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import { Localizer } from '../localization/localize';
 import { maxSubtypesForInferredType, TypeEvaluator } from './typeEvaluatorTypes';
 import {
-    AnyType,
     ClassType,
     combineTypes,
     FunctionParameter,
@@ -204,16 +203,6 @@ export function assignTypeToTypeVar(
         !destType.details.isVariadic
     ) {
         srcType = TypeVarType.cloneForUnpacked(srcType, /* isInUnion */ true);
-    }
-
-    // If we're attempting to assign `type` to Type[T], transform `type` into `Type[Any]`.
-    if (
-        TypeBase.isInstantiable(destType) &&
-        isClassInstance(srcType) &&
-        ClassType.isBuiltIn(srcType, 'type') &&
-        !srcType.typeArguments
-    ) {
-        srcType = AnyType.create();
     }
 
     // Handle the constrained case. This case needs to be handled specially

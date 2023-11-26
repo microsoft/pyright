@@ -9421,9 +9421,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (ClassType.isBuiltIn(expandedCallType)) {
-            const className = expandedCallType.aliasName || expandedCallType.details.name;
+            const className = expandedCallType.aliasName ?? expandedCallType.details.name;
 
-            if (className === 'type') {
+            // Handle the 'type' call specially.
+            if (expandedCallType.details.name === 'type') {
+                if (expandedCallType.typeArguments && expandedCallType.isTypeArgumentExplicit) {
+                    addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.objectNotCallable().format({
+                            type: printType(expandedCallType),
+                        }),
+                        errorNode
+                    );
+                    return { returnType: UnknownType.create(), argumentErrors: true };
+                }
+
                 // Validate the constructor arguments.
                 validateConstructorArguments(
                     evaluatorInterface,
@@ -9434,7 +9447,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     inferenceContext
                 );
 
-                // Handle the 'type' call specially.
                 if (argList.length === 1) {
                     // The one-parameter form of "type" returns the class
                     // for the specified object.
@@ -9537,7 +9549,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     errorNode
                 );
 
-                return { returnType: AnyType.create() };
+                return { returnType: AnyType.create(), argumentErrors: true };
             }
 
             if (isClass(unexpandedCallType) && isKnownEnumType(className)) {
@@ -9723,7 +9735,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isClass(expandedCallType) &&
             ClassType.isBuiltIn(expandedCallType, 'type')
         ) {
-            // Handle the case where a Type[T] is being called. We presume this
+            // Handle the case where a type[T] is being called. We presume this
             // will instantiate an object of type T.
             returnType = convertToInstance(unexpandedCallType);
         }
@@ -19243,17 +19255,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Type': {
-                    // PEP 484 says that Type[Any] should be considered
-                    // equivalent to type.
-                    if (
-                        typeArgs?.length === 1 &&
-                        isAnyOrUnknown(typeArgs[0].type) &&
-                        typeClassType &&
-                        isInstantiableClass(typeClassType)
-                    ) {
-                        return { type: typeClassType };
-                    }
-
                     let typeType = createSpecialType(classType, typeArgs, 1);
                     if (isInstantiableClass(typeType)) {
                         typeType = explodeGenericClass(typeType);
@@ -19371,12 +19372,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // in Python 3.9 and newer.
             if (ClassType.isBuiltIn(classType, 'type') && typeArgs) {
                 if (typeArgs.length >= 1) {
-                    // PEP 484 says that type[Any] should be considered
-                    // equivalent to type.
-                    if (isAnyOrUnknown(typeArgs[0].type)) {
-                        return { type: classType };
-                    }
-
                     // Treat type[function] as illegal.
                     if (isFunction(typeArgs[0].type) || isOverloadedFunction(typeArgs[0].type)) {
                         addDiagnostic(
@@ -19390,10 +19385,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                const typeClass = getTypingType(errorNode, 'Type');
-                if (typeClass && isInstantiableClass(typeClass)) {
+                if (typeClassType && isInstantiableClass(typeClassType)) {
                     let typeType = createSpecialType(
-                        typeClass,
+                        typeClassType,
                         typeArgs,
                         1,
                         /* allowParamSpec */ undefined,
@@ -22759,46 +22753,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Is the src a specialized "type" object?
         if (isClassInstance(expandedSrcType) && ClassType.isBuiltIn(expandedSrcType, 'type')) {
             const srcTypeArgs = expandedSrcType.typeArguments;
-            let typeTypeArg: Type | undefined;
-            let instantiableType: Type | undefined;
+            let typeTypeArg: Type;
 
             if (srcTypeArgs && srcTypeArgs.length >= 1) {
                 typeTypeArg = srcTypeArgs[0];
-                if (isAnyOrUnknown(typeTypeArg)) {
-                    if (isClassInstance(destType) && ClassType.isBuiltIn(expandedSrcType, 'type')) {
-                        return true;
-                    }
-                    return TypeBase.isInstantiable(destType);
-                }
-                instantiableType = convertToInstantiable(typeTypeArg);
-            } else if (TypeBase.isInstantiable(destType)) {
-                typeTypeArg = objectType ?? AnyType.create();
-                instantiableType = expandedSrcType;
+            } else {
+                typeTypeArg = UnknownType.create();
             }
 
-            if (instantiableType && typeTypeArg) {
-                if (isClassInstance(typeTypeArg) || isTypeVar(typeTypeArg)) {
-                    if (
-                        assignType(
-                            destType,
-                            instantiableType,
-                            diag?.createAddendum(),
-                            destTypeVarContext,
-                            srcTypeVarContext,
-                            flags,
-                            recursionCount
-                        )
-                    ) {
-                        return true;
-                    }
-
-                    diag?.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
-                            printSrcDestTypes(srcType, destType)
-                        )
-                    );
-                    return false;
+            if (isAnyOrUnknown(typeTypeArg)) {
+                if (isClassInstance(destType) && ClassType.isBuiltIn(expandedSrcType, 'type')) {
+                    return true;
                 }
+                return TypeBase.isInstantiable(destType);
+            }
+
+            const instantiableType = convertToInstantiable(typeTypeArg);
+
+            if (isClassInstance(typeTypeArg) || isTypeVar(typeTypeArg)) {
+                if (
+                    assignType(
+                        destType,
+                        instantiableType,
+                        diag?.createAddendum(),
+                        destTypeVarContext,
+                        srcTypeVarContext,
+                        flags,
+                        recursionCount
+                    )
+                ) {
+                    return true;
+                }
+
+                diag?.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType))
+                );
+                return false;
             }
         }
 
@@ -22876,8 +22866,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isClassInstance(destType)) {
-            // Is the dest a specialized "Type" object?
-            if (ClassType.isBuiltIn(destType, 'Type')) {
+            if (ClassType.isBuiltIn(destType, 'type')) {
+                if (isAnyOrUnknown(srcType) && (flags & AssignTypeFlags.OverloadOverlapCheck) !== 0) {
+                    return false;
+                }
+
                 const destTypeArgs = destType.typeArguments;
                 if (destTypeArgs && destTypeArgs.length >= 1) {
                     if (TypeBase.isInstance(destTypeArgs[0]) && TypeBase.isInstantiable(srcType)) {
@@ -22891,10 +22884,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             recursionCount
                         );
                     }
-                }
-            } else if (ClassType.isBuiltIn(destType, 'type')) {
-                if (isAnyOrUnknown(srcType) && (flags & AssignTypeFlags.OverloadOverlapCheck) !== 0) {
-                    return false;
                 }
 
                 // Is the dest a "type" object? Assume that all instantiable
