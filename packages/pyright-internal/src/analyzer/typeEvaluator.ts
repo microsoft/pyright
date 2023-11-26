@@ -3927,7 +3927,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let typeWasTransformed = false;
 
             const filteredTypeArgs = type.typeArguments.map((typeArg, index) => {
-                if (index > type.details.typeParameters.length) {
+                if (index >= type.details.typeParameters.length) {
                     return typeArg;
                 }
 
