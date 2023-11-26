@@ -291,6 +291,7 @@ export namespace Localizer {
             );
         export const classPatternTypeAlias = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.classPatternTypeAlias'));
+        export const classPropertyDeprecated = () => getRawString('Diagnostic.classPropertyDeprecated');
         export const classTypeParametersIllegal = () => getRawString('Diagnostic.classTypeParametersIllegal');
         export const classVarNotAllowed = () => getRawString('Diagnostic.classVarNotAllowed');
         export const classVarFirstArgMissing = () => getRawString('Diagnostic.classVarFirstArgMissing');

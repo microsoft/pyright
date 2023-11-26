@@ -55,6 +55,7 @@
         "classPatternBuiltInArgPositional": "Class pattern accepts only positional sub-pattern",
         "classPatternPositionalArgCount": "Too many positional patterns for class \"{type}\"; expected {expected} but received {received}",
         "classPatternTypeAlias": "\"{type}\" cannot be used in a class pattern because it is a specialized type alias",
+        "classPropertyDeprecated": "Class properties are deprecated in Python 3.11 and will not be supported in Python 3.13",
         "classTypeParametersIllegal": "Class type parameter syntax requires Python 3.12 or newer",
         "classVarNotAllowed": "\"ClassVar\" is not allowed in this context",
         "classVarFirstArgMissing": "Expected a type argument after \"ClassVar\"",
