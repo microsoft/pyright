@@ -2131,6 +2131,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             };
         }
 
+        // If this is a type[Any] or type[Unknown], allow any other members.
+        if (isClassInstance(objectType) && ClassType.isBuiltIn(objectType, 'type') && objectType.includeSubclasses) {
+            if ((flags & MemberAccessFlags.SkipTypeBaseClass) === 0) {
+                const typeArg =
+                    objectType.typeArguments && objectType.typeArguments.length >= 1
+                        ? objectType.typeArguments[0]
+                        : UnknownType.create();
+
+                if (isAnyOrUnknown(typeArg)) {
+                    return { type: typeArg, classType: UnknownType.create() };
+                }
+            }
+        }
+
         if (diag && subDiag) {
             diag.addAddendum(subDiag);
         }
@@ -6234,6 +6248,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* diag */ undefined,
                 MemberAccessFlags.SkipInstanceMembers |
                     MemberAccessFlags.SkipObjectBaseClass |
+                    MemberAccessFlags.SkipTypeBaseClass |
                     MemberAccessFlags.SkipAttributeAccessOverride,
                 selfType
             )?.type;
