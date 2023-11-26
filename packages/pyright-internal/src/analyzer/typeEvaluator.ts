@@ -9038,8 +9038,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.typeNotCallable().format({
-                    expression: ParseTreeUtils.printExpression(exprNode),
+                Localizer.Diagnostic.objectNotCallable().format({
                     type: printType(callTypeResult.type, { expandTypeAlias: true }),
                 }),
                 exprNode

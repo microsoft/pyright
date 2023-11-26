@@ -948,8 +948,6 @@ export namespace Localizer {
         export const typeGuardParamCount = () => getRawString('Diagnostic.typeGuardParamCount');
         export const typeNotAwaitable = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeNotAwaitable'));
-        export const typeNotCallable = () =>
-            new ParameterizedString<{ expression: string; type: string }>(getRawString('Diagnostic.typeNotCallable'));
         export const typeNotIntantiable = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeNotIntantiable'));
         export const typeNotIterable = () =>
@@ -1438,8 +1436,6 @@ export namespace Localizer {
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.typeIncompatible')
             );
-        export const typeNotCallable = () =>
-            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.typeNotCallable'));
         export const typeNotClass = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.typeNotClass'));
         export const typeParamSpec = () =>
