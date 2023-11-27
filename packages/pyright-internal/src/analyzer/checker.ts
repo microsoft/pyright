@@ -659,6 +659,8 @@ export class Checker extends ParseTreeWalker {
             this._validateFunctionTypeVarUsage(node, functionTypeResult);
 
             this._validateGeneratorReturnType(node, functionTypeResult.functionType);
+
+            this._reportDeprecatedClassProperty(node, functionTypeResult);
         }
 
         // If we're at the module level within a stub file, report a diagnostic
@@ -3884,6 +3886,17 @@ export class Checker extends ParseTreeWalker {
         }
 
         return false;
+    }
+
+    private _reportDeprecatedClassProperty(node: FunctionNode, functionTypeResult: FunctionTypeResult) {
+        if (
+            !isClassInstance(functionTypeResult.decoratedType) ||
+            !ClassType.isClassProperty(functionTypeResult.decoratedType)
+        ) {
+            return;
+        }
+
+        this._reportDeprecatedDiagnostic(node.name, Localizer.Diagnostic.classPropertyDeprecated());
     }
 
     private _reportDeprecatedUseForMemberAccess(node: NameNode, info: MemberAccessDeprecationInfo) {

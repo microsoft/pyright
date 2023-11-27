@@ -11,7 +11,7 @@ class upload_docs(upload):
     boolean_options: ClassVar[list[str]]
     def has_sphinx(self): ...
     # The callable parameter is self: Self, but using Self still trips up mypy
-    sub_commands: ClassVar[list[tuple[str, Callable[[Self], bool] | None]]]  # type: ignore[misc, assignment]
+    sub_commands: ClassVar[list[tuple[str, Callable[[Self], bool] | None]]]  # type: ignore[assignment]
     upload_dir: Any
     target_dir: Any
     def initialize_options(self) -> None: ...

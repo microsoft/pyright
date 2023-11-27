@@ -106,8 +106,9 @@ export type TypeSourceId = number;
 // give up. This constant was previously set to 32, but there were certain
 // pathological recursive types where this resulted in a hang. It was also
 // previously lowered to 10, but this caused some legitimate failures in
-// code that used numpy.
-export const maxTypeRecursionCount = 12;
+// code that used numpy. Even at 16, there are some legitimate failures in
+// numpy.
+export const maxTypeRecursionCount = 20;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
@@ -557,13 +558,6 @@ export interface DataClassBehaviors {
     fieldDescriptorNames: string[];
 }
 
-export interface ProtocolCompatibility {
-    srcType: Type;
-    destType: Type;
-    flags: number; // AssignTypeFlags
-    isCompatible: boolean;
-}
-
 interface ClassDetails {
     name: string;
     fullName: string;
@@ -588,8 +582,9 @@ interface ClassDetails {
 
     // A cache of protocol classes (indexed by the class full name)
     // that have been determined to be compatible or incompatible
-    // with this class.
-    protocolCompatibility?: Map<string, ProtocolCompatibility[]>;
+    // with this class. We use "object" here to avoid a circular dependency.
+    // It's actually a map of ProtocolCompatibility objects.
+    protocolCompatibility?: object;
 
     // Transforms to apply if this class is used as a metaclass
     // or a base class.

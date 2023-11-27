@@ -12,3 +12,9 @@ my_list[a3] = a3 = 0
 # This should generate an error because type comments are not
 # allowed for chained assignments.
 x1 = x2 = x3 = [3]  # type: list[float]
+
+
+# Bidirectional type inference should be used in this case.
+y2: list[list[float]]
+y1 = y2 = [[3]]
+reveal_type(y1, expected_text="list[list[float]]")

@@ -1,21 +1,25 @@
 from _typeshed import Incomplete
-from collections.abc import Mapping, Sequence
-from typing_extensions import Literal, Self
+from collections.abc import Hashable, Iterable, Mapping, Sequence
+from typing_extensions import Literal, Self, TypeAlias
 
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.colors import Colormap, ListedColormap
 from matplotlib.gridspec import GridSpec
 from matplotlib.typing import ColorType
+from numpy._typing import _ArrayLike, _ArrayLikeInt_co
 from numpy.typing import ArrayLike, NDArray
-from pandas import DataFrame
+from pandas import DataFrame, Index, Series
 
 from .axisgrid import Grid
+
+# pandas._typing.ListLikeU is partially Unknown
+_ListLikeU: TypeAlias = Sequence[Incomplete] | np.ndarray[Incomplete, Incomplete] | Series[Incomplete] | Index[Incomplete]
 
 __all__ = ["heatmap", "clustermap"]
 
 def heatmap(
-    data: Incomplete,
+    data: DataFrame | _ArrayLike[Incomplete],
     *,
     vmin: float | None = None,
     vmax: float | None = None,
@@ -101,7 +105,11 @@ class ClusterGrid(Grid):
     dendrogram_col: _DendrogramPlotter | None
     def __init__(
         self,
-        data: Incomplete,
+        data: _ListLikeU
+        | DataFrame
+        | dict[Incomplete, Incomplete]
+        | Iterable[_ListLikeU | tuple[Hashable, _ListLikeU] | dict[Incomplete, Incomplete]]
+        | None,
         pivot_kws: Mapping[str, Incomplete] | None = None,
         z_score: int | None = None,
         standard_scale: int | None = None,
@@ -124,10 +132,10 @@ class ClusterGrid(Grid):
     def z_score(data2d: DataFrame, axis: int = 1) -> DataFrame: ...
     @staticmethod
     def standard_scale(data2d: DataFrame, axis: int = 1) -> DataFrame: ...
-    def dim_ratios(self, colors: Incomplete, dendrogram_ratio: float, colors_ratio: float) -> list[float]: ...
+    def dim_ratios(self, colors: Incomplete | None, dendrogram_ratio: float, colors_ratio: float) -> list[float]: ...
     @staticmethod
     def color_list_to_matrix_and_cmap(
-        colors: Sequence[ColorType], ind: list[int], axis: int = 0
+        colors: Sequence[ColorType], ind: _ArrayLikeInt_co, axis: int = 0
     ) -> tuple[NDArray[np.int_], ListedColormap]: ...
     def plot_dendrograms(
         self,
@@ -139,8 +147,10 @@ class ClusterGrid(Grid):
         col_linkage: NDArray[Incomplete] | None,
         tree_kws: dict[str, Incomplete] | None,
     ) -> None: ...
-    def plot_colors(self, xind: Incomplete, yind: Incomplete, **kws: Incomplete) -> None: ...
-    def plot_matrix(self, colorbar_kws: dict[str, Incomplete], xind: Incomplete, yind: Incomplete, **kws: Incomplete) -> None: ...
+    def plot_colors(self, xind: _ArrayLikeInt_co, yind: _ArrayLikeInt_co, **kws: Incomplete) -> None: ...
+    def plot_matrix(
+        self, colorbar_kws: dict[str, Incomplete], xind: _ArrayLikeInt_co, yind: _ArrayLikeInt_co, **kws: Incomplete
+    ) -> None: ...
     def plot(
         self,
         metric: str,
@@ -155,7 +165,11 @@ class ClusterGrid(Grid):
     ) -> Self: ...
 
 def clustermap(
-    data: Incomplete,
+    data: _ListLikeU
+    | DataFrame
+    | dict[Incomplete, Incomplete]
+    | Iterable[_ListLikeU | tuple[Hashable, _ListLikeU] | dict[Incomplete, Incomplete]]
+    | None,
     *,
     pivot_kws: dict[str, Incomplete] | None = None,
     method: str = "average",

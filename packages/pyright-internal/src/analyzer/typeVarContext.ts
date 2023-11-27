@@ -16,6 +16,7 @@ import {
     FunctionType,
     InScopePlaceholderScopeId,
     isFunction,
+    isTypeSame,
     maxTypeRecursionCount,
     TupleTypeArgument,
     Type,
@@ -72,6 +73,34 @@ export class TypeVarSignatureContext {
         }
 
         return newContext;
+    }
+
+    isSame(other: TypeVarSignatureContext) {
+        if (this._typeVarMap.size !== other._typeVarMap.size) {
+            return false;
+        }
+
+        function typesMatch(type1: Type | undefined, type2: Type | undefined) {
+            if (!type1 || !type2) {
+                return type1 === type2;
+            }
+
+            return isTypeSame(type1, type2);
+        }
+
+        let isSame = true;
+        this._typeVarMap.forEach((value, key) => {
+            const otherValue = other._typeVarMap.get(key);
+            if (
+                !otherValue ||
+                !typesMatch(value.narrowBound, otherValue.narrowBound) ||
+                !typesMatch(value.wideBound, otherValue.wideBound)
+            ) {
+                isSame = false;
+            }
+        });
+
+        return isSame;
     }
 
     isEmpty() {
@@ -345,6 +374,14 @@ export class TypeVarContext {
         if (contexts.length < maxSignatureContextCount) {
             this._signatureContexts = Array.from(contexts);
         }
+    }
+
+    isSame(other: TypeVarContext) {
+        if (other._signatureContexts.length !== this._signatureContexts.length) {
+            return false;
+        }
+
+        return this._signatureContexts.every((context, index) => context.isSame(other._signatureContexts[index]));
     }
 
     getId() {

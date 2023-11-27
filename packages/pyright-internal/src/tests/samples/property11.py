@@ -18,9 +18,7 @@ class Class1:
 
 
 reveal_type(Class1.prop1, expected_text="str")
-
-# This should generate an error.
-Class1().prop1
+reveal_type(Class1().prop1, expected_text="str")
 
 Class1.prop1 = "hi"
 

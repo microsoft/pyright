@@ -28,7 +28,6 @@ import {
     isTypeSame,
     ModuleType,
     OverloadedFunctionType,
-    ProtocolCompatibility,
     Type,
     TypeBase,
     UnknownType,
@@ -53,13 +52,19 @@ interface ProtocolAssignmentStackEntry {
     destType: ClassType;
 }
 
+interface ProtocolCompatibility {
+    srcType: Type;
+    destType: Type;
+    flags: AssignTypeFlags;
+    typeVarContext: TypeVarContext | undefined;
+    isCompatible: boolean;
+}
+
 const protocolAssignmentStack: ProtocolAssignmentStackEntry[] = [];
 
 // Maximum number of different types that are cached with a protocol.
 const maxProtocolCompatibilityCacheEntries = 32;
 
-// If treatSourceAsInstantiable is true, we're comparing the class object against the
-// protocol. If it's false, we're comparing the class instance against the protocol.
 export function assignClassToProtocol(
     evaluator: TypeEvaluator,
     destType: ClassType,
@@ -70,6 +75,10 @@ export function assignClassToProtocol(
     flags: AssignTypeFlags,
     recursionCount: number
 ): boolean {
+    // We assume that destType is an instantiable class that is a protocol. The
+    // srcType can be an instantiable class or a class instance.
+    assert(isInstantiableClass(destType) && ClassType.isProtocolClass(destType));
+
     const enforceInvariance = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
 
     // Use a stack of pending protocol class evaluations to detect recursion.
@@ -84,7 +93,7 @@ export function assignClassToProtocol(
 
     // See if we've already determined that this class is compatible with this protocol.
     if (!enforceInvariance) {
-        const compatibility = getProtocolCompatibility(destType, srcType, flags);
+        const compatibility = getProtocolCompatibility(destType, srcType, flags, destTypeVarContext);
 
         if (compatibility !== undefined) {
             if (compatibility) {
@@ -106,6 +115,7 @@ export function assignClassToProtocol(
 
     protocolAssignmentStack.push({ srcType, destType });
     let isCompatible = true;
+    const clonedTypeVarContext = destTypeVarContext?.clone();
 
     try {
         isCompatible = assignClassToProtocolInternal(
@@ -128,7 +138,7 @@ export function assignClassToProtocol(
     protocolAssignmentStack.pop();
 
     // Cache the results for next time.
-    setProtocolCompatibility(destType, srcType, flags, isCompatible);
+    setProtocolCompatibility(destType, srcType, flags, clonedTypeVarContext, isCompatible);
 
     return isCompatible;
 }
@@ -159,15 +169,22 @@ export function assignModuleToProtocol(
 function getProtocolCompatibility(
     destType: ClassType,
     srcType: ClassType,
-    flags: AssignTypeFlags
+    flags: AssignTypeFlags,
+    typeVarContext: TypeVarContext | undefined
 ): boolean | undefined {
-    const entries = srcType.details.protocolCompatibility?.get(destType.details.fullName);
+    const map = srcType.details.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
+    const entries = map?.get(destType.details.fullName);
     if (entries === undefined) {
         return undefined;
     }
 
     const entry = entries.find((entry) => {
-        return isTypeSame(entry.destType, destType) && isTypeSame(entry.srcType, srcType) && entry.flags === flags;
+        return (
+            isTypeSame(entry.destType, destType) &&
+            isTypeSame(entry.srcType, srcType) &&
+            entry.flags === flags &&
+            isTypeVarContextSame(typeVarContext, entry.typeVarContext)
+        );
     });
 
     return entry?.isCompatible;
@@ -177,28 +194,40 @@ function setProtocolCompatibility(
     destType: ClassType,
     srcType: ClassType,
     flags: AssignTypeFlags,
+    typeVarContext: TypeVarContext | undefined,
     isCompatible: boolean
 ) {
-    if (!srcType.details.protocolCompatibility) {
-        srcType.details.protocolCompatibility = new Map<string, ProtocolCompatibility[]>();
+    let map = srcType.details.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
+    if (!map) {
+        map = new Map<string, ProtocolCompatibility[]>();
+        srcType.details.protocolCompatibility = map;
     }
 
-    let entries = srcType.details.protocolCompatibility.get(destType.details.fullName);
+    let entries = map.get(destType.details.fullName);
     if (!entries) {
         entries = [];
-        srcType.details.protocolCompatibility.set(destType.details.fullName, entries);
+        map.set(destType.details.fullName, entries);
     }
 
     entries.push({
         destType,
         srcType,
         flags,
+        typeVarContext,
         isCompatible,
     });
 
     if (entries.length > maxProtocolCompatibilityCacheEntries) {
         entries.shift();
     }
+}
+
+function isTypeVarContextSame(context1: TypeVarContext | undefined, context2: TypeVarContext | undefined) {
+    if (!context1 || !context2) {
+        return context1 === context2;
+    }
+
+    return context1.isSame(context2);
 }
 
 function assignClassToProtocolInternal(

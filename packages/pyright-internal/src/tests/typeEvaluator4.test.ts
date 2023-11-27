@@ -1304,3 +1304,9 @@ test('Any1', () => {
 
     TestUtils.validateResults(analysisResults, 4);
 });
+
+test('Type1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['type1.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+});

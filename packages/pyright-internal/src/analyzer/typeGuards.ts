@@ -1631,10 +1631,20 @@ function narrowTypeForIsInstance(
                 const filterMetaclass = concreteFilterType.details.effectiveMetaclass;
 
                 if (filterMetaclass && isInstantiableClass(filterMetaclass)) {
-                    const isMetaclassOverlap = evaluator.assignType(
+                    let isMetaclassOverlap = evaluator.assignType(
                         metaclassType,
                         ClassType.cloneAsInstance(filterMetaclass)
                     );
+
+                    // Handle the special case where the metaclass for the filter is type.
+                    // This will normally be treated as type[Any], which is compatible with
+                    // any metaclass, but we specifically want to treat type as the class
+                    // type[object] in this case.
+                    if (ClassType.isBuiltIn(filterMetaclass, 'type') && !filterMetaclass.isTypeArgumentExplicit) {
+                        if (!ClassType.isBuiltIn(metaclassType, 'type')) {
+                            isMetaclassOverlap = false;
+                        }
+                    }
 
                     if (isMetaclassOverlap) {
                         if (isPositiveTest) {

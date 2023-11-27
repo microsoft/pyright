@@ -17,6 +17,7 @@ __all__ = [
     "FPDF",
     "FPDFException",
     "Align",
+    "TextMode",
     "XPos",
     "YPos",
     "Template",
