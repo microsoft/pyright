@@ -23979,22 +23979,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // Handle the special case where the source is a Self type and the
-        // destination is not.
-        if (!isTypeVar(specializedDestType) || !specializedDestType.details.isSynthesizedSelf) {
-            if (
-                isTypeVar(specializedSrcType) &&
-                specializedSrcType.details.isSynthesizedSelf &&
-                specializedSrcType.details.boundType
-            ) {
-                specializedSrcType = applySolvedTypeVars(
-                    specializedSrcType.details.boundType,
-                    new TypeVarContext(getTypeVarScopeId(specializedSrcType)),
-                    { unknownIfNotFound: true }
-                );
-            }
-        }
-
         if (
             !assignType(
                 specializedSrcType,
