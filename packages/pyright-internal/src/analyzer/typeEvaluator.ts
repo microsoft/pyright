@@ -13835,6 +13835,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // its type from the default value expression.
                     paramType = getTypeOfExpression(param.defaultValue, undefined, inferenceContext).type;
                 }
+            } else if (param.defaultValue) {
+                // If there is no inference context but we have a default value,
+                // use the default value to infer the parameter's type.
+                paramType = inferParameterTypeFromDefaultValue(param.defaultValue);
             }
 
             if (param.name) {
@@ -17638,52 +17642,56 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // type from this information.
         const paramValueExpr = functionNode.parameters[paramIndex].defaultValue;
         if (paramValueExpr) {
-            const defaultValueType = getTypeOfExpression(paramValueExpr, EvaluatorFlags.ConvertEllipsisToAny).type;
-
-            let inferredParamType: Type | undefined;
-
-            // Is the default value a "None" or an instance of some private class (one
-            // whose name starts with an underscore)? If so, we will assume that the
-            // value is a singleton sentinel. The actual supported type is going to be
-            // a union of this type and Unknown.
-            if (
-                isNoneInstance(defaultValueType) ||
-                (isClassInstance(defaultValueType) && isPrivateOrProtectedName(defaultValueType.details.name))
-            ) {
-                inferredParamType = combineTypes([defaultValueType, UnknownType.create()]);
-            } else {
-                let skipInference = false;
-
-                if (isFunction(defaultValueType) || isOverloadedFunction(defaultValueType)) {
-                    // Do not infer parameter types that use a lambda or another function as a
-                    // default value. We're likely to generate false positives in this case.
-                    // It's not clear whether parameters should be positional-only or not.
-                    skipInference = true;
-                } else if (
-                    isClassInstance(defaultValueType) &&
-                    ClassType.isBuiltIn(defaultValueType, ['tuple', 'list', 'set', 'dict'])
-                ) {
-                    // Do not infer certain types like tuple because it's likely to be
-                    // more restrictive (narrower) than intended.
-                    skipInference = true;
-                }
-
-                if (!skipInference) {
-                    inferredParamType = stripLiteralValue(defaultValueType);
-                }
-            }
-
-            if (inferredParamType) {
-                const fileInfo = AnalyzerNodeInfo.getFileInfo(functionNode);
-                if (fileInfo.isInPyTypedPackage && !fileInfo.isStubFile) {
-                    inferredParamType = TypeBase.cloneForAmbiguousType(inferredParamType);
-                }
-            }
-
-            return inferredParamType;
+            return inferParameterTypeFromDefaultValue(paramValueExpr);
         }
 
         return undefined;
+    }
+
+    function inferParameterTypeFromDefaultValue(paramValueExpr: ExpressionNode) {
+        const defaultValueType = getTypeOfExpression(paramValueExpr, EvaluatorFlags.ConvertEllipsisToAny).type;
+
+        let inferredParamType: Type | undefined;
+
+        // Is the default value a "None" or an instance of some private class (one
+        // whose name starts with an underscore)? If so, we will assume that the
+        // value is a singleton sentinel. The actual supported type is going to be
+        // a union of this type and Unknown.
+        if (
+            isNoneInstance(defaultValueType) ||
+            (isClassInstance(defaultValueType) && isPrivateOrProtectedName(defaultValueType.details.name))
+        ) {
+            inferredParamType = combineTypes([defaultValueType, UnknownType.create()]);
+        } else {
+            let skipInference = false;
+
+            if (isFunction(defaultValueType) || isOverloadedFunction(defaultValueType)) {
+                // Do not infer parameter types that use a lambda or another function as a
+                // default value. We're likely to generate false positives in this case.
+                // It's not clear whether parameters should be positional-only or not.
+                skipInference = true;
+            } else if (
+                isClassInstance(defaultValueType) &&
+                ClassType.isBuiltIn(defaultValueType, ['tuple', 'list', 'set', 'dict'])
+            ) {
+                // Do not infer certain types like tuple because it's likely to be
+                // more restrictive (narrower) than intended.
+                skipInference = true;
+            }
+
+            if (!skipInference) {
+                inferredParamType = stripLiteralValue(defaultValueType);
+            }
+        }
+
+        if (inferredParamType) {
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(paramValueExpr);
+            if (fileInfo.isInPyTypedPackage && !fileInfo.isStubFile) {
+                inferredParamType = TypeBase.cloneForAmbiguousType(inferredParamType);
+            }
+        }
+
+        return inferredParamType;
     }
 
     // Transforms the parameter type based on its category. If it's a simple parameter,
@@ -25621,7 +25629,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Try to find the best (narrowest) match among the constraints.
             for (const constraint of constraints) {
-                if (assignType(constraint, effectiveSrcType)) {
+                // Don't allow Never as a type argument.
+                if (assignType(constraint, effectiveSrcType) && !isNever(effectiveSrcType)) {
                     if (!bestConstraintSoFar || assignType(bestConstraintSoFar, constraint)) {
                         bestConstraintSoFar = constraint;
                     }
