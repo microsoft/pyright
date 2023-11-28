@@ -25621,7 +25621,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Try to find the best (narrowest) match among the constraints.
             for (const constraint of constraints) {
-                if (assignType(constraint, effectiveSrcType)) {
+                // Don't allow Never as a type argument.
+                if (assignType(constraint, effectiveSrcType) && !isNever(effectiveSrcType)) {
                     if (!bestConstraintSoFar || assignType(bestConstraintSoFar, constraint)) {
                         bestConstraintSoFar = constraint;
                     }
