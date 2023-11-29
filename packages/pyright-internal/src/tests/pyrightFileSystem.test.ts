@@ -20,6 +20,10 @@ test('virtual file exists', () => {
             content: 'def test(): ...',
         },
         {
+            path: combinePaths(libraryRoot, 'myLib-stubs', 'subdir', '__init__.pyi'),
+            content: 'def subdir(): ...',
+        },
+        {
             path: combinePaths(libraryRoot, 'myLib-stubs', 'py.typed'),
             content: 'partial\n',
         },
@@ -38,7 +42,58 @@ test('virtual file exists', () => {
 
     const myLib = combinePaths(libraryRoot, 'myLib');
     const entries = fs.readdirEntriesSync(myLib);
-    assert.strictEqual(2, entries.length);
+    assert.strictEqual(3, entries.length);
+
+    const subDirFile = combinePaths(libraryRoot, 'myLib', 'subdir', '__init__.pyi');
+    assert(fs.existsSync(subDirFile));
+    assert(fs.isMappedFilePath(subDirFile));
+
+    const fakeFile = entries.filter((e) => e.name.endsWith('.pyi'))[0];
+    assert(fakeFile.isFile());
+
+    assert(!fs.existsSync(combinePaths(libraryRoot, 'myLib-stubs')));
+});
+
+test('virtual file coexists with real', () => {
+    const files = [
+        {
+            path: combinePaths(libraryRoot, 'myLib-stubs', 'partialStub.pyi'),
+            content: 'def test(): ...',
+        },
+        {
+            path: combinePaths(libraryRoot, 'myLib-stubs', 'subdir', '__init__.pyi'),
+            content: 'def subdir(): ...',
+        },
+        {
+            path: combinePaths(libraryRoot, 'myLib-stubs', 'py.typed'),
+            content: 'partial\n',
+        },
+        {
+            path: combinePaths(libraryRoot, 'myLib', 'partialStub.py'),
+            content: 'def test(): pass',
+        },
+        {
+            path: combinePaths(libraryRoot, 'myLib', 'subdir', '__init__.py'),
+            content: 'def test(): pass',
+        },
+    ];
+
+    const fs = createFileSystem(files);
+    fs.processPartialStubPackages([libraryRoot], [libraryRoot]);
+
+    const stubFile = combinePaths(libraryRoot, 'myLib', 'partialStub.pyi');
+    assert(fs.existsSync(stubFile));
+    assert(fs.isMappedFilePath(stubFile));
+
+    const myLib = combinePaths(libraryRoot, 'myLib');
+    const entries = fs.readdirEntriesSync(myLib);
+    assert.strictEqual(3, entries.length);
+
+    const subDirFile = combinePaths(libraryRoot, 'myLib', 'subdir', '__init__.py');
+    assert(fs.existsSync(subDirFile));
+    assert(!fs.isMappedFilePath(subDirFile));
+    const subDirPyiFile = combinePaths(libraryRoot, 'myLib', 'subdir', '__init__.pyi');
+    assert(fs.existsSync(subDirPyiFile));
 
     const fakeFile = entries.filter((e) => e.name.endsWith('.pyi'))[0];
     assert(fakeFile.isFile());
