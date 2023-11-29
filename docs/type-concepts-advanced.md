@@ -455,7 +455,7 @@ class Child(Parent):
     y = None  # Error: Incompatible type
 ```
 
-The derived class can redeclare the type of a class or instance variable. If `reportIncompatibleVariableOverride` is enabled, the redeclared type must be the same as the type declared by the parent class or a subtype thereof.
+The derived class can redeclare the type of a class or instance variable. If `reportIncompatibleVariableOverride` is enabled, the redeclared type must be the same as the type declared by the parent class. If the variable is immutable (as in a frozen `dataclass`), it is considered covariant, and it can be redeclared as a subtype of the type declared by the parent class.
 
 ```python
 class Parent:
@@ -463,7 +463,7 @@ class Parent:
     y: int
 
 class Child(Parent):
-    x: int  # This is OK because 'int' is a subtype of 'int | str | None'
+    x: int  # Type error: 'x' cannot be redeclared with subtype because variable is mutable and therefore invariant
     y: str  # Type error: 'y' cannot be redeclared with an incompatible type
 ```
 

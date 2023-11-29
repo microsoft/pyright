@@ -1,13 +1,15 @@
 # This sample tests that methods are bound properly regardless of
 # whether they are decorated.
 
-from typing import Callable
+from typing import Callable, TypeVar
 
-Callback = Callable[["MyClass", int], str]
+S = TypeVar("S", bound="MyClass")
+
+Callback = Callable[[S, int], str]
 
 
-def decorator1(method: Callback) -> Callback:
-    def wrapper(self: "MyClass", a: int) -> str:
+def decorator1(method: Callback[S]) -> Callback[S]:
+    def wrapper(self: S, a: int) -> str:
         return "wrapped " + method(self, a)
 
     return wrapper
