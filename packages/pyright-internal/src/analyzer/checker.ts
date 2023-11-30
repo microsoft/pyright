@@ -703,6 +703,8 @@ export class Checker extends ParseTreeWalker {
                     }
                 }
             }
+
+            this._validateOverloadAttributeConsistency(node, functionTypeResult.decoratedType);
         }
 
         return false;
@@ -2537,6 +2539,45 @@ export class Checker extends ParseTreeWalker {
         });
     }
 
+    // Validates that overloads use @staticmethod and @classmethod consistently.
+    private _validateOverloadAttributeConsistency(node: FunctionNode, functionType: OverloadedFunctionType) {
+        let staticMethodCount = 0;
+        let classMethodCount = 0;
+
+        functionType.overloads.forEach((overload) => {
+            if (FunctionType.isStaticMethod(overload)) {
+                staticMethodCount++;
+            }
+
+            if (FunctionType.isClassMethod(overload)) {
+                classMethodCount++;
+            }
+        });
+
+        if (staticMethodCount > 0 && staticMethodCount < functionType.overloads.length) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.overloadStaticMethodInconsistent().format({
+                    name: node.name.value,
+                }),
+                functionType.overloads[0]?.details.declaration?.node.name ?? node.name
+            );
+        }
+
+        if (classMethodCount > 0 && classMethodCount < functionType.overloads.length) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.overloadClassMethodInconsistent().format({
+                    name: node.name.value,
+                }),
+                functionType.overloads[0]?.details.declaration?.node.name ?? node.name
+            );
+        }
+    }
+
+    // Validates that overloads do not overlap with inconsistent return results.
     private _validateOverloadConsistency(
         node: FunctionNode,
         functionType: FunctionType,
