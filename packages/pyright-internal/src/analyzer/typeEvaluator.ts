@@ -14615,7 +14615,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return ClassType.cloneForSpecialization(classType, convertedTypeArgs, /* isTypeArgumentExplicit */ true);
     }
 
-    function createSelfType(classType: ClassType, errorNode: ParseNode, typeArgs: TypeResultWithNode[] | undefined) {
+    function createSelfType(
+        classType: ClassType,
+        errorNode: ParseNode,
+        typeArgs: TypeResultWithNode[] | undefined,
+        flags: EvaluatorFlags
+    ) {
         const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
 
         // Self doesn't support any type arguments.
@@ -14633,12 +14638,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const enclosingClass = ParseTreeUtils.getEnclosingClass(errorNode);
         const enclosingClassTypeResult = enclosingClass ? getTypeOfClass(enclosingClass) : undefined;
         if (!enclosingClassTypeResult) {
-            addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.selfTypeContext(),
-                errorNode
-            );
+            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                addDiagnostic(
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.selfTypeContext(),
+                    errorNode
+                );
+            }
 
             return UnknownType.create();
         }
@@ -19385,7 +19392,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Self': {
-                    return { type: createSelfType(classType, errorNode, typeArgs) };
+                    return { type: createSelfType(classType, errorNode, typeArgs, flags) };
                 }
 
                 case 'LiteralString': {
