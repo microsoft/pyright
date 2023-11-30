@@ -4640,12 +4640,20 @@ export class Checker extends ParseTreeWalker {
         });
     }
 
-    // If a non-protocol class explicitly inherits from a protocol class, this method
-    // verifies that any class or instance variables declared but not assigned
-    // in the protocol class are implemented in the subclass. It also checks that any
-    // empty functions declared in the protocol are implemented in the subclass.
+    // If a non-protocol class explicitly inherits from a protocol class and does
+    // not explicit derive from ABC, this method verifies that any class or instance
+    // variables declared but not assigned in the protocol class are implemented in
+    // the subclass. It also checks that any empty functions declared in the protocol
+    // are implemented in the subclass.
     private _validateProtocolCompatibility(classType: ClassType, errorNode: ClassNode) {
         if (ClassType.isProtocolClass(classType)) {
+            return;
+        }
+
+        // If a class derives from ABC, exempt it from this check. This is used for
+        // mixins that derive from a protocol but do not directly implement all
+        // of the protocol's methods.
+        if (classType.details.mro.some((mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'ABC'))) {
             return;
         }
 

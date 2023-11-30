@@ -16006,10 +16006,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         // Determine if the class is abstract. Protocol classes support abstract methods
-                        // even though they don't derive from the ABCMeta class. We'll exclude built-in
-                        // protocol classes because these are known not to contain any abstract methods
-                        // and getAbstractMethods causes problems because of dependencies on some of these
-                        // built-in protocol classes.
+                        // because they are constructed by the _ProtocolMeta metaclass, which derives
+                        // from ABCMeta. We'll exclude built-in protocol classes because these are known
+                        // not to contain any abstract methods and getAbstractMethods causes problems
+                        // because of dependencies on some of these built-in protocol classes.
                         if (
                             ClassType.supportsAbstractMethods(argType) ||
                             (ClassType.isProtocolClass(argType) && !ClassType.isBuiltIn(argType))
