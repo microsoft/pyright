@@ -112,8 +112,22 @@ export function assignTypeToTypeVar(
     // Verify that we are solving for the scope associated with this
     // type variable.
     if (!typeVarContext.hasSolveForScope(destType.scopeId)) {
+        // Handle Any as a source.
         if (isAnyOrUnknown(srcType) || (isClass(srcType) && ClassType.derivesFromAnyOrUnknown(srcType))) {
             return true;
+        }
+
+        // Handle a type[Any] as a source.
+        if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'type')) {
+            if (
+                !srcType.typeArguments ||
+                srcType.typeArguments.length < 1 ||
+                isAnyOrUnknown(srcType.typeArguments[0])
+            ) {
+                if (TypeBase.isInstantiable(destType)) {
+                    return true;
+                }
+            }
         }
 
         // Is this the equivalent of an "Unknown" for a ParamSpec?
