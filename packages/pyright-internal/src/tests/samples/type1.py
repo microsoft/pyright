@@ -1,6 +1,6 @@
 # This sample tests the handling of type[T] and Type[T].
 
-from typing import Any, Type, TypeVar
+from typing import Any, Callable, Type, TypeVar
 
 
 def func1(t1: Type, t2: Type[Any], t3: type, t4: type[Any]):
@@ -110,3 +110,12 @@ def func6(t1: TA8[T]) -> T:
 
 reveal_type(func5(int), expected_text="int")
 reveal_type(func6(int), expected_text="int")
+
+
+def func7(v: type):
+    x1: Callable[..., Any] = v
+    x2: Callable[[int, int], int] = v
+    x3: object = v
+    x4: type = v
+    x5: type[int] = v
+    x6: type[Any] = v
