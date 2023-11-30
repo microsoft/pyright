@@ -62,6 +62,7 @@ import {
     convertToInstance,
     getTypeVarScopeId,
     isLiteralType,
+    isMetaclassInstance,
     populateTypeVarContextForSelfType,
     requiresSpecialization,
     specializeTupleClass,
@@ -931,7 +932,7 @@ function getDescriptorForConverterField(
 // __set__ method, this method transforms the type into the input parameter
 // for the set method.
 function transformDescriptorType(evaluator: TypeEvaluator, type: Type): Type {
-    if (!isClassInstance(type)) {
+    if (!isClassInstance(type) || isMetaclassInstance(type)) {
         return type;
     }
 
