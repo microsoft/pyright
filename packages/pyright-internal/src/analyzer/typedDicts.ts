@@ -43,7 +43,6 @@ import {
     isClass,
     isClassInstance,
     isInstantiableClass,
-    isTypeSame,
     maxTypeRecursionCount,
     NeverType,
     OverloadedFunctionType,
@@ -844,20 +843,18 @@ function getTypedDictMembersForClassRecursive(
                 // forbidden in PEP 589.
                 const existingEntry = keyMap.get(name);
                 if (existingEntry) {
-                    let isTypeCompatible: boolean;
                     const diag = new DiagnosticAddendum();
 
                     // If the field is read-only, the type is covariant. If it's not
                     // read-only, it's invariant.
-                    if (existingEntry.isReadOnly) {
-                        isTypeCompatible = evaluator.assignType(
-                            existingEntry.valueType,
-                            valueType,
-                            diag.createAddendum()
-                        );
-                    } else {
-                        isTypeCompatible = isTypeSame(existingEntry.valueType, valueType);
-                    }
+                    const isTypeCompatible = evaluator.assignType(
+                        existingEntry.valueType,
+                        valueType,
+                        diag.createAddendum(),
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        existingEntry.isReadOnly ? AssignTypeFlags.Default : AssignTypeFlags.EnforceInvariance
+                    );
 
                     if (!isTypeCompatible) {
                         diag.addMessage(
@@ -874,6 +871,28 @@ function getTypedDictMembersForClassRecursive(
                             }) + diag.getString(),
                             lastDecl.node
                         );
+                    } else {
+                        // Make sure the required/not-required attribute is compatible.
+                        let isRequiredCompatible = true;
+                        if (existingEntry.isReadOnly) {
+                            // If the read-only flag is set, a not-required field can be overridden
+                            // by a required field, but not vice versa.
+                            isRequiredCompatible = isRequired || !existingEntry.isRequired;
+                        } else {
+                            isRequiredCompatible = isRequired === existingEntry.isRequired;
+                        }
+
+                        if (!isRequiredCompatible) {
+                            const message = isRequired
+                                ? Localizer.Diagnostic.typedDictFieldRequiredRedefinition
+                                : Localizer.Diagnostic.typedDictFieldNotRequiredRedefinition;
+                            evaluator.addDiagnostic(
+                                AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                message().format({ name }),
+                                lastDecl.node
+                            );
+                        }
                     }
 
                     // Make sure that the derived class isn't marking a previously writable

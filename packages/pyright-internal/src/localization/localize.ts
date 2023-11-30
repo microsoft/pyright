@@ -934,8 +934,12 @@ export namespace Localizer {
         export const typedDictEntryName = () => getRawString('Diagnostic.typedDictEntryName');
         export const typedDictEntryUnique = () => getRawString('Diagnostic.typedDictEntryUnique');
         export const typedDictExtraArgs = () => getRawString('Diagnostic.typedDictExtraArgs');
+        export const typedDictFieldNotRequiredRedefinition = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldNotRequiredRedefinition'));
         export const typedDictFieldReadOnlyRedefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldReadOnlyRedefinition'));
+        export const typedDictFieldRequiredRedefinition = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldRequiredRedefinition'));
         export const typedDictFieldTypeRedefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldTypeRedefinition'));
         export const typedDictFirstArg = () => getRawString('Diagnostic.typedDictFirstArg');
