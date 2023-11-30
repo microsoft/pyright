@@ -72,7 +72,7 @@ def locator_to_legend_entries(
     locator: Locator, limits: Iterable[float], dtype: Incomplete
 ) -> tuple[list[Incomplete], list[str]]: ...
 @overload
-def relative_luminance(color: ColorType) -> float: ...  # type: ignore[misc]
+def relative_luminance(color: ColorType) -> float: ...  # type: ignore[overload-overlap]
 @overload
 def relative_luminance(color: Sequence[ColorType]) -> NDArray[np.float64]: ...
 @overload

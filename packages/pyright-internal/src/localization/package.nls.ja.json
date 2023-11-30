@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "型注釈に \"Optional\" を追加する",
         "createTypeStub": "型スタブの作成",
         "createTypeStubFor": "\"{moduleName}\" の型スタブを作成する",
         "executingCommand": "コマンドの実行中",
@@ -468,7 +467,6 @@
         "typeGuardArgCount": "\"TypeGuard\" の後に 1 つの型引数が必要です",
         "typeGuardParamCount": "ユーザー定義型ガード関数とメソッドには、少なくとも 1 つの入力パラメーターが必要です",
         "typeNotAwaitable": "\"{type}\" は待機できません",
-        "typeNotCallable": "\"{expression}\" は型 \"{type}\" を持ち、呼び出し可能ではありません",
         "typeNotIntantiable": "\"{type}\" をインスタンス化できません",
         "typeNotIterable": "\"{type}\" は反復できません",
         "typeNotSpecializable": "型 \"{type}\" を特殊化できませんでした",
@@ -710,7 +708,6 @@
         "typeBound": "型 \"{sourceType}\" は、型変数 \"{name}\" のバインドされた型 \"{destType}\" と互換性がありません",
         "typeConstrainedTypeVar": "型 \"{type}\" は制約付き型変数 \"{name}\" と互換性がありません",
         "typeIncompatible": "\"{sourceType}\" は \"{destType}\" と互換性がありません",
-        "typeNotCallable": "型 \"{type}\" は呼び出し可能ではありません",
         "typeNotClass": "\"{type}\" はクラスではありません",
         "typeNotStringLiteral": "\"{type}\" は文字列リテラルではありません",
         "typeOfSymbol": "\"{name}\" の型は \"{type}\" です",

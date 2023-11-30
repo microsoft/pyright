@@ -291,6 +291,7 @@ export namespace Localizer {
             );
         export const classPatternTypeAlias = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.classPatternTypeAlias'));
+        export const classPropertyDeprecated = () => getRawString('Diagnostic.classPropertyDeprecated');
         export const classTypeParametersIllegal = () => getRawString('Diagnostic.classTypeParametersIllegal');
         export const classVarNotAllowed = () => getRawString('Diagnostic.classVarNotAllowed');
         export const classVarFirstArgMissing = () => getRawString('Diagnostic.classVarFirstArgMissing');
@@ -597,6 +598,7 @@ export namespace Localizer {
         export const listInAnnotation = () => getRawString('Diagnostic.listInAnnotation');
         export const literalUnsupportedType = () => getRawString('Diagnostic.literalUnsupportedType');
         export const literalEmptyArgs = () => getRawString('Diagnostic.literalEmptyArgs');
+        export const literalNotAllowed = () => getRawString('Diagnostic.literalNotAllowed');
         export const literalNotCallable = () => getRawString('Diagnostic.literalNotCallable');
         export const matchIncompatible = () => getRawString('Diagnostic.matchIncompatible');
         export const matchIsNotExhaustive = () => getRawString('Diagnostic.matchIsNotExhaustive');
@@ -932,8 +934,12 @@ export namespace Localizer {
         export const typedDictEntryName = () => getRawString('Diagnostic.typedDictEntryName');
         export const typedDictEntryUnique = () => getRawString('Diagnostic.typedDictEntryUnique');
         export const typedDictExtraArgs = () => getRawString('Diagnostic.typedDictExtraArgs');
+        export const typedDictFieldNotRequiredRedefinition = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldNotRequiredRedefinition'));
         export const typedDictFieldReadOnlyRedefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldReadOnlyRedefinition'));
+        export const typedDictFieldRequiredRedefinition = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldRequiredRedefinition'));
         export const typedDictFieldTypeRedefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldTypeRedefinition'));
         export const typedDictFirstArg = () => getRawString('Diagnostic.typedDictFirstArg');
@@ -947,8 +953,6 @@ export namespace Localizer {
         export const typeGuardParamCount = () => getRawString('Diagnostic.typeGuardParamCount');
         export const typeNotAwaitable = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeNotAwaitable'));
-        export const typeNotCallable = () =>
-            new ParameterizedString<{ expression: string; type: string }>(getRawString('Diagnostic.typeNotCallable'));
         export const typeNotIntantiable = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeNotIntantiable'));
         export const typeNotIterable = () =>
@@ -1437,8 +1441,6 @@ export namespace Localizer {
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.typeIncompatible')
             );
-        export const typeNotCallable = () =>
-            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.typeNotCallable'));
         export const typeNotClass = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.typeNotClass'));
         export const typeParamSpec = () =>
@@ -1496,7 +1498,6 @@ export namespace Localizer {
     }
 
     export namespace CodeAction {
-        export const addOptionalToAnnotation = () => getRawString('CodeAction.addOptionalToAnnotation');
         export const createTypeStub = () => getRawString('CodeAction.createTypeStub');
         export const createTypeStubFor = () =>
             new ParameterizedString<{ moduleName: string }>(getRawString('CodeAction.createTypeStubFor'));

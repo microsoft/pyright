@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "Adicionar \"Opcional\" à Anotação de Tipo",
         "createTypeStub": "Criar Stub de Tipo",
         "createTypeStubFor": "Criar stub de tipo para \"{moduleName}\"",
         "executingCommand": "Executando comando",
@@ -468,7 +467,6 @@
         "typeGuardArgCount": "Argumento de tipo único esperado após \"TypeGuard\"",
         "typeGuardParamCount": "Funções e métodos de proteção de tipo definidos pelo usuário devem ter pelo menos um parâmetro de entrada",
         "typeNotAwaitable": "\"{type}\" não é previsível",
-        "typeNotCallable": "\"{expression}\" tem o tipo \"{type}\" e não pode ser chamado",
         "typeNotIntantiable": "\"{type}\" não pode ser instanciado",
         "typeNotIterable": "\"{type}\" não é iterável",
         "typeNotSpecializable": "Não foi possível especializar o tipo \"{type}\"",
@@ -710,7 +708,6 @@
         "typeBound": "O tipo \"{sourceType}\" é incompatível com o tipo associado \"{destType}\" para a variável de tipo \"{name}\"",
         "typeConstrainedTypeVar": "O tipo \"{type}\" é incompatível com a variável de tipo restrita \"{name}\"",
         "typeIncompatible": "\"{sourceType}\" é incompatível com \"{destType}\"",
-        "typeNotCallable": "O tipo \"{type}\" não pode ser chamado",
         "typeNotClass": "\"{type}\" não é uma classe.",
         "typeNotStringLiteral": "\"{type}\" não é um literal de cadeia de caracteres",
         "typeOfSymbol": "O tipo de \"{name}\" é \"{type}\"",

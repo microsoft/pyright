@@ -1,6 +1,6 @@
 import datetime
 from _typeshed import Incomplete, StrPath, Unused
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Generator, Iterable, Sequence
 from contextlib import _GeneratorContextManager
 from io import BytesIO
 from pathlib import PurePath
@@ -83,12 +83,6 @@ class ToCPlaceholder(NamedTuple):
     y: int
     pages: int = ...
 
-class SubsetMap:
-    def __init__(self, identities: Iterable[int]) -> None: ...
-    def __len__(self) -> int: ...
-    def pick(self, unicode: int) -> int: ...
-    def dict(self) -> dict[int, int]: ...
-
 def get_page_format(format: _Format | tuple[float, float], k: float | None = None) -> tuple[float, float]: ...
 
 # TODO: TypedDicts
@@ -101,6 +95,7 @@ class FPDF(GraphicsStateMixin):
     MARKDOWN_UNDERLINE_MARKER: ClassVar[str]
     MARKDOWN_LINK_REGEX: ClassVar[Pattern[str]]
     MARKDOWN_LINK_COLOR: ClassVar[Incomplete | None]
+    MARKDOWN_LINK_UNDERLINE: ClassVar[bool]
 
     HTML2FPDF_CLASS: ClassVar[type[HTML2FPDF]]
 
@@ -200,6 +195,14 @@ class FPDF(GraphicsStateMixin):
         zoom: Literal["fullpage", "fullwidth", "real", "default"] | float,
         layout: Literal["single", "continuous", "two", "default"] = "continuous",
     ) -> None: ...
+    def set_text_shaping(
+        self,
+        use_shaping_engine: bool = True,
+        features: dict[str, bool] | None = None,
+        direction: Literal["ltr", "rtl"] | None = None,
+        script: str | None = None,
+        language: str | None = None,
+    ): ...
     def set_compression(self, compress: bool) -> None: ...
     title: str
     def set_title(self, title: str) -> None: ...
@@ -397,12 +400,13 @@ class FPDF(GraphicsStateMixin):
         color: Sequence[float] = (1, 1, 0),
         border_width: int = 1,
     ) -> AnnotationDict: ...
-    def text(self, x: float, y: float, txt: str = "") -> None: ...
+    def text(self, x: float, y: float, text: str = "") -> None: ...
     def rotate(self, angle: float, x: float | None = None, y: float | None = None) -> None: ...
     def rotation(self, angle: float, x: float | None = None, y: float | None = None) -> _GeneratorContextManager[None]: ...
     def skew(
         self, ax: float = 0, ay: float = 0, x: float | None = None, y: float | None = None
     ) -> _GeneratorContextManager[None]: ...
+    def mirror(self, origin, angle) -> Generator[None, None, None]: ...
     def local_context(
         self,
         font_family: Incomplete | None = None,
@@ -421,13 +425,13 @@ class FPDF(GraphicsStateMixin):
         self,
         w: float | None = None,
         h: float | None = None,
-        txt: str = "",
+        text: str = "",
         border: bool | Literal[0, 1] | str = 0,
         ln: int | Literal["DEPRECATED"] = "DEPRECATED",
         align: str | Align = ...,
         fill: bool = False,
         link: str = "",
-        center: bool | Literal["DEPRECATED"] = "DEPRECATED",
+        center: bool = False,
         markdown: bool = False,
         new_x: XPos | str = ...,
         new_y: YPos | str = ...,
@@ -438,12 +442,12 @@ class FPDF(GraphicsStateMixin):
         self,
         w: float,
         h: float | None = None,
-        txt: str = "",
+        text: str = "",
         border: bool | Literal[0, 1] | str = 0,
         align: str | Align = ...,
         fill: bool = False,
         split_only: bool = False,
-        link: str | int = "",
+        link: str = "",
         ln: int | Literal["DEPRECATED"] = "DEPRECATED",
         max_line_height: float | None = None,
         markdown: bool = False,
@@ -453,10 +457,26 @@ class FPDF(GraphicsStateMixin):
         wrapmode: WrapMode = ...,
         dry_run: bool = False,
         output: MethodReturnValue | str | int = ...,
+        center: bool = False,
+        padding: int = 0,
     ): ...
     def write(
-        self, h: float | None = None, txt: str = "", link: str = "", print_sh: bool = False, wrapmode: WrapMode = ...
+        self, h: float | None = None, text: str = "", link: str = "", print_sh: bool = False, wrapmode: WrapMode = ...
     ) -> bool: ...
+    def text_columns(
+        self,
+        text: str | None = None,
+        ncols: int = 1,
+        gutter: float = 10,
+        balance: bool = False,
+        text_align: Align | str = "LEFT",
+        line_height: float = 1,
+        l_margin: float | None = None,
+        r_margin: float | None = None,
+        print_sh: bool = False,
+        wrapmode: WrapMode = ...,
+        skip_leading_spaces: bool = False,
+    ): ...
     def image(
         self,
         name: str | Image.Image | BytesIO | StrPath,
@@ -480,7 +500,7 @@ class FPDF(GraphicsStateMixin):
     def get_y(self) -> float: ...
     def set_y(self, y: float) -> None: ...
     def set_xy(self, x: float, y: float) -> None: ...
-    def normalize_text(self, txt: str) -> str: ...
+    def normalize_text(self, text: str) -> str: ...
     def sign_pkcs12(
         self,
         pkcs_filepath: str,
@@ -505,8 +525,8 @@ class FPDF(GraphicsStateMixin):
         flags: tuple[AnnotationFlag, ...] = ...,
     ) -> None: ...
     def file_id(self) -> str: ...
-    def interleaved2of5(self, txt, x: float, y: float, w: float = 1, h: float = 10) -> None: ...
-    def code39(self, txt, x: float, y: float, w: float = 1.5, h: float = 5) -> None: ...
+    def interleaved2of5(self, text, x: float, y: float, w: float = 1, h: float = 10) -> None: ...
+    def code39(self, text, x: float, y: float, w: float = 1.5, h: float = 5) -> None: ...
     def rect_clip(self, x: float, y: float, w: float, h: float) -> _GeneratorContextManager[None]: ...
     def elliptic_clip(self, x: float, y: float, w: float, h: float) -> _GeneratorContextManager[None]: ...
     def round_clip(self, x: float, y: float, r: float) -> _GeneratorContextManager[None]: ...
@@ -542,7 +562,7 @@ class FPDF(GraphicsStateMixin):
         width: int | None = None,
     ) -> _GeneratorContextManager[Table]: ...
     @overload
-    def output(  # type: ignore[misc]
+    def output(  # type: ignore[overload-overlap]
         self,
         name: Literal[""] | None = "",
         dest: Unused = "",

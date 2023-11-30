@@ -579,3 +579,14 @@ test('Deprecated4', () => {
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated4.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 6);
 });
+
+test('Deprecated5', () => {
+    const configOptions = new ConfigOptions('.');
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['deprecated5.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0, 0, 0, undefined, undefined, 2);
+
+    configOptions.diagnosticRuleSet.reportDeprecated = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['deprecated5.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 2);
+});

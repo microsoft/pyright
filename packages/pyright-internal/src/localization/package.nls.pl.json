@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "Dodaj wartość „Optional” do adnotacji typu",
         "createTypeStub": "Utwórz typ zastępczy",
         "createTypeStubFor": "Utwórz typ zastępczy dla „{moduleName}”",
         "executingCommand": "Wykonywanie polecenia",
@@ -468,7 +467,6 @@
         "typeGuardArgCount": "Oczekiwano pojedynczego argumentu typu po „TypeGuard”",
         "typeGuardParamCount": "Funkcje i metody zabezpieczające typu zdefiniowane przez użytkownika muszą mieć co najmniej jeden parametr wejściowy",
         "typeNotAwaitable": "Nie można oczekiwać typu „{type}”",
-        "typeNotCallable": "Wyrażenie „{expression}” ma typ „{type}” i nie można go wywołać",
         "typeNotIntantiable": "Nie można utworzyć wystąpienia „{type}”",
         "typeNotIterable": "Typ „{type}” nie jest iterowalny",
         "typeNotSpecializable": "Nie można specjalizować typu „{type}”",
@@ -710,7 +708,6 @@
         "typeBound": "Typ „{sourceType}” jest niezgodny z typem powiązanym „{destType}” dla zmiennej typu „{name}”",
         "typeConstrainedTypeVar": "Typ „{type}” jest niezgodny ze zmienną typu ograniczonego „{name}”",
         "typeIncompatible": "Typ „{sourceType}” jest niezgodny z „{destType}”",
-        "typeNotCallable": "Typ „{type}” nie jest wywoływalny",
         "typeNotClass": "Typ „{type}” nie jest klasą",
         "typeNotStringLiteral": "„{type}” nie jest literałem ciągu",
         "typeOfSymbol": "Typ nazwy „{name}” jest to „{type}”",

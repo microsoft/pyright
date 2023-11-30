@@ -10,14 +10,9 @@ import { CancellationToken, CodeAction, CodeActionKind, Command } from 'vscode-l
 
 import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import {
-    ActionKind,
-    AddMissingOptionalToParamAction,
-    CreateTypeStubFileAction,
-    RenameShadowedFileAction,
-} from '../common/diagnostic';
+import { ActionKind, CreateTypeStubFileAction, RenameShadowedFileAction } from '../common/diagnostic';
 import { FileEditActions } from '../common/editAction';
-import { convertPathToUri, getShortenedFileName } from '../common/pathUtils';
+import { getShortenedFileName } from '../common/pathUtils';
 import { Range } from '../common/textRange';
 import { convertToWorkspaceEdit } from '../common/workspaceEditUtils';
 import { Localizer } from '../localization/localize';
@@ -75,30 +70,6 @@ export class CodeActionProvider {
                 }
             }
 
-            const addOptionalDiag = diags.find((d) => {
-                const actions = d.getActions();
-                return actions && actions.find((a) => a.action === Commands.addMissingOptionalToParam);
-            });
-
-            if (addOptionalDiag) {
-                const action = addOptionalDiag
-                    .getActions()!
-                    .find((a) => a.action === Commands.addMissingOptionalToParam) as AddMissingOptionalToParamAction;
-                if (action) {
-                    const fs = workspace.service.getImportResolver().fileSystem;
-                    const addMissingOptionalAction = CodeAction.create(
-                        Localizer.CodeAction.addOptionalToAnnotation(),
-                        Command.create(
-                            Localizer.CodeAction.addOptionalToAnnotation(),
-                            Commands.addMissingOptionalToParam,
-                            convertPathToUri(fs, filePath),
-                            action.offsetOfTypeNode
-                        ),
-                        CodeActionKind.QuickFix
-                    );
-                    codeActions.push(addMissingOptionalAction);
-                }
-            }
             const renameShadowed = diags.find((d) => {
                 const actions = d.getActions();
                 return actions && actions.find((a) => a.action === ActionKind.RenameShadowedFileAction);

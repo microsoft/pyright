@@ -34,8 +34,7 @@ export class CommandController implements ServerCommand {
 
     async execute(cmdParams: ExecuteCommandParams, token: CancellationToken): Promise<any> {
         switch (cmdParams.command) {
-            case Commands.orderImports:
-            case Commands.addMissingOptionalToParam: {
+            case Commands.orderImports: {
                 return this._quickAction.execute(cmdParams, token);
             }
 

@@ -25,5 +25,5 @@ is_type2(1, 1)
 
 
 def func1(v1: Type[Any], v2: type[Any]):
-    reveal_type(v1, expected_text="type")
-    reveal_type(v2, expected_text="type")
+    reveal_type(v1, expected_text="Type[Any]")
+    reveal_type(v2, expected_text="type[Any]")

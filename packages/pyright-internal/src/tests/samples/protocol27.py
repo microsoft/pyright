@@ -2,6 +2,7 @@
 # explicitly derives from a protocol class implements the variables
 # and functions defined in the protocol.
 
+from abc import ABC, abstractmethod
 from typing import ClassVar, Protocol
 
 
@@ -73,4 +74,25 @@ class Mixin:
 
 
 class Concrete6(Mixin, Protocol6):
+    pass
+
+
+class Protocol7(Protocol):
+    @abstractmethod
+    def method1(self):
+        ...
+
+
+class Mixin7(Protocol7, ABC):
+    def method1(self):
+        print("foo")
+
+
+# This should generate an error because it
+# does not implement method1.
+class Concrete7A(Protocol7):
+    pass
+
+
+class Concrete7B(Mixin7, Protocol7):
     pass

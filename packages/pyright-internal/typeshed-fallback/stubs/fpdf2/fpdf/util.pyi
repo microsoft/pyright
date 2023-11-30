@@ -1,10 +1,18 @@
 from collections.abc import Iterable
-from typing import Any, AnyStr
+from typing import Any, AnyStr, NamedTuple
 from typing_extensions import Final, Literal, TypeAlias
 
 _Unit: TypeAlias = Literal["pt", "mm", "cm", "in"]
 
 PIL_MEM_BLOCK_SIZE_IN_MIB: Final = 16
+
+class Padding(NamedTuple):
+    top: float = 0
+    right: float = 0
+    bottom: float = 0
+    left: float = 0
+    @classmethod
+    def new(cls, padding: float | tuple[float, ...] | list[float]): ...
 
 def buffer_subst(buffer: bytearray, placeholder: str, value: str) -> bytearray: ...
 def escape_parens(s: AnyStr) -> AnyStr: ...

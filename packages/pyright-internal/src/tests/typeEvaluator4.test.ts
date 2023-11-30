@@ -341,7 +341,7 @@ test('Overload14', () => {
 
 test('Overload15', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload15.py']);
-    TestUtils.validateResults(analysisResults, 8, 1);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('Overload16', () => {
@@ -1302,4 +1302,10 @@ test('Any1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['any1.py']);
 
     TestUtils.validateResults(analysisResults, 4);
+});
+
+test('Type1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['type1.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
 });

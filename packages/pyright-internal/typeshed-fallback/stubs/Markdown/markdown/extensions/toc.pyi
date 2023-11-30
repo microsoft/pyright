@@ -27,19 +27,22 @@ def unescape(text: str) -> str: ...
 def nest_toc_tokens(toc_list: list[_FlatTocToken]) -> list[_TocToken]: ...
 
 class TocTreeprocessor(Treeprocessor):
-    marker: Any
-    title: Any
-    base_level: Any
+    marker: str
+    title: str
+    base_level: int
     slugify: Any
     sep: Any
-    use_anchors: Any
-    anchorlink_class: Any
-    use_permalinks: Any
-    permalink_class: Any
-    permalink_title: Any
-    header_rgx: Any
+    toc_class: Any
+    title_class: str
+    use_anchors: bool
+    anchorlink_class: str
+    use_permalinks: bool
+    permalink_class: str
+    permalink_title: str
+    permalink_leading: bool
+    header_rgx: Pattern[str]
     toc_top: int
-    toc_bottom: Any
+    toc_bottom: int
     def __init__(self, md: Markdown, config: dict[str, Any]) -> None: ...
     def iterparent(self, node: Element) -> Iterator[tuple[Element, Element]]: ...
     def replace_marker(self, root: Element, elem: Element) -> None: ...
@@ -47,6 +50,7 @@ class TocTreeprocessor(Treeprocessor):
     def add_anchor(self, c: Element, elem_id: str) -> None: ...
     def add_permalink(self, c: Element, elem_id: str) -> None: ...
     def build_toc_div(self, toc_list: list[_TocToken]) -> Element: ...
+    def run(self, doc: Element) -> None: ...
 
 class TocExtension(Extension):
     TreeProcessorClass: type[TocTreeprocessor]

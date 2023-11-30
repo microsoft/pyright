@@ -12,19 +12,8 @@ from typing import (
 T = TypeVar("T")
 
 
-class ModelField:
-    def __init__(
-        self,
-        *,
-        default: Any | None = ...,
-        init: bool | None = True,
-        **kwargs: Any,
-    ) -> None:
-        ...
-
-
 @overload
-def field(
+def field1(
     *,
     default: str | None = None,
     resolver: Callable[[], Any],
@@ -34,7 +23,7 @@ def field(
 
 
 @overload
-def field(
+def field1(
     *,
     default: str | None = None,
     resolver: None = None,
@@ -43,12 +32,16 @@ def field(
     ...
 
 
-def field(
+def field1(
     *,
     default: str | None = None,
     resolver: Callable[[], Any] | None = None,
     init: bool = True,
 ) -> Any:
+    ...
+
+
+def field2(*, init=False, kw_only=True) -> Any:
     ...
 
 
@@ -64,20 +57,33 @@ def __dataclass_transform__(
     return lambda a: a
 
 
-@__dataclass_transform__(kw_only_default=True, field_specifiers=(field,))
+@__dataclass_transform__(kw_only_default=True, field_specifiers=(field1, field2))
 def create_model(*, init: bool = True) -> Callable[[type[T]], type[T]]:
     ...
 
 
 @create_model()
-class CustomerModel:
-    id: int = field(resolver=lambda: 0)
-    name: str = field(default="Voldemort")
+class CustomerModel1:
+    id: int = field1(resolver=lambda: 0)
+    name: str = field1(default="Voldemort")
 
 
-CustomerModel()
-CustomerModel(name="hi")
+CustomerModel1()
+CustomerModel1(name="hi")
 
 # This should generate an error because "id" is not
 # supposed to be part of the init function.
-CustomerModel(id=1, name="hi")
+CustomerModel1(id=1, name="hi")
+
+
+@create_model()
+class CustomerModel2:
+    id: int = field2()
+    name: str = field2(init=True)
+
+
+# This should generate an error because kw_only is True
+# by default for field2.
+CustomerModel2(1)
+
+CustomerModel2(name="Fred")

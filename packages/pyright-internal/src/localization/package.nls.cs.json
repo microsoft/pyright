@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "Přidat k typu nepovinnou poznámku",
         "createTypeStub": "Vytvořit zástupná procedura typu",
         "createTypeStubFor": "Vytvořit zástupnou proceduru typu pro modul {moduleName}",
         "executingCommand": "Spouští se příkaz",
@@ -468,7 +467,6 @@
         "typeGuardArgCount": "Za TypeGuard byl očekáván jeden argument typu",
         "typeGuardParamCount": "Funkce a metody ochrany typů definované uživatelem musí mít alespoň jeden vstupní parametr",
         "typeNotAwaitable": "„{type}“ se nedá očekávat.",
-        "typeNotCallable": "Výraz „{expression}“ má typ „{type}“ a nedá se volat",
         "typeNotIntantiable": "Není možné vytvořit instanci {type}",
         "typeNotIterable": "{type} není možné iterovat",
         "typeNotSpecializable": "Nepovedlo se specializovat typ „{type}“",
@@ -710,7 +708,6 @@
         "typeBound": "Typ {sourceType} je nekompatibilní s vázaným typem {destType} pro proměnnou typu {name}",
         "typeConstrainedTypeVar": "Typ {type} není kompatibilní s proměnnou omezeného typu {name}",
         "typeIncompatible": "{sourceType} není kompatibilní s typem {destType}",
-        "typeNotCallable": "Typ {type} nejde volat",
         "typeNotClass": "{type} není třída",
         "typeNotStringLiteral": "„{type}“ není řetězcový literál",
         "typeOfSymbol": "Typ „{name}“ je „{type}“",

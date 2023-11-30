@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "Добавьте ключевое слово \"Optional\" в заметку типа",
         "createTypeStub": "Создать заглушку типа",
         "createTypeStubFor": "Создать заглушку типа для \"{moduleName}\"",
         "executingCommand": "Производится выполнение команды",
@@ -468,7 +467,6 @@
         "typeGuardArgCount": "После \"TypeGuard\" ожидается один аргумент типа",
         "typeGuardParamCount": "Определяемые пользователем функции и методы защиты типов должны иметь по крайней мере один входной параметр",
         "typeNotAwaitable": "\"{type}\" не является ожидаемым",
-        "typeNotCallable": "\"{expression}\" содержит тип \"{type}\" и не является вызываемым",
         "typeNotIntantiable": "Не удается создать экземпляр \"{type}\"",
         "typeNotIterable": "\"{type}\" не является итерируемым",
         "typeNotSpecializable": "Не удалось специализировать тип \"{type}\"",
@@ -710,7 +708,6 @@
         "typeBound": "Тип \"{sourceType}\" несовместим с привязанным типом \"{destType}\" для переменной типа \"{name}\"",
         "typeConstrainedTypeVar": "Тип \"{type}\" несовместим с переменной ограниченного типа \"{name}\"",
         "typeIncompatible": "\"{sourceType}\" несовместим с \"{destType}\"",
-        "typeNotCallable": "Тип \"{type}\" не является вызываемым",
         "typeNotClass": "\"{type}\" не является классом.",
         "typeNotStringLiteral": "\"{type}\" не является строковым литералом",
         "typeOfSymbol": "Тип \"{name}\" является \"{type}\"",

@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "형식 주석에 \"선택 사항\"을 추가합니다.",
         "createTypeStub": "형식 스텁 만들기",
         "createTypeStubFor": "\"{moduleName}\"에 대한 형식 스텁 만들기",
         "executingCommand": "명령 실행",
@@ -468,7 +467,6 @@
         "typeGuardArgCount": "\"TypeGuard\" 뒤에 단일 형식 인수가 필요합니다.",
         "typeGuardParamCount": "사용자 정의 type guard 함수 및 메서드에는 하나 이상의 입력 매개 변수가 있어야 합니다.",
         "typeNotAwaitable": "‘{type}’은(는) 대기할 수 없습니다.",
-        "typeNotCallable": "‘{expression}’은(는) ‘{type}’ 형식이며 호출할 수 없습니다.",
         "typeNotIntantiable": "\"{type}\"을(를) 인스턴스화할 수 없습니다.",
         "typeNotIterable": "\"{type}\" 반복할 수 없습니다.",
         "typeNotSpecializable": "‘{type}’ 형식을 특수화할 수 없습니다.",
@@ -710,7 +708,6 @@
         "typeBound": "형식 변수 \"{name}\"에 대해 형식 \"{sourceType}\"이(가) 바인딩된 형식 \"{destType}\"과(와) 호환되지 않습니다.",
         "typeConstrainedTypeVar": "\"{type}\" 형식이 제한된 형식 변수 \"{name}\"과(와) 호환되지 않습니다.",
         "typeIncompatible": "\"{sourceType}\"이(가) \"{destType}\"과(와) 호환되지 않습니다.",
-        "typeNotCallable": "‘{type}’ 형식을 호출할 수 없습니다.",
         "typeNotClass": "\"{type}\"이 클래스가 아닙니다.",
         "typeNotStringLiteral": "‘{type}’은(는) 문자열 리터럴이 아닙니다.",
         "typeOfSymbol": "‘{name}’의 유형이 ‘{type}’입니다.",

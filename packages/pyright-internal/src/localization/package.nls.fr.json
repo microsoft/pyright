@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "Ajouter « Facultatif » à l’annotation de type",
         "createTypeStub": "Créer un stub de type",
         "createTypeStubFor": "Créer un stub de type pour « {moduleName} »",
         "executingCommand": "Exécution de la commande",
@@ -468,7 +467,6 @@
         "typeGuardArgCount": "Argument de type unique attendu après « TypeGuard »",
         "typeGuardParamCount": "Les méthodes et fonctions de protection de type définies par l’utilisateur doivent avoir au moins un paramètre d’entrée",
         "typeNotAwaitable": "\"{type}\" n'est pas attendu",
-        "typeNotCallable": "\"{expression}\" a le type \"{type}\" et n'est pas appelable",
         "typeNotIntantiable": "« {type} » ne peut pas être instancié",
         "typeNotIterable": "« {type} » n’est pas itérable",
         "typeNotSpecializable": "Impossible de spécialiser le type \"{type}\"",
@@ -710,7 +708,6 @@
         "typeBound": "Le type « {sourceType} » n’est pas compatible avec le type lié « {destType} » pour la variable de type « {name} »",
         "typeConstrainedTypeVar": "Le «{type}» de type n’est pas compatible avec les «{name}» de variable de type contrainte",
         "typeIncompatible": "« {sourceType} » n’est pas compatible avec « {destType} »",
-        "typeNotCallable": "Le type \"{type}\" n'est pas appelable",
         "typeNotClass": "« {type} » n’est pas une classe",
         "typeNotStringLiteral": "\"{type}\" n'est pas un littéral de chaîne",
         "typeOfSymbol": "Le type de \"{nom}\" est \"{type}\"",

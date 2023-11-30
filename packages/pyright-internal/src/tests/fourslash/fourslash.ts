@@ -396,7 +396,6 @@ declare namespace Consts {
         createTypeStub = 'pyright.createtypestub',
         restartServer = 'pyright.restartserver',
         orderImports = 'pyright.organizeimports',
-        addMissingOptionalToParam = 'pyright.addoptionalforparam',
     }
 
     namespace DocumentHighlightKind {

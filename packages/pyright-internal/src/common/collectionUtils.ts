@@ -291,8 +291,8 @@ export function binarySearchKey<T, U>(
  *
  * @param array The array to flatten.
  */
-export function flatten<T>(array: T[][] | readonly (T | readonly T[] | undefined)[]): T[] {
-    const result = [];
+export function flatten<T>(array: (NonNullable<T>[] | NonNullable<T>)[]): T[] {
+    const result: T[] = [];
     for (const v of array) {
         if (v) {
             if (isArray(v)) {

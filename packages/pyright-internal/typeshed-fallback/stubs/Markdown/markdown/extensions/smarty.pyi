@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 from xml.etree.ElementTree import Element
 
@@ -11,18 +11,18 @@ punctClass: str
 endOfWordClass: str
 closeClass: str
 openingQuotesBase: str
-substitutions: Any
-singleQuoteStartRe: Any
-doubleQuoteStartRe: Any
+substitutions: Mapping[str, str]
+singleQuoteStartRe: str
+doubleQuoteStartRe: str
 doubleQuoteSetsRe: str
 singleQuoteSetsRe: str
 decadeAbbrRe: str
-openingDoubleQuotesRegex: Any
+openingDoubleQuotesRegex: str
 closingDoubleQuotesRegex: str
-closingDoubleQuotesRegex2: Any
-openingSingleQuotesRegex: Any
-closingSingleQuotesRegex: Any
-closingSingleQuotesRegex2: Any
+closingDoubleQuotesRegex2: str
+openingSingleQuotesRegex: str
+closingSingleQuotesRegex: str
+closingSingleQuotesRegex2: str
 remainingSingleQuotesRegex: str
 remainingDoubleQuotesRegex: str
 HTML_STRICT_RE: str
@@ -38,6 +38,6 @@ class SmartyExtension(Extension):
     def educateEllipses(self, md: Markdown) -> None: ...
     def educateAngledQuotes(self, md: Markdown) -> None: ...
     def educateQuotes(self, md: Markdown) -> None: ...
-    inlinePatterns: util.Registry[inlinepatterns.InlineProcessor]
+    inlinePatterns: util.Registry[inlinepatterns.Pattern]
 
 def makeExtension(**kwargs) -> SmartyExtension: ...

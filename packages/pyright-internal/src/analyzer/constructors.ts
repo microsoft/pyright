@@ -51,6 +51,7 @@ import {
     isAnyOrUnknown,
     isClassInstance,
     isFunction,
+    isInstantiableClass,
     isNever,
     isOverloadedFunction,
     isTypeVar,
@@ -804,7 +805,7 @@ export function createFunctionFromConstructor(
             let constructorFunction = evaluator.bindFunctionToClassOrObject(
                 objectType,
                 initSubtype,
-                /* memberClass */ undefined,
+                initInfo && isInstantiableClass(initInfo.classType) ? initInfo.classType : undefined,
                 /* treatConstructorAsClassMember */ undefined,
                 selfType,
                 /* diag */ undefined,
@@ -873,7 +874,7 @@ export function createFunctionFromConstructor(
             let constructorFunction = evaluator.bindFunctionToClassOrObject(
                 classType,
                 newSubtype,
-                /* memberClass */ undefined,
+                newInfo && isInstantiableClass(newInfo.classType) ? newInfo.classType : undefined,
                 /* treatConstructorAsClassMember */ true,
                 selfType,
                 /* diag */ undefined,

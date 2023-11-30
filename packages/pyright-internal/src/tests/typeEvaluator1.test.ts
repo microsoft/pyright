@@ -741,6 +741,12 @@ test('Lambda13', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Lambda14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda14.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Call1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call1.py']);
 
@@ -1113,7 +1119,7 @@ test('Property10', () => {
 test('Property11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property11.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Property12', () => {
