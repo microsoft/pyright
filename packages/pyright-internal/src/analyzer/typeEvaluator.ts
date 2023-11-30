@@ -1349,7 +1349,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeOfAwaitOperator(node: AwaitNode, flags: EvaluatorFlags, inferenceContext?: InferenceContext) {
         const effectiveExpectedType = inferenceContext
-            ? createAwaitableReturnType(node, inferenceContext.expectedType, /* isGenerator */ false)
+            ? createAwaitableReturnType(
+                  node,
+                  inferenceContext.expectedType,
+                  /* isGenerator */ false,
+                  /* useCoroutine */ false
+              )
             : undefined;
 
         const exprTypeResult = getTypeOfExpression(node.expression, flags, makeInferenceContext(effectiveExpectedType));
@@ -17784,7 +17789,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return awaitableFunctionType;
     }
 
-    function createAwaitableReturnType(node: ParseNode, returnType: Type, isGenerator: boolean): Type {
+    function createAwaitableReturnType(
+        node: ParseNode,
+        returnType: Type,
+        isGenerator: boolean,
+        useCoroutine = true
+    ): Type {
         let awaitableReturnType: Type | undefined;
 
         if (isClassInstance(returnType)) {
@@ -17822,13 +17832,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!awaitableReturnType || !isGenerator) {
-            // Wrap in a Coroutine, which is a subclass of Awaitable.
-            const coroutineType = getTypingType(node, 'Coroutine');
-            if (coroutineType && isInstantiableClass(coroutineType)) {
+            // Wrap in either an Awaitable or a Coroutine, which is a subclass of Awaitable.
+            const awaitableType = getTypingType(node, useCoroutine ? 'Coroutine' : 'Awaitable');
+            if (awaitableType && isInstantiableClass(awaitableType)) {
                 awaitableReturnType = ClassType.cloneAsInstance(
                     ClassType.cloneForSpecialization(
-                        coroutineType,
-                        [AnyType.create(), AnyType.create(), returnType],
+                        awaitableType,
+                        useCoroutine ? [AnyType.create(), AnyType.create(), returnType] : [returnType],
                         /* isTypeArgumentExplicit */ true
                     )
                 );
