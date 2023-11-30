@@ -16,13 +16,12 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
-import { Commands } from '../commands/commands';
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { assert, assertNever, fail } from '../common/debug';
-import { AddMissingOptionalToParamAction, DiagnosticAddendum } from '../common/diagnostic';
+import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetToPosition, convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
@@ -17217,7 +17216,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         node.parameters.forEach((param, index) => {
             let paramType: Type | undefined;
             let annotatedType: Type | undefined;
-            let isNoneWithoutOptional = false;
             let paramTypeNode: ExpressionNode | undefined;
 
             if (param.name) {
@@ -17272,7 +17270,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const adjustedAnnotatedType = adjustParameterAnnotatedType(param, annotatedType);
                 if (adjustedAnnotatedType !== annotatedType) {
                     annotatedType = adjustedAnnotatedType;
-                    isNoneWithoutOptional = true;
                 }
             }
 
@@ -17309,7 +17306,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     if (!assignType(annotatedType, defaultValueType, diagAddendum, typeVarContext)) {
-                        const diag = addDiagnostic(
+                        addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.paramAssignmentMismatch().format({
@@ -17318,14 +17315,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }) + diagAddendum.getString(),
                             param.defaultValue
                         );
-
-                        if (isNoneWithoutOptional && paramTypeNode) {
-                            const addOptionalAction: AddMissingOptionalToParamAction = {
-                                action: Commands.addMissingOptionalToParam,
-                                offsetOfTypeNode: paramTypeNode.start + 1,
-                            };
-                            diag?.addAction(addOptionalAction);
-                        }
                     }
                 }
 

@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "新增 \"Optional\" 至類型註釋",
         "createTypeStub": "建立類型虛設常式",
         "createTypeStubFor": "建立 \"{moduleName}\" 的類型虛設常式",
         "executingCommand": "執行命令",

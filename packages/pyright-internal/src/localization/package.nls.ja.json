@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "型注釈に \"Optional\" を追加する",
         "createTypeStub": "型スタブの作成",
         "createTypeStubFor": "\"{moduleName}\" の型スタブを作成する",
         "executingCommand": "コマンドの実行中",

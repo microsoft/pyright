@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "Přidat k typu nepovinnou poznámku",
         "createTypeStub": "Vytvořit zástupná procedura typu",
         "createTypeStubFor": "Vytvořit zástupnou proceduru typu pro modul {moduleName}",
         "executingCommand": "Spouští se příkaz",

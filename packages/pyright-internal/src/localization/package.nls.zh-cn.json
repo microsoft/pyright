@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "将 \"Optional\" 添加到类型批注",
         "createTypeStub": "创建类型存根",
         "createTypeStubFor": "为“{moduleName}”创建类型存根",
         "executingCommand": "正在执行命令",

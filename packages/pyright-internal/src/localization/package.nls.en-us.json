@@ -739,7 +739,6 @@
         "varianceMismatchForTypeAlias": "Variance of type argument \"{typeVarName}\" is incompatible with \"{typeAliasParam}\""
     },
     "CodeAction": {
-        "addOptionalToAnnotation": "Add \"Optional\" to Type Annotation",
         "createTypeStub": "Create Type Stub",
         "createTypeStubFor": "Create Type Stub For \"{moduleName}\"",
         "executingCommand": "Executing command",

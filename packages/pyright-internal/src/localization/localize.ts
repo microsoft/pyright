@@ -1498,7 +1498,6 @@ export namespace Localizer {
     }
 
     export namespace CodeAction {
-        export const addOptionalToAnnotation = () => getRawString('CodeAction.addOptionalToAnnotation');
         export const createTypeStub = () => getRawString('CodeAction.createTypeStub');
         export const createTypeStubFor = () =>
             new ParameterizedString<{ moduleName: string }>(getRawString('CodeAction.createTypeStubFor'));

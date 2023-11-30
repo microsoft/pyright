@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "Dodaj wartość „Optional” do adnotacji typu",
         "createTypeStub": "Utwórz typ zastępczy",
         "createTypeStubFor": "Utwórz typ zastępczy dla „{moduleName}”",
         "executingCommand": "Wykonywanie polecenia",

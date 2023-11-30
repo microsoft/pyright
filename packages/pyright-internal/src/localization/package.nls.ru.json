@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "Добавьте ключевое слово \"Optional\" в заметку типа",
         "createTypeStub": "Создать заглушку типа",
         "createTypeStubFor": "Создать заглушку типа для \"{moduleName}\"",
         "executingCommand": "Производится выполнение команды",

@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "형식 주석에 \"선택 사항\"을 추가합니다.",
         "createTypeStub": "형식 스텁 만들기",
         "createTypeStubFor": "\"{moduleName}\"에 대한 형식 스텁 만들기",
         "executingCommand": "명령 실행",

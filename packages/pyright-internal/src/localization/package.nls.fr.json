@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "Ajouter « Facultatif » à l’annotation de type",
         "createTypeStub": "Créer un stub de type",
         "createTypeStubFor": "Créer un stub de type pour « {moduleName} »",
         "executingCommand": "Exécution de la commande",

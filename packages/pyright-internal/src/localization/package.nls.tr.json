@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "Tür Ek Açıklamasına \"Optional\" ekleyin",
         "createTypeStub": "Tür Saplaması Oluştur",
         "createTypeStubFor": "\"{moduleName}\" için Tür Saplaması Oluştur",
         "executingCommand": "Komut yürütülüyor",
