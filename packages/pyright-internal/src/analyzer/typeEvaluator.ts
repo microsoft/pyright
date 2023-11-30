@@ -22801,19 +22801,36 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (isAnyOrUnknown(typeTypeArg)) {
-                if (isClassInstance(destType) && ClassType.isBuiltIn(expandedSrcType, 'type')) {
+                if (isEffectivelyInstantiable(destType)) {
                     return true;
                 }
-                return TypeBase.isInstantiable(destType);
-            }
 
-            const instantiableType = convertToInstantiable(typeTypeArg);
+                // If the dest is a function, convert the "type[Any]" to a function.
+                if (isFunction(destType) || isOverloadedFunction(destType)) {
+                    const concreteSrcType = FunctionType.createSynthesizedInstance(
+                        '',
+                        FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+                    );
+                    FunctionType.addDefaultParameters(concreteSrcType);
+                    return assignType(
+                        destType,
+                        concreteSrcType,
+                        diag,
+                        destTypeVarContext,
+                        srcTypeVarContext,
+                        flags,
+                        recursionCount
+                    );
+                }
+
+                return false;
+            }
 
             if (isClassInstance(typeTypeArg) || isTypeVar(typeTypeArg)) {
                 if (
                     assignType(
                         destType,
-                        instantiableType,
+                        convertToInstantiable(typeTypeArg),
                         diag?.createAddendum(),
                         destTypeVarContext,
                         srcTypeVarContext,
