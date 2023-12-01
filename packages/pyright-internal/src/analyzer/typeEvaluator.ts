@@ -3831,8 +3831,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isConstrainedTypeVar: false,
                     },
                 ]);
-
-                return AnyType.create();
             }
 
             return subtype;
