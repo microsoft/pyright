@@ -6,6 +6,9 @@
 # pyright: reportIncompatibleVariableOverride=true
 
 
+from typing import NotRequired, Required, TypedDict
+
+
 class A:
     class M:
         pass
@@ -50,3 +53,18 @@ class E1(B1):
 # type compatible with B1.M.
 class E(E0, E1):
     pass
+
+
+class TD_A1(TypedDict):
+    x: Required[int]
+    y: Required[int]
+
+
+class TD_A2(TypedDict):
+    x: NotRequired[int]
+    y: Required[int]
+
+
+# This should generate an error for x but not y.
+class TD_A(TD_A1, TD_A2):
+    ...

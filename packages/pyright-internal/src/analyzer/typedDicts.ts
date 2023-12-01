@@ -798,7 +798,6 @@ function getTypedDictMembersForClassRecursive(
     evaluator: TypeEvaluator,
     classType: ClassType,
     keyMap: Map<string, TypedDictEntry>,
-    reportErrors = true,
     recursionCount = 0
 ) {
     assert(ClassType.isTypedDictClass(classType));
@@ -814,13 +813,7 @@ function getTypedDictMembersForClassRecursive(
 
             // Recursively gather keys from parent classes. Don't report any errors
             // in these cases because they will be reported within that class.
-            getTypedDictMembersForClassRecursive(
-                evaluator,
-                specializedBaseClassType,
-                keyMap,
-                /* reportErrors */ false,
-                recursionCount
-            );
+            getTypedDictMembersForClassRecursive(evaluator, specializedBaseClassType, keyMap, recursionCount);
         }
     });
 
@@ -846,77 +839,6 @@ function getTypedDictMembersForClassRecursive(
 
                 if (isReadOnlyTypedDictVariable(evaluator, symbol)) {
                     isReadOnly = true;
-                }
-
-                // If a base class already declares this field, verify that the
-                // subclass isn't trying to change its type. That's expressly
-                // forbidden in PEP 589.
-                const existingEntry = keyMap.get(name);
-                if (existingEntry) {
-                    const diag = new DiagnosticAddendum();
-
-                    // If the field is read-only, the type is covariant. If it's not
-                    // read-only, it's invariant.
-                    const isTypeCompatible = evaluator.assignType(
-                        existingEntry.valueType,
-                        valueType,
-                        diag.createAddendum(),
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
-                        existingEntry.isReadOnly ? AssignTypeFlags.Default : AssignTypeFlags.EnforceInvariance
-                    );
-
-                    if (!isTypeCompatible) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.typedDictFieldTypeRedefinition().format({
-                                parentType: evaluator.printType(existingEntry.valueType),
-                                childType: evaluator.printType(valueType),
-                            })
-                        );
-                        evaluator.addDiagnostic(
-                            AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typedDictFieldTypeRedefinition().format({
-                                name,
-                            }) + diag.getString(),
-                            lastDecl.node
-                        );
-                    } else {
-                        // Make sure the required/not-required attribute is compatible.
-                        let isRequiredCompatible = true;
-                        if (existingEntry.isReadOnly) {
-                            // If the read-only flag is set, a not-required field can be overridden
-                            // by a required field, but not vice versa.
-                            isRequiredCompatible = isRequired || !existingEntry.isRequired;
-                        } else {
-                            isRequiredCompatible = isRequired === existingEntry.isRequired;
-                        }
-
-                        if (!isRequiredCompatible && reportErrors) {
-                            const message = isRequired
-                                ? Localizer.Diagnostic.typedDictFieldRequiredRedefinition
-                                : Localizer.Diagnostic.typedDictFieldNotRequiredRedefinition;
-                            evaluator.addDiagnostic(
-                                AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                message().format({ name }),
-                                lastDecl.node
-                            );
-                        }
-                    }
-
-                    // Make sure that the derived class isn't marking a previously writable
-                    // entry as read-only.
-                    if (!existingEntry.isReadOnly && isReadOnly && reportErrors) {
-                        evaluator.addDiagnostic(
-                            AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typedDictFieldReadOnlyRedefinition().format({
-                                name,
-                            }),
-                            lastDecl.node
-                        );
-                    }
                 }
 
                 keyMap.set(name, {
