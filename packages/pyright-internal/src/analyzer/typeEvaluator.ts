@@ -11993,24 +11993,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         Localizer.Diagnostic.argTypeUnknown() + diagAddendum.getString(),
                         argParam.errorNode
                     );
-                } else if (isPartlyUnknown(simplifiedType, /* allowUnknownTypeArgsForClasses */ true)) {
-                    let suppressPartialUnknown = false;
-
-                    // Don't report an error if the type is a partially-specialized
-                    // class. This comes up frequently in cases where a type is passed
-                    // as an argument (e.g. "defaultdict(list)").
-                    if (isInstantiableClass(simplifiedType)) {
-                        suppressPartialUnknown = true;
-                    }
-
+                } else if (isPartlyUnknown(simplifiedType)) {
                     // If the parameter type is also partially unknown, don't report
                     // the error because it's likely that the partially-unknown type
                     // arose due to bidirectional type matching.
-                    if (isPartlyUnknown(argParam.paramType)) {
-                        suppressPartialUnknown = true;
-                    }
-
-                    if (!suppressPartialUnknown) {
+                    if (!isPartlyUnknown(argParam.paramType)) {
                         const diagAddendum = getDiagAddendum();
                         diagAddendum.addMessage(
                             Localizer.DiagnosticAddendum.argumentType().format({
