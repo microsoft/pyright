@@ -798,6 +798,7 @@ function getTypedDictMembersForClassRecursive(
     evaluator: TypeEvaluator,
     classType: ClassType,
     keyMap: Map<string, TypedDictEntry>,
+    reportErrors = true,
     recursionCount = 0
 ) {
     assert(ClassType.isTypedDictClass(classType));
@@ -810,7 +811,16 @@ function getTypedDictMembersForClassRecursive(
         if (isInstantiableClass(baseClassType) && ClassType.isTypedDictClass(baseClassType)) {
             const specializedBaseClassType = partiallySpecializeType(baseClassType, classType);
             assert(isClass(specializedBaseClassType));
-            getTypedDictMembersForClassRecursive(evaluator, specializedBaseClassType, keyMap, recursionCount);
+
+            // Recursively gather keys from parent classes. Don't report any errors
+            // in these cases because they will be reported within that class.
+            getTypedDictMembersForClassRecursive(
+                evaluator,
+                specializedBaseClassType,
+                keyMap,
+                /* reportErrors */ false,
+                recursionCount
+            );
         }
     });
 
@@ -882,7 +892,7 @@ function getTypedDictMembersForClassRecursive(
                             isRequiredCompatible = isRequired === existingEntry.isRequired;
                         }
 
-                        if (!isRequiredCompatible) {
+                        if (!isRequiredCompatible && reportErrors) {
                             const message = isRequired
                                 ? Localizer.Diagnostic.typedDictFieldRequiredRedefinition
                                 : Localizer.Diagnostic.typedDictFieldNotRequiredRedefinition;
@@ -897,7 +907,7 @@ function getTypedDictMembersForClassRecursive(
 
                     // Make sure that the derived class isn't marking a previously writable
                     // entry as read-only.
-                    if (!existingEntry.isReadOnly && isReadOnly) {
+                    if (!existingEntry.isReadOnly && isReadOnly && reportErrors) {
                         evaluator.addDiagnostic(
                             AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
