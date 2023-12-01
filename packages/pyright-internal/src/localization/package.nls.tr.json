@@ -439,7 +439,6 @@
         "tupleIndexOutOfRange": "{index} dizini {type} türü için aralık dışında",
         "typeAliasIllegalExpressionForm": "Tür diğer ad tanımı için geçersiz ifade form",
         "typeAliasIsRecursiveDirect": "Tür diğer adı \"{name}\", tanımında kendisini kullanamaz",
-        "typeAliasNotAllowed": "\"{name}\" tür adı bu bağlamda kullanılamaz",
         "typeAliasNotInModuleOrClass": "TypeAlias yalnızca bir modül veya sınıf kapsamında tanımlanabilir",
         "typeAliasRedeclared": "\"{name}\" bir TypeAlias olarak bildirilmiş ve yalnızca bir kez atanabilir",
         "typeAliasStatementIllegal": "Tür diğer adı deyimi için Python 3.12 veya daha yeni bir sürümü gerekiyor",

@@ -439,7 +439,6 @@
         "tupleIndexOutOfRange": "Индекс {index} выходит за пределы допустимого диапазона для типа {type}",
         "typeAliasIllegalExpressionForm": "Недопустимая форма выражения для определения псевдонима типа",
         "typeAliasIsRecursiveDirect": "Псевдоним типа \"{name}\" не может использовать себя в своем определении",
-        "typeAliasNotAllowed": "Псевдоним типа \"{name}\" нельзя использовать в этом контексте",
         "typeAliasNotInModuleOrClass": "TypeAlias можно определить только внутри области модуля или класса",
         "typeAliasRedeclared": "\"{name}\" объявлен как TypeAlias и может быть присвоен только один раз",
         "typeAliasStatementIllegal": "Оператор псевдонима типа можно использовать в Python версии не ниже 3.12",

@@ -439,7 +439,6 @@
         "tupleIndexOutOfRange": "インデックス {index} が型 {type} の範囲外です",
         "typeAliasIllegalExpressionForm": "型エイリアス定義の式フォームが無効です",
         "typeAliasIsRecursiveDirect": "型エイリアス \"{name}\" は、その定義でそれ自体を使用できません",
-        "typeAliasNotAllowed": "型のエイリアス \"{name}\" は、このコンテキストでは使用できません",
         "typeAliasNotInModuleOrClass": "TypeAlias は、モジュールまたはクラススコープ内でのみ定義できます",
         "typeAliasRedeclared": "\"{name}\" は TypeAlias として宣言されており、1 回だけ割り当てることができます",
         "typeAliasStatementIllegal": "型エイリアス ステートメントには Python 3.12 以降が必要です",

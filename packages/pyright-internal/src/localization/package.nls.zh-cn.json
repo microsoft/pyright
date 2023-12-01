@@ -439,7 +439,6 @@
         "tupleIndexOutOfRange": "类型 {type} 的索引 {index} 超出范围",
         "typeAliasIllegalExpressionForm": "类型别名定义的表达式形式无效",
         "typeAliasIsRecursiveDirect": "类型别名“{name}”不能在其定义中使用自身",
-        "typeAliasNotAllowed": "类型别名“{name}”不能在此上下文中使用",
         "typeAliasNotInModuleOrClass": "TypeAlias 只能在模块或类范围内定义",
         "typeAliasRedeclared": "“{name}”声明为 TypeAlias，只能分配一次",
         "typeAliasStatementIllegal": "类型别名语句需要 Python 3.12 或更高版本",

@@ -439,7 +439,6 @@
         "tupleIndexOutOfRange": "Index {index} je pro typ {type} mimo rozsah",
         "typeAliasIllegalExpressionForm": "Neplatný formulář výrazu pro definici aliasu typu",
         "typeAliasIsRecursiveDirect": "Alias typu „{name}“ nemůže ve své definici používat sám sebe",
-        "typeAliasNotAllowed": "Alias typu „{name}“ se v tomto kontextu nedá použít",
         "typeAliasNotInModuleOrClass": "Typ TypeAlias je možné definovat pouze v rámci oboru modulu nebo třídy",
         "typeAliasRedeclared": "{name} se deklaruje jako TypAlias a dá se přiřadit jenom jednou",
         "typeAliasStatementIllegal": "Příkaz alias typu vyžaduje Python 3.12 nebo novější",

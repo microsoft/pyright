@@ -439,7 +439,6 @@
         "tupleIndexOutOfRange": "L’index {index} est hors limites pour le type {type}",
         "typeAliasIllegalExpressionForm": "Formulaire d’expression non valide pour la définition d’alias de type",
         "typeAliasIsRecursiveDirect": "L'alias de type \"{name}\" ne peut pas s'utiliser lui-même dans sa définition",
-        "typeAliasNotAllowed": "L'alias de type \"{name}\" ne peut pas être utilisé dans ce contexte",
         "typeAliasNotInModuleOrClass": "Un TypeAlias ne peut être défini qu’au sein d’un module ou d’une étendue de classe",
         "typeAliasRedeclared": "« {name} » est déclaré en tant que TypeAlias et ne peut être attribué qu’une seule fois",
         "typeAliasStatementIllegal": "L’instruction d’alias de type nécessite Python 3.12 ou version ultérieure",

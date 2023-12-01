@@ -439,7 +439,6 @@
         "tupleIndexOutOfRange": "索引 {index} 超過類型 {type} 的範圍",
         "typeAliasIllegalExpressionForm": "類型別名定義無效的運算式格式",
         "typeAliasIsRecursiveDirect": "型別別名 \"{name}\" 無法在其定義中使用它自己",
-        "typeAliasNotAllowed": "類型別名 \"{name}\" 無法在此內容中使用",
         "typeAliasNotInModuleOrClass": "TypeAlias 只能在模組或類別範圍內定義",
         "typeAliasRedeclared": "\"{name}\" 宣告為 TypeAlias，且只能指派一次",
         "typeAliasStatementIllegal": "類型別名陳述式需要 Python 3.12 或更新版本",

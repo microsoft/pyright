@@ -1302,22 +1302,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
     }
 
-    function reportInvalidUseOfPep695TypeAlias(type: Type, node: ExpressionNode): boolean {
-        // PEP 695 type aliases cannot be used as instantiable classes.
-        if (type.typeAliasInfo?.name && type.typeAliasInfo.isPep695Syntax && TypeBase.isSpecialForm(type)) {
-            addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.typeAliasNotAllowed().format({ name: type.typeAliasInfo.name }),
-                node
-            );
-
-            return true;
-        }
-
-        return false;
-    }
-
     function validateTypeIsInstantiable(typeResult: TypeResult, flags: EvaluatorFlags, node: ExpressionNode) {
         // If the type is incomplete, don't log any diagnostics yet.
         if (typeResult.isIncomplete) {
@@ -4523,9 +4507,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             reportUseOfTypeCheckOnly(type, node);
         }
 
-        if ((flags & EvaluatorFlags.DisallowPep695TypeAlias) !== 0) {
-            if (reportInvalidUseOfPep695TypeAlias(type, node)) {
-                type = UnknownType.create();
+        if ((flags & EvaluatorFlags.TreatPep695TypeAliasAsObject) !== 0) {
+            if (type.typeAliasInfo?.name && type.typeAliasInfo.isPep695Syntax && TypeBase.isSpecialForm(type)) {
+                const typeAliasType = getTypingType(node, 'TypeAliasType');
+                if (typeAliasType && isInstantiableClass(typeAliasType)) {
+                    type = ClassType.cloneAsInstance(typeAliasType);
+                } else {
+                    type = UnknownType.create();
+                }
             }
         }
 
@@ -6377,7 +6366,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             node,
             baseTypeResult,
             { method: 'get' },
-            flags & ~EvaluatorFlags.DisallowPep695TypeAlias
+            flags & ~EvaluatorFlags.TreatPep695TypeAliasAsObject
         );
 
         if (isCodeFlowSupportedForReference(node)) {
@@ -11741,7 +11730,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                       EvaluatorFlags.EvaluateStringLiteralAsType |
                       EvaluatorFlags.DisallowParamSpec |
                       EvaluatorFlags.DisallowTypeVarTuple |
-                      EvaluatorFlags.DisallowPep695TypeAlias
+                      EvaluatorFlags.TreatPep695TypeAliasAsObject
                     : EvaluatorFlags.DoNotSpecialize;
                 const exprTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
@@ -15855,7 +15844,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 EvaluatorFlags.DisallowTypeVarsWithScopeId |
                 EvaluatorFlags.AssociateTypeVarsWithCurrentScope |
                 EvaluatorFlags.EnforceTypeVarVarianceConsistency |
-                EvaluatorFlags.DisallowPep695TypeAlias;
+                EvaluatorFlags.TreatPep695TypeAliasAsObject;
             if (fileInfo.isStubFile) {
                 exprFlags |= EvaluatorFlags.AllowForwardReferences;
             }

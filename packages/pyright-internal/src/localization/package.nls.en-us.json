@@ -431,7 +431,6 @@
         "tupleIndexOutOfRange": "Index {index} is out of range for type {type}",
         "typeAliasIllegalExpressionForm": "Invalid expression form for type alias definition",
         "typeAliasIsRecursiveDirect": "Type alias \"{name}\" cannot use itself in its definition",
-        "typeAliasNotAllowed": "Type alias \"{name}\" cannot be used in this context",
         "typeAliasNotInModuleOrClass": "A TypeAlias can be defined only within a module or class scope",
         "typeAliasRedeclared": "\"{name}\" is declared as a TypeAlias and can be assigned only once",
         "typeAliasStatementIllegal": "Type alias statement requires Python 3.12 or newer",

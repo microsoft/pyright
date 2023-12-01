@@ -439,7 +439,6 @@
         "tupleIndexOutOfRange": "{index} 인덱스가 {type} 형식의 범위를 벗어났습니다.",
         "typeAliasIllegalExpressionForm": "형식 별칭 정의에 대한 식 양식이 잘못되었습니다.",
         "typeAliasIsRecursiveDirect": "형식 별칭 ‘{name}’의 정의에서 스스로를 사용할 수 없습니다.",
-        "typeAliasNotAllowed": "이 컨텍스트에서 형식 별칭 \"{name}\"을(를) 사용할 수 없습니다.",
         "typeAliasNotInModuleOrClass": "TypeAlias는 모듈 또는 클래스 범위 내에서만 정의할 수 있습니다.",
         "typeAliasRedeclared": "\"{name}\"은(는) TypeAlias로 선언되며 한 번만 할당할 수 있습니다.",
         "typeAliasStatementIllegal": "형식 별칭 문에는 Python 3.12 이상이 필요합니다.",
