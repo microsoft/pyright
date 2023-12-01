@@ -434,6 +434,7 @@
         "typeAliasNotInModuleOrClass": "A TypeAlias can be defined only within a module or class scope",
         "typeAliasRedeclared": "\"{name}\" is declared as a TypeAlias and can be assigned only once",
         "typeAliasStatementIllegal": "Type alias statement requires Python 3.12 or newer",
+        "typeAliasStatementBadScope": "A type statement can be used only within a module or class scope",
         "typeAliasTypeMustBeAssigned": "TypeAliasType must be assigned to a variable with the same name as the type alias",
         "typeAliasTypeNameArg": "First argument to TypeAliasType must be a string literal representing the name of the type alias",
         "typeAliasTypeNameMismatch": "Name of type alias must match the name of the variable to which it is assigned",

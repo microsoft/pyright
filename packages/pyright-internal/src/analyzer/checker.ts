@@ -77,6 +77,7 @@ import {
     TernaryNode,
     TryNode,
     TupleNode,
+    TypeAliasNode,
     TypeAnnotationNode,
     TypeParameterListNode,
     TypeParameterNode,
@@ -1611,6 +1612,17 @@ export class Checker extends ParseTreeWalker {
 
     override visitTypeParameter(node: TypeParameterNode): boolean {
         return false;
+    }
+
+    override visitTypeAlias(node: TypeAliasNode): boolean {
+        const scope = getScopeForNode(node);
+        if (scope) {
+            if (scope.type !== ScopeType.Class && scope.type !== ScopeType.Module && scope.type !== ScopeType.Builtin) {
+                this._evaluator.addError(Localizer.Diagnostic.typeAliasStatementBadScope(), node.name);
+            }
+        }
+
+        return true;
     }
 
     override visitTypeAnnotation(node: TypeAnnotationNode): boolean {
