@@ -55,8 +55,8 @@ test('random library file changed, nested search paths, fs is not case sensitive
 
     assert.strictEqual(
         state.workspace.service.test_shouldHandleLibraryFileWatchChanges(
-            Uri.file('/lib/.venv/site-packages/myFile.py'),
-            [Uri.file('/lib'), Uri.file('/LIB/.venv/site-packages')]
+            Uri.file('/lib/.venv/site-packages/myFile.py', false),
+            [Uri.file('/lib', false), Uri.file('/LIB/.venv/site-packages', false)]
         ),
         true
     );
@@ -86,9 +86,9 @@ test('random library file starting with . changed, fs is not case sensitive', ()
     const state = parseAndGetTestState(code, '/projectRoot').state;
 
     assert.strictEqual(
-        state.workspace.service.test_shouldHandleLibraryFileWatchChanges(Uri.file('/lib/.test.py'), [
-            Uri.file('/LIB'),
-            Uri.file('/lib/site-packages'),
+        state.workspace.service.test_shouldHandleLibraryFileWatchChanges(Uri.file('/lib/.test.py', false), [
+            Uri.file('/LIB', false),
+            Uri.file('/lib/site-packages', false),
         ]),
         false
     );

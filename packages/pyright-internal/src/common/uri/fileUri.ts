@@ -38,6 +38,19 @@ export class FileUri extends BaseUri {
     override get scheme(): string {
         return 'file';
     }
+    override get filename(): string {
+        return getFileName(this._filePath);
+    }
+    override get extname(): string {
+        return getFileExtension(this._filePath);
+    }
+    override get root(): Uri {
+        const rootPath = this.getRootPath();
+        if (rootPath !== this._filePath) {
+            return FileUri.createFileUri(rootPath, '', '', undefined, this._isCaseSensitive);
+        }
+        return this;
+    }
 
     get isCaseSensitive(): boolean {
         return this._isCaseSensitive;
@@ -83,18 +96,18 @@ export class FileUri extends BaseUri {
         return isDiskPathRoot(this._filePath);
     }
 
-    override isChild(parent: Uri, ignoreCase?: boolean): boolean {
+    override isChild(parent: Uri): boolean {
         if (!FileUri.isFileUri(parent)) {
             return false;
         }
 
-        return this.startsWith(parent, ignoreCase) && parent._filePath.length < this._filePath.length;
+        return this.startsWith(parent) && parent._filePath.length < this._filePath.length;
     }
     override isLocal(): boolean {
         return true;
     }
 
-    override startsWith(other: Uri | undefined, ignoreCase?: boolean): boolean {
+    override startsWith(other: Uri | undefined): boolean {
         if (!other || !FileUri.isFileUri(other)) {
             return false;
         }
@@ -112,7 +125,7 @@ export class FileUri extends BaseUri {
                     ? ensureTrailingDirectorySeparator(other._filePath)
                     : other._filePath;
 
-            if (ignoreCase) {
+            if (!this.isCaseSensitive) {
                 return this._filePath.toLowerCase().startsWith(otherPath.toLowerCase());
             }
             return this._filePath.startsWith(otherPath);
@@ -129,7 +142,7 @@ export class FileUri extends BaseUri {
         return this._filePath;
     }
 
-    protected override combinePathsImpl(...paths: string[]): Uri {
+    override combinePaths(...paths: string[]): Uri {
         // Resolve and combine paths, never want URIs with '..' in the middle.
         let combined = resolvePaths(this._filePath, ...paths);
 
@@ -141,6 +154,18 @@ export class FileUri extends BaseUri {
             return FileUri.createFileUri(combined, '', '', undefined, this._isCaseSensitive);
         }
         return this;
+    }
+    override getDirectory(): Uri {
+        const filePath = this._filePath;
+        let dir = getDirectoryPath(filePath);
+        if (hasTrailingDirectorySeparator(dir) && dir.length > 1) {
+            dir = dir.slice(0, -1);
+        }
+        if (dir !== filePath) {
+            return FileUri.createFileUri(dir, '', '', undefined, this._isCaseSensitive);
+        } else {
+            return this;
+        }
     }
 
     protected override getPathComponentsImpl(): string[] {
@@ -155,34 +180,8 @@ export class FileUri extends BaseUri {
     protected override getRootPath(): string {
         return this._filePath.slice(0, getRootLength(this._filePath));
     }
-    protected override getComparablePathImpl(): string {
+    protected override getComparablePath(): string {
         return normalizeSlashes(this._filePath);
-    }
-    protected override getDirectoryImpl(): Uri {
-        const filePath = this._filePath;
-        let dir = getDirectoryPath(filePath);
-        if (hasTrailingDirectorySeparator(dir) && dir.length > 1) {
-            dir = dir.slice(0, -1);
-        }
-        if (dir !== filePath) {
-            return FileUri.createFileUri(dir, '', '', undefined, this._isCaseSensitive);
-        } else {
-            return this;
-        }
-    }
-
-    protected override getRootImpl(): Uri {
-        const rootPath = this.getRootPath();
-        if (rootPath !== this._filePath) {
-            return FileUri.createFileUri(rootPath, '', '', undefined, this._isCaseSensitive);
-        }
-        return this;
-    }
-    protected override getBasenameImpl(): string {
-        return getFileName(this._filePath);
-    }
-    protected override getExtnameImpl(): string {
-        return getFileExtension(this._filePath);
     }
 
     private static _createKey(filePath: string, query: string, fragment: string) {

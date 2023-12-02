@@ -59,15 +59,15 @@ export interface Uri {
     isRoot(): boolean;
 
     // Determines whether a Uri is a child of some parent Uri.
-    isChild(parent: Uri, ignoreCase?: boolean): boolean;
+    isChild(parent: Uri): boolean;
 
     isLocal(): boolean;
 
     isUntitled(): boolean;
 
-    equals(other: Uri | undefined, ignoreCase?: boolean): boolean;
+    equals(other: Uri | undefined): boolean;
 
-    startsWith(other: Uri | undefined, ignoreCase?: boolean): boolean;
+    startsWith(other: Uri | undefined): boolean;
 
     pathStartsWith(name: string): boolean;
 

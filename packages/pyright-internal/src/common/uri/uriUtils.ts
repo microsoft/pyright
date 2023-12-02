@@ -88,7 +88,7 @@ export function forEachAncestorDirectory(
 
 // Creates a directory hierarchy for a path, starting from some ancestor path.
 export function makeDirectories(fs: FileSystem, dir: Uri, startingFrom: Uri) {
-    if (!dir.startsWith(startingFrom, false)) {
+    if (!dir.startsWith(startingFrom)) {
         return;
     }
 

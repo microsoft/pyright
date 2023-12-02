@@ -25,6 +25,15 @@ export class EmptyUri extends BaseUri {
     override get scheme(): string {
         return '';
     }
+    override get filename(): string {
+        return '';
+    }
+    override get extname(): string {
+        return '';
+    }
+    override get root(): Uri {
+        return this;
+    }
     get isCaseSensitive(): boolean {
         return true;
     }
@@ -55,22 +64,22 @@ export class EmptyUri extends BaseUri {
     override addPath(extra: string): Uri {
         return this;
     }
-    override getDirectoryImpl(): Uri {
+    override getDirectory(): Uri {
         return this;
     }
     override isRoot(): boolean {
         return false;
     }
-    override isChild(parent: Uri, ignoreCase: boolean): boolean {
+    override isChild(parent: Uri): boolean {
         return false;
     }
-    override startsWith(other: Uri | undefined, ignoreCase: boolean): boolean {
+    override startsWith(other: Uri | undefined): boolean {
         return false;
     }
     override getPathLength(): number {
         return 0;
     }
-    override combinePathsImpl(...paths: string[]): Uri {
+    override combinePaths(...paths: string[]): Uri {
         return this;
     }
     override getShortenedFileName(maxDirLength: number): string {
@@ -85,16 +94,7 @@ export class EmptyUri extends BaseUri {
     protected override getRootPath(): string {
         return '';
     }
-    protected override getComparablePathImpl(): string {
-        return '';
-    }
-    protected override getRootImpl(): Uri {
-        return this;
-    }
-    protected override getBasenameImpl(): string {
-        return '';
-    }
-    protected override getExtnameImpl(): string {
+    protected override getComparablePath(): string {
         return '';
     }
 }

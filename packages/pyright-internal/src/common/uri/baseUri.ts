@@ -11,7 +11,35 @@ import { getShortenedFileName, normalizeSlashes } from '../pathUtils';
 import { Uri } from './uri';
 
 export abstract class BaseUri implements Uri {
-    protected constructor(private readonly _key: string) {}
+    private static _counter = 0;
+    private static _callstacks = new Map<string, number>();
+    protected constructor(private readonly _key: string) {
+        BaseUri._counter++;
+        // const stack = new Error().stack;
+        // if (stack) {
+        //     const lines = stack
+        //         .split(' at ')
+        //         .map((s) => s.trim())
+        //         .slice(4);
+        //     const func = lines[0].split('(')[0];
+        //     const firstCallerIndex = lines.slice(1).findIndex((l) => !l.startsWith('FileUri'));
+        //     const firstCaller =
+        //         firstCallerIndex >= 0 ? lines[firstCallerIndex + 1].split('(')[0] : lines[1].split('(')[0];
+        //     const key = `${func} -> ${firstCaller}`;
+        //     BaseUri._callstacks.set(key, (BaseUri._callstacks.get(key) ?? 0) + 1);
+        // }
+    }
+
+    static get counter() {
+        return BaseUri._counter;
+    }
+
+    static get callers(): { count: number; name: string }[] {
+        // Return the list of callers in order of most to least.
+        const callers = Array.from(BaseUri._callstacks.entries());
+        callers.sort((a, b) => b[1] - a[1]);
+        return callers.map((c) => ({ name: c[0], count: c[1] }));
+    }
 
     // Unique key for storing in maps.
     get key() {
@@ -25,9 +53,7 @@ export abstract class BaseUri implements Uri {
     abstract get isCaseSensitive(): boolean;
 
     // Returns the last segment of the URI, similar to the UNIX basename command.
-    get filename(): string {
-        return this.getBasenameImpl();
-    }
+    abstract get filename(): string;
 
     // Returns the basename without any extensions
     get withoutExtension(): string {
@@ -41,14 +67,10 @@ export abstract class BaseUri implements Uri {
     }
 
     // Returns the extension of the URI, similar to the UNIX extname command.
-    get extname(): string {
-        return this.getExtnameImpl();
-    }
+    abstract get extname(): string;
 
     // Returns a URI where the path just contains the root folder.
-    get root(): Uri {
-        return this.getRootImpl();
-    }
+    abstract get root(): Uri;
 
     // Returns a URI where the path contains the path with .py appended.
     get packageUri(): Uri {
@@ -104,9 +126,7 @@ export abstract class BaseUri implements Uri {
     abstract addPath(extra: string): Uri;
 
     // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
-    getDirectory(): Uri {
-        return this.getDirectoryImpl();
-    }
+    abstract getDirectory(): Uri;
 
     getRootPathLength(): number {
         return this.getRootPath().length;
@@ -124,10 +144,7 @@ export abstract class BaseUri implements Uri {
         return this.scheme === 'untitled';
     }
 
-    equals(other: Uri | undefined, ignoreCase?: boolean): boolean {
-        if (ignoreCase) {
-            return this.key.toLowerCase() === other?.key.toLowerCase();
-        }
+    equals(other: Uri | undefined): boolean {
         return this.key === other?.key;
     }
 
@@ -155,9 +172,7 @@ export abstract class BaseUri implements Uri {
     abstract getPathLength(): number;
 
     // Combines paths to create a new Uri. Any '..' or '.' path components will be normalized.
-    combinePaths(...paths: string[]): Uri {
-        return this.combinePathsImpl(...paths);
-    }
+    abstract combinePaths(...paths: string[]): Uri;
 
     getRelativePath(child: Uri): string | undefined {
         if (this.scheme !== child.scheme) {
@@ -166,7 +181,7 @@ export abstract class BaseUri implements Uri {
 
         // Unlike getRelativePathComponents, this function should not return relative path
         // markers for non children.
-        if (child.isChild(this, false)) {
+        if (child.isChild(this)) {
             const relativeToComponents = this.getRelativePathComponents(child);
             if (relativeToComponents.length > 0) {
                 return ['.', ...relativeToComponents].join('/');
@@ -234,13 +249,7 @@ export abstract class BaseUri implements Uri {
         }
     }
 
-    protected getRoot(): Uri {
-        return this.getRootImpl();
-    }
-    protected abstract getRootImpl(): Uri;
     protected abstract getRootPath(): string;
-
-    protected abstract getDirectoryImpl(): Uri;
 
     protected reducePathComponents(components: string[]): string[] {
         if (!some(components)) {
@@ -272,17 +281,6 @@ export abstract class BaseUri implements Uri {
         return reduced;
     }
 
-    protected getComparablePath(): string {
-        return this.getComparablePathImpl();
-    }
-
-    protected abstract combinePathsImpl(...paths: string[]): Uri;
-
-    protected abstract getComparablePathImpl(): string;
-
+    protected abstract getComparablePath(): string;
     protected abstract getPathComponentsImpl(): string[];
-
-    protected abstract getBasenameImpl(): string;
-
-    protected abstract getExtnameImpl(): string;
 }

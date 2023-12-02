@@ -29,6 +29,7 @@ import { ServiceProvider } from '../common/serviceProvider';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
+import { BaseUri } from '../common/uri/baseUri';
 import { Uri } from '../common/uri/uri';
 import {
     FileSpec,
@@ -38,7 +39,6 @@ import {
     hasPythonExtension,
     isDirectory,
     isFile,
-    isFileSystemCaseSensitive,
     makeDirectories,
     tryRealpath,
     tryStat,
@@ -381,6 +381,14 @@ export class AnalyzerService {
 
         const checkedFileCount = this._program.getUserFileCount();
         this._console.info('Total files checked: ' + checkedFileCount.toString());
+
+        const totalUrisCreated = BaseUri.counter;
+        this._console.info('Total URIs created: ' + totalUrisCreated.toString());
+
+        const callers = BaseUri.callers;
+        callers.forEach((caller) => {
+            this._console.info(` ${caller.name} : ${caller.count}`);
+        });
     }
 
     printDetailedAnalysisTimes() {
@@ -1483,7 +1491,7 @@ export class AnalyzerService {
         let matchingSearchPath;
         for (const libSearchPath of libSearchPaths) {
             if (
-                path.isChild(libSearchPath, !isFileSystemCaseSensitive(this.fs, this.tmp)) &&
+                path.isChild(libSearchPath) &&
                 (!matchingSearchPath || matchingSearchPath.getPathLength() < libSearchPath.getPathLength())
             ) {
                 matchingSearchPath = libSearchPath;

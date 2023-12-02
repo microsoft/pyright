@@ -37,6 +37,26 @@ export class WebUri extends BaseUri {
         // Web URIs are always case sensitive
         return true;
     }
+    override get root(): Uri {
+        const rootPath = this.getRootPath();
+        if (rootPath !== this._path) {
+            return WebUri.createWebUri(this._scheme, this._authority, rootPath, '', '', undefined);
+        }
+        return this;
+    }
+    override get filename(): string {
+        // Path should already be normalized, just get the last on a split of '/'.
+        const components = this._path.split('/');
+        return components[components.length - 1];
+    }
+    override get extname(): string {
+        const basename = this.filename;
+        const index = basename.lastIndexOf('.');
+        if (index >= 0) {
+            return basename.slice(index);
+        }
+        return '';
+    }
 
     static createWebUri(
         scheme: string,
@@ -76,17 +96,17 @@ export class WebUri extends BaseUri {
     override isRoot(): boolean {
         return this._path === this.getRootPath() && this._path.length > 0;
     }
-    override isChild(parent: Uri, ignoreCase?: boolean): boolean {
+    override isChild(parent: Uri): boolean {
         if (!WebUri.isWebUri(parent)) {
             return false;
         }
 
-        return this.startsWith(parent, ignoreCase) && parent._path.length < this._path.length;
+        return this.startsWith(parent) && parent._path.length < this._path.length;
     }
     override isLocal(): boolean {
         return false;
     }
-    override startsWith(other: Uri | undefined, ignoreCase?: boolean): boolean {
+    override startsWith(other: Uri | undefined): boolean {
         if (!other || !WebUri.isWebUri(other)) {
             return false;
         }
@@ -104,9 +124,6 @@ export class WebUri extends BaseUri {
                     ? `${other._path}/`
                     : other._path;
 
-            if (ignoreCase) {
-                return this._path.toLowerCase().startsWith(otherPath.toLowerCase());
-            }
             return this._path.startsWith(otherPath);
         }
         return false;
@@ -121,7 +138,7 @@ export class WebUri extends BaseUri {
         debug.fail(`${this} is not a file based URI.`);
     }
 
-    protected override combinePathsImpl(...paths: string[]): Uri {
+    override combinePaths(...paths: string[]): Uri {
         // Resolve and combine paths, never want URIs with '..' in the middle.
         let combined = resolvePaths(this._path, ...paths).replace(/\\/g, '/');
 
@@ -135,7 +152,7 @@ export class WebUri extends BaseUri {
         return this;
     }
 
-    protected override getDirectoryImpl(): Uri {
+    override getDirectory(): Uri {
         const index = this._path.lastIndexOf('/');
         if (index > 0) {
             return WebUri.createWebUri(
@@ -161,29 +178,8 @@ export class WebUri extends BaseUri {
         const rootLength = getRootLength(this._path, '/');
         return this._path.slice(0, rootLength);
     }
-    protected override getComparablePathImpl(): string {
+    protected override getComparablePath(): string {
         return normalizeSlashes(this._path);
-    }
-
-    protected override getRootImpl(): Uri {
-        const rootPath = this.getRootPath();
-        if (rootPath !== this._path) {
-            return WebUri.createWebUri(this._scheme, this._authority, rootPath, '', '', undefined);
-        }
-        return this;
-    }
-    protected override getBasenameImpl(): string {
-        // Path should already be normalized, just get the last on a split of '/'.
-        const components = this._path.split('/');
-        return components[components.length - 1];
-    }
-    protected override getExtnameImpl(): string {
-        const basename = this.filename;
-        const index = basename.lastIndexOf('.');
-        if (index >= 0) {
-            return basename.slice(index);
-        }
-        return '';
     }
 
     private static _createKey(scheme: string, authority: string, path: string, query: string, fragment: string) {

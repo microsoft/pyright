@@ -21,14 +21,7 @@ import { ServiceKeys } from '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import { Uri } from '../common/uri/uri';
-import {
-    getFileSystemEntriesFromDirEntries,
-    isDirectory,
-    isFile,
-    isFileSystemCaseSensitive,
-    tryRealpath,
-    tryStat,
-} from '../common/uri/uriUtils';
+import { getFileSystemEntriesFromDirEntries, isDirectory, isFile, tryRealpath, tryStat } from '../common/uri/uriUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';
@@ -257,7 +250,7 @@ export class ImportResolver {
 
             const relativeStubPaths: string[] = [];
             for (const importRootUri of importRoots) {
-                if (stubFileUri.isChild(importRootUri, !isFileSystemCaseSensitive(this.fileSystem, this.tmp))) {
+                if (stubFileUri.isChild(importRootUri)) {
                     const parts = Array.from(importRootUri.getRelativePathComponents(stubFileUri));
 
                     if (parts.length >= 1) {
@@ -2657,8 +2650,7 @@ export class ImportResolver {
     }
 
     private _shouldWalkUp(current: Uri | undefined, root: Uri, execEnv: ExecutionEnvironment) {
-        const ignoreCase = isFileSystemCaseSensitive(this.fileSystem, this.tmp) ? false : true;
-        return current && (current.isChild(root, ignoreCase) || (current.equals(root, ignoreCase) && !execEnv.root));
+        return current && (current.isChild(root) || (current.equals(root) && !execEnv.root));
     }
 }
 
