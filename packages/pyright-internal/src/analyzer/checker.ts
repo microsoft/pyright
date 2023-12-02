@@ -4756,7 +4756,7 @@ export class Checker extends ParseTreeWalker {
                                 decl.type !== DeclarationType.Function || ParseTreeUtils.isSuiteEmpty(decl.node.suite)
                         )
                     ) {
-                        if (decls[0].uri.hasExtension('.pyi')) {
+                        if (!decls[0].uri.hasExtension('.pyi')) {
                             if (!isSymbolImplemented(name)) {
                                 diagAddendum.addMessage(
                                     Localizer.DiagnosticAddendum.missingProtocolMember().format({

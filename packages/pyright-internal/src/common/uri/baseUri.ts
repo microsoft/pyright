@@ -14,7 +14,7 @@ export abstract class BaseUri implements Uri {
     private static _counter = 0;
     private static _callstacks = new Map<string, number>();
     protected constructor(private readonly _key: string) {
-        BaseUri._counter++;
+        // BaseUri._counter++;
         // const stack = new Error().stack;
         // if (stack) {
         //     const lines = stack

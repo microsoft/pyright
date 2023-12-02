@@ -20,7 +20,7 @@ import {
     resolvePaths,
 } from '../pathUtils';
 import { BaseUri } from './baseUri';
-import { cacheMethodWithNoArgs, cacheProperty } from './memoization';
+import { cacheMethodWithNoArgs, cacheProperty, cacheStaticFunc } from './memoization';
 import { Uri } from './uri';
 
 export class FileUri extends BaseUri {
@@ -61,6 +61,7 @@ export class FileUri extends BaseUri {
         return this._isCaseSensitive;
     }
 
+    @cacheStaticFunc()
     static createFileUri(
         filePath: string,
         query: string,

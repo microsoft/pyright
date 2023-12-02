@@ -42,3 +42,24 @@ export function cacheMethodWithNoArgs() {
         return descriptor;
     };
 }
+
+const staticCache = new Map<string, any>();
+
+// Create a decorator to memoize (cache) the results of a static method.
+export function cacheStaticFunc() {
+    return function cacheStaticFunc_Fast(target: any, functionName: string, descriptor: PropertyDescriptor) {
+        const originalMethod = descriptor.value;
+        descriptor.value = function (...args: any) {
+            const key = `${functionName}+${args.map((a: any) => a?.toString()).join(',')}`;
+            let cachedResult: any;
+            if (!staticCache.has(key)) {
+                cachedResult = originalMethod.apply(this, args);
+                staticCache.set(key, cachedResult);
+            } else {
+                cachedResult = staticCache.get(key);
+            }
+            return cachedResult;
+        };
+        return descriptor;
+    };
+}

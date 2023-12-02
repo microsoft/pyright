@@ -1295,7 +1295,7 @@ test('MatchClass5', () => {
 });
 
 test('MatchClass6', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass6.py'], configOptions);

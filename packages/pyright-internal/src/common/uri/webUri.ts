@@ -14,7 +14,7 @@
 import * as debug from '../debug';
 import { getRootLength, hasTrailingDirectorySeparator, normalizeSlashes, resolvePaths } from '../pathUtils';
 import { BaseUri } from './baseUri';
-import { cacheMethodWithNoArgs, cacheProperty } from './memoization';
+import { cacheMethodWithNoArgs, cacheProperty, cacheStaticFunc } from './memoization';
 import { Uri } from './uri';
 
 export class WebUri extends BaseUri {
@@ -63,6 +63,7 @@ export class WebUri extends BaseUri {
         return '';
     }
 
+    @cacheStaticFunc()
     static createWebUri(
         scheme: string,
         authority: string,
