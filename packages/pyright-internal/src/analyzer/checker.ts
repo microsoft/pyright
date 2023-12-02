@@ -164,6 +164,7 @@ import {
     TypeBase,
     TypeCategory,
     TypeVarType,
+    TypedDictEntry,
     UnknownType,
     Variance,
     combineTypes,
@@ -5662,7 +5663,50 @@ export class Checker extends ParseTreeWalker {
                     // If the child class overrides this symbol with its own type, make sure
                     // the override is compatible with the overridden symbol. Otherwise use the
                     // override type.
-                    if (!this._evaluator.assignType(overriddenType, childOverrideType ?? overrideType)) {
+
+                    // Verify that the override type is assignable to (same or narrower than)
+                    // the declared type of the base symbol.
+                    const primaryDecl = getLastTypedDeclaredForSymbol(overriddenClassAndSymbol.symbol);
+                    let isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
+
+                    // If the entry is a member of a frozen dataclass, it is immutable,
+                    // so it does not need to be invariant.
+                    if (
+                        ClassType.isFrozenDataClass(overriddenClassAndSymbol.classType) &&
+                        overriddenClassAndSymbol.classType.details.dataClassEntries
+                    ) {
+                        const dataclassEntry = overriddenClassAndSymbol.classType.details.dataClassEntries.find(
+                            (entry) => entry.name === memberName
+                        );
+                        if (dataclassEntry) {
+                            isInvariant = false;
+                        }
+                    }
+
+                    let overriddenTDEntry: TypedDictEntry | undefined;
+                    if (overriddenClassAndSymbol.classType.details.typedDictEntries) {
+                        overriddenTDEntry = overriddenClassAndSymbol.classType.details.typedDictEntries.get(memberName);
+
+                        if (overriddenTDEntry?.isReadOnly) {
+                            isInvariant = false;
+                        }
+                    }
+
+                    let overrideTDEntry: TypedDictEntry | undefined;
+                    if (overrideClassAndSymbol.classType.details.typedDictEntries) {
+                        overrideTDEntry = overrideClassAndSymbol.classType.details.typedDictEntries.get(memberName);
+                    }
+
+                    if (
+                        !this._evaluator.assignType(
+                            overriddenType,
+                            childOverrideType ?? overrideType,
+                            /* diag */ undefined,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            isInvariant ? AssignTypeFlags.EnforceInvariance : AssignTypeFlags.Default
+                        )
+                    ) {
                         diag = this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
                             DiagnosticRule.reportIncompatibleVariableOverride,
@@ -5672,6 +5716,39 @@ export class Checker extends ParseTreeWalker {
                             }),
                             errorNode
                         );
+                    } else if (overriddenTDEntry && overrideTDEntry) {
+                        let isRequiredCompatible: boolean;
+                        let isReadOnlyCompatible = true;
+
+                        // If both classes are TypedDicts and they both define this field,
+                        // make sure the attributes are compatible.
+                        if (overriddenTDEntry.isReadOnly) {
+                            isRequiredCompatible = overrideTDEntry.isRequired || !overriddenTDEntry.isRequired;
+                        } else {
+                            isReadOnlyCompatible = !overrideTDEntry.isReadOnly;
+                            isRequiredCompatible = overrideTDEntry.isRequired === overriddenTDEntry.isRequired;
+                        }
+
+                        if (!isRequiredCompatible) {
+                            const message = overrideTDEntry.isRequired
+                                ? Localizer.Diagnostic.typedDictFieldRequiredRedefinition
+                                : Localizer.Diagnostic.typedDictFieldNotRequiredRedefinition;
+                            diag = this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
+                                DiagnosticRule.reportIncompatibleVariableOverride,
+                                message().format({ name: memberName }),
+                                errorNode
+                            );
+                        } else if (!isReadOnlyCompatible) {
+                            diag = this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
+                                DiagnosticRule.reportIncompatibleVariableOverride,
+                                Localizer.Diagnostic.typedDictFieldReadOnlyRedefinition().format({
+                                    name: memberName,
+                                }),
+                                errorNode
+                            );
+                        }
                     }
                 }
             }
@@ -6120,6 +6197,20 @@ export class Checker extends ParseTreeWalker {
                         }
                     }
 
+                    let overriddenTDEntry: TypedDictEntry | undefined;
+                    if (baseClass.details.typedDictEntries) {
+                        overriddenTDEntry = baseClass.details.typedDictEntries.get(memberName);
+
+                        if (overriddenTDEntry?.isReadOnly) {
+                            isInvariant = false;
+                        }
+                    }
+
+                    let overrideTDEntry: TypedDictEntry | undefined;
+                    if (childClassType.details.typedDictEntries) {
+                        overrideTDEntry = childClassType.details.typedDictEntries.get(memberName);
+                    }
+
                     let diagAddendum = new DiagnosticAddendum();
                     if (
                         !this._evaluator.assignType(
@@ -6158,6 +6249,41 @@ export class Checker extends ParseTreeWalker {
                                 Localizer.DiagnosticAddendum.overriddenSymbol(),
                                 origDecl.path,
                                 origDecl.range
+                            );
+                        }
+                    } else if (overriddenTDEntry && overrideTDEntry) {
+                        // Make sure the required/not-required attribute is compatible.
+                        let isRequiredCompatible = true;
+                        if (overriddenTDEntry.isReadOnly) {
+                            // If the read-only flag is set, a not-required field can be overridden
+                            // by a required field, but not vice versa.
+                            isRequiredCompatible = overrideTDEntry.isRequired || !overriddenTDEntry.isRequired;
+                        } else {
+                            isRequiredCompatible = overrideTDEntry.isRequired === overriddenTDEntry.isRequired;
+                        }
+
+                        if (!isRequiredCompatible) {
+                            const message = overrideTDEntry.isRequired
+                                ? Localizer.Diagnostic.typedDictFieldRequiredRedefinition
+                                : Localizer.Diagnostic.typedDictFieldNotRequiredRedefinition;
+                            this._evaluator.addDiagnostic(
+                                AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                message().format({ name: memberName }),
+                                lastDecl.node
+                            );
+                        }
+
+                        // Make sure that the derived class isn't marking a previously writable
+                        // entry as read-only.
+                        if (!overriddenTDEntry.isReadOnly && overrideTDEntry.isReadOnly) {
+                            this._evaluator.addDiagnostic(
+                                AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.typedDictFieldReadOnlyRedefinition().format({
+                                    name: memberName,
+                                }),
+                                lastDecl.node
                             );
                         }
                     }

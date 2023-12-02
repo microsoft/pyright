@@ -802,7 +802,7 @@ test('Classes8', () => {
 test('Classes9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes9.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Classes10', () => {

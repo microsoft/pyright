@@ -1,6 +1,8 @@
 # This sample tests that TypedDicts that inherit from other
 # TypedDicts do not override field names with incompatible types.
 
+# pyright: reportIncompatibleVariableOverride=true
+
 from typing import Any, NotRequired, Required, TypedDict
 
 

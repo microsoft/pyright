@@ -1,6 +1,8 @@
 # This sample tests error conditions for TypedDict classes with
 # read-only entries as introduced in PEP 705.
 
+# pyright: reportIncompatibleVariableOverride=true
+
 from typing import NotRequired, Required, TypedDict
 from typing_extensions import ReadOnly
 
