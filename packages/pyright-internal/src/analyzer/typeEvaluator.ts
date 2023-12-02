@@ -5123,7 +5123,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // cases where a type is passed as an argument (e.g. "defaultdict(list)").
         // It can also come up in cases like "isinstance(x, (list, dict))".
         // We need to check for functions as well to handle Callable.
-        if (isInstantiableClass(typeResult.type) || isFunction(typeResult.type)) {
+        if (
+            isInstantiableClass(typeResult.type) ||
+            (isFunction(typeResult.type) && TypeBase.isSpecialForm(typeResult.type))
+        ) {
             const argNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.Argument);
             if (argNode && argNode?.parent?.nodeType === ParseNodeType.Call) {
                 skipPartialUnknownCheck = true;
