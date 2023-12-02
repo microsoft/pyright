@@ -69,10 +69,10 @@ class Class5(AbstractContextManager[Any]):
         return True
 
 
-def test3(val: Exception | None):
+def test3(val: str | None):
     val = None
     with Class5():
-        val = Exception("asdf")
+        val = ""
         raise Exception
 
-    reveal_type(val, expected_text="Exception | None")
+    reveal_type(val, expected_text="Literal[''] | None")
