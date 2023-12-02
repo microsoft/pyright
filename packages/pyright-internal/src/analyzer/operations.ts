@@ -42,6 +42,7 @@ import {
     preserveUnknown,
     removeNoneFromUnion,
     specializeTupleClass,
+    transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import {
     ClassType,
@@ -938,7 +939,8 @@ export function getTypeOfUnaryOperation(
     inferenceContext: InferenceContext | undefined
 ): TypeResult {
     const exprTypeResult = evaluator.getTypeOfExpression(node.expression);
-    let exprType = evaluator.makeTopLevelTypeVarsConcrete(exprTypeResult.type);
+    let exprType = evaluator.makeTopLevelTypeVarsConcrete(transformPossibleRecursiveTypeAlias(exprTypeResult.type));
+
     const isIncomplete = exprTypeResult.isIncomplete;
 
     if (isNever(exprType)) {
@@ -1010,30 +1012,33 @@ export function getTypeOfUnaryOperation(
             }
 
             if (!type) {
-                const fileInfo = getFileInfo(node);
+                if (!isIncomplete) {
+                    const fileInfo = getFileInfo(node);
 
-                if (inferenceContext) {
-                    evaluator.addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.typeNotSupportUnaryOperatorBidirectional().format({
-                            operator: printOperator(node.operator),
-                            type: evaluator.printType(exprType),
-                            expectedType: evaluator.printType(inferenceContext.expectedType),
-                        }),
-                        node
-                    );
-                } else {
-                    evaluator.addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.typeNotSupportUnaryOperator().format({
-                            operator: printOperator(node.operator),
-                            type: evaluator.printType(exprType),
-                        }),
-                        node
-                    );
+                    if (inferenceContext) {
+                        evaluator.addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeNotSupportUnaryOperatorBidirectional().format({
+                                operator: printOperator(node.operator),
+                                type: evaluator.printType(exprType),
+                                expectedType: evaluator.printType(inferenceContext.expectedType),
+                            }),
+                            node
+                        );
+                    } else {
+                        evaluator.addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeNotSupportUnaryOperator().format({
+                                operator: printOperator(node.operator),
+                                type: evaluator.printType(exprType),
+                            }),
+                            node
+                        );
+                    }
                 }
+
                 type = UnknownType.create();
             }
         }
