@@ -3723,9 +3723,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return FunctionType.cloneForParamSpec(subtype, concreteFunction);
             }
 
-            // If this is a TypeVarTuple *Ts, convert it to an unpacked tuple
-            // *tuple[*Ts].
-            if (isVariadicTypeVar(subtype)) {
+            if (isTypeVar(subtype) && subtype.details.isVariadic) {
                 // If it's in a union, convert to type or object.
                 if (subtype.isVariadicInUnion) {
                     if (TypeBase.isInstantiable(subtype)) {
@@ -3739,16 +3737,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return AnyType.create();
                 }
 
-                if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                    return convertToInstance(
-                        specializeTupleClass(
-                            tupleClassType,
-                            [{ type: subtype, isUnbounded: false }],
-                            /* isTypeArgumentExplicit */ true,
-                            /* isUnpackedTuple */ true
-                        )
-                    );
-                }
+                return subtype;
             }
 
             if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
@@ -10789,7 +10778,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
 
                             return {
-                                type: stripLiteralValue(argType),
+                                type: argType,
                                 isUnbounded: argParam.argument.argumentCategory === ArgumentCategory.UnpackedList,
                             };
                         });
