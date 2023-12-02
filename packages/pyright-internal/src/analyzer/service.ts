@@ -23,6 +23,7 @@ import { EditableProgram, ProgramView } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
+import { getHeapStatistics } from '../common/memUtils';
 import { defaultStubsDirectory } from '../common/pathConsts';
 import { isRootedDiskPath } from '../common/pathUtils';
 import { ServiceProvider } from '../common/serviceProvider';
@@ -383,6 +384,9 @@ export class AnalyzerService {
 
         const checkedFileCount = this._program.getUserFileCount();
         this._console.info('Total files checked: ' + checkedFileCount.toString());
+
+        const heapStats = getHeapStatistics();
+        this._console.info('Heap stats: ' + JSON.stringify(heapStats, null, 4));
 
         if (printUriStats) {
             this._console.info('URI stats');

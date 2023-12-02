@@ -692,14 +692,22 @@ function getImportResult(
     if (process.env.CI_IMPORT_TEST_VENVPATH) {
         configModifier = (c: ConfigOptions) => {
             defaultSetup(c);
-            c.venvPath = Uri.file(process.env.CI_IMPORT_TEST_VENVPATH!, /* checkRelative */ true);
+            c.venvPath = Uri.file(
+                process.env.CI_IMPORT_TEST_VENVPATH!,
+                /* isCaseSensitive */ true,
+                /* checkRelative */ true
+            );
             c.venv = process.env.CI_IMPORT_TEST_VENV;
         };
         spFactory = (files: { path: string; content: string }[]) => createServiceProviderWithCombinedFs(files);
     } else if (process.env.CI_IMPORT_TEST_PYTHONPATH) {
         configModifier = (c: ConfigOptions) => {
             defaultSetup(c);
-            c.pythonPath = Uri.file(process.env.CI_IMPORT_TEST_PYTHONPATH!, /* checkRelative */ true);
+            c.pythonPath = Uri.file(
+                process.env.CI_IMPORT_TEST_PYTHONPATH!,
+                /* isCaseSensitive */ true,
+                /* checkRelative */ true
+            );
         };
         hostFactory = (sp: ServiceProvider) => new TruePythonTestAccessHost(sp);
         spFactory = (files: { path: string; content: string }[]) => createServiceProviderWithCombinedFs(files);
