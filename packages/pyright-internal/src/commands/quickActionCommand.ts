@@ -20,7 +20,7 @@ export class QuickActionCommand implements ServerCommand {
 
     async execute(params: ExecuteCommandParams, token: CancellationToken): Promise<any> {
         if (params.arguments && params.arguments.length >= 1) {
-            const docUri = Uri.parse(params.arguments[0] as string);
+            const docUri = Uri.parse(params.arguments[0] as string, this._ls.rootUri.isCaseSensitive);
             const otherArgs = params.arguments.slice(1);
             const workspace = await this._ls.getWorkspaceForFile(docUri);
 

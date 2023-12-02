@@ -35,6 +35,11 @@ export class WebUri extends BaseUri {
         return this._scheme;
     }
 
+    get isCaseSensitive(): boolean {
+        // Web URIs are always case sensitive
+        return true;
+    }
+
     @cacheStaticFunc()
     static createWebUri(
         scheme: string,

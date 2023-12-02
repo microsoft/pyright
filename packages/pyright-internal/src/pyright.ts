@@ -246,10 +246,10 @@ async function processArgs(): Promise<ExitStatus> {
 
         // Verify the specified file specs to make sure their wildcard roots exist.
         const tempFileSystem = new PyrightFileSystem(createFromRealFileSystem());
-        const tempServiceProvider = createServiceProvider(tempFileSystem, console);
+        const tempServiceProvider = createServiceProvider(tempFileSystem, console, new RealTempFile());
 
         for (const fileDesc of options.includeFileSpecsOverride) {
-            const includeSpec = getFileSpec(tempServiceProvider, Uri.file(process.cwd()), fileDesc);
+            const includeSpec = getFileSpec(Uri.file(process.cwd(), tempServiceProvider.isFsCaseSensitive()), fileDesc);
             try {
                 const stat = tryStat(tempFileSystem, includeSpec.wildcardRoot);
                 if (!stat) {
@@ -388,7 +388,7 @@ async function processArgs(): Promise<ExitStatus> {
     // Refresh service after 2 seconds after the last library file change is detected.
     const service = new AnalyzerService('<default>', serviceProvider, {
         console: output,
-        hostFactory: () => new FullAccessHost(fileSystem),
+        hostFactory: () => new FullAccessHost(serviceProvider),
         libraryReanalysisTimeProvider: () => 2 * 1000,
     });
     const exitStatus = createDeferred<ExitStatus>();

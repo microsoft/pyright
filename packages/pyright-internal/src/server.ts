@@ -50,11 +50,6 @@ export class PyrightServer extends LanguageServerBase {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const version = require('../package.json').version || '';
 
-        // When executed from CLI command (pyright-langserver), __rootDirectory is
-        // already defined. When executed from VSCode extension, rootDirectory should
-        // be __dirname.
-        const rootDirectory: Uri = getRootUri() || Uri.file(__dirname);
-
         const console = new ConsoleWithLogLevel(connection.console);
         const fileWatcherProvider = new WorkspaceFileWatcherProvider();
         const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
@@ -63,6 +58,12 @@ export class PyrightServer extends LanguageServerBase {
         const cacheManager = new CacheManager();
 
         const serviceProvider = createServiceProvider(pyrightFs, tempFile, console, cacheManager);
+
+        // When executed from CLI command (pyright-langserver), __rootDirectory is
+        // already defined. When executed from VSCode extension, rootDirectory should
+        // be __dirname.
+        const isCaseSensitive = serviceProvider.isFsCaseSensitive();
+        const rootDirectory: Uri = getRootUri(isCaseSensitive) || Uri.file(__dirname, isCaseSensitive);
         const realPathRoot = pyrightFs.realCasePath(rootDirectory);
 
         super(
@@ -224,11 +225,11 @@ export class PyrightServer extends LanguageServerBase {
             return undefined;
         }
 
-        return new BackgroundAnalysis(this.console);
+        return new BackgroundAnalysis(this.console, this.serverOptions.serviceProvider.isFsCaseSensitive());
     }
 
     protected override createHost() {
-        return new FullAccessHost(this.fs);
+        return new FullAccessHost(this.serverOptions.serviceProvider);
     }
 
     protected override createImportResolver(
@@ -259,7 +260,7 @@ export class PyrightServer extends LanguageServerBase {
     ): Promise<(Command | CodeAction)[] | undefined | null> {
         this.recordUserInteractionTime();
 
-        const uri = Uri.parse(params.textDocument.uri);
+        const uri = Uri.parse(params.textDocument.uri, this.serverOptions.serviceProvider.isFsCaseSensitive());
         const workspace = await this.getWorkspaceForFile(uri);
         return CodeActionProvider.getCodeActionsForPosition(workspace, uri, params.range, params.context.only, token);
     }

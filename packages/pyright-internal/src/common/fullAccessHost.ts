@@ -13,10 +13,10 @@ import { PythonPathResult } from '../analyzer/pythonPathUtils';
 import { OperationCanceledException, throwIfCancellationRequested } from './cancellationUtils';
 import { PythonPlatform } from './configOptions';
 import { assertNever } from './debug';
-import { FileSystem } from './fileSystem';
 import { HostKind, NoAccessHost, ScriptOutput } from './host';
 import { normalizePath } from './pathUtils';
 import { PythonVersion, versionFromMajorMinor } from './pythonVersion';
+import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
 import { isDirectory } from './uri/uriUtils';
 
@@ -62,7 +62,7 @@ export class LimitedAccessHost extends NoAccessHost {
 }
 
 export class FullAccessHost extends LimitedAccessHost {
-    constructor(protected fs: FileSystem) {
+    constructor(protected serviceProvider: ServiceProvider) {
         super();
     }
 
@@ -70,14 +70,14 @@ export class FullAccessHost extends LimitedAccessHost {
         return HostKind.FullAccess;
     }
 
-    static createHost(kind: HostKind, fs: FileSystem) {
+    static createHost(kind: HostKind, serviceProvider: ServiceProvider) {
         switch (kind) {
             case HostKind.NoAccess:
                 return new NoAccessHost();
             case HostKind.LimitedAccess:
                 return new LimitedAccessHost();
             case HostKind.FullAccess:
-                return new FullAccessHost(fs);
+                return new FullAccessHost(serviceProvider);
             default:
                 assertNever(kind);
         }
@@ -86,7 +86,7 @@ export class FullAccessHost extends LimitedAccessHost {
     override getPythonSearchPaths(pythonPath?: Uri, logInfo?: string[]): PythonPathResult {
         const importFailureInfo = logInfo ?? [];
         let result = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
-            this._getSearchPathResultFromInterpreter(this.fs, p, importFailureInfo)
+            this._getSearchPathResultFromInterpreter(p, importFailureInfo)
         );
 
         if (!result) {
@@ -212,7 +212,6 @@ export class FullAccessHost extends LimitedAccessHost {
     }
 
     private _getSearchPathResultFromInterpreter(
-        fs: FileSystem,
         interpreterPath: string,
         importFailureInfo: string[]
     ): PythonPathResult | undefined {
@@ -225,6 +224,7 @@ export class FullAccessHost extends LimitedAccessHost {
             const commandLineArgs: string[] = ['-c', extractSys];
             importFailureInfo.push(`Executing interpreter: '${interpreterPath}'`);
             const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, { encoding: 'utf8' });
+            const isCaseSensitive = this.serviceProvider.isFsCaseSensitive();
 
             // Parse the execOutput. It should be a JSON-encoded array of paths.
             try {
@@ -233,9 +233,12 @@ export class FullAccessHost extends LimitedAccessHost {
                     execSplitEntry = execSplitEntry.trim();
                     if (execSplitEntry) {
                         const normalizedPath = normalizePath(execSplitEntry);
-                        const normalizedUri = Uri.file(normalizedPath);
+                        const normalizedUri = Uri.file(normalizedPath, isCaseSensitive);
                         // Skip non-existent paths and broken zips/eggs.
-                        if (fs.existsSync(normalizedUri) && isDirectory(fs, normalizedUri)) {
+                        if (
+                            this.serviceProvider.fs().existsSync(normalizedUri) &&
+                            isDirectory(this.serviceProvider.fs(), normalizedUri)
+                        ) {
                             result.paths.push(normalizedUri);
                         } else {
                             importFailureInfo.push(`Skipping '${normalizedPath}' because it is not a valid directory`);
@@ -243,7 +246,7 @@ export class FullAccessHost extends LimitedAccessHost {
                     }
                 }
 
-                result.prefix = Uri.file(execSplit.prefix);
+                result.prefix = Uri.file(execSplit.prefix, isCaseSensitive);
 
                 if (result.paths.length === 0) {
                     importFailureInfo.push(`Found no valid directories`);

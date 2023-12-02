@@ -289,6 +289,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
     protected importResolver: ImportResolver;
     protected logTracker: LogTracker;
+    protected isCaseSensitive = true;
 
     protected constructor(serviceProvider: ServiceProvider) {
         super(workerData as InitializationData, serviceProvider);
@@ -296,8 +297,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         // Stash the base directory into a global variable.
         const data = workerData as InitializationData;
         this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootUri}`);
-
-        this._configOptions = new ConfigOptions(Uri.parse(data.rootUri));
+        this.isCaseSensitive = serviceProvider.isFsCaseSensitive();
+        this._configOptions = new ConfigOptions(Uri.parse(data.rootUri, this.isCaseSensitive));
         this.importResolver = this.createImportResolver(serviceProvider, this._configOptions, this.createHost());
 
         const console = this.getConsole();
@@ -507,12 +508,12 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
     protected handleAnalyzeFile(fileUri: string, token: CancellationToken) {
         throwIfCancellationRequested(token);
-        return this.program.analyzeFile(Uri.parse(fileUri), token);
+        return this.program.analyzeFile(Uri.parse(fileUri, this.isCaseSensitive), token);
     }
 
     protected handleGetDiagnosticsForRange(fileUri: string, range: Range, token: CancellationToken) {
         throwIfCancellationRequested(token);
-        return this.program.getDiagnosticsForRange(Uri.parse(fileUri), range);
+        return this.program.getDiagnosticsForRange(Uri.parse(fileUri, this.isCaseSensitive), range);
     }
 
     protected handleWriteTypeStub(
@@ -530,7 +531,12 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             token
         );
 
-        this.program.writeTypeStub(Uri.parse(targetImportPath), targetIsSingleFile, Uri.parse(stubPath), token);
+        this.program.writeTypeStub(
+            Uri.parse(targetImportPath, this.isCaseSensitive),
+            targetIsSingleFile,
+            Uri.parse(stubPath, this.isCaseSensitive),
+            token
+        );
     }
 
     protected handleSetImportResolver(hostKind: HostKind) {
@@ -555,7 +561,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected handleSetTrackedFiles(fileUris: string[]) {
-        const diagnostics = this.program.setTrackedFiles(fileUris.map((f) => Uri.parse(f)));
+        const diagnostics = this.program.setTrackedFiles(fileUris.map((f) => Uri.parse(f, this.isCaseSensitive)));
         this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
     }
 
@@ -576,25 +582,28 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         contents: string,
         options: OpenFileOptions | undefined
     ) {
-        this.program.setFileOpened(Uri.parse(fileUri), version, contents, options);
+        this.program.setFileOpened(Uri.parse(fileUri, this.isCaseSensitive), version, contents, options);
     }
 
     protected handleUpdateChainedfileUri(fileUri: string, chainedfileUri: string | undefined) {
-        this.program.updateChainedUri(Uri.parse(fileUri), chainedfileUri ? Uri.parse(chainedfileUri) : undefined);
+        this.program.updateChainedUri(
+            Uri.parse(fileUri, this.isCaseSensitive),
+            chainedfileUri ? Uri.parse(chainedfileUri, this.isCaseSensitive) : undefined
+        );
     }
 
     protected handleSetFileClosed(fileUri: string, isTracked: boolean | undefined) {
-        const diagnostics = this.program.setFileClosed(Uri.parse(fileUri), isTracked);
+        const diagnostics = this.program.setFileClosed(Uri.parse(fileUri, this.isCaseSensitive), isTracked);
         this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
     }
 
     protected handleAddInterimFile(fileUri: string) {
-        this.program.addInterimFile(Uri.parse(fileUri));
+        this.program.addInterimFile(Uri.parse(fileUri, this.isCaseSensitive));
     }
 
     protected handleMarkFilesDirty(fileUris: string[], evenIfContentsAreSame: boolean) {
         this.program.markFilesDirty(
-            fileUris.map((f) => Uri.parse(f)),
+            fileUris.map((f) => Uri.parse(f, this.isCaseSensitive)),
             evenIfContentsAreSame
         );
     }

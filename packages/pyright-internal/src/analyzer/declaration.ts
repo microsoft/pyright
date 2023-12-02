@@ -32,7 +32,7 @@ import {
     YieldNode,
 } from '../parser/parseNodes';
 
-export const UnresolvedModuleMarker = Uri.parse('unresolved-module-marker://**/*');
+export const UnresolvedModuleMarker = Uri.parse('unresolved-module-marker://**/*', /* isCaseSensitive */ true);
 
 export const enum DeclarationType {
     Intrinsic,

@@ -71,6 +71,7 @@ export class PackageTypeVerifier {
     private _execEnv: ExecutionEnvironment;
     private _importResolver: ImportResolver;
     private _program: Program;
+    private _isCaseSensitive = true;
 
     constructor(
         private _serviceProvider: ServiceProvider,
@@ -78,7 +79,7 @@ export class PackageTypeVerifier {
         private _packageName: string,
         private _ignoreExternal = false
     ) {
-        const host = new FullAccessHost(_serviceProvider.fs());
+        const host = new FullAccessHost(_serviceProvider);
         this._configOptions = new ConfigOptions(Uri.empty());
 
         this._configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
@@ -94,11 +95,12 @@ export class PackageTypeVerifier {
             this._configOptions.evaluateUnknownImportsAsAny = true;
         }
 
-        this._execEnv = this._configOptions.findExecEnvironment(Uri.file('.'));
+        this._isCaseSensitive = _serviceProvider.isFsCaseSensitive();
+        this._execEnv = this._configOptions.findExecEnvironment(Uri.file('.', this._isCaseSensitive));
         this._importResolver = new ImportResolver(
             this._serviceProvider,
             this._configOptions,
-            new FullAccessHost(this._serviceProvider.fs())
+            new FullAccessHost(this._serviceProvider)
         );
         this._program = new Program(this._importResolver, this._configOptions, this._serviceProvider);
     }
@@ -589,7 +591,7 @@ export class PackageTypeVerifier {
                         category: symbolCategory,
                         name,
                         fullName,
-                        fileUri: Uri.file(module.path),
+                        fileUri: Uri.file(module.path, this._isCaseSensitive),
                         isExported,
                         typeKnownStatus: TypeKnownStatus.Known,
                         referenceCount: 1,

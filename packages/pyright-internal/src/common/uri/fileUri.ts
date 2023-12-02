@@ -30,13 +30,18 @@ export class FileUri extends BaseUri {
         private readonly _filePath: string,
         private readonly _query: string,
         private readonly _fragment: string,
-        private _originalString: string | undefined
+        private _originalString: string | undefined,
+        private _isCaseSensitive: boolean
     ) {
-        super(key);
+        super(_isCaseSensitive ? key : key.toLowerCase());
     }
 
     override get scheme(): string {
         return 'file';
+    }
+
+    get isCaseSensitive(): boolean {
+        return this._isCaseSensitive;
     }
 
     @cacheStaticFunc()
@@ -44,10 +49,11 @@ export class FileUri extends BaseUri {
         filePath: string,
         query: string,
         fragment: string,
-        originalString: string | undefined
+        originalString: string | undefined,
+        isCaseSensitive: boolean
     ): FileUri {
         const key = FileUri._createKey(filePath, query, fragment);
-        return new FileUri(key, filePath, query, fragment, originalString);
+        return new FileUri(key, filePath, query, fragment, originalString, isCaseSensitive);
     }
 
     static isFileUri(uri: Uri): uri is FileUri {
@@ -72,7 +78,7 @@ export class FileUri extends BaseUri {
         return this._filePath;
     }
     override addPath(extra: string): Uri {
-        return FileUri.createFileUri(this._filePath + extra, '', '', undefined);
+        return FileUri.createFileUri(this._filePath + extra, '', '', undefined, this._isCaseSensitive);
     }
 
     @cacheMethodWithNoArgs()
@@ -137,7 +143,7 @@ export class FileUri extends BaseUri {
             combined = combined.slice(0, combined.length - 1);
         }
         if (combined !== this._filePath) {
-            return FileUri.createFileUri(combined, '', '', undefined);
+            return FileUri.createFileUri(combined, '', '', undefined, this._isCaseSensitive);
         }
         return this;
     }
@@ -164,7 +170,7 @@ export class FileUri extends BaseUri {
             dir = dir.slice(0, -1);
         }
         if (dir !== filePath) {
-            return FileUri.createFileUri(dir, '', '', undefined);
+            return FileUri.createFileUri(dir, '', '', undefined, this._isCaseSensitive);
         } else {
             return this;
         }
@@ -173,7 +179,7 @@ export class FileUri extends BaseUri {
     protected override getRootImpl(): Uri {
         const rootPath = this.getRootPath();
         if (rootPath !== this._filePath) {
-            return FileUri.createFileUri(rootPath, '', '', undefined);
+            return FileUri.createFileUri(rootPath, '', '', undefined, this._isCaseSensitive);
         }
         return this;
     }

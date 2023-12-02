@@ -17,7 +17,7 @@ import { lib, sitePackages, typeshedFallback } from '../common/pathConsts';
 import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { ServiceProvider } from '../common/serviceProvider';
-import { createServiceProvider } from '../common/serviceProviderExtensions';
+import { ServiceKeys, createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { TestAccessHost } from './harness/testAccessHost';
@@ -701,7 +701,7 @@ function getImportResult(
             defaultSetup(c);
             c.pythonPath = Uri.file(process.env.CI_IMPORT_TEST_PYTHONPATH!, /* checkRelative */ true);
         };
-        hostFactory = (sp: ServiceProvider) => new TruePythonTestAccessHost();
+        hostFactory = (sp: ServiceProvider) => new TruePythonTestAccessHost(sp);
         spFactory = (files: { path: string; content: string }[]) => createServiceProviderWithCombinedFs(files);
     }
 
@@ -767,8 +767,11 @@ function createServiceProviderWithCombinedFs(files: { path: string; content: str
 }
 
 class TruePythonTestAccessHost extends FullAccessHost {
-    constructor() {
-        super(createFromRealFileSystem());
+    constructor(sp: ServiceProvider) {
+        // Make sure the service provide in use is using a real file system
+        const clone = sp.clone();
+        clone.add(ServiceKeys.fs, createFromRealFileSystem());
+        super(clone);
     }
 }
 

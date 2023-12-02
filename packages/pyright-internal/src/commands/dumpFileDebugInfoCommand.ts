@@ -133,7 +133,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
             return [];
         }
 
-        const fileUri = Uri.parse(params.arguments[0] as string);
+        const fileUri = Uri.parse(params.arguments[0] as string, this._ls.rootUri.isCaseSensitive);
         const kind = params.arguments[1];
 
         const workspace = await this._ls.getWorkspaceForFile(fileUri);

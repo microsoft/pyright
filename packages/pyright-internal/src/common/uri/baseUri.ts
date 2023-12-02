@@ -22,6 +22,9 @@ export abstract class BaseUri implements Uri {
     // Returns the scheme of the URI.
     abstract get scheme(): string;
 
+    // Returns whether the underlying file system is case sensitive or not.
+    abstract get isCaseSensitive(): boolean;
+
     // Returns the last segment of the URI, similar to the UNIX basename command.
     @cacheProperty()
     get filename(): string {

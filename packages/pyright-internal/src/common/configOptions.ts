@@ -986,7 +986,7 @@ export class ConfigOptions {
                     } else if (isAbsolute(fileSpec)) {
                         console.error(`Ignoring path "${fileSpec}" in "include" array because it is not relative.`);
                     } else {
-                        this.include.push(getFileSpec(serviceProvider, this.projectRoot, fileSpec));
+                        this.include.push(getFileSpec(this.projectRoot, fileSpec));
                     }
                 });
             }
@@ -1005,7 +1005,7 @@ export class ConfigOptions {
                     } else if (isAbsolute(fileSpec)) {
                         console.error(`Ignoring path "${fileSpec}" in "exclude" array because it is not relative.`);
                     } else {
-                        this.exclude.push(getFileSpec(serviceProvider, this.projectRoot, fileSpec));
+                        this.exclude.push(getFileSpec(this.projectRoot, fileSpec));
                     }
                 });
             }
@@ -1024,7 +1024,7 @@ export class ConfigOptions {
                     } else if (isAbsolute(fileSpec)) {
                         console.error(`Ignoring path "${fileSpec}" in "ignore" array because it is not relative.`);
                     } else {
-                        this.ignore.push(getFileSpec(serviceProvider, this.projectRoot, fileSpec));
+                        this.ignore.push(getFileSpec(this.projectRoot, fileSpec));
                     }
                 });
             }
@@ -1043,7 +1043,7 @@ export class ConfigOptions {
                     } else if (isAbsolute(fileSpec)) {
                         console.error(`Ignoring path "${fileSpec}" in "strict" array because it is not relative.`);
                     } else {
-                        this.strict.push(getFileSpec(serviceProvider, this.projectRoot, fileSpec));
+                        this.strict.push(getFileSpec(this.projectRoot, fileSpec));
                     }
                 });
             }

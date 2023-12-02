@@ -22,7 +22,7 @@ import {
 } from './fileWatcher';
 import { getRootLength } from './pathUtils';
 import { Uri } from './uri/uri';
-import { getRootUri } from './uri/uriUtils';
+import { getRootUri, isFileSystemCaseSensitive } from './uri/uriUtils';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
@@ -209,7 +209,10 @@ class YarnFS extends PosixFS {
 const yarnFS = new YarnFS();
 
 class RealFileSystem implements FileSystem {
-    constructor(private _fileWatcherProvider: FileWatcherProvider, private _console: ConsoleInterface) {}
+    private _isCaseSensitive = true;
+    constructor(private _fileWatcherProvider: FileWatcherProvider, private _console: ConsoleInterface) {
+        this._isCaseSensitive = isFileSystemCaseSensitive(this, new RealTempFile());
+    }
 
     existsSync(uri: Uri) {
         if (uri.isEmpty()) {
@@ -311,7 +314,7 @@ class RealFileSystem implements FileSystem {
     realpathSync(uri: Uri) {
         try {
             const path = this._getNormalizedPath(uri);
-            return Uri.file(yarnFS.realpathSync(path));
+            return Uri.file(yarnFS.realpathSync(path), this._isCaseSensitive);
         } catch (e: any) {
             return uri;
         }
@@ -321,7 +324,7 @@ class RealFileSystem implements FileSystem {
         // The entry point to the tool should have set the __rootDirectory
         // global variable to point to the directory that contains the
         // typeshed-fallback directory.
-        return getRootUri() || Uri.empty();
+        return getRootUri(this._isCaseSensitive) || Uri.empty();
     }
 
     createFileSystemWatcher(paths: Uri[], listener: FileWatcherEventHandler): FileWatcher {
@@ -384,7 +387,7 @@ class RealFileSystem implements FileSystem {
                 return uri;
             }
 
-            return Uri.file(realCase);
+            return Uri.file(realCase, this._isCaseSensitive);
         } catch (e: any) {
             // Return as it is, if anything failed.
             this._console.log(`Failed to get real file system casing for ${uri}: ${e}`);
@@ -461,12 +464,12 @@ export class RealTempFile implements TempFile {
     private _tmpdir?: tmp.DirResult;
 
     tmpdir(): Uri {
-        return Uri.file(this._getTmpDir().name);
+        return Uri.file(this._getTmpDir().name, /* isCaseSensitive */ true);
     }
 
     tmpfile(options?: TmpfileOptions): Uri {
         const f = tmp.fileSync({ dir: this._getTmpDir().name, discardDescriptor: true, ...options });
-        return Uri.file(f.name);
+        return Uri.file(f.name, /* isCaseSensitive */ true);
     }
 
     dispose(): void {

@@ -318,7 +318,7 @@ test('FindFilesInMemoryOnly', () => {
     service.setOptions(commandLineOptions);
 
     // Open a file that is not backed by the file system.
-    const untitled = Uri.parse('untitled:Untitled-1.py');
+    const untitled = Uri.parse('untitled:Untitled-1.py', true);
     service.setFileOpened(untitled, 1, '# empty');
 
     const fileList = service.test_getFileNamesFromFileSpecs();

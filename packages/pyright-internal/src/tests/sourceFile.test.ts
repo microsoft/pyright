@@ -25,7 +25,7 @@ test('Empty', () => {
     const sourceFile = new SourceFile(serviceProvider, Uri.file(filePath), '', false, false, { isEditMode: false });
     const configOptions = new ConfigOptions(Uri.file(process.cwd()));
     const sp = createServiceProvider(fs);
-    const importResolver = new ImportResolver(sp, configOptions, new FullAccessHost(fs));
+    const importResolver = new ImportResolver(sp, configOptions, new FullAccessHost(sp));
 
     sourceFile.parse(configOptions, importResolver);
 });

@@ -9,14 +9,12 @@
 import type { Dirent } from 'fs';
 
 import { randomBytesHex } from '../crypto';
-import { ServiceProvider } from '../extensibility';
 import { FileSystem, ReadOnlyFileSystem, Stats, TempFile } from '../fileSystem';
 import {
     getRegexEscapedSeparator,
     isDirectoryWildcardPatternPresent,
     stripTrailingDirectorySeparator,
 } from '../pathUtils';
-import { ServiceKeys } from '../serviceProviderExtensions';
 import { Uri } from './uri';
 
 let _fsCaseSensitivity: boolean | undefined = undefined;
@@ -286,15 +284,12 @@ export function hasPythonExtension(uri: Uri) {
     return uri.extname === '.py' || uri.extname === '.pyi';
 }
 
-export function getFileSpec(sp: ServiceProvider, root: Uri, fileSpec: string): FileSpec {
+export function getFileSpec(root: Uri, fileSpec: string): FileSpec {
     let regExPattern = getWildcardRegexPattern(root, fileSpec);
     const escapedSeparator = getRegexEscapedSeparator('/');
     regExPattern = `^(${regExPattern})($|${escapedSeparator})`;
 
-    const fs = sp.get(ServiceKeys.fs);
-    const tmp = sp.tryGet(ServiceKeys.tempFile);
-
-    const regExp = new RegExp(regExPattern, isFileSystemCaseSensitive(fs, tmp) ? undefined : 'i');
+    const regExp = new RegExp(regExPattern, root.isCaseSensitive ? undefined : 'i');
     const wildcardRoot = getWildcardRoot(root, fileSpec);
     const hasDirectoryWildcard = isDirectoryWildcardPatternPresent(fileSpec);
 
@@ -328,17 +323,13 @@ function fileSystemEntryExists(fs: ReadOnlyFileSystem, uri: Uri, entryKind: File
 
 const isFileSystemCaseSensitiveMap = new WeakMap<FileSystem, boolean>();
 
-export function isFileSystemCaseSensitive(fs: FileSystem, tmp?: TempFile) {
-    if (!tmp) {
-        return false;
-    }
-
+export function isFileSystemCaseSensitive(fs: FileSystem, tmp: TempFile | undefined) {
     if (!_underTest && _fsCaseSensitivity !== undefined) {
         return _fsCaseSensitivity;
     }
 
     if (!isFileSystemCaseSensitiveMap.has(fs)) {
-        _fsCaseSensitivity = isFileSystemCaseSensitiveInternal(fs, tmp);
+        _fsCaseSensitivity = tmp ? isFileSystemCaseSensitiveInternal(fs, tmp) : false;
         isFileSystemCaseSensitiveMap.set(fs, _fsCaseSensitivity);
     }
     return !!isFileSystemCaseSensitiveMap.get(fs);
@@ -407,9 +398,9 @@ export function deduplicateFolders(listOfFolders: Uri[][]): Uri[] {
     return [...foldersToWatch.values()];
 }
 
-export function getRootUri(): Uri | undefined {
+export function getRootUri(isCaseSensitive: boolean): Uri | undefined {
     if ((global as any).__rootDirectory) {
-        return Uri.file((global as any).__rootDirectory);
+        return Uri.file((global as any).__rootDirectory, isCaseSensitive);
     }
     return undefined;
 }

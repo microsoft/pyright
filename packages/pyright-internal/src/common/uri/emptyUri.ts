@@ -25,6 +25,9 @@ export class EmptyUri extends BaseUri {
     override get scheme(): string {
         return '';
     }
+    get isCaseSensitive(): boolean {
+        return true;
+    }
     override isEmpty(): boolean {
         return true;
     }

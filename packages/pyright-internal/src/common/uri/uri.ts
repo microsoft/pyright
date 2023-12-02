@@ -47,6 +47,9 @@ export interface Uri {
     // Returns the filename without any extensions
     readonly withoutExtension: string;
 
+    // Indicates if the underlying file system for this URI is case sensitive or not.
+    readonly isCaseSensitive: boolean;
+
     isEmpty(): boolean;
 
     toString(): string;
@@ -155,7 +158,7 @@ function normalizeUri(uri: string | URI): { uri: URI; str: string } {
 }
 
 export namespace Uri {
-    export function file(path: string, checkRelative = false): Uri {
+    export function file(path: string, isCaseSensitive = true, checkRelative = false): Uri {
         // Fix path if we're checking for relative paths and this is not a rooted path.
         path = checkRelative && !isRootedDiskPath(path) ? combinePaths(process.cwd(), path) : path;
 
@@ -168,7 +171,8 @@ export namespace Uri {
             getFilePath(normalized.uri),
             normalized.uri.query,
             normalized.uri.fragment,
-            normalized.str
+            normalized.str,
+            isCaseSensitive
         );
     }
 
@@ -176,7 +180,7 @@ export namespace Uri {
         return EmptyUri.instance;
     }
 
-    export function parse(value: string | undefined): Uri {
+    export function parse(value: string | undefined, isCaseSensitive: boolean): Uri {
         if (!value) {
             return Uri.empty();
         }
@@ -189,9 +193,12 @@ export namespace Uri {
                 getFilePath(normalized.uri),
                 normalized.uri.query,
                 normalized.uri.fragment,
-                normalized.str
+                normalized.str,
+                isCaseSensitive
             );
         }
+
+        // Web URIs are always case sensitive.
         return WebUri.createWebUri(
             normalized.uri.scheme,
             normalized.uri.authority,

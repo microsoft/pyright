@@ -20,11 +20,11 @@ import { ServiceProvider } from './common/serviceProvider';
 import { getRootUri } from './common/uri/uriUtils';
 
 export class BackgroundAnalysis extends BackgroundAnalysisBase {
-    constructor(console: ConsoleInterface) {
+    constructor(console: ConsoleInterface, isCaseSensitive: boolean) {
         super(console);
 
         const initialData: InitializationData = {
-            rootUri: getRootUri()?.toString() || '',
+            rootUri: getRootUri(isCaseSensitive)?.toString() || '',
             cancellationFolderName: getCancellationFolderName(),
             runner: undefined,
         };
@@ -41,7 +41,7 @@ export class BackgroundAnalysisRunner extends BackgroundAnalysisRunnerBase {
     }
 
     protected override createHost(): Host {
-        return new FullAccessHost(this.fs);
+        return new FullAccessHost(this.getServiceProvider());
     }
 
     protected override createImportResolver(

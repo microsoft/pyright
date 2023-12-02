@@ -7,17 +7,15 @@
  */
 
 import assert from 'assert';
-import { WorkspaceEdit } from 'vscode-languageserver-protocol';
 
-import { CancellationToken, CreateFile, DeleteFile, RenameFile, TextDocumentEdit } from 'vscode-languageserver';
+import { CancellationToken } from 'vscode-languageserver';
 import { findNodeByOffset } from '../analyzer/parseTreeUtils';
 import { Program } from '../analyzer/program';
 import { createMapFromItems } from '../common/collectionUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { isArray } from '../common/core';
 import { assertNever } from '../common/debug';
-import { FileEditAction, FileEditActions, FileOperations } from '../common/editAction';
-import { FileSystem } from '../common/fileSystem';
+import { FileEditAction, FileEditActions } from '../common/editAction';
 import { TextRange, rangesAreEqual } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { isFile } from '../common/uri/uriUtils';
@@ -140,42 +138,6 @@ function _applyEdits(state: TestState, filePath: string, edits: FileEditAction[]
     );
 
     return { version: sourceFile.getClientVersion(), text: current };
-}
-
-export function convertWorkspaceEditToFileEditActions(fs: FileSystem, edit: WorkspaceEdit): FileEditActions {
-    const edits: FileEditAction[] = [];
-    const fileOperations: FileOperations[] = [];
-
-    if (edit.changes) {
-        for (const kv of Object.entries(edit.changes)) {
-            kv[1].forEach((e) => edits.push({ fileUri: Uri.parse(kv[0]), range: e.range, replacementText: e.newText }));
-        }
-    }
-
-    if (edit.documentChanges) {
-        for (const change of edit.documentChanges) {
-            if (TextDocumentEdit.is(change)) {
-                for (const e of change.edits) {
-                    edits.push({
-                        fileUri: Uri.parse(change.textDocument.uri),
-                        range: e.range,
-                        replacementText: e.newText,
-                    });
-                }
-            } else if (CreateFile.is(change)) {
-                fileOperations.push({ kind: 'create', fileUri: Uri.parse(change.uri) });
-            } else if (RenameFile.is(change)) {
-                fileOperations.push({
-                    kind: 'rename',
-                    oldFileUri: Uri.parse(change.oldUri),
-                    newFileUri: Uri.parse(change.newUri),
-                });
-            } else if (DeleteFile.is(change)) {
-                fileOperations.push({ kind: 'delete', fileUri: Uri.parse(change.uri) });
-            }
-        }
-    }
-    return { edits, fileOperations: fileOperations };
 }
 
 export function verifyReferencesAtPosition(

@@ -348,7 +348,7 @@ export class TestFileSystem implements FileSystem, TempFile {
 
     tmpdir(): Uri {
         this.mkdirpSync('/tmp');
-        return Uri.parse('file:///tmp');
+        return Uri.parse('file:///tmp', true);
     }
 
     tmpfile(options?: TmpfileOptions): Uri {

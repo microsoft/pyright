@@ -101,7 +101,7 @@ export function applyTextEditsToString(
 export function applyWorkspaceEdit(program: EditableProgram, edits: WorkspaceEdit, filesChanged: Map<string, Uri>) {
     if (edits.changes) {
         for (const kv of Object.entries(edits.changes)) {
-            const fileUri = Uri.parse(kv[0]);
+            const fileUri = Uri.parse(kv[0], program.configOptions.projectRoot.isCaseSensitive);
             const fileInfo = program.getSourceFileInfo(fileUri);
             if (!fileInfo || !fileInfo.isTracked) {
                 // We don't allow non user file being modified.
@@ -117,7 +117,7 @@ export function applyWorkspaceEdit(program: EditableProgram, edits: WorkspaceEdi
     if (edits.documentChanges) {
         for (const change of edits.documentChanges) {
             if (TextDocumentEdit.is(change)) {
-                const fileUri = Uri.parse(change.textDocument.uri);
+                const fileUri = Uri.parse(change.textDocument.uri, program.configOptions.projectRoot.isCaseSensitive);
                 const fileInfo = program.getSourceFileInfo(fileUri);
                 if (!fileInfo || !fileInfo.isTracked) {
                     // We don't allow non user file being modified.

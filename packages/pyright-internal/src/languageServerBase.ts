@@ -313,6 +313,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     private _initialized = false;
     private _workspaceFoldersChangedDisposable: Disposable | undefined;
+    private _isCaseSensitive = true;
 
     // Global root path - the basis for all global settings.
     rootUri = Uri.empty();
@@ -365,13 +366,16 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         this.fs = this.serverOptions.serviceProvider.fs();
 
+        this._isCaseSensitive = this.serverOptions.serviceProvider.isFsCaseSensitive();
+
         this.workspaceFactory = new WorkspaceFactory(
             this.console,
             /* isWeb */ false,
             this.createAnalyzerServiceForWorkspace.bind(this),
             this.isPythonPathImmutable.bind(this),
             this.onWorkspaceCreated.bind(this),
-            this.onWorkspaceRemoved.bind(this)
+            this.onWorkspaceRemoved.bind(this),
+            this._isCaseSensitive
         );
 
         // Set the working directory to a known location within
@@ -672,7 +676,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             setLocaleOverride(params.locale);
         }
 
-        this.rootUri = params.rootUri ? Uri.parse(params.rootUri) : Uri.empty();
+        this.rootUri = params.rootUri ? Uri.parse(params.rootUri, this._isCaseSensitive) : Uri.empty();
 
         const capabilities = params.capabilities;
         this.client.hasConfigurationCapability = !!capabilities.workspace?.configuration;
@@ -851,7 +855,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     ) {
         this.recordUserInteractionTime();
 
-        const uri = Uri.parse(params.textDocument.uri);
+        const uri = Uri.parse(params.textDocument.uri, this._isCaseSensitive);
 
         const workspace = await this.getWorkspaceForFile(uri);
         if (workspace.disableLanguageServices) {
@@ -893,7 +897,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this._pendingFindAllRefsCancellationSource = source;
 
         try {
-            const uri = Uri.parse(params.textDocument.uri);
+            const uri = Uri.parse(params.textDocument.uri, this._isCaseSensitive);
 
             const workspace = await this.getWorkspaceForFile(uri);
             if (workspace.disableLanguageServices) {
@@ -920,7 +924,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     ): Promise<DocumentSymbol[] | SymbolInformation[] | null | undefined> {
         this.recordUserInteractionTime();
 
-        const uri = Uri.parse(params.textDocument.uri);
+        const uri = Uri.parse(params.textDocument.uri, this._isCaseSensitive);
         const workspace = await this.getWorkspaceForFile(uri);
         if (workspace.disableLanguageServices) {
             return undefined;
@@ -952,7 +956,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected async onHover(params: HoverParams, token: CancellationToken) {
-        const uri = Uri.parse(params.textDocument.uri);
+        const uri = Uri.parse(params.textDocument.uri, this._isCaseSensitive);
         const workspace = await this.getWorkspaceForFile(uri);
 
         return workspace.service.run((program) => {
@@ -964,7 +968,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         params: DocumentHighlightParams,
         token: CancellationToken
     ): Promise<DocumentHighlight[] | null | undefined> {
-        const uri = Uri.parse(params.textDocument.uri);
+        const uri = Uri.parse(params.textDocument.uri, this._isCaseSensitive);
         const workspace = await this.getWorkspaceForFile(uri);
 
         return workspace.service.run((program) => {
@@ -976,7 +980,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         params: SignatureHelpParams,
         token: CancellationToken
     ): Promise<SignatureHelp | undefined | null> {
-        const uri = Uri.parse(params.textDocument.uri);
+        const uri = Uri.parse(params.textDocument.uri, this._isCaseSensitive);
 
         const workspace = await this.getWorkspaceForFile(uri);
         if (workspace.disableLanguageServices) {
@@ -1018,7 +1022,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected async onCompletion(params: CompletionParams, token: CancellationToken): Promise<CompletionList | null> {
-        const uri = Uri.parse(params.textDocument.uri);
+        const uri = Uri.parse(params.textDocument.uri, this._isCaseSensitive);
         const workspace = await this.getWorkspaceForFile(uri);
         if (workspace.disableLanguageServices) {
             return null;
@@ -1053,7 +1057,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected async onCompletionResolve(params: CompletionItem, token: CancellationToken): Promise<CompletionItem> {
         const completionItemData = fromLSPAny<CompletionItemData>(params.data);
         if (completionItemData && completionItemData.uri) {
-            const uri = Uri.parse(completionItemData.uri);
+            const uri = Uri.parse(completionItemData.uri, this._isCaseSensitive);
             const workspace = await this.getWorkspaceForFile(uri);
             workspace.service.run((program) => {
                 return new CompletionProvider(
@@ -1077,7 +1081,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         params: PrepareRenameParams,
         token: CancellationToken
     ): Promise<Range | { range: Range; placeholder: string } | null> {
-        const uri = Uri.parse(params.textDocument.uri);
+        const uri = Uri.parse(params.textDocument.uri, this._isCaseSensitive);
         const isUntitled = uri.isUntitled();
 
         const workspace = await this.getWorkspaceForFile(uri);
@@ -1097,7 +1101,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         params: RenameParams,
         token: CancellationToken
     ): Promise<WorkspaceEdit | null | undefined> {
-        const uri = Uri.parse(params.textDocument.uri);
+        const uri = Uri.parse(params.textDocument.uri, this._isCaseSensitive);
         const isUntitled = uri.isUntitled();
 
         const workspace = await this.getWorkspaceForFile(uri);
@@ -1118,7 +1122,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         params: CallHierarchyPrepareParams,
         token: CancellationToken
     ): Promise<CallHierarchyItem[] | null> {
-        const uri = Uri.parse(params.textDocument.uri);
+        const uri = Uri.parse(params.textDocument.uri, this._isCaseSensitive);
 
         const workspace = await this.getWorkspaceForFile(uri);
         if (workspace.disableLanguageServices) {
@@ -1131,7 +1135,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected async onCallHierarchyIncomingCalls(params: CallHierarchyIncomingCallsParams, token: CancellationToken) {
-        const uri = Uri.parse(params.item.uri);
+        const uri = Uri.parse(params.item.uri, this._isCaseSensitive);
 
         const workspace = await this.getWorkspaceForFile(uri);
         if (workspace.disableLanguageServices) {
@@ -1147,7 +1151,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         params: CallHierarchyOutgoingCallsParams,
         token: CancellationToken
     ): Promise<CallHierarchyOutgoingCall[] | null> {
-        const uri = Uri.parse(params.item.uri);
+        const uri = Uri.parse(params.item.uri, this._isCaseSensitive);
 
         const workspace = await this.getWorkspaceForFile(uri);
         if (workspace.disableLanguageServices) {
@@ -1160,7 +1164,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected async onDidOpenTextDocument(params: DidOpenTextDocumentParams, ipythonMode = IPythonMode.None) {
-        const uri = Uri.parse(params.textDocument.uri);
+        const uri = Uri.parse(params.textDocument.uri, this._isCaseSensitive);
 
         let doc = this.openFileMap.get(uri.key);
         if (doc) {
@@ -1187,7 +1191,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected async onDidChangeTextDocument(params: DidChangeTextDocumentParams, ipythonMode = IPythonMode.None) {
         this.recordUserInteractionTime();
 
-        const uri = Uri.parse(params.textDocument.uri);
+        const uri = Uri.parse(params.textDocument.uri, this._isCaseSensitive);
         const doc = this.openFileMap.get(uri.key);
         if (!doc) {
             // We shouldn't get a change text request for a closed doc.
@@ -1206,7 +1210,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected async onDidCloseTextDocument(params: DidCloseTextDocumentParams) {
-        const uri = Uri.parse(params.textDocument.uri);
+        const uri = Uri.parse(params.textDocument.uri, this._isCaseSensitive);
 
         // Send this close to all the workspaces that might contain this file.
         const workspaces = await this.getContainingWorkspacesForFile(uri);
@@ -1219,7 +1223,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     protected onDidChangeWatchedFiles(params: DidChangeWatchedFilesParams) {
         params.changes.forEach((change) => {
-            const filePath = this.fs.realCasePath(Uri.parse(change.uri));
+            const filePath = this.fs.realCasePath(Uri.parse(change.uri, this._isCaseSensitive));
             const eventType: FileWatcherEventType = change.type === 1 ? 'add' : 'change';
             this.serverOptions.fileWatcherHandler.onFileChange(eventType, filePath);
         });
@@ -1345,7 +1349,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         const otherWorkspaces = this.workspaceFactory.items().filter((w) => w !== workspace);
 
         for (const uri of documentsWithDiagnosticsList) {
-            const fileUri = Uri.parse(uri);
+            const fileUri = Uri.parse(uri, this._isCaseSensitive);
 
             if (workspace.service.isTracked(fileUri)) {
                 // Do not clean up diagnostics for files tracked by multiple workspaces

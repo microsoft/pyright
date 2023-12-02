@@ -745,7 +745,7 @@ export class TestState {
                     // Might be a URI. For comparison purposes in a test, convert it into a
                     // file path.
                     if (a.startsWith('file://')) {
-                        return normalizeSlashes(Uri.parse(a).getFilePath());
+                        return normalizeSlashes(Uri.parse(a, true).getFilePath());
                     }
                     return normalizeSlashes(a);
                 }
@@ -1649,18 +1649,14 @@ export class TestState {
             configOptions.stubPath = Uri.file(vfs.MODULE_PATH).combinePaths('typings');
         }
 
-        configOptions.include.push(getFileSpec(this.serviceProvider, configOptions.projectRoot, '.'));
-        configOptions.exclude.push(getFileSpec(this.serviceProvider, configOptions.projectRoot, typeshedFolder));
-        configOptions.exclude.push(
-            getFileSpec(this.serviceProvider, configOptions.projectRoot, distlibFolder.getFilePath())
-        );
-        configOptions.exclude.push(
-            getFileSpec(this.serviceProvider, configOptions.projectRoot, libFolder.getFilePath())
-        );
+        configOptions.include.push(getFileSpec(configOptions.projectRoot, '.'));
+        configOptions.exclude.push(getFileSpec(configOptions.projectRoot, typeshedFolder));
+        configOptions.exclude.push(getFileSpec(configOptions.projectRoot, distlibFolder.getFilePath()));
+        configOptions.exclude.push(getFileSpec(configOptions.projectRoot, libFolder.getFilePath()));
 
         if (mountPaths) {
             for (const mountPath of mountPaths.keys()) {
-                configOptions.exclude.push(getFileSpec(this.serviceProvider, configOptions.projectRoot, mountPath));
+                configOptions.exclude.push(getFileSpec(configOptions.projectRoot, mountPath));
             }
         }
 

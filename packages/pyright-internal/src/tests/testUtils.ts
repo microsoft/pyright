@@ -106,7 +106,7 @@ export function typeAnalyzeSampleFiles(
 
     const fs = createFromRealFileSystem();
     const serviceProvider = createServiceProvider(fs, console || new NullConsole());
-    const importResolver = new ImportResolver(serviceProvider, configOptions, new FullAccessHost(fs));
+    const importResolver = new ImportResolver(serviceProvider, configOptions, new FullAccessHost(serviceProvider));
 
     const program = new Program(importResolver, configOptions, serviceProvider);
     const fileUris = fileNames.map((name) => Uri.file(resolveSampleFilePath(name)));

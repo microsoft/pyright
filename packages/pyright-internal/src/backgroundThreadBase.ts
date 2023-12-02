@@ -49,9 +49,6 @@ export class BackgroundThreadBase {
     protected constructor(data: InitializationData, serviceProvider?: ServiceProvider) {
         setCancellationFolderName(data.cancellationFolderName);
 
-        // Stash the base directory into a global variable.
-        (global as any).__rootDirectory = Uri.parse(data.rootUri).getFilePath();
-
         // Make sure there's a file system and a console interface.
         this._serviceProvider = serviceProvider ?? new ServiceProvider();
         if (!this._serviceProvider.tryGet(ServiceKeys.console)) {
@@ -63,6 +60,12 @@ export class BackgroundThreadBase {
         if (!this._serviceProvider.tryGet(ServiceKeys.tempFile)) {
             this._serviceProvider.add(ServiceKeys.tempFile, new RealTempFile());
         }
+
+        // Stash the base directory into a global variable.
+        (global as any).__rootDirectory = Uri.parse(
+            data.rootUri,
+            this._serviceProvider.isFsCaseSensitive()
+        ).getFilePath();
     }
 
     protected get fs() {

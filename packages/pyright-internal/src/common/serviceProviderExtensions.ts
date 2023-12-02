@@ -21,6 +21,7 @@ import { FileSystem, TempFile } from './fileSystem';
 import { LogTracker } from './logTracker';
 import { GroupServiceKey, ServiceKey, ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
+import { isFileSystemCaseSensitive } from './uri/uriUtils';
 
 declare module './serviceProvider' {
     interface ServiceProvider {
@@ -29,6 +30,7 @@ declare module './serviceProvider' {
         tmp(): TempFile | undefined;
         sourceFileFactory(): ISourceFileFactory;
         partialStubs(): SupportPartialStubs;
+        isFsCaseSensitive(): boolean;
     }
 }
 
@@ -87,6 +89,10 @@ ServiceProvider.prototype.tmp = function () {
 ServiceProvider.prototype.sourceFileFactory = function () {
     const result = this.tryGet(ServiceKeys.sourceFileFactory);
     return result || DefaultSourceFileFactory;
+};
+
+ServiceProvider.prototype.isFsCaseSensitive = function () {
+    return this.tmp() ? isFileSystemCaseSensitive(this.fs(), this.tmp()) : false;
 };
 
 const DefaultSourceFileFactory: ISourceFileFactory = {

@@ -92,14 +92,14 @@ export class WorkspaceFactory {
     private _defaultWorkspacePath = '<default>';
     private _map = new Map<string, Workspace>();
     private _id = WorkspaceFactoryIdCounter++;
-
     constructor(
         private readonly _console: ConsoleInterface,
         private readonly _isWeb: boolean,
         private readonly _createService: (name: string, rootPath: Uri, kinds: string[]) => AnalyzerService,
         private readonly _isPythonPathImmutable: (uri: Uri) => boolean,
         private readonly _onWorkspaceCreated: (workspace: Workspace) => void,
-        private readonly _onWorkspaceRemoved: (workspace: Workspace) => void
+        private readonly _onWorkspaceRemoved: (workspace: Workspace) => void,
+        private readonly _isCaseSensitive: boolean
     ) {
         this._console.log(`WorkspaceFactory ${this._id} created`);
     }
@@ -108,20 +108,28 @@ export class WorkspaceFactory {
         // Create a service instance for each of the workspace folders.
         if (params.workspaceFolders) {
             params.workspaceFolders.forEach((folder) => {
-                this._add(Uri.parse(folder.uri), folder.name, undefined, WorkspacePythonPathKind.Mutable, [
-                    WellKnownWorkspaceKinds.Regular,
-                ]);
+                this._add(
+                    Uri.parse(folder.uri, this._isCaseSensitive),
+                    folder.name,
+                    undefined,
+                    WorkspacePythonPathKind.Mutable,
+                    [WellKnownWorkspaceKinds.Regular]
+                );
             });
         } else if (params.rootPath) {
-            this._add(Uri.file(params.rootPath), '', undefined, WorkspacePythonPathKind.Mutable, [
-                WellKnownWorkspaceKinds.Regular,
-            ]);
+            this._add(
+                Uri.file(params.rootPath, this._isCaseSensitive),
+                '',
+                undefined,
+                WorkspacePythonPathKind.Mutable,
+                [WellKnownWorkspaceKinds.Regular]
+            );
         }
     }
 
     handleWorkspaceFoldersChanged(params: WorkspaceFoldersChangeEvent) {
         params.removed.forEach((workspaceInfo) => {
-            const uri = Uri.parse(workspaceInfo.uri);
+            const uri = Uri.parse(workspaceInfo.uri, this._isCaseSensitive);
             // Delete all workspaces for this folder. Even the ones generated for notebook kernels.
             const workspaces = this.getNonDefaultWorkspaces().filter((w) => w.rootUri.equals(uri));
             workspaces.forEach((w) => {
@@ -130,7 +138,7 @@ export class WorkspaceFactory {
         });
 
         params.added.forEach((workspaceInfo) => {
-            const uri = Uri.parse(workspaceInfo.uri);
+            const uri = Uri.parse(workspaceInfo.uri, this._isCaseSensitive);
             // If there's a workspace that contains this folder, we need to mimic files from this workspace to
             // to the new one. Otherwise the subfolder won't have the changes for the files in it.
             const containing = this.items().filter((w) => uri.startsWith(w.rootUri))[0];

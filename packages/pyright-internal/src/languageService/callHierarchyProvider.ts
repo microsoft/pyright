@@ -91,7 +91,7 @@ export class CallHierarchyProvider {
             selectionRange: targetDecl.range,
         };
 
-        if (!canNavigateToFile(this._program.fileSystem, Uri.parse(callItem.uri))) {
+        if (!canNavigateToFile(this._program.fileSystem, Uri.parse(callItem.uri, this._fileUri.isCaseSensitive))) {
             return null;
         }
 
@@ -135,7 +135,9 @@ export class CallHierarchyProvider {
             return null;
         }
 
-        return items.filter((item) => canNavigateToFile(this._program.fileSystem, Uri.parse(item.from.uri)));
+        return items.filter((item) =>
+            canNavigateToFile(this._program.fileSystem, Uri.parse(item.from.uri, this._fileUri.isCaseSensitive))
+        );
     }
 
     getOutgoingCalls(): CallHierarchyOutgoingCall[] | null {
@@ -199,7 +201,9 @@ export class CallHierarchyProvider {
             return null;
         }
 
-        return outgoingCalls.filter((item) => canNavigateToFile(this._program.fileSystem, Uri.parse(item.to.uri)));
+        return outgoingCalls.filter((item) =>
+            canNavigateToFile(this._program.fileSystem, Uri.parse(item.to.uri, this._fileUri.isCaseSensitive))
+        );
     }
 
     private get _evaluator(): TypeEvaluator {

@@ -113,6 +113,7 @@ export class AnalyzerService {
 
     private _disposed = false;
     private _pendingLibraryChanges: RefreshOptions = { changesOnly: true };
+    private _isFileSystemCaseSensitve = true;
 
     constructor(instanceName: string, serviceProvider: ServiceProvider, options: AnalyzerServiceOptions) {
         this._instanceName = instanceName;
@@ -137,8 +138,10 @@ export class AnalyzerService {
         this._options.importResolverFactory = options.importResolverFactory ?? AnalyzerService.createImportResolver;
         this._options.cancellationProvider = options.cancellationProvider ?? new DefaultCancellationProvider();
         this._options.hostFactory = options.hostFactory ?? (() => new NoAccessHost());
+        this._isFileSystemCaseSensitve = this._serviceProvider.isFsCaseSensitive();
 
-        this._options.configOptions = options.configOptions ?? new ConfigOptions(Uri.file(process.cwd()));
+        this._options.configOptions =
+            options.configOptions ?? new ConfigOptions(Uri.file(process.cwd(), this._isFileSystemCaseSensitve));
         const importResolver = this._options.importResolverFactory(
             this._serviceProvider,
             this._options.configOptions,
@@ -547,9 +550,11 @@ export class AnalyzerService {
     // Calculates the effective options based on the command-line options,
     // an optional config file, and default values.
     private _getConfigOptions(host: Host, commandLineOptions: CommandLineOptions): ConfigOptions {
-        let projectRoot = this.fs.realCasePath(Uri.file(commandLineOptions.executionRoot, /* checkRelative */ true));
+        let projectRoot = this.fs.realCasePath(
+            Uri.file(commandLineOptions.executionRoot, this._isFileSystemCaseSensitve, /* checkRelative */ true)
+        );
         const executionRoot = this.fs.realCasePath(
-            Uri.file(commandLineOptions.executionRoot, /* checkRelative */ true)
+            Uri.file(commandLineOptions.executionRoot, this._isFileSystemCaseSensitve, /* checkRelative */ true)
         );
         let configFilePath: Uri | undefined;
         let pyprojectFilePath: Uri | undefined;
@@ -560,7 +565,11 @@ export class AnalyzerService {
             // or a file.
             configFilePath = this.fs.realCasePath(
                 isRootedDiskPath(commandLineOptions.configFilePath)
-                    ? Uri.file(commandLineOptions.configFilePath, /* checkRelative */ true)
+                    ? Uri.file(
+                          commandLineOptions.configFilePath,
+                          this._isFileSystemCaseSensitve,
+                          /* checkRelative */ true
+                      )
                     : projectRoot.combinePaths(commandLineOptions.configFilePath)
             );
             if (!this.fs.existsSync(configFilePath)) {
@@ -621,7 +630,7 @@ export class AnalyzerService {
                 `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
             );
             configOptions.pythonPath = this.fs.realCasePath(
-                Uri.file(commandLineOptions.pythonPath, /* checkRelative */ true)
+                Uri.file(commandLineOptions.pythonPath, this._isFileSystemCaseSensitve, /* checkRelative */ true)
             );
         }
 
@@ -645,19 +654,19 @@ export class AnalyzerService {
 
         if (commandLineOptions.includeFileSpecs.length > 0) {
             commandLineOptions.includeFileSpecs.forEach((fileSpec) => {
-                configOptions.include.push(getFileSpec(this.serviceProvider, projectRoot, fileSpec));
+                configOptions.include.push(getFileSpec(projectRoot, fileSpec));
             });
         }
 
         if (commandLineOptions.excludeFileSpecs.length > 0) {
             commandLineOptions.excludeFileSpecs.forEach((fileSpec) => {
-                configOptions.exclude.push(getFileSpec(this.serviceProvider, projectRoot, fileSpec));
+                configOptions.exclude.push(getFileSpec(projectRoot, fileSpec));
             });
         }
 
         if (commandLineOptions.ignoreFileSpecs.length > 0) {
             commandLineOptions.ignoreFileSpecs.forEach((fileSpec) => {
-                configOptions.ignore.push(getFileSpec(this.serviceProvider, projectRoot, fileSpec));
+                configOptions.ignore.push(getFileSpec(projectRoot, fileSpec));
             });
         }
 
@@ -666,13 +675,13 @@ export class AnalyzerService {
                 // If no config file was found and there are no explicit include
                 // paths specified, assume the caller wants to include all source
                 // files under the execution root path.
-                configOptions.include.push(getFileSpec(this.serviceProvider, executionRoot, '.'));
+                configOptions.include.push(getFileSpec(executionRoot, '.'));
             }
 
             if (commandLineOptions.excludeFileSpecs.length === 0) {
                 // Add a few common excludes to avoid long scan times.
                 defaultExcludes.forEach((exclude) => {
-                    configOptions.exclude.push(getFileSpec(this.serviceProvider, executionRoot, exclude));
+                    configOptions.exclude.push(getFileSpec(executionRoot, exclude));
                 });
             }
         }
@@ -704,14 +713,14 @@ export class AnalyzerService {
             // the project should be included.
             if (configOptions.include.length === 0) {
                 this._console.info(`No include entries specified; assuming ${configFileDir.toUserVisibleString()}`);
-                configOptions.include.push(getFileSpec(this.serviceProvider, configFileDir, '.'));
+                configOptions.include.push(getFileSpec(configFileDir, '.'));
             }
 
             // If there was no explicit set of excludes, add a few common ones to avoid long scan times.
             if (configOptions.exclude.length === 0) {
                 defaultExcludes.forEach((exclude) => {
                     this._console.info(`Auto-excluding ${exclude}`);
-                    configOptions.exclude.push(getFileSpec(this.serviceProvider, configFileDir, exclude));
+                    configOptions.exclude.push(getFileSpec(configFileDir, exclude));
                 });
 
                 if (configOptions.autoExcludeVenv === undefined) {
@@ -734,7 +743,7 @@ export class AnalyzerService {
             configOptions.include = [];
             commandLineOptions.includeFileSpecsOverride.forEach((include) => {
                 configOptions.include.push(
-                    getFileSpec(this.serviceProvider, Uri.file(include, /* checkRelative */ true), '.')
+                    getFileSpec(Uri.file(include, this._isFileSystemCaseSensitve, /* checkRelative */ true), '.')
                 );
             });
         }
@@ -785,7 +794,7 @@ export class AnalyzerService {
             this._console.info(`Excluding typeshed stdlib stubs according to VERSIONS file:`);
             excludeList.forEach((exclude) => {
                 this._console.info(`    ${exclude}`);
-                configOptions.exclude.push(getFileSpec(this.serviceProvider, executionRoot, exclude.getFilePath()));
+                configOptions.exclude.push(getFileSpec(executionRoot, exclude.getFilePath()));
             });
         }
 
@@ -1185,9 +1194,7 @@ export class AnalyzerService {
                 if (envMarkers.some((f) => this.fs.existsSync(absolutePath.combinePaths(...f)))) {
                     // Save auto exclude paths in the configOptions once we found them.
                     if (!FileSpec.isInPath(absolutePath, exclude)) {
-                        exclude.push(
-                            getFileSpec(this.serviceProvider, this._configOptions.projectRoot, `${absolutePath}/**`)
-                        );
+                        exclude.push(getFileSpec(this._configOptions.projectRoot, `${absolutePath}/**`));
                     }
 
                     this._console.info(`Auto-excluding ${absolutePath.toUserVisibleString()}`);
