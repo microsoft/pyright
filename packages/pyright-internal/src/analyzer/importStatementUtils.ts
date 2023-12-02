@@ -668,7 +668,7 @@ function _processImportFromNode(
         for (const implicitImport of importResult.implicitImports.values()) {
             const importFromAs = node.imports.find((i) => i.name.value === implicitImport.name);
             if (importFromAs) {
-                localImports.implicitImports.set(implicitImport.path.key, importFromAs);
+                localImports.implicitImports.set(implicitImport.uri.key, importFromAs);
             }
         }
     }

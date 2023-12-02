@@ -218,15 +218,15 @@ export class ImportResolver {
                 if (result.isStubFile && result.isImportFound && result.nonStubImportResult) {
                     if (result.resolvedUris[result.resolvedUris.length - 1].equals(stubFileUri)) {
                         if (result.nonStubImportResult.isImportFound) {
-                            const nonEmptyPath =
+                            const nonEmptyUri =
                                 result.nonStubImportResult.resolvedUris[
                                     result.nonStubImportResult.resolvedUris.length - 1
                                 ];
 
-                            if (nonEmptyPath.pathEndsWith('.py') || nonEmptyPath.pathEndsWith('.pyi')) {
+                            if (nonEmptyUri.pathEndsWith('.py') || nonEmptyUri.pathEndsWith('.pyi')) {
                                 // We allow pyi in case there are multiple pyi for a compiled module such as
                                 // numpy.random.mtrand
-                                sourceFileUris.push(nonEmptyPath);
+                                sourceFileUris.push(nonEmptyUri);
                             }
                         }
                     }
@@ -253,12 +253,12 @@ export class ImportResolver {
             // We get the relative path(s) of the stub to its import root(s),
             // in theory there can be more than one, then look for source
             // files in all the import roots using the same relative path(s).
-            const importRootPaths = this.getImportRoots(execEnv);
+            const importRoots = this.getImportRoots(execEnv);
 
             const relativeStubPaths: string[] = [];
-            for (const importRootPath of importRootPaths) {
-                if (stubFileUri.isChild(importRootPath, !isFileSystemCaseSensitive(this.fileSystem, this.tmp))) {
-                    const parts = Array.from(importRootPath.getRelativePathComponents(stubFileUri));
+            for (const importRootUri of importRoots) {
+                if (stubFileUri.isChild(importRootUri, !isFileSystemCaseSensitive(this.fileSystem, this.tmp))) {
+                    const parts = Array.from(importRootUri.getRelativePathComponents(stubFileUri));
 
                     if (parts.length >= 1) {
                         // Handle the case where the symbol was resolved to a stubs package
@@ -274,8 +274,8 @@ export class ImportResolver {
             }
 
             for (const relativeStubPath of relativeStubPaths) {
-                for (const importRootPath of importRootPaths) {
-                    const absoluteStubPath = importRootPath.combinePaths(relativeStubPath);
+                for (const importRootUri of importRoots) {
+                    const absoluteStubPath = importRootUri.combinePaths(relativeStubPath);
                     let absoluteSourcePath = absoluteStubPath.replaceExtension('.py');
                     if (this.fileExistsCached(absoluteSourcePath)) {
                         sourceFileUris.push(absoluteSourcePath);
@@ -2536,7 +2536,7 @@ export class ImportResolver {
                     isStubFile: filePath.extname === '.pyi',
                     isNativeLib,
                     name: strippedFileName,
-                    path: filePath,
+                    uri: filePath,
                 };
 
                 // Always prefer stub files over non-stub files.
@@ -2551,7 +2551,7 @@ export class ImportResolver {
                             []
                         );
                         if (nativeStubPath) {
-                            implicitImport.path = nativeStubPath;
+                            implicitImport.uri = nativeStubPath;
                             implicitImport.isNativeLib = false;
                         }
                     }
@@ -2580,7 +2580,7 @@ export class ImportResolver {
                         isStubFile,
                         isNativeLib: false,
                         name: dirPath.filename,
-                        path,
+                        uri: path,
                         pyTypedInfo: this._getPyTypedInfo(dirPath),
                     };
 

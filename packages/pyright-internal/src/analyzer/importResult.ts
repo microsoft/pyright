@@ -20,7 +20,7 @@ export interface ImplicitImport {
     isStubFile: boolean;
     isNativeLib: boolean;
     name: string;
-    path: Uri;
+    uri: Uri;
     pyTypedInfo?: PyTypedInfo | undefined;
 }
 

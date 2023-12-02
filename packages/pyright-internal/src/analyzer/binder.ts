@@ -1834,7 +1834,7 @@ export class Binder extends ParseTreeWalker {
                                         const submoduleFallback: AliasDeclaration = {
                                             type: DeclarationType.Alias,
                                             node,
-                                            uri: implicitImport.path,
+                                            uri: implicitImport.uri,
                                             loadSymbolsFromPath: true,
                                             range: getEmptyRange(),
                                             usesLocalName: false,
@@ -1926,7 +1926,7 @@ export class Binder extends ParseTreeWalker {
                         submoduleFallback = {
                             type: DeclarationType.Alias,
                             node: importSymbolNode,
-                            uri: implicitImport.path,
+                            uri: implicitImport.uri,
                             loadSymbolsFromPath: true,
                             range: getEmptyRange(),
                             usesLocalName: false,
@@ -4023,14 +4023,14 @@ export class Binder extends ParseTreeWalker {
                 ? loaderActions.implicitImports.get(implicitImport.name)
                 : undefined;
             if (existingLoaderAction) {
-                existingLoaderAction.uri = implicitImport.path;
+                existingLoaderAction.uri = implicitImport.uri;
                 existingLoaderAction.loadSymbolsFromPath = true;
             } else {
                 if (!loaderActions.implicitImports) {
                     loaderActions.implicitImports = new Map<string, ModuleLoaderActions>();
                 }
                 loaderActions.implicitImports.set(implicitImport.name, {
-                    uri: implicitImport.path,
+                    uri: implicitImport.uri,
                     loadSymbolsFromPath: true,
                     implicitImports: new Map<string, ModuleLoaderActions>(),
                 });

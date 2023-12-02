@@ -2783,7 +2783,7 @@ export class CompletionProvider {
         importInfo.implicitImports.forEach((implImport) => {
             if (!importFromNode.imports.find((imp) => imp.name.value === implImport.name)) {
                 this.addNameToCompletions(implImport.name, CompletionItemKind.Module, priorWord, completionMap, {
-                    moduleUri: implImport.path,
+                    moduleUri: implImport.uri,
                 });
             }
         });

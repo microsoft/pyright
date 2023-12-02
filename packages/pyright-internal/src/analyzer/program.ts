@@ -1364,8 +1364,8 @@ export class Program {
                     if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
                         if (!implicitImport.isNativeLib) {
                             const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
-                            newImportPathMap.set(implicitImport.path.key, {
-                                path: implicitImport.path,
+                            newImportPathMap.set(implicitImport.uri.key, {
+                                path: implicitImport.uri,
                                 isTypeshedFile:
                                     !!importResult.isStdlibTypeshedFile || !!importResult.isThirdPartyTypeshedFile,
                                 isThirdPartyImport: thirdPartyTypeInfo.isThirdPartyImport,
