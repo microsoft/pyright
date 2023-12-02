@@ -21,7 +21,7 @@ class Ungulate(Mammal[_T3], Protocol):
 
 
 class CamelLike(Ungulate[bytes], Protocol):
-    species: Literal["camel"]
+    species: Literal["camel"]  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class Sloth:

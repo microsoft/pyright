@@ -1,6 +1,8 @@
 # This sample tests the check for hashability that applies to entries
 # within a set expression and keys within a dictionary expression.
 
+# pyright: reportIncompatibleVariableOverride=false
+
 from dataclasses import dataclass
 from typing import Any
 

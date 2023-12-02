@@ -771,11 +771,10 @@ test('Classes4', () => {
 test('Classes5', () => {
     const configOptions = new ConfigOptions('.');
 
-    // By default, optional diagnostics are ignored.
+    configOptions.diagnosticRuleSet.reportIncompatibleVariableOverride = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 11);
 
-    // Turn on reportIncompatibleVariableOverride.
     configOptions.diagnosticRuleSet.reportIncompatibleVariableOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 36);
@@ -826,11 +825,10 @@ test('Methods1', () => {
 test('MethodOverride1', () => {
     const configOptions = new ConfigOptions('.');
 
-    // By default, optional diagnostics are ignored.
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 
-    // Turn on errors.
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 36);
@@ -839,11 +837,10 @@ test('MethodOverride1', () => {
 test('MethodOverride2', () => {
     const configOptions = new ConfigOptions('.');
 
-    // By default, optional diagnostics are ignored.
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 
-    // Turn on errors.
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 6);
@@ -852,11 +849,10 @@ test('MethodOverride2', () => {
 test('MethodOverride3', () => {
     const configOptions = new ConfigOptions('.');
 
-    // By default, optional diagnostics are ignored.
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride3.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 
-    // Turn on errors.
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride3.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
@@ -878,6 +874,7 @@ test('MethodOverride5', () => {
 test('MethodOverride6', () => {
     const configOptions = new ConfigOptions('.');
 
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['methodOverride6.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 0);
 

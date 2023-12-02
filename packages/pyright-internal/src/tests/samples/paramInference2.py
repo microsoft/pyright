@@ -1,6 +1,7 @@
 # This sample tests the logic that infers parameter types based on
 # annotated base class methods when the base class is generic.
 
+# pyright: reportIncompatibleMethodOverride=false
 
 from typing import Generic, TypeVar
 

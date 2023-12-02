@@ -1,5 +1,7 @@
 # This sample tests that named tuple fields override abstract methods.
 
+# pyright: reportIncompatibleVariableOverride=false
+
 from abc import ABC, abstractmethod
 from typing import NamedTuple
 

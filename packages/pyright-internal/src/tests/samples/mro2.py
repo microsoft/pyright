@@ -1,6 +1,8 @@
 # This sample tests the type checker's handling
 # of proper method resolution order (MRO).
 
+# pyright: reportIncompatibleMethodOverride=false
+
 
 class A:
     def foo(self, v1: str):
