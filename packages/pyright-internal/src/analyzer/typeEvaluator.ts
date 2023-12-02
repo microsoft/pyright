@@ -3848,9 +3848,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         unexpandedType,
                         isLastSubtype && index === allSubtypes.length - 1
                     );
+
                     if (transformedType !== unexpandedType) {
                         typeChanged = true;
                     }
+
                     if (transformedType) {
                         // Apply the type condition if it's associated with a constrained TypeVar.
                         const typeCondition = getTypeCondition(subtype)?.filter(
@@ -3861,7 +3863,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             transformedType = addConditionToType(transformedType, typeCondition);
                         }
 
-                        newSubtypes.push(transformedType);
+                        // This code path can often produce many duplicate subtypes. We can
+                        // reduce the cost of the combineTypes call below by filtering out these
+                        // duplicates proactively.
+                        if (newSubtypes.length === 0 || !isTypeSame(transformedType, newSubtypes[newSubtypes.length - 1])) {
+                            newSubtypes.push(transformedType);
+                        }
                     }
                     return undefined;
                 },
