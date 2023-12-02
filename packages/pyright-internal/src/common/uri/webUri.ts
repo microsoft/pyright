@@ -14,11 +14,10 @@
 import * as debug from '../debug';
 import { getRootLength, hasTrailingDirectorySeparator, normalizeSlashes, resolvePaths } from '../pathUtils';
 import { BaseUri } from './baseUri';
-import { cacheMethodWithArgs, cacheMethodWithNoArgs, cacheStaticFunc } from './memoization_instrumented';
+import { cacheMethodWithArgs, cacheMethodWithNoArgs, cacheStaticFunc } from './memoization';
 import { Uri } from './uri';
 
 export class WebUri extends BaseUri {
-    private static _cache = new Map<string, WebUri>();
     private constructor(
         private readonly _scheme: string,
         private readonly _authority: string,

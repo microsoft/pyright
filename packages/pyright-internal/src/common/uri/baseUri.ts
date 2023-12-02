@@ -8,7 +8,7 @@
 
 import { some } from '../collectionUtils';
 import { getShortenedFileName, normalizeSlashes } from '../pathUtils';
-import { cacheMethodWithArgs, cacheMethodWithNoArgs, cacheProperty } from './memoization_instrumented';
+import { cacheMethodWithArgs, cacheMethodWithNoArgs, cacheProperty } from './memoization';
 import { Uri } from './uri';
 
 export abstract class BaseUri implements Uri {
