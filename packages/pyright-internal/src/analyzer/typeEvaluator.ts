@@ -5367,9 +5367,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (getAttrSymbol) {
                             const isModuleGetAttrSupported =
                                 fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_7 ||
-                                getAttrSymbol
-                                    .getDeclarations()
-                                    .some((decl) => decl.uri.hasExtension('.pyi'));
+                                getAttrSymbol.getDeclarations().some((decl) => decl.uri.hasExtension('.pyi'));
 
                             if (isModuleGetAttrSupported) {
                                 const getAttrTypeResult = getEffectiveTypeOfSymbolForUsage(getAttrSymbol);
