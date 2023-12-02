@@ -265,7 +265,8 @@ export abstract class BaseUri implements Uri {
         }
 
         // Reduce the path components by eliminating
-        // any '.' or '..'.
+        // any '.' or '..'. We start at 1 because the first component is
+        // always the root.
         const reduced = [components[0]];
         for (let i = 1; i < components.length; i++) {
             const component = components[i];
