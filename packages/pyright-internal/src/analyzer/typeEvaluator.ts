@@ -5164,7 +5164,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         usage: EvaluatorUsage,
         flags: EvaluatorFlags
     ): TypeResult {
-        let baseType = baseTypeResult.type;
+        let baseType = transformPossibleRecursiveTypeAlias(baseTypeResult.type);
         const memberName = node.memberName.value;
         let diag = new DiagnosticAddendum();
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
