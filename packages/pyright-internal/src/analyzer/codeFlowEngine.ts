@@ -460,6 +460,14 @@ export function getCodeFlowEngine(
                                         return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
                                     }
 
+                                    // Don't treat unbound assignments to member access expressions (i.e. "del a.x")
+                                    // as true deletions either. These may go through a descriptor object __delete__
+                                    // method or a __delattr__ method on the class.
+                                    if (reference.nodeType === ParseNodeType.MemberAccess) {
+                                        // No need to explore further.
+                                        return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
+                                    }
+
                                     return setCacheEntry(curFlowNode, UnboundType.create(), /* isIncomplete */ false);
                                 }
 
