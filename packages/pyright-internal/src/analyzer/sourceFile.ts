@@ -244,10 +244,10 @@ export class SourceFile {
         this._editMode = editMode;
         this._uri = uri;
         this._moduleName = moduleName;
-        this._isStubFile = uri.extname === '.pyi';
+        this._isStubFile = uri.extension === '.pyi';
         this._isThirdPartyImport = isThirdPartyImport;
         this._isThirdPartyPyTypedPresent = isThirdPartyPyTypedPresent;
-        const fileName = uri.filename;
+        const fileName = uri.fileName;
         this._isTypingStubFile =
             this._isStubFile && (this._uri.pathEndsWith('stdlib/typing.pyi') || fileName === 'typing_extensions.pyi');
         this._isTypingExtensionsStubFile = this._isStubFile && fileName === 'typing_extensions.pyi';
@@ -290,7 +290,7 @@ export class SourceFile {
         }
 
         // Synthesize a module name using the file path.
-        return stripFileExtension(this._uri.filename);
+        return stripFileExtension(this._uri.fileName);
     }
 
     setModuleName(name: string) {

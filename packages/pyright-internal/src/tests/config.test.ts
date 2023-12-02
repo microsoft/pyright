@@ -69,7 +69,7 @@ test('FindFilesVirtualEnvAutoDetectExclude', () => {
 
     // There are 3 python files in the workspace, outside of myvenv
     // There is 1 python file in myvenv, which should be excluded
-    const fileNames = fileList.map((p) => p.filename).sort();
+    const fileNames = fileList.map((p) => p.fileName).sort();
     assert.deepStrictEqual(fileNames, ['sample1.py', 'sample2.py', 'sample3.py']);
 });
 
@@ -87,7 +87,7 @@ test('FindFilesVirtualEnvAutoDetectInclude', () => {
     // There are 3 python files in the workspace, outside of myvenv
     // There is 1 more python file in excluded folder
     // There is 1 python file in myvenv, which should be included
-    const fileNames = fileList.map((p) => p.filename).sort();
+    const fileNames = fileList.map((p) => p.fileName).sort();
     assert.deepStrictEqual(fileNames, ['library1.py', 'sample1.py', 'sample2.py', 'sample3.py']);
 });
 

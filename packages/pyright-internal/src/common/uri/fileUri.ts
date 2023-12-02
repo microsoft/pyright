@@ -20,6 +20,7 @@ import {
     resolvePaths,
 } from '../pathUtils';
 import { BaseUri } from './baseUri';
+import { cacheMethodWithNoArgs, cacheProperty } from './memoization';
 import { Uri } from './uri';
 
 export class FileUri extends BaseUri {
@@ -29,8 +30,8 @@ export class FileUri extends BaseUri {
         private readonly _filePath: string,
         private readonly _query: string,
         private readonly _fragment: string,
-        private _originalString: string | undefined,
-        private _isCaseSensitive: boolean
+        private readonly _originalString: string | undefined,
+        private readonly _isCaseSensitive: boolean
     ) {
         super(_isCaseSensitive ? key : key.toLowerCase());
     }
@@ -38,12 +39,16 @@ export class FileUri extends BaseUri {
     override get scheme(): string {
         return 'file';
     }
-    override get filename(): string {
+
+    @cacheProperty()
+    override get fileName(): string {
         return getFileName(this._filePath);
     }
-    override get extname(): string {
+    @cacheProperty()
+    override get extension(): string {
         return getFileExtension(this._filePath);
     }
+    @cacheProperty()
     override get root(): Uri {
         const rootPath = this.getRootPath();
         if (rootPath !== this._filePath) {
@@ -73,7 +78,7 @@ export class FileUri extends BaseUri {
     override matchesRegex(regex: RegExp): boolean {
         // Compare the regex to our path but normalize it for comparison.
         // The regex assumes it's comparing itself to a URI path.
-        const path = this._filePath.replace(/\\/g, '/');
+        const path = this.normalizeSlashes(this._filePath);
         return regex.test(path);
     }
 
@@ -101,7 +106,7 @@ export class FileUri extends BaseUri {
             return false;
         }
 
-        return this.startsWith(parent) && parent._filePath.length < this._filePath.length;
+        return parent._filePath.length < this._filePath.length && this.startsWith(parent);
     }
     override isLocal(): boolean {
         return true;
@@ -112,9 +117,6 @@ export class FileUri extends BaseUri {
             return false;
         }
         if (other.isEmpty() !== this.isEmpty()) {
-            return false;
-        }
-        if (this.scheme !== other.scheme) {
             return false;
         }
         if (this._filePath.length >= other._filePath.length) {
@@ -136,7 +138,7 @@ export class FileUri extends BaseUri {
         return this._filePath.length;
     }
     override getPath(): string {
-        return this._filePath.replace(/\\/g, '/');
+        return this.normalizeSlashes(this._filePath);
     }
     override getFilePath(): string {
         return this._filePath;
@@ -155,6 +157,8 @@ export class FileUri extends BaseUri {
         }
         return this;
     }
+
+    @cacheMethodWithNoArgs()
     override getDirectory(): Uri {
         const filePath = this._filePath;
         let dir = getDirectoryPath(filePath);
@@ -175,7 +179,7 @@ export class FileUri extends BaseUri {
         if (components.length > 0 && components[0] === '') {
             components.shift();
         }
-        return components.map((component) => component.replace(/\\/g, '/'));
+        return components.map((component) => this.normalizeSlashes(component));
     }
     protected override getRootPath(): string {
         return this._filePath.slice(0, getRootLength(this._filePath));

@@ -25,10 +25,10 @@ export class EmptyUri extends BaseUri {
     override get scheme(): string {
         return '';
     }
-    override get filename(): string {
+    override get fileName(): string {
         return '';
     }
-    override get extname(): string {
+    override get extension(): string {
         return '';
     }
     override get root(): Uri {
@@ -68,7 +68,7 @@ export class EmptyUri extends BaseUri {
         return this;
     }
     override isRoot(): boolean {
-        return false;
+        return true;
     }
     override isChild(parent: Uri): boolean {
         return false;

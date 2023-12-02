@@ -218,7 +218,7 @@ class RealFileSystem implements FileSystem {
         if (uri.isEmpty()) {
             return false;
         }
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         try {
             // Catch zip open errors. existsSync is assumed to never throw by callers.
             return yarnFS.existsSync(path);
@@ -228,12 +228,12 @@ class RealFileSystem implements FileSystem {
     }
 
     mkdirSync(uri: Uri, options?: MkDirOptions) {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         yarnFS.mkdirSync(path, options);
     }
 
     chdir(uri: Uri) {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         // If this file system happens to be running in a worker thread,
         // then we can't call 'chdir'.
         if (isMainThread) {
@@ -242,12 +242,12 @@ class RealFileSystem implements FileSystem {
     }
 
     readdirSync(uri: Uri): string[] {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         return yarnFS.readdirSync(path);
     }
 
     readdirEntriesSync(uri: Uri): fs.Dirent[] {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         return yarnFS.readdirSync(path, { withFileTypes: true }).map((entry): fs.Dirent => {
             // Treat zip/egg files as directories.
             // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
@@ -273,7 +273,7 @@ class RealFileSystem implements FileSystem {
     readFileSync(uri: Uri, encoding: BufferEncoding): string;
     readFileSync(uri: Uri, encoding?: BufferEncoding | null): Buffer | string;
     readFileSync(uri: Uri, encoding: BufferEncoding | null = null) {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         if (encoding === 'utf8' || encoding === 'utf-8') {
             return yarnFS.readFileSync(path, 'utf8');
         }
@@ -281,12 +281,12 @@ class RealFileSystem implements FileSystem {
     }
 
     writeFileSync(uri: Uri, data: string | Buffer, encoding: BufferEncoding | null) {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         yarnFS.writeFileSync(path, data, encoding || undefined);
     }
 
     statSync(uri: Uri) {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         const stat = yarnFS.statSync(path);
         // Treat zip/egg files as directories.
         // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
@@ -302,18 +302,18 @@ class RealFileSystem implements FileSystem {
     }
 
     rmdirSync(uri: Uri): void {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         yarnFS.rmdirSync(path);
     }
 
     unlinkSync(uri: Uri) {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         yarnFS.unlinkSync(path);
     }
 
     realpathSync(uri: Uri) {
         try {
-            const path = this._getNormalizedPath(uri);
+            const path = uri.getFilePath();
             return Uri.file(yarnFS.realpathSync(path), this._isCaseSensitive);
         } catch (e: any) {
             return uri;
@@ -329,34 +329,34 @@ class RealFileSystem implements FileSystem {
 
     createFileSystemWatcher(paths: Uri[], listener: FileWatcherEventHandler): FileWatcher {
         return this._fileWatcherProvider.createFileWatcher(
-            paths.map((p) => this._getNormalizedPath(p)),
+            paths.map((p) => p.getFilePath()),
             listener
         );
     }
 
     createReadStream(uri: Uri): fs.ReadStream {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         return yarnFS.createReadStream(path);
     }
 
     createWriteStream(uri: Uri): fs.WriteStream {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         return yarnFS.createWriteStream(path);
     }
 
     copyFileSync(src: Uri, dst: Uri): void {
-        const srcPath = this._getNormalizedPath(src);
-        const destPath = this._getNormalizedPath(dst);
+        const srcPath = src.getFilePath();
+        const destPath = dst.getFilePath();
         yarnFS.copyFileSync(srcPath, destPath);
     }
 
     readFile(uri: Uri): Promise<Buffer> {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         return yarnFS.readFilePromise(path);
     }
 
     async readFileText(uri: Uri, encoding: BufferEncoding): Promise<string> {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         if (encoding === 'utf8' || encoding === 'utf-8') {
             return yarnFS.readFilePromise(path, 'utf8');
         }
@@ -372,7 +372,7 @@ class RealFileSystem implements FileSystem {
             }
 
             // If it does exist, skip this for symlinks.
-            const path = this._getNormalizedPath(uri);
+            const path = uri.getFilePath();
             const stat = fs.lstatSync(path);
             if (stat.isSymbolicLink()) {
                 return uri;
@@ -409,12 +409,8 @@ class RealFileSystem implements FileSystem {
     }
 
     isInZip(uri: Uri): boolean {
-        const path = this._getNormalizedPath(uri);
+        const path = uri.getFilePath();
         return /[^\\/]\.(?:egg|zip|jar)[\\/]/.test(path) && yarnFS.isZip(path);
-    }
-
-    private _getNormalizedPath(uri: Uri) {
-        return uri.getFilePath();
     }
 }
 

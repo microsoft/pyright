@@ -74,32 +74,32 @@ test('key', () => {
 });
 
 test('filename', () => {
-    const filename = Uri.parse('foo:///a/b/c', true).filename;
+    const filename = Uri.parse('foo:///a/b/c', true).fileName;
     assert.equal(filename, 'c');
-    const filename2 = Uri.parse('foo:///a/b/c/', true).filename;
+    const filename2 = Uri.parse('foo:///a/b/c/', true).fileName;
     assert.equal(filename2, 'c');
-    const filename3 = Uri.parse('foo:///a/b/c.py', true).filename;
+    const filename3 = Uri.parse('foo:///a/b/c.py', true).fileName;
     assert.equal(filename3, 'c.py');
-    const filename4 = Uri.parse('foo:///a/b/c.py?query#fragment', true).filename;
+    const filename4 = Uri.parse('foo:///a/b/c.py?query#fragment', true).fileName;
     assert.equal(filename4, 'c.py');
-    const filename5 = Uri.file('/a/b/c').filename;
+    const filename5 = Uri.file('/a/b/c').fileName;
     assert.equal(filename5, 'c');
-    const filename6 = Uri.parse('file:///a/b/c', true).filename;
+    const filename6 = Uri.parse('file:///a/b/c', true).fileName;
     assert.equal(filename6, 'c');
 });
 
 test('extname', () => {
-    const extname = Uri.parse('foo:///a/b/c', true).extname;
+    const extname = Uri.parse('foo:///a/b/c', true).extension;
     assert.equal(extname, '');
-    const extname2 = Uri.parse('foo:///a/b/c/', true).extname;
+    const extname2 = Uri.parse('foo:///a/b/c/', true).extension;
     assert.equal(extname2, '');
-    const extname3 = Uri.parse('foo:///a/b/c.py', true).extname;
+    const extname3 = Uri.parse('foo:///a/b/c.py', true).extension;
     assert.equal(extname3, '.py');
-    const extname4 = Uri.parse('foo:///a/b/c.py?query#fragment', true).extname;
+    const extname4 = Uri.parse('foo:///a/b/c.py?query#fragment', true).extension;
     assert.equal(extname4, '.py');
-    const extname5 = Uri.file('/a/b/c.py.foo').extname;
+    const extname5 = Uri.file('/a/b/c.py.foo').extension;
     assert.equal(extname5, '.foo');
-    const extname6 = Uri.parse('file:///a/b/c.py.foo', true).extname;
+    const extname6 = Uri.parse('file:///a/b/c.py.foo', true).extension;
     assert.equal(extname6, '.foo');
 });
 
@@ -460,17 +460,17 @@ test('getRelativePathComponents6', () => {
 });
 
 test('getFileExtension1', () => {
-    const ext = Uri.parse('foo:///blah.blah/hello.JsOn', true).extname;
+    const ext = Uri.parse('foo:///blah.blah/hello.JsOn', true).extension;
     assert.equal(ext, '.JsOn');
 });
 
 test('getFileName1', () => {
-    const fileName = Uri.parse('foo:///blah.blah/HeLLo.JsOn', true).filename;
+    const fileName = Uri.parse('foo:///blah.blah/HeLLo.JsOn', true).fileName;
     assert.equal(fileName, 'HeLLo.JsOn');
 });
 
 test('getFileName2', () => {
-    const fileName1 = Uri.parse('foo:///blah.blah/hello.cpython-32m.so', true).filename;
+    const fileName1 = Uri.parse('foo:///blah.blah/hello.cpython-32m.so', true).fileName;
     assert.equal(fileName1, 'hello.cpython-32m.so');
 });
 
@@ -597,14 +597,14 @@ test('containsPath3', () => {
 });
 
 function getAnyExtensionFromPath(uri: string): string {
-    return Uri.parse(uri, true).extname;
+    return Uri.parse(uri, true).extension;
 }
 test('getAnyExtension1', () => {
     assert.equal(getAnyExtensionFromPath('/path/to/file.ext'), '.ext');
 });
 
 function getBaseFileName(uri: string): string {
-    return Uri.parse(uri, true).filename;
+    return Uri.parse(uri, true).fileName;
 }
 
 test('getBaseFileName1', () => {

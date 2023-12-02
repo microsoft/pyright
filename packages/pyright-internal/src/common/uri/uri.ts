@@ -20,10 +20,10 @@ export interface Uri {
     readonly scheme: string;
 
     // Returns the last segment of the URI, similar to the UNIX basename command.
-    readonly filename: string;
+    readonly fileName: string;
 
     // Returns the extension of the URI, similar to the UNIX extname command. This includes '.' on the extension.
-    readonly extname: string;
+    readonly extension: string;
 
     // Returns a URI where the path just contains the root folder.
     readonly root: Uri;
@@ -44,7 +44,7 @@ export interface Uri {
     readonly pytypedUri: Uri;
 
     // Returns the filename without any extensions
-    readonly withoutExtension: string;
+    readonly fileNameWithoutExtension: string;
 
     // Indicates if the underlying file system for this URI is case sensitive or not.
     readonly isCaseSensitive: boolean;
@@ -105,6 +105,7 @@ export interface Uri {
     replaceExtension(ext: string): Uri;
 
     addExtension(ext: string): Uri;
+    hasExtension(ext: string): boolean;
 }
 
 // Returns just the fsPath path portion of a vscode URI.

@@ -861,7 +861,7 @@ export function getRelativeModuleName(
     if (sourceIsFile) {
         destPath = targetPath.getDirectory();
 
-        const fileName = targetPath.stripAllExtensions().filename;
+        const fileName = targetPath.stripAllExtensions().fileName;
         if (fileName !== '__init__') {
             // ex) src: a.py, dest: b.py -> ".b" will be returned.
             symbolName = fileName;
@@ -870,7 +870,7 @@ export function getRelativeModuleName(
             //     like how it would return for sibling folder.
             //
             // if folder structure is not ignored, ".." will be returned
-            symbolName = destPath.filename;
+            symbolName = destPath.fileName;
             destPath = destPath.getDirectory();
         }
     }

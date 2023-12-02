@@ -5369,7 +5369,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_7 ||
                                 getAttrSymbol
                                     .getDeclarations()
-                                    .some((decl) => decl.uri.extname.toLowerCase() === '.pyi');
+                                    .some((decl) => decl.uri.hasExtension('.pyi'));
 
                             if (isModuleGetAttrSupported) {
                                 const getAttrTypeResult = getEffectiveTypeOfSymbolForUsage(getAttrSymbol);

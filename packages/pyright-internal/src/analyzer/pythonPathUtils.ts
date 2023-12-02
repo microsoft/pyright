@@ -145,7 +145,7 @@ function findSitePackagesPath(
 
     // Candidate directories start with "python3.".
     const candidateDirs = entries.directories.filter((dirName) => {
-        if (dirName.filename.startsWith('python3.')) {
+        if (dirName.fileName.startsWith('python3.')) {
             const dirPath = dirName.combinePaths(pathConsts.sitePackages);
             return fs.existsSync(dirPath);
         }
@@ -156,7 +156,7 @@ function findSitePackagesPath(
     // version), prefer that over other python directories.
     if (pythonVersion) {
         const preferredDir = candidateDirs.find(
-            (dirName) => dirName.filename === `python${versionToString(pythonVersion)}`
+            (dirName) => dirName.fileName === `python${versionToString(pythonVersion)}`
         );
         if (preferredDir) {
             const dirPath = preferredDir.combinePaths(pathConsts.sitePackages);

@@ -14,17 +14,18 @@
 import * as debug from '../debug';
 import { getRootLength, hasTrailingDirectorySeparator, normalizeSlashes, resolvePaths } from '../pathUtils';
 import { BaseUri } from './baseUri';
+import { cacheMethodWithNoArgs, cacheProperty } from './memoization';
 import { Uri } from './uri';
 
 export class WebUri extends BaseUri {
     private constructor(
+        key: string,
         private readonly _scheme: string,
         private readonly _authority: string,
         private readonly _path: string,
         private readonly _query: string,
         private readonly _fragment: string,
-        private readonly _originalString: string | undefined,
-        key: string
+        private readonly _originalString: string | undefined
     ) {
         super(key);
     }
@@ -37,6 +38,7 @@ export class WebUri extends BaseUri {
         // Web URIs are always case sensitive
         return true;
     }
+    @cacheProperty()
     override get root(): Uri {
         const rootPath = this.getRootPath();
         if (rootPath !== this._path) {
@@ -44,13 +46,16 @@ export class WebUri extends BaseUri {
         }
         return this;
     }
-    override get filename(): string {
+
+    @cacheProperty()
+    override get fileName(): string {
         // Path should already be normalized, just get the last on a split of '/'.
         const components = this._path.split('/');
         return components[components.length - 1];
     }
-    override get extname(): string {
-        const basename = this.filename;
+    @cacheProperty()
+    override get extension(): string {
+        const basename = this.fileName;
         const index = basename.lastIndexOf('.');
         if (index >= 0) {
             return basename.slice(index);
@@ -67,7 +72,7 @@ export class WebUri extends BaseUri {
         originalString: string | undefined
     ): WebUri {
         const key = WebUri._createKey(scheme, authority, path, query, fragment);
-        return new WebUri(scheme, authority, path, query, fragment, originalString, key);
+        return new WebUri(key, scheme, authority, path, query, fragment, originalString);
     }
 
     override toString(): string {
@@ -101,7 +106,7 @@ export class WebUri extends BaseUri {
             return false;
         }
 
-        return this.startsWith(parent) && parent._path.length < this._path.length;
+        return parent._path.length < this._path.length && this.startsWith(parent);
     }
     override isLocal(): boolean {
         return false;
@@ -140,7 +145,7 @@ export class WebUri extends BaseUri {
 
     override combinePaths(...paths: string[]): Uri {
         // Resolve and combine paths, never want URIs with '..' in the middle.
-        let combined = resolvePaths(this._path, ...paths).replace(/\\/g, '/');
+        let combined = this.normalizeSlashes(resolvePaths(this._path, ...paths));
 
         // Make sure to remove any trailing directory chars.
         if (hasTrailingDirectorySeparator(combined) && combined.length > 1) {
@@ -152,6 +157,7 @@ export class WebUri extends BaseUri {
         return this;
     }
 
+    @cacheMethodWithNoArgs()
     override getDirectory(): Uri {
         const index = this._path.lastIndexOf('/');
         if (index > 0) {
@@ -171,7 +177,9 @@ export class WebUri extends BaseUri {
         // Get the root path and the rest of the path components.
         const rootPath = this.getRootPath();
         const otherPaths = this._path.slice(rootPath.length).split('/');
-        return this.reducePathComponents([rootPath, ...otherPaths]).map((component) => component.replace(/\\/g, '/'));
+        return this.reducePathComponents([rootPath, ...otherPaths]).map((component) =>
+            this.normalizeSlashes(component)
+        );
     }
 
     protected override getRootPath(): string {

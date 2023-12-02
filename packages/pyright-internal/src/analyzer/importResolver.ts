@@ -126,12 +126,12 @@ export class ImportResolver {
     }
 
     static isSupportedImportSourceFile(uri: Uri) {
-        const fileExtension = uri.extname.toLowerCase();
+        const fileExtension = uri.extension.toLowerCase();
         return supportedSourceFileExtensions.some((ext) => fileExtension === ext);
     }
 
     static isSupportedImportFile(uri: Uri) {
-        const fileExtension = uri.extname.toLowerCase();
+        const fileExtension = uri.extension.toLowerCase();
         return supportedFileExtensions.some((ext) => fileExtension === ext);
     }
 
@@ -570,7 +570,7 @@ export class ImportResolver {
             // Started at root, so this can't be a file
             return false;
         }
-        const fileName = uri.filename;
+        const fileName = uri.fileName;
         const entries = this.readdirEntriesCached(directory);
         const entry = entries.find((entry) => entry.name === fileName);
         if (entry?.isFile()) {
@@ -602,7 +602,7 @@ export class ImportResolver {
 
         // Otherwise not a root, so read the entries we have cached to see if
         // the directory exists or not.
-        const directoryName = uri.filename;
+        const directoryName = uri.fileName;
         const entries = this.readdirEntriesCached(parent);
         const entry = entries.find((entry) => entry.name === directoryName);
         if (entry?.isDirectory()) {
@@ -726,9 +726,9 @@ export class ImportResolver {
     }
 
     protected getNativeModuleName(uri: Uri): string | undefined {
-        const fileExtension = uri.extname.toLowerCase();
+        const fileExtension = uri.extension.toLowerCase();
         if (this._isNativeModuleFileExtension(fileExtension)) {
-            return stripFileExtension(uri.filename, true);
+            return stripFileExtension(uri.fileName, true);
         }
         return undefined;
     }
@@ -754,7 +754,7 @@ export class ImportResolver {
         let fileUriWithoutExtension = fileUri.stripExtension();
 
         // If module is native, strip platform part, such as 'cp36-win_amd64' in 'mtrand.cp36-win_amd64'.
-        if (this._isNativeModuleFileExtension(fileUri.extname)) {
+        if (this._isNativeModuleFileExtension(fileUri.extension)) {
             fileUriWithoutExtension = fileUriWithoutExtension.stripExtension();
         }
 
@@ -1379,7 +1379,7 @@ export class ImportResolver {
                 } else {
                     if (allowNativeLib && this.dirExistsCached(fileDirectory)) {
                         const filesInDir = this._getFilesInDirectory(fileDirectory);
-                        const dirName = dirPath.filename;
+                        const dirName = dirPath.fileName;
                         const nativeLibPath = filesInDir.find((f) => this._isNativeModuleFileName(dirName, f));
                         if (nativeLibPath) {
                             // Try resolving native library to a custom stub.
@@ -2362,7 +2362,7 @@ export class ImportResolver {
         entries.files.forEach((file) => {
             // Strip multi-dot extensions to handle file names like "foo.cpython-32m.so". We want
             // to detect the ".so" but strip off the entire ".cpython-32m.so" extension.
-            const fileWithoutExtension = file.stripAllExtensions().filename;
+            const fileWithoutExtension = file.stripAllExtensions().fileName;
 
             if (ImportResolver.isSupportedImportFile(file)) {
                 if (fileWithoutExtension === '__init__') {
@@ -2392,7 +2392,7 @@ export class ImportResolver {
         });
 
         entries.directories.forEach((dir) => {
-            const dirSuggestion = dir.filename;
+            const dirSuggestion = dir.fileName;
             if (filter && !dirSuggestion.startsWith(filter)) {
                 return;
             }
@@ -2506,19 +2506,19 @@ export class ImportResolver {
 
         // Add implicit file-based modules.
         for (const filePath of entries.files) {
-            const fileExt = filePath.extname;
+            const fileExt = filePath.extension;
             let strippedFileName: string;
             let isNativeLib = false;
 
             if (fileExt === '.py' || fileExt === '.pyi') {
-                strippedFileName = stripFileExtension(filePath.filename);
+                strippedFileName = stripFileExtension(filePath.fileName);
             } else if (
                 this._isNativeModuleFileExtension(fileExt) &&
                 !this.fileExistsCached(filePath.packageUri) &&
                 !this.fileExistsCached(filePath.packageStubUri)
             ) {
                 // Native module.
-                strippedFileName = filePath.stripAllExtensions().filename;
+                strippedFileName = filePath.stripAllExtensions().fileName;
                 isNativeLib = true;
             } else {
                 continue;
@@ -2526,7 +2526,7 @@ export class ImportResolver {
 
             if (!exclusions.find((exclusion) => exclusion.equals(filePath))) {
                 const implicitImport: ImplicitImport = {
-                    isStubFile: filePath.extname === '.pyi',
+                    isStubFile: filePath.extension === '.pyi',
                     isNativeLib,
                     name: strippedFileName,
                     uri: filePath,
@@ -2572,7 +2572,7 @@ export class ImportResolver {
                     const implicitImport: ImplicitImport = {
                         isStubFile,
                         isNativeLib: false,
-                        name: dirPath.filename,
+                        name: dirPath.fileName,
                         uri: path,
                         pyTypedInfo: this._getPyTypedInfo(dirPath),
                     };
@@ -2624,8 +2624,8 @@ export class ImportResolver {
         // Strip off the final file extension and the part of the file name
         // that excludes all (multi-part) file extensions. This allows us to
         // handle file names like "foo.cpython-32m.so".
-        const fileExtension = fileUri.extname.toLowerCase();
-        const withoutExtension = fileUri.withoutExtension;
+        const fileExtension = fileUri.extension.toLowerCase();
+        const withoutExtension = fileUri.fileNameWithoutExtension;
         return (
             this._isNativeModuleFileExtension(fileExtension) &&
             equateStringsCaseInsensitive(moduleName, withoutExtension)

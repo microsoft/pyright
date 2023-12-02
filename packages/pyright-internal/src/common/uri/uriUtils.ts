@@ -281,7 +281,7 @@ export function getWildcardRoot(root: Uri, fileSpec: string): Uri {
 }
 
 export function hasPythonExtension(uri: Uri) {
-    return uri.extname === '.py' || uri.extname === '.pyi';
+    return uri.hasExtension('.py') || uri.hasExtension('.pyi');
 }
 
 export function getFileSpec(root: Uri, fileSpec: string): FileSpec {

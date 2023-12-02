@@ -488,7 +488,7 @@ export class Program {
         fileUris.forEach((fileUri) => {
             const sourceFileInfo = this.getSourceFileInfo(fileUri);
             if (sourceFileInfo) {
-                const fileName = fileUri.filename;
+                const fileName = fileUri.fileName;
 
                 // Handle builtins and __builtins__ specially. They are implicitly
                 // included by all source files.

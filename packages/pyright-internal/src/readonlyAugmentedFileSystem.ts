@@ -162,7 +162,7 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         const directory = mappeduri.getDirectory();
         const folderInfo = getOrAdd(this._folderMap, directory.key, () => []);
 
-        const name = mappeduri.filename;
+        const name = mappeduri.fileName;
         if (!folderInfo.some((entry) => entry.name === name)) {
             folderInfo.push({ name, isFile: true });
         }
@@ -173,7 +173,7 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
             const subdir = rootPath.combinePaths(...subPathEntries.slice(0, i + 1));
             const parent = subdir.getDirectory().key;
             const dirInfo = getOrAdd(this._folderMap, parent, () => []);
-            const dirName = subdir.filename;
+            const dirName = subdir.fileName;
             if (!dirInfo.some((entry) => entry.name === dirName)) {
                 dirInfo.push({ name: dirName, isFile: false });
             }

@@ -794,5 +794,5 @@ export class SourceMapper {
 }
 
 export function isStubFile(uri: Uri): boolean {
-    return uri.extname === '.pyi';
+    return uri.extension === '.pyi';
 }

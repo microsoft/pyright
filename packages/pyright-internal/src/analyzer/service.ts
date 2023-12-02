@@ -548,7 +548,7 @@ export class AnalyzerService {
                 this._console.info(`Configuration file not found at ${configFilePath.toUserVisibleString()}.`);
                 configFilePath = projectRoot;
             } else {
-                if (configFilePath.extname.endsWith('.json')) {
+                if (configFilePath.extension.endsWith('.json')) {
                     projectRoot = configFilePath.getDirectory();
                 } else {
                     projectRoot = configFilePath;
@@ -1065,7 +1065,7 @@ export class AnalyzerService {
                 const finalResolvedPath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
                 const isFinalPathFile = isFile(this.fs, finalResolvedPath);
                 const isFinalPathInitFile =
-                    isFinalPathFile && finalResolvedPath.stripAllExtensions().filename === '__init__';
+                    isFinalPathFile && finalResolvedPath.stripAllExtensions().fileName === '__init__';
 
                 let rootPackagePath = finalResolvedPath;
 
@@ -1406,7 +1406,7 @@ export class AnalyzerService {
             // alongside the original file and name them "x.py.<temp-id>.py" where
             // <temp-id> is a 32-character random string of hex digits. We don't
             // want these events to trigger a full reanalysis.
-            const fileName = path.filename;
+            const fileName = path.fileName;
             const fileNameSplit = fileName.split('.');
             if (fileNameSplit.length === 4) {
                 if (fileNameSplit[3] === fileNameSplit[1] && fileNameSplit[2].length === 32) {
@@ -1587,7 +1587,7 @@ export class AnalyzerService {
                 }
 
                 if (event === 'add' || event === 'change') {
-                    const fileName = path.filename;
+                    const fileName = path.fileName;
                     if (fileName && configFileNames.some((name) => name === fileName)) {
                         if (this._verboseOutput) {
                             this._console.info(`Received fs event '${event}' for config file`);

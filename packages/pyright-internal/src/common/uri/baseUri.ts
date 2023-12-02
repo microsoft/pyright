@@ -53,35 +53,35 @@ export abstract class BaseUri implements Uri {
     abstract get isCaseSensitive(): boolean;
 
     // Returns the last segment of the URI, similar to the UNIX basename command.
-    abstract get filename(): string;
+    abstract get fileName(): string;
 
-    // Returns the basename without any extensions
-    get withoutExtension(): string {
-        const base = this.filename;
-        const index = base.lastIndexOf('.');
+    // Returns just the fileName without any extensions
+    get fileNameWithoutExtension(): string {
+        const fileName = this.fileName;
+        const index = fileName.lastIndexOf('.');
         if (index > 0) {
-            return base.slice(0, index);
+            return fileName.slice(0, index);
         } else {
-            return base;
+            return fileName;
         }
     }
 
     // Returns the extension of the URI, similar to the UNIX extname command.
-    abstract get extname(): string;
+    abstract get extension(): string;
 
     // Returns a URI where the path just contains the root folder.
     abstract get root(): Uri;
 
     // Returns a URI where the path contains the path with .py appended.
     get packageUri(): Uri {
-        // This is assuming that the current path is a directory already.
-        return this.addPath('.py');
+        // This is assuming that the current path is a file already.
+        return this.addExtension('.py');
     }
 
     // Returns a URI where the path contains the path with .pyi appended.
     get packageStubUri(): Uri {
-        // This is assuming that the current path is a directory already.
-        return this.addPath('.pyi');
+        // This is assuming that the current path is a file already.
+        return this.addExtension('.pyi');
     }
 
     // Returns a URI where the path has __init__.py appended.
@@ -114,13 +114,17 @@ export abstract class BaseUri implements Uri {
 
     replaceExtension(ext: string): Uri {
         const dir = this.getDirectory();
-        const base = this.filename;
-        const newBase = base.slice(0, base.length - this.extname.length) + ext;
+        const base = this.fileName;
+        const newBase = base.slice(0, base.length - this.extension.length) + ext;
         return dir.combinePaths(newBase);
     }
 
     addExtension(ext: string): Uri {
         return this.addPath(ext);
+    }
+
+    hasExtension(ext: string): boolean {
+        return this.isCaseSensitive ? this.extension === ext : this.extension.toLowerCase() === ext.toLowerCase();
     }
 
     abstract addPath(extra: string): Uri;
@@ -229,7 +233,7 @@ export abstract class BaseUri implements Uri {
     }
 
     stripExtension(): Uri {
-        const base = this.filename;
+        const base = this.fileName;
         const index = base.lastIndexOf('.');
         if (index > 0) {
             const stripped = base.slice(0, index);
@@ -240,7 +244,7 @@ export abstract class BaseUri implements Uri {
     }
 
     stripAllExtensions(): Uri {
-        const base = this.filename;
+        const base = this.fileName;
         const stripped = base.split('.')[0];
         if (stripped === base) {
             return this;
@@ -250,6 +254,10 @@ export abstract class BaseUri implements Uri {
     }
 
     protected abstract getRootPath(): string;
+
+    protected normalizeSlashes(path: string): string {
+        return path.replace(/\\/g, '/');
+    }
 
     protected reducePathComponents(components: string[]): string[] {
         if (!some(components)) {
