@@ -407,6 +407,12 @@ test('Loop40', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Loop41', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop41.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('ForLoop1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['forLoop1.py']);
 
@@ -772,11 +778,10 @@ test('Classes4', () => {
 test('Classes5', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    // By default, optional diagnostics are ignored.
+    configOptions.diagnosticRuleSet.reportIncompatibleVariableOverride = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 11);
 
-    // Turn on reportIncompatibleVariableOverride.
     configOptions.diagnosticRuleSet.reportIncompatibleVariableOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 36);
@@ -803,7 +808,7 @@ test('Classes8', () => {
 test('Classes9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes9.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Classes10', () => {
@@ -827,11 +832,10 @@ test('Methods1', () => {
 test('MethodOverride1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    // By default, optional diagnostics are ignored.
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 
-    // Turn on errors.
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 36);
@@ -840,11 +844,10 @@ test('MethodOverride1', () => {
 test('MethodOverride2', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    // By default, optional diagnostics are ignored.
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 
-    // Turn on errors.
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 6);
@@ -853,11 +856,10 @@ test('MethodOverride2', () => {
 test('MethodOverride3', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    // By default, optional diagnostics are ignored.
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride3.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 
-    // Turn on errors.
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride3.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
@@ -879,6 +881,7 @@ test('MethodOverride5', () => {
 test('MethodOverride6', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['methodOverride6.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 0);
 
@@ -1209,6 +1212,14 @@ test('VariadicTypeVar25', () => {
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar25.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('VariadicTypeVar26', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar26.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Match1', () => {

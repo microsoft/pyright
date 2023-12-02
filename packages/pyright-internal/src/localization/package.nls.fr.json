@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "Ajouter « Facultatif » à l’annotation de type",
         "createTypeStub": "Créer un stub de type",
         "createTypeStubFor": "Créer un stub de type pour « {moduleName} »",
         "executingCommand": "Exécution de la commande",
@@ -440,7 +439,6 @@
         "tupleIndexOutOfRange": "L’index {index} est hors limites pour le type {type}",
         "typeAliasIllegalExpressionForm": "Formulaire d’expression non valide pour la définition d’alias de type",
         "typeAliasIsRecursiveDirect": "L'alias de type \"{name}\" ne peut pas s'utiliser lui-même dans sa définition",
-        "typeAliasNotAllowed": "L'alias de type \"{name}\" ne peut pas être utilisé dans ce contexte",
         "typeAliasNotInModuleOrClass": "Un TypeAlias ne peut être défini qu’au sein d’un module ou d’une étendue de classe",
         "typeAliasRedeclared": "« {name} » est déclaré en tant que TypeAlias et ne peut être attribué qu’une seule fois",
         "typeAliasStatementIllegal": "L’instruction d’alias de type nécessite Python 3.12 ou version ultérieure",
@@ -520,7 +518,6 @@
         "typedDictEntryUnique": "Les noms dans un dictionnaire doivent être uniques",
         "typedDictExtraArgs": "Arguments TypedDict supplémentaires non pris en charge",
         "typedDictFieldReadOnlyRedefinition": "Le champ TypedDict « {name} » ne peut pas être redéfini en lecture seule",
-        "typedDictFieldTypeRedefinition": "Impossible de redéfinir le type du champ TypedDict « {name} »",
         "typedDictFirstArg": "Nom de classe TypedDict attendu comme premier argument",
         "typedDictSecondArgDict": "Paramètre de mot clé ou de dict attendu en tant que deuxième paramètre",
         "typedDictSecondArgDictEntry": "Entrée de dictionnaire simple attendue",
@@ -728,7 +725,6 @@
         "typedDictFieldNotRequired": "« {name} » n’est pas obligatoire dans « {type} »",
         "typedDictFieldRequired": "« {name} » est obligatoire dans « {type} »",
         "typedDictFieldTypeMismatch": "Le type \"{type}\" n'est pas attribuable au champ \"{name}\"",
-        "typedDictFieldTypeRedefinition": "Le type dans la classe parente est « {parentType} » et le type dans la classe enfant est « {childType} »",
         "typedDictFieldUndefined": "« {name} » est un champ non défini dans le type « {type} »",
         "typedDictFinalMismatch": "« {sourceType} » n’est pas compatible avec « {destType} » en raison d’une incompatibilité de @final",
         "unhashableType": "Le type \"{type}\" n'est pas hachable",

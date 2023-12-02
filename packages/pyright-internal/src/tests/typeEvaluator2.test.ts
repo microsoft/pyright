@@ -705,6 +705,12 @@ test('Solver31', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Solver32', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver32.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('SolverScoring1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverScoring1.py']);
 
@@ -1246,7 +1252,7 @@ test('Protocol26', () => {
 test('Protocol27', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol27.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('Protocol28', () => {
@@ -1444,7 +1450,7 @@ test('TypedDict12', () => {
 test('TypedDict13', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict13.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('TypedDict14', () => {

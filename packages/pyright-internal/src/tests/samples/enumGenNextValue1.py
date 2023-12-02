@@ -11,6 +11,7 @@ reveal_type(EnumA.x.value, expected_text="int")
 
 
 class EnumC(str, Enum):
+    @staticmethod
     def _generate_next_value_(name, start, count, last_values) -> str:
         return name
 

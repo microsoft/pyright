@@ -1,6 +1,5 @@
 {
     "CodeAction": {
-        "addOptionalToAnnotation": "형식 주석에 \"선택 사항\"을 추가합니다.",
         "createTypeStub": "형식 스텁 만들기",
         "createTypeStubFor": "\"{moduleName}\"에 대한 형식 스텁 만들기",
         "executingCommand": "명령 실행",
@@ -440,7 +439,6 @@
         "tupleIndexOutOfRange": "{index} 인덱스가 {type} 형식의 범위를 벗어났습니다.",
         "typeAliasIllegalExpressionForm": "형식 별칭 정의에 대한 식 양식이 잘못되었습니다.",
         "typeAliasIsRecursiveDirect": "형식 별칭 ‘{name}’의 정의에서 스스로를 사용할 수 없습니다.",
-        "typeAliasNotAllowed": "이 컨텍스트에서 형식 별칭 \"{name}\"을(를) 사용할 수 없습니다.",
         "typeAliasNotInModuleOrClass": "TypeAlias는 모듈 또는 클래스 범위 내에서만 정의할 수 있습니다.",
         "typeAliasRedeclared": "\"{name}\"은(는) TypeAlias로 선언되며 한 번만 할당할 수 있습니다.",
         "typeAliasStatementIllegal": "형식 별칭 문에는 Python 3.12 이상이 필요합니다.",
@@ -520,7 +518,6 @@
         "typedDictEntryUnique": "사전 내의 이름은 고유해야 합니다.",
         "typedDictExtraArgs": "추가 TypedDict 인수가 지원되지 않음",
         "typedDictFieldReadOnlyRedefinition": "TypedDict 필드 \"{name}\"을(를) 읽기 전용으로 다시 정의할 수 없습니다.",
-        "typedDictFieldTypeRedefinition": "TypedDict 필드 \"{name}\"의 형식을 다시 정의할 수 없습니다.",
         "typedDictFirstArg": "TypedDict 클래스 이름이 첫 번째 인수로 필요합니다.",
         "typedDictSecondArgDict": "두 번째 매개 변수로 사전 또는 키워드 매개 변수가 필요합니다.",
         "typedDictSecondArgDictEntry": "단순 사전 항목이 필요합니다.",
@@ -728,7 +725,6 @@
         "typedDictFieldNotRequired": "\"{name}\"은(는) \"{type}\"에 필요하지 않습니다.",
         "typedDictFieldRequired": "\"{type}\"에 \"{name}\"이(가) 필요합니다.",
         "typedDictFieldTypeMismatch": "‘{type}’ 형식은 ‘{name}’ 필드에 할당할 수 없습니다.",
-        "typedDictFieldTypeRedefinition": "부모 클래스의 형식은 \"{parentType}\"이고 자녀 클래스의 형식은 \"{childType}\"입니다.",
         "typedDictFieldUndefined": "\"{name}\"은(는) \"{type}\" 형식의 정의되지 않은 필드입니다.",
         "typedDictFinalMismatch": "@final 불일치로 인해 \"{sourceType}\"이(가) \"{destType}\"과(와) 호환되지 않습니다.",
         "unhashableType": "‘{type}’ 형식을 해시할 수 없습니다.",

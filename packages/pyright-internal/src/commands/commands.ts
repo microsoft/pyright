@@ -11,7 +11,6 @@ export const enum Commands {
     createTypeStub = 'pyright.createtypestub',
     restartServer = 'pyright.restartserver',
     orderImports = 'pyright.organizeimports',
-    addMissingOptionalToParam = 'pyright.addoptionalforparam',
     unusedImport = 'pyright.unusedImport',
     dumpFileDebugInfo = 'pyright.dumpFileDebugInfo',
     dumpTokens = 'pyright.dumpTokens',

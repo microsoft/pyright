@@ -180,7 +180,7 @@ export async function activate(context: ExtensionContext) {
     languageClient = client;
 
     // Register our custom commands.
-    const textEditorCommands = [Commands.orderImports, Commands.addMissingOptionalToParam];
+    const textEditorCommands = [Commands.orderImports];
     textEditorCommands.forEach((commandName) => {
         context.subscriptions.push(
             commands.registerTextEditorCommand(

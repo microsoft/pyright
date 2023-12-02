@@ -1,5 +1,5 @@
 # This sample tests bidirectional type inference when assigning
-# a value to a typedDict element.
+# a value to a TypedDict element.
 
 from typing import TypedDict
 

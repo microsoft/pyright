@@ -601,6 +601,91 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
     return diagSettings;
 }
 
+export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
+    const diagSettings: DiagnosticRuleSet = {
+        printUnknownAsAny: false,
+        omitTypeArgsIfUnknown: false,
+        omitUnannotatedParamType: true,
+        omitConditionalConstraint: false,
+        pep604Printing: true,
+        strictListInference: false,
+        strictSetInference: false,
+        strictDictionaryInference: false,
+        analyzeUnannotatedFunctions: true,
+        strictParameterNoneValue: true,
+        enableExperimentalFeatures: false,
+        enableTypeIgnoreComments: true,
+        deprecateTypingAliases: false,
+        disableBytesTypePromotions: false,
+        reportGeneralTypeIssues: 'error',
+        reportPropertyTypeMismatch: 'none',
+        reportFunctionMemberAccess: 'error',
+        reportMissingImports: 'error',
+        reportMissingModuleSource: 'warning',
+        reportMissingTypeStubs: 'none',
+        reportImportCycles: 'none',
+        reportUnusedImport: 'none',
+        reportUnusedClass: 'none',
+        reportUnusedFunction: 'none',
+        reportUnusedVariable: 'none',
+        reportDuplicateImport: 'none',
+        reportWildcardImportFromLibrary: 'warning',
+        reportOptionalSubscript: 'error',
+        reportOptionalMemberAccess: 'error',
+        reportOptionalCall: 'error',
+        reportOptionalIterable: 'error',
+        reportOptionalContextManager: 'error',
+        reportOptionalOperand: 'error',
+        reportTypedDictNotRequiredAccess: 'error',
+        reportUntypedFunctionDecorator: 'none',
+        reportUntypedClassDecorator: 'none',
+        reportUntypedBaseClass: 'none',
+        reportUntypedNamedTuple: 'none',
+        reportPrivateUsage: 'none',
+        reportTypeCommentUsage: 'none',
+        reportPrivateImportUsage: 'error',
+        reportConstantRedefinition: 'none',
+        reportDeprecated: 'none',
+        reportIncompatibleMethodOverride: 'error',
+        reportIncompatibleVariableOverride: 'error',
+        reportInconsistentConstructor: 'none',
+        reportOverlappingOverload: 'error',
+        reportMissingSuperCall: 'none',
+        reportUninitializedInstanceVariable: 'none',
+        reportInvalidStringEscapeSequence: 'warning',
+        reportUnknownParameterType: 'none',
+        reportUnknownArgumentType: 'none',
+        reportUnknownLambdaType: 'none',
+        reportUnknownVariableType: 'none',
+        reportUnknownMemberType: 'none',
+        reportMissingParameterType: 'none',
+        reportMissingTypeArgument: 'none',
+        reportInvalidTypeVarUse: 'warning',
+        reportCallInDefaultInitializer: 'none',
+        reportUnnecessaryIsInstance: 'none',
+        reportUnnecessaryCast: 'none',
+        reportUnnecessaryComparison: 'none',
+        reportUnnecessaryContains: 'none',
+        reportAssertAlwaysTrue: 'warning',
+        reportSelfClsParameterName: 'warning',
+        reportImplicitStringConcatenation: 'none',
+        reportUnboundVariable: 'error',
+        reportUndefinedVariable: 'error',
+        reportInvalidStubStatement: 'none',
+        reportIncompleteStub: 'none',
+        reportUnsupportedDunderAll: 'warning',
+        reportUnusedCallResult: 'none',
+        reportUnusedCoroutine: 'error',
+        reportUnusedExpression: 'warning',
+        reportUnnecessaryTypeIgnoreComment: 'none',
+        reportMatchNotExhaustive: 'none',
+        reportShadowedImports: 'none',
+        reportImplicitOverride: 'none',
+    };
+
+    return diagSettings;
+}
+
 export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         printUnknownAsAny: false,
@@ -835,11 +920,15 @@ export class ConfigOptions {
             return getStrictDiagnosticRuleSet();
         }
 
+        if (typeCheckingMode === 'basic') {
+            return getBasicDiagnosticRuleSet();
+        }
+
         if (typeCheckingMode === 'off') {
             return getOffDiagnosticRuleSet();
         }
 
-        return getBasicDiagnosticRuleSet();
+        return getStandardDiagnosticRuleSet();
     }
 
     getDefaultExecEnvironment(): ExecutionEnvironment {
@@ -966,11 +1055,12 @@ export class ConfigOptions {
             if (
                 configObj.typeCheckingMode === 'off' ||
                 configObj.typeCheckingMode === 'basic' ||
+                configObj.typeCheckingMode === 'standard' ||
                 configObj.typeCheckingMode === 'strict'
             ) {
                 configTypeCheckingMode = configObj.typeCheckingMode;
             } else {
-                console.error(`Config "typeCheckingMode" entry must contain "off", "basic", or "strict".`);
+                console.error(`Config "typeCheckingMode" entry must contain "off", "basic", "standard", or "strict".`);
             }
         }
 

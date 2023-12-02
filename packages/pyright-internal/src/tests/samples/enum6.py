@@ -51,4 +51,4 @@ class EnumWithValue(EnumWithoutValue):
 # This should generate an error because enums with values
 # cannot be subclassed.
 class EnumSubclass(EnumWithValue):
-    y: int
+    z: int

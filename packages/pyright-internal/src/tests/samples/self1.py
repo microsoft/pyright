@@ -31,6 +31,10 @@ def func3() -> Self:
     ...
 
 
+def is_self(t: object):
+    return t is Self
+
+
 class B:
     x: Self
 

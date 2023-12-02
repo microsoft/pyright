@@ -605,6 +605,11 @@ export interface TupleTypeArgument {
     // Does the type argument represent a single value or
     // an "unbounded" (zero or more) arguments?
     isUnbounded: boolean;
+
+    // For tuples captured from a callable, this indicates
+    // the corresponding positional parameter has a default
+    // argument and can therefore be omitted.
+    isOptional?: boolean;
 }
 
 export interface PropertyMethodInfo {
@@ -1122,22 +1127,10 @@ export namespace ClassType {
 
     // Same as isTypeSame except that it doesn't compare type arguments.
     export function isSameGenericClass(classType: ClassType, type2: ClassType, recursionCount = 0) {
-        if (recursionCount > maxTypeRecursionCount) {
-            return true;
-        }
-        recursionCount++;
-
         if (!classType.isTypedDictPartial !== !type2.isTypedDictPartial) {
             return false;
         }
 
-        // If the class details match, it's definitely the same class.
-        if (classType.details === type2.details) {
-            return true;
-        }
-
-        // If either or both have aliases (e.g. List -> list), use the
-        // aliases for comparison purposes.
         const class1Details = classType.details;
         const class2Details = type2.details;
 
@@ -1156,6 +1149,11 @@ export namespace ClassType {
         ) {
             return false;
         }
+
+        if (recursionCount > maxTypeRecursionCount) {
+            return true;
+        }
+        recursionCount++;
 
         // Special-case NamedTuple and Tuple classes because we rewrite the base classes
         // in these cases.
@@ -3227,15 +3225,11 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
 
     // Sort all of the literal and empty types to the end.
     expandedTypes = expandedTypes.sort((type1, type2) => {
-        if (
-            (isClassInstance(type1) && type1.literalValue !== undefined) ||
-            (isInstantiableClass(type1) && type1.literalValue !== undefined)
-        ) {
+        if (isClass(type1) && type1.literalValue !== undefined) {
             return 1;
-        } else if (
-            (isClassInstance(type2) && type2.literalValue !== undefined) ||
-            (isInstantiableClass(type2) && type2.literalValue !== undefined)
-        ) {
+        }
+
+        if (isClass(type2) && type2.literalValue !== undefined) {
             return -1;
         }
 

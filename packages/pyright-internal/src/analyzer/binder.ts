@@ -1438,6 +1438,10 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitRaise(node: RaiseNode): boolean {
+        if (this._currentFlowNode) {
+            this._addExceptTargets(this._currentFlowNode);
+        }
+
         if (this._targetFunctionDeclaration) {
             if (!this._targetFunctionDeclaration.raiseStatements) {
                 this._targetFunctionDeclaration.raiseStatements = [];

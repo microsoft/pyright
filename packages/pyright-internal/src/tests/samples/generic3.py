@@ -1,6 +1,8 @@
 # This sample tests that a Generic base class overrides the type parameter
 # ordering of other type parameters.
 
+# pyright: reportIncompatibleMethodOverride=false
+
 from typing import Generic, Iterable, Iterator, Mapping, TypeVar
 
 _T1 = TypeVar("_T1")
@@ -23,6 +25,7 @@ class Foo(Iterable[_T2], Generic[_T1, _T2]):
 a: Foo[int, str] = Foo(2, "")
 b: str = a.foo(4, "")
 
+
 # This should generate an error because a class shouldn't
 # derive from Generic more than once.
 class Bar(Generic[_T1], Generic[_T2]):
@@ -31,6 +34,7 @@ class Bar(Generic[_T1], Generic[_T2]):
 
 K = TypeVar("K")
 V = TypeVar("V")
+
 
 # This should generate an error because V isn't included
 # in the Generic type variable list.

@@ -105,12 +105,17 @@ test('AutoVariance4', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('AutoVariance5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['autoVariance5.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeAliasStatement1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = PythonVersion.V3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasStatement1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypeAliasStatement2', () => {
@@ -319,7 +324,7 @@ test('TypedDictReadOnly1', () => {
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('TypedDictReadOnly2', () => {
@@ -327,7 +332,7 @@ test('TypedDictReadOnly2', () => {
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 15);
+    TestUtils.validateResults(analysisResults, 17);
 });
 
 test('DataclassTransform1', () => {
@@ -351,7 +356,7 @@ test('DataclassTransform3', () => {
 test('DataclassTransform4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform4.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Async1', () => {

@@ -1,6 +1,8 @@
 # This sample tests various uses of ReadOnly fields in TypedDict classes
 # as specified in PEP 705.
 
+# pyright: reportIncompatibleVariableOverride=true
+
 from typing import (
     Generic,
     Literal,
@@ -208,3 +210,33 @@ class TD19(TypedDict):
 
 def update_a(a: TD18, b: TD19) -> None:
     a.update(b)
+
+
+class TD_A1(TypedDict):
+    x: int
+    y: ReadOnly[int]
+
+
+class TD_A2(TypedDict):
+    x: float
+    y: ReadOnly[float]
+
+
+# This should generate an error for x but not y.
+class TD_A(TD_A1, TD_A2):
+    ...
+
+
+class TD_B1(TypedDict):
+    x: ReadOnly[NotRequired[int]]
+    y: ReadOnly[Required[int]]
+
+
+class TD_B2(TypedDict):
+    x: ReadOnly[Required[int]]
+    y: ReadOnly[NotRequired[int]]
+
+
+# This should generate an error for x but not y.
+class TD_B(TD_B1, TD_B2):
+    ...

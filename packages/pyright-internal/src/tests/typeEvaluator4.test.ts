@@ -291,7 +291,7 @@ test('Overload4', () => {
 test('Overload5', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    // By default, reportOverlappingOverload is off.
+    configOptions.diagnosticRuleSet.reportOverlappingOverload = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 
@@ -348,6 +348,11 @@ test('Overload15', () => {
 test('Overload16', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload16.py']);
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('Overload17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload17.py']);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Final1', () => {
@@ -571,7 +576,7 @@ test('DataClassNamedTuple2', () => {
 test('DataClass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass1.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('DataClass2', () => {

@@ -33,7 +33,7 @@ import { getClassFullName, getEnclosingClassOrFunction, getScopeIdForNode, getTy
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName } from './symbolNameUtils';
-import { EvaluatorFlags, FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
+import { EvaluatorFlags, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -62,6 +62,7 @@ import {
     convertToInstance,
     getTypeVarScopeId,
     isLiteralType,
+    isMetaclassInstance,
     populateTypeVarContextForSelfType,
     requiresSpecialization,
     specializeTupleClass,
@@ -221,55 +222,20 @@ export function synthesizeDataClassMethods(
                         const initArg = statement.rightExpression.arguments.find((arg) => arg.name?.value === 'init');
                         if (initArg && initArg.valueExpression) {
                             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-                            const value = evaluateStaticBoolExpression(
-                                initArg.valueExpression,
-                                fileInfo.executionEnvironment,
-                                fileInfo.definedConstants
-                            );
-                            if (value === false) {
-                                includeInInit = false;
-                            }
+                            includeInInit =
+                                evaluateStaticBoolExpression(
+                                    initArg.valueExpression,
+                                    fileInfo.executionEnvironment,
+                                    fileInfo.definedConstants
+                                ) ?? includeInInit;
                         } else {
-                            // See if the field constructor has an `init` parameter with
-                            // a default value.
-                            let callTarget: FunctionType | undefined;
-                            if (isFunction(callType)) {
-                                callTarget = callType;
-                            } else if (isOverloadedFunction(callType)) {
-                                callTarget = evaluator.getBestOverloadForArguments(
+                            includeInInit =
+                                getDefaultArgValueForFieldSpecifier(
+                                    evaluator,
                                     statement.rightExpression,
-                                    { type: callType, isIncomplete: callTypeResult.isIncomplete },
-                                    statement.rightExpression.arguments
-                                );
-                            } else if (isInstantiableClass(callType)) {
-                                const initMethodResult = getBoundInitMethod(evaluator, node.name, callType);
-                                if (initMethodResult) {
-                                    if (isFunction(initMethodResult.type)) {
-                                        callTarget = initMethodResult.type;
-                                    } else if (isOverloadedFunction(initMethodResult.type)) {
-                                        callTarget = evaluator.getBestOverloadForArguments(
-                                            statement.rightExpression,
-                                            { type: initMethodResult.type },
-                                            statement.rightExpression.arguments
-                                        );
-                                    }
-                                }
-                            }
-
-                            if (callTarget) {
-                                const initParam = callTarget.details.parameters.find((p) => p.name === 'init');
-                                if (initParam && initParam.defaultValueExpression && initParam.hasDeclaredType) {
-                                    if (
-                                        isClass(initParam.type) &&
-                                        ClassType.isBuiltIn(initParam.type, 'bool') &&
-                                        isLiteralType(initParam.type)
-                                    ) {
-                                        if (initParam.type.literalValue === false) {
-                                            includeInInit = false;
-                                        }
-                                    }
-                                }
-                            }
+                                    callTypeResult,
+                                    'init'
+                                ) ?? includeInInit;
                         }
 
                         const kwOnlyArg = statement.rightExpression.arguments.find(
@@ -277,16 +243,20 @@ export function synthesizeDataClassMethods(
                         );
                         if (kwOnlyArg && kwOnlyArg.valueExpression) {
                             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-                            const value = evaluateStaticBoolExpression(
-                                kwOnlyArg.valueExpression,
-                                fileInfo.executionEnvironment,
-                                fileInfo.definedConstants
-                            );
-                            if (value === false) {
-                                isKeywordOnly = false;
-                            } else if (value === true) {
-                                isKeywordOnly = true;
-                            }
+                            isKeywordOnly =
+                                evaluateStaticBoolExpression(
+                                    kwOnlyArg.valueExpression,
+                                    fileInfo.executionEnvironment,
+                                    fileInfo.definedConstants
+                                ) ?? isKeywordOnly;
+                        } else {
+                            isKeywordOnly =
+                                getDefaultArgValueForFieldSpecifier(
+                                    evaluator,
+                                    statement.rightExpression,
+                                    callTypeResult,
+                                    'kw_only'
+                                ) ?? isKeywordOnly;
                         }
 
                         const defaultArg = statement.rightExpression.arguments.find(
@@ -706,6 +676,69 @@ export function synthesizeDataClassMethods(
     }
 }
 
+// If a field specifier is used to define a field, it may define a default
+// argument value (either True or False) for a supported keyword parameter.
+// This function extracts that default value if present and returns it. If
+// it's not present, it returns undefined.
+function getDefaultArgValueForFieldSpecifier(
+    evaluator: TypeEvaluator,
+    callNode: CallNode,
+    callTypeResult: TypeResult,
+    paramName: string
+): boolean | undefined {
+    const callType = callTypeResult.type;
+    let callTarget: FunctionType | undefined;
+
+    if (isFunction(callType)) {
+        callTarget = callType;
+    } else if (isOverloadedFunction(callType)) {
+        callTarget = evaluator.getBestOverloadForArguments(
+            callNode,
+            { type: callType, isIncomplete: callTypeResult.isIncomplete },
+            callNode.arguments
+        );
+    } else if (isInstantiableClass(callType)) {
+        const initMethodResult = getBoundInitMethod(evaluator, callNode, callType);
+        if (initMethodResult) {
+            if (isFunction(initMethodResult.type)) {
+                callTarget = initMethodResult.type;
+            } else if (isOverloadedFunction(initMethodResult.type)) {
+                callTarget = evaluator.getBestOverloadForArguments(
+                    callNode,
+                    { type: initMethodResult.type },
+                    callNode.arguments
+                );
+            }
+        }
+    }
+
+    if (callTarget) {
+        const initParam = callTarget.details.parameters.find((p) => p.name === paramName);
+        if (initParam) {
+            // Is the parameter type a literal bool?
+            if (
+                initParam.hasDeclaredType &&
+                isClass(initParam.type) &&
+                typeof initParam.type.literalValue === 'boolean'
+            ) {
+                return initParam.type.literalValue;
+            }
+
+            // Is the default argument value a literal bool?
+            if (
+                initParam.defaultValueExpression &&
+                initParam.defaultType &&
+                isClass(initParam.defaultType) &&
+                typeof initParam.defaultType.literalValue === 'boolean'
+            ) {
+                return initParam.defaultType.literalValue;
+            }
+        }
+    }
+
+    return undefined;
+}
+
 // Validates converter and, if valid, returns its input type. If invalid,
 // fieldType is returned.
 function getConverterInputType(
@@ -899,7 +932,7 @@ function getDescriptorForConverterField(
 // __set__ method, this method transforms the type into the input parameter
 // for the set method.
 function transformDescriptorType(evaluator: TypeEvaluator, type: Type): Type {
-    if (!isClassInstance(type)) {
+    if (!isClassInstance(type) || isMetaclassInstance(type)) {
         return type;
     }
 

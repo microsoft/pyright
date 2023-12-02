@@ -1,6 +1,8 @@
 # This sample tests the case where a property's getter and setter
 # are defined in different classes.
 
+# pyright: reportIncompatibleMethodOverride=false
+
 from typing import Generic, Self, TypeVar
 
 

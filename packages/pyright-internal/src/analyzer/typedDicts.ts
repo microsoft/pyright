@@ -43,7 +43,6 @@ import {
     isClass,
     isClassInstance,
     isInstantiableClass,
-    isTypeSame,
     maxTypeRecursionCount,
     NeverType,
     OverloadedFunctionType,
@@ -811,6 +810,9 @@ function getTypedDictMembersForClassRecursive(
         if (isInstantiableClass(baseClassType) && ClassType.isTypedDictClass(baseClassType)) {
             const specializedBaseClassType = partiallySpecializeType(baseClassType, classType);
             assert(isClass(specializedBaseClassType));
+
+            // Recursively gather keys from parent classes. Don't report any errors
+            // in these cases because they will be reported within that class.
             getTypedDictMembersForClassRecursive(evaluator, specializedBaseClassType, keyMap, recursionCount);
         }
     });
@@ -837,57 +839,6 @@ function getTypedDictMembersForClassRecursive(
 
                 if (isReadOnlyTypedDictVariable(evaluator, symbol)) {
                     isReadOnly = true;
-                }
-
-                // If a base class already declares this field, verify that the
-                // subclass isn't trying to change its type. That's expressly
-                // forbidden in PEP 589.
-                const existingEntry = keyMap.get(name);
-                if (existingEntry) {
-                    let isTypeCompatible: boolean;
-                    const diag = new DiagnosticAddendum();
-
-                    // If the field is read-only, the type is covariant. If it's not
-                    // read-only, it's invariant.
-                    if (existingEntry.isReadOnly) {
-                        isTypeCompatible = evaluator.assignType(
-                            existingEntry.valueType,
-                            valueType,
-                            diag.createAddendum()
-                        );
-                    } else {
-                        isTypeCompatible = isTypeSame(existingEntry.valueType, valueType);
-                    }
-
-                    if (!isTypeCompatible) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.typedDictFieldTypeRedefinition().format({
-                                parentType: evaluator.printType(existingEntry.valueType),
-                                childType: evaluator.printType(valueType),
-                            })
-                        );
-                        evaluator.addDiagnostic(
-                            AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typedDictFieldTypeRedefinition().format({
-                                name,
-                            }) + diag.getString(),
-                            lastDecl.node
-                        );
-                    }
-
-                    // Make sure that the derived class isn't marking a previously writable
-                    // entry as read-only.
-                    if (!existingEntry.isReadOnly && isReadOnly) {
-                        evaluator.addDiagnostic(
-                            AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typedDictFieldReadOnlyRedefinition().format({
-                                name,
-                            }),
-                            lastDecl.node
-                        );
-                    }
                 }
 
                 keyMap.set(name, {

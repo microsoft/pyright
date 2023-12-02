@@ -1,6 +1,8 @@
 # This sample tests the case where a dataclass declares an instance
 # variable and a subclass redeclares it as a class variable.
 
+# pyright: reportIncompatibleVariableOverride=false
+
 from dataclasses import dataclass
 from typing import ClassVar
 

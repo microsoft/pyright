@@ -73,11 +73,6 @@ export interface CreateTypeStubFileAction extends DiagnosticAction {
     moduleName: string;
 }
 
-export interface AddMissingOptionalToParamAction extends DiagnosticAction {
-    action: Commands.addMissingOptionalToParam;
-    offsetOfTypeNode: number;
-}
-
 export interface RenameShadowedFileAction extends DiagnosticAction {
     action: ActionKind.RenameShadowedFileAction;
     oldUri: Uri;

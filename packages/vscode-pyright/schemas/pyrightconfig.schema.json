@@ -84,10 +84,11 @@
       "enum": [
         "off",
         "basic",
+        "standard",
         "strict"
       ],
       "title": "Specifies the default rule set to use for type checking",
-      "default": "basic"
+      "default": "standard"
     },
     "useLibraryCodeForTypes": {
       "$id": "#/properties/useLibraryCodeForTypes",
@@ -182,7 +183,7 @@
       "$id": "#/properties/reportFunctionMemberAccess",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of member accesses on function objects",
-      "default": "none"
+      "default": "error"
     },
     "reportMissingImports": {
       "$id": "#/properties/reportMissingImports",
@@ -344,13 +345,13 @@
       "$id": "#/properties/reportIncompatibleMethodOverride",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of method overrides in subclasses that redefine the method in an incompatible way",
-      "default": "none"
+      "default": "error"
     },
     "reportIncompatibleVariableOverride": {
       "$id": "#/properties/reportIncompatibleVariableOverride",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of overrides in subclasses that redefine a variable in an incompatible way",
-      "default": "none"
+      "default": "error"
     },
     "reportInconsistentConstructor": {
       "$id": "#/properties/reportInconsistentConstructor",
@@ -362,7 +363,7 @@
       "$id": "#/properties/reportOverlappingOverload",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of function overloads that overlap in signature and obscure each other or do not agree on return type",
-      "default": "none"
+      "default": "error"
     },
     "reportMissingSuperCall": {
       "$id": "#/properties/reportMissingSuperCall",

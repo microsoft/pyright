@@ -13,14 +13,14 @@ class SupportsIndex(Protocol):
 
 class TupleLike(Sequence[_T_co]):
     @overload
-    def __getitem__(self, __x: SupportsIndex) -> _T_co:
+    def __getitem__(self, index: SupportsIndex) -> _T_co:
         ...
 
     @overload
-    def __getitem__(self, __x: slice) -> "TupleLike[_T_co]":
+    def __getitem__(self, index: slice) -> "TupleLike[_T_co]":
         ...
 
-    def __getitem__(self, __x: slice | SupportsIndex) -> "_T_co | TupleLike[_T_co]":
+    def __getitem__(self, index: slice | SupportsIndex) -> "_T_co | TupleLike[_T_co]":
         ...
 
 
