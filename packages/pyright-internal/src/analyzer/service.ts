@@ -23,7 +23,6 @@ import { EditableProgram, ProgramView } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
-import { getHeapStatistics } from '../common/memUtils';
 import { defaultStubsDirectory } from '../common/pathConsts';
 import { isRootedDiskPath } from '../common/pathUtils';
 import { ServiceProvider } from '../common/serviceProvider';
@@ -64,8 +63,6 @@ export const pyprojectTomlName = 'pyproject.toml';
 const _userActivityBackoffTimeInMs = 250;
 
 const _gitDirectory = '/.git/';
-
-const printUriStats = true;
 
 export interface AnalyzerServiceOptions {
     console?: ConsoleInterface;
@@ -384,43 +381,6 @@ export class AnalyzerService {
 
         const checkedFileCount = this._program.getUserFileCount();
         this._console.info('Total files checked: ' + checkedFileCount.toString());
-
-        const heapStats = getHeapStatistics();
-        this._console.info('Heap stats: ' + JSON.stringify(heapStats, null, 4));
-
-        if (printUriStats) {
-            this._console.info('URI stats');
-            this._console.info(`Counts per method:`);
-            let timeSpentInUri = 0;
-            let longestMethodName = 0;
-            let longestCount = 0;
-            Uri.methods().forEach((m) => {
-                if (m.length > longestMethodName) {
-                    longestMethodName = m.length;
-                }
-                if (Uri.countPerMethod(m) > longestCount) {
-                    longestCount = Uri.countPerMethod(m);
-                }
-            });
-            Uri.methods().forEach((m) => {
-                const totalCount = Uri.countPerMethod(m);
-                const percentageMissed = Math.round((Uri.cacheMissesPerMethod(m) / totalCount) * 100);
-                const methodSpacing = ' '.repeat(5 + (longestMethodName - m.length));
-                const countSpacing = ' '.repeat(3 + (longestCount.toString().length - totalCount.toString().length));
-                this._console.info(
-                    `  ${m}:${methodSpacing}${totalCount}${countSpacing}${percentageMissed}% - ${Uri.timePerMethod(
-                        m
-                    )}ms`
-                );
-                timeSpentInUri += Uri.timePerMethod(m);
-            });
-            this._console.info(`Total time spent in URI methods: ${timeSpentInUri}ms`);
-
-            this._console.info(`Most common arguments for multi-URI methods:`);
-            Uri.getArgKeys().forEach((k) => {
-                this._console.info(`  ${k}`);
-            });
-        }
     }
 
     printDetailedAnalysisTimes() {

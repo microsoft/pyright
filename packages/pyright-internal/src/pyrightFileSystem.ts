@@ -79,7 +79,7 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
     }
 
     isPartialStubPackagesScanned(execEnv: ExecutionEnvironment): boolean {
-        return Uri.isUri(execEnv.root) ? this.isPathScanned(execEnv.root) : false;
+        return execEnv.root ? this.isPathScanned(execEnv.root) : false;
     }
 
     isPathScanned(uri: Uri): boolean {

@@ -8,7 +8,6 @@
 
 import { some } from '../collectionUtils';
 import { getShortenedFileName, normalizeSlashes } from '../pathUtils';
-import { cacheMethodWithArgs, cacheMethodWithNoArgs, cacheProperty } from './memoization';
 import { Uri } from './uri';
 
 export abstract class BaseUri implements Uri {
@@ -26,13 +25,11 @@ export abstract class BaseUri implements Uri {
     abstract get isCaseSensitive(): boolean;
 
     // Returns the last segment of the URI, similar to the UNIX basename command.
-    @cacheProperty()
     get filename(): string {
         return this.getBasenameImpl();
     }
 
     // Returns the basename without any extensions
-    @cacheProperty()
     get withoutExtension(): string {
         const base = this.filename;
         const index = base.lastIndexOf('.');
@@ -44,47 +41,40 @@ export abstract class BaseUri implements Uri {
     }
 
     // Returns the extension of the URI, similar to the UNIX extname command.
-    @cacheProperty()
     get extname(): string {
         return this.getExtnameImpl();
     }
 
     // Returns a URI where the path just contains the root folder.
-    @cacheProperty()
     get root(): Uri {
         return this.getRootImpl();
     }
 
     // Returns a URI where the path contains the path with .py appended.
-    @cacheProperty()
     get packageUri(): Uri {
         // This is assuming that the current path is a directory already.
         return this.addPath('.py');
     }
 
     // Returns a URI where the path contains the path with .pyi appended.
-    @cacheProperty()
     get packageStubUri(): Uri {
         // This is assuming that the current path is a directory already.
         return this.addPath('.pyi');
     }
 
     // Returns a URI where the path has __init__.py appended.
-    @cacheProperty()
     get initPyUri(): Uri {
         // This is assuming that the current path is a directory already.
         return this.combinePaths('__init__.py');
     }
 
     // Returns a URI where the path has __init__.pyi appended.
-    @cacheProperty()
     get initPyiUri(): Uri {
         // This is assuming that the current path is a directory already.
         return this.combinePaths('__init__.pyi');
     }
 
     // Returns a URI where the path has py.typed appended.
-    @cacheProperty()
     get pytypedUri(): Uri {
         // This is assuming that the current path is a directory already.
         return this.combinePaths('py.typed');
@@ -100,7 +90,6 @@ export abstract class BaseUri implements Uri {
 
     abstract matchesRegex(regex: RegExp): boolean;
 
-    @cacheMethodWithArgs()
     replaceExtension(ext: string): Uri {
         const dir = this.getDirectory();
         const base = this.filename;
@@ -108,7 +97,6 @@ export abstract class BaseUri implements Uri {
         return dir.combinePaths(newBase);
     }
 
-    @cacheMethodWithArgs()
     addExtension(ext: string): Uri {
         return this.addPath(ext);
     }
@@ -116,12 +104,10 @@ export abstract class BaseUri implements Uri {
     abstract addPath(extra: string): Uri;
 
     // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
-    @cacheMethodWithNoArgs()
     getDirectory(): Uri {
         return this.getDirectoryImpl();
     }
 
-    @cacheMethodWithNoArgs()
     getRootPathLength(): number {
         return this.getRootPath().length;
     }
@@ -169,12 +155,10 @@ export abstract class BaseUri implements Uri {
     abstract getPathLength(): number;
 
     // Combines paths to create a new Uri. Any '..' or '.' path components will be normalized.
-    @cacheMethodWithArgs()
     combinePaths(...paths: string[]): Uri {
         return this.combinePathsImpl(...paths);
     }
 
-    @cacheMethodWithArgs()
     getRelativePath(child: Uri): string | undefined {
         if (this.scheme !== child.scheme) {
             return undefined;
@@ -191,7 +175,6 @@ export abstract class BaseUri implements Uri {
         return undefined;
     }
 
-    @cacheMethodWithNoArgs()
     getPathComponents(): readonly string[] {
         // Make sure to freeze the result so that it can't be modified.
         return Object.freeze(this.getPathComponentsImpl());
@@ -201,7 +184,6 @@ export abstract class BaseUri implements Uri {
 
     abstract getFilePath(): string;
 
-    @cacheMethodWithArgs()
     getRelativePathComponents(to: Uri): readonly string[] {
         const fromComponents = this.getPathComponents();
         const toComponents = to.getPathComponents();
@@ -231,7 +213,6 @@ export abstract class BaseUri implements Uri {
         return getShortenedFileName(this.getPath(), maxDirLength);
     }
 
-    @cacheMethodWithNoArgs()
     stripExtension(): Uri {
         const base = this.filename;
         const index = base.lastIndexOf('.');
@@ -243,7 +224,6 @@ export abstract class BaseUri implements Uri {
         }
     }
 
-    @cacheMethodWithNoArgs()
     stripAllExtensions(): Uri {
         const base = this.filename;
         const stripped = base.split('.')[0];
@@ -254,7 +234,6 @@ export abstract class BaseUri implements Uri {
         }
     }
 
-    @cacheMethodWithNoArgs()
     protected getRoot(): Uri {
         return this.getRootImpl();
     }
@@ -293,7 +272,6 @@ export abstract class BaseUri implements Uri {
         return reduced;
     }
 
-    @cacheMethodWithNoArgs()
     protected getComparablePath(): string {
         return this.getComparablePathImpl();
     }

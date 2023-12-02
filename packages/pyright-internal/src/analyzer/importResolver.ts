@@ -410,9 +410,7 @@ export class ImportResolver {
 
         // Add paths to search stub packages.
         addPaths(this._configOptions.stubPath);
-        addPaths(
-            Uri.isUri(execEnv.root) ? execEnv.root : this._configOptions.projectRoot.combinePaths(execEnv.root || '')
-        );
+        addPaths(execEnv.root ?? this._configOptions.projectRoot);
         execEnv.extraPaths.forEach((p) => addPaths(p));
         addPaths(typeshedPathEx);
         this.getPythonSearchPaths(ignored).forEach((p) => addPaths(p));
@@ -1462,7 +1460,7 @@ export class ImportResolver {
         moduleDescriptor: ImportedModuleDescriptor,
         fromUserFile: boolean
     ) {
-        const cacheForExecEnv = this._cachedImportResults.get(Uri.isUri(execEnv.root) ? execEnv.root.key : '');
+        const cacheForExecEnv = this._cachedImportResults.get(execEnv.root?.key || '');
         if (!cacheForExecEnv) {
             return undefined;
         }

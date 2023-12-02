@@ -8,8 +8,8 @@
         "editor.formatOnSave": true
     },
     "editor.codeActionsOnSave": {
-        "source.fixAll.eslint": true,
-        "source.organizeImports": true
+        "source.fixAll.eslint": "explicit",
+        "source.organizeImports": "explicit"
     },
     "typescript.tsdk": "node_modules/typescript/lib",
 }

@@ -14,7 +14,6 @@
 import * as debug from '../debug';
 import { getRootLength, hasTrailingDirectorySeparator, normalizeSlashes, resolvePaths } from '../pathUtils';
 import { BaseUri } from './baseUri';
-import { cacheMethodWithArgs, cacheMethodWithNoArgs, cacheStaticFunc } from './memoization';
 import { Uri } from './uri';
 
 export class WebUri extends BaseUri {
@@ -39,7 +38,6 @@ export class WebUri extends BaseUri {
         return true;
     }
 
-    @cacheStaticFunc()
     static createWebUri(
         scheme: string,
         authority: string,
@@ -71,16 +69,13 @@ export class WebUri extends BaseUri {
         return regex.test(this._path);
     }
 
-    @cacheMethodWithArgs()
     override addPath(extra: string): Uri {
         const newPath = this._path + extra;
         return WebUri.createWebUri(this._scheme, this._authority, newPath, this._query, this._fragment, undefined);
     }
-    @cacheMethodWithNoArgs()
     override isRoot(): boolean {
         return this._path === this.getRootPath() && this._path.length > 0;
     }
-    @cacheMethodWithArgs()
     override isChild(parent: Uri, ignoreCase?: boolean): boolean {
         if (!WebUri.isWebUri(parent)) {
             return false;
@@ -91,7 +86,6 @@ export class WebUri extends BaseUri {
     override isLocal(): boolean {
         return false;
     }
-    @cacheMethodWithArgs()
     override startsWith(other: Uri | undefined, ignoreCase?: boolean): boolean {
         if (!other || !WebUri.isWebUri(other)) {
             return false;
