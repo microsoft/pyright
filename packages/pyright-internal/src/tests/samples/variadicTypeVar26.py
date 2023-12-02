@@ -2,7 +2,7 @@
 # a callable with an indeterminate number of parameters because
 # some of them have default arguments.
 
-from typing import Callable, TypeVarTuple
+from typing import Callable, Literal, TypeVarTuple
 
 Ts = TypeVarTuple("Ts")
 
@@ -43,3 +43,11 @@ def func3(callback: Callable[[*Ts], None]) -> tuple[*Ts]:
 
 v5 = func3(func1)
 reveal_type(v5, expected_text="tuple[int, str, int | None]")
+
+
+def func4(a: Literal["day", "hour"]) -> None:
+    ...
+
+
+def func5(x: bool):
+    func2(func4, "day" if x else "hour")
