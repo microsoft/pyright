@@ -3866,7 +3866,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // This code path can often produce many duplicate subtypes. We can
                         // reduce the cost of the combineTypes call below by filtering out these
                         // duplicates proactively.
-                        if (newSubtypes.length === 0 || !isTypeSame(transformedType, newSubtypes[newSubtypes.length - 1])) {
+                        if (
+                            newSubtypes.length === 0 ||
+                            !isTypeSame(transformedType, newSubtypes[newSubtypes.length - 1])
+                        ) {
                             newSubtypes.push(transformedType);
                         }
                     }
