@@ -208,6 +208,7 @@ import {
     convertToInstance,
     convertToInstantiable,
     convertTypeToParamSpecValue,
+    derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
     derivesFromStdlibClass,
     doForEachSubtype,
@@ -8299,6 +8300,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     Localizer.Diagnostic.superCallSecondArg().format({ type: printType(targetClassType) }),
                     node.arguments[1].valueExpression
                 );
+
+                return { type: UnknownType.create() };
             }
         } else if (enclosingClassType) {
             bindToType = ClassType.cloneAsInstance(enclosingClassType);
@@ -8379,37 +8382,87 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const lookupResults = bindToType
                 ? lookUpClassMember(bindToType, memberName, MemberAccessFlags.Default, effectiveTargetClass)
                 : undefined;
+
+            let resultType: Type;
             if (lookupResults && isInstantiableClass(lookupResults.classType)) {
-                return {
-                    type: resultIsInstance
-                        ? ClassType.cloneAsInstance(lookupResults.classType)
-                        : lookupResults.classType,
-                    bindToSelfType: bindToType
-                        ? TypeBase.cloneForCondition(
-                              synthesizeTypeVarForSelfCls(bindToType, /* isClsParam */ false),
-                              bindToType.condition
-                          )
-                        : undefined,
-                };
+                resultType = lookupResults.classType;
+            } else if (
+                effectiveTargetClass &&
+                !isAnyOrUnknown(effectiveTargetClass) &&
+                !derivesFromAnyOrUnknown(effectiveTargetClass) &&
+                objectType &&
+                isClassInstance(objectType)
+            ) {
+                resultType = ClassType.cloneAsInstantiable(objectType);
+            } else {
+                resultType = UnknownType.create();
             }
+
+            return {
+                type: resultIsInstance ? convertToInstance(resultType) : resultType,
+                bindToSelfType: bindToType
+                    ? TypeBase.cloneForCondition(
+                          synthesizeTypeVarForSelfCls(bindToType, /* isClsParam */ false),
+                          bindToType.condition
+                      )
+                    : undefined,
+            };
         }
 
-        // If the lookup failed, try to return the first base class. An error
-        // will be reported by the member lookup logic at a later time.
+        // Handle the super() call when used outside of a member access expression.
         if (isInstantiableClass(targetClassType)) {
-            // If the class derives from one or more unknown classes,
-            // return unknown here to prevent spurious errors.
-            if (targetClassType.details.mro.some((mroBase) => isAnyOrUnknown(mroBase))) {
-                return { type: UnknownType.create() };
-            }
+            // We don't know which member is going to be accessed, so we cannot
+            // deterministically determine the correct type in this case. We'll
+            // use a heuristic that produces the "correct" (desired) behavior in
+            // most cases. If there's a bindToType and the targetClassType is one
+            // of the base classes of the bindToType, we'll return the next base
+            // class.
+            if (bindToType) {
+                let nextBaseClassType: Type | undefined;
 
-            const baseClasses = targetClassType.details.baseClasses;
-            if (baseClasses.length > 0) {
-                const baseClassType = baseClasses[0];
-                if (isInstantiableClass(baseClassType)) {
+                if (ClassType.isSameGenericClass(bindToType, targetClassType)) {
+                    if (bindToType.details.baseClasses.length > 0) {
+                        nextBaseClassType = bindToType.details.baseClasses[0];
+                    }
+                } else {
+                    const baseClassIndex = bindToType.details.baseClasses.findIndex(
+                        (baseClass) =>
+                            isClass(baseClass) && ClassType.isSameGenericClass(baseClass, targetClassType as ClassType)
+                    );
+
+                    if (baseClassIndex >= 0 && baseClassIndex < bindToType.details.baseClasses.length - 1) {
+                        nextBaseClassType = bindToType.details.baseClasses[baseClassIndex + 1];
+                    }
+                }
+
+                if (nextBaseClassType) {
+                    if (isInstantiableClass(nextBaseClassType)) {
+                        nextBaseClassType = specializeForBaseClass(bindToType, nextBaseClassType);
+                    }
+                    return { type: resultIsInstance ? convertToInstance(nextBaseClassType) : nextBaseClassType };
+                }
+
+                // There's not much we can say about the type. Simply return object or type.
+                if (objectType && isClassInstance(objectType) && typeClassType && isInstantiableClass(typeClassType)) {
                     return {
-                        type: resultIsInstance ? ClassType.cloneAsInstance(baseClassType) : baseClassType,
+                        type: resultIsInstance ? objectType : convertToInstance(typeClassType),
                     };
+                }
+            } else {
+                // If the class derives from one or more unknown classes,
+                // return unknown here to prevent spurious errors.
+                if (targetClassType.details.mro.some((mroBase) => isAnyOrUnknown(mroBase))) {
+                    return { type: UnknownType.create() };
+                }
+
+                const baseClasses = targetClassType.details.baseClasses;
+                if (baseClasses.length > 0) {
+                    const baseClassType = baseClasses[0];
+                    if (isInstantiableClass(baseClassType)) {
+                        return {
+                            type: resultIsInstance ? ClassType.cloneAsInstance(baseClassType) : baseClassType,
+                        };
+                    }
                 }
             }
         }
