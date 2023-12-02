@@ -604,6 +604,11 @@ export interface TupleTypeArgument {
     // Does the type argument represent a single value or
     // an "unbounded" (zero or more) arguments?
     isUnbounded: boolean;
+
+    // For tuples captured from a callable, this indicates
+    // the corresponding positional parameter has a default
+    // argument and can therefore be omitted.
+    isOptional?: boolean;
 }
 
 export interface PropertyMethodInfo {

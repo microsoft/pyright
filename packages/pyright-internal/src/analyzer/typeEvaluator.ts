@@ -21950,6 +21950,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Remove any optional parameters from the end of the two lists until the lengths match.
+        while (srcTypeArgs.length > destTypeArgs.length && srcTypeArgs[srcTypeArgs.length - 1].isOptional) {
+            srcTypeArgs.splice(srcTypeArgs.length - 1, 1);
+        }
+
+        while (destTypeArgs.length > srcTypeArgs.length && destTypeArgs[destTypeArgs.length - 1].isOptional) {
+            destTypeArgs.splice(destTypeArgs.length - 1, 1);
+        }
+
         const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
 
         if (destUnboundedIndex >= 0 && srcArgsToCapture >= 0) {
@@ -24042,7 +24051,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     srcTupleTypes.push({ type: entry.type, isUnbounded: true });
                 }
             } else {
-                srcTupleTypes.push({ type: entry.type, isUnbounded: false });
+                srcTupleTypes.push({ type: entry.type, isUnbounded: false, isOptional: entry.param.hasDefault });
             }
         });
 
