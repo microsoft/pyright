@@ -811,6 +811,7 @@ export class Binder extends ParseTreeWalker {
             range: convertTextRangeToRange(node.name, this._fileInfo.lines),
             moduleName: this._fileInfo.moduleName,
             isInExceptSuite: this._isInExceptSuite,
+            docString: this._getVariableDocString(node.expression),
         };
 
         const symbol = this._bindNameToScope(this._currentScope, node.name);

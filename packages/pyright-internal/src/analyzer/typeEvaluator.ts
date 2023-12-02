@@ -222,6 +222,7 @@ import {
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
     getTypeVarScopeIds,
+    getUnknownTypeForCallable,
     getUnknownTypeForParamSpec,
     isCallableType,
     isDescriptorInstance,
@@ -2181,12 +2182,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isAnyOrUnknown(boundMethodResult.type)) {
-            const unknownFunction = FunctionType.createSynthesizedInstance(
-                '',
-                FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
-            );
-            FunctionType.addDefaultParameters(unknownFunction);
-            return unknownFunction;
+            return getUnknownTypeForCallable();
         }
 
         return undefined;
@@ -3713,15 +3709,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 subtype.details.parameters.length === 0 &&
                 subtype.details.paramSpec
             ) {
-                const concreteFunction = FunctionType.createInstance(
-                    '',
-                    '',
-                    '',
-                    FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
-                );
-                FunctionType.addDefaultParameters(concreteFunction);
-
-                return FunctionType.cloneForParamSpec(subtype, concreteFunction);
+                return FunctionType.cloneForParamSpec(subtype, getUnknownTypeForCallable());
             }
 
             if (isTypeVar(subtype) && subtype.details.isVariadic) {

@@ -410,7 +410,7 @@ test('Loop40', () => {
 test('Loop41', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop41.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('ForLoop1', () => {
@@ -1292,6 +1292,14 @@ test('MatchClass5', () => {
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
+});
+
+test('MatchClass6', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass6.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('MatchValue1', () => {

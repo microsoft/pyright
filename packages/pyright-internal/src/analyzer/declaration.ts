@@ -126,6 +126,9 @@ export interface TypeParameterDeclaration extends DeclarationBase {
 export interface TypeAliasDeclaration extends DeclarationBase {
     type: DeclarationType.TypeAlias;
     node: TypeAliasNode;
+
+    // If a docstring (based on PEP 258) is present...
+    docString?: string | undefined;
 }
 
 export interface VariableDeclaration extends DeclarationBase {
