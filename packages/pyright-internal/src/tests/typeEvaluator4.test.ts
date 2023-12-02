@@ -290,7 +290,7 @@ test('Overload4', () => {
 test('Overload5', () => {
     const configOptions = new ConfigOptions('.');
 
-    // By default, reportOverlappingOverload is off.
+    configOptions.diagnosticRuleSet.reportOverlappingOverload = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 

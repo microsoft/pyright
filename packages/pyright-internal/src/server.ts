@@ -90,7 +90,7 @@ export class PyrightServer extends LanguageServerBase {
             useLibraryCodeForTypes: true,
             disableLanguageServices: false,
             disableOrganizeImports: false,
-            typeCheckingMode: 'basic',
+            typeCheckingMode: 'standard',
             diagnosticSeverityOverrides: {},
             logLevel: LogLevel.Info,
             autoImportCompletions: true,

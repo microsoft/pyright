@@ -6,6 +6,8 @@ from enum import Enum, auto
 from typing import Annotated, TypeVar
 from http import HTTPStatus
 
+# pyright: reportIncompatibleMethodOverride=false
+
 
 def handle_reply(reply: tuple[HTTPStatus, str] | tuple[HTTPStatus]):
     match reply:

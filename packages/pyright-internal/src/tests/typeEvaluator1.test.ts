@@ -888,12 +888,12 @@ test('KwargsUnpack1', () => {
 });
 
 test('FunctionMember1', () => {
-    // Analyze with reportFunctionMemberAccess disabled.
-    const analysisResult1 = TestUtils.typeAnalyzeSampleFiles(['functionMember1.py']);
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.diagnosticRuleSet.reportFunctionMemberAccess = 'none';
+    const analysisResult1 = TestUtils.typeAnalyzeSampleFiles(['functionMember1.py'], configOptions);
     TestUtils.validateResults(analysisResult1, 0);
 
-    // Analyze with reportFunctionMemberAccess enabled.
-    const configOptions = new ConfigOptions('.');
     configOptions.diagnosticRuleSet.reportFunctionMemberAccess = 'error';
     const analysisResult2 = TestUtils.typeAnalyzeSampleFiles(['functionMember1.py'], configOptions);
     TestUtils.validateResults(analysisResult2, 3);

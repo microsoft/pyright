@@ -1,6 +1,8 @@
 # This sample tests the handling of the @dataclass decorator
 # with a custom __init__.
 
+# pyright: reportIncompatibleMethodOverride=false
+
 from dataclasses import dataclass
 
 

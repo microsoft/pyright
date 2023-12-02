@@ -1,6 +1,8 @@
 # This sample tests the handling of metaclass magic methods for
 # binary operators.
 
+# pyright: reportIncompatibleMethodOverride=false
+
 
 class MetaA(type):
     def __eq__(self, a: "type[ClassA]") -> str:

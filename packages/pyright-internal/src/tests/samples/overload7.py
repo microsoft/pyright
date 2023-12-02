@@ -164,7 +164,7 @@ def func7(cls: type[_T2], var: int | str) -> _T2:
     return cls()
 
 
-_T3 = TypeVar("_T3")
+_T3 = TypeVar("_T3", bound=str)
 
 
 @overload

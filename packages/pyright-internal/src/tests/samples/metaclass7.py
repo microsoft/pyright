@@ -2,6 +2,8 @@
 # __call__ method, thus overriding the __new__ method on classes
 # that are created from it.
 
+# pyright: reportIncompatibleMethodOverride=false
+
 
 class MetaClass1(type):
     def __call__(cls, **kwargs):
