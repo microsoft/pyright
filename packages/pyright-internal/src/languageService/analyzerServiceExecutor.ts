@@ -8,6 +8,7 @@
  * with a specified set of options.
  */
 
+import { isPythonBinary } from '../analyzer/pythonPathUtils';
 import { AnalyzerService, getNextServiceId } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { LogLevel } from '../common/console';
@@ -121,11 +122,13 @@ function getEffectiveCommandLineOptions(
         commandLineOptions.venvPath = serverSettings.venvPath.getFilePath();
     }
 
-    if (serverSettings.pythonPath && serverSettings.pythonPath.getRootPathLength() > 0) {
+    if (serverSettings.pythonPath) {
         // The Python VS Code extension treats the value "python" specially. This means
         // the local python interpreter should be used rather than interpreting the
         // setting value as a path to the interpreter. We'll simply ignore it in this case.
-        commandLineOptions.pythonPath = serverSettings.pythonPath.getFilePath();
+        if (!isPythonBinary(serverSettings.pythonPath.getFilePath())) {
+            commandLineOptions.pythonPath = serverSettings.pythonPath.getFilePath();
+        }
     }
 
     if (serverSettings.typeshedPath) {
