@@ -11003,9 +11003,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             /* isTypeArgumentExplicit */ false
                         );
 
-                        effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
-                            unknownIfNotFound: true,
-                        });
+                        effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext);
+
+                        // It's possible that some of the type parameters were unsolved. Add the class's
+                        // scope to the list of "live scopes" so the assignType below ignores them. If we
+                        // don't do this, the transformExpectedType below will convert them to in-scope
+                        // placeholders, and they will get populated in the typeVarContext.
+                        const typeVarScopeId = getTypeVarScopeId(effectiveReturnType);
+                        if (typeVarScopeId) {
+                            liveTypeVarScopes.push(typeVarScopeId);
+                        }
                     }
                 }
             } else if (isFunction(effectiveReturnType)) {
