@@ -1,7 +1,8 @@
 # This sample tests the case where the constraint solver's solution involves
 # a union of type variables.
 
-from typing import Generic, TypeVar
+from os import PathLike
+from typing import AnyStr, Generic, Iterable, Iterator, TypeAlias, TypeVar
 
 V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
@@ -27,3 +28,26 @@ def func1(a: ClassA[V], b: ClassA[U], c: bool) -> ClassB[V | U]:
 
     reveal_type(r, expected_text="ClassB[U@func1 | V@func1]")
     return r
+
+
+class ClassC(Generic[AnyStr]):
+    ...
+
+
+class ClassD(Iterator[ClassC[AnyStr]]):
+    ...
+
+
+GenericPath: TypeAlias = AnyStr | PathLike[AnyStr]
+
+
+def func2(iter: Iterable[object]) -> bool:
+    ...
+
+
+def func3(path: GenericPath[AnyStr]) -> ClassD[AnyStr]:
+    ...
+
+
+def func4(val: str):
+    func2(func3(val))

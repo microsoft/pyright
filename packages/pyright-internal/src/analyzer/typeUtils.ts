@@ -206,16 +206,20 @@ export const enum AssignTypeFlags {
     // employing narrowing or widening, and don't strip literals.
     PopulatingExpectedType = 1 << 10,
 
+    // Used with PopulatingExpectedType, this flag indicates that a TypeVar
+    // constraint that is Unknown should be ignored.
+    SkipPopulateUnknownExpectedType = 1 << 11,
+
     // Normally, when a class type is assigned to a TypeVar and that class
     // hasn't previously been specialized, it will be specialized with
     // default type arguments (typically "Unknown"). This flag skips
     // this step.
-    AllowUnspecifiedTypeArguments = 1 << 11,
+    AllowUnspecifiedTypeArguments = 1 << 12,
 
     // PEP 544 says that if the dest type is a type[Proto] class,
     // the source must be a "concrete" (non-protocol) class. This
     // flag skips this check.
-    IgnoreProtocolAssignmentCheck = 1 << 12,
+    IgnoreProtocolAssignmentCheck = 1 << 13,
 }
 
 export interface ApplyTypeVarOptions {
