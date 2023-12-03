@@ -95,7 +95,14 @@ export class WebUri extends BaseUri {
     }
 
     static fromJsonObj(obj: WebUri) {
-        return WebUri.createWebUri(obj._scheme, obj._authority, obj._path, obj._query, obj._fragment, obj._originalString);
+        return WebUri.createWebUri(
+            obj._scheme,
+            obj._authority,
+            obj._path,
+            obj._query,
+            obj._fragment,
+            obj._originalString
+        );
     }
 
     override matchesRegex(regex: RegExp): boolean {

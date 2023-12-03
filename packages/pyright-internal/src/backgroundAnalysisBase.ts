@@ -32,7 +32,6 @@ import * as debug from './common/debug';
 import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { disposeCancellationToken, getCancellationTokenFromId } from './common/fileBasedCancellationUtils';
-import { FileSystem } from './common/fileSystem';
 import { Host, HostKind } from './common/host';
 import { LogTracker } from './common/logTracker';
 import { ServiceProvider } from './common/serviceProvider';
@@ -215,7 +214,7 @@ export class BackgroundAnalysisBase {
             case 'analysisResult': {
                 // Change in diagnostics due to host such as file closed rather than
                 // analyzing files.
-                this._onAnalysisCompletion(convertAnalysisResults(msg.data, undefined));
+                this._onAnalysisCompletion(convertAnalysisResults(msg.data));
                 break;
             }
 
@@ -243,7 +242,7 @@ export class BackgroundAnalysisBase {
     ) {
         switch (msg.requestType) {
             case 'analysisResult': {
-                this._onAnalysisCompletion(convertAnalysisResults(msg.data, program.importResolver.fileSystem));
+                this._onAnalysisCompletion(convertAnalysisResults(msg.data));
                 break;
             }
 
@@ -640,11 +639,14 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected onAnalysisCompletion(port: MessagePort, result: AnalysisResults) {
-        // Result URIs have to be in string form in order to be sent across.
+        // Result URIs can't be sent in current form as they contain methods on
+        // them. This causes a DataCloneError when posting.
+        // See https://stackoverflow.com/questions/68467946/datacloneerror-the-object-could-not-be-cloned-firefox-browser
+        // We turn them back into JSON so we can use Uri.fromJsonObj on the other side.
         const postableResults = {
             ...result,
             diagnostics: result.diagnostics.map((d) => {
-                return { ...d, fileUri: d.fileUri.toString() };
+                return { ...d, fileUri: JSON.parse(JSON.stringify(d.fileUri)) };
             }),
         };
         port.postMessage({ requestType: 'analysisResult', data: postableResults });
@@ -688,12 +690,10 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 }
 
-function convertAnalysisResults(result: AnalysisResults, fs: FileSystem | undefined): AnalysisResults {
+function convertAnalysisResults(result: AnalysisResults): AnalysisResults {
     result.diagnostics = result.diagnostics.map((f: FileDiagnostics) => {
         return {
-            fileUri: Uri.isUri(f.fileUri)
-                ? f.fileUri
-                : Uri.parse(f.fileUri as any as string, fs?.isCaseSensitive ?? true),
+            fileUri: Uri.fromJsonObj(f.fileUri),
             version: f.version,
             diagnostics: convertDiagnostics(f.diagnostics),
         };

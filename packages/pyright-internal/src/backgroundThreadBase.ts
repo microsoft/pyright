@@ -118,13 +118,13 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     configOptions.venv = jsonObject.venv;
     configOptions.defaultPythonVersion = jsonObject.defaultPythonVersion;
     configOptions.defaultPythonPlatform = jsonObject.defaultPythonPlatform;
-    configOptions.defaultExtraPaths = jsonObject.defaultExtraPaths?.map((p : any) => Uri.fromJsonObj(p));
+    configOptions.defaultExtraPaths = jsonObject.defaultExtraPaths?.map((p: any) => Uri.fromJsonObj(p));
     configOptions.diagnosticRuleSet = jsonObject.diagnosticRuleSet;
     configOptions.executionEnvironments = jsonObject.executionEnvironments?.map((e: any) => {
         return {
             ...e,
             root: Uri.fromJsonObj(e.root),
-            extraPaths: e.extraPaths?.map((p: any) => Uri.fromJsonObj(p))
+            extraPaths: e.extraPaths?.map((p: any) => Uri.fromJsonObj(p)),
         };
     });
     configOptions.autoImportCompletions = jsonObject.autoImportCompletions;

@@ -80,9 +80,14 @@ export class FileUri extends BaseUri {
     }
 
     static fromJsonObj(obj: FileUri) {
-        return FileUri.createFileUri(obj._filePath, obj._query, obj._fragment, obj._originalString, obj._isCaseSensitive);
+        return FileUri.createFileUri(
+            obj._filePath,
+            obj._query,
+            obj._fragment,
+            obj._originalString,
+            obj._isCaseSensitive
+        );
     }
-
 
     override matchesRegex(regex: RegExp): boolean {
         // Compare the regex to our path but normalize it for comparison.
