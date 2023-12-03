@@ -290,9 +290,7 @@ export function assignTypeToTypeVar(
     }
 
     if ((flags & AssignTypeFlags.PopulatingExpectedType) !== 0) {
-        // If we're populating the expected type and the srcType is
-        // Unknown, ignore it.
-        if (isUnknown(adjSrcType)) {
+        if ((flags & AssignTypeFlags.SkipPopulateUnknownExpectedType) !== 0 && isUnknown(adjSrcType)) {
             return true;
         }
 
@@ -327,7 +325,7 @@ export function assignTypeToTypeVar(
             ) {
                 // The srcType is narrower than the current wideTypeBound, so replace it.
                 // If it's Any, don't replace it because Any is the narrowest type already.
-                if (!isAny(curWideTypeBound)) {
+                if (!isAnyOrUnknown(curWideTypeBound)) {
                     newWideTypeBound = adjSrcType;
                 }
             } else if (

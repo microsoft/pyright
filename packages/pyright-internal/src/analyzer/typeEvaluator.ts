@@ -10908,7 +10908,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const effectiveReturnType = getFunctionEffectiveReturnType(type);
         let effectiveExpectedType: Type | undefined = inferenceContext.expectedType;
-        let effectiveFlags = AssignTypeFlags.Default;
+        let effectiveFlags = AssignTypeFlags.PopulatingExpectedType;
         if (containsLiteralType(effectiveExpectedType, /* includeTypeArgs */ true)) {
             effectiveFlags |= AssignTypeFlags.RetainLiteralsForTypeVar;
         }
@@ -10925,7 +10925,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* diag */ undefined,
                     typeVarContextCopy,
                     /* srcTypeVarContext */ undefined,
-                    effectiveFlags | AssignTypeFlags.PopulatingExpectedType
+                    effectiveFlags
                 );
 
                 const speculativeResults = validateFunctionArgumentTypes(
@@ -11006,6 +11006,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
                             unknownIfNotFound: true,
                         });
+
+                        effectiveFlags |= AssignTypeFlags.SkipPopulateUnknownExpectedType;
                     }
                 }
             } else if (isFunction(effectiveReturnType)) {
@@ -11026,7 +11028,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* diag */ undefined,
                 typeVarContext,
                 /* srcTypeVarContext */ undefined,
-                effectiveFlags | AssignTypeFlags.PopulatingExpectedType
+                effectiveFlags
             );
         }
 
