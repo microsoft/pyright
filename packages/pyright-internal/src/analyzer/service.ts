@@ -136,7 +136,8 @@ export class AnalyzerService {
         this._options.hostFactory = options.hostFactory ?? (() => new NoAccessHost());
 
         this._options.configOptions =
-            options.configOptions ?? new ConfigOptions(Uri.file(process.cwd(), this.fs.isCaseSensitive));
+            options.configOptions ??
+            new ConfigOptions(Uri.file(process.cwd(), this._serviceProvider.fs().isCaseSensitive));
         const importResolver = this._options.importResolverFactory(
             this._serviceProvider,
             this._options.configOptions,
