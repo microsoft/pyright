@@ -23,7 +23,7 @@ export interface Uri {
     readonly fileName: string;
 
     // Returns the extension of the URI, similar to the UNIX extname command. This includes '.' on the extension.
-    readonly extension: string;
+    readonly lastExtension: string;
 
     // Returns a URI where the path just contains the root folder.
     readonly root: Uri;
@@ -128,7 +128,7 @@ function getFilePath(uri: URI): string {
         filePath = filePath.slice(1);
     }
 
-    // vscode.URI noralizes the path to use the correct path separators.
+    // vscode.URI normalizes the path to use the correct path separators.
     // We need to do the same.
     if (process.platform === 'win32') {
         filePath = filePath.replace(/\//g, '\\');

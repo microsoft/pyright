@@ -13,18 +13,17 @@ import { BackgroundAnalysisBase, BackgroundAnalysisRunnerBase } from './backgrou
 import { InitializationData } from './backgroundThreadBase';
 import { getCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
-import { ConsoleInterface } from './common/console';
 import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
 import { ServiceProvider } from './common/serviceProvider';
 import { getRootUri } from './common/uri/uriUtils';
 
 export class BackgroundAnalysis extends BackgroundAnalysisBase {
-    constructor(console: ConsoleInterface, isCaseSensitive: boolean) {
-        super(console);
+    constructor(serviceProvider: ServiceProvider) {
+        super(serviceProvider.console());
 
         const initialData: InitializationData = {
-            rootUri: getRootUri(isCaseSensitive)?.toString() || '',
+            rootUri: getRootUri(serviceProvider.fs().isCaseSensitive)?.toString() ?? '',
             cancellationFolderName: getCancellationFolderName(),
             runner: undefined,
         };

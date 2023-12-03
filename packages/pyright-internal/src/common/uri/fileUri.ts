@@ -1,5 +1,5 @@
 /*
- * uri.ts
+ * fileUri.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
@@ -44,10 +44,12 @@ export class FileUri extends BaseUri {
     override get fileName(): string {
         return getFileName(this._filePath);
     }
+
     @cacheProperty()
-    override get extension(): string {
+    override get lastExtension(): string {
         return getFileExtension(this._filePath);
     }
+
     @cacheProperty()
     override get root(): Uri {
         const rootPath = this.getRootPath();
@@ -76,6 +78,7 @@ export class FileUri extends BaseUri {
     static isFileUri(uri: Uri): uri is FileUri {
         return uri.scheme === 'file' && (uri as any)._filePath !== undefined;
     }
+
     override matchesRegex(regex: RegExp): boolean {
         // Compare the regex to our path but normalize it for comparison.
         // The regex assumes it's comparing itself to a URI path.
@@ -91,9 +94,11 @@ export class FileUri extends BaseUri {
         }
         return this._formattedString;
     }
+
     override toUserVisibleString(): string {
         return this._filePath;
     }
+
     override addPath(extra: string): Uri {
         return FileUri.createFileUri(this._filePath + extra, '', '', undefined, this._isCaseSensitive);
     }
@@ -109,6 +114,7 @@ export class FileUri extends BaseUri {
 
         return parent._filePath.length < this._filePath.length && this.startsWith(parent);
     }
+
     override isLocal(): boolean {
         return true;
     }
@@ -182,9 +188,11 @@ export class FileUri extends BaseUri {
         }
         return components.map((component) => this.normalizeSlashes(component));
     }
+
     protected override getRootPath(): string {
         return this._filePath.slice(0, getRootLength(this._filePath));
     }
+
     protected override getComparablePath(): string {
         return normalizeSlashes(this._filePath);
     }

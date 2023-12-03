@@ -211,9 +211,12 @@ const yarnFS = new YarnFS();
 class RealFileSystem implements FileSystem {
     private _isCaseSensitive = true;
     constructor(private _fileWatcherProvider: FileWatcherProvider, private _console: ConsoleInterface) {
-        this._isCaseSensitive = isFileSystemCaseSensitive(this, new RealTempFile());
+        this._isCaseSensitive = isFileSystemCaseSensitive(this, new RealTempFile(/* isCaseSensitive */ true));
     }
 
+    get isCaseSensitive(): boolean {
+        return this._isCaseSensitive;
+    }
     existsSync(uri: Uri) {
         if (uri.isEmpty()) {
             return false;
@@ -459,13 +462,15 @@ export class WorkspaceFileWatcherProvider implements FileWatcherProvider, FileWa
 export class RealTempFile implements TempFile {
     private _tmpdir?: tmp.DirResult;
 
+    constructor(private readonly _isCaseSensitive: boolean) {}
+
     tmpdir(): Uri {
-        return Uri.file(this._getTmpDir().name, /* isCaseSensitive */ true);
+        return Uri.file(this._getTmpDir().name, this._isCaseSensitive);
     }
 
     tmpfile(options?: TmpfileOptions): Uri {
         const f = tmp.fileSync({ dir: this._getTmpDir().name, discardDescriptor: true, ...options });
-        return Uri.file(f.name, /* isCaseSensitive */ true);
+        return Uri.file(f.name, this._isCaseSensitive);
     }
 
     dispose(): void {

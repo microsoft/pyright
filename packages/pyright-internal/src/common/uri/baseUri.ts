@@ -11,35 +11,7 @@ import { getShortenedFileName, normalizeSlashes } from '../pathUtils';
 import { Uri } from './uri';
 
 export abstract class BaseUri implements Uri {
-    private static _counter = 0;
-    private static _callstacks = new Map<string, number>();
-    protected constructor(private readonly _key: string) {
-        // BaseUri._counter++;
-        // const stack = new Error().stack;
-        // if (stack) {
-        //     const lines = stack
-        //         .split(' at ')
-        //         .map((s) => s.trim())
-        //         .slice(4);
-        //     const func = lines[0].split('(')[0];
-        //     const firstCallerIndex = lines.slice(1).findIndex((l) => !l.startsWith('FileUri'));
-        //     const firstCaller =
-        //         firstCallerIndex >= 0 ? lines[firstCallerIndex + 1].split('(')[0] : lines[1].split('(')[0];
-        //     const key = `${func} -> ${firstCaller}`;
-        //     BaseUri._callstacks.set(key, (BaseUri._callstacks.get(key) ?? 0) + 1);
-        // }
-    }
-
-    static get counter() {
-        return BaseUri._counter;
-    }
-
-    static get callers(): { count: number; name: string }[] {
-        // Return the list of callers in order of most to least.
-        const callers = Array.from(BaseUri._callstacks.entries());
-        callers.sort((a, b) => b[1] - a[1]);
-        return callers.map((c) => ({ name: c[0], count: c[1] }));
-    }
+    protected constructor(private readonly _key: string) {}
 
     // Unique key for storing in maps.
     get key() {
@@ -67,7 +39,7 @@ export abstract class BaseUri implements Uri {
     }
 
     // Returns the extension of the URI, similar to the UNIX extname command.
-    abstract get extension(): string;
+    abstract get lastExtension(): string;
 
     // Returns a URI where the path just contains the root folder.
     abstract get root(): Uri;
@@ -115,7 +87,7 @@ export abstract class BaseUri implements Uri {
     replaceExtension(ext: string): Uri {
         const dir = this.getDirectory();
         const base = this.fileName;
-        const newBase = base.slice(0, base.length - this.extension.length) + ext;
+        const newBase = base.slice(0, base.length - this.lastExtension.length) + ext;
         return dir.combinePaths(newBase);
     }
 
@@ -124,7 +96,9 @@ export abstract class BaseUri implements Uri {
     }
 
     hasExtension(ext: string): boolean {
-        return this.isCaseSensitive ? this.extension === ext : this.extension.toLowerCase() === ext.toLowerCase();
+        return this.isCaseSensitive
+            ? this.lastExtension === ext
+            : this.lastExtension.toLowerCase() === ext.toLowerCase();
     }
 
     abstract addPath(extra: string): Uri;

@@ -246,10 +246,9 @@ async function processArgs(): Promise<ExitStatus> {
 
         // Verify the specified file specs to make sure their wildcard roots exist.
         const tempFileSystem = new PyrightFileSystem(createFromRealFileSystem());
-        const tempServiceProvider = createServiceProvider(tempFileSystem, console, new RealTempFile());
 
         for (const fileDesc of options.includeFileSpecsOverride) {
-            const includeSpec = getFileSpec(Uri.file(process.cwd(), tempServiceProvider.isFsCaseSensitive()), fileDesc);
+            const includeSpec = getFileSpec(Uri.file(process.cwd(), tempFileSystem.isCaseSensitive), fileDesc);
             try {
                 const stat = tryStat(tempFileSystem, includeSpec.wildcardRoot);
                 if (!stat) {
@@ -363,7 +362,7 @@ async function processArgs(): Promise<ExitStatus> {
     // up the JSON output, which goes to stdout.
     const output = args.outputjson ? new StderrConsole(logLevel) : new StandardConsole(logLevel);
     const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output, new ChokidarFileWatcherProvider(output)));
-    const tempFile = new RealTempFile();
+    const tempFile = new RealTempFile(fileSystem.isCaseSensitive);
     const serviceProvider = createServiceProvider(fileSystem, output, tempFile);
 
     // The package type verification uses a different path.

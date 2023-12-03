@@ -67,7 +67,7 @@ export function addDeclarationsToDefinitions(
             resolvedDecl.type === DeclarationType.Alias &&
             resolvedDecl.symbolName &&
             resolvedDecl.submoduleFallback &&
-            resolvedDecl.submoduleFallback.uri
+            !resolvedDecl.submoduleFallback.uri.isEmpty()
         ) {
             resolvedDecl = resolvedDecl.submoduleFallback;
         }

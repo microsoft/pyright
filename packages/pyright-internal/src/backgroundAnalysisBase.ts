@@ -79,7 +79,7 @@ export class BackgroundAnalysisBase {
 
     updateChainedUri(fileUri: Uri, chainedUri: Uri | undefined) {
         this.enqueueRequest({
-            requestType: 'updateChainedfileUri',
+            requestType: 'updateChainedFileUri',
             data: { fileUri: fileUri.toString(), chainedUri: chainedUri?.toString() },
         });
     }
@@ -297,8 +297,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         // Stash the base directory into a global variable.
         const data = workerData as InitializationData;
         this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootUri}`);
-        this.isCaseSensitive = serviceProvider.isFsCaseSensitive();
-        this._configOptions = new ConfigOptions(Uri.parse(data.rootUri, this.isCaseSensitive));
+        this._configOptions = new ConfigOptions(Uri.parse(data.rootUri, serviceProvider.fs().isCaseSensitive));
         this.importResolver = this.createImportResolver(serviceProvider, this._configOptions, this.createHost());
 
         const console = this.getConsole();
@@ -406,9 +405,9 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
                 break;
             }
 
-            case 'updateChainedfileUri': {
-                const { fileUri, chainedfileUri } = msg.data;
-                this.handleUpdateChainedfileUri(fileUri, chainedfileUri);
+            case 'updateChainedFileUri': {
+                const { fileUri, chainedUri } = msg.data;
+                this.handleUpdateChainedfileUri(fileUri, chainedUri);
                 break;
             }
 
@@ -726,7 +725,7 @@ export type AnalysisRequestKind =
     | 'setAllowedThirdPartyImports'
     | 'ensurePartialStubPackages'
     | 'setFileOpened'
-    | 'updateChainedfileUri'
+    | 'updateChainedFileUri'
     | 'setFileClosed'
     | 'markAllFilesDirty'
     | 'markFilesDirty'

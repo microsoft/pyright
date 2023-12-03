@@ -289,7 +289,7 @@ export function resolveAliasDeclaration(
                     if (
                         !curDeclaration.uri.isEmpty() &&
                         curDeclaration.submoduleFallback.type === DeclarationType.Alias &&
-                        curDeclaration.submoduleFallback.uri
+                        !curDeclaration.submoduleFallback.uri.isEmpty()
                     ) {
                         const lookupResult = importLookup(curDeclaration.submoduleFallback.uri, {
                             skipFileNeededCheck: options.skipFileNeededCheck,

@@ -1385,7 +1385,7 @@ export class Program {
                         if (options.verboseOutput) {
                             this._console.info(
                                 `Could not resolve source for '${importResult.importName}' ` +
-                                    `in file '${sourceFileInfo.sourceFile.getUri()}'`
+                                    `in file '${sourceFileInfo.sourceFile.getUri().toUserVisibleString()}'`
                             );
 
                             if (importResult.nonStubImportResult.importFailureInfo) {
@@ -1398,7 +1398,8 @@ export class Program {
                 }
             } else if (options.verboseOutput) {
                 this._console.info(
-                    `Could not import '${importResult.importName}' ` + `in file '${sourceFileInfo.sourceFile.getUri()}'`
+                    `Could not import '${importResult.importName}' ` +
+                        `in file '${sourceFileInfo.sourceFile.getUri().toUserVisibleString()}'`
                 );
                 if (importResult.importFailureInfo) {
                     importResult.importFailureInfo.forEach((diag) => {
@@ -1416,7 +1417,7 @@ export class Program {
             if (!newImportPathMap.has(oldFilePath.key)) {
                 importInfo.mutate((s) => {
                     s.importedBy = s.importedBy.filter(
-                        (fi) => fi.sourceFile.getUri() !== sourceFileInfo.sourceFile.getUri()
+                        (fi) => !fi.sourceFile.getUri().equals(sourceFileInfo.sourceFile.getUri())
                     );
                 });
             } else {

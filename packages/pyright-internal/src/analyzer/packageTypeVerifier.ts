@@ -71,7 +71,6 @@ export class PackageTypeVerifier {
     private _execEnv: ExecutionEnvironment;
     private _importResolver: ImportResolver;
     private _program: Program;
-    private _isCaseSensitive = true;
 
     constructor(
         private _serviceProvider: ServiceProvider,
@@ -95,8 +94,7 @@ export class PackageTypeVerifier {
             this._configOptions.evaluateUnknownImportsAsAny = true;
         }
 
-        this._isCaseSensitive = _serviceProvider.isFsCaseSensitive();
-        this._execEnv = this._configOptions.findExecEnvironment(Uri.file('.', this._isCaseSensitive));
+        this._execEnv = this._configOptions.findExecEnvironment(Uri.file('.', _serviceProvider.fs().isCaseSensitive));
         this._importResolver = new ImportResolver(
             this._serviceProvider,
             this._configOptions,
@@ -591,7 +589,7 @@ export class PackageTypeVerifier {
                         category: symbolCategory,
                         name,
                         fullName,
-                        fileUri: Uri.file(module.path, this._isCaseSensitive),
+                        fileUri: Uri.file(module.path, this._serviceProvider.fs().isCaseSensitive),
                         isExported,
                         typeKnownStatus: TypeKnownStatus.Known,
                         referenceCount: 1,

@@ -107,6 +107,10 @@ export class TestFileSystem implements FileSystem, TempFile {
         this._cwd = cwd || '';
     }
 
+    get isCaseSensitive() {
+        return !this.ignoreCase;
+    }
+
     /**
      * Gets metadata for this `FileSystem`.
      */

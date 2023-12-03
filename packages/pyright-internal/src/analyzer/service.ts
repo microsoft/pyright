@@ -23,14 +23,12 @@ import { EditableProgram, ProgramView } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
-import { getHeapStatistics } from '../common/memUtils';
 import { defaultStubsDirectory } from '../common/pathConsts';
 import { isRootedDiskPath } from '../common/pathUtils';
 import { ServiceProvider } from '../common/serviceProvider';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
-import { BaseUri } from '../common/uri/baseUri';
 import { Uri } from '../common/uri/uri';
 import {
     FileSpec,
@@ -112,7 +110,6 @@ export class AnalyzerService {
 
     private _disposed = false;
     private _pendingLibraryChanges: RefreshOptions = { changesOnly: true };
-    private _isFileSystemCaseSensitve = true;
 
     constructor(instanceName: string, serviceProvider: ServiceProvider, options: AnalyzerServiceOptions) {
         this._instanceName = instanceName;
@@ -137,10 +134,9 @@ export class AnalyzerService {
         this._options.importResolverFactory = options.importResolverFactory ?? AnalyzerService.createImportResolver;
         this._options.cancellationProvider = options.cancellationProvider ?? new DefaultCancellationProvider();
         this._options.hostFactory = options.hostFactory ?? (() => new NoAccessHost());
-        this._isFileSystemCaseSensitve = this._serviceProvider.isFsCaseSensitive();
 
         this._options.configOptions =
-            options.configOptions ?? new ConfigOptions(Uri.file(process.cwd(), this._isFileSystemCaseSensitve));
+            options.configOptions ?? new ConfigOptions(Uri.file(process.cwd(), this.fs.isCaseSensitive));
         const importResolver = this._options.importResolverFactory(
             this._serviceProvider,
             this._options.configOptions,
@@ -170,10 +166,6 @@ export class AnalyzerService {
 
     get fs() {
         return this._backgroundAnalysisProgram.importResolver.fileSystem;
-    }
-
-    get tmp() {
-        return this._serviceProvider.tmp();
     }
 
     get serviceProvider() {
@@ -330,8 +322,8 @@ export class AnalyzerService {
         return this._backgroundAnalysisProgram.getChainedUri(uri);
     }
 
-    updateChainedUri(uri: Uri, chaineFileUri: Uri | undefined) {
-        this._backgroundAnalysisProgram.updateChainedUri(uri, chaineFileUri);
+    updateChainedUri(uri: Uri, chainedFileUri: Uri | undefined) {
+        this._backgroundAnalysisProgram.updateChainedUri(uri, chainedFileUri);
         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
     }
 
@@ -382,17 +374,6 @@ export class AnalyzerService {
 
         const checkedFileCount = this._program.getUserFileCount();
         this._console.info('Total files checked: ' + checkedFileCount.toString());
-
-        const heapStats = getHeapStatistics();
-        this._console.info('Heap stats: ' + JSON.stringify(heapStats, null, 4));
-
-        const totalUrisCreated = BaseUri.counter;
-        this._console.info('Total URIs created: ' + totalUrisCreated.toString());
-
-        const callers = BaseUri.callers;
-        callers.forEach((caller) => {
-            this._console.info(` ${caller.name} : ${caller.count}`);
-        });
     }
 
     printDetailedAnalysisTimes() {
@@ -527,10 +508,10 @@ export class AnalyzerService {
     // an optional config file, and default values.
     private _getConfigOptions(host: Host, commandLineOptions: CommandLineOptions): ConfigOptions {
         let projectRoot = this.fs.realCasePath(
-            Uri.file(commandLineOptions.executionRoot, this._isFileSystemCaseSensitve, /* checkRelative */ true)
+            Uri.file(commandLineOptions.executionRoot, this.fs.isCaseSensitive, /* checkRelative */ true)
         );
         const executionRoot = this.fs.realCasePath(
-            Uri.file(commandLineOptions.executionRoot, this._isFileSystemCaseSensitve, /* checkRelative */ true)
+            Uri.file(commandLineOptions.executionRoot, this.fs.isCaseSensitive, /* checkRelative */ true)
         );
         let configFilePath: Uri | undefined;
         let pyprojectFilePath: Uri | undefined;
@@ -541,18 +522,14 @@ export class AnalyzerService {
             // or a file.
             configFilePath = this.fs.realCasePath(
                 isRootedDiskPath(commandLineOptions.configFilePath)
-                    ? Uri.file(
-                          commandLineOptions.configFilePath,
-                          this._isFileSystemCaseSensitve,
-                          /* checkRelative */ true
-                      )
+                    ? Uri.file(commandLineOptions.configFilePath, this.fs.isCaseSensitive, /* checkRelative */ true)
                     : projectRoot.combinePaths(commandLineOptions.configFilePath)
             );
             if (!this.fs.existsSync(configFilePath)) {
                 this._console.info(`Configuration file not found at ${configFilePath.toUserVisibleString()}.`);
                 configFilePath = projectRoot;
             } else {
-                if (configFilePath.extension.endsWith('.json')) {
+                if (configFilePath.lastExtension.endsWith('.json')) {
                     projectRoot = configFilePath.getDirectory();
                 } else {
                     projectRoot = configFilePath;
@@ -562,7 +539,7 @@ export class AnalyzerService {
                     }
                 }
             }
-        } else if (this.fs.existsSync(projectRoot)) {
+        } else if (commandLineOptions.executionRoot) {
             // In a project-based IDE like VS Code, we should assume that the
             // project root directory contains the config file.
             configFilePath = this._findConfigFile(projectRoot);
@@ -606,7 +583,7 @@ export class AnalyzerService {
                 `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
             );
             configOptions.pythonPath = this.fs.realCasePath(
-                Uri.file(commandLineOptions.pythonPath, this._isFileSystemCaseSensitve, /* checkRelative */ true)
+                Uri.file(commandLineOptions.pythonPath, this.fs.isCaseSensitive, /* checkRelative */ true)
             );
         }
 
@@ -719,7 +696,7 @@ export class AnalyzerService {
             configOptions.include = [];
             commandLineOptions.includeFileSpecsOverride.forEach((include) => {
                 configOptions.include.push(
-                    getFileSpec(Uri.file(include, this._isFileSystemCaseSensitve, /* checkRelative */ true), '.')
+                    getFileSpec(Uri.file(include, this.fs.isCaseSensitive, /* checkRelative */ true), '.')
                 );
             });
         }
@@ -742,7 +719,7 @@ export class AnalyzerService {
             if (!configOptions.venvPath) {
                 configOptions.venvPath = projectRoot.combinePaths(commandLineOptions.venvPath);
             } else {
-                reportDuplicateSetting('venvPath', commandLineOptions.venvPath);
+                reportDuplicateSetting('venvPath', configOptions.venvPath.toUserVisibleString());
             }
         }
 
@@ -750,7 +727,7 @@ export class AnalyzerService {
             if (!configOptions.typeshedPath) {
                 configOptions.typeshedPath = projectRoot.combinePaths(commandLineOptions.typeshedPath);
             } else {
-                reportDuplicateSetting('typeshedPath', commandLineOptions.typeshedPath);
+                reportDuplicateSetting('typeshedPath', configOptions.typeshedPath.toUserVisibleString());
             }
         }
 
@@ -799,7 +776,7 @@ export class AnalyzerService {
             if (!configOptions.stubPath) {
                 configOptions.stubPath = this.fs.realCasePath(projectRoot.combinePaths(commandLineOptions.stubPath));
             } else {
-                reportDuplicateSetting('stubPath', commandLineOptions.stubPath);
+                reportDuplicateSetting('stubPath', configOptions.stubPath.toUserVisibleString());
             }
         }
 

@@ -26,6 +26,10 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
 
     constructor(protected realFS: FileSystem) {}
 
+    get isCaseSensitive(): boolean {
+        return this.realFS.isCaseSensitive;
+    }
+
     existsSync(uri: Uri): boolean {
         if (this.isMovedEntry(uri)) {
             // Pretend partial stub folder and its files not exist
@@ -155,14 +159,14 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
         return this.realFS.isInZip(uri);
     }
 
-    protected recordMovedEntry(mappeduri: Uri, originaluri: Uri, rootPath: Uri) {
-        this._entryMap.set(mappeduri.key, originaluri);
-        this._reverseEntryMap.set(originaluri.key, mappeduri);
+    protected recordMovedEntry(mappedUri: Uri, originalUri: Uri, rootPath: Uri) {
+        this._entryMap.set(mappedUri.key, originalUri);
+        this._reverseEntryMap.set(originalUri.key, mappedUri);
 
-        const directory = mappeduri.getDirectory();
+        const directory = mappedUri.getDirectory();
         const folderInfo = getOrAdd(this._folderMap, directory.key, () => []);
 
-        const name = mappeduri.fileName;
+        const name = mappedUri.fileName;
         if (!folderInfo.some((entry) => entry.name === name)) {
             folderInfo.push({ name, isFile: true });
         }

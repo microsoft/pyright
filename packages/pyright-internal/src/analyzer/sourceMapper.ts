@@ -651,7 +651,7 @@ export class SourceMapper {
                     continue;
                 }
 
-                const uniqueId = `@${decl.uri}/l/${symbolName}`;
+                const uniqueId = `@${decl.uri.key}/l/${symbolName}`;
                 if (recursiveDeclCache.has(uniqueId)) {
                     continue;
                 }
@@ -794,5 +794,5 @@ export class SourceMapper {
 }
 
 export function isStubFile(uri: Uri): boolean {
-    return uri.extension === '.pyi';
+    return uri.lastExtension === '.pyi';
 }

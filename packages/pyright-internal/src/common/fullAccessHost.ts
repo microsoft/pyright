@@ -224,7 +224,7 @@ export class FullAccessHost extends LimitedAccessHost {
             const commandLineArgs: string[] = ['-c', extractSys];
             importFailureInfo.push(`Executing interpreter: '${interpreterPath}'`);
             const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, { encoding: 'utf8' });
-            const isCaseSensitive = this.serviceProvider.isFsCaseSensitive();
+            const isCaseSensitive = this.serviceProvider.fs().isCaseSensitive;
 
             // Parse the execOutput. It should be a JSON-encoded array of paths.
             try {

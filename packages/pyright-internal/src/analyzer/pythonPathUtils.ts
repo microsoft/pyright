@@ -26,7 +26,7 @@ export const thirdPartyFolderName = 'stubs';
 
 export function getTypeShedFallbackPath(fs: FileSystem) {
     const moduleDirectory = fs.getModulePath();
-    if (!moduleDirectory || !Uri.isUri(moduleDirectory) || moduleDirectory.isEmpty()) {
+    if (!moduleDirectory || moduleDirectory.isEmpty()) {
         return undefined;
     }
 

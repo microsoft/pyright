@@ -38,6 +38,7 @@ export class WebUri extends BaseUri {
         // Web URIs are always case sensitive
         return true;
     }
+
     @cacheProperty()
     override get root(): Uri {
         const rootPath = this.getRootPath();
@@ -53,8 +54,9 @@ export class WebUri extends BaseUri {
         const components = this._path.split('/');
         return components[components.length - 1];
     }
+
     @cacheProperty()
-    override get extension(): string {
+    override get lastExtension(): string {
         const basename = this.fileName;
         const index = basename.lastIndexOf('.');
         if (index >= 0) {
@@ -99,9 +101,11 @@ export class WebUri extends BaseUri {
         const newPath = this._path + extra;
         return WebUri.createWebUri(this._scheme, this._authority, newPath, this._query, this._fragment, undefined);
     }
+
     override isRoot(): boolean {
         return this._path === this.getRootPath() && this._path.length > 0;
     }
+
     override isChild(parent: Uri): boolean {
         if (!WebUri.isWebUri(parent)) {
             return false;
@@ -109,9 +113,11 @@ export class WebUri extends BaseUri {
 
         return parent._path.length < this._path.length && this.startsWith(parent);
     }
+
     override isLocal(): boolean {
         return false;
     }
+
     override startsWith(other: Uri | undefined): boolean {
         if (!other || !WebUri.isWebUri(other)) {
             return false;
@@ -137,9 +143,11 @@ export class WebUri extends BaseUri {
     override getPathLength(): number {
         return this._path.length;
     }
+
     override getPath(): string {
         return this._path;
     }
+
     override getFilePath(): string {
         debug.fail(`${this} is not a file based URI.`);
     }
@@ -174,6 +182,7 @@ export class WebUri extends BaseUri {
             return this;
         }
     }
+
     protected override getPathComponentsImpl(): string[] {
         // Get the root path and the rest of the path components.
         const rootPath = this.getRootPath();
@@ -187,6 +196,7 @@ export class WebUri extends BaseUri {
         const rootLength = getRootLength(this._path, '/');
         return this._path.slice(0, rootLength);
     }
+
     protected override getComparablePath(): string {
         return normalizeSlashes(this._path);
     }

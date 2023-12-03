@@ -20,7 +20,6 @@ import { PythonVersion } from '../common/pythonVersion';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
-import { isFileSystemCaseSensitive } from '../common/uri/uriUtils';
 import { TestAccessHost } from './harness/testAccessHost';
 import { TestFileSystem } from './harness/vfs/filesystem';
 
@@ -281,7 +280,7 @@ test('AutoSearchPathsOnAndExtraPaths', () => {
     const service = createAnalyzer(nullConsole);
     const cwd = Uri.file(
         normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src_with_config_no_extra_paths')),
-        isFileSystemCaseSensitive(service.fs, service.tmp)
+        service.fs.isCaseSensitive
     );
     const commandLineOptions = new CommandLineOptions(cwd.getFilePath(), /* fromVsCodeExtension */ false);
     commandLineOptions.autoSearchPaths = true;

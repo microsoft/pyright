@@ -58,13 +58,16 @@ export class BackgroundThreadBase {
             this._serviceProvider.add(ServiceKeys.fs, createFromRealFileSystem(this.getConsole()));
         }
         if (!this._serviceProvider.tryGet(ServiceKeys.tempFile)) {
-            this._serviceProvider.add(ServiceKeys.tempFile, new RealTempFile());
+            this._serviceProvider.add(
+                ServiceKeys.tempFile,
+                new RealTempFile(this._serviceProvider.fs().isCaseSensitive)
+            );
         }
 
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = Uri.parse(
             data.rootUri,
-            this._serviceProvider.isFsCaseSensitive()
+            this._serviceProvider.fs().isCaseSensitive
         ).getFilePath();
     }
 

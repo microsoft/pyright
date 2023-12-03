@@ -54,7 +54,7 @@ export class PyrightServer extends LanguageServerBase {
         const fileWatcherProvider = new WorkspaceFileWatcherProvider();
         const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
         const pyrightFs = new PyrightFileSystem(fileSystem);
-        const tempFile = new RealTempFile();
+        const tempFile = new RealTempFile(pyrightFs.isCaseSensitive);
         const cacheManager = new CacheManager();
 
         const serviceProvider = createServiceProvider(pyrightFs, tempFile, console, cacheManager);
@@ -62,8 +62,8 @@ export class PyrightServer extends LanguageServerBase {
         // When executed from CLI command (pyright-langserver), __rootDirectory is
         // already defined. When executed from VSCode extension, rootDirectory should
         // be __dirname.
-        const isCaseSensitive = serviceProvider.isFsCaseSensitive();
-        const rootDirectory: Uri = getRootUri(isCaseSensitive) || Uri.file(__dirname, isCaseSensitive);
+        const rootDirectory: Uri =
+            getRootUri(pyrightFs.isCaseSensitive) || Uri.file(__dirname, pyrightFs.isCaseSensitive);
         const realPathRoot = pyrightFs.realCasePath(rootDirectory);
 
         super(
@@ -225,7 +225,7 @@ export class PyrightServer extends LanguageServerBase {
             return undefined;
         }
 
-        return new BackgroundAnalysis(this.console, this.serverOptions.serviceProvider.isFsCaseSensitive());
+        return new BackgroundAnalysis(this.serverOptions.serviceProvider);
     }
 
     protected override createHost() {
@@ -260,7 +260,7 @@ export class PyrightServer extends LanguageServerBase {
     ): Promise<(Command | CodeAction)[] | undefined | null> {
         this.recordUserInteractionTime();
 
-        const uri = Uri.parse(params.textDocument.uri, this.serverOptions.serviceProvider.isFsCaseSensitive());
+        const uri = Uri.parse(params.textDocument.uri, this.serverOptions.serviceProvider.fs().isCaseSensitive);
         const workspace = await this.getWorkspaceForFile(uri);
         return CodeActionProvider.getCodeActionsForPosition(workspace, uri, params.range, params.context.only, token);
     }

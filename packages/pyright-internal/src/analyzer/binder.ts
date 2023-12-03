@@ -2467,19 +2467,19 @@ export class Binder extends ParseTreeWalker {
         const aliasDecl = varSymbol.getDeclarations().find((decl) => decl.type === DeclarationType.Alias) as
             | AliasDeclaration
             | undefined;
-        const resolvedPath =
-            aliasDecl?.uri && aliasDecl.loadSymbolsFromPath && !aliasDecl.uri.isEmpty()
+        const resolvedUri =
+            aliasDecl?.uri && !aliasDecl.uri.isEmpty() && aliasDecl.loadSymbolsFromPath
                 ? aliasDecl.uri
                 : aliasDecl?.submoduleFallback?.uri &&
-                  aliasDecl.submoduleFallback.loadSymbolsFromPath &&
-                  !aliasDecl.submoduleFallback.uri.isEmpty()
+                  !aliasDecl.submoduleFallback.uri.isEmpty() &&
+                  aliasDecl.submoduleFallback.loadSymbolsFromPath
                 ? aliasDecl.submoduleFallback.uri
                 : undefined;
-        if (!resolvedPath) {
+        if (!resolvedUri) {
             return undefined;
         }
 
-        let lookupInfo = this._fileInfo.importLookup(resolvedPath);
+        let lookupInfo = this._fileInfo.importLookup(resolvedUri);
         if (lookupInfo?.dunderAllNames) {
             return lookupInfo.dunderAllNames;
         }

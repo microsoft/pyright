@@ -89,17 +89,17 @@ test('filename', () => {
 });
 
 test('extname', () => {
-    const extname = Uri.parse('foo:///a/b/c', true).extension;
+    const extname = Uri.parse('foo:///a/b/c', true).lastExtension;
     assert.equal(extname, '');
-    const extname2 = Uri.parse('foo:///a/b/c/', true).extension;
+    const extname2 = Uri.parse('foo:///a/b/c/', true).lastExtension;
     assert.equal(extname2, '');
-    const extname3 = Uri.parse('foo:///a/b/c.py', true).extension;
+    const extname3 = Uri.parse('foo:///a/b/c.py', true).lastExtension;
     assert.equal(extname3, '.py');
-    const extname4 = Uri.parse('foo:///a/b/c.py?query#fragment', true).extension;
+    const extname4 = Uri.parse('foo:///a/b/c.py?query#fragment', true).lastExtension;
     assert.equal(extname4, '.py');
-    const extname5 = Uri.file('/a/b/c.py.foo').extension;
+    const extname5 = Uri.file('/a/b/c.py.foo').lastExtension;
     assert.equal(extname5, '.foo');
-    const extname6 = Uri.parse('file:///a/b/c.py.foo', true).extension;
+    const extname6 = Uri.parse('file:///a/b/c.py.foo', true).lastExtension;
     assert.equal(extname6, '.foo');
 });
 
@@ -460,7 +460,7 @@ test('getRelativePathComponents6', () => {
 });
 
 test('getFileExtension1', () => {
-    const ext = Uri.parse('foo:///blah.blah/hello.JsOn', true).extension;
+    const ext = Uri.parse('foo:///blah.blah/hello.JsOn', true).lastExtension;
     assert.equal(ext, '.JsOn');
 });
 
@@ -597,7 +597,7 @@ test('containsPath3', () => {
 });
 
 function getAnyExtensionFromPath(uri: string): string {
-    return Uri.parse(uri, true).extension;
+    return Uri.parse(uri, true).lastExtension;
 }
 test('getAnyExtension1', () => {
     assert.equal(getAnyExtensionFromPath('/path/to/file.ext'), '.ext');

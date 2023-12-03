@@ -5,6 +5,11 @@
  *
  * Decorators used to memoize the result of a function call.
  */
+
+// Cache for static method results.
+const staticCache = new Map<string, any>();
+
+// Caches the results of a getter property.
 export function cacheProperty() {
     return function (target: any, functionName: string, descriptor: PropertyDescriptor) {
         const originalMethod = descriptor.get;
@@ -24,6 +29,8 @@ export function cacheProperty() {
     };
 }
 
+// Caches the results of method that takes no args.
+// This situation can be optimized because the parameters are always the same.
 export function cacheMethodWithNoArgs() {
     return function (target: any, functionName: string, descriptor: PropertyDescriptor) {
         const originalMethod = descriptor.value;
@@ -43,9 +50,7 @@ export function cacheMethodWithNoArgs() {
     };
 }
 
-const staticCache = new Map<string, any>();
-
-// Create a decorator to memoize (cache) the results of a static method.
+// Create a decorator to cache the results of a static method.
 export function cacheStaticFunc() {
     return function cacheStaticFunc_Fast(target: any, functionName: string, descriptor: PropertyDescriptor) {
         const originalMethod = descriptor.value;

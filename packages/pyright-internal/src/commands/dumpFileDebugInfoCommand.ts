@@ -158,7 +158,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
             },
         };
 
-        collectingConsole.info(`* Dump debug info for '${fileUri}'`);
+        collectingConsole.info(`* Dump debug info for '${fileUri.toUserVisibleString()}'`);
 
         switch (kind) {
             case 'tokens': {
@@ -987,7 +987,7 @@ class TreeDumper extends ParseTreeWalker {
     private _getPrefix(node: ParseNode) {
         const pos = convertOffsetToPosition(node.start, this._lines);
         // VS code's output window expects 1 based values, print the line/char with 1 based.
-        return `[${node.id}] '${this._uri}:${pos.line + 1}:${pos.character + 1}' => ${printParseNodeType(
+        return `[${node.id}] '${this._uri.toString()}:${pos.line + 1}:${pos.character + 1}' => ${printParseNodeType(
             node.nodeType
         )} ${getTextSpanString(node, this._lines)} =>`;
     }

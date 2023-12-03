@@ -126,12 +126,12 @@ export class ImportResolver {
     }
 
     static isSupportedImportSourceFile(uri: Uri) {
-        const fileExtension = uri.extension.toLowerCase();
+        const fileExtension = uri.lastExtension.toLowerCase();
         return supportedSourceFileExtensions.some((ext) => fileExtension === ext);
     }
 
     static isSupportedImportFile(uri: Uri) {
-        const fileExtension = uri.extension.toLowerCase();
+        const fileExtension = uri.lastExtension.toLowerCase();
         return supportedFileExtensions.some((ext) => fileExtension === ext);
     }
 
@@ -174,11 +174,11 @@ export class ImportResolver {
         const origin = sourceFileUri.getDirectory();
 
         let current: Uri | undefined = origin;
-        while (this._shouldWalkUp(current, root, execEnv)) {
+        while (this._shouldWalkUp(current, root, execEnv) && current) {
             this._getCompletionSuggestionsAbsolute(
                 sourceFileUri,
                 execEnv,
-                current!,
+                current,
                 moduleDescriptor,
                 suggestions,
                 /* strictOnly */ false
@@ -351,7 +351,7 @@ export class ImportResolver {
         }
 
         // The "default" workspace has a root-less execution environment; ignore it.
-        if (execEnv.root && Uri.isUri(execEnv.root)) {
+        if (execEnv.root) {
             roots.push(execEnv.root);
         }
 
@@ -526,10 +526,10 @@ export class ImportResolver {
 
         // Going up the given folder one by one until we can resolve the import.
         let current: Uri | undefined = origin;
-        while (this._shouldWalkUp(current, root, execEnv)) {
+        while (this._shouldWalkUp(current, root, execEnv) && current) {
             const result = this.resolveAbsoluteImport(
                 sourceFileUri,
-                current!,
+                current,
                 execEnv,
                 moduleDescriptor,
                 importName,
@@ -548,7 +548,7 @@ export class ImportResolver {
 
                 this.cachedParentImportResults.add({
                     importResult: result,
-                    path: current!,
+                    path: current,
                     importName,
                 });
 
@@ -567,7 +567,7 @@ export class ImportResolver {
     protected fileExistsCached(uri: Uri): boolean {
         const directory = uri.getDirectory();
         if (directory.equals(uri)) {
-            // Started at root, so this can't be a file
+            // Started at root, so this can't be a file.
             return false;
         }
         const fileName = uri.fileName;
@@ -590,9 +590,9 @@ export class ImportResolver {
     protected dirExistsCached(uri: Uri): boolean {
         const parent = uri.getDirectory();
         if (parent.equals(uri)) {
-            // Started at root. No entries to read so have to
-            // check ourselves
+            // Started at root. No entries to read, so have to check ourselves.
             let cachedExistence = this._cachedDirExistenceForRoot.get(uri.key);
+            // Check if the value was in the cache or not. Undefined means it wasn't.
             if (cachedExistence === undefined) {
                 cachedExistence = tryStat(this.fileSystem, uri)?.isDirectory() ?? false;
                 this._cachedDirExistenceForRoot.set(uri.key, cachedExistence);
@@ -628,10 +628,10 @@ export class ImportResolver {
         fromUserFile: boolean
     ) {
         // If the import is relative, include the source file path in the key.
-        const relativesourceFileUri = moduleDescriptor && moduleDescriptor.leadingDots > 0 ? sourceFileUri : undefined;
+        const relativeSourceFileUri = moduleDescriptor && moduleDescriptor.leadingDots > 0 ? sourceFileUri : undefined;
 
         getOrAdd(this._cachedImportResults, execEnv.root?.key, () => new Map<string, ImportResult>()).set(
-            this._getImportCacheKey(relativesourceFileUri, importName, fromUserFile),
+            this._getImportCacheKey(relativeSourceFileUri, importName, fromUserFile),
             importResult
         );
 
@@ -718,7 +718,7 @@ export class ImportResolver {
     // resolving capabilities for native (compiled) modules. Returns undefined
     // if no stubs were found for this import.
     protected resolveNativeImportEx(
-        libraryfileUri: Uri,
+        libraryFileUri: Uri,
         importName: string,
         importFailureInfo: string[] = []
     ): Uri | undefined {
@@ -726,9 +726,9 @@ export class ImportResolver {
     }
 
     protected getNativeModuleName(uri: Uri): string | undefined {
-        const fileExtension = uri.extension.toLowerCase();
+        const fileExtension = uri.lastExtension.toLowerCase();
         if (this._isNativeModuleFileExtension(fileExtension)) {
-            return stripFileExtension(uri.fileName, true);
+            return stripFileExtension(uri.fileName, /* multiDotExtension */ true);
         }
         return undefined;
     }
@@ -754,7 +754,7 @@ export class ImportResolver {
         let fileUriWithoutExtension = fileUri.stripExtension();
 
         // If module is native, strip platform part, such as 'cp36-win_amd64' in 'mtrand.cp36-win_amd64'.
-        if (this._isNativeModuleFileExtension(fileUri.extension)) {
+        if (this._isNativeModuleFileExtension(fileUri.lastExtension)) {
             fileUriWithoutExtension = fileUriWithoutExtension.stripExtension();
         }
 
@@ -835,8 +835,8 @@ export class ImportResolver {
         return '.'.repeat(moduleDescriptor.leadingDots) + moduleDescriptor.nameParts.join('.');
     }
 
-    protected getParentImportResolutionRoot(sourceFileUri: Uri, executionRoot: Uri | string | undefined) {
-        if (Uri.isUri(executionRoot)) {
+    protected getParentImportResolutionRoot(sourceFileUri: Uri, executionRoot: Uri | undefined) {
+        if (executionRoot) {
             return this.fileSystem.realCasePath(executionRoot);
         }
 
@@ -987,7 +987,7 @@ export class ImportResolver {
             }
 
             // Look for it in the root directory of the execution environment.
-            if (Uri.isUri(execEnv.root)) {
+            if (execEnv.root) {
                 this._getCompletionSuggestionsAbsolute(
                     sourceFileUri,
                     execEnv,
@@ -1093,7 +1093,7 @@ export class ImportResolver {
         }
 
         // Look for it in the root directory of the execution environment.
-        if (Uri.isUri(execEnv.root)) {
+        if (execEnv.root) {
             const candidateModuleNameInfo = this.getModuleNameInfoFromPath(execEnv.root, fileUri);
 
             if (candidateModuleNameInfo) {
@@ -1443,7 +1443,7 @@ export class ImportResolver {
     }
 
     private _getImportCacheKey(sourceFileUri: Uri | undefined, importName: string, fromUserFile: boolean) {
-        return `${sourceFileUri?.key || ''}-${importName}-${fromUserFile}`;
+        return `${sourceFileUri?.key ?? ''}-${importName}-${fromUserFile}`;
     }
 
     private _lookUpResultsInCache(
@@ -1453,16 +1453,16 @@ export class ImportResolver {
         moduleDescriptor: ImportedModuleDescriptor,
         fromUserFile: boolean
     ) {
-        const cacheForExecEnv = this._cachedImportResults.get(execEnv.root?.key || '');
+        const cacheForExecEnv = this._cachedImportResults.get(execEnv.root?.key ?? '');
         if (!cacheForExecEnv) {
             return undefined;
         }
 
         // If the import is relative, include the source file path in the key.
-        const relativesourceFileUri = moduleDescriptor.leadingDots > 0 ? sourceFileUri : undefined;
+        const relativeSourceFileUri = moduleDescriptor.leadingDots > 0 ? sourceFileUri : undefined;
 
         const cachedEntry = cacheForExecEnv.get(
-            this._getImportCacheKey(relativesourceFileUri, importName, fromUserFile)
+            this._getImportCacheKey(relativeSourceFileUri, importName, fromUserFile)
         );
 
         if (!cachedEntry) {
@@ -1542,7 +1542,7 @@ export class ImportResolver {
         let localImport: ImportResult | undefined;
 
         // Look for it in the root directory of the execution environment.
-        if (Uri.isUri(execEnv.root)) {
+        if (execEnv.root) {
             importFailureInfo.push(`Looking in root directory of execution environment ` + `'${execEnv.root}'`);
 
             localImport = this.resolveAbsoluteImport(
@@ -2133,7 +2133,7 @@ export class ImportResolver {
 
         // If typeshed directory wasn't found in other locations, use the fallback.
         if (!typeshedPath) {
-            typeshedPath = PythonPathUtils.getTypeShedFallbackPath(this.fileSystem) || Uri.empty();
+            typeshedPath = PythonPathUtils.getTypeShedFallbackPath(this.fileSystem) ?? Uri.empty();
         }
 
         this._cachedTypeshedRoot = typeshedPath;
@@ -2506,7 +2506,7 @@ export class ImportResolver {
 
         // Add implicit file-based modules.
         for (const filePath of entries.files) {
-            const fileExt = filePath.extension;
+            const fileExt = filePath.lastExtension;
             let strippedFileName: string;
             let isNativeLib = false;
 
@@ -2526,7 +2526,7 @@ export class ImportResolver {
 
             if (!exclusions.find((exclusion) => exclusion.equals(filePath))) {
                 const implicitImport: ImplicitImport = {
-                    isStubFile: filePath.extension === '.pyi',
+                    isStubFile: filePath.hasExtension('.pyi'),
                     isNativeLib,
                     name: strippedFileName,
                     uri: filePath,
@@ -2585,6 +2585,8 @@ export class ImportResolver {
         return implicitImportMap;
     }
 
+    // Retrieves the pytyped info for a directory if it exists. This is a small perf optimization
+    // that allows skipping the search when the pytyped file doesn't exist.
     private _getPyTypedInfo(filePath: Uri): PyTypedInfo | undefined {
         if (!this.fileExistsCached(filePath.pytypedUri)) {
             return undefined;
@@ -2624,8 +2626,8 @@ export class ImportResolver {
         // Strip off the final file extension and the part of the file name
         // that excludes all (multi-part) file extensions. This allows us to
         // handle file names like "foo.cpython-32m.so".
-        const fileExtension = fileUri.extension.toLowerCase();
-        const withoutExtension = fileUri.fileNameWithoutExtension;
+        const fileExtension = fileUri.lastExtension.toLowerCase();
+        const withoutExtension = stripFileExtension(fileUri.fileName, /* multiDotExtension */ true);
         return (
             this._isNativeModuleFileExtension(fileExtension) &&
             equateStringsCaseInsensitive(moduleName, withoutExtension)

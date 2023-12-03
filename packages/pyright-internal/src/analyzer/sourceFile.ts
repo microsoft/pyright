@@ -244,7 +244,7 @@ export class SourceFile {
         this._editMode = editMode;
         this._uri = uri;
         this._moduleName = moduleName;
-        this._isStubFile = uri.extension === '.pyi';
+        this._isStubFile = uri.hasExtension('.pyi');
         this._isThirdPartyImport = isThirdPartyImport;
         this._isThirdPartyPyTypedPresent = isThirdPartyPyTypedPresent;
         const fileName = uri.fileName;

@@ -788,6 +788,10 @@ class CombinedFileSystem implements FileSystem {
 
     constructor(private _testFS: FileSystem) {}
 
+    get isCaseSensitive(): boolean {
+        return this._testFS.isCaseSensitive;
+    }
+
     mkdirSync(path: Uri, options?: MkDirOptions | undefined): void {
         this._testFS.mkdirSync(path, options);
     }

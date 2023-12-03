@@ -233,7 +233,9 @@ export class Checker extends ParseTreeWalker {
         const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(this._moduleNode);
 
         if (isPrintCodeComplexityEnabled) {
-            console.log(`Code complexity of module ${this._fileInfo.fileUri} is ${codeComplexity.toString()}`);
+            console.log(
+                `Code complexity of module ${this._fileInfo.fileUri.toUserVisibleString()} is ${codeComplexity.toString()}`
+            );
         }
 
         if (codeComplexity > maxCodeComplexity) {

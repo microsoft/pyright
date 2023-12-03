@@ -84,7 +84,6 @@ import * as StringUtils from '../common/stringUtils';
 import { comparePositions, Position, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Uri } from '../common/uri/uri';
-import { isFileSystemCaseSensitive } from '../common/uri/uriUtils';
 import { convertToTextEdits } from '../common/workspaceEditUtils';
 import { Localizer } from '../localization/localize';
 import {
@@ -348,13 +347,14 @@ export class CompletionProvider {
             return;
         }
 
-        const isFsCaseSensitive = isFileSystemCaseSensitive(this.importResolver.fileSystem, this.importResolver.tmp);
         if (
             completionItemData.moduleUri &&
-            ImportResolver.isSupportedImportSourceFile(Uri.parse(completionItemData.moduleUri, isFsCaseSensitive))
+            ImportResolver.isSupportedImportSourceFile(
+                Uri.parse(completionItemData.moduleUri, this.importResolver.fileSystem.isCaseSensitive)
+            )
         ) {
             const documentation = getModuleDocStringFromUris(
-                [Uri.parse(completionItemData.moduleUri, isFsCaseSensitive)],
+                [Uri.parse(completionItemData.moduleUri, this.importResolver.fileSystem.isCaseSensitive)],
                 this.sourceMapper
             );
             if (!documentation) {

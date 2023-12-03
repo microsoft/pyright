@@ -58,7 +58,7 @@ export interface DeclarationBase {
     node: ParseNode;
 
     // The file and range within that file that
-    // contains the declaration. Unless this is an alias, then path refers to the
+    // contains the declaration. Unless this is an alias, then uri refers to the
     // file the alias is referring to.
     uri: Uri;
     range: Range;
@@ -223,8 +223,8 @@ export interface AliasDeclaration extends DeclarationBase {
 // This interface represents a set of actions that the python loader
 // performs when a module import is encountered.
 export interface ModuleLoaderActions {
-    // The resolved path of the implicit import. This can be empty
-    // if the resolved path doesn't reference a module (e.g. it's
+    // The resolved uri of the implicit import. This can be empty
+    // if the resolved uri doesn't reference a module (e.g. it's
     // a directory).
     uri: Uri;
 
