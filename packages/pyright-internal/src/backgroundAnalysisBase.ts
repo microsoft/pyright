@@ -32,6 +32,7 @@ import * as debug from './common/debug';
 import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { disposeCancellationToken, getCancellationTokenFromId } from './common/fileBasedCancellationUtils';
+import { FileSystem } from './common/fileSystem';
 import { Host, HostKind } from './common/host';
 import { LogTracker } from './common/logTracker';
 import { ServiceProvider } from './common/serviceProvider';
@@ -214,7 +215,7 @@ export class BackgroundAnalysisBase {
             case 'analysisResult': {
                 // Change in diagnostics due to host such as file closed rather than
                 // analyzing files.
-                this._onAnalysisCompletion(convertAnalysisResults(msg.data));
+                this._onAnalysisCompletion(convertAnalysisResults(msg.data, undefined));
                 break;
             }
 
@@ -242,7 +243,7 @@ export class BackgroundAnalysisBase {
     ) {
         switch (msg.requestType) {
             case 'analysisResult': {
-                this._onAnalysisCompletion(convertAnalysisResults(msg.data));
+                this._onAnalysisCompletion(convertAnalysisResults(msg.data, program.importResolver.fileSystem));
                 break;
             }
 
@@ -639,7 +640,14 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected onAnalysisCompletion(port: MessagePort, result: AnalysisResults) {
-        port.postMessage({ requestType: 'analysisResult', data: result });
+        // Result URIs have to be in string form in order to be sent across.
+        const postableResults = {
+            ...result,
+            diagnostics: result.diagnostics.map((d) => {
+                return { ...d, fileUri: d.fileUri.toString() };
+            }),
+        };
+        port.postMessage({ requestType: 'analysisResult', data: postableResults });
     }
 
     private _onMessageWrapper(msg: AnalysisRequest) {
@@ -680,10 +688,12 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 }
 
-function convertAnalysisResults(result: AnalysisResults): AnalysisResults {
+function convertAnalysisResults(result: AnalysisResults, fs: FileSystem | undefined): AnalysisResults {
     result.diagnostics = result.diagnostics.map((f: FileDiagnostics) => {
         return {
-            fileUri: f.fileUri,
+            fileUri: Uri.isUri(f.fileUri)
+                ? f.fileUri
+                : Uri.parse(f.fileUri as any as string, fs?.isCaseSensitive ?? true),
             version: f.version,
             diagnostics: convertDiagnostics(f.diagnostics),
         };

@@ -89,8 +89,13 @@ export class WebUri extends BaseUri {
     override toUserVisibleString(): string {
         return this.toString();
     }
-    static isWebUri(uri: Uri): uri is WebUri {
-        return uri.scheme !== 'file' && (uri as any)._scheme !== undefined;
+
+    static isWebUri(uri: any): uri is WebUri {
+        return uri?._scheme !== undefined && uri?._key !== undefined;
+    }
+
+    static fromJsonObj(obj: WebUri) {
+        return WebUri.createWebUri(obj._scheme, obj._authority, obj._path, obj._query, obj._fragment, obj._originalString);
     }
 
     override matchesRegex(regex: RegExp): boolean {
