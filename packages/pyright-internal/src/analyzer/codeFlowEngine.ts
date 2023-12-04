@@ -933,11 +933,7 @@ export function getCodeFlowEngine(
                             cacheEntry.incompleteSubtypes !== undefined && index < cacheEntry.incompleteSubtypes.length
                                 ? cacheEntry.incompleteSubtypes[index]
                                 : undefined;
-                        if (
-                            subtypeEntry === undefined ||
-                            (!subtypeEntry?.isPending && subtypeEntry?.isIncomplete) ||
-                            index === 0
-                        ) {
+                        if (subtypeEntry === undefined || (!subtypeEntry?.isPending && subtypeEntry?.isIncomplete)) {
                             const entryEvaluationCount = subtypeEntry === undefined ? 0 : subtypeEntry.evaluationCount;
 
                             // Set this entry to "pending" to prevent infinite recursion.
@@ -1028,15 +1024,18 @@ export function getCodeFlowEngine(
                             !firstAntecedentTypeIsIncomplete &&
                             !cleanedIncompleteUnknowns
                         ) {
-                            // Bump the generation count because we need to recalculate
-                            // other incomplete types based on this now-complete type.
-                            flowIncompleteGeneration++;
                             reportIncomplete = false;
                         }
 
                         // If we saw a pending or incomplete entry, do not save over the top
                         // of the cache entry because we'll overwrite the partial result.
                         if (sawPending || sawIncomplete) {
+                            if (!reportIncomplete) {
+                                // Bump the generation count because we need to recalculate
+                                // other incomplete types based on this now-complete type.
+                                flowIncompleteGeneration++;
+                            }
+
                             return { type: effectiveType, isIncomplete: reportIncomplete };
                         }
 
