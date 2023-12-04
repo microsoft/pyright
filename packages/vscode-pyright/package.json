@@ -1284,6 +1284,16 @@
                     "default": "",
                     "description": "Path to folder with a list of Virtual Environments.",
                     "scope": "resource"
+                },
+                "pyright.importStrategy": {
+                    "type": "string",
+                    "default": "fromEnvironment",
+                    "enum": [
+                        "fromEnvironment",
+                        "useBundled"
+                    ],
+                    "description": "Whether to use the version of pyright installed in the project (recommended) or the one bundled with the extension (not recommended).",
+                    "scope": "resource"
                 }
             }
         },
@@ -1304,6 +1314,7 @@
         "webpack-dev": "npm run clean && webpack --mode development --watch --progress"
     },
     "dependencies": {
+        "@vscode/python-extension": "^1.0.5",
         "vscode-jsonrpc": "8.1.0",
         "vscode-languageclient": "8.1.0",
         "vscode-languageserver": "8.1.0",

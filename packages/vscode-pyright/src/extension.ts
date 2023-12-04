@@ -9,7 +9,12 @@
  * runs in another process.
  */
 
+import { PythonExtension } from '@vscode/python-extension';
+import { existsSync } from 'fs';
+import os from 'os';
 import * as path from 'path';
+import { Commands } from 'pyright-internal/commands/commands';
+import { isThenable } from 'pyright-internal/common/core';
 import {
     commands,
     ExtensionContext,
@@ -37,10 +42,6 @@ import {
     TextEdit,
     TransportKind,
 } from 'vscode-languageclient/node';
-
-import { Commands } from 'pyright-internal/commands/commands';
-import { isThenable } from 'pyright-internal/common/core';
-
 import { FileBasedCancellationStrategy } from './cancellationUtils';
 
 let cancellationStrategy: FileBasedCancellationStrategy | undefined;
@@ -68,29 +69,52 @@ export async function activate(context: ExtensionContext) {
     }
 
     cancellationStrategy = new FileBasedCancellationStrategy();
+    let serverOptions: ServerOptions | undefined = undefined;
+    if (workspace.getConfiguration('pyright').get('importStrategy') === 'fromEnvironment') {
+        const pythonApi = await PythonExtension.api();
+        const scriptName = 'pyright-langserver';
+        const executablePath = path.join(
+            pythonApi.environments.getActiveEnvironmentPath().path,
+            '..',
+            os.platform() === 'win32' ? `${scriptName}.exe` : scriptName
+        );
+        if (existsSync(executablePath)) {
+            console.log('using pyright executable:', executablePath);
+            serverOptions = {
+                command: executablePath,
+                transport: TransportKind.stdio,
+                args: cancellationStrategy.getCommandLineArguments(),
+            };
+        } else {
+            console.warn('failed to find pyright executable, falling back to bundled:', executablePath);
+        }
+    }
+    if (!serverOptions) {
+        console.log('using bundled pyright');
+        const bundlePath = context.asAbsolutePath(path.join('dist', 'server.js'));
 
-    const bundlePath = context.asAbsolutePath(path.join('dist', 'server.js'));
-    const runOptions = { execArgv: [`--max-old-space-size=${defaultHeapSize}`] };
-    const debugOptions = { execArgv: ['--nolazy', '--inspect=6600', `--max-old-space-size=${defaultHeapSize}`] };
+        const runOptions = { execArgv: [`--max-old-space-size=${defaultHeapSize}`] };
+        const debugOptions = { execArgv: ['--nolazy', '--inspect=6600', `--max-old-space-size=${defaultHeapSize}`] };
 
-    // If the extension is launched in debug mode, then the debug server options are used.
-    const serverOptions: ServerOptions = {
-        run: {
-            module: bundlePath,
-            transport: TransportKind.ipc,
-            args: cancellationStrategy.getCommandLineArguments(),
-            options: runOptions,
-        },
-        // In debug mode, use the non-bundled code if it's present. The production
-        // build includes only the bundled package, so we don't want to crash if
-        // someone starts the production extension in debug mode.
-        debug: {
-            module: bundlePath,
-            transport: TransportKind.ipc,
-            args: cancellationStrategy.getCommandLineArguments(),
-            options: debugOptions,
-        },
-    };
+        // If the extension is launched in debug mode, then the debug server options are used.
+        serverOptions = {
+            run: {
+                module: bundlePath,
+                transport: TransportKind.ipc,
+                args: cancellationStrategy.getCommandLineArguments(),
+                options: runOptions,
+            },
+            // In debug mode, use the non-bundled code if it's present. The production
+            // build includes only the bundled package, so we don't want to crash if
+            // someone starts the production extension in debug mode.
+            debug: {
+                module: bundlePath,
+                transport: TransportKind.ipc,
+                args: cancellationStrategy.getCommandLineArguments(),
+                options: debugOptions,
+            },
+        };
+    }
 
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
