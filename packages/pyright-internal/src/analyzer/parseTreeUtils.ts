@@ -2623,12 +2623,16 @@ function _getEndPositionIfMultipleStatementsAreOnSameLine(
 }
 
 export function getVariableDocStringNode(node: ExpressionNode): StringListNode | undefined {
-    // Walk up the parse tree to find an assignment expression.
+    // Walk up the parse tree to find an assignment or type alias statement.
     let curNode: ParseNode | undefined = node;
     let annotationNode: TypeAnnotationNode | undefined;
 
     while (curNode) {
         if (curNode.nodeType === ParseNodeType.Assignment) {
+            break;
+        }
+
+        if (curNode.nodeType === ParseNodeType.TypeAlias) {
             break;
         }
 
@@ -2639,7 +2643,7 @@ export function getVariableDocStringNode(node: ExpressionNode): StringListNode |
         curNode = curNode.parent;
     }
 
-    if (curNode?.nodeType !== ParseNodeType.Assignment) {
+    if (curNode?.nodeType !== ParseNodeType.Assignment && curNode?.nodeType !== ParseNodeType.TypeAlias) {
         // Allow a simple annotation statement to have a docstring even
         // though PEP 258 doesn't mention this case. This PEP pre-dated
         // PEP 526, so it didn't contemplate this situation.

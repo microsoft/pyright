@@ -1,24 +1,40 @@
 /// <reference path="fourslash.ts" />
 
 // @filename: test.py
-//// class Foo:
-////     ''' Original doc string '''
+//// class ClassA:
+////     ''' ClassA doc string '''
 ////     pass
 ////
-//// [|/*marker1*/A|] = Foo
-//// ''' Alias doc string '''
+//// [|/*marker1*/AliasA|] = ClassA
+//// ''' AliasA doc string '''
 ////
-//// def bar(x: [|/*marker2*/A|]):
+//// def func1(x: [|/*marker2*/AliasA|]):
 ////     pass
 ////
-//// class Baz:
+//// class ClassB:
 ////     pass
 ////
-//// [|/*marker3*/B|] = Baz
-//// ''' Alias alone doc string '''
+//// [|/*marker3*/AliasB|] = ClassB
+//// ''' AliasB alone doc string '''
+////
+//// class ClassC:
+////    """ ClassC doc string """
+////    pass
+////
+//// [|/*marker4*/AliasC|] = ClassC
+//// ''' AliasC doc string '''
+////
+//// class ClassD:
+////     pass
+////
+//// [|/*marker5*/AliasD|] = ClassD
+//// ''' AliasD alone doc string '''
+////
 
 helper.verifyHover('markdown', {
-    marker1: '```python\n(type alias) A: type[Foo]\n```\n---\nAlias doc string\n\nOriginal doc string',
-    marker2: '```python\n(type alias) A: type[Foo]\n```\n---\nAlias doc string\n\nOriginal doc string',
-    marker3: '```python\n(type alias) B: type[Baz]\n```\n---\nAlias alone doc string',
+    marker1: '```python\n(type alias) AliasA: type[ClassA]\n```\n---\nAliasA doc string\n\nClassA doc string',
+    marker2: '```python\n(type alias) AliasA: type[ClassA]\n```\n---\nAliasA doc string\n\nClassA doc string',
+    marker3: '```python\n(type alias) AliasB: type[ClassB]\n```\n---\nAliasB alone doc string',
+    marker4: '```python\n(type alias) AliasC: type[ClassC]\n```\n---\nAliasC doc string\n\nClassC doc string',
+    marker5: '```python\n(type alias) AliasD: type[ClassD]\n```\n---\nAliasD alone doc string',
 });
