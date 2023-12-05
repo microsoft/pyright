@@ -829,29 +829,27 @@ export function getCodeFlowEngine(
 
                 let sawIncomplete = false;
 
-                return preventRecursion(branchNode, () => {
-                    for (const antecedent of branchNode.antecedents) {
-                        const flowTypeResult = getTypeFromFlowNode(antecedent);
+                for (const antecedent of branchNode.antecedents) {
+                    const flowTypeResult = getTypeFromFlowNode(antecedent);
 
-                        if (reference === undefined && flowTypeResult.type && !isNever(flowTypeResult.type)) {
-                            // If we're solving for "reachability", and we have now proven
-                            // reachability, there's no reason to do more work.
-                            return setCacheEntry(branchNode, typeAtStart, /* isIncomplete */ false);
-                        }
-
-                        if (flowTypeResult.isIncomplete) {
-                            sawIncomplete = true;
-                        }
-
-                        if (flowTypeResult.type) {
-                            typesToCombine.push(flowTypeResult.type);
-                        }
+                    if (reference === undefined && flowTypeResult.type && !isNever(flowTypeResult.type)) {
+                        // If we're solving for "reachability", and we have now proven
+                        // reachability, there's no reason to do more work.
+                        return setCacheEntry(branchNode, typeAtStart, /* isIncomplete */ false);
                     }
 
-                    const effectiveType = typesToCombine.length > 0 ? combineTypes(typesToCombine) : undefined;
+                    if (flowTypeResult.isIncomplete) {
+                        sawIncomplete = true;
+                    }
 
-                    return setCacheEntry(branchNode, effectiveType, sawIncomplete);
-                });
+                    if (flowTypeResult.type) {
+                        typesToCombine.push(flowTypeResult.type);
+                    }
+                }
+
+                const effectiveType = typesToCombine.length > 0 ? combineTypes(typesToCombine) : undefined;
+
+                return setCacheEntry(branchNode, effectiveType, sawIncomplete);
             }
 
             function getTypeFromLoopFlowNode(
@@ -996,7 +994,6 @@ export function getCodeFlowEngine(
                     }
 
                     let effectiveType = cacheEntry.type;
-                    let cleanedIncompleteUnknowns = false;
                     if (sawIncomplete) {
                         // If there is an incomplete "Unknown" type within a union type, remove
                         // it. Otherwise we might end up resolving the cycle with a type
@@ -1005,7 +1002,6 @@ export function getCodeFlowEngine(
                             const cleanedType = cleanIncompleteUnknown(effectiveType);
                             if (cleanedType !== effectiveType) {
                                 effectiveType = cleanedType;
-                                cleanedIncompleteUnknowns = true;
                             }
                         }
                     }
@@ -1021,8 +1017,7 @@ export function getCodeFlowEngine(
                             !sawPending &&
                             effectiveType &&
                             !isIncompleteUnknown(effectiveType) &&
-                            !firstAntecedentTypeIsIncomplete &&
-                            !cleanedIncompleteUnknowns
+                            !firstAntecedentTypeIsIncomplete
                         ) {
                             reportIncomplete = false;
                         }
@@ -1057,17 +1052,15 @@ export function getCodeFlowEngine(
                     return { type: undefined, isIncomplete: false };
                 }
 
-                return preventRecursion(preFinallyFlowNode, () => {
-                    const flowTypeResult = getTypeFromFlowNode(preFinallyFlowNode.antecedent);
+                const flowTypeResult = getTypeFromFlowNode(preFinallyFlowNode.antecedent);
 
-                    // We want to cache the type only if we're evaluating the "gate closed" path.
-                    deleteCacheEntry(preFinallyFlowNode);
+                // We want to cache the type only if we're evaluating the "gate closed" path.
+                deleteCacheEntry(preFinallyFlowNode);
 
-                    return {
-                        type: flowTypeResult.type,
-                        isIncomplete: flowTypeResult.isIncomplete,
-                    };
-                });
+                return {
+                    type: flowTypeResult.type,
+                    isIncomplete: flowTypeResult.isIncomplete,
+                };
             }
 
             function getTypeFromPostFinallyFlowNode(postFinallyFlowNode: FlowPostFinally): FlowNodeTypeResult {
