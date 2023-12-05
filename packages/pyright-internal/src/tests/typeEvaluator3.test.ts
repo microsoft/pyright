@@ -1293,6 +1293,14 @@ test('MatchClass5', () => {
     TestUtils.validateResults(analysisResults, 5);
 });
 
+test('MatchClass6', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass6.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MatchValue1', () => {
     const configOptions = new ConfigOptions('.');
 
