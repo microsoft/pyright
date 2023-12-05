@@ -1049,6 +1049,14 @@ export function getUnknownTypeForParamSpec(): FunctionType {
     return newFunction;
 }
 
+// Returns the equivalent of "Callable[..., Unknown]".
+export function getUnknownTypeForCallable(): FunctionType {
+    const newFunction = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck);
+    FunctionType.addDefaultParameters(newFunction);
+    newFunction.details.declaredReturnType = UnknownType.create();
+    return newFunction;
+}
+
 // If the class is generic and not already specialized, this function
 // "self specializes" the class, filling in its own type parameters
 // as type arguments.

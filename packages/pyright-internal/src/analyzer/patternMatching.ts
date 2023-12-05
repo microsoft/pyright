@@ -65,6 +65,7 @@ import {
     doForEachSubtype,
     getTypeCondition,
     getTypeVarScopeId,
+    getUnknownTypeForCallable,
     isLiteralType,
     isMetaclassInstance,
     isNoneInstance,
@@ -820,12 +821,29 @@ function narrowTypeBasedOnClassPattern(
                             return undefined;
                         }
 
+                        // Handle NoneType specially.
                         if (
                             isNoneInstance(subjectSubtypeExpanded) &&
                             isInstantiableClass(expandedSubtype) &&
                             ClassType.isBuiltIn(expandedSubtype, 'NoneType')
                         ) {
                             return subjectSubtypeExpanded;
+                        }
+
+                        // Handle Callable specially.
+                        if (isInstantiableClass(expandedSubtype) && ClassType.isBuiltIn(expandedSubtype, 'Callable')) {
+                            const callableType = getUnknownTypeForCallable();
+
+                            if (evaluator.assignType(callableType, subjectSubtypeExpanded)) {
+                                return subjectSubtypeExpanded;
+                            }
+
+                            const subjObjType = convertToInstance(subjectSubtypeExpanded);
+                            if (evaluator.assignType(subjObjType, callableType)) {
+                                return callableType;
+                            }
+
+                            return undefined;
                         }
 
                         if (isClassInstance(subjectSubtypeExpanded)) {
