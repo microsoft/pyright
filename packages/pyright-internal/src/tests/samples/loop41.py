@@ -1,7 +1,7 @@
-# This sample tests a case that involves a loop with a conditional. This
-# case regressed and was not caught by any other test cases.
+# This sample tests a few cases that involve a loop with a conditional. These
+# case regressed and were not caught by any other test cases.
 
-from typing import TypeVar
+from typing import TypeVar, Any
 
 T = TypeVar("T")
 
@@ -21,3 +21,16 @@ def func3(v1: list[bool], v2: int | str):
 
             # This should generate an error.
             func2(v2)
+
+
+def func4(x: Any, b: Any):
+    a = x
+    while a < 1:
+        if a:
+            b = int(b)
+        else:
+            b = a
+
+        if b:
+            # This should generate an error.
+            return a.x(dummy)

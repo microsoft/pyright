@@ -409,7 +409,7 @@ test('Loop40', () => {
 test('Loop41', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop41.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('ForLoop1', () => {
