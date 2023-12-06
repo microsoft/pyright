@@ -255,7 +255,7 @@ function printTypeInternal(
 
                 const typeParams = type.typeAliasInfo.typeParameters;
 
-                if (typeParams) {
+                if (typeParams && typeParams.length > 0) {
                     let argumentStrings: string[] | undefined;
 
                     // If there is a type arguments array, it's a specialized type alias.

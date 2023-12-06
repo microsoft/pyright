@@ -12529,7 +12529,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             valueExpr,
             /* isPep695Syntax */ false,
             /* typeParamNodes */ undefined,
-            () => typeParameters ?? []
+            () => typeParameters
         );
     }
 
@@ -15170,6 +15170,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         name: NameNode,
         errorNode: ExpressionNode,
         isPep695Syntax: boolean,
+        isPep695TypeVarType: boolean,
         typeParameters?: TypeVarType[],
         typeParamNodes?: TypeParameterNode[]
     ): Type {
@@ -15228,21 +15229,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(name);
-
-        const boundTypeVars = typeParameters.filter(
-            (typeVar) => typeVar.scopeId !== typeAliasScopeId && typeVar.scopeType === TypeVarScopeType.Class
-        );
-
-        if (boundTypeVars.length > 0) {
-            addError(
-                Localizer.Diagnostic.genericTypeAliasBoundTypeVar().format({
-                    names: boundTypeVars.map((t) => `${t.details.name}`).join(', '),
-                }),
-                errorNode
+        if (!isPep695Syntax && !isPep695TypeVarType) {
+            const boundTypeVars = typeParameters.filter(
+                (typeVar) => typeVar.scopeId !== typeAliasScopeId && typeVar.scopeType === TypeVarScopeType.Class
             );
+
+            if (boundTypeVars.length > 0) {
+                addError(
+                    Localizer.Diagnostic.genericTypeAliasBoundTypeVar().format({
+                        names: boundTypeVars.map((t) => `${t.details.name}`).join(', '),
+                    }),
+                    errorNode
+                );
+            }
         }
 
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(name);
         const typeAlias = TypeBase.cloneForTypeAlias(
             type,
             name.value,
@@ -15254,7 +15256,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // All PEP 695 type aliases are special forms because they are
         // TypeAliasType objects at runtime.
-        if (isPep695Syntax) {
+        if (isPep695Syntax || isPep695TypeVarType) {
             typeAlias.flags |= TypeFlags.SpecialForm;
         }
 
@@ -15582,7 +15584,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             rightHandType,
                             typeAliasNameNode,
                             node.rightExpression,
-                            /* isPep695Syntax */ false
+                            /* isPep695Syntax */ false,
+                            /* isPep695TypeVarType */ false
                         );
 
                         assert(typeAliasTypeVar !== undefined);
@@ -15670,11 +15673,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* isPep695Syntax */ true,
             node.typeParameters?.parameters,
             () => {
-                let typeParameters: TypeVarType[] = [];
                 if (node.typeParameters) {
-                    typeParameters = evaluateTypeParameterList(node.typeParameters);
+                    return evaluateTypeParameterList(node.typeParameters);
                 }
-                return typeParameters;
+                return undefined;
             }
         );
     }
@@ -15739,6 +15741,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             nameNode,
             valueNode,
             isPep695Syntax,
+            /* isPep695TypeVarType */ true,
             typeParameters,
             typeParamNodes
         );
@@ -20788,7 +20791,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         inferredType,
                         resolvedDecl.typeAliasName,
                         resolvedDecl.node,
-                        /* isPep695Syntax */ false
+                        /* isPep695Syntax */ false,
+                        /* isPep695TypeVarType */ false
                     );
 
                     isUnambiguousType = true;
