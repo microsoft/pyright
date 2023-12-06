@@ -2169,7 +2169,7 @@ export class Program {
             chainedSourceFile = chainedSourceFile.chainedSourceFile;
         }
 
-        // If the checker is going to run again, we have to recreate the type evaulator so
+        // If the checker is going to run again, we have to recreate the type evaluator so
         // that it actually reevaluates all the nodes (instead of using the cache).
         // This is necessary because the original file change may not recreate the TypeEvaluator.
         // For example, it might be a file delete.
