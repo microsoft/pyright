@@ -669,7 +669,7 @@
         "overrideParamName": "Parameter {index} name mismatch: base parameter is named \"{baseName}\", override parameter is named \"{overrideName}\"",
         "overrideParamNameExtra": "Parameter \"{name}\" is missing in base",
         "overrideParamNameMissing": "Parameter \"{name}\" is missing in override",
-        "overrideParamNamePositionOnly": "Parameter {index} mismatch: base parameter \"{baseName}\" is keyword parameter, override parameter is position-only\"",
+        "overrideParamNamePositionOnly": "Parameter {index} mismatch: base parameter \"{baseName}\" is keyword parameter, override parameter is position-only",
         "overrideParamNoDefault": "Parameter {index} mismatch: base parameter has default argument value, override parameter does not",
         "overrideParamType": "Parameter {index} type mismatch: base parameter is type \"{baseType}\", override parameter is type \"{overrideType}\"",
         "overridePositionalParamCount": "Positional parameter count mismatch; base method has {baseCount}, but override has {overrideCount}",
