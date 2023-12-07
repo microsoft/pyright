@@ -180,6 +180,16 @@ export namespace Uri {
         return EmptyUri.instance;
     }
 
+    export function fromJsonObj(jsonObj: any) {
+        if (FileUri.isFileUri(jsonObj)) {
+            return FileUri.fromJsonObj(jsonObj);
+        }
+        if (WebUri.isWebUri(jsonObj)) {
+            return WebUri.fromJsonObj(jsonObj);
+        }
+        return jsonObj;
+    }
+
     export function parse(value: string | undefined, isCaseSensitive: boolean): Uri {
         if (!value) {
             return Uri.empty();

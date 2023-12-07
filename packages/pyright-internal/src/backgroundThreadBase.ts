@@ -94,19 +94,19 @@ export class BackgroundThreadBase {
 }
 
 export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
-    const configOptions = new ConfigOptions(jsonObject.projectRoot);
+    const configOptions = new ConfigOptions(Uri.fromJsonObj(jsonObject.projectRoot));
     const getFileSpec = (fileSpec: any): FileSpec => {
         return {
-            wildcardRoot: fileSpec.wildcardRoot,
+            wildcardRoot: Uri.fromJsonObj(fileSpec.wildcardRoot),
             regExp: new RegExp(fileSpec.regExp.source, fileSpec.regExp.flags),
             hasDirectoryWildcard: fileSpec.hasDirectoryWildcard,
         };
     };
 
     configOptions.pythonEnvironmentName = jsonObject.pythonEnvironmentName;
-    configOptions.pythonPath = jsonObject.pythonPath;
-    configOptions.typeshedPath = jsonObject.typeshedPath;
-    configOptions.stubPath = jsonObject.stubPath;
+    configOptions.pythonPath = Uri.fromJsonObj(jsonObject.pythonPath);
+    configOptions.typeshedPath = Uri.fromJsonObj(jsonObject.typeshedPath);
+    configOptions.stubPath = Uri.fromJsonObj(jsonObject.stubPath);
     configOptions.autoExcludeVenv = jsonObject.autoExcludeVenv;
     configOptions.verboseOutput = jsonObject.verboseOutput;
     configOptions.defineConstant = new Map<string, boolean | string>(jsonObject.defineConstant);
@@ -114,13 +114,19 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     configOptions.useLibraryCodeForTypes = jsonObject.useLibraryCodeForTypes;
     configOptions.internalTestMode = jsonObject.internalTestMode;
     configOptions.indexGenerationMode = jsonObject.indexGenerationMode;
-    configOptions.venvPath = jsonObject.venvPath;
+    configOptions.venvPath = Uri.fromJsonObj(jsonObject.venvPath);
     configOptions.venv = jsonObject.venv;
     configOptions.defaultPythonVersion = jsonObject.defaultPythonVersion;
     configOptions.defaultPythonPlatform = jsonObject.defaultPythonPlatform;
-    configOptions.defaultExtraPaths = jsonObject.defaultExtraPaths;
+    configOptions.defaultExtraPaths = jsonObject.defaultExtraPaths?.map((p: any) => Uri.fromJsonObj(p));
     configOptions.diagnosticRuleSet = jsonObject.diagnosticRuleSet;
-    configOptions.executionEnvironments = jsonObject.executionEnvironments;
+    configOptions.executionEnvironments = jsonObject.executionEnvironments?.map((e: any) => {
+        return {
+            ...e,
+            root: Uri.fromJsonObj(e.root),
+            extraPaths: e.extraPaths?.map((p: any) => Uri.fromJsonObj(p)),
+        };
+    });
     configOptions.autoImportCompletions = jsonObject.autoImportCompletions;
     configOptions.indexing = jsonObject.indexing;
     configOptions.taskListTokens = jsonObject.taskListTokens;

@@ -639,7 +639,17 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected onAnalysisCompletion(port: MessagePort, result: AnalysisResults) {
-        port.postMessage({ requestType: 'analysisResult', data: result });
+        // Result URIs can't be sent in current form as they contain methods on
+        // them. This causes a DataCloneError when posting.
+        // See https://stackoverflow.com/questions/68467946/datacloneerror-the-object-could-not-be-cloned-firefox-browser
+        // We turn them back into JSON so we can use Uri.fromJsonObj on the other side.
+        const postableResults = {
+            ...result,
+            diagnostics: result.diagnostics.map((d) => {
+                return { ...d, fileUri: JSON.parse(JSON.stringify(d.fileUri)) };
+            }),
+        };
+        port.postMessage({ requestType: 'analysisResult', data: postableResults });
     }
 
     private _onMessageWrapper(msg: AnalysisRequest) {
@@ -683,7 +693,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 function convertAnalysisResults(result: AnalysisResults): AnalysisResults {
     result.diagnostics = result.diagnostics.map((f: FileDiagnostics) => {
         return {
-            fileUri: f.fileUri,
+            fileUri: Uri.fromJsonObj(f.fileUri),
             version: f.version,
             diagnostics: convertDiagnostics(f.diagnostics),
         };

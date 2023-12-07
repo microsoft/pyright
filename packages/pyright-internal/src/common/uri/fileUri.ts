@@ -75,8 +75,18 @@ export class FileUri extends BaseUri {
         return new FileUri(key, filePath, query, fragment, originalString, isCaseSensitive);
     }
 
-    static isFileUri(uri: Uri): uri is FileUri {
-        return uri.scheme === 'file' && (uri as any)._filePath !== undefined;
+    static isFileUri(uri: any): uri is FileUri {
+        return uri?._filePath !== undefined && uri?._key !== undefined;
+    }
+
+    static fromJsonObj(obj: FileUri) {
+        return FileUri.createFileUri(
+            obj._filePath,
+            obj._query,
+            obj._fragment,
+            obj._originalString,
+            obj._isCaseSensitive
+        );
     }
 
     override matchesRegex(regex: RegExp): boolean {
