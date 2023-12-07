@@ -75,7 +75,7 @@ Most mutable container types also have immutable counterparts.
 | ----------------- | -------------- |
 | list              | Sequence       |
 | dict              | Mapping        |
-| set               | AbstractSet    |
+| set               | Container      |
 | n/a               | tuple          |
 
 

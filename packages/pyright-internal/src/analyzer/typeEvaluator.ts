@@ -22375,6 +22375,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     childDiag.addMessage(Localizer.DiagnosticAddendum.invariantSuggestionDict());
                                 } else if (ClassType.isBuiltIn(destType, 'list')) {
                                     childDiag.addMessage(Localizer.DiagnosticAddendum.invariantSuggestionList());
+                                } else if (ClassType.isBuiltIn(destType, 'set')) {
+                                    childDiag.addMessage(Localizer.DiagnosticAddendum.invariantSuggestionSet());
                                 }
                             }
                         } else {

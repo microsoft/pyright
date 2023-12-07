@@ -1208,6 +1208,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.initSubclassLocation'));
         export const invariantSuggestionDict = () => getRawString('DiagnosticAddendum.invariantSuggestionDict');
         export const invariantSuggestionList = () => getRawString('DiagnosticAddendum.invariantSuggestionList');
+        export const invariantSuggestionSet = () => getRawString('DiagnosticAddendum.invariantSuggestionSet');
         export const functionTooManyParams = () =>
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('DiagnosticAddendum.functionTooManyParams')

@@ -622,6 +622,7 @@
         "initSubclassLocation": "The __init_subclass__ method is defined in class \"{name}\"",
         "invariantSuggestionDict": "Consider switching from \"dict\" to \"Mapping\" which is covariant in the value type",
         "invariantSuggestionList": "Consider switching from \"list\" to \"Sequence\" which is covariant",
+        "invariantSuggestionSet": "Consider switching from \"set\" to \"Container\" which is covariant",
         "kwargsParamMissing": "Parameter \"**{paramName}\" has no corresponding parameter",
         "listAssignmentMismatch": "Type \"{type}\" is incompatible with target list",
         "literalAssignmentMismatch": "\"{sourceType}\" cannot be assigned to type \"{destType}\"",
