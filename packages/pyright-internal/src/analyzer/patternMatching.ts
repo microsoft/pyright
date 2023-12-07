@@ -1236,6 +1236,13 @@ function getSequencePatternInfo(
                     ClassType.isBuiltIn(mroClass, 'bytes') ||
                     ClassType.isBuiltIn(mroClass, 'bytearray')
                 ) {
+                    // This is definitely not a match.
+                    sequenceInfo.push({
+                        subtype,
+                        entryTypes: [],
+                        isIndeterminateLength: true,
+                        isDefiniteNoMatch: true,
+                    });
                     return;
                 }
 
