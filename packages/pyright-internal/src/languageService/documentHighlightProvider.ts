@@ -15,6 +15,7 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ProgramView, ReferenceUseCase } from '../common/extensibility';
 import { convertOffsetsToRange, convertPositionToOffset } from '../common/positionUtils';
 import { Position, TextRange } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
@@ -24,11 +25,11 @@ export class DocumentHighlightProvider {
 
     constructor(
         private _program: ProgramView,
-        private _filePath: string,
+        private _fileUri: Uri,
         private _position: Position,
         private _token: CancellationToken
     ) {
-        this._parseResults = this._program.getParseResults(this._filePath);
+        this._parseResults = this._program.getParseResults(this._fileUri);
     }
 
     getDocumentHighlight(): DocumentHighlight[] | undefined {

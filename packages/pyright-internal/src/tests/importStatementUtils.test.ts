@@ -21,9 +21,9 @@ import {
 import { findNodeByOffset } from '../analyzer/parseTreeUtils';
 import { isArray } from '../common/core';
 import { TextEditAction } from '../common/editAction';
-import { combinePaths, getDirectoryPath } from '../common/pathUtils';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { rangesAreEqual } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
 import { NameNode } from '../parser/parseNodes';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
@@ -417,12 +417,12 @@ test('getRelativeModuleName over fake file', () => {
     `;
 
     const state = parseAndGetTestState(code).state;
-    const dest = state.getMarkerByName('dest')!.fileName;
+    const dest = Uri.file(state.getMarkerByName('dest')!.fileName);
 
     assert.strictEqual(
         getRelativeModuleName(
             state.fs,
-            combinePaths(getDirectoryPath(dest), 'source.py'),
+            dest.getDirectory().combinePaths('source.py'),
             dest,
             /*ignoreFolderStructure*/ false,
             /*sourceIsFile*/ true
@@ -453,12 +453,13 @@ test('resolve alias of not needed file', () => {
     const evaluator = state.workspace.service.getEvaluator()!;
     state.openFile(marker.fileName);
 
-    const parseResults = state.workspace.service.getParseResult(marker.fileName)!;
+    const markerUri = Uri.file(marker.fileName);
+    const parseResults = state.workspace.service.getParseResult(markerUri)!;
     const nameNode = findNodeByOffset(parseResults.parseTree, marker.position) as NameNode;
     const aliasDecls = evaluator.getDeclarationsForNameNode(nameNode)!;
 
     // Unroot the file. we can't explicitly close the file since it will unload the file from test program.
-    state.workspace.service.test_program.getSourceFileInfo(marker.fileName)!.isOpenByClient = false;
+    state.workspace.service.test_program.getSourceFileInfo(markerUri)!.isOpenByClient = false;
 
     const unresolved = evaluator.resolveAliasDeclaration(aliasDecls[0], /*resolveLocalNames*/ false);
     assert(!unresolved);
@@ -473,8 +474,8 @@ test('resolve alias of not needed file', () => {
 
 function testRelativeModuleName(code: string, expected: string, ignoreFolderStructure = false) {
     const state = parseAndGetTestState(code).state;
-    const src = state.getMarkerByName('src')!.fileName;
-    const dest = state.getMarkerByName('dest')!.fileName;
+    const src = Uri.file(state.getMarkerByName('src')!.fileName);
+    const dest = Uri.file(state.getMarkerByName('dest')!.fileName);
 
     assert.strictEqual(getRelativeModuleName(state.fs, src, dest, ignoreFolderStructure), expected);
 }
@@ -487,7 +488,7 @@ function testAddition(
 ) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName(markerName)!;
-    const parseResults = state.program.getBoundSourceFile(marker!.fileName)!.getParseResults()!;
+    const parseResults = state.program.getBoundSourceFile(Uri.file(marker!.fileName))!.getParseResults()!;
 
     const importStatement = getTopLevelImports(parseResults.parseTree).orderedImports.find(
         (i) => i.moduleName === moduleName
@@ -507,7 +508,7 @@ function testInsertions(
 ) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName(markerName)!;
-    const parseResults = state.program.getBoundSourceFile(marker!.fileName)!.getParseResults()!;
+    const parseResults = state.program.getBoundSourceFile(Uri.file(marker!.fileName))!.getParseResults()!;
 
     const importStatements = getTopLevelImports(parseResults.parseTree);
     const edits = getTextEditsForAutoImportInsertions(

@@ -29,6 +29,7 @@ import { isNumber, isString } from '../common/core';
 import { convertOffsetToPosition, convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
+import { Uri } from '../common/uri/uri';
 import { LanguageServerInterface } from '../languageServerBase';
 import {
     ArgumentCategory,
@@ -132,11 +133,11 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
             return [];
         }
 
-        const filePath = params.arguments[0] as string;
+        const fileUri = Uri.parse(params.arguments[0] as string, this._ls.rootUri.isCaseSensitive);
         const kind = params.arguments[1];
 
-        const workspace = await this._ls.getWorkspaceForFile(filePath);
-        const parseResults = workspace.service.getParseResult(workspace.service.fs.realCasePath(filePath));
+        const workspace = await this._ls.getWorkspaceForFile(fileUri);
+        const parseResults = workspace.service.getParseResult(workspace.service.fs.realCasePath(fileUri));
         if (!parseResults) {
             return [];
         }
@@ -157,7 +158,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
             },
         };
 
-        collectingConsole.info(`* Dump debug info for '${filePath}'`);
+        collectingConsole.info(`* Dump debug info for '${fileUri.toUserVisibleString()}'`);
 
         switch (kind) {
             case 'tokens': {
@@ -166,7 +167,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
                 for (let i = 0; i < parseResults.tokenizerOutput.tokens.count; i++) {
                     const token = parseResults.tokenizerOutput.tokens.getItemAt(i);
                     collectingConsole.info(
-                        `[${i}] ${getTokenString(filePath, token, parseResults.tokenizerOutput.lines)}`
+                        `[${i}] ${getTokenString(fileUri, token, parseResults.tokenizerOutput.lines)}`
                     );
                 }
                 break;
@@ -174,7 +175,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
             case 'nodes': {
                 collectingConsole.info(`* Node info`);
 
-                const dumper = new TreeDumper(filePath, parseResults.tokenizerOutput.lines);
+                const dumper = new TreeDumper(fileUri, parseResults.tokenizerOutput.lines);
                 dumper.walk(parseResults.parseTree);
 
                 collectingConsole.info(dumper.output);
@@ -189,7 +190,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
                 }
 
                 collectingConsole.info(`* Type info`);
-                collectingConsole.info(`${getTypeEvaluatorString(filePath, evaluator, parseResults, start, end)}`);
+                collectingConsole.info(`${getTypeEvaluatorString(fileUri, evaluator, parseResults, start, end)}`);
                 break;
             }
             case 'cachedtypes': {
@@ -201,9 +202,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
                 }
 
                 collectingConsole.info(`* Cached Type info`);
-                collectingConsole.info(
-                    `${getTypeEvaluatorString(filePath, evaluator, parseResults, start, end, true)}`
-                );
+                collectingConsole.info(`${getTypeEvaluatorString(fileUri, evaluator, parseResults, start, end, true)}`);
                 break;
             }
 
@@ -239,14 +238,14 @@ function stringify(value: any, replacer: (this: any, key: string, value: any) =>
 }
 
 function getTypeEvaluatorString(
-    file: string,
+    uri: Uri,
     evaluator: TypeEvaluator,
     results: ParseResults,
     start: number,
     end: number,
     cacheOnly?: boolean
 ) {
-    const dumper = new TreeDumper(file, results.tokenizerOutput.lines);
+    const dumper = new TreeDumper(uri, results.tokenizerOutput.lines);
     const node = findNodeByOffset(results.parseTree, start) ?? findNodeByOffset(results.parseTree, end);
     if (!node) {
         return 'N/A';
@@ -549,7 +548,7 @@ class TreeDumper extends ParseTreeWalker {
     private _indentation = '';
     private _output = '';
 
-    constructor(private _file: string, private _lines: TextRangeCollection<TextRange>) {
+    constructor(private _uri: Uri, private _lines: TextRangeCollection<TextRange>) {
         super();
     }
 
@@ -604,7 +603,7 @@ class TreeDumper extends ParseTreeWalker {
     override visitBinaryOperation(node: BinaryOperationNode) {
         this._log(
             `${this._getPrefix(node)} ${getTokenString(
-                this._file,
+                this._uri,
                 node.operatorToken,
                 this._lines
             )} ${getOperatorTypeString(node.operator)}} parenthesized:(${node.parenthesized})`
@@ -697,7 +696,7 @@ class TreeDumper extends ParseTreeWalker {
             `${this._getPrefix(node)} wildcard import:(${node.isWildcardImport}) paren:(${
                 node.usesParens
             }) wildcard token:(${
-                node.wildcardToken ? getTokenString(this._file, node.wildcardToken, this._lines) : 'N/A'
+                node.wildcardToken ? getTokenString(this._uri, node.wildcardToken, this._lines) : 'N/A'
             }) missing import keyword:(${node.missingImportKeyword})`
         );
         return true;
@@ -784,7 +783,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitName(node: NameNode) {
-        this._log(`${this._getPrefix(node)} ${getTokenString(this._file, node.token, this._lines)} ${node.value}`);
+        this._log(`${this._getPrefix(node)} ${getTokenString(this._uri, node.token, this._lines)} ${node.value}`);
         return true;
     }
 
@@ -834,7 +833,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitString(node: StringNode) {
-        this._log(`${this._getPrefix(node)} ${getTokenString(this._file, node.token, this._lines)} ${node.value}`);
+        this._log(`${this._getPrefix(node)} ${getTokenString(this._uri, node.token, this._lines)} ${node.value}`);
         return true;
     }
 
@@ -866,7 +865,7 @@ class TreeDumper extends ParseTreeWalker {
     override visitUnaryOperation(node: UnaryOperationNode) {
         this._log(
             `${this._getPrefix(node)} ${getTokenString(
-                this._file,
+                this._uri,
                 node.operatorToken,
                 this._lines
             )} ${getOperatorTypeString(node.operator)}`
@@ -988,7 +987,7 @@ class TreeDumper extends ParseTreeWalker {
     private _getPrefix(node: ParseNode) {
         const pos = convertOffsetToPosition(node.start, this._lines);
         // VS code's output window expects 1 based values, print the line/char with 1 based.
-        return `[${node.id}] '${this._file}:${pos.line + 1}:${pos.character + 1}' => ${printParseNodeType(
+        return `[${node.id}] '${this._uri.toString()}:${pos.line + 1}:${pos.character + 1}' => ${printParseNodeType(
             node.nodeType
         )} ${getTextSpanString(node, this._lines)} =>`;
     }
@@ -1066,9 +1065,9 @@ function getErrorExpressionCategoryString(type: ErrorExpressionCategory) {
     }
 }
 
-function getTokenString(file: string, token: Token, lines: TextRangeCollection<TextRange>) {
+function getTokenString(uri: Uri, token: Token, lines: TextRangeCollection<TextRange>) {
     const pos = convertOffsetToPosition(token.start, lines);
-    let str = `'${file}:${pos.line + 1}:${pos.character + 1}' (`;
+    let str = `'${uri.toUserVisibleString()}:${pos.line + 1}:${pos.character + 1}' (`;
     str += getTokenTypeString(token.type);
     str += getNewLineInfo(token);
     str += getOperatorInfo(token);

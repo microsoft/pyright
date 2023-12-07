@@ -9,8 +9,9 @@
 
 import assert from 'assert';
 
-import { combinePaths, getBaseFileName, normalizeSlashes } from '../common/pathUtils';
+import { getBaseFileName, normalizeSlashes } from '../common/pathUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
+import { Uri } from '../common/uri/uri';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { CompilerSettings } from './harness/fourslash/fourSlashTypes';
 import * as host from './harness/testHost';
@@ -89,7 +90,7 @@ test('Library options', () => {
 
     const data = parseTestData('.', code, 'test.py');
 
-    assert.equal(data.files[0].fileName, normalizeSlashes(combinePaths(factory.libFolder, 'file1.py')));
+    assert.equal(data.files[0].fileName, factory.libFolder.combinePaths('file1.py').getFilePath());
 });
 
 test('Range', () => {
@@ -222,8 +223,7 @@ test('Multiple Files', () => {
 
     assert.equal(data.files.filter((f) => f.fileName === normalizeSlashes('./src/A.py'))[0].content, getContent('A'));
     assert.equal(
-        data.files.filter((f) => f.fileName === normalizeSlashes(combinePaths(factory.libFolder, 'src/B.py')))[0]
-            .content,
+        data.files.filter((f) => f.fileName === factory.libFolder.combinePaths('src/B.py').getFilePath())[0].content,
         getContent('B')
     );
     assert.equal(data.files.filter((f) => f.fileName === normalizeSlashes('./src/C.py'))[0].content, getContent('C'));
@@ -312,7 +312,10 @@ test('fourSlashWithFileSystem', () => {
     });
 
     for (const file of data.files) {
-        assert.equal(fs.readFileSync(file.fileName, 'utf8'), getContent(getBaseFileName(file.fileName, '.py', false)));
+        assert.equal(
+            fs.readFileSync(Uri.file(file.fileName), 'utf8'),
+            getContent(getBaseFileName(file.fileName, '.py', false))
+        );
     }
 });
 

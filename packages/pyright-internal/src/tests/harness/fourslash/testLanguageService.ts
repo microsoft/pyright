@@ -6,7 +6,6 @@
  * Test mock that implements LanguageServiceInterface
  */
 
-import * as path from 'path';
 import { CancellationToken, CodeAction, ExecuteCommandParams } from 'vscode-languageserver';
 
 import {
@@ -22,8 +21,9 @@ import { ConfigOptions } from '../../../common/configOptions';
 import { ConsoleInterface } from '../../../common/console';
 import * as debug from '../../../common/debug';
 import { FileSystem } from '../../../common/fileSystem';
+import { ServiceProvider } from '../../../common/serviceProvider';
 import { Range } from '../../../common/textRange';
-import { UriParser } from '../../../common/uriParser';
+import { Uri } from '../../../common/uri/uri';
 import { LanguageServerInterface, MessageAction, ServerSettings, WindowInterface } from '../../../languageServerBase';
 import { CodeActionProvider } from '../../../languageService/codeActionProvider';
 import {
@@ -34,7 +34,6 @@ import {
 } from '../../../workspaceFactory';
 import { TestAccessHost } from '../testAccessHost';
 import { HostSpecificFeatures } from './testState';
-import { ServiceProvider } from '../../../common/serviceProvider';
 
 export class TestFeatures implements HostSpecificFeatures {
     importResolverFactory: ImportResolverFactory = AnalyzerService.createImportResolver;
@@ -62,11 +61,11 @@ export class TestFeatures implements HostSpecificFeatures {
 
     getCodeActionsForPosition(
         workspace: Workspace,
-        filePath: string,
+        fileUri: Uri,
         range: Range,
         token: CancellationToken
     ): Promise<CodeAction[]> {
-        return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, range, undefined, token);
+        return CodeActionProvider.getCodeActionsForPosition(workspace, fileUri, range, undefined, token);
     }
     execute(ls: LanguageServerInterface, params: ExecuteCommandParams, token: CancellationToken): Promise<any> {
         const controller = new CommandController(ls);
@@ -75,21 +74,18 @@ export class TestFeatures implements HostSpecificFeatures {
 }
 
 export class TestLanguageService implements LanguageServerInterface {
-    readonly rootPath = path.sep;
+    readonly rootUri = Uri.file('/');
     readonly window = new TestWindow();
     readonly supportAdvancedEdits = true;
 
     private readonly _workspace: Workspace;
     private readonly _defaultWorkspace: Workspace;
-    private readonly _uriParser: UriParser;
 
     constructor(workspace: Workspace, readonly console: ConsoleInterface, readonly fs: FileSystem) {
         this._workspace = workspace;
-        this._uriParser = new UriParser(this.fs);
         this._defaultWorkspace = {
             workspaceName: '',
-            rootPath: '',
-            uri: '',
+            rootUri: Uri.empty(),
             pythonPath: undefined,
             pythonPathKind: WorkspacePythonPathKind.Mutable,
             kinds: [WellKnownWorkspaceKinds.Test],
@@ -97,7 +93,7 @@ export class TestLanguageService implements LanguageServerInterface {
                 console: this.console,
                 hostFactory: () => new TestAccessHost(),
                 importResolverFactory: AnalyzerService.createImportResolver,
-                configOptions: new ConfigOptions('.'),
+                configOptions: new ConfigOptions(Uri.empty()),
                 fileSystem: this.fs,
             }),
             disableLanguageServices: false,
@@ -109,16 +105,12 @@ export class TestLanguageService implements LanguageServerInterface {
         };
     }
 
-    decodeTextDocumentUri(uriString: string): string {
-        return this._uriParser.decodeTextDocumentUri(uriString);
-    }
-
     getWorkspaces(): Promise<Workspace[]> {
         return Promise.resolve([this._workspace, this._defaultWorkspace]);
     }
 
-    getWorkspaceForFile(filePath: string): Promise<Workspace> {
-        if (filePath.startsWith(this._workspace.rootPath)) {
+    getWorkspaceForFile(uri: Uri): Promise<Workspace> {
+        if (uri.startsWith(this._workspace.rootUri)) {
             return Promise.resolve(this._workspace);
         }
 

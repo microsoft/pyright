@@ -11,19 +11,20 @@ import { CancellationToken } from 'vscode-languageserver';
 import { Declaration } from '../analyzer/declaration';
 import { ImportResolver } from '../analyzer/importResolver';
 import * as prog from '../analyzer/program';
+import { IPythonMode } from '../analyzer/sourceFile';
 import { SourceMapper } from '../analyzer/sourceMapper';
+import { SymbolTable } from '../analyzer/symbol';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { Diagnostic } from '../common/diagnostic';
 import { ServerSettings } from '../languageServerBase';
 import { ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { ConfigOptions } from './configOptions';
 import { ConsoleInterface } from './console';
 import { ReadOnlyFileSystem } from './fileSystem';
-import { Range } from './textRange';
-import { SymbolTable } from '../analyzer/symbol';
-import { Diagnostic } from '../common/diagnostic';
-import { IPythonMode } from '../analyzer/sourceFile';
 import { GroupServiceKey, ServiceKey } from './serviceProvider';
+import { Range } from './textRange';
+import { Uri } from './uri/uri';
 
 export interface SourceFile {
     // See whether we can convert these to regular properties.
@@ -31,9 +32,8 @@ export interface SourceFile {
     isThirdPartyPyTypedPresent(): boolean;
 
     getIPythonMode(): IPythonMode;
-    getFilePath(): string;
+    getUri(): Uri;
     getFileContent(): string | undefined;
-    getRealFilePath(): string | undefined;
     getClientVersion(): number | undefined;
     getOpenFileContents(): string | undefined;
     getModuleSymbolTable(): SymbolTable | undefined;
@@ -73,7 +73,7 @@ export interface ServiceProvider {
 // Readonly wrapper around a Program. Makes sure it doesn't mutate the program.
 export interface ProgramView {
     readonly id: string;
-    readonly rootPath: string;
+    readonly rootPath: Uri;
     readonly console: ConsoleInterface;
     readonly evaluator: TypeEvaluator | undefined;
     readonly configOptions: ConfigOptions;
@@ -81,21 +81,16 @@ export interface ProgramView {
     readonly fileSystem: ReadOnlyFileSystem;
     readonly serviceProvider: ServiceProvider;
 
-    owns(file: string): boolean;
+    owns(uri: Uri): boolean;
     getSourceFileInfoList(): readonly SourceFileInfo[];
-    getParseResults(filePath: string): ParseResults | undefined;
-    getSourceFileInfo(filePath: string): SourceFileInfo | undefined;
-    getChainedFilePath(filePath: string): string | undefined;
-    getSourceMapper(
-        filePath: string,
-        token: CancellationToken,
-        mapCompiled?: boolean,
-        preferStubs?: boolean
-    ): SourceMapper;
+    getParseResults(fileUri: Uri): ParseResults | undefined;
+    getSourceFileInfo(fileUri: Uri): SourceFileInfo | undefined;
+    getChainedUri(fileUri: Uri): Uri | undefined;
+    getSourceMapper(fileUri: Uri, token: CancellationToken, mapCompiled?: boolean, preferStubs?: boolean): SourceMapper;
 
     // Consider getDiagnosticsForRange to call `analyzeFile` automatically if the file is not analyzed.
-    analyzeFile(filePath: string, token: CancellationToken): boolean;
-    getDiagnosticsForRange(filePath: string, range: Range): Diagnostic[];
+    analyzeFile(fileUri: Uri, token: CancellationToken): boolean;
+    getDiagnosticsForRange(fileUri: Uri, range: Range): Diagnostic[];
 
     // See whether we can get rid of these methods
     handleMemoryHighUsage(): void;
@@ -106,9 +101,9 @@ export interface ProgramView {
 // and doesn't forward the request to the BG thread.
 // One can use this when edits are temporary such as `runEditMode` or `test`
 export interface EditableProgram extends ProgramView {
-    addInterimFile(file: string): void;
-    setFileOpened(filePath: string, version: number | null, contents: string, options?: prog.OpenFileOptions): void;
-    updateChainedFilePath(filePath: string, chainedFilePath: string | undefined): void;
+    addInterimFile(uri: Uri): void;
+    setFileOpened(fileUri: Uri, version: number | null, contents: string, options?: prog.OpenFileOptions): void;
+    updateChainedUri(fileUri: Uri, chainedUri: Uri | undefined): void;
 }
 
 // Mutable wrapper around a program. Allows the FG thread to forward this request to the BG thread
@@ -116,7 +111,7 @@ export interface EditableProgram extends ProgramView {
 export interface ProgramMutator {
     addInterimFile(file: string): void;
     setFileOpened(
-        filePath: string,
+        fileUri: Uri,
         version: number | null,
         contents: string,
         ipythonMode: IPythonMode,
@@ -162,7 +157,7 @@ export interface SymbolUsageProvider {
 }
 
 export interface StatusMutationListener {
-    fileDirty?: (filePath: string) => void;
+    fileDirty?: (fileUri: Uri) => void;
     clearCache?: () => void;
     updateSettings?: <T extends ServerSettings>(settings: T) => void;
 }

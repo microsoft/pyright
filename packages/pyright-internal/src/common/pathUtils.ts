@@ -7,23 +7,13 @@
  * Pathname utility functions.
  */
 
-import type { Dirent } from 'fs';
 import * as path from 'path';
-import { URI, Utils } from 'vscode-uri';
 
 import { Char } from './charCodes';
 import { some } from './collectionUtils';
 import { GetCanonicalFileName, identity } from './core';
-import { randomBytesHex } from './crypto';
 import * as debug from './debug';
-import { ServiceProvider } from './extensibility';
-import { FileSystem, ReadOnlyFileSystem, Stats, TempFile } from './fileSystem';
-import { ServiceKeys } from './serviceProviderExtensions';
 import { equateStringsCaseInsensitive, equateStringsCaseSensitive } from './stringUtils';
-
-let _fsCaseSensitivity: boolean | undefined = undefined;
-let _underTest: boolean = false;
-const _uriSchemePattern = /^\w[\w\d+.-]*$/;
 
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
@@ -72,52 +62,26 @@ export interface FileSystemEntries {
     directories: string[];
 }
 
-export function forEachAncestorDirectory(
-    directory: string,
-    callback: (directory: string) => string | undefined
-): string | undefined {
-    while (true) {
-        const result = callback(directory);
-        if (result !== undefined) {
-            return result;
-        }
-
-        const parentPath = getDirectoryPath(directory);
-        if (parentPath === directory) {
-            return undefined;
-        }
-
-        directory = parentPath;
-    }
-}
-
 export function getDirectoryPath(pathString: string): string {
-    if (isUri(pathString)) {
-        return Utils.dirname(URI.parse(pathString).with({ fragment: '', query: '' })).toString();
-    }
     return pathString.substr(0, Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep)));
-}
-
-export function isUri(pathString: string) {
-    return pathString.indexOf(':') > 1 && _uriSchemePattern.test(pathString.split(':')[0]);
 }
 
 /**
  * Returns length of the root part of a path or URL (i.e. length of "/", "x:/", "//server/").
  */
-export function getRootLength(pathString: string, checkUri = true): number {
-    if (pathString.charAt(0) === path.sep) {
-        if (pathString.charAt(1) !== path.sep) {
+export function getRootLength(pathString: string, sep = path.sep): number {
+    if (pathString.charAt(0) === sep) {
+        if (pathString.charAt(1) !== sep) {
             return 1; // POSIX: "/" (or non-normalized "\")
         }
-        const p1 = pathString.indexOf(path.sep, 2);
+        const p1 = pathString.indexOf(sep, 2);
         if (p1 < 0) {
             return pathString.length; // UNC: "//server" or "\\server"
         }
         return p1 + 1; // UNC: "//server/" or "\\server\"
     }
     if (pathString.charAt(1) === ':') {
-        if (pathString.charAt(2) === path.sep) {
+        if (pathString.charAt(2) === sep) {
             return 3; // DOS: "c:/" or "c:\"
         }
         if (pathString.length === 2) {
@@ -125,25 +89,16 @@ export function getRootLength(pathString: string, checkUri = true): number {
         }
     }
 
-    if (checkUri && isUri(pathString)) {
-        const uri = URI.parse(pathString);
-        if (uri.authority) {
-            return uri.scheme.length + 3; // URI: "file://"
-        } else {
-            return uri.scheme.length + 1; // URI: "untitled:"
-        }
-    }
-
     return 0;
 }
 
 export function getPathSeparator(pathString: string) {
-    return isUri(pathString) ? '/' : path.sep;
+    return path.sep;
 }
 
 export function getPathComponents(pathString: string) {
     const normalizedPath = normalizeSlashes(pathString);
-    const rootLength = getRootLength(normalizedPath, /* checkUri */ isUri(normalizedPath));
+    const rootLength = getRootLength(normalizedPath);
     const root = normalizedPath.substring(0, rootLength);
     const sep = getPathSeparator(pathString);
     const rest = normalizedPath.substring(rootLength).split(sep);
@@ -211,47 +166,11 @@ export function getRelativePath(dirPath: string, relativeTo: string) {
     return relativePath;
 }
 
-// Creates a directory hierarchy for a path, starting from some ancestor path.
-export function makeDirectories(fs: FileSystem, dirPath: string, startingFromDirPath: string) {
-    if (!dirPath.startsWith(startingFromDirPath)) {
-        return;
-    }
-
-    const pathComponents = getPathComponents(dirPath);
-    const relativeToComponents = getPathComponents(startingFromDirPath);
-    let curPath = startingFromDirPath;
-
-    for (let i = relativeToComponents.length; i < pathComponents.length; i++) {
-        curPath = combinePaths(curPath, pathComponents[i]);
-        if (!fs.existsSync(curPath)) {
-            fs.mkdirSync(curPath);
-        }
-    }
-}
-
-export function getFileSize(fs: ReadOnlyFileSystem, path: string) {
-    const stat = tryStat(fs, path);
-    if (stat?.isFile()) {
-        return stat.size;
-    }
-    return 0;
-}
-
-export function fileExists(fs: ReadOnlyFileSystem, path: string): boolean {
-    return fileSystemEntryExists(fs, path, FileSystemEntryKind.File);
-}
-
-export function directoryExists(fs: ReadOnlyFileSystem, path: string): boolean {
-    return fileSystemEntryExists(fs, path, FileSystemEntryKind.Directory);
-}
-
 const getInvalidSeparator = (sep: string) => (sep === '/' ? '\\' : '/');
 export function normalizeSlashes(pathString: string, sep = path.sep): string {
-    if (!isUri(pathString)) {
-        if (pathString.includes(getInvalidSeparator(sep))) {
-            const separatorRegExp = /[\\/]/g;
-            return pathString.replace(separatorRegExp, sep);
-        }
+    if (pathString.includes(getInvalidSeparator(sep))) {
+        const separatorRegExp = /[\\/]/g;
+        return pathString.replace(separatorRegExp, sep);
     }
 
     return pathString;
@@ -271,7 +190,7 @@ export function resolvePaths(path: string, ...paths: (string | undefined)[]): st
     return normalizePath(some(paths) ? combinePaths(path, ...paths) : normalizeSlashes(path));
 }
 
-function combineFilePaths(pathString: string, ...paths: (string | undefined)[]): string {
+export function combinePaths(pathString: string, ...paths: (string | undefined)[]): string {
     if (pathString) {
         pathString = normalizeSlashes(pathString);
     }
@@ -283,7 +202,7 @@ function combineFilePaths(pathString: string, ...paths: (string | undefined)[]):
 
         relativePath = normalizeSlashes(relativePath);
 
-        if (!pathString || getRootLength(relativePath, /* checkUri */ false) !== 0) {
+        if (!pathString || getRootLength(relativePath) !== 0) {
             pathString = relativePath;
         } else {
             pathString = ensureTrailingDirectorySeparator(pathString) + relativePath;
@@ -291,29 +210,6 @@ function combineFilePaths(pathString: string, ...paths: (string | undefined)[]):
     }
 
     return pathString;
-}
-
-export function combinePaths(pathString: string, ...paths: (string | undefined)[]): string {
-    if (!isUri(pathString)) {
-        // Not a URI, or a URI with a single letter scheme.
-        return combineFilePaths(pathString, ...paths);
-    }
-
-    // Go through the paths to see if any are rooted. If so, treat as
-    // a file path. On linux this might be wrong if a path starts with '/'.
-    if (some(paths, (p) => !!p && getRootLength(p, /* checkUri */ false) !== 0)) {
-        return combineFilePaths(pathString, ...paths);
-    }
-
-    // Otherwise this is a URI
-    const nonEmptyPaths = paths.filter((p) => !!p) as string[];
-    const uri = URI.parse(pathString);
-
-    // Make sure we have a path to append to.
-    if (uri.path === '' || uri.path === undefined) {
-        nonEmptyPaths.unshift('/');
-    }
-    return Utils.joinPath(uri.with({ fragment: '', query: '' }), ...nonEmptyPaths).toString();
 }
 
 /**
@@ -485,9 +381,7 @@ export function getBaseFileName(pathString: string, extensions?: string | readon
     // return the trailing portion of the path starting after the last (non-terminal) directory
     // separator but not including any trailing directory separator.
     pathString = stripTrailingDirectorySeparator(pathString);
-    const name = isUri(pathString)
-        ? Utils.basename(URI.parse(pathString).with({ fragment: '', query: '' }))
-        : pathString.slice(Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep) + 1));
+    const name = pathString.slice(Math.max(getRootLength(pathString), pathString.lastIndexOf(path.sep) + 1));
     const extension =
         extensions !== undefined && ignoreCase !== undefined
             ? getAnyExtensionFromPath(name, extensions, ignoreCase)
@@ -561,7 +455,7 @@ export function stripTrailingDirectorySeparator(pathString: string) {
     if (!hasTrailingDirectorySeparator(pathString)) {
         return pathString;
     }
-    return pathString.substr(0, pathString.length - 1);
+    return pathString.slice(0, pathString.length - 1);
 }
 
 export function getFileExtension(fileName: string, multiDotExtension = false) {
@@ -571,7 +465,7 @@ export function getFileExtension(fileName: string, multiDotExtension = false) {
 
     fileName = getFileName(fileName);
     const firstDotIndex = fileName.indexOf('.');
-    return fileName.substr(firstDotIndex);
+    return fileName.slice(firstDotIndex);
 }
 
 export function getFileName(pathString: string) {
@@ -592,102 +486,8 @@ export function stripFileExtension(fileName: string, multiDotExtension = false) 
     return fileName.substr(0, fileName.length - ext.length);
 }
 
-export function realCasePath(pathString: string, fileSystem: ReadOnlyFileSystem): string {
-    return isUri(pathString) ? pathString : fileSystem.realCasePath(pathString);
-}
-
 export function normalizePath(pathString: string): string {
-    if (!isUri(pathString)) {
-        return normalizeSlashes(path.normalize(pathString));
-    }
-
-    // Must be a URI, already normalized.
-    return pathString;
-}
-
-export function isDirectory(fs: ReadOnlyFileSystem, path: string): boolean {
-    return tryStat(fs, path)?.isDirectory() ?? false;
-}
-
-export function isFile(fs: ReadOnlyFileSystem, path: string, treatZipDirectoryAsFile = false): boolean {
-    const stats = tryStat(fs, path);
-    if (stats?.isFile()) {
-        return true;
-    }
-
-    if (!treatZipDirectoryAsFile) {
-        return false;
-    }
-
-    return stats?.isZipDirectory?.() ?? false;
-}
-
-export function tryStat(fs: ReadOnlyFileSystem, path: string): Stats | undefined {
-    try {
-        if (fs.existsSync(path)) {
-            return fs.statSync(path);
-        }
-    } catch (e: any) {
-        return undefined;
-    }
-    return undefined;
-}
-
-export function tryRealpath(fs: ReadOnlyFileSystem, path: string): string | undefined {
-    try {
-        return fs.realCasePath(path);
-    } catch (e: any) {
-        return undefined;
-    }
-}
-
-export function getFileSystemEntries(fs: ReadOnlyFileSystem, path: string): FileSystemEntries {
-    try {
-        return getFileSystemEntriesFromDirEntries(fs.readdirEntriesSync(path || '.'), fs, path);
-    } catch (e: any) {
-        return { files: [], directories: [] };
-    }
-}
-
-// Sorts the entires into files and directories, including any symbolic links.
-export function getFileSystemEntriesFromDirEntries(
-    dirEntries: Dirent[],
-    fs: ReadOnlyFileSystem,
-    path: string
-): FileSystemEntries {
-    const entries = dirEntries.sort((a, b) => {
-        if (a.name < b.name) {
-            return -1;
-        } else if (a.name > b.name) {
-            return 1;
-        } else {
-            return 0;
-        }
-    });
-    const files: string[] = [];
-    const directories: string[] = [];
-    for (const entry of entries) {
-        // This is necessary because on some file system node fails to exclude
-        // "." and "..". See https://github.com/nodejs/node/issues/4002
-        if (entry.name === '.' || entry.name === '..') {
-            continue;
-        }
-
-        if (entry.isFile()) {
-            files.push(entry.name);
-        } else if (entry.isDirectory()) {
-            directories.push(entry.name);
-        } else if (entry.isSymbolicLink()) {
-            const entryPath = combinePaths(path, entry.name);
-            const stat = tryStat(fs, entryPath);
-            if (stat?.isFile()) {
-                files.push(entry.name);
-            } else if (stat?.isDirectory()) {
-                directories.push(entry.name);
-            }
-        }
-    }
-    return { files, directories };
+    return normalizeSlashes(path.normalize(pathString));
 }
 
 // Transforms a relative file spec (one that potentially contains
@@ -803,25 +603,6 @@ export function hasPythonExtension(path: string) {
     return path.endsWith('.py') || path.endsWith('.pyi');
 }
 
-export function getFileSpec(sp: ServiceProvider, rootPath: string, fileSpec: string): FileSpec {
-    let regExPattern = getWildcardRegexPattern(rootPath, fileSpec);
-    const escapedSeparator = getRegexEscapedSeparator(getPathSeparator(rootPath));
-    regExPattern = `^(${regExPattern})($|${escapedSeparator})`;
-
-    const fs = sp.get(ServiceKeys.fs);
-    const tmp = sp.tryGet(ServiceKeys.tempFile);
-
-    const regExp = new RegExp(regExPattern, isFileSystemCaseSensitive(fs, tmp) ? undefined : 'i');
-    const wildcardRoot = getWildcardRoot(rootPath, fileSpec);
-    const hasDirectoryWildcard = isDirectoryWildcardPatternPresent(fileSpec);
-
-    return {
-        wildcardRoot,
-        regExp,
-        hasDirectoryWildcard,
-    };
-}
-
 export function getRegexEscapedSeparator(pathSep: string = path.sep) {
     // we don't need to escape "/" in typescript regular expression
     return pathSep === '/' ? '/' : '\\\\';
@@ -907,169 +688,4 @@ function getPathComponentsRelativeTo(
         relative.push('..');
     }
     return ['', ...relative, ...components];
-}
-
-const enum FileSystemEntryKind {
-    File,
-    Directory,
-}
-
-function fileSystemEntryExists(fs: ReadOnlyFileSystem, path: string, entryKind: FileSystemEntryKind): boolean {
-    try {
-        const stat = fs.statSync(path);
-        switch (entryKind) {
-            case FileSystemEntryKind.File:
-                return stat.isFile();
-            case FileSystemEntryKind.Directory:
-                return stat.isDirectory();
-            default:
-                return false;
-        }
-    } catch (e: any) {
-        return false;
-    }
-}
-
-export function convertUriToPath(fs: ReadOnlyFileSystem, uriString: string): string {
-    return realCasePath(fs.getMappedFilePath(extractPathFromUri(uriString)), fs);
-}
-
-export function extractPathFromUri(uriString: string) {
-    const uri = URI.parse(uriString);
-
-    // Only for file scheme do we actually modify anything. All other uri strings
-    // maintain the same value they started with.
-    if (uri.scheme === 'file' && !uri.fragment) {
-        // When schema is "file", we use fsPath so that we can handle things like UNC paths.
-        let convertedPath = normalizePath(uri.fsPath);
-
-        // If this is a DOS-style path with a drive letter, remove
-        // the leading slash.
-        if (convertedPath.match(/^\\[a-zA-Z]:\\/)) {
-            convertedPath = convertedPath.slice(1);
-        }
-
-        return convertedPath;
-    }
-
-    return uriString;
-}
-
-export function convertPathToUri(fs: ReadOnlyFileSystem, path: string): string {
-    return fs.getUri(fs.getOriginalFilePath(path));
-}
-
-export function setTestingMode(underTest: boolean) {
-    _underTest = underTest;
-}
-
-const isFileSystemCaseSensitiveMap = new WeakMap<FileSystem, boolean>();
-
-export function isFileSystemCaseSensitive(fs: FileSystem, tmp?: TempFile) {
-    if (!tmp) {
-        return false;
-    }
-
-    if (!_underTest && _fsCaseSensitivity !== undefined) {
-        return _fsCaseSensitivity;
-    }
-
-    if (!isFileSystemCaseSensitiveMap.has(fs)) {
-        _fsCaseSensitivity = isFileSystemCaseSensitiveInternal(fs, tmp);
-        isFileSystemCaseSensitiveMap.set(fs, _fsCaseSensitivity);
-    }
-    return !!isFileSystemCaseSensitiveMap.get(fs);
-}
-
-export function isFileSystemCaseSensitiveInternal(fs: FileSystem, tmp: TempFile) {
-    let filePath: string | undefined = undefined;
-    try {
-        // Make unique file name.
-        let name: string;
-        let mangledFilePath: string;
-        do {
-            name = `${randomBytesHex(21)}-a`;
-            filePath = path.join(tmp.tmpdir(), name);
-            mangledFilePath = path.join(tmp.tmpdir(), name.toUpperCase());
-        } while (fs.existsSync(filePath) || fs.existsSync(mangledFilePath));
-
-        fs.writeFileSync(filePath, '', 'utf8');
-
-        // If file exists, then it is insensitive.
-        return !fs.existsSync(mangledFilePath);
-    } catch (e: any) {
-        return false;
-    } finally {
-        if (filePath) {
-            // remove temp file created
-            try {
-                fs.unlinkSync(filePath);
-            } catch (e: any) {
-                /* ignored */
-            }
-        }
-    }
-}
-
-export function getLibraryPathWithoutExtension(libraryFilePath: string) {
-    let filePathWithoutExtension = stripFileExtension(libraryFilePath);
-
-    // Strip off the '/__init__' if it's present.
-    if (filePathWithoutExtension.endsWith('__init__')) {
-        filePathWithoutExtension = filePathWithoutExtension.substr(0, filePathWithoutExtension.length - 9);
-    }
-
-    return filePathWithoutExtension;
-}
-
-export function getDirectoryChangeKind(
-    fs: ReadOnlyFileSystem,
-    oldDirectory: string,
-    newDirectory: string
-): 'Same' | 'Renamed' | 'Moved' {
-    if (fs.realCasePath(oldDirectory) === fs.realCasePath(newDirectory)) {
-        return 'Same';
-    }
-
-    const relativePaths = getRelativePathComponentsFromDirectory(oldDirectory, newDirectory, (f) => fs.realCasePath(f));
-
-    // 3 means only last folder name has changed.
-    if (relativePaths.length === 3 && relativePaths[1] === '..' && relativePaths[2] !== '..') {
-        return 'Renamed';
-    }
-
-    return 'Moved';
-}
-
-export function deduplicateFolders(listOfFolders: string[][]): string[] {
-    const foldersToWatch = new Set<string>();
-
-    listOfFolders.forEach((folders) => {
-        folders.forEach((p) => {
-            if (foldersToWatch.has(p)) {
-                // Bail out on exact match.
-                return;
-            }
-
-            for (const existing of foldersToWatch) {
-                // ex) p: "/user/test" existing: "/user"
-                if (p.startsWith(existing)) {
-                    // We already have the parent folder in the watch list
-                    return;
-                }
-
-                // ex) p: "/user" folderToWatch: "/user/test"
-                if (existing.startsWith(p)) {
-                    // We found better one to watch. replace.
-                    foldersToWatch.delete(existing);
-                    foldersToWatch.add(p);
-                    return;
-                }
-            }
-
-            foldersToWatch.add(p);
-        });
-    });
-
-    return [...foldersToWatch];
 }

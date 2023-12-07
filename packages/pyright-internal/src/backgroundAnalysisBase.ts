@@ -10,6 +10,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { MessageChannel, MessagePort, Worker, parentPort, threadId, workerData } from 'worker_threads';
 
 import { AnalysisCompleteCallback, AnalysisResults, analyzeProgram, nullCallback } from './analyzer/analysis';
+import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
 import { ImportResolver } from './analyzer/importResolver';
 import { OpenFileOptions, Program } from './analyzer/program';
 import {
@@ -33,9 +34,9 @@ import { FileDiagnostics } from './common/diagnosticSink';
 import { disposeCancellationToken, getCancellationTokenFromId } from './common/fileBasedCancellationUtils';
 import { Host, HostKind } from './common/host';
 import { LogTracker } from './common/logTracker';
-import { Range } from './common/textRange';
-import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
 import { ServiceProvider } from './common/serviceProvider';
+import { Range } from './common/textRange';
+import { Uri } from './common/uri/uri';
 
 export class BackgroundAnalysisBase {
     private _worker: Worker | undefined;
@@ -57,8 +58,8 @@ export class BackgroundAnalysisBase {
         this.enqueueRequest({ requestType: 'setConfigOptions', data: configOptions });
     }
 
-    setTrackedFiles(filePaths: string[]) {
-        this.enqueueRequest({ requestType: 'setTrackedFiles', data: filePaths });
+    setTrackedFiles(fileUris: Uri[]) {
+        this.enqueueRequest({ requestType: 'setTrackedFiles', data: fileUris.map((f) => f.toString()) });
     }
 
     setAllowedThirdPartyImports(importNames: string[]) {
@@ -69,36 +70,36 @@ export class BackgroundAnalysisBase {
         this.enqueueRequest({ requestType: 'ensurePartialStubPackages', data: { executionRoot } });
     }
 
-    setFileOpened(filePath: string, version: number | null, contents: string, options: OpenFileOptions) {
+    setFileOpened(fileUri: Uri, version: number | null, contents: string, options: OpenFileOptions) {
         this.enqueueRequest({
             requestType: 'setFileOpened',
-            data: { filePath, version, contents, options },
+            data: { fileUri: fileUri.toString(), version, contents, options },
         });
     }
 
-    updateChainedFilePath(filePath: string, chainedFilePath: string | undefined) {
+    updateChainedUri(fileUri: Uri, chainedUri: Uri | undefined) {
         this.enqueueRequest({
-            requestType: 'updateChainedFilePath',
-            data: { filePath, chainedFilePath },
+            requestType: 'updateChainedFileUri',
+            data: { fileUri: fileUri.toString(), chainedUri: chainedUri?.toString() },
         });
     }
 
-    setFileClosed(filePath: string, isTracked?: boolean) {
-        this.enqueueRequest({ requestType: 'setFileClosed', data: { filePath, isTracked } });
+    setFileClosed(fileUri: Uri, isTracked?: boolean) {
+        this.enqueueRequest({ requestType: 'setFileClosed', data: { fileUri, isTracked } });
     }
 
-    addInterimFile(filePath: string) {
-        this.enqueueRequest({ requestType: 'addInterimFile', data: { filePath } });
+    addInterimFile(fileUri: Uri) {
+        this.enqueueRequest({ requestType: 'addInterimFile', data: { fileUri: fileUri.toString() } });
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean) {
         this.enqueueRequest({ requestType: 'markAllFilesDirty', data: { evenIfContentsAreSame } });
     }
 
-    markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean) {
+    markFilesDirty(fileUris: Uri[], evenIfContentsAreSame: boolean) {
         this.enqueueRequest({
             requestType: 'markFilesDirty',
-            data: { filePaths, evenIfContentsAreSame },
+            data: { fileUris: fileUris.map((f) => f.toString()), evenIfContentsAreSame },
         });
     }
 
@@ -106,7 +107,7 @@ export class BackgroundAnalysisBase {
         this._startOrResumeAnalysis('analyze', program, token);
     }
 
-    async analyzeFile(filePath: string, token: CancellationToken): Promise<boolean> {
+    async analyzeFile(fileUri: Uri, token: CancellationToken): Promise<boolean> {
         throwIfCancellationRequested(token);
 
         const { port1, port2 } = new MessageChannel();
@@ -115,7 +116,7 @@ export class BackgroundAnalysisBase {
         const cancellationId = getCancellationTokenId(token);
         this.enqueueRequest({
             requestType: 'analyzeFile',
-            data: { filePath, cancellationId },
+            data: { fileUri: fileUri.toString(), cancellationId },
             port: port2,
         });
 
@@ -127,7 +128,7 @@ export class BackgroundAnalysisBase {
         return result;
     }
 
-    async getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
+    async getDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
         throwIfCancellationRequested(token);
 
         const { port1, port2 } = new MessageChannel();
@@ -136,7 +137,7 @@ export class BackgroundAnalysisBase {
         const cancellationId = getCancellationTokenId(token);
         this.enqueueRequest({
             requestType: 'getDiagnosticsForRange',
-            data: { filePath, range, cancellationId },
+            data: { fileUri: fileUri.toString(), range, cancellationId },
             port: port2,
         });
 
@@ -149,9 +150,9 @@ export class BackgroundAnalysisBase {
     }
 
     async writeTypeStub(
-        targetImportPath: string,
+        targetImportPath: Uri,
         targetIsSingleFile: boolean,
-        stubPath: string,
+        stubPath: Uri,
         token: CancellationToken
     ): Promise<any> {
         throwIfCancellationRequested(token);
@@ -162,7 +163,12 @@ export class BackgroundAnalysisBase {
         const cancellationId = getCancellationTokenId(token);
         this.enqueueRequest({
             requestType: 'writeTypeStub',
-            data: { targetImportPath, targetIsSingleFile, stubPath, cancellationId },
+            data: {
+                targetImportPath: targetImportPath.toString(),
+                targetIsSingleFile,
+                stubPath: stubPath.toString(),
+                cancellationId,
+            },
             port: port2,
         });
 
@@ -283,15 +289,15 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
     protected importResolver: ImportResolver;
     protected logTracker: LogTracker;
+    protected isCaseSensitive = true;
 
     protected constructor(serviceProvider: ServiceProvider) {
         super(workerData as InitializationData, serviceProvider);
 
         // Stash the base directory into a global variable.
         const data = workerData as InitializationData;
-        this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootDirectory}`);
-
-        this._configOptions = new ConfigOptions(data.rootDirectory);
+        this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootUri}`);
+        this._configOptions = new ConfigOptions(Uri.parse(data.rootUri, serviceProvider.fs().isCaseSensitive));
         this.importResolver = this.createImportResolver(serviceProvider, this._configOptions, this.createHost());
 
         const console = this.getConsole();
@@ -339,20 +345,20 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
             case 'analyzeFile': {
                 run(() => {
-                    const { filePath, cancellationId } = msg.data;
+                    const { fileUri, cancellationId } = msg.data;
                     const token = getCancellationTokenFromId(cancellationId);
 
-                    return this.handleAnalyzeFile(filePath, token);
+                    return this.handleAnalyzeFile(fileUri, token);
                 }, msg.port!);
                 break;
             }
 
             case 'getDiagnosticsForRange': {
                 run(() => {
-                    const { filePath, range, cancellationId } = msg.data;
+                    const { fileUri, range, cancellationId } = msg.data;
                     const token = getCancellationTokenFromId(cancellationId);
 
-                    return this.handleGetDiagnosticsForRange(filePath, range, token);
+                    return this.handleGetDiagnosticsForRange(fileUri, range, token);
                 }, msg.port!);
                 break;
             }
@@ -394,26 +400,26 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             }
 
             case 'setFileOpened': {
-                const { filePath, version, contents, options } = msg.data;
-                this.handleSetFileOpened(filePath, version, contents, options);
+                const { fileUri, version, contents, options } = msg.data;
+                this.handleSetFileOpened(fileUri, version, contents, options);
                 break;
             }
 
-            case 'updateChainedFilePath': {
-                const { filePath, chainedFilePath } = msg.data;
-                this.handleUpdateChainedFilePath(filePath, chainedFilePath);
+            case 'updateChainedFileUri': {
+                const { fileUri, chainedUri } = msg.data;
+                this.handleUpdateChainedfileUri(fileUri, chainedUri);
                 break;
             }
 
             case 'setFileClosed': {
-                const { filePath, isTracked } = msg.data;
-                this.handleSetFileClosed(filePath, isTracked);
+                const { fileUri, isTracked } = msg.data;
+                this.handleSetFileClosed(fileUri, isTracked);
                 break;
             }
 
             case 'addInterimFile': {
-                const { filePath } = msg.data;
-                this.handleAddInterimFile(filePath);
+                const { fileUri } = msg.data;
+                this.handleAddInterimFile(fileUri);
                 break;
             }
 
@@ -424,8 +430,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             }
 
             case 'markFilesDirty': {
-                const { filePaths, evenIfContentsAreSame } = msg.data;
-                this.handleMarkFilesDirty(filePaths, evenIfContentsAreSame);
+                const { fileUris, evenIfContentsAreSame } = msg.data;
+                this.handleMarkFilesDirty(fileUris, evenIfContentsAreSame);
                 break;
             }
 
@@ -499,14 +505,14 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         }
     }
 
-    protected handleAnalyzeFile(filePath: string, token: CancellationToken) {
+    protected handleAnalyzeFile(fileUri: string, token: CancellationToken) {
         throwIfCancellationRequested(token);
-        return this.program.analyzeFile(filePath, token);
+        return this.program.analyzeFile(Uri.parse(fileUri, this.isCaseSensitive), token);
     }
 
-    protected handleGetDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken) {
+    protected handleGetDiagnosticsForRange(fileUri: string, range: Range, token: CancellationToken) {
         throwIfCancellationRequested(token);
-        return this.program.getDiagnosticsForRange(filePath, range);
+        return this.program.getDiagnosticsForRange(Uri.parse(fileUri, this.isCaseSensitive), range);
     }
 
     protected handleWriteTypeStub(
@@ -524,7 +530,12 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             token
         );
 
-        this.program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
+        this.program.writeTypeStub(
+            Uri.parse(targetImportPath, this.isCaseSensitive),
+            targetIsSingleFile,
+            Uri.parse(stubPath, this.isCaseSensitive),
+            token
+        );
     }
 
     protected handleSetImportResolver(hostKind: HostKind) {
@@ -548,8 +559,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         this.program.setImportResolver(this.importResolver);
     }
 
-    protected handleSetTrackedFiles(filePaths: string[]) {
-        const diagnostics = this.program.setTrackedFiles(filePaths);
+    protected handleSetTrackedFiles(fileUris: string[]) {
+        const diagnostics = this.program.setTrackedFiles(fileUris.map((f) => Uri.parse(f, this.isCaseSensitive)));
         this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
     }
 
@@ -565,29 +576,35 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected handleSetFileOpened(
-        filePath: string,
+        fileUri: string,
         version: number | null,
         contents: string,
         options: OpenFileOptions | undefined
     ) {
-        this.program.setFileOpened(filePath, version, contents, options);
+        this.program.setFileOpened(Uri.parse(fileUri, this.isCaseSensitive), version, contents, options);
     }
 
-    protected handleUpdateChainedFilePath(filePath: string, chainedFilePath: string | undefined) {
-        this.program.updateChainedFilePath(filePath, chainedFilePath);
+    protected handleUpdateChainedfileUri(fileUri: string, chainedfileUri: string | undefined) {
+        this.program.updateChainedUri(
+            Uri.parse(fileUri, this.isCaseSensitive),
+            chainedfileUri ? Uri.parse(chainedfileUri, this.isCaseSensitive) : undefined
+        );
     }
 
-    protected handleSetFileClosed(filePath: string, isTracked: boolean | undefined) {
-        const diagnostics = this.program.setFileClosed(filePath, isTracked);
+    protected handleSetFileClosed(fileUri: string, isTracked: boolean | undefined) {
+        const diagnostics = this.program.setFileClosed(Uri.parse(fileUri, this.isCaseSensitive), isTracked);
         this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
     }
 
-    protected handleAddInterimFile(filePath: string) {
-        this.program.addInterimFile(filePath);
+    protected handleAddInterimFile(fileUri: string) {
+        this.program.addInterimFile(Uri.parse(fileUri, this.isCaseSensitive));
     }
 
-    protected handleMarkFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean) {
-        this.program.markFilesDirty(filePaths, evenIfContentsAreSame);
+    protected handleMarkFilesDirty(fileUris: string[], evenIfContentsAreSame: boolean) {
+        this.program.markFilesDirty(
+            fileUris.map((f) => Uri.parse(f, this.isCaseSensitive)),
+            evenIfContentsAreSame
+        );
     }
 
     protected handleMarkAllFilesDirty(evenIfContentsAreSame: boolean) {
@@ -666,7 +683,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 function convertAnalysisResults(result: AnalysisResults): AnalysisResults {
     result.diagnostics = result.diagnostics.map((f: FileDiagnostics) => {
         return {
-            filePath: f.filePath,
+            fileUri: f.fileUri,
             version: f.version,
             diagnostics: convertDiagnostics(f.diagnostics),
         };
@@ -692,7 +709,7 @@ function convertDiagnostics(diagnostics: Diagnostic[]) {
 
         if (d._relatedInfo) {
             for (const info of d._relatedInfo) {
-                diag.addRelatedInfo(info.message, info.filePath, info.range);
+                diag.addRelatedInfo(info.message, info.fileUri, info.range);
             }
         }
 
@@ -708,7 +725,7 @@ export type AnalysisRequestKind =
     | 'setAllowedThirdPartyImports'
     | 'ensurePartialStubPackages'
     | 'setFileOpened'
-    | 'updateChainedFilePath'
+    | 'updateChainedFileUri'
     | 'setFileClosed'
     | 'markAllFilesDirty'
     | 'markFilesDirty'

@@ -12,8 +12,8 @@ import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ActionKind, CreateTypeStubFileAction, RenameShadowedFileAction } from '../common/diagnostic';
 import { FileEditActions } from '../common/editAction';
-import { getShortenedFileName } from '../common/pathUtils';
 import { Range } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
 import { convertToWorkspaceEdit } from '../common/workspaceEditUtils';
 import { Localizer } from '../localization/localize';
 import { Workspace } from '../workspaceFactory';
@@ -29,7 +29,7 @@ export class CodeActionProvider {
     }
     static async getCodeActionsForPosition(
         workspace: Workspace,
-        filePath: string,
+        fileUri: Uri,
         range: Range,
         kinds: CodeActionKind[] | undefined,
         token: CancellationToken
@@ -44,7 +44,7 @@ export class CodeActionProvider {
         }
 
         if (!workspace.disableLanguageServices) {
-            const diags = await workspace.service.getDiagnosticsForRange(filePath, range, token);
+            const diags = await workspace.service.getDiagnosticsForRange(fileUri, range, token);
             const typeStubDiag = diags.find((d) => {
                 const actions = d.getActions();
                 return actions && actions.find((a) => a.action === Commands.createTypeStub);
@@ -60,9 +60,9 @@ export class CodeActionProvider {
                         Command.create(
                             Localizer.CodeAction.createTypeStub(),
                             Commands.createTypeStub,
-                            workspace.rootPath,
+                            workspace.rootUri.toString(),
                             action.moduleName,
-                            filePath
+                            fileUri.toString()
                         ),
                         CodeActionKind.QuickFix
                     );
@@ -80,21 +80,20 @@ export class CodeActionProvider {
                     .find((a) => a.action === ActionKind.RenameShadowedFileAction) as RenameShadowedFileAction;
                 if (action) {
                     const title = Localizer.CodeAction.renameShadowedFile().format({
-                        oldFile: getShortenedFileName(action.oldFile),
-                        newFile: getShortenedFileName(action.newFile),
+                        oldFile: action.oldUri.getShortenedFileName(),
+                        newFile: action.newUri.getShortenedFileName(),
                     });
-                    const fs = workspace.service.getImportResolver().fileSystem;
                     const editActions: FileEditActions = {
                         edits: [],
                         fileOperations: [
                             {
                                 kind: 'rename',
-                                oldFilePath: action.oldFile,
-                                newFilePath: action.newFile,
+                                oldFileUri: action.oldUri,
+                                newFileUri: action.newUri,
                             },
                         ],
                     };
-                    const workspaceEdit = convertToWorkspaceEdit(fs, editActions);
+                    const workspaceEdit = convertToWorkspaceEdit(editActions);
                     const renameAction = CodeAction.create(title, workspaceEdit, CodeActionKind.QuickFix);
                     codeActions.push(renameAction);
                 }

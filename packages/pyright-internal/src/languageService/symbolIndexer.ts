@@ -13,15 +13,16 @@ import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { getSymbolKind } from '../common/lspUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { Range } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
 import { ParseResults } from '../parser/parser';
 import { convertSymbolKindToCompletionItemKind } from './autoImporter';
-import { getSymbolKind } from '../common/lspUtils';
 
 export interface IndexAliasData {
     readonly originalName: string;
-    readonly modulePath: string;
+    readonly moduleUri: Uri;
     readonly kind: SymbolKind;
     readonly itemKind?: CompletionItemKind | undefined;
 }

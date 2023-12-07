@@ -11,22 +11,20 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
-import { Binder } from '../analyzer/binder';
 import { ImportResolver } from '../analyzer/importResolver';
 import { Program } from '../analyzer/program';
-import { IPythonMode } from '../analyzer/sourceFile';
 import { NameTypeWalker } from '../analyzer/testWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { cloneDiagnosticRuleSet, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleWithLogLevel, NullConsole } from '../common/console';
 import { fail } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
-import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
+import { DiagnosticSink } from '../common/diagnosticSink';
 import { FullAccessHost } from '../common/fullAccessHost';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
-import { ParseOptions, Parser, ParseResults } from '../parser/parser';
+import { Uri } from '../common/uri/uri';
+import { ParseOptions, ParseResults, Parser } from '../parser/parser';
 
 // This is a bit gross, but it's necessary to allow the fallback typeshed
 // directory to be located when running within the jest environment. This
@@ -35,7 +33,7 @@ import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 (global as any).__rootDirectory = path.resolve();
 
 export interface FileAnalysisResult {
-    filePath: string;
+    fileUri: Uri;
     parseResults?: ParseResults | undefined;
     errors: Diagnostic[];
     warnings: Diagnostic[];
@@ -79,7 +77,7 @@ export function parseSampleFile(
     diagSink: DiagnosticSink,
     execEnvironment = new ExecutionEnvironment(
         'python',
-        '.',
+        Uri.file('.'),
         /* defaultPythonVersion */ undefined,
         /* defaultPythonPlatform */ undefined,
         /* defaultExtraPaths */ undefined
@@ -98,65 +96,9 @@ export function parseSampleFile(
     };
 }
 
-export function buildAnalyzerFileInfo(
-    filePath: string,
-    fileContents: string,
-    parseResults: ParseResults,
-    configOptions: ConfigOptions
-): AnalyzerFileInfo {
-    const analysisDiagnostics = new TextRangeDiagnosticSink(parseResults.tokenizerOutput.lines);
-
-    const fileInfo: AnalyzerFileInfo = {
-        importLookup: (_) => undefined,
-        futureImports: new Set<string>(),
-        builtinsScope: undefined,
-        diagnosticSink: analysisDiagnostics,
-        executionEnvironment: configOptions.findExecEnvironment(filePath),
-        diagnosticRuleSet: cloneDiagnosticRuleSet(configOptions.diagnosticRuleSet),
-        definedConstants: configOptions.defineConstant,
-        fileContents,
-        lines: parseResults.tokenizerOutput.lines,
-        filePath,
-        moduleName: '',
-        isStubFile: filePath.endsWith('.pyi'),
-        isTypingStubFile: false,
-        isInPyTypedPackage: false,
-        isTypingExtensionsStubFile: false,
-        isTypeshedStubFile: false,
-        isBuiltInStubFile: false,
-        ipythonMode: IPythonMode.None,
-        accessedSymbolSet: new Set<number>(),
-        typingSymbolAliases: new Map<string, string>(),
-    };
-
-    return fileInfo;
-}
-
-export function bindSampleFile(fileName: string, configOptions = new ConfigOptions('.')): FileAnalysisResult {
-    const diagSink = new DiagnosticSink();
-    const filePath = resolveSampleFilePath(fileName);
-    const execEnvironment = configOptions.findExecEnvironment(filePath);
-    const parseInfo = parseSampleFile(fileName, diagSink, execEnvironment);
-
-    const fileInfo = buildAnalyzerFileInfo(filePath, parseInfo.fileContents, parseInfo.parseResults, configOptions);
-    const binder = new Binder(fileInfo);
-    binder.bindModule(parseInfo.parseResults.parseTree);
-
-    return {
-        filePath,
-        parseResults: parseInfo.parseResults,
-        errors: fileInfo.diagnosticSink.getErrors(),
-        warnings: fileInfo.diagnosticSink.getWarnings(),
-        infos: fileInfo.diagnosticSink.getInformation(),
-        unusedCodes: fileInfo.diagnosticSink.getUnusedCode(),
-        unreachableCodes: fileInfo.diagnosticSink.getUnreachableCode(),
-        deprecateds: fileInfo.diagnosticSink.getDeprecated(),
-    };
-}
-
 export function typeAnalyzeSampleFiles(
     fileNames: string[],
-    configOptions = new ConfigOptions('.'),
+    configOptions = new ConfigOptions(Uri.empty()),
     console?: ConsoleWithLogLevel
 ): FileAnalysisResult[] {
     // Always enable "test mode".
@@ -164,11 +106,11 @@ export function typeAnalyzeSampleFiles(
 
     const fs = createFromRealFileSystem();
     const serviceProvider = createServiceProvider(fs, console || new NullConsole());
-    const importResolver = new ImportResolver(serviceProvider, configOptions, new FullAccessHost(fs));
+    const importResolver = new ImportResolver(serviceProvider, configOptions, new FullAccessHost(serviceProvider));
 
     const program = new Program(importResolver, configOptions, serviceProvider);
-    const filePaths = fileNames.map((name) => resolveSampleFilePath(name));
-    program.setTrackedFiles(filePaths);
+    const fileUris = fileNames.map((name) => Uri.file(resolveSampleFilePath(name)));
+    program.setTrackedFiles(fileUris);
 
     // Set a "pre-check callback" so we can evaluate the types of each NameNode
     // prior to checking the full document. This will exercise the contextual
@@ -178,7 +120,7 @@ export function typeAnalyzeSampleFiles(
         nameTypeWalker.walk(parseResults.parseTree);
     });
 
-    const results = getAnalysisResults(program, filePaths, configOptions);
+    const results = getAnalysisResults(program, fileUris, configOptions);
 
     program.dispose();
     return results;
@@ -186,8 +128,8 @@ export function typeAnalyzeSampleFiles(
 
 export function getAnalysisResults(
     program: Program,
-    filePaths: string[],
-    configOptions = new ConfigOptions('.')
+    fileUris: Uri[],
+    configOptions = new ConfigOptions(Uri.empty())
 ): FileAnalysisResult[] {
     // Always enable "test mode".
     configOptions.internalTestMode = true;
@@ -197,12 +139,12 @@ export function getAnalysisResults(
         // specifying a timeout, it should complete the first time.
     }
 
-    const sourceFiles = filePaths.map((filePath) => program.getSourceFile(filePath));
+    const sourceFiles = fileUris.map((filePath) => program.getSourceFile(filePath));
     return sourceFiles.map((sourceFile, index) => {
         if (sourceFile) {
             const diagnostics = sourceFile.getDiagnostics(configOptions) || [];
             const analysisResult: FileAnalysisResult = {
-                filePath: sourceFile.getFilePath(),
+                fileUri: sourceFile.getUri(),
                 parseResults: sourceFile.getParseResults(),
                 errors: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Error),
                 warnings: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Warning),
@@ -213,10 +155,10 @@ export function getAnalysisResults(
             };
             return analysisResult;
         } else {
-            fail(`Source file not found for ${filePaths[index]}`);
+            fail(`Source file not found for ${fileUris[index]}`);
 
             const analysisResult: FileAnalysisResult = {
-                filePath: '',
+                fileUri: Uri.empty(),
                 parseResults: undefined,
                 errors: [],
                 warnings: [],
@@ -232,14 +174,14 @@ export function getAnalysisResults(
 
 export function printDiagnostics(fileResults: FileAnalysisResult) {
     if (fileResults.errors.length > 0) {
-        console.error(`Errors in ${fileResults.filePath}:`);
+        console.error(`Errors in ${fileResults.fileUri}:`);
         for (const diag of fileResults.errors) {
             console.error(`  ${diag.message}`);
         }
     }
 
     if (fileResults.warnings.length > 0) {
-        console.error(`Warnings in ${fileResults.filePath}:`);
+        console.error(`Warnings in ${fileResults.fileUri}:`);
         for (const diag of fileResults.warnings) {
             console.error(`  ${diag.message}`);
         }

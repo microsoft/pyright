@@ -16,7 +16,8 @@
         "check:eslint": "eslint .",
         "fix:eslint": "eslint --fix .",
         "check:prettier": "prettier -c .",
-        "fix:prettier": "prettier --write ."
+        "fix:prettier": "prettier --write .",
+        "typecheck": "npx lerna exec --stream --no-bail --ignore=pyright -- tsc --noEmit"
     },
     "devDependencies": {
         "@types/glob": "^7.2.0",

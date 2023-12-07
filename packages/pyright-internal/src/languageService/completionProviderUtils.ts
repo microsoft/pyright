@@ -11,21 +11,22 @@ import { InsertTextFormat, MarkupContent, MarkupKind, TextEdit } from 'vscode-la
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
+import { isProperty } from '../analyzer/typeUtils';
 import {
     ClassType,
+    Type,
+    TypeBase,
+    TypeCategory,
+    UnknownType,
     getTypeAliasInfo,
     isClassInstance,
     isFunction,
     isModule,
     isOverloadedFunction,
-    Type,
-    TypeBase,
-    TypeCategory,
-    UnknownType,
 } from '../analyzer/types';
-import { isProperty } from '../analyzer/typeUtils';
 import { SignatureDisplayType } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
+import { Uri } from '../common/uri/uri';
 import { getToolTipForType } from './tooltipUtils';
 
 export interface Edits {
@@ -55,7 +56,7 @@ export interface CompletionDetail extends CommonDetail {
     };
     sortText?: string;
     itemDetail?: string;
-    modulePath?: string;
+    moduleUri?: Uri;
 }
 
 export function getTypeDetail(

@@ -16,7 +16,7 @@ import {
     getClassDocString,
     getFunctionDocStringInherited,
     getModuleDocString,
-    getModuleDocStringFromPaths,
+    getModuleDocStringFromUris,
     getOverloadedFunctionDocStringsInherited,
     getPropertyDocStringInherited,
     getVariableDocString,
@@ -323,7 +323,7 @@ export function getDocumentationPartsForTypeAndDecl(
             }
         }
 
-        typeDoc = getModuleDocStringFromPaths([resolvedDecl.path], sourceMapper);
+        typeDoc = getModuleDocStringFromUris([resolvedDecl.uri], sourceMapper);
     }
 
     typeDoc =

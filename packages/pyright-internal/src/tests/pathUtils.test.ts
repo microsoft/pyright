@@ -8,44 +8,31 @@
  */
 
 import assert from 'assert';
-import * as nodefs from 'fs-extra';
-import * as os from 'os';
 import * as path from 'path';
 
-import { expandPathVariables } from '../common/envVarUtils';
 import {
-    changeAnyExtension,
     combinePathComponents,
     combinePaths,
     containsPath,
-    convertUriToPath,
-    deduplicateFolders,
     ensureTrailingDirectorySeparator,
     getAnyExtensionFromPath,
     getBaseFileName,
-    getDirectoryPath,
     getFileExtension,
     getFileName,
     getPathComponents,
     getRelativePath,
-    getRelativePathFromDirectory,
     getRootLength,
     getWildcardRegexPattern,
     getWildcardRoot,
     hasTrailingDirectorySeparator,
     isDirectoryWildcardPatternPresent,
-    isFileSystemCaseSensitiveInternal,
     isRootedDiskPath,
-    isUri,
     normalizeSlashes,
-    realCasePath,
     reducePathComponents,
     resolvePaths,
     stripFileExtension,
     stripTrailingDirectorySeparator,
 } from '../common/pathUtils';
-import { createFromRealFileSystem } from '../common/realFileSystem';
-import * as vfs from './harness/vfs/filesystem';
 
 test('getPathComponents1', () => {
     const components = getPathComponents('');
@@ -94,8 +81,8 @@ test('getPathComponents6', () => {
 test('getPathComponents7', () => {
     const components = getPathComponents('ab:cdef/test');
     assert.equal(components.length, 3);
-    assert.equal(components[0], 'ab:');
-    assert.equal(components[1], 'cdef');
+    assert.equal(components[0], '');
+    assert.equal(components[1], 'ab:cdef');
     assert.equal(components[2], 'test');
 });
 
@@ -111,7 +98,7 @@ test('combinePaths2', () => {
 
 test('combinePaths3', () => {
     const p = combinePaths('untitled:foo', 'ab:c');
-    assert.equal(p, normalizeSlashes('untitled:foo/ab%3Ac'));
+    assert.equal(p, normalizeSlashes('untitled:foo/ab:c'));
 });
 
 test('ensureTrailingDirectorySeparator1', () => {
@@ -267,32 +254,6 @@ test('resolvePath2', () => {
     assert.equal(resolvePaths('/path', 'to', '..', 'from', 'file.ext/'), normalizeSlashes('/path/from/file.ext/'));
 });
 
-test('resolvePath3 ~ escape', () => {
-    const homedir = os.homedir();
-    assert.equal(
-        resolvePaths(expandPathVariables('', '~/path'), 'to', '..', 'from', 'file.ext/'),
-        normalizeSlashes(`${homedir}/path/from/file.ext/`)
-    );
-});
-
-test('resolvePath4 ~ escape in middle', () => {
-    const homedir = os.homedir();
-    assert.equal(
-        resolvePaths('/path', expandPathVariables('', '~/file.ext/')),
-        normalizeSlashes(`${homedir}/file.ext/`)
-    );
-});
-
-test('invalid ~ without root', () => {
-    const path = combinePaths('Library', 'Mobile Documents', 'com~apple~CloudDocs', 'Development', 'mysuperproject');
-    assert.equal(resolvePaths(expandPathVariables('/src', path)), path);
-});
-
-test('invalid ~ with root', () => {
-    const path = combinePaths('/', 'Library', 'com~apple~CloudDocs', 'Development', 'mysuperproject');
-    assert.equal(resolvePaths(expandPathVariables('/src', path)), path);
-});
-
 test('containsPath1', () => {
     assert.equal(containsPath('/a/b/c/', '/a/d/../b/c/./d'), true);
 });
@@ -303,22 +264,6 @@ test('containsPath2', () => {
 
 test('containsPath3', () => {
     assert.equal(containsPath('/a', '/A/B', true), true);
-});
-
-test('changeAnyExtension1', () => {
-    assert.equal(changeAnyExtension('/path/to/file.ext', '.js', ['.ext', '.ts'], true), '/path/to/file.js');
-});
-
-test('changeAnyExtension2', () => {
-    assert.equal(changeAnyExtension('/path/to/file.ext', '.js'), '/path/to/file.js');
-});
-
-test('changeAnyExtension3', () => {
-    assert.equal(changeAnyExtension('/path/to/file.ext', '.js', '.ts', false), '/path/to/file.ext');
-});
-
-test('changeAnyExtension1', () => {
-    assert.equal(getAnyExtensionFromPath('/path/to/file.ext'), '.ext');
 });
 
 test('changeAnyExtension2', () => {
@@ -343,14 +288,6 @@ test('getBaseFileName3', () => {
 
 test('getBaseFileName4', () => {
     assert.equal(getBaseFileName('/path/to/file.ext', ['.ext'], true), 'file');
-});
-
-test('getRelativePathFromDirectory1', () => {
-    assert.equal(getRelativePathFromDirectory('/a', '/a/b/c/d', true), normalizeSlashes('b/c/d'));
-});
-
-test('getRelativePathFromDirectory2', () => {
-    assert.equal(getRelativePathFromDirectory('/a', '/b/c/d', true), normalizeSlashes('../b/c/d'));
 });
 
 test('getRootLength1', () => {
@@ -379,14 +316,6 @@ test('getRootLength6', () => {
 
 test('getRootLength7', () => {
     assert.equal(getRootLength(fixSeparators('//server/share')), 9);
-});
-
-test('getRootLength8', () => {
-    assert.equal(getRootLength('scheme:/no/authority'), 7);
-});
-
-test('getRootLength9', () => {
-    assert.equal(getRootLength('scheme://with/authority'), 9);
 });
 
 test('isRootedDiskPath1', () => {
@@ -422,122 +351,4 @@ test('getRelativePath', () => {
         getRelativePath(normalizeSlashes('/a/b/c/d/e/f'), normalizeSlashes('/a/b/c')),
         normalizeSlashes('./d/e/f')
     );
-});
-
-test('getDirectoryPath', () => {
-    assert.equal(getDirectoryPath(normalizeSlashes('/a/b/c/d/e/f')), normalizeSlashes('/a/b/c/d/e'));
-    assert.equal(
-        getDirectoryPath(normalizeSlashes('untitled:/a/b/c/d/e/f?query#frag')),
-        normalizeSlashes('untitled:/a/b/c/d/e')
-    );
-});
-
-test('isUri', () => {
-    assert.ok(isUri('untitled:/a/b/c/d/e/f?query#frag'));
-    assert.ok(isUri('untitled:/a/b/c/d/e/f'));
-    assert.ok(isUri('untitled:a/b/c/d/e/f'));
-    assert.ok(isUri('untitled:/a/b/c/d/e/f?query'));
-    assert.ok(isUri('untitled:/a/b/c/d/e/f#frag'));
-    assert.ok(!isUri('c:/foo/bar'));
-    assert.ok(!isUri('c:/foo#/bar'));
-    assert.ok(!isUri('222/dd:/foo/bar'));
-});
-test('CaseSensitivity', () => {
-    const cwd = normalizeSlashes('/');
-
-    const fsCaseInsensitive = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
-    assert.equal(isFileSystemCaseSensitiveInternal(fsCaseInsensitive, fsCaseInsensitive), false);
-
-    const fsCaseSensitive = new vfs.TestFileSystem(/*ignoreCase*/ false, { cwd });
-    assert.equal(isFileSystemCaseSensitiveInternal(fsCaseSensitive, fsCaseSensitive), true);
-});
-
-test('deduplicateFolders', () => {
-    const listOfFolders = [
-        ['/user', '/user/temp', '/xuser/app', '/lib/python', '/home/p/.venv/lib/site-packages'],
-        ['/user', '/user/temp', '/xuser/app', '/lib/python/Python310.zip', '/home/z/.venv/lib/site-packages'],
-        ['/main/python/lib/site-packages', '/home/p'],
-    ];
-
-    const folders = deduplicateFolders(listOfFolders);
-
-    const expected = [
-        '/user',
-        '/xuser/app',
-        '/lib/python',
-        '/home/z/.venv/lib/site-packages',
-        '/main/python/lib/site-packages',
-        '/home/p',
-    ];
-
-    assert.deepStrictEqual(folders.sort(), expected.sort());
-});
-
-test('convert UNC path', () => {
-    const cwd = normalizeSlashes('/');
-    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
-
-    const path = convertUriToPath(fs, 'file://server/c$/folder/file.py');
-
-    // When converting UNC path, server part shouldn't be removed.
-    assert(path.indexOf('server') > 0);
-});
-
-test('Realcase', () => {
-    const fs = createFromRealFileSystem();
-    const cwd = process.cwd();
-    const dir = path.join(cwd, 'src', 'tests', '..', 'tests');
-    const entries = nodefs.readdirSync(dir).map((entry) => path.basename(nodefs.realpathSync(path.join(dir, entry))));
-    const fsentries = fs.readdirSync(dir);
-    assert.deepStrictEqual(entries, fsentries);
-
-    const paths = entries.map((entry) => nodefs.realpathSync(path.join(dir, entry)));
-    const fspaths = fsentries.map((entry) => fs.realCasePath(path.join(dir, entry)));
-    assert.deepStrictEqual(paths, fspaths);
-
-    // Check that the '..' has been removed.
-    assert.ok(!fspaths.some((p) => p.indexOf('..') >= 0));
-
-    // If windows, check that the case is correct.
-    if (process.platform === 'win32') {
-        for (const p of fspaths) {
-            const upper = p.toUpperCase();
-            const real = fs.realCasePath(upper);
-            assert.strictEqual(p, real);
-        }
-    }
-});
-
-test('Realcase use cwd implicitly', () => {
-    const fs = createFromRealFileSystem();
-    const empty = realCasePath('', fs);
-    assert.deepStrictEqual(empty, '');
-    const cwd = process.cwd();
-    const dir = path.join(cwd, 'src', 'tests');
-
-    const entries = nodefs.readdirSync(dir).map((entry) => path.basename(nodefs.realpathSync(path.join(dir, entry))));
-    const fsentries = fs.readdirSync(path.join('src', 'tests'));
-    const paths = entries.map((entry) => nodefs.realpathSync(path.join(dir, entry)));
-    const fspaths = fsentries.map((entry) => fs.realCasePath(path.join(dir, entry)));
-    assert.deepStrictEqual(paths, fspaths);
-});
-
-test('Realcase drive letter', () => {
-    const fs = createFromRealFileSystem();
-
-    const cwd = process.cwd();
-
-    assert.strictEqual(
-        getDriveLetter(fs.realCasePath(cwd)),
-        getDriveLetter(fs.realCasePath(combinePaths(cwd.toLowerCase(), 'notExist.txt')))
-    );
-
-    function getDriveLetter(path: string) {
-        const driveLetter = getRootLength(path);
-        if (driveLetter === 0) {
-            return '';
-        }
-
-        return path.substring(0, driveLetter);
-    }
 });

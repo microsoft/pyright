@@ -7,12 +7,13 @@
 import assert from 'assert';
 import { CancellationToken } from 'vscode-jsonrpc';
 
+import { findNodeByOffset } from '../analyzer/parseTreeUtils';
 import { FileEditAction } from '../common/editAction';
 import { TextEditTracker } from '../common/textEditTracker';
+import { Uri } from '../common/uri/uri';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
 import { convertRangeToFileEditAction } from './testStateUtils';
-import { findNodeByOffset } from '../analyzer/parseTreeUtils';
 
 test('simple add', () => {
     const code = `
@@ -114,7 +115,7 @@ function verifyRemoveNodes(code: string) {
     const ranges = state.getRanges();
     const changeRanges = _getChangeRanges(ranges);
     for (const range of changeRanges) {
-        const parseResults = state.program.getParseResults(range.fileName)!;
+        const parseResults = state.program.getParseResults(Uri.file(range.fileName))!;
         const node = findNodeByOffset(parseResults.parseTree, range.pos)!;
         tracker.removeNodes({ node, parseResults });
     }
@@ -139,7 +140,7 @@ function verifyEdits(code: string, mergeOnlyDuplications = true) {
     const changeRanges = _getChangeRanges(ranges);
     for (const range of changeRanges) {
         const edit = convertRangeToFileEditAction(state, range);
-        tracker.addEdit(edit.filePath, edit.range, edit.replacementText);
+        tracker.addEdit(edit.fileUri, edit.range, edit.replacementText);
     }
 
     const edits = tracker.getEdits(CancellationToken.None);

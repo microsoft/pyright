@@ -12,11 +12,12 @@ import { OperationCanceledException, setCancellationFolderName } from './common/
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, LogLevel } from './common/console';
 import * as debug from './common/debug';
-import { FileSpec } from './common/pathUtils';
 import { createFromRealFileSystem, RealTempFile } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
 import './common/serviceProviderExtensions';
 import { ServiceKeys } from './common/serviceProviderExtensions';
+import { Uri } from './common/uri/uri';
+import { FileSpec } from './common/uri/uriUtils';
 
 export class BackgroundConsole implements ConsoleInterface {
     // We always generate logs in the background. For the foreground,
@@ -48,9 +49,6 @@ export class BackgroundThreadBase {
     protected constructor(data: InitializationData, serviceProvider?: ServiceProvider) {
         setCancellationFolderName(data.cancellationFolderName);
 
-        // Stash the base directory into a global variable.
-        (global as any).__rootDirectory = data.rootDirectory;
-
         // Make sure there's a file system and a console interface.
         this._serviceProvider = serviceProvider ?? new ServiceProvider();
         if (!this._serviceProvider.tryGet(ServiceKeys.console)) {
@@ -60,8 +58,17 @@ export class BackgroundThreadBase {
             this._serviceProvider.add(ServiceKeys.fs, createFromRealFileSystem(this.getConsole()));
         }
         if (!this._serviceProvider.tryGet(ServiceKeys.tempFile)) {
-            this._serviceProvider.add(ServiceKeys.tempFile, new RealTempFile());
+            this._serviceProvider.add(
+                ServiceKeys.tempFile,
+                new RealTempFile(this._serviceProvider.fs().isCaseSensitive)
+            );
         }
+
+        // Stash the base directory into a global variable.
+        (global as any).__rootDirectory = Uri.parse(
+            data.rootUri,
+            this._serviceProvider.fs().isCaseSensitive
+        ).getFilePath();
     }
 
     protected get fs() {
@@ -170,7 +177,7 @@ export function getBackgroundWaiter<T>(port: MessagePort): Promise<T> {
 }
 
 export interface InitializationData {
-    rootDirectory: string;
+    rootUri: string;
     cancellationFolderName: string | undefined;
     runner: string | undefined;
     title?: string;

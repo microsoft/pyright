@@ -2718,7 +2718,7 @@ export function getScopeIdForNode(node: ParseNode): string {
     }
 
     const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-    return `${fileInfo.filePath}.${node.start.toString()}-${name}`;
+    return `${fileInfo.fileUri.key}.${node.start.toString()}-${name}`;
 }
 
 // Walks up the parse tree and finds all scopes that can provide

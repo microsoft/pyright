@@ -10,6 +10,7 @@
 
 import { ConfigOptions } from '../common/configOptions';
 import { PythonVersion } from '../common/pythonVersion';
+import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
 test('Module1', () => {
@@ -139,7 +140,7 @@ test('Await2', () => {
 });
 
 test('Coroutines1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // This functionality is deprecated in Python 3.11, so the type no longer
     // exists in typing.pyi after that point.
@@ -156,7 +157,7 @@ test('Coroutines2', () => {
 });
 
 test('Coroutines3', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // This functionality is deprecated in Python 3.11, so the type no longer
     // exists in typing.pyi after that point.
@@ -551,7 +552,7 @@ test('TypeAlias3', () => {
 });
 
 test('TypeAlias4', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults3_9 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
@@ -635,7 +636,7 @@ test('TypeAlias16', () => {
 });
 
 test('TypeAlias17', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['typeAlias17.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 4);
@@ -682,7 +683,7 @@ test('RecursiveTypeAlias2', () => {
 });
 
 test('RecursiveTypeAlias3', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['recursiveTypeAlias3.py'], configOptions);
@@ -775,7 +776,7 @@ test('Classes4', () => {
 });
 
 test('Classes5', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.diagnosticRuleSet.reportIncompatibleVariableOverride = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes5.py'], configOptions);
@@ -829,7 +830,7 @@ test('Methods1', () => {
 });
 
 test('MethodOverride1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride1.py'], configOptions);
@@ -841,7 +842,7 @@ test('MethodOverride1', () => {
 });
 
 test('MethodOverride2', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride2.py'], configOptions);
@@ -853,7 +854,7 @@ test('MethodOverride2', () => {
 });
 
 test('MethodOverride3', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride3.py'], configOptions);
@@ -870,7 +871,7 @@ test('MethodOverride4', () => {
 });
 
 test('MethodOverride5', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride5.py'], configOptions);
@@ -878,7 +879,7 @@ test('MethodOverride5', () => {
 });
 
 test('MethodOverride6', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'none';
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['methodOverride6.py'], configOptions);
@@ -962,7 +963,7 @@ test('TypeGuard2', () => {
 });
 
 test('TypeGuard3', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard3.py'], configOptions);
@@ -970,7 +971,7 @@ test('TypeGuard3', () => {
 });
 
 test('TypeGuard4', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard4.py'], configOptions);
@@ -1014,7 +1015,7 @@ test('ProtocolModule4', () => {
 });
 
 test('VariadicTypeVar1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar1.py'], configOptions);
@@ -1022,7 +1023,7 @@ test('VariadicTypeVar1', () => {
 });
 
 test('VariadicTypeVar2', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar2.py'], configOptions);
@@ -1030,7 +1031,7 @@ test('VariadicTypeVar2', () => {
 });
 
 test('VariadicTypeVar3', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar3.py'], configOptions);
@@ -1038,7 +1039,7 @@ test('VariadicTypeVar3', () => {
 });
 
 test('VariadicTypeVar4', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar4.py'], configOptions);
@@ -1046,7 +1047,7 @@ test('VariadicTypeVar4', () => {
 });
 
 test('VariadicTypeVar5', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar5.py'], configOptions);
@@ -1054,7 +1055,7 @@ test('VariadicTypeVar5', () => {
 });
 
 test('VariadicTypeVar6', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar6.py'], configOptions);
@@ -1062,7 +1063,7 @@ test('VariadicTypeVar6', () => {
 });
 
 test('VariadicTypeVar7', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar7.py'], configOptions);
@@ -1070,7 +1071,7 @@ test('VariadicTypeVar7', () => {
 });
 
 test('VariadicTypeVar8', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar8.py'], configOptions);
@@ -1078,7 +1079,7 @@ test('VariadicTypeVar8', () => {
 });
 
 test('VariadicTypeVar9', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar9.py'], configOptions);
@@ -1086,7 +1087,7 @@ test('VariadicTypeVar9', () => {
 });
 
 test('VariadicTypeVar10', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar10.py'], configOptions);
@@ -1094,7 +1095,7 @@ test('VariadicTypeVar10', () => {
 });
 
 test('VariadicTypeVar11', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar11.py'], configOptions);
@@ -1102,7 +1103,7 @@ test('VariadicTypeVar11', () => {
 });
 
 test('VariadicTypeVar12', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar12.py'], configOptions);
@@ -1110,7 +1111,7 @@ test('VariadicTypeVar12', () => {
 });
 
 test('VariadicTypeVar13', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar13.py'], configOptions);
@@ -1118,7 +1119,7 @@ test('VariadicTypeVar13', () => {
 });
 
 test('VariadicTypeVar14', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar14.py'], configOptions);
@@ -1126,7 +1127,7 @@ test('VariadicTypeVar14', () => {
 });
 
 test('VariadicTypeVar15', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar15.py'], configOptions);
@@ -1134,7 +1135,7 @@ test('VariadicTypeVar15', () => {
 });
 
 test('VariadicTypeVar16', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar16.py'], configOptions);
@@ -1142,7 +1143,7 @@ test('VariadicTypeVar16', () => {
 });
 
 test('VariadicTypeVar17', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar17.py'], configOptions);
@@ -1150,7 +1151,7 @@ test('VariadicTypeVar17', () => {
 });
 
 test('VariadicTypeVar18', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar18.py'], configOptions);
@@ -1158,7 +1159,7 @@ test('VariadicTypeVar18', () => {
 });
 
 test('VariadicTypeVar19', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar19.py'], configOptions);
@@ -1166,7 +1167,7 @@ test('VariadicTypeVar19', () => {
 });
 
 test('VariadicTypeVar20', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar20.py'], configOptions);
@@ -1174,7 +1175,7 @@ test('VariadicTypeVar20', () => {
 });
 
 test('VariadicTypeVar21', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar21.py'], configOptions);
@@ -1182,7 +1183,7 @@ test('VariadicTypeVar21', () => {
 });
 
 test('VariadicTypeVar22', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar22.py'], configOptions);
@@ -1190,7 +1191,7 @@ test('VariadicTypeVar22', () => {
 });
 
 test('VariadicTypeVar23', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar23.py'], configOptions);
@@ -1198,7 +1199,7 @@ test('VariadicTypeVar23', () => {
 });
 
 test('VariadicTypeVar24', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar24.py'], configOptions);
@@ -1206,7 +1207,7 @@ test('VariadicTypeVar24', () => {
 });
 
 test('VariadicTypeVar25', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar25.py'], configOptions);
@@ -1214,7 +1215,7 @@ test('VariadicTypeVar25', () => {
 });
 
 test('VariadicTypeVar26', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar26.py'], configOptions);
@@ -1222,7 +1223,7 @@ test('VariadicTypeVar26', () => {
 });
 
 test('Match1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match1.py'], configOptions);
@@ -1230,7 +1231,7 @@ test('Match1', () => {
 });
 
 test('Match2', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match2.py'], configOptions);
@@ -1238,7 +1239,7 @@ test('Match2', () => {
 });
 
 test('Match3', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match3.py'], configOptions);
@@ -1246,7 +1247,7 @@ test('Match3', () => {
 });
 
 test('MatchSequence1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchSequence1.py'], configOptions);
@@ -1254,7 +1255,7 @@ test('MatchSequence1', () => {
 });
 
 test('MatchClass1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass1.py'], configOptions);
@@ -1262,7 +1263,7 @@ test('MatchClass1', () => {
 });
 
 test('MatchClass2', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass2.py'], configOptions);
@@ -1270,7 +1271,7 @@ test('MatchClass2', () => {
 });
 
 test('MatchClass3', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass3.py'], configOptions);
@@ -1278,7 +1279,7 @@ test('MatchClass3', () => {
 });
 
 test('MatchClass4', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass4.py'], configOptions);
@@ -1286,7 +1287,7 @@ test('MatchClass4', () => {
 });
 
 test('MatchClass5', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass5.py'], configOptions);
@@ -1294,7 +1295,7 @@ test('MatchClass5', () => {
 });
 
 test('MatchClass6', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchClass6.py'], configOptions);
@@ -1302,7 +1303,7 @@ test('MatchClass6', () => {
 });
 
 test('MatchValue1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchValue1.py'], configOptions);
@@ -1310,7 +1311,7 @@ test('MatchValue1', () => {
 });
 
 test('MatchMapping1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchMapping1.py'], configOptions);
@@ -1318,7 +1319,7 @@ test('MatchMapping1', () => {
 });
 
 test('MatchLiteral1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchLiteral1.py'], configOptions);
@@ -1326,7 +1327,7 @@ test('MatchLiteral1', () => {
 });
 
 test('MatchExhaustion1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     configOptions.diagnosticRuleSet.reportMatchNotExhaustive = 'none';
@@ -1339,7 +1340,7 @@ test('MatchExhaustion1', () => {
 });
 
 test('MatchUnnecessary1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['matchUnnecessary1.py'], configOptions);
@@ -1366,7 +1367,7 @@ test('List3', () => {
 });
 
 test('Comparison1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['comparison1.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 0);
@@ -1377,7 +1378,7 @@ test('Comparison1', () => {
 });
 
 test('Comparison2', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['comparison2.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 0);
@@ -1555,7 +1556,7 @@ test('Constructor23', () => {
 });
 
 test('Constructor24', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.diagnosticRuleSet.strictParameterNoneValue = false;
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor24.py'], configOptions);
@@ -1597,7 +1598,7 @@ test('Constructor29', () => {
 });
 
 test('InconsistentConstructor1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.diagnosticRuleSet.reportInconsistentConstructor = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['inconsistentConstructor1.py'], configOptions);
@@ -1616,7 +1617,7 @@ test('ClassGetItem1', () => {
 });
 
 test('UnusedCallResult1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // By default, this is disabled.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unusedCallResult1.py'], configOptions);
@@ -1652,7 +1653,7 @@ test('FunctionAnnotation3', () => {
 });
 
 test('FunctionAnnotation4', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['functionAnnotation4.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 0);
@@ -1663,7 +1664,7 @@ test('FunctionAnnotation4', () => {
 });
 
 test('Subscript1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.8 settings.
     configOptions.defaultPythonVersion = PythonVersion.V3_8;
@@ -1682,7 +1683,7 @@ test('Subscript2', () => {
 });
 
 test('Subscript3', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.9 settings.
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
@@ -1714,7 +1715,7 @@ test('Decorator2', () => {
 });
 
 test('Decorator3', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.8 settings.
     configOptions.defaultPythonVersion = PythonVersion.V3_8;

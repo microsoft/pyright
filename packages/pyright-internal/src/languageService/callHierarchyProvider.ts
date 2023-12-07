@@ -29,10 +29,10 @@ import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
 import { ProgramView, ReferenceUseCase, SymbolUsageProvider } from '../common/extensibility';
 import { getSymbolKind } from '../common/lspUtils';
-import { convertPathToUri, getFileName } from '../common/pathUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Position, rangesAreEqual } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { CallNode, MemberAccessNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
@@ -44,11 +44,11 @@ export class CallHierarchyProvider {
 
     constructor(
         private _program: ProgramView,
-        private _filePath: string,
+        private _fileUri: Uri,
         private _position: Position,
         private _token: CancellationToken
     ) {
-        this._parseResults = this._program.getParseResults(this._filePath);
+        this._parseResults = this._program.getParseResults(this._fileUri);
     }
 
     onPrepare(): CallHierarchyItem[] | null {
@@ -86,17 +86,14 @@ export class CallHierarchyProvider {
         const callItem: CallHierarchyItem = {
             name: symbolName,
             kind: getSymbolKind(targetDecl, this._evaluator, symbolName) ?? SymbolKind.Module,
-            uri: callItemUri,
+            uri: callItemUri.toString(),
             range: targetDecl.range,
             selectionRange: targetDecl.range,
         };
 
-        if (!canNavigateToFile(this._program.fileSystem, callItem.uri)) {
+        if (!canNavigateToFile(this._program.fileSystem, Uri.parse(callItem.uri, this._fileUri.isCaseSensitive))) {
             return null;
         }
-
-        // Convert the file path in the item to proper URI.
-        callItem.uri = convertPathToUri(this._program.fileSystem, callItem.uri);
 
         return [callItem];
     }
@@ -117,11 +114,11 @@ export class CallHierarchyProvider {
         const items: CallHierarchyIncomingCall[] = [];
         const sourceFiles =
             targetDecl.type === DeclarationType.Alias
-                ? [this._program.getSourceFileInfo(this._filePath)!]
+                ? [this._program.getSourceFileInfo(this._fileUri)!]
                 : this._program.getSourceFileInfoList();
         for (const curSourceFileInfo of sourceFiles) {
             if (isUserCode(curSourceFileInfo) || curSourceFileInfo.isOpenByClient) {
-                const filePath = curSourceFileInfo.sourceFile.getFilePath();
+                const filePath = curSourceFileInfo.sourceFile.getUri();
                 const itemsToAdd = this._getIncomingCallsForDeclaration(filePath, symbolName, targetDecl);
 
                 if (itemsToAdd) {
@@ -138,14 +135,9 @@ export class CallHierarchyProvider {
             return null;
         }
 
-        const callItems = items.filter((item) => canNavigateToFile(this._program.fileSystem, item.from.uri));
-
-        // Convert the file paths in the items to proper URIs.
-        callItems.forEach((item) => {
-            item.from.uri = convertPathToUri(this._program.fileSystem, item.from.uri);
-        });
-
-        return callItems;
+        return items.filter((item) =>
+            canNavigateToFile(this._program.fileSystem, Uri.parse(item.from.uri, this._fileUri.isCaseSensitive))
+        );
     }
 
     getOutgoingCalls(): CallHierarchyOutgoingCall[] | null {
@@ -209,14 +201,9 @@ export class CallHierarchyProvider {
             return null;
         }
 
-        const callItems = outgoingCalls.filter((item) => canNavigateToFile(this._program.fileSystem, item.to.uri));
-
-        // Convert the file paths in the items to proper URIs.
-        callItems.forEach((item) => {
-            item.to.uri = convertPathToUri(this._program.fileSystem, item.to.uri);
-        });
-
-        return callItems;
+        return outgoingCalls.filter((item) =>
+            canNavigateToFile(this._program.fileSystem, Uri.parse(item.to.uri, this._fileUri.isCaseSensitive))
+        );
     }
 
     private get _evaluator(): TypeEvaluator {
@@ -225,7 +212,7 @@ export class CallHierarchyProvider {
 
     private _getTargetDeclaration(referencesResult: ReferencesResult): {
         targetDecl: Declaration;
-        callItemUri: string;
+        callItemUri: Uri;
         symbolName: string;
     } {
         // If there's more than one declaration, pick the target one.
@@ -253,32 +240,26 @@ export class CallHierarchyProvider {
         // Although the LSP specification requires a URI, we are using a file path
         // here because it is converted to the proper URI by the caller.
         // This simplifies our code and ensures compatibility with the LSP specification.
-        let callItemUri;
+        let callItemUri: Uri;
         if (targetDecl.type === DeclarationType.Alias) {
             symbolName = (referencesResult.nodeAtOffset as NameNode).value;
-            callItemUri = this._filePath;
+            callItemUri = this._fileUri;
         } else {
             symbolName = DeclarationUtils.getNameFromDeclaration(targetDecl) || referencesResult.symbolNames[0];
-            callItemUri = targetDecl.path;
+            callItemUri = targetDecl.uri;
         }
 
         return { targetDecl, callItemUri, symbolName };
     }
 
     private _getIncomingCallsForDeclaration(
-        filePath: string,
+        fileUri: Uri,
         symbolName: string,
         declaration: Declaration
     ): CallHierarchyIncomingCall[] | undefined {
         throwIfCancellationRequested(this._token);
 
-        const callFinder = new FindIncomingCallTreeWalker(
-            this._program,
-            filePath,
-            symbolName,
-            declaration,
-            this._token
-        );
+        const callFinder = new FindIncomingCallTreeWalker(this._program, fileUri, symbolName, declaration, this._token);
 
         const incomingCalls = callFinder.findCalls();
         return incomingCalls.length > 0 ? incomingCalls : undefined;
@@ -287,7 +268,7 @@ export class CallHierarchyProvider {
     private _getDeclaration(): ReferencesResult | undefined {
         return ReferencesProvider.getDeclarationForPosition(
             this._program,
-            this._filePath,
+            this._fileUri,
             this._position,
             /* reporter */ undefined,
             ReferenceUseCase.References,
@@ -394,7 +375,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
         const callDest: CallHierarchyItem = {
             name: nameNode.value,
             kind: getSymbolKind(resolvedDecl, this._evaluator, nameNode.value) ?? SymbolKind.Module,
-            uri: resolvedDecl.path,
+            uri: resolvedDecl.uri.toString(),
             range: resolvedDecl.range,
             selectionRange: resolvedDecl.range,
         };
@@ -437,14 +418,14 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
 
     constructor(
         private readonly _program: ProgramView,
-        private readonly _filePath: string,
+        private readonly _fileUri: Uri,
         private readonly _symbolName: string,
         private readonly _targetDeclaration: Declaration,
         private readonly _cancellationToken: CancellationToken
     ) {
         super();
 
-        this._parseResults = this._program.getParseResults(this._filePath)!;
+        this._parseResults = this._program.getParseResults(this._fileUri)!;
         this._usageProviders = (this._program.serviceProvider.tryGet(ServiceKeys.symbolUsageProviderFactory) ?? [])
             .map((f) =>
                 f.tryCreateProvider(ReferenceUseCase.References, [this._targetDeclaration], this._cancellationToken)
@@ -570,12 +551,12 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         let callSource: CallHierarchyItem;
         if (executionNode.nodeType === ParseNodeType.Module) {
             const moduleRange = convertOffsetsToRange(0, 0, this._parseResults.tokenizerOutput.lines);
-            const fileName = getFileName(this._filePath);
+            const fileName = this._fileUri.fileName;
 
             callSource = {
                 name: `(module) ${fileName}`,
                 kind: SymbolKind.Module,
-                uri: this._filePath,
+                uri: this._fileUri.toString(),
                 range: moduleRange,
                 selectionRange: moduleRange,
             };
@@ -589,7 +570,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
             callSource = {
                 name: '(lambda)',
                 kind: SymbolKind.Function,
-                uri: this._filePath,
+                uri: this._fileUri.toString(),
                 range: lambdaRange,
                 selectionRange: lambdaRange,
             };
@@ -603,7 +584,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
             callSource = {
                 name: executionNode.name.value,
                 kind: SymbolKind.Function,
-                uri: this._filePath,
+                uri: this._fileUri.toString(),
                 range: functionRange,
                 selectionRange: functionRange,
             };

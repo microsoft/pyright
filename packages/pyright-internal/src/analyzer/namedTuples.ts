@@ -114,7 +114,7 @@ export function createNamedTupleType(
         className,
         ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
         fileInfo.moduleName,
-        fileInfo.filePath,
+        fileInfo.fileUri,
         ClassTypeFlags.ReadOnlyInstanceVariables,
         ParseTreeUtils.getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,
@@ -207,7 +207,7 @@ export function createNamedTupleType(
                             type: DeclarationType.Variable,
                             node: stringNode as StringListNode,
                             isRuntimeTypeExpression: true,
-                            path: fileInfo.filePath,
+                            uri: fileInfo.fileUri,
                             range: convertOffsetsToRange(
                                 stringNode.start,
                                 TextRange.getEnd(stringNode),
@@ -303,7 +303,7 @@ export function createNamedTupleType(
                         const declaration: VariableDeclaration = {
                             type: DeclarationType.Variable,
                             node: entryNameNode,
-                            path: fileInfo.filePath,
+                            uri: fileInfo.fileUri,
                             typeAnnotationNode: entryTypeNode,
                             range: convertOffsetsToRange(
                                 entryNameNode.start,

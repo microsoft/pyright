@@ -13,10 +13,12 @@ import { PythonPathResult } from '../analyzer/pythonPathUtils';
 import { OperationCanceledException, throwIfCancellationRequested } from './cancellationUtils';
 import { PythonPlatform } from './configOptions';
 import { assertNever } from './debug';
-import { FileSystem } from './fileSystem';
 import { HostKind, NoAccessHost, ScriptOutput } from './host';
-import { isDirectory, normalizePath } from './pathUtils';
+import { normalizePath } from './pathUtils';
 import { PythonVersion, versionFromMajorMinor } from './pythonVersion';
+import { ServiceProvider } from './serviceProvider';
+import { Uri } from './uri/uri';
+import { isDirectory } from './uri/uriUtils';
 
 // preventLocalImports removes the working directory from sys.path.
 // The -c flag adds it automatically, which can allow some stdlib
@@ -60,7 +62,7 @@ export class LimitedAccessHost extends NoAccessHost {
 }
 
 export class FullAccessHost extends LimitedAccessHost {
-    constructor(protected fs: FileSystem) {
+    constructor(protected serviceProvider: ServiceProvider) {
         super();
     }
 
@@ -68,29 +70,29 @@ export class FullAccessHost extends LimitedAccessHost {
         return HostKind.FullAccess;
     }
 
-    static createHost(kind: HostKind, fs: FileSystem) {
+    static createHost(kind: HostKind, serviceProvider: ServiceProvider) {
         switch (kind) {
             case HostKind.NoAccess:
                 return new NoAccessHost();
             case HostKind.LimitedAccess:
                 return new LimitedAccessHost();
             case HostKind.FullAccess:
-                return new FullAccessHost(fs);
+                return new FullAccessHost(serviceProvider);
             default:
                 assertNever(kind);
         }
     }
 
-    override getPythonSearchPaths(pythonPath?: string, logInfo?: string[]): PythonPathResult {
+    override getPythonSearchPaths(pythonPath?: Uri, logInfo?: string[]): PythonPathResult {
         const importFailureInfo = logInfo ?? [];
-        let result = this._executePythonInterpreter(pythonPath, (p) =>
-            this._getSearchPathResultFromInterpreter(this.fs, p, importFailureInfo)
+        let result = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
+            this._getSearchPathResultFromInterpreter(p, importFailureInfo)
         );
 
         if (!result) {
             result = {
                 paths: [],
-                prefix: '',
+                prefix: undefined,
             };
         }
 
@@ -102,12 +104,12 @@ export class FullAccessHost extends LimitedAccessHost {
         return result;
     }
 
-    override getPythonVersion(pythonPath?: string, logInfo?: string[]): PythonVersion | undefined {
+    override getPythonVersion(pythonPath?: Uri, logInfo?: string[]): PythonVersion | undefined {
         const importFailureInfo = logInfo ?? [];
 
         try {
             const commandLineArgs: string[] = ['-c', extractVersion];
-            const execOutput = this._executePythonInterpreter(pythonPath, (p) =>
+            const execOutput = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
                 child_process.execFileSync(p, commandLineArgs, { encoding: 'utf8' })
             );
 
@@ -128,8 +130,8 @@ export class FullAccessHost extends LimitedAccessHost {
     }
 
     override runScript(
-        pythonPath: string | undefined,
-        script: string,
+        pythonPath: Uri | undefined,
+        script: Uri,
         args: string[],
         cwd: string,
         token: CancellationToken
@@ -141,9 +143,9 @@ export class FullAccessHost extends LimitedAccessHost {
         return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
             let stdout = '';
             let stderr = '';
-            const commandLineArgs = [script, ...args];
+            const commandLineArgs = [script.getFilePath(), ...args];
 
-            const child = this._executePythonInterpreter(pythonPath, (p) =>
+            const child = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
                 child_process.spawn(p, commandLineArgs, { cwd })
             );
             const tokenWatch = token.onCancellationRequested(() => {
@@ -210,20 +212,19 @@ export class FullAccessHost extends LimitedAccessHost {
     }
 
     private _getSearchPathResultFromInterpreter(
-        fs: FileSystem,
-        interpreter: string,
+        interpreterPath: string,
         importFailureInfo: string[]
     ): PythonPathResult | undefined {
         const result: PythonPathResult = {
             paths: [],
-            prefix: '',
+            prefix: undefined,
         };
 
         try {
             const commandLineArgs: string[] = ['-c', extractSys];
-
-            importFailureInfo.push(`Executing interpreter: '${interpreter}'`);
-            const execOutput = child_process.execFileSync(interpreter, commandLineArgs, { encoding: 'utf8' });
+            importFailureInfo.push(`Executing interpreter: '${interpreterPath}'`);
+            const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, { encoding: 'utf8' });
+            const isCaseSensitive = this.serviceProvider.fs().isCaseSensitive;
 
             // Parse the execOutput. It should be a JSON-encoded array of paths.
             try {
@@ -232,16 +233,20 @@ export class FullAccessHost extends LimitedAccessHost {
                     execSplitEntry = execSplitEntry.trim();
                     if (execSplitEntry) {
                         const normalizedPath = normalizePath(execSplitEntry);
+                        const normalizedUri = Uri.file(normalizedPath, isCaseSensitive);
                         // Skip non-existent paths and broken zips/eggs.
-                        if (fs.existsSync(normalizedPath) && isDirectory(fs, normalizedPath)) {
-                            result.paths.push(normalizedPath);
+                        if (
+                            this.serviceProvider.fs().existsSync(normalizedUri) &&
+                            isDirectory(this.serviceProvider.fs(), normalizedUri)
+                        ) {
+                            result.paths.push(normalizedUri);
                         } else {
                             importFailureInfo.push(`Skipping '${normalizedPath}' because it is not a valid directory`);
                         }
                     }
                 }
 
-                result.prefix = execSplit.prefix;
+                result.prefix = Uri.file(execSplit.prefix, isCaseSensitive);
 
                 if (result.paths.length === 0) {
                     importFailureInfo.push(`Found no valid directories`);

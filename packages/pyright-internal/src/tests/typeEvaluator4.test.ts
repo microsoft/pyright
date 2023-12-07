@@ -12,11 +12,12 @@ import * as assert from 'assert';
 
 import { ConfigOptions } from '../common/configOptions';
 import { PythonVersion } from '../common/pythonVersion';
+import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
 test('Required1', () => {
     // Analyze with Python 3.10 settings.
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['required1.py'], configOptions);
 
@@ -25,7 +26,7 @@ test('Required1', () => {
 
 test('Required2', () => {
     // Analyze with Python 3.10 settings.
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['required2.py'], configOptions);
 
@@ -34,7 +35,7 @@ test('Required2', () => {
 
 test('Required3', () => {
     // Analyze with Python 3.10 settings.
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['required3.py'], configOptions);
 
@@ -182,7 +183,7 @@ test('Import11', () => {
 });
 
 test('Import12', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // By default, optional diagnostics are ignored.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['import12.py'], configOptions);
@@ -223,7 +224,7 @@ test('Import18', () => {
 });
 
 test('DunderAll1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // By default, reportUnsupportedDunderAll is a warning.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dunderAll1.py'], configOptions);
@@ -241,7 +242,7 @@ test('DunderAll1', () => {
 });
 
 test('DunderAll2', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // By default, reportUnsupportedDunderAll is a warning.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dunderAll2.py'], configOptions);
@@ -259,7 +260,7 @@ test('DunderAll2', () => {
 });
 
 test('DunderAll3', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // Turn on error.
     configOptions.diagnosticRuleSet.reportUnsupportedDunderAll = 'error';
@@ -288,7 +289,7 @@ test('Overload4', () => {
 });
 
 test('Overload5', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.diagnosticRuleSet.reportOverlappingOverload = 'none';
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py'], configOptions);
@@ -400,7 +401,7 @@ test('CallSite2', () => {
 });
 
 test('FString1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['fstring1.py'], configOptions);
@@ -427,7 +428,7 @@ test('FString4', () => {
 });
 
 test('FString5', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.7 settings. This will generate errors.
     configOptions.defaultPythonVersion = PythonVersion.V3_7;
@@ -675,7 +676,7 @@ test('DataClassFrozen1', () => {
 });
 
 test('DataClassKwOnly1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassKwOnly1.py'], configOptions);
 
@@ -683,7 +684,7 @@ test('DataClassKwOnly1', () => {
 });
 
 test('DataClassSlots1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassSlots1.py'], configOptions);
 
@@ -793,7 +794,7 @@ test('Generic3', () => {
 });
 
 test('Unions1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.disableBytesTypePromotions = true;
 
     // Analyze with Python 3.9 settings. This will generate errors.
@@ -808,7 +809,7 @@ test('Unions1', () => {
 });
 
 test('Unions2', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.8 settings.
     configOptions.defaultPythonVersion = PythonVersion.V3_8;
@@ -817,7 +818,7 @@ test('Unions2', () => {
 });
 
 test('Unions3', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.9 settings. This will generate errors.
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
@@ -854,7 +855,7 @@ test('ParamSpec1', () => {
 });
 
 test('ParamSpec2', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
@@ -1197,7 +1198,7 @@ test('TypeVar12', () => {
 });
 
 test('Annotated1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_8;
     const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['annotated1.py'], configOptions);
@@ -1263,7 +1264,7 @@ test('TryExcept6', () => {
 });
 
 test('TryExcept7', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tryExcept7.py'], configOptions);
@@ -1275,7 +1276,7 @@ test('TryExcept7', () => {
 });
 
 test('TryExcept8', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept8.py'], configOptions);

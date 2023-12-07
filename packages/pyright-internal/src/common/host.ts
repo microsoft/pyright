@@ -11,6 +11,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { PythonPathResult } from '../analyzer/pythonPathUtils';
 import { PythonPlatform } from './configOptions';
 import { PythonVersion } from './pythonVersion';
+import { Uri } from './uri/uri';
 
 export const enum HostKind {
     FullAccess,
@@ -25,12 +26,12 @@ export interface ScriptOutput {
 
 export interface Host {
     readonly kind: HostKind;
-    getPythonSearchPaths(pythonPath?: string, logInfo?: string[]): PythonPathResult;
-    getPythonVersion(pythonPath?: string, logInfo?: string[]): PythonVersion | undefined;
+    getPythonSearchPaths(pythonPath?: Uri, logInfo?: string[]): PythonPathResult;
+    getPythonVersion(pythonPath?: Uri, logInfo?: string[]): PythonVersion | undefined;
     getPythonPlatform(logInfo?: string[]): PythonPlatform | undefined;
     runScript(
-        pythonPath: string | undefined,
-        script: string,
+        pythonPath: Uri | undefined,
+        script: Uri,
         args: string[],
         cwd: string,
         token: CancellationToken
@@ -42,16 +43,16 @@ export class NoAccessHost implements Host {
         return HostKind.NoAccess;
     }
 
-    getPythonSearchPaths(pythonPath?: string, logInfo?: string[]): PythonPathResult {
+    getPythonSearchPaths(pythonPath?: Uri, logInfo?: string[]): PythonPathResult {
         logInfo?.push('No access to python executable.');
 
         return {
             paths: [],
-            prefix: '',
+            prefix: undefined,
         };
     }
 
-    getPythonVersion(pythonPath?: string, logInfo?: string[]): PythonVersion | undefined {
+    getPythonVersion(pythonPath?: Uri, logInfo?: string[]): PythonVersion | undefined {
         return undefined;
     }
 
@@ -60,8 +61,8 @@ export class NoAccessHost implements Host {
     }
 
     async runScript(
-        pythonPath: string | undefined,
-        scriptPath: string,
+        pythonPath: Uri | undefined,
+        scriptPath: Uri,
         args: string[],
         cwd: string,
         token: CancellationToken

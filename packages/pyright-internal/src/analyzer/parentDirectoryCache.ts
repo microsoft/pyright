@@ -9,46 +9,46 @@
 
 import { getOrAdd } from '../common/collectionUtils';
 import { FileSystem } from '../common/fileSystem';
-import { ensureTrailingDirectorySeparator, normalizePath, realCasePath } from '../common/pathUtils';
+import { Uri } from '../common/uri/uri';
 import { ImportResult } from './importResult';
 
-export type ImportPath = { importPath: string | undefined };
+export type ImportPath = { importPath: Uri | undefined };
 
-type CacheEntry = { importResult: ImportResult; path: string; importName: string };
+type CacheEntry = { importResult: ImportResult; path: Uri; importName: string };
 
 export class ParentDirectoryCache {
     private readonly _importChecked = new Map<string, Map<string, ImportPath>>();
     private readonly _cachedResults = new Map<string, Map<string, ImportResult>>();
 
-    private _libPathCache: string[] | undefined = undefined;
+    private _libPathCache: Uri[] | undefined = undefined;
 
-    constructor(private _importRootGetter: () => string[]) {
+    constructor(private _importRootGetter: () => Uri[]) {
         // empty
     }
 
-    getImportResult(path: string, importName: string, importResult: ImportResult): ImportResult | undefined {
-        const result = this._cachedResults.get(importName)?.get(path);
+    getImportResult(path: Uri, importName: string, importResult: ImportResult): ImportResult | undefined {
+        const result = this._cachedResults.get(importName)?.get(path.key);
         if (result) {
             // We already checked for the importName at the path.
             // Return the result if succeeded otherwise, return regular import result given.
             return result ?? importResult;
         }
 
-        const checked = this._importChecked.get(importName)?.get(path);
+        const checked = this._importChecked.get(importName)?.get(path.key);
         if (checked) {
             // We already checked for the importName at the path.
             if (!checked.importPath) {
                 return importResult;
             }
 
-            return this._cachedResults.get(importName)?.get(checked.importPath) ?? importResult;
+            return this._cachedResults.get(importName)?.get(checked.importPath.key) ?? importResult;
         }
 
         return undefined;
     }
 
-    checkValidPath(fs: FileSystem, sourceFilePath: string, root: string): boolean {
-        if (!sourceFilePath.startsWith(root)) {
+    checkValidPath(fs: FileSystem, sourceFileUri: Uri, root: Uri): boolean {
+        if (!sourceFileUri.startsWith(root)) {
             // We don't search containing folders for libs.
             return false;
         }
@@ -56,11 +56,11 @@ export class ParentDirectoryCache {
         this._libPathCache =
             this._libPathCache ??
             this._importRootGetter()
-                .map((r) => ensureTrailingDirectorySeparator(realCasePath(normalizePath(r), fs)))
+                .map((r) => fs.realCasePath(r))
                 .filter((r) => r !== root)
                 .filter((r) => r.startsWith(root));
 
-        if (this._libPathCache.some((p) => sourceFilePath.startsWith(p))) {
+        if (this._libPathCache.some((p) => sourceFileUri.startsWith(p))) {
             // Make sure it is not lib folders under user code root.
             // ex) .venv folder
             return false;
@@ -69,13 +69,13 @@ export class ParentDirectoryCache {
         return true;
     }
 
-    checked(path: string, importName: string, importPath: ImportPath) {
-        getOrAdd(this._importChecked, importName, () => new Map<string, ImportPath>()).set(path, importPath);
+    checked(path: Uri, importName: string, importPath: ImportPath) {
+        getOrAdd(this._importChecked, importName, () => new Map<string, ImportPath>()).set(path.key, importPath);
     }
 
     add(result: CacheEntry) {
         getOrAdd(this._cachedResults, result.importName, () => new Map<string, ImportResult>()).set(
-            result.path,
+            result.path.key,
             result.importResult
         );
     }

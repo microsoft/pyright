@@ -7,27 +7,26 @@
  */
 
 import assert from 'assert';
-import { WorkspaceEdit } from 'vscode-languageserver-protocol';
 
-import { createMapFromItems } from '../common/collectionUtils';
-import { assertNever } from '../common/debug';
-import { FileEditAction, FileEditActions, FileOperations } from '../common/editAction';
-import { FileSystem } from '../common/fileSystem';
-import { convertUriToPath, getDirectoryPath, isFile } from '../common/pathUtils';
-import { TextRange, rangesAreEqual } from '../common/textRange';
-import { applyTextEditsToString } from '../common/workspaceEditUtils';
-import { Range } from './harness/fourslash/fourSlashTypes';
-import { TestState } from './harness/fourslash/testState';
-import { CancellationToken, CreateFile, DeleteFile, RenameFile, TextDocumentEdit } from 'vscode-languageserver';
-import { Program } from '../analyzer/program';
-import { ConfigOptions } from '../common/configOptions';
+import { CancellationToken } from 'vscode-languageserver';
 import { findNodeByOffset } from '../analyzer/parseTreeUtils';
+import { Program } from '../analyzer/program';
+import { createMapFromItems } from '../common/collectionUtils';
+import { ConfigOptions } from '../common/configOptions';
+import { isArray } from '../common/core';
+import { assertNever } from '../common/debug';
+import { FileEditAction, FileEditActions } from '../common/editAction';
+import { TextRange, rangesAreEqual } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
+import { isFile } from '../common/uri/uriUtils';
+import { applyTextEditsToString } from '../common/workspaceEditUtils';
 import { DocumentSymbolCollector } from '../languageService/documentSymbolCollector';
 import { NameNode } from '../parser/parseNodes';
-import { isArray } from '../common/core';
+import { Range } from './harness/fourslash/fourSlashTypes';
+import { TestState } from './harness/fourslash/testState';
 
 export function convertFileEditActionToString(edit: FileEditAction): string {
-    return `'${edit.replacementText.replace(/\n/g, '!n!')}'@'${edit.filePath}:(${edit.range.start.line},${
+    return `'${edit.replacementText.replace(/\n/g, '!n!')}'@'${edit.fileUri}:(${edit.range.start.line},${
         edit.range.start.character
     })-(${edit.range.end.line},${edit.range.end.character})'`;
 }
@@ -35,7 +34,7 @@ export function convertFileEditActionToString(edit: FileEditAction): string {
 export function convertRangeToFileEditAction(state: TestState, range: Range, replacementText?: string): FileEditAction {
     const data = range.marker?.data as { r: string } | undefined;
     return {
-        filePath: range.fileName,
+        fileUri: Uri.file(range.fileName),
         replacementText: (replacementText ?? data?.r ?? 'N/A').replace(/!n!/g, '\n'),
         range: state.convertPositionRange(range),
     };
@@ -52,7 +51,7 @@ export function verifyEdits(
         assert(
             expected.some((a) => {
                 return (
-                    a.filePath === edit.filePath &&
+                    a.fileUri === edit.fileUri &&
                     rangesAreEqual(a.range, edit.range) &&
                     a.replacementText === edit.replacementText
                 );
@@ -67,24 +66,24 @@ export function verifyEdits(
 export function applyFileEditActions(state: TestState, fileEditActions: FileEditActions) {
     // Apply changes
     // First, apply text changes
-    const editsPerFileMap = createMapFromItems(fileEditActions.edits, (e) => e.filePath);
+    const editsPerFileMap = createMapFromItems(fileEditActions.edits, (e) => e.fileUri.key);
 
     for (const [editFileName, editsPerFile] of editsPerFileMap) {
         const result = _applyEdits(state, editFileName, editsPerFile);
-        state.testFS.writeFileSync(editFileName, result.text, 'utf8');
+        state.testFS.writeFileSync(Uri.file(editFileName), result.text, 'utf8');
 
         // Update open file content if the file is in opened state.
         if (result.version) {
             let openedFilePath = editFileName;
             const renamed = fileEditActions.fileOperations.find(
-                (o) => o.kind === 'rename' && o.oldFilePath === editFileName
+                (o) => o.kind === 'rename' && o.oldFileUri.getFilePath() === editFileName
             );
             if (renamed?.kind === 'rename') {
-                openedFilePath = renamed.newFilePath;
-                state.program.setFileClosed(renamed.oldFilePath);
+                openedFilePath = renamed.newFileUri.getFilePath();
+                state.program.setFileClosed(renamed.oldFileUri);
             }
 
-            state.program.setFileOpened(openedFilePath, result.version + 1, result.text);
+            state.program.setFileOpened(Uri.file(openedFilePath), result.version + 1, result.text);
         }
     }
 
@@ -92,24 +91,30 @@ export function applyFileEditActions(state: TestState, fileEditActions: FileEdit
     for (const fileOperation of fileEditActions.fileOperations) {
         switch (fileOperation.kind) {
             case 'create': {
-                state.testFS.mkdirpSync(getDirectoryPath(fileOperation.filePath));
-                state.testFS.writeFileSync(fileOperation.filePath, '');
+                state.testFS.mkdirpSync(fileOperation.fileUri.getDirectory().getFilePath());
+                state.testFS.writeFileSync(fileOperation.fileUri, '');
                 break;
             }
             case 'rename': {
-                if (isFile(state.testFS, fileOperation.oldFilePath)) {
-                    state.testFS.mkdirpSync(getDirectoryPath(fileOperation.newFilePath));
-                    state.testFS.renameSync(fileOperation.oldFilePath, fileOperation.newFilePath);
+                if (isFile(state.testFS, fileOperation.oldFileUri)) {
+                    state.testFS.mkdirpSync(fileOperation.newFileUri.getDirectory().getFilePath());
+                    state.testFS.renameSync(
+                        fileOperation.oldFileUri.getFilePath(),
+                        fileOperation.newFileUri.getFilePath()
+                    );
 
                     // Add new file as tracked file
-                    state.program.addTrackedFile(fileOperation.newFilePath);
+                    state.program.addTrackedFile(fileOperation.newFileUri);
                 } else {
-                    state.testFS.renameSync(fileOperation.oldFilePath, fileOperation.newFilePath);
+                    state.testFS.renameSync(
+                        fileOperation.oldFileUri.getFilePath(),
+                        fileOperation.newFileUri.getFilePath()
+                    );
                 }
                 break;
             }
             case 'delete': {
-                state.testFS.rimrafSync(fileOperation.filePath);
+                state.testFS.rimrafSync(fileOperation.fileUri.getFilePath());
                 break;
             }
             default:
@@ -123,53 +128,16 @@ export function applyFileEditActions(state: TestState, fileEditActions: FileEdit
 }
 
 function _applyEdits(state: TestState, filePath: string, edits: FileEditAction[]) {
-    const sourceFile = state.program.getBoundSourceFile(filePath)!;
+    const sourceFile = state.program.getBoundSourceFile(Uri.file(filePath))!;
     const parseResults = sourceFile.getParseResults()!;
 
     const current = applyTextEditsToString(
-        edits.filter((e) => e.filePath === filePath),
+        edits.filter((e) => e.fileUri.getFilePath() === filePath),
         parseResults.tokenizerOutput.lines,
         parseResults.text
     );
 
     return { version: sourceFile.getClientVersion(), text: current };
-}
-
-export function convertWorkspaceEditToFileEditActions(fs: FileSystem, edit: WorkspaceEdit): FileEditActions {
-    const edits: FileEditAction[] = [];
-    const fileOperations: FileOperations[] = [];
-
-    if (edit.changes) {
-        for (const kv of Object.entries(edit.changes)) {
-            const filePath = convertUriToPath(fs, kv[0]);
-            kv[1].forEach((e) => edits.push({ filePath, range: e.range, replacementText: e.newText }));
-        }
-    }
-
-    if (edit.documentChanges) {
-        for (const change of edit.documentChanges) {
-            if (TextDocumentEdit.is(change)) {
-                for (const e of change.edits) {
-                    edits.push({
-                        filePath: convertUriToPath(fs, change.textDocument.uri),
-                        range: e.range,
-                        replacementText: e.newText,
-                    });
-                }
-            } else if (CreateFile.is(change)) {
-                fileOperations.push({ kind: 'create', filePath: convertUriToPath(fs, change.uri) });
-            } else if (RenameFile.is(change)) {
-                fileOperations.push({
-                    kind: 'rename',
-                    oldFilePath: convertUriToPath(fs, change.oldUri),
-                    newFilePath: convertUriToPath(fs, change.newUri),
-                });
-            } else if (DeleteFile.is(change)) {
-                fileOperations.push({ kind: 'delete', filePath: convertUriToPath(fs, change.uri) });
-            }
-        }
-    }
-    return { edits, fileOperations: fileOperations };
 }
 
 export function verifyReferencesAtPosition(
@@ -180,7 +148,7 @@ export function verifyReferencesAtPosition(
     position: number,
     ranges: Range[]
 ) {
-    const sourceFile = program.getBoundSourceFile(fileName);
+    const sourceFile = program.getBoundSourceFile(Uri.file(fileName));
     assert(sourceFile);
 
     const node = findNodeByOffset(sourceFile.getParseResults()!.parseTree, position);
@@ -197,7 +165,7 @@ export function verifyReferencesAtPosition(
             program,
             isArray(symbolNames) ? symbolNames : [symbolNames],
             decls,
-            program.getBoundSourceFile(rangeFileName)!.getParseResults()!.parseTree,
+            program.getBoundSourceFile(Uri.file(rangeFileName))!.getParseResults()!.parseTree,
             CancellationToken.None,
             {
                 treatModuleInImportAndFromImportSame: true,

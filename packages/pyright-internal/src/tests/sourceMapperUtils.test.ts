@@ -6,9 +6,27 @@
  * Unit tests for pyright sourceMapperUtils module.
  */
 import * as assert from 'assert';
-import { CancellationTokenSource } from 'vscode-jsonrpc';
+import { CancellationToken, CancellationTokenSource } from 'vscode-jsonrpc';
 
-import { buildImportTree } from '../analyzer/sourceMapperUtils';
+import { buildImportTree as buildImportTreeImpl } from '../analyzer/sourceMapperUtils';
+import { Uri } from '../common/uri/uri';
+
+function buildImportTree(
+    sourceFile: string,
+    targetFile: string,
+    importResolver: (f: string) => string[],
+    token: CancellationToken
+): string[] {
+    return buildImportTreeImpl(
+        Uri.file(sourceFile),
+        Uri.file(targetFile),
+        (from) => {
+            const resolved = importResolver(from.getFilePath().slice(1));
+            return resolved.map((f) => Uri.file(f));
+        },
+        token
+    ).map((u) => u.getFilePath().slice(1));
+}
 
 describe('BuildImportTree', () => {
     const tokenSource = new CancellationTokenSource();

@@ -7,6 +7,8 @@
  * Specifies the range of text within a larger string.
  */
 
+import { Uri } from './uri/uri';
+
 export interface TextRange {
     readonly start: number;
     readonly length: number;
@@ -131,7 +133,7 @@ export namespace Range {
 
 // Represents a range within a particular document.
 export interface DocumentRange {
-    path: string;
+    uri: Uri;
     range: Range;
 }
 
