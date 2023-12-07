@@ -427,3 +427,11 @@ def test_negative_narrowing6(a: str | None, b: str | None):
             reveal_type(x, expected_text="tuple[None, str | None]")
         case (a, b) as x:
             reveal_type(x, expected_text="tuple[str | None, str | None]")
+
+
+def test_negative_narrowing7(a: tuple[str, str] | str):
+    match a:
+        case (_, _):
+            reveal_type(a, expected_text="tuple[str, str]")
+        case _:
+            reveal_type(a, expected_text="str")
