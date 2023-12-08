@@ -4076,6 +4076,16 @@ export class Checker extends ParseTreeWalker {
                 // the call expression and determine whether any of them
                 // are deprecated.
                 getDeprecatedMessageForOverloadedCall(this._evaluator, subtype);
+
+                // If there the implementation itself is deprecated, assume it
+                // is deprecated even if it's outside of a call expression.
+                const overloadImpl = OverloadedFunctionType.getImplementation(subtype);
+                if (overloadImpl?.details.deprecatedMessage !== undefined) {
+                    if (!overloadImpl.details.name || node.value === overloadImpl.details.name) {
+                        deprecatedMessage = overloadImpl.details.deprecatedMessage;
+                        errorMessage = getDeprecatedMessageForFunction(overloadImpl);
+                    }
+                }
             }
         });
 
