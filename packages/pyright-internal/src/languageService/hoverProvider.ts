@@ -11,7 +11,12 @@
 
 import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
 
-import { Declaration, DeclarationType, VariableDeclaration } from '../analyzer/declaration';
+import {
+    Declaration,
+    DeclarationType,
+    VariableDeclaration,
+    isUnresolvedAliasDeclaration,
+} from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
@@ -275,7 +280,7 @@ export class HoverProvider {
 
     private _addResultsForDeclaration(parts: HoverTextPart[], declaration: Declaration, node: NameNode): void {
         const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
-        if (!resolvedDecl) {
+        if (!resolvedDecl || isUnresolvedAliasDeclaration(resolvedDecl)) {
             this._addResultsPart(parts, `(import) ` + node.value + this._getTypeText(node), /* python */ true);
             return;
         }

@@ -286,5 +286,5 @@ export function isIntrinsicDeclaration(decl: Declaration): decl is IntrinsicDecl
 }
 
 export function isUnresolvedAliasDeclaration(decl: Declaration): boolean {
-    return isAliasDeclaration(decl) && decl.uri === UnresolvedModuleMarker;
+    return isAliasDeclaration(decl) && decl.uri.equals(UnresolvedModuleMarker);
 }
