@@ -32,7 +32,7 @@ import {
     YieldNode,
 } from '../parser/parseNodes';
 
-export const UnresolvedModuleMarker = Uri.parse('unresolved-module-marker://**/*', /* isCaseSensitive */ true);
+export const UnresolvedModuleMarker = Uri.file('*** unresolved module ***', /* isCaseSensitive */ true);
 
 export const enum DeclarationType {
     Intrinsic,
@@ -286,5 +286,5 @@ export function isIntrinsicDeclaration(decl: Declaration): decl is IntrinsicDecl
 }
 
 export function isUnresolvedAliasDeclaration(decl: Declaration): boolean {
-    return isAliasDeclaration(decl) && decl.uri === UnresolvedModuleMarker;
+    return isAliasDeclaration(decl) && decl.uri.equals(UnresolvedModuleMarker);
 }

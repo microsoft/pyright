@@ -13,7 +13,12 @@
 import { CancellationToken } from 'vscode-languageserver';
 
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
-import { Declaration, DeclarationType, isFunctionDeclaration } from '../analyzer/declaration';
+import {
+    Declaration,
+    DeclarationType,
+    isFunctionDeclaration,
+    isUnresolvedAliasDeclaration,
+} from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper, isStubFile } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
@@ -56,8 +61,10 @@ export function addDeclarationsToDefinitions(
         }
 
         // If the decl is an unresolved import, skip it.
-        if (resolvedDecl.type === DeclarationType.Alias && resolvedDecl.isUnresolved) {
-            return;
+        if (resolvedDecl.type === DeclarationType.Alias) {
+            if (resolvedDecl.isUnresolved || isUnresolvedAliasDeclaration(resolvedDecl)) {
+                return;
+            }
         }
 
         // If the resolved decl is still an alias, it means it
