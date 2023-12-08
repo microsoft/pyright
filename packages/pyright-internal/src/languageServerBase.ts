@@ -1566,10 +1566,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             const relatedInfo = diag.getRelatedInfo();
             if (relatedInfo.length > 0) {
                 vsDiag.relatedInformation = relatedInfo
-                    .filter((info) => this.canNavigateToFile(info.uri, fs))
+                    .filter((info) => this.canNavigateToFile(Uri.fromJsonObj(info.uri), fs))
                     .map((info) =>
                         DiagnosticRelatedInformation.create(
-                            Location.create(info.uri.toString(), info.range),
+                            Location.create(Uri.fromJsonObj(info.uri).toString(), info.range),
                             info.message
                         )
                     );
