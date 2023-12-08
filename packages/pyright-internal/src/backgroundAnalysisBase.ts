@@ -646,7 +646,11 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         const postableResults = {
             ...result,
             diagnostics: result.diagnostics.map((d) => {
-                return { ...d, fileUri: JSON.parse(JSON.stringify(d.fileUri)) };
+                return {
+                    ...d,
+                    fileUri: JSON.parse(JSON.stringify(d.fileUri)),
+                    diagnostics: convertDiagnostics(d.diagnostics),
+                };
             }),
         };
         port.postMessage({ requestType: 'analysisResult', data: postableResults });
@@ -719,7 +723,7 @@ function convertDiagnostics(diagnostics: Diagnostic[]) {
 
         if (d._relatedInfo) {
             for (const info of d._relatedInfo) {
-                diag.addRelatedInfo(info.message, info.fileUri, info.range);
+                diag.addRelatedInfo(info.message, JSON.parse(JSON.stringify(info.uri)), info.range);
             }
         }
 
