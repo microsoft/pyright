@@ -85,7 +85,7 @@ export class BackgroundAnalysisBase {
     }
 
     setFileClosed(fileUri: Uri, isTracked?: boolean) {
-        this.enqueueRequest({ requestType: 'setFileClosed', data: { fileUri, isTracked } });
+        this.enqueueRequest({ requestType: 'setFileClosed', data: { fileUri: fileUri.toString(), isTracked } });
     }
 
     addInterimFile(fileUri: Uri) {
