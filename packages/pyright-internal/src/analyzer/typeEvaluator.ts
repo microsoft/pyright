@@ -8210,9 +8210,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunctionEvaluationScope(node);
-        const enclosingClass = enclosingFunction
-            ? ParseTreeUtils.getEnclosingClass(enclosingFunction, /* stopAtFunction */ true)
-            : undefined;
+        const enclosingClass = enclosingFunction ? ParseTreeUtils.getEnclosingClass(enclosingFunction) : undefined;
         const enclosingClassType = enclosingClass ? getTypeOfClass(enclosingClass)?.classType : undefined;
 
         // Determine which class the "super" call is applied to. If

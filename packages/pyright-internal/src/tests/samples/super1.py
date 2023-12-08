@@ -40,6 +40,10 @@ class Bar(ClassB, ClassC):
         # This should generate an error
         super().non_method1()
 
+    def method(self):
+        def inner():
+            super().method1()
+
 
 super(Bar)
 
