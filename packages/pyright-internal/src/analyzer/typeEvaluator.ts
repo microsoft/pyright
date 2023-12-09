@@ -4564,7 +4564,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Handles the case where a variable or parameter is defined in an outer
-    // scope and captured by an inner scope (either a function or a lambda).
+    // scope and captured by an inner scope (a function, lambda, or comprehension).
     function getCodeFlowTypeForCapturedVariable(
         node: NameNode,
         symbolWithScope: SymbolWithScope,
@@ -4601,19 +4601,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // or lambda, see if we can infer the type from the outer scope.
         const scopeHierarchy = ScopeUtils.getScopeHierarchy(node, symbolWithScope.scope);
 
-        // Handle the case where all of the nested scopes are functions,
-        // lambdas and modules. Don't allow other types of scopes.
-        if (
-            scopeHierarchy &&
-            scopeHierarchy.length >= 2 &&
-            scopeHierarchy.every((s) => s.type === ScopeType.Function || s.type === ScopeType.Module)
-        ) {
+        if (scopeHierarchy && scopeHierarchy.length >= 2) {
             // Find the parse node associated with the scope that is just inside of the
             // scope that declares the captured variable.
             const innerScopeNode = ScopeUtils.findTopNodeInScope(node, scopeHierarchy[scopeHierarchy.length - 2]);
             if (
-                innerScopeNode &&
-                (innerScopeNode.nodeType === ParseNodeType.Function || innerScopeNode.nodeType === ParseNodeType.Lambda)
+                innerScopeNode?.nodeType === ParseNodeType.Function ||
+                innerScopeNode?.nodeType === ParseNodeType.Lambda ||
+                innerScopeNode?.nodeType === ParseNodeType.Class
             ) {
                 const innerScopeCodeFlowNode = AnalyzerNodeInfo.getFlowNode(innerScopeNode);
                 if (innerScopeCodeFlowNode) {
@@ -19238,7 +19233,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         reference: CodeFlowReferenceExpressionNode,
         targetSymbolId: number,
         typeAtStart: Type,
-        startNode?: FunctionNode | LambdaNode,
+        startNode?: ClassNode | FunctionNode | LambdaNode,
         options?: FlowNodeTypeOptions
     ): FlowNodeTypeResult {
         // See if this execution scope requires code flow for this reference expression.
