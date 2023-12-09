@@ -1,6 +1,7 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain sequence patterns.
 
+from enum import Enum
 from typing import Any, Generic, Iterator, List, Literal, Protocol, Reversible, Sequence, Tuple, TypeVar, Union
 
 def test_unknown(value_to_match):
@@ -435,3 +436,25 @@ def test_negative_narrowing7(a: tuple[str, str] | str):
             reveal_type(a, expected_text="tuple[str, str]")
         case _:
             reveal_type(a, expected_text="str")
+
+
+class MyEnum(Enum):
+    A = 1
+    B = 2
+    C = 3
+
+
+def test_tuple_with_subpattern(
+    subj: Literal[MyEnum.A]
+    | tuple[Literal[MyEnum.B], int]
+    | tuple[Literal[MyEnum.C], str]
+):
+    match subj:
+        case MyEnum.A:
+            reveal_type(subj, expected_text="Literal[MyEnum.A]")
+        case (MyEnum.B, a):
+            reveal_type(subj, expected_text="tuple[Literal[MyEnum.B], int]")
+            reveal_type(a, expected_text="int")
+        case (MyEnum.C, b):
+            reveal_type(subj, expected_text="tuple[Literal[MyEnum.C], str]")
+            reveal_type(b, expected_text="str")
