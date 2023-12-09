@@ -335,6 +335,12 @@ test('Unbound5', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('Unbound6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound6.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+});
+
 test('Assert1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
