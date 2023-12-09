@@ -21981,12 +21981,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // the length of the src type arguments list if the dest or source contain
     // entries with indeterminate length or variadic entries. It returns true
     // if the source is potentially compatible with the dest type, false otherwise.
-    function adjustSrcTupleTypeArgs(destTypeArgs: TupleTypeArgument[], srcTypeArgs: TupleTypeArgument[]): boolean {
-        const destUnboundedIndex = destTypeArgs.findIndex((t) => t.isUnbounded || isVariadicTypeVar(t.type));
+    function adjustTupleTypeArgs(
+        destTypeArgs: TupleTypeArgument[],
+        srcTypeArgs: TupleTypeArgument[],
+        flags: AssignTypeFlags
+    ): boolean {
+        const destUnboundedOrVariadicIndex = destTypeArgs.findIndex((t) => t.isUnbounded || isVariadicTypeVar(t.type));
         const srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
+        const srcVariadicIndex = srcTypeArgs.findIndex((t) => isVariadicTypeVar(t.type));
 
         // If the src contains an unbounded type but the dest does not, it's incompatible.
-        if (srcUnboundedIndex >= 0 && destUnboundedIndex < 0) {
+        if (srcUnboundedIndex >= 0 && destUnboundedOrVariadicIndex < 0) {
             return false;
         }
 
@@ -22009,14 +22014,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             destTypeArgs.splice(destTypeArgs.length - 1, 1);
         }
 
-        const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
+        if (srcVariadicIndex >= 0) {
+            const destArgsToCapture = destTypeArgs.length - srcTypeArgs.length + 1;
 
-        if (destUnboundedIndex >= 0 && srcArgsToCapture >= 0) {
-            // If the dest contains a variadic element, determine which source
-            // args map to this element and package them up into an unpacked tuple.
-            if (isVariadicTypeVar(destTypeArgs[destUnboundedIndex].type)) {
-                if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                    const removedArgs = srcTypeArgs.splice(destUnboundedIndex, srcArgsToCapture);
+            // If we're doing reverse type mappings and the source contains a variadic
+            // TypeVar, we need to adjust the dest so the reverse type mapping assignment
+            // can be performed.
+            if (destArgsToCapture >= 0 && (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0) {
+                // If the only removed arg from the dest type args is itself a variadic,
+                // don't bother adjusting it.
+                const skipAdjustment =
+                    destArgsToCapture === 1 && isVariadicTypeVar(destTypeArgs[srcVariadicIndex].type);
+
+                if (!skipAdjustment && tupleClassType && isInstantiableClass(tupleClassType)) {
+                    const removedArgs = destTypeArgs.splice(srcVariadicIndex, destArgsToCapture);
 
                     // Package up the remaining type arguments into a tuple object.
                     const variadicTuple = convertToInstance(
@@ -22030,23 +22041,54 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         )
                     );
 
-                    srcTypeArgs.splice(destUnboundedIndex, 0, {
+                    destTypeArgs.splice(srcVariadicIndex, 0, {
                         type: variadicTuple,
                         isUnbounded: false,
                     });
                 }
-            } else {
-                const removedArgTypes = srcTypeArgs.splice(destUnboundedIndex, srcArgsToCapture).map((t) => {
-                    if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type) && !t.type.isVariadicInUnion) {
-                        return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
-                    }
-                    return t.type;
-                });
+            }
+        } else {
+            const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
 
-                srcTypeArgs.splice(destUnboundedIndex, 0, {
-                    type: removedArgTypes.length > 0 ? combineTypes(removedArgTypes) : AnyType.create(),
-                    isUnbounded: false,
-                });
+            if (destUnboundedOrVariadicIndex >= 0 && srcArgsToCapture >= 0) {
+                // If the dest contains a variadic element, determine which source
+                // args map to this element and package them up into an unpacked tuple.
+                if (isVariadicTypeVar(destTypeArgs[destUnboundedOrVariadicIndex].type)) {
+                    if (tupleClassType && isInstantiableClass(tupleClassType)) {
+                        const removedArgs = srcTypeArgs.splice(destUnboundedOrVariadicIndex, srcArgsToCapture);
+
+                        // Package up the remaining type arguments into a tuple object.
+                        const variadicTuple = convertToInstance(
+                            specializeTupleClass(
+                                tupleClassType,
+                                removedArgs.map((typeArg) => {
+                                    return { type: typeArg.type, isUnbounded: typeArg.isUnbounded };
+                                }),
+                                /* isTypeArgumentExplicit */ true,
+                                /* isUnpackedTuple */ true
+                            )
+                        );
+
+                        srcTypeArgs.splice(destUnboundedOrVariadicIndex, 0, {
+                            type: variadicTuple,
+                            isUnbounded: false,
+                        });
+                    }
+                } else {
+                    const removedArgTypes = srcTypeArgs
+                        .splice(destUnboundedOrVariadicIndex, srcArgsToCapture)
+                        .map((t) => {
+                            if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type) && !t.type.isVariadicInUnion) {
+                                return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
+                            }
+                            return t.type;
+                        });
+
+                    srcTypeArgs.splice(destUnboundedOrVariadicIndex, 0, {
+                        type: removedArgTypes.length > 0 ? combineTypes(removedArgTypes) : AnyType.create(),
+                        isUnbounded: false,
+                    });
+                }
             }
         }
 
@@ -22064,14 +22106,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ) {
         const destTypeArgs = [...(destType.tupleTypeArguments ?? [])];
         const srcTypeArgs = [...(srcType.tupleTypeArguments ?? [])];
-        const reverseMapping = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
 
-        if (
-            adjustSrcTupleTypeArgs(
-                reverseMapping ? srcTypeArgs : destTypeArgs,
-                reverseMapping ? destTypeArgs : srcTypeArgs
-            )
-        ) {
+        if (adjustTupleTypeArgs(destTypeArgs, srcTypeArgs, flags)) {
             for (let argIndex = 0; argIndex < srcTypeArgs.length; argIndex++) {
                 const entryDiag = diag?.createAddendum();
 
