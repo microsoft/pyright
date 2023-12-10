@@ -23409,7 +23409,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // First attempt to match all of the non-generic types in the dest
             // to non-generic types in the source.
-            destType.subtypes.forEach((destSubtype) => {
+            sortTypes(destType.subtypes).forEach((destSubtype) => {
                 if (requiresSpecialization(destSubtype)) {
                     remainingDestSubtypes.push(destSubtype);
                 } else {

@@ -717,6 +717,12 @@ test('Solver32', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Solver33', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver33.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('SolverScoring1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverScoring1.py']);
 
