@@ -21338,7 +21338,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
         let returnType: Type | undefined;
         let isIncomplete = false;
-        let analyzeUnannotatedFunctions = true;
+        const analyzeUnannotatedFunctions = true;
 
         // Don't attempt to infer the return type for a stub file.
         if (FunctionType.isStubDefinition(type)) {
@@ -21362,11 +21362,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 returnType = getNoneType();
             } else if (type.details.declaration) {
                 const functionNode = type.details.declaration.node;
-                analyzeUnannotatedFunctions =
-                    AnalyzerNodeInfo.getFileInfo(functionNode).diagnosticRuleSet.analyzeUnannotatedFunctions;
+                const skipUnannotatedFunction =
+                    !AnalyzerNodeInfo.getFileInfo(functionNode).diagnosticRuleSet.analyzeUnannotatedFunctions &&
+                    ParseTreeUtils.isUnannotatedFunction(functionNode);
 
                 // Skip return type inference if we are in "skip unannotated function" mode.
-                if (analyzeUnannotatedFunctions && !checkCodeFlowTooComplex(functionNode.suite)) {
+                if (!skipUnannotatedFunction && !checkCodeFlowTooComplex(functionNode.suite)) {
                     const codeFlowComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(functionNode);
 
                     // For very complex functions that have no annotated parameter types,
