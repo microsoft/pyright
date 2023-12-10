@@ -432,6 +432,7 @@ export class Binder extends ParseTreeWalker {
 
             this._addImplicitSymbolToCurrentScope('__doc__', node, 'str | None');
             this._addImplicitSymbolToCurrentScope('__module__', node, 'str');
+            this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str');
 
             this._dunderSlotsEntries = undefined;
             if (!this._moduleSymbolOnly) {
