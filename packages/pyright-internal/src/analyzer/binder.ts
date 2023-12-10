@@ -275,7 +275,6 @@ export class Binder extends ParseTreeWalker {
                 // Bind implicit names.
                 // List taken from https://docs.python.org/3/reference/import.html#__name__
                 this._addImplicitSymbolToCurrentScope('__name__', node, 'str');
-                this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str');
                 this._addImplicitSymbolToCurrentScope('__loader__', node, 'Any');
                 this._addImplicitSymbolToCurrentScope('__package__', node, 'str');
                 this._addImplicitSymbolToCurrentScope('__spec__', node, 'Any');
