@@ -77,6 +77,7 @@ export function createProperty(
         isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
     );
 
+    propertyClass.details.declaration = decoratorType.details.declaration;
     propertyClass.details.typeVarScopeId = decoratorType.details.typeVarScopeId;
     const objectType = evaluator.getBuiltInType(decoratorNode, 'object');
     propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
@@ -177,6 +178,8 @@ export function clonePropertyWithSetter(
         classType.details.declaredMetaclass,
         classType.details.effectiveMetaclass
     );
+
+    propertyClass.details.declaration = classType.details.declaration;
     propertyClass.details.typeVarScopeId = classType.details.typeVarScopeId;
     const objectType = evaluator.getBuiltInType(errorNode, 'object');
     propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
@@ -234,6 +237,8 @@ export function clonePropertyWithDeleter(
         classType.details.declaredMetaclass,
         classType.details.effectiveMetaclass
     );
+
+    propertyClass.details.declaration = classType.details.declaration;
     propertyClass.details.typeVarScopeId = classType.details.typeVarScopeId;
     const objectType = evaluator.getBuiltInType(errorNode, 'object');
     propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
