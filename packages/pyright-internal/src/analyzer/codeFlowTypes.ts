@@ -145,7 +145,6 @@ export interface FlowCall extends FlowNode {
 // explanation of the FlowPreFinally and FlowPostFinally nodes.
 export interface FlowPreFinallyGate extends FlowNode {
     antecedent: FlowNode;
-    isGateClosed: boolean;
 }
 
 export interface FlowPostFinally extends FlowNode {

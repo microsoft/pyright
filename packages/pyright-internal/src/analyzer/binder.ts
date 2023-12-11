@@ -1519,7 +1519,6 @@ export class Binder extends ParseTreeWalker {
             flags: FlowFlags.PreFinallyGate,
             id: this._getUniqueFlowNodeId(),
             antecedent: preFinallyReturnOrRaiseLabel,
-            isGateClosed: false,
         };
 
         preFinallyLabel.affectedExpressions = this._trackCodeFlowExpressions(() => {
