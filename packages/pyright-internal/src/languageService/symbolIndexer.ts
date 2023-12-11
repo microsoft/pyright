@@ -10,13 +10,14 @@ import { CancellationToken, CompletionItemKind, SymbolKind } from 'vscode-langua
 
 import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
-import { Declaration, DeclarationType } from '../analyzer/declaration';
+import { AliasDeclaration, Declaration, DeclarationType } from '../analyzer/declaration';
 import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { getSymbolKind } from '../common/lspUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { Range } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
+import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { convertSymbolKindToCompletionItemKind } from './autoImporter';
 
@@ -90,6 +91,10 @@ function collectSymbolIndexData(
             return;
         }
 
+        if (DeclarationType.Alias === declaration.type && !shouldAliasBeIndexed(declaration)) {
+            return;
+        }
+
         // We rely on ExternallyHidden flag to determine what
         // symbols should be public (included in the index)
         collectSymbolIndexDataForName(
@@ -132,6 +137,10 @@ function collectSymbolIndexDataForName(
         );
     }
 
+    if (DeclarationType.Alias === declaration.type && !shouldAliasBeIndexed(declaration)) {
+        return;
+    }
+
     const data: IndexSymbolData = {
         name,
         externallyVisible,
@@ -144,4 +153,15 @@ function collectSymbolIndexDataForName(
     };
 
     indexSymbolData.push(data);
+}
+
+function shouldAliasBeIndexed(declaration: AliasDeclaration) {
+    if (
+        declaration.node.nodeType !== ParseNodeType.ImportAs &&
+        declaration.node.nodeType !== ParseNodeType.ImportFromAs
+    ) {
+        return false;
+    }
+
+    return declaration.node.alias !== undefined;
 }
