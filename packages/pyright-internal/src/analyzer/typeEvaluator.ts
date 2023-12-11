@@ -18040,11 +18040,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // in the common case.
                             const sendType = isYieldResultUsed ? UnknownType.create() : AnyType.create();
 
-                            typeArgs.push(
-                                inferredYieldType,
-                                sendType,
-                                isNever(inferredReturnType) ? getNoneType() : inferredReturnType
-                            );
+                            typeArgs.push(inferredYieldType, sendType, inferredReturnType);
 
                             if (useAwaitableGenerator) {
                                 typeArgs.push(AnyType.create());
