@@ -121,7 +121,7 @@ export function areDeclarationsSame(
 export function getNameFromDeclaration(declaration: Declaration) {
     switch (declaration.type) {
         case DeclarationType.Alias:
-            return declaration.symbolName;
+            return declaration.symbolName ?? declaration.moduleName;
 
         case DeclarationType.Class:
         case DeclarationType.Function:

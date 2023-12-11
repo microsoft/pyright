@@ -90,10 +90,6 @@ function collectSymbolIndexData(
             return;
         }
 
-        if (DeclarationType.Alias === declaration.type) {
-            return;
-        }
-
         // We rely on ExternallyHidden flag to determine what
         // symbols should be public (included in the index)
         collectSymbolIndexDataForName(
@@ -134,10 +130,6 @@ function collectSymbolIndexDataForName(
             declaration.node.start + declaration.node.length,
             parseResults.tokenizerOutput.lines
         );
-    }
-
-    if (DeclarationType.Alias === declaration.type) {
-        return;
     }
 
     const data: IndexSymbolData = {

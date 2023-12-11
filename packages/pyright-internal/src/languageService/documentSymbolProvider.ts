@@ -85,10 +85,6 @@ export class DocumentSymbolProvider {
         }
 
         for (const symbolData of indexSymbolData) {
-            if (symbolData.alias) {
-                continue;
-            }
-
             // It's possible for a name to be '' under certain error
             // conditions (such as a decorator with no associated function
             // or class).
