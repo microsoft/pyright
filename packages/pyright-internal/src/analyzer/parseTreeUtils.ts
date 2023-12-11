@@ -399,7 +399,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                     })
                     .join(' ');
 
-            return node.isParenthesized ? `(${listStr}})` : listStr;
+            return node.isParenthesized ? `(${listStr})` : listStr;
         }
 
         case ParseNodeType.Slice: {
