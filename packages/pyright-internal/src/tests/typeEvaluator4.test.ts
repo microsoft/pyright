@@ -1293,6 +1293,11 @@ test('TryExcept10', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('TryExcept11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept11.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Del1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['del1.py']);
     TestUtils.validateResults(analysisResults, 6);
