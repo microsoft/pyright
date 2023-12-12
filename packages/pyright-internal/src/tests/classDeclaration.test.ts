@@ -124,24 +124,25 @@ test('property', () => {
 
     const state = parseAndGetTestState(code).state;
 
-    const marker = 'getter';
-    const node = getNodeAtMarker(state, marker);
-    assert(node.nodeType === ParseNodeType.Name);
+    ['getter', 'setter', 'deleter'].forEach((marker) => {
+        const node = getNodeAtMarker(state, marker);
+        assert(node.nodeType === ParseNodeType.Name);
 
-    const functionNode = getEnclosingFunction(node);
-    assert(functionNode?.nodeType === ParseNodeType.Function);
+        const functionNode = getEnclosingFunction(node);
+        assert(functionNode?.nodeType === ParseNodeType.Function);
 
-    const result = state.program.evaluator!.getTypeOfFunction(functionNode);
-    assert(result?.decoratedType);
+        const result = state.program.evaluator!.getTypeOfFunction(functionNode);
+        assert(result?.decoratedType);
 
-    assert(isProperty(result.decoratedType));
-    assert(isClassInstance(result.decoratedType));
+        assert(isProperty(result.decoratedType));
+        assert(isClassInstance(result.decoratedType));
 
-    assert(result.decoratedType.details.declaration);
-    assert(isClassDeclaration(result.decoratedType.details.declaration));
+        assert(result.decoratedType.details.declaration);
+        assert(isClassDeclaration(result.decoratedType.details.declaration));
 
-    assert(result.decoratedType.details.declaration.moduleName === 'builtins');
-    assert(result.decoratedType.details.declaration.node.name.value === 'property');
+        assert(result.decoratedType.details.declaration.moduleName === 'builtins');
+        assert(result.decoratedType.details.declaration.node.name.value === 'property');
+    });
 });
 
 function checkSpecialBuiltInClassDetail(code: string) {
