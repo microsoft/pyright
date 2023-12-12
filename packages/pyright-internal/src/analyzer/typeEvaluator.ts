@@ -4564,7 +4564,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Handles the case where a variable or parameter is defined in an outer
-    // scope and captured by an inner scope (either a function or a lambda).
+    // scope and captured by an inner scope (a function, lambda, or comprehension).
     function getCodeFlowTypeForCapturedVariable(
         node: NameNode,
         symbolWithScope: SymbolWithScope,
@@ -4601,19 +4601,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // or lambda, see if we can infer the type from the outer scope.
         const scopeHierarchy = ScopeUtils.getScopeHierarchy(node, symbolWithScope.scope);
 
-        // Handle the case where all of the nested scopes are functions,
-        // lambdas and modules. Don't allow other types of scopes.
-        if (
-            scopeHierarchy &&
-            scopeHierarchy.length >= 2 &&
-            scopeHierarchy.every((s) => s.type === ScopeType.Function || s.type === ScopeType.Module)
-        ) {
+        if (scopeHierarchy && scopeHierarchy.length >= 2) {
             // Find the parse node associated with the scope that is just inside of the
             // scope that declares the captured variable.
             const innerScopeNode = ScopeUtils.findTopNodeInScope(node, scopeHierarchy[scopeHierarchy.length - 2]);
             if (
-                innerScopeNode &&
-                (innerScopeNode.nodeType === ParseNodeType.Function || innerScopeNode.nodeType === ParseNodeType.Lambda)
+                innerScopeNode?.nodeType === ParseNodeType.Function ||
+                innerScopeNode?.nodeType === ParseNodeType.Lambda ||
+                innerScopeNode?.nodeType === ParseNodeType.Class
             ) {
                 const innerScopeCodeFlowNode = AnalyzerNodeInfo.getFlowNode(innerScopeNode);
                 if (innerScopeCodeFlowNode) {
@@ -18045,11 +18040,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // in the common case.
                             const sendType = isYieldResultUsed ? UnknownType.create() : AnyType.create();
 
-                            typeArgs.push(
-                                inferredYieldType,
-                                sendType,
-                                isNever(inferredReturnType) ? getNoneType() : inferredReturnType
-                            );
+                            typeArgs.push(inferredYieldType, sendType, inferredReturnType);
 
                             if (useAwaitableGenerator) {
                                 typeArgs.push(AnyType.create());
@@ -19238,7 +19229,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         reference: CodeFlowReferenceExpressionNode,
         targetSymbolId: number,
         typeAtStart: Type,
-        startNode?: FunctionNode | LambdaNode,
+        startNode?: ClassNode | FunctionNode | LambdaNode,
         options?: FlowNodeTypeOptions
     ): FlowNodeTypeResult {
         // See if this execution scope requires code flow for this reference expression.
@@ -21343,7 +21334,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
         let returnType: Type | undefined;
         let isIncomplete = false;
-        let analyzeUnannotatedFunctions = true;
+        const analyzeUnannotatedFunctions = true;
 
         // Don't attempt to infer the return type for a stub file.
         if (FunctionType.isStubDefinition(type)) {
@@ -21367,11 +21358,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 returnType = getNoneType();
             } else if (type.details.declaration) {
                 const functionNode = type.details.declaration.node;
-                analyzeUnannotatedFunctions =
-                    AnalyzerNodeInfo.getFileInfo(functionNode).diagnosticRuleSet.analyzeUnannotatedFunctions;
+                const skipUnannotatedFunction =
+                    !AnalyzerNodeInfo.getFileInfo(functionNode).diagnosticRuleSet.analyzeUnannotatedFunctions &&
+                    ParseTreeUtils.isUnannotatedFunction(functionNode);
 
                 // Skip return type inference if we are in "skip unannotated function" mode.
-                if (analyzeUnannotatedFunctions && !checkCodeFlowTooComplex(functionNode.suite)) {
+                if (!skipUnannotatedFunction && !checkCodeFlowTooComplex(functionNode.suite)) {
                     const codeFlowComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(functionNode);
 
                     // For very complex functions that have no annotated parameter types,
@@ -21986,12 +21978,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // the length of the src type arguments list if the dest or source contain
     // entries with indeterminate length or variadic entries. It returns true
     // if the source is potentially compatible with the dest type, false otherwise.
-    function adjustSrcTupleTypeArgs(destTypeArgs: TupleTypeArgument[], srcTypeArgs: TupleTypeArgument[]): boolean {
-        const destUnboundedIndex = destTypeArgs.findIndex((t) => t.isUnbounded || isVariadicTypeVar(t.type));
+    function adjustTupleTypeArgs(
+        destTypeArgs: TupleTypeArgument[],
+        srcTypeArgs: TupleTypeArgument[],
+        flags: AssignTypeFlags
+    ): boolean {
+        const destUnboundedOrVariadicIndex = destTypeArgs.findIndex((t) => t.isUnbounded || isVariadicTypeVar(t.type));
         const srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
+        const srcVariadicIndex = srcTypeArgs.findIndex((t) => isVariadicTypeVar(t.type));
 
         // If the src contains an unbounded type but the dest does not, it's incompatible.
-        if (srcUnboundedIndex >= 0 && destUnboundedIndex < 0) {
+        if (srcUnboundedIndex >= 0 && destUnboundedOrVariadicIndex < 0) {
             return false;
         }
 
@@ -22014,14 +22011,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             destTypeArgs.splice(destTypeArgs.length - 1, 1);
         }
 
-        const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
+        if (srcVariadicIndex >= 0) {
+            const destArgsToCapture = destTypeArgs.length - srcTypeArgs.length + 1;
 
-        if (destUnboundedIndex >= 0 && srcArgsToCapture >= 0) {
-            // If the dest contains a variadic element, determine which source
-            // args map to this element and package them up into an unpacked tuple.
-            if (isVariadicTypeVar(destTypeArgs[destUnboundedIndex].type)) {
-                if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                    const removedArgs = srcTypeArgs.splice(destUnboundedIndex, srcArgsToCapture);
+            // If we're doing reverse type mappings and the source contains a variadic
+            // TypeVar, we need to adjust the dest so the reverse type mapping assignment
+            // can be performed.
+            if (destArgsToCapture >= 0 && (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0) {
+                // If the only removed arg from the dest type args is itself a variadic,
+                // don't bother adjusting it.
+                const skipAdjustment =
+                    destArgsToCapture === 1 && isVariadicTypeVar(destTypeArgs[srcVariadicIndex].type);
+
+                if (!skipAdjustment && tupleClassType && isInstantiableClass(tupleClassType)) {
+                    const removedArgs = destTypeArgs.splice(srcVariadicIndex, destArgsToCapture);
 
                     // Package up the remaining type arguments into a tuple object.
                     const variadicTuple = convertToInstance(
@@ -22035,23 +22038,54 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         )
                     );
 
-                    srcTypeArgs.splice(destUnboundedIndex, 0, {
+                    destTypeArgs.splice(srcVariadicIndex, 0, {
                         type: variadicTuple,
                         isUnbounded: false,
                     });
                 }
-            } else {
-                const removedArgTypes = srcTypeArgs.splice(destUnboundedIndex, srcArgsToCapture).map((t) => {
-                    if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type) && !t.type.isVariadicInUnion) {
-                        return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
-                    }
-                    return t.type;
-                });
+            }
+        } else {
+            const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
 
-                srcTypeArgs.splice(destUnboundedIndex, 0, {
-                    type: removedArgTypes.length > 0 ? combineTypes(removedArgTypes) : AnyType.create(),
-                    isUnbounded: false,
-                });
+            if (destUnboundedOrVariadicIndex >= 0 && srcArgsToCapture >= 0) {
+                // If the dest contains a variadic element, determine which source
+                // args map to this element and package them up into an unpacked tuple.
+                if (isVariadicTypeVar(destTypeArgs[destUnboundedOrVariadicIndex].type)) {
+                    if (tupleClassType && isInstantiableClass(tupleClassType)) {
+                        const removedArgs = srcTypeArgs.splice(destUnboundedOrVariadicIndex, srcArgsToCapture);
+
+                        // Package up the remaining type arguments into a tuple object.
+                        const variadicTuple = convertToInstance(
+                            specializeTupleClass(
+                                tupleClassType,
+                                removedArgs.map((typeArg) => {
+                                    return { type: typeArg.type, isUnbounded: typeArg.isUnbounded };
+                                }),
+                                /* isTypeArgumentExplicit */ true,
+                                /* isUnpackedTuple */ true
+                            )
+                        );
+
+                        srcTypeArgs.splice(destUnboundedOrVariadicIndex, 0, {
+                            type: variadicTuple,
+                            isUnbounded: false,
+                        });
+                    }
+                } else {
+                    const removedArgTypes = srcTypeArgs
+                        .splice(destUnboundedOrVariadicIndex, srcArgsToCapture)
+                        .map((t) => {
+                            if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type) && !t.type.isVariadicInUnion) {
+                                return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
+                            }
+                            return t.type;
+                        });
+
+                    srcTypeArgs.splice(destUnboundedOrVariadicIndex, 0, {
+                        type: removedArgTypes.length > 0 ? combineTypes(removedArgTypes) : AnyType.create(),
+                        isUnbounded: false,
+                    });
+                }
             }
         }
 
@@ -22069,14 +22103,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ) {
         const destTypeArgs = [...(destType.tupleTypeArguments ?? [])];
         const srcTypeArgs = [...(srcType.tupleTypeArguments ?? [])];
-        const reverseMapping = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
 
-        if (
-            adjustSrcTupleTypeArgs(
-                reverseMapping ? srcTypeArgs : destTypeArgs,
-                reverseMapping ? destTypeArgs : srcTypeArgs
-            )
-        ) {
+        if (adjustTupleTypeArgs(destTypeArgs, srcTypeArgs, flags)) {
             for (let argIndex = 0; argIndex < srcTypeArgs.length; argIndex++) {
                 const entryDiag = diag?.createAddendum();
 
@@ -23378,7 +23406,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // First attempt to match all of the non-generic types in the dest
             // to non-generic types in the source.
-            destType.subtypes.forEach((destSubtype) => {
+            sortTypes(destType.subtypes).forEach((destSubtype) => {
                 if (requiresSpecialization(destSubtype)) {
                     remainingDestSubtypes.push(destSubtype);
                 } else {

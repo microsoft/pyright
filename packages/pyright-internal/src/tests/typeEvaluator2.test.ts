@@ -335,6 +335,12 @@ test('Unbound5', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('Unbound6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound6.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+});
+
 test('Assert1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -707,6 +713,12 @@ test('Solver31', () => {
 
 test('Solver32', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver32.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Solver33', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver33.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
