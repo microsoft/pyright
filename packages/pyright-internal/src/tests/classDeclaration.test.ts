@@ -9,7 +9,9 @@
 import assert from 'assert';
 
 import { isClassDeclaration, isSpecialBuiltInClassDeclaration } from '../analyzer/declaration';
-import { TypeCategory } from '../analyzer/types';
+import { getEnclosingFunction } from '../analyzer/parseTreeUtils';
+import { isProperty } from '../analyzer/typeUtils';
+import { TypeCategory, isClassInstance } from '../analyzer/types';
 import { TextRange } from '../common/textRange';
 import { ParseNodeType } from '../parser/parseNodes';
 import { Range } from './harness/fourslash/fourSlashTypes';
@@ -98,6 +100,43 @@ test('dynamic type', () => {
     `;
 
     checkNoDeclarationInClassDetail(code);
+});
+
+test('property', () => {
+    const code = `
+// @filename: test.py
+//// class MyClass:
+////     def __init__(self):
+////         self._v = None
+////     
+////     @property
+////     def /*getter*/value(self):
+////         return self._v
+////     
+////     @value.setter
+////     def /*setter*/value(self, value):
+////         self._v = value
+////     
+////     @value.deleter
+////     def /*deleter*/value(self):
+////         del self._v
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    const marker = 'getter';
+    const node = getNodeAtMarker(state, marker);
+    assert(node.nodeType === ParseNodeType.Name);
+
+    const functionNode = getEnclosingFunction(node);
+    assert(functionNode?.nodeType === ParseNodeType.Function);
+
+    const result = state.program.evaluator!.getTypeOfFunction(functionNode);
+    assert(result?.decoratedType);
+
+    assert(isProperty(result.decoratedType));
+    assert(isClassInstance(result.decoratedType));
+    assert(result.decoratedType.details.declaration);
 });
 
 function checkSpecialBuiltInClassDetail(code: string) {
