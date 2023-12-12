@@ -156,6 +156,9 @@ function collectSymbolIndexDataForName(
 }
 
 function shouldAliasBeIndexed(declaration: AliasDeclaration) {
+    // Only allow import statements with an alias (`import module as alias` or
+    // `from module import symbol as alias`), since the alias is a symbol specific
+    // to the importing file.
     return (
         (declaration.node.nodeType === ParseNodeType.ImportAs ||
             declaration.node.nodeType === ParseNodeType.ImportFromAs) &&
