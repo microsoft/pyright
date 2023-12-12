@@ -136,7 +136,12 @@ test('property', () => {
 
     assert(isProperty(result.decoratedType));
     assert(isClassInstance(result.decoratedType));
+
     assert(result.decoratedType.details.declaration);
+    assert(isClassDeclaration(result.decoratedType.details.declaration));
+
+    assert(result.decoratedType.details.declaration.moduleName === 'builtins');
+    assert(result.decoratedType.details.declaration.node.name.value === 'property');
 });
 
 function checkSpecialBuiltInClassDetail(code: string) {
