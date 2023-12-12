@@ -25,6 +25,22 @@ test('regular class', () => {
     checkClassDetail(code);
 });
 
+test('Meta class', () => {
+    const code = `
+// @filename: test.py
+//// [|class /*range*/MyMeta(type):
+////     def __new__(cls, name, bases, dct):
+////         return super().__new__(cls, name, bases, dct)|]
+//// 
+//// class MyClass(metaclass=MyMeta):
+////     pass
+//// 
+//// /*marker*/E = MyMeta()
+    `;
+
+    checkClassDetail(code, '__class_MyMeta');
+});
+
 test('special built in class', () => {
     const code = `
 // @filename: test.py
@@ -108,19 +124,19 @@ function checkNoDeclarationInClassDetail(code: string) {
     _checkClassDetail(state, undefined);
 }
 
-function checkClassDetail(code: string) {
+function checkClassDetail(code: string, name?: string) {
     const state = parseAndGetTestState(code).state;
-    _checkClassDetail(state, state.getRangeByMarkerName('marker'));
+    _checkClassDetail(state, state.getRangeByMarkerName('marker') ?? state.getRangeByMarkerName('range'), name);
 }
 
-function _checkClassDetail(state: TestState, range: Range | undefined) {
+function _checkClassDetail(state: TestState, range: Range | undefined, name?: string) {
     const node = getNodeAtMarker(state);
     assert(node.nodeType === ParseNodeType.Name);
 
     const type = state.program.evaluator!.getType(node);
     assert(type?.category === TypeCategory.Class);
 
-    assert.strictEqual(node.value, type.aliasName ?? type.details.name);
+    assert.strictEqual(name ?? node.value, type.aliasName ?? type.details.name);
 
     if (range) {
         assert(type.details.declaration);
