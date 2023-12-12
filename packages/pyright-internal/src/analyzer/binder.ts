@@ -112,6 +112,7 @@ import {
     IntrinsicType,
     ModuleLoaderActions,
     ParameterDeclaration,
+    SpecialBuiltInClassDeclaration,
     TypeAliasDeclaration,
     TypeParameterDeclaration,
     UnresolvedModuleMarker,
@@ -4076,7 +4077,6 @@ export class Binder extends ParseTreeWalker {
             'Optional',
             'Annotated',
             'TypeAlias',
-            'OrderedDict',
             'Concatenate',
             'TypeGuard',
             'Unpack',
@@ -4084,6 +4084,7 @@ export class Binder extends ParseTreeWalker {
             'NoReturn',
             'Never',
             'LiteralString',
+            'OrderedDict',
         ]);
 
         const assignedName = assignedNameNode.value;
@@ -4091,18 +4092,22 @@ export class Binder extends ParseTreeWalker {
         if (!specialTypes.has(assignedName)) {
             return false;
         }
-        const symbol = this._bindNameToScope(this._currentScope, annotationNode.valueExpression);
 
+        const specialBuiltInClassDeclaration: SpecialBuiltInClassDeclaration = {
+            type: DeclarationType.SpecialBuiltInClass,
+            node: annotationNode,
+            uri: this._fileInfo.fileUri,
+            range: convertTextRangeToRange(annotationNode, this._fileInfo.lines),
+            moduleName: this._fileInfo.moduleName,
+            isInExceptSuite: this._isInExceptSuite,
+        };
+
+        const symbol = this._bindNameToScope(this._currentScope, annotationNode.valueExpression);
         if (symbol) {
-            symbol.addDeclaration({
-                type: DeclarationType.SpecialBuiltInClass,
-                node: annotationNode,
-                uri: this._fileInfo.fileUri,
-                range: convertTextRangeToRange(annotationNode, this._fileInfo.lines),
-                moduleName: this._fileInfo.moduleName,
-                isInExceptSuite: this._isInExceptSuite,
-            });
+            symbol.addDeclaration(specialBuiltInClassDeclaration);
         }
+
+        AnalyzerNodeInfo.setDeclaration(node, specialBuiltInClassDeclaration);
         return true;
     }
 

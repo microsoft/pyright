@@ -10,7 +10,7 @@
 import { assert } from '../common/debug';
 import { Uri } from '../common/uri/uri';
 import { ArgumentNode, ExpressionNode, NameNode, ParameterCategory } from '../parser/parseNodes';
-import { FunctionDeclaration } from './declaration';
+import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
 export const enum TypeCategory {
@@ -567,6 +567,7 @@ interface ClassDetails {
     typeSourceId: TypeSourceId;
     baseClasses: Type[];
     mro: Type[];
+    declaration?: ClassDeclaration | SpecialBuiltInClassDeclaration | undefined;
     declaredMetaclass?: ClassType | UnknownType | undefined;
     effectiveMetaclass?: ClassType | UnknownType | undefined;
     fields: SymbolTable;

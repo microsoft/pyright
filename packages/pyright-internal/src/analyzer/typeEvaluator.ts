@@ -109,6 +109,7 @@ import {
     DeclarationType,
     FunctionDeclaration,
     ModuleLoaderActions,
+    SpecialBuiltInClassDeclaration,
 } from './declaration';
 import {
     ResolvedAliasInfo,
@@ -9717,6 +9718,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
             newClassType.details.baseClasses.push(getBuiltInType(errorNode, 'object'));
             newClassType.details.effectiveMetaclass = expandedCallType;
+            newClassType.details.declaration = returnType.details.declaration;
+
             computeMroLinearization(newClassType);
             returnType = newClassType;
         }
@@ -15268,6 +15271,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* effectiveMetaclass */ undefined
         );
 
+        const specialBuiltInClassDeclaration = (AnalyzerNodeInfo.getDeclaration(node) ??
+            (node.parent ? AnalyzerNodeInfo.getDeclaration(node.parent) : undefined)) as
+            | SpecialBuiltInClassDeclaration
+            | undefined;
+
+        specialClassType.details.declaration = specialBuiltInClassDeclaration;
+
         if (fileInfo.isTypingExtensionsStubFile) {
             specialClassType.details.flags |= ClassTypeFlags.TypingExtensionClass;
         }
@@ -15855,6 +15865,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             setSymbolResolutionPartialType(classSymbol, classDecl, classType);
         }
         classType.details.flags |= ClassTypeFlags.PartiallyEvaluated;
+        classType.details.declaration = classDecl;
 
         try {
             writeTypeCache(node, { type: classType }, /* flags */ undefined);
