@@ -156,12 +156,9 @@ function collectSymbolIndexDataForName(
 }
 
 function shouldAliasBeIndexed(declaration: AliasDeclaration) {
-    if (
-        declaration.node.nodeType !== ParseNodeType.ImportAs &&
-        declaration.node.nodeType !== ParseNodeType.ImportFromAs
-    ) {
-        return false;
-    }
-
-    return declaration.node.alias !== undefined;
+    return (
+        (declaration.node.nodeType === ParseNodeType.ImportAs ||
+            declaration.node.nodeType === ParseNodeType.ImportFromAs) &&
+        declaration.node.alias !== undefined
+    );
 }
