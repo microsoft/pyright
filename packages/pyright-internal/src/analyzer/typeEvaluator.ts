@@ -1401,26 +1401,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !iterType.isVariadicUnpacked
         ) {
             typeResult = { type: TypeVarType.cloneForUnpacked(iterType) };
+        } else if (
+            (flags & EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple) !== 0 &&
+            isInstantiableClass(iterType) &&
+            ClassType.isBuiltIn(iterType, 'tuple')
+        ) {
+            typeResult = { type: ClassType.cloneForUnpacked(iterType) };
+        } else if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            addError(Localizer.Diagnostic.unpackInAnnotation(), node, node.starToken);
+            typeResult = { type: UnknownType.create() };
         } else {
-            if (
-                (flags & EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple) !== 0 &&
-                isInstantiableClass(iterType) &&
-                ClassType.isBuiltIn(iterType, 'tuple')
-            ) {
-                typeResult = { type: ClassType.cloneForUnpacked(iterType) };
-            } else {
-                const iteratorTypeResult = getTypeOfIterator(iterTypeResult, /* isAsync */ false, node) ?? {
-                    type: UnknownType.create(!!iterTypeResult.isIncomplete),
-                    isIncomplete: iterTypeResult.isIncomplete,
-                };
-                typeResult = {
-                    type: iteratorTypeResult.type,
-                    typeErrors: iterTypeResult.typeErrors,
-                    unpackedType: iterType,
-                    isIncomplete: iteratorTypeResult.isIncomplete,
-                };
-            }
+            const iteratorTypeResult = getTypeOfIterator(iterTypeResult, /* isAsync */ false, node) ?? {
+                type: UnknownType.create(!!iterTypeResult.isIncomplete),
+                isIncomplete: iterTypeResult.isIncomplete,
+            };
+            typeResult = {
+                type: iteratorTypeResult.type,
+                typeErrors: iterTypeResult.typeErrors,
+                unpackedType: iterType,
+                isIncomplete: iteratorTypeResult.isIncomplete,
+            };
         }
+
         return typeResult;
     }
 
