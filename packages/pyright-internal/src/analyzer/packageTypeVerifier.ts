@@ -589,7 +589,7 @@ export class PackageTypeVerifier {
                         category: symbolCategory,
                         name,
                         fullName,
-                        fileUri: Uri.file(module.path, this._serviceProvider.fs().isCaseSensitive),
+                        fileUri: declPath,
                         isExported,
                         typeKnownStatus: TypeKnownStatus.Known,
                         referenceCount: 1,
