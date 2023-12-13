@@ -53,7 +53,7 @@ d: Annotated[int]
 _T = TypeVar("_T")
 Param = Annotated[_T, "x"]
 
-x: Param[int] = 3
+x1: Param[int] = 3
 
 
 class A:
@@ -76,3 +76,5 @@ Alias2 = str
 Alias3 = Alias1[Alias2]
 
 reveal_type(Alias3, expected_text="type[str]")
+
+x2: Annotated[str, [*(1, 2)]]

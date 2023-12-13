@@ -4503,20 +4503,18 @@ export class Parser {
         const startToken = this._peekToken();
         const isUnpack = this._consumeTokenIfOperator(OperatorType.Multiply);
 
-        if (isUnpack) {
-            if (!allowUnpack) {
-                this._addError(Localizer.Diagnostic.unpackInAnnotation(), startToken);
-            } else if (
-                !this._parseOptions.isStubFile &&
-                !this._isParsingQuotedText &&
-                this._getLanguageVersion() < PythonVersion.V3_11
-            ) {
-                this._addError(Localizer.Diagnostic.unpackedSubscriptIllegal(), startToken);
-            }
+        if (
+            isUnpack &&
+            allowUnpack &&
+            !this._parseOptions.isStubFile &&
+            !this._isParsingQuotedText &&
+            this._getLanguageVersion() < PythonVersion.V3_11
+        ) {
+            this._addError(Localizer.Diagnostic.unpackedSubscriptIllegal(), startToken);
         }
 
         let result = this._parseTestExpression(/* allowAssignmentExpression */ false);
-        if (isUnpack && allowUnpack) {
+        if (isUnpack) {
             result = UnpackNode.create(startToken, result);
         }
 
