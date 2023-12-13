@@ -3164,7 +3164,7 @@ export class Parser {
             return leftExpr;
         }
 
-        if (!this._assignmentExpressionsAllowed || this._isParsingTypeAnnotation || disallowAssignmentExpression) {
+        if (!this._assignmentExpressionsAllowed || disallowAssignmentExpression) {
             this._addError(Localizer.Diagnostic.walrusNotAllowed(), walrusToken);
         }
 
@@ -3459,7 +3459,7 @@ export class Parser {
     // trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
     private _parseAtomExpression(): ExpressionNode {
         let awaitToken: KeywordToken | undefined;
-        if (this._peekKeywordType() === KeywordType.Await && !this._isParsingTypeAnnotation) {
+        if (this._peekKeywordType() === KeywordType.Await) {
             awaitToken = this._getKeywordToken(KeywordType.Await);
             if (this._getLanguageVersion() < PythonVersion.V3_5) {
                 this._addError(Localizer.Diagnostic.awaitIllegal(), awaitToken);
@@ -4875,9 +4875,13 @@ export class Parser {
             // Don't allow multiple strings because we have no way of reporting
             // parse errors that span strings.
             if (stringNode.strings.length > 1) {
-                this._addError(Localizer.Diagnostic.annotationSpansStrings(), stringNode);
+                if (this._isParsingQuotedText) {
+                    this._addError(Localizer.Diagnostic.annotationSpansStrings(), stringNode);
+                }
             } else if (stringNode.strings[0].nodeType === ParseNodeType.FormatString) {
-                this._addError(Localizer.Diagnostic.annotationFormatString(), stringNode);
+                if (this._isParsingQuotedText) {
+                    this._addError(Localizer.Diagnostic.annotationFormatString(), stringNode);
+                }
             } else {
                 const stringToken = stringNode.strings[0].token;
                 const stringValue = StringTokenUtils.getUnescapedString(stringNode.strings[0].token);
@@ -4888,7 +4892,9 @@ export class Parser {
                 // Don't allow escape characters because we have no way of mapping
                 // error ranges back to the escaped text.
                 if (unescapedString.length !== stringToken.length - prefixLength - stringToken.quoteMarkLength) {
-                    this._addError(Localizer.Diagnostic.annotationStringEscape(), stringNode);
+                    if (this._isParsingQuotedText) {
+                        this._addError(Localizer.Diagnostic.annotationStringEscape(), stringNode);
+                    }
                 } else {
                     const parser = new Parser();
                     const parseResults = parser.parseTextExpression(

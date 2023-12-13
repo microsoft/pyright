@@ -1139,6 +1139,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.AssignmentExpression: {
+                if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                    addError(Localizer.Diagnostic.walrusNotAllowed(), node);
+                }
+
                 typeResult = getTypeOfExpression(node.rightExpression, flags, inferenceContext);
                 assignTypeToExpression(
                     node.name,
@@ -1336,6 +1340,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfAwaitOperator(node: AwaitNode, flags: EvaluatorFlags, inferenceContext?: InferenceContext) {
+        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            addError(Localizer.Diagnostic.awaitNotAllowed(), node);
+            return { type: UnknownType.create() };
+        }
+
         const effectiveExpectedType = inferenceContext
             ? createAwaitableReturnType(
                   node,

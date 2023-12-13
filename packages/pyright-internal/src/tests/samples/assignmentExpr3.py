@@ -16,7 +16,7 @@ def foo3(answer=(p := 42)):  # Valid, though not great style
 
 default_value: int = 3
 
-# This should generate an error.
+# This should generate two errors.
 def foo4(answer: p := default_value = 5):  # INVALID
     ...
 
