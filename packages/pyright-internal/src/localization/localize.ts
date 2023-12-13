@@ -246,6 +246,7 @@ export namespace Localizer {
         export const assignmentTargetExpr = () => getRawString('Diagnostic.assignmentTargetExpr');
         export const asyncNotInAsyncFunction = () => getRawString('Diagnostic.asyncNotInAsyncFunction');
         export const awaitIllegal = () => getRawString('Diagnostic.awaitIllegal');
+        export const awaitNotAllowed = () => getRawString('Diagnostic.awaitNotAllowed');
         export const awaitNotInAsync = () => getRawString('Diagnostic.awaitNotInAsync');
         export const backticksIllegal = () => getRawString('Diagnostic.backticksIllegal');
         export const baseClassCircular = () => getRawString('Diagnostic.baseClassCircular');
