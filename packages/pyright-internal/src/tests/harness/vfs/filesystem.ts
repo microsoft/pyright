@@ -35,7 +35,7 @@ export class TestFileSystemWatcher implements FileWatcher {
 
     fireFileChange(path: Uri, eventType: FileWatcherEventType): boolean {
         if (this._paths.some((p) => path.startsWith(p))) {
-            this._listener(eventType, path);
+            this._listener(eventType, path.getFilePath());
             return true;
         }
         return false;
