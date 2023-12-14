@@ -6,7 +6,6 @@
  * URI class that represents an empty URI.
  */
 
-import * as debug from '../debug';
 import { BaseUri } from './baseUri';
 import { Uri } from './uri';
 
@@ -55,7 +54,7 @@ export class EmptyUri extends BaseUri {
     }
 
     override getFilePath(): string {
-        debug.fail(`EmptyUri.getFilePath() should not be called.`);
+        return '';
     }
 
     override toString(): string {
