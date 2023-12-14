@@ -123,6 +123,9 @@ export interface TypeSameOptions {
 export interface TypeAliasInfo {
     name: string;
     fullName: string;
+    moduleName: string;
+    fileUri: Uri;
+
     typeVarScopeId: TypeVarScopeId;
 
     // Indicates whether the type alias was declared with the
@@ -264,6 +267,8 @@ export namespace TypeBase {
         type: Type,
         name: string,
         fullName: string,
+        moduleName: string,
+        fileUri: Uri,
         typeVarScopeId: TypeVarScopeId,
         isPep695Syntax: boolean,
         typeParams?: TypeVarType[],
@@ -274,6 +279,8 @@ export namespace TypeBase {
         typeClone.typeAliasInfo = {
             name,
             fullName,
+            moduleName,
+            fileUri,
             typeParameters: typeParams,
             typeArguments: typeArgs,
             typeVarScopeId,
