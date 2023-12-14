@@ -453,7 +453,7 @@ export class WorkspaceFileWatcherProvider implements FileWatcherProvider, FileWa
         // for a file change. It is event handler's job to filter those out.
         this._fileWatchers.forEach((watcher) => {
             if (watcher.workspacePaths.some((dirPath) => fileUri.pathStartsWith(dirPath))) {
-                watcher.eventHandler(eventType, fileUri);
+                watcher.eventHandler(eventType, fileUri.getFilePath());
             }
         });
     }
