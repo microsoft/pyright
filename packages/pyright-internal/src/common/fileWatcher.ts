@@ -9,7 +9,7 @@ import { Stats } from './fileSystem';
 import { Uri } from './uri/uri';
 
 export type FileWatcherEventType = 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir';
-export type FileWatcherEventHandler = (eventName: FileWatcherEventType, uri: Uri, stats?: Stats) => void;
+export type FileWatcherEventHandler = (eventName: FileWatcherEventType, path: string, stats?: Stats) => void;
 
 export interface FileWatcher {
     close(): void;
