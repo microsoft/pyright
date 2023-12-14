@@ -185,6 +185,29 @@ test('find type alias decl', () => {
 //// def foo(/*marker*/m: M): pass
     `;
 
+    assertTypeAlias(code);
+});
+
+test('find type alias decl from inferred type', () => {
+    const code = `
+// @filename: test.py
+//// from typing import Mapping
+//// [|/*decl*/M|] = Mapping
+////
+//// def foo(m: M):
+////     return m
+
+// @filename: test1.py
+//// from test import foo
+//// a = { "hello": 10 }
+////
+//// /*marker*/b = foo(a)
+    `;
+
+    assertTypeAlias(code);
+});
+
+function assertTypeAlias(code: string) {
     const state = parseAndGetTestState(code).state;
 
     const node = getNodeAtMarker(state, 'marker');
@@ -215,4 +238,4 @@ test('find type alias decl', () => {
     assert(decl);
 
     assert.deepEqual(TextRange.create(decl.node.start, decl.node.length), TextRange.fromBounds(range.pos, range.end));
-});
+}
