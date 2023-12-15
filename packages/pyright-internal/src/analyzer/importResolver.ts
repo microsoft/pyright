@@ -1527,7 +1527,7 @@ export class ImportResolver {
                 // skip the typings import and continue searching.
                 if (
                     typingsImport.isNamespacePackage &&
-                    !typingsImport.resolvedUris[typingsImport.resolvedUris.length - 1]
+                    typingsImport.resolvedUris[typingsImport.resolvedUris.length - 1].isEmpty()
                 ) {
                     if (this._isNamespacePackageResolved(moduleDescriptor, typingsImport.implicitImports)) {
                         return typingsImport;
