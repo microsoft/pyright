@@ -361,6 +361,38 @@ describe('Import tests that can run with or without a true venv', () => {
         );
     });
 
+    test('py.typed namespace package plus stubs', () => {
+        const typingFolder = combinePaths(normalizeSlashes('/'), 'typing');
+        const files = [
+            {
+                path: combinePaths(typingFolder, 'myLib/core', 'foo.pyi'),
+                content: 'def test(): pass',
+            },
+            {
+                path: combinePaths(libraryRoot, 'myLib', 'py.typed'),
+                content: '',
+            },
+            {
+                path: combinePaths(libraryRoot, 'myLib', '__init__.py'),
+                content: 'def test(): pass',
+            },
+            {
+                path: combinePaths(libraryRoot, 'myLib', '__init__.pyi'),
+                content: 'def test(): pass',
+            },
+        ];
+
+        const importResult = getImportResult(files, ['myLib'], (c) => (c.stubPath = Uri.file(typingFolder)));
+        assert(importResult.isImportFound);
+        assert(importResult.isStubFile);
+        assert.strictEqual(
+            1,
+            importResult.resolvedUris.filter(
+                (f) => !f.isEmpty() && f.getFilePath() === combinePaths(libraryRoot, 'myLib', '__init__.pyi')
+            ).length
+        );
+    });
+
     test('stub in typing folder over partial stub package', () => {
         const typingFolder = combinePaths(normalizeSlashes('/'), 'typing');
         const files = [
