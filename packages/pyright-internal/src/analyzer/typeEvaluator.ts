@@ -2306,8 +2306,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             /* skipObjectBase */ false
                         );
 
-                        if (initMethodResult && !initMethodResult.typeErrors && isFunction(initMethodResult.type)) {
-                            constructorType = initMethodResult.type;
+                        if (initMethodResult && !initMethodResult.typeErrors) {
+                            if (isFunction(initMethodResult.type) || isOverloadedFunction(initMethodResult.type)) {
+                                constructorType = initMethodResult.type;
+                            }
                         }
 
                         const isObjectInit =
@@ -2330,13 +2332,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 /* skipObjectBase */ false
                             );
 
-                            if (
-                                newMethodResult &&
-                                !newMethodResult.typeErrors &&
-                                isFunction(newMethodResult.type) &&
-                                newMethodResult.type.details.fullName !== 'builtins.object.__new__'
-                            ) {
-                                constructorType = newMethodResult.type;
+                            if (newMethodResult && !newMethodResult.typeErrors && isFunction(newMethodResult.type)) {
+                                if (
+                                    isFunction(newMethodResult.type) &&
+                                    newMethodResult.type.details.fullName !== 'builtins.object.__new__'
+                                ) {
+                                    constructorType = newMethodResult.type;
+                                } else if (isOverloadedFunction(newMethodResult.type)) {
+                                    constructorType = newMethodResult.type;
+                                }
                             }
                         }
 
