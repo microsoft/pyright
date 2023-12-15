@@ -1,4 +1,4 @@
-from _typeshed import Unused
+from _typeshed import ConvertibleToFloat, ConvertibleToInt, Unused
 from typing import ClassVar
 from typing_extensions import Literal, TypeAlias
 
@@ -6,7 +6,7 @@ from openpyxl.chart.data_source import NumFmt
 from openpyxl.chart.layout import Layout
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText, Text
-from openpyxl.descriptors.base import Alias, String, Typed, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt
+from openpyxl.descriptors.base import Alias, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.nested import NestedBool, NestedFloat, NestedInteger, NestedSet
 from openpyxl.descriptors.serialisable import Serialisable
@@ -57,11 +57,11 @@ class Trendline(Serialisable):
         name: str | None = None,
         spPr: ExtensionList | None = None,
         trendlineType: _HasTagAndGet[_TrendlineTrendlineType] | _TrendlineTrendlineType = "linear",
-        order: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
-        period: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None = None,
-        forward: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
-        backward: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
-        intercept: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None = None,
+        order: _HasTagAndGet[ConvertibleToInt | None] | ConvertibleToInt | None = None,
+        period: _HasTagAndGet[ConvertibleToInt | None] | ConvertibleToInt | None = None,
+        forward: _HasTagAndGet[ConvertibleToFloat | None] | ConvertibleToFloat | None = None,
+        backward: _HasTagAndGet[ConvertibleToFloat | None] | ConvertibleToFloat | None = None,
+        intercept: _HasTagAndGet[ConvertibleToFloat | None] | ConvertibleToFloat | None = None,
         dispRSqr: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         dispEq: _HasTagAndGet[_ConvertibleToBool | None] | _ConvertibleToBool | None = None,
         trendlineLbl: ExtensionList | None = None,

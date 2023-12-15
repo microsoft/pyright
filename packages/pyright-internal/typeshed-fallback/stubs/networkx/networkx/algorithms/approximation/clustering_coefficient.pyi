@@ -1,0 +1,3 @@
+from _typeshed import Incomplete
+
+def average_clustering(G, trials: int = 1000, seed: Incomplete | None = None): ...

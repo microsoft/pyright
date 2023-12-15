@@ -1,4 +1,4 @@
-from _typeshed import Incomplete, Unused
+from _typeshed import ConvertibleToFloat, ConvertibleToInt, Unused
 from collections.abc import Iterable
 from typing import Any, ClassVar, NoReturn, overload
 from typing_extensions import Literal, TypeAlias
@@ -10,7 +10,7 @@ from openpyxl.drawing.fill import Blip
 from openpyxl.xml.functions import Element
 
 from ..xml._functions_overloads import _HasGet, _HasTagAndGet, _HasText
-from .base import _M, _N, _T, _ConvertibleToBool, _ConvertibleToFloat, _ConvertibleToInt, _ExpectedTypeParam
+from .base import _M, _N, _T, _ConvertibleToBool, _ExpectedTypeParam
 
 _NestedNoneSetParam: TypeAlias = _HasTagAndGet[_T | Literal["none"] | None] | _T | Literal["none"] | None
 
@@ -36,7 +36,10 @@ class Nested(Descriptor[_T]):
     def __get__(self, instance: Serialisable | Strict, cls: type | None) -> _T: ...
     def __set__(self, instance: Serialisable | Strict, value: _HasTagAndGet[_T] | _T) -> None: ...
     def from_tree(self, node: _HasGet[_T]) -> _T: ...
-    def to_tree(self, tagname: str | None = None, value: Incomplete | None = None, namespace: str | None = None) -> Element: ...
+    @overload
+    def to_tree(self, tagname: Unused = None, value: None = None, namespace: Unused = None) -> None: ...  # type: ignore[overload-overlap]
+    @overload
+    def to_tree(self, tagname: str, value: object, namespace: str | None = None) -> Element: ...
 
 class NestedValue(Nested[_T], Convertible[_T, _N]):  # type: ignore[misc]
     @overload
@@ -80,26 +83,26 @@ class NestedValue(Nested[_T], Convertible[_T, _N]):  # type: ignore[misc]
     def __set__(
         self: NestedValue[int, Literal[True]],
         instance: Serialisable | Strict,
-        value: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None,
+        value: _HasTagAndGet[ConvertibleToInt | None] | ConvertibleToInt | None,
     ) -> None: ...
     @overload
     def __set__(
         self: NestedValue[int, Literal[False]],
         instance: Serialisable | Strict,
-        value: _HasTagAndGet[_ConvertibleToInt] | _ConvertibleToInt,
+        value: _HasTagAndGet[ConvertibleToInt] | ConvertibleToInt,
     ) -> None: ...
     # float
     @overload
     def __set__(
         self: NestedValue[float, Literal[True]],
         instance: Serialisable | Strict,
-        value: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None,
+        value: _HasTagAndGet[ConvertibleToFloat | None] | ConvertibleToFloat | None,
     ) -> None: ...
     @overload
     def __set__(
         self: NestedValue[float, Literal[False]],
         instance: Serialisable | Strict,
-        value: _HasTagAndGet[_ConvertibleToFloat] | _ConvertibleToFloat,
+        value: _HasTagAndGet[ConvertibleToFloat] | ConvertibleToFloat,
     ) -> None: ...
     # Anything else
     @overload
@@ -140,10 +143,10 @@ class NestedText(NestedValue[_T, _N]):
     # int
     @overload
     def __set__(
-        self: NestedText[int, Literal[True]], instance: Serialisable | Strict, value: _ConvertibleToInt | None
+        self: NestedText[int, Literal[True]], instance: Serialisable | Strict, value: ConvertibleToInt | None
     ) -> None: ...
     @overload
-    def __set__(self: NestedText[int, Literal[False]], instance: Serialisable | Strict, value: _ConvertibleToInt) -> None: ...
+    def __set__(self: NestedText[int, Literal[False]], instance: Serialisable | Strict, value: ConvertibleToInt) -> None: ...
     # If expected type (_T) is not str, it's impossible to use an Element as the value
     @overload
     def __set__(self: NestedText[_T, Literal[True]], instance: Serialisable | Strict, value: _HasTagAndGet[Any]) -> NoReturn: ...
@@ -151,7 +154,10 @@ class NestedText(NestedValue[_T, _N]):
     @overload
     def __set__(self: NestedText[_T, Literal[True]], instance: Serialisable | Strict, value: _T | int | Any | None) -> None: ...
     def from_tree(self, node: _HasText) -> str: ...  # type: ignore[override]
-    def to_tree(self, tagname: str | None = None, value: Incomplete | None = None, namespace: str | None = None) -> Element: ...
+    @overload
+    def to_tree(self, tagname: Unused = None, value: None = None, namespace: Unused = None) -> None: ...  # type: ignore[overload-overlap]
+    @overload
+    def to_tree(self, tagname: str, value: object, namespace: str | None = None) -> Element: ...
 
 class NestedFloat(NestedValue[float, _N], Float[_N]):  # type: ignore[misc]
     @overload
@@ -232,25 +238,25 @@ class NestedMinMax(Nested[_M], MinMax[_M, _N]):  # type: ignore[misc]
     def __set__(
         self: NestedMinMax[int, Literal[True]],
         instance: Serialisable | Strict,
-        value: _HasTagAndGet[_ConvertibleToInt | None] | _ConvertibleToInt | None,
+        value: _HasTagAndGet[ConvertibleToInt | None] | ConvertibleToInt | None,
     ) -> None: ...
     @overload
     def __set__(
         self: NestedMinMax[int, Literal[False]],
         instance: Serialisable | Strict,
-        value: _HasTagAndGet[_ConvertibleToInt] | _ConvertibleToInt,
+        value: _HasTagAndGet[ConvertibleToInt] | ConvertibleToInt,
     ) -> None: ...
     @overload
     def __set__(
         self: NestedMinMax[float, Literal[True]],
         instance: Serialisable | Strict,
-        value: _HasTagAndGet[_ConvertibleToFloat | None] | _ConvertibleToFloat | None,
+        value: _HasTagAndGet[ConvertibleToFloat | None] | ConvertibleToFloat | None,
     ) -> None: ...
     @overload
     def __set__(
         self: NestedMinMax[float, Literal[False]],
         instance: Serialisable | Strict,
-        value: _HasTagAndGet[_ConvertibleToFloat] | _ConvertibleToFloat,
+        value: _HasTagAndGet[ConvertibleToFloat] | ConvertibleToFloat,
     ) -> None: ...
 
 class EmptyTag(Nested[bool], Bool[_N]):  # type: ignore[misc]
@@ -264,4 +270,9 @@ class EmptyTag(Nested[bool], Bool[_N]):  # type: ignore[misc]
     def __get__(self: EmptyTag[Literal[False]], instance: Serialisable | Strict, cls: type | None = None) -> bool: ...
     def __set__(self, instance: Serialisable | Strict, value: _HasTagAndGet[_ConvertibleToBool] | _ConvertibleToBool) -> None: ...
     def from_tree(self, node: Unused) -> Literal[True]: ...
-    def to_tree(self, tagname: str | None = None, value: Incomplete | None = None, namespace: str | None = None) -> Element: ...
+    @overload
+    def to_tree(  # type: ignore[overload-overlap]
+        self, tagname: Unused = None, value: None = None, namespace: Unused = None
+    ) -> None: ...
+    @overload
+    def to_tree(self, tagname: str, value: object, namespace: str | None = None) -> Element: ...

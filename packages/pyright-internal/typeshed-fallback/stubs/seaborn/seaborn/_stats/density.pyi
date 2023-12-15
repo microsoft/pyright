@@ -1,13 +1,12 @@
-from collections.abc import Callable
 from dataclasses import dataclass
 
 from seaborn._stats.base import Stat
-from seaborn.external.kde import gaussian_kde
+from seaborn.external.kde import _BwMethodType
 
 @dataclass
 class KDE(Stat):
     bw_adjust: float = 1
-    bw_method: str | float | Callable[[gaussian_kde], float] = "scott"
+    bw_method: _BwMethodType = "scott"
     common_norm: bool | list[str] = True
     common_grid: bool | list[str] = True
     gridsize: int | None = 200

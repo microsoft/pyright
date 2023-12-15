@@ -39,11 +39,12 @@ class Cell(StyleableObject):
     row: int
     column: int
     data_type: str
+    # row and column are never meant to be None and would lead to errors
     def __init__(
         self,
         worksheet: Worksheet,
-        row: int | None = None,
-        column: int | None = None,
+        row: int,
+        column: int,
         value: str | float | datetime | None = None,
         style_array: StyleArray | None = None,
     ) -> None: ...

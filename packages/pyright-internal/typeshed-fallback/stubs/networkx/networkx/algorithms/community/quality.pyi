@@ -1,0 +1,9 @@
+from networkx.exception import NetworkXError
+
+__all__ = ["modularity", "partition_quality"]
+
+class NotAPartition(NetworkXError):
+    def __init__(self, G, collection) -> None: ...
+
+def modularity(G, communities, weight: str = "weight", resolution: float = 1): ...
+def partition_quality(G, partition): ...

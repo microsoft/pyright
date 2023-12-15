@@ -1,10 +1,11 @@
-from _typeshed import Unused
+from _typeshed import ConvertibleToInt, Unused
 from typing import ClassVar
 from typing_extensions import Literal
 
-from openpyxl.descriptors.base import Typed, _ConvertibleToInt
+from openpyxl.descriptors.base import Typed
 from openpyxl.descriptors.nested import NestedText
 from openpyxl.descriptors.serialisable import Serialisable
+from openpyxl.xml.functions import Element
 
 def get_version(): ...
 
@@ -55,22 +56,22 @@ class ExtendedProperties(Serialisable):
         Template: object = None,
         Manager: object = None,
         Company: object = None,
-        Pages: _ConvertibleToInt | None = None,
-        Words: _ConvertibleToInt | None = None,
-        Characters: _ConvertibleToInt | None = None,
+        Pages: ConvertibleToInt | None = None,
+        Words: ConvertibleToInt | None = None,
+        Characters: ConvertibleToInt | None = None,
         PresentationFormat: object = None,
-        Lines: _ConvertibleToInt | None = None,
-        Paragraphs: _ConvertibleToInt | None = None,
-        Slides: _ConvertibleToInt | None = None,
-        Notes: _ConvertibleToInt | None = None,
-        TotalTime: _ConvertibleToInt | None = None,
-        HiddenSlides: _ConvertibleToInt | None = None,
-        MMClips: _ConvertibleToInt | None = None,
+        Lines: ConvertibleToInt | None = None,
+        Paragraphs: ConvertibleToInt | None = None,
+        Slides: ConvertibleToInt | None = None,
+        Notes: ConvertibleToInt | None = None,
+        TotalTime: ConvertibleToInt | None = None,
+        HiddenSlides: ConvertibleToInt | None = None,
+        MMClips: ConvertibleToInt | None = None,
         ScaleCrop: object = None,
         HeadingPairs: Unused = None,
         TitlesOfParts: Unused = None,
         LinksUpToDate: object = None,
-        CharactersWithSpaces: _ConvertibleToInt | None = None,
+        CharactersWithSpaces: ConvertibleToInt | None = None,
         SharedDoc: object = None,
         HyperlinkBase: object = None,
         HLinks: Unused = None,
@@ -78,6 +79,6 @@ class ExtendedProperties(Serialisable):
         DigSig: Unused = None,
         Application: object = "Microsoft Excel",
         AppVersion: object = None,
-        DocSecurity: _ConvertibleToInt | None = None,
+        DocSecurity: ConvertibleToInt | None = None,
     ) -> None: ...
-    def to_tree(self): ...
+    def to_tree(self) -> Element: ...  # type: ignore[override]

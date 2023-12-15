@@ -1,11 +1,11 @@
 import decimal
 from _typeshed import Incomplete
 from collections import OrderedDict
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Generator, Iterator, Sequence
 from contextlib import contextmanager
 from re import Pattern
-from typing import Any, ClassVar, NamedTuple, TypeVar
-from typing_extensions import Self, TypeAlias
+from typing import Any, ClassVar, NamedTuple, TypeVar, overload
+from typing_extensions import Literal, Self, TypeAlias
 
 from .syntax import Name, Raw
 
@@ -70,6 +70,14 @@ class DeviceCMYK(_DeviceCMYKBase):
 
 def rgb8(r, g, b, a: Incomplete | None = None) -> DeviceRGB: ...
 def gray8(g, a: Incomplete | None = None) -> DeviceGray: ...
+@overload
+def convert_to_device_color(r: DeviceGray, g: int = -1, b: int = -1) -> DeviceGray: ...
+@overload
+def convert_to_device_color(r: DeviceRGB, g: int = -1, b: int = -1) -> DeviceRGB: ...
+@overload
+def convert_to_device_color(r: int, g: Literal[-1] = -1, b: Literal[-1] = -1) -> DeviceGray: ...
+@overload
+def convert_to_device_color(r: Sequence[int] | int, g: int, b: int) -> DeviceGray | DeviceRGB: ...
 def cmyk8(c, m, y, k, a: Incomplete | None = None) -> DeviceCMYK: ...
 def color_from_hex_string(hexstr) -> DeviceRGB: ...
 def color_from_rgb_string(rgbstr) -> DeviceRGB: ...

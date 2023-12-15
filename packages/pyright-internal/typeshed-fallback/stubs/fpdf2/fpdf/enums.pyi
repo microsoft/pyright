@@ -70,6 +70,8 @@ class TableCellFillMode(CoerciveEnum):
     ROWS: str
     COLUMNS: str
 
+    def should_fill_cell(self, i: int, j: int) -> bool: ...
+
 class RenderStyle(CoerciveEnum):
     D: str
     F: str

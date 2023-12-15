@@ -1,14 +1,13 @@
 import datetime as dt
-from _typeshed import Incomplete, ReadableBuffer, SupportsRead, SupportsReadline, SupportsTrunc, SupportsWrite, Unused
+from _typeshed import ConvertibleToInt, Incomplete, SupportsRead, SupportsReadline, SupportsWrite, Unused
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from types import TracebackType
-from typing import Any, NoReturn, Protocol, SupportsInt, TypeVar, overload, type_check_only
-from typing_extensions import Literal, Self, SupportsIndex, TypeAlias
+from typing import Any, NoReturn, Protocol, TypeVar, overload, type_check_only
+from typing_extensions import Literal, Self, TypeAlias
 
 from psycopg2.sql import Composable
 
 _Vars: TypeAlias = Sequence[Any] | Mapping[str, Any] | None
-_AcceptedByInt: TypeAlias = str | ReadableBuffer | SupportsInt | SupportsIndex | SupportsTrunc
 
 @type_check_only
 class _type:
@@ -84,7 +83,6 @@ threadsafety: int
 __libpq_version__: int
 
 class _SupportsReadAndReadline(SupportsRead[str], SupportsReadline[str], Protocol): ...
-class _SupportsReadAndReadlineAndWrite(_SupportsReadAndReadline, SupportsWrite[str], Protocol): ...
 
 class cursor:
     arraysize: int
@@ -120,7 +118,9 @@ class cursor:
     def callproc(self, __procname: str | bytes, __parameters: _Vars = None) -> None: ...
     def cast(self, __oid: int, __s: str | bytes) -> Any: ...
     def close(self) -> None: ...
-    def copy_expert(self, sql: str | bytes | Composable, file: _SupportsReadAndReadlineAndWrite, size: int = 8192) -> None: ...
+    def copy_expert(
+        self, sql: str | bytes | Composable, file: _SupportsReadAndReadline | SupportsWrite[str], size: int = 8192
+    ) -> None: ...
     def copy_from(
         self,
         file: _SupportsReadAndReadline,
@@ -321,7 +321,7 @@ class Float:
     def __conform__(self, __proto) -> Self | None: ...
 
 class Int:
-    def __init__(self, __value: _AcceptedByInt, **kwargs: Unused) -> None: ...
+    def __init__(self, __value: ConvertibleToInt, **kwargs: Unused) -> None: ...
     @property
     def adapted(self) -> Any: ...
     def getquoted(self) -> bytes: ...
@@ -412,7 +412,7 @@ class connection:
     def binary_types(self) -> dict[Incomplete, Incomplete]: ...
     @property
     def closed(self) -> int: ...
-    cursor_factory: Callable[..., _Cursor]
+    cursor_factory: Callable[[connection, str | bytes | None], cursor]
     @property
     def dsn(self) -> str: ...
     @property
@@ -452,13 +452,13 @@ class connection:
     @overload
     def cursor(
         self, name: str | bytes | None = None, cursor_factory: None = None, withhold: bool = False, scrollable: bool | None = None
-    ) -> _Cursor: ...
+    ) -> cursor: ...
     @overload
     def cursor(
         self,
         name: str | bytes | None = None,
         *,
-        cursor_factory: Callable[..., _T_cur],
+        cursor_factory: Callable[[connection, str | bytes | None], _T_cur],
         withhold: bool = False,
         scrollable: bool | None = None,
     ) -> _T_cur: ...
@@ -466,7 +466,7 @@ class connection:
     def cursor(
         self,
         name: str | bytes | None,
-        cursor_factory: Callable[..., _T_cur],
+        cursor_factory: Callable[[connection, str | bytes | None], _T_cur],
         withhold: bool = False,
         scrollable: bool | None = None,
     ) -> _T_cur: ...

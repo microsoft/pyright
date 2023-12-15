@@ -9,7 +9,7 @@ from re import Pattern
 from typing import IO, Any, ClassVar, Protocol, TypeVar, overload, type_check_only
 from typing_extensions import Literal, Self, TypeAlias
 
-from ._vendor.packaging import requirements as packaging_requirements, version as packaging_version
+from ._vendored_packaging import requirements as packaging_requirements, version as packaging_version
 
 _T = TypeVar("_T")
 _D = TypeVar("_D", bound=Distribution)

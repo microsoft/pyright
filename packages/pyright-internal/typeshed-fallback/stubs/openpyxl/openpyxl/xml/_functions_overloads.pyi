@@ -1,7 +1,7 @@
 # This file does not exist at runtime. It is a helper file to overload imported functions in openpyxl.xml.functions
 
 import sys
-from _typeshed import Incomplete, ReadableBuffer, SupportsIter
+from _typeshed import Incomplete, ReadableBuffer
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, Protocol, TypeVar, overload
 from typing_extensions import TypeAlias
@@ -38,11 +38,12 @@ class _SupportsFindChartLines(Protocol):
     def find(self, __path: str) -> ChartLines | None: ...
 
 class _SupportsFindAndIterAndAttribAndText(  # noqa: Y046
-    _SupportsFindChartLines, SupportsIter[Incomplete], _HasAttrib, _HasText, Protocol
+    _SupportsFindChartLines, Iterable[Incomplete], _HasAttrib, _HasText, Protocol
 ): ...
-class _SupportsIterAndAttribAndTextAndTag(SupportsIter[Incomplete], _HasAttrib, _HasText, _HasTag, Protocol): ...  # noqa: Y046
+class _SupportsIterAndAttrib(Iterable[Incomplete], _HasAttrib, Protocol): ...  # noqa: Y046
+class _SupportsIterAndAttribAndTextAndTag(Iterable[Incomplete], _HasAttrib, _HasText, _HasTag, Protocol): ...  # noqa: Y046
 class _SupportsIterAndAttribAndTextAndGet(  # noqa: Y046
-    SupportsIter[Incomplete], _HasAttrib, _HasText, _HasGet[Incomplete], Protocol
+    Iterable[Incomplete], _HasAttrib, _HasText, _HasGet[Incomplete], Protocol
 ): ...
 
 class _ParentElement(Protocol[_T]):

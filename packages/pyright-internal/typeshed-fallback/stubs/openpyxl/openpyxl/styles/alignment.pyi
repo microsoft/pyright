@@ -1,9 +1,9 @@
-from _typeshed import Incomplete
+from _typeshed import ConvertibleToFloat, Incomplete
 from collections.abc import Iterator
 from typing import ClassVar
 from typing_extensions import Final, Literal, TypeAlias
 
-from openpyxl.descriptors.base import Alias, Bool, Min, MinMax, NoneSet, _ConvertibleToBool, _ConvertibleToFloat
+from openpyxl.descriptors.base import Alias, Bool, Min, MinMax, NoneSet, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable
 
 _HorizontalAlignmentsType: TypeAlias = Literal[
@@ -36,10 +36,10 @@ class Alignment(Serialisable):
         textRotation: int = 0,
         wrapText: _ConvertibleToBool | None = None,
         shrinkToFit: _ConvertibleToBool | None = None,
-        indent: _ConvertibleToFloat = 0,
-        relativeIndent: _ConvertibleToFloat = 0,
+        indent: ConvertibleToFloat = 0,
+        relativeIndent: ConvertibleToFloat = 0,
         justifyLastLine: _ConvertibleToBool | None = None,
-        readingOrder: _ConvertibleToFloat = 0,
+        readingOrder: ConvertibleToFloat = 0,
         text_rotation: Incomplete | None = None,
         wrap_text: Incomplete | None = None,
         shrink_to_fit: Incomplete | None = None,

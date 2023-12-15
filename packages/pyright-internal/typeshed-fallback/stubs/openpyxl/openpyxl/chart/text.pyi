@@ -1,4 +1,4 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
 from typing import ClassVar
 from typing_extensions import Literal
 
@@ -6,6 +6,7 @@ from openpyxl.chart.data_source import StrRef
 from openpyxl.descriptors.base import Alias, Typed
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.drawing.text import ListStyle, RichTextProperties
+from openpyxl.xml.functions import Element
 
 class RichText(Serialisable):
     tagname: ClassVar[str]
@@ -25,4 +26,4 @@ class Text(Serialisable):
     rich: Typed[RichText, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(self, strRef: StrRef | None = None, rich: RichText | None = None) -> None: ...
-    def to_tree(self, tagname: str | None = None, idx: Incomplete | None = None, namespace: str | None = None): ...
+    def to_tree(self, tagname: str | None = None, idx: Unused = None, namespace: str | None = None) -> Element: ...

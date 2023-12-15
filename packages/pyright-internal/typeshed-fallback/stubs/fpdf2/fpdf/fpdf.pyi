@@ -6,7 +6,7 @@ from io import BytesIO
 from pathlib import PurePath
 from re import Pattern
 from typing import Any, ClassVar, NamedTuple, overload
-from typing_extensions import Literal, TypeAlias
+from typing_extensions import Final, Literal, TypeAlias, deprecated
 
 from fpdf import ViewerPreferences
 from PIL import Image
@@ -35,6 +35,13 @@ from .errors import FPDFException as FPDFException
 from .fonts import FontFace
 from .graphics_state import GraphicsStateMixin
 from .html import HTML2FPDF
+from .image_datastructures import (
+    ImageCache,
+    ImageInfo as ImageInfo,
+    RasterImageInfo as RasterImageInfo,
+    VectorImageInfo as VectorImageInfo,
+    _AlignLiteral,
+)
 from .output import OutputProducer, PDFPage
 from .recorder import FPDFRecorder
 from .structure_tree import StructureTreeBuilder
@@ -42,23 +49,26 @@ from .syntax import DestinationXYZ
 from .table import Table
 from .util import _Unit
 
-__all__ = ["FPDF", "XPos", "YPos", "get_page_format", "ImageInfo", "TextMode", "TitleStyle", "PAGE_FORMATS"]
+__all__ = [
+    "FPDF",
+    "XPos",
+    "YPos",
+    "get_page_format",
+    "ImageInfo",
+    "RasterImageInfo",
+    "VectorImageInfo",
+    "TextMode",
+    "TitleStyle",
+    "PAGE_FORMATS",
+]
 
 _Orientation: TypeAlias = Literal["", "portrait", "p", "P", "landscape", "l", "L"]
 _Format: TypeAlias = Literal["", "a3", "A3", "a4", "A4", "a5", "A5", "letter", "Letter", "legal", "Legal"]
 _FontStyle: TypeAlias = Literal["", "B", "I"]
 _FontStyles: TypeAlias = Literal["", "B", "I", "U", "BU", "UB", "BI", "IB", "IU", "UI", "BIU", "BUI", "IBU", "IUB", "UBI", "UIB"]
-PAGE_FORMATS: dict[_Format, tuple[float, float]]
 
-class ImageInfo(dict[str, Any]):
-    @property
-    def width(self) -> int: ...
-    @property
-    def height(self) -> int: ...
-    @property
-    def rendered_width(self) -> int: ...
-    @property
-    def rendered_height(self) -> int: ...
+FPDF_VERSION: Final[str]
+PAGE_FORMATS: dict[_Format, tuple[float, float]]
 
 class TitleStyle(FontFace):
     t_margin: int | None
@@ -87,7 +97,6 @@ def get_page_format(format: _Format | tuple[float, float], k: float | None = Non
 
 # TODO: TypedDicts
 _Font: TypeAlias = dict[str, Any]
-_Image: TypeAlias = dict[str, Any]
 
 class FPDF(GraphicsStateMixin):
     MARKDOWN_BOLD_MARKER: ClassVar[str]
@@ -102,15 +111,14 @@ class FPDF(GraphicsStateMixin):
     page: int
     pages: dict[int, PDFPage]
     fonts: dict[str, _Font]
-    images: dict[str, _Image]
     links: dict[int, DestinationXYZ]
     embedded_files: list[PDFEmbeddedFile]
+    image_cache: ImageCache
 
     in_footer: bool
     str_alias_nb_pages: str
 
     xmp_metadata: str | None
-    image_filter: str
     page_duration: int
     page_transition: Incomplete | None
     allow_images_transparency: bool
@@ -147,6 +155,8 @@ class FPDF(GraphicsStateMixin):
     h_pt: float
     w: float
     h: float
+
+    text_shaping: dict[str, Incomplete] | None  # TODO: TypedDict
 
     def __init__(
         self,
@@ -371,7 +381,16 @@ class FPDF(GraphicsStateMixin):
         h: float = 1,
         name: AnnotationName | str | None = None,
         flags: tuple[AnnotationFlag, ...] | tuple[str, ...] = ...,
-    ) -> None: ...
+    ) -> AnnotationDict: ...
+    def free_text_annotation(
+        self,
+        text: str,
+        x: float | None = None,
+        y: float | None = None,
+        w: float | None = None,
+        h: float | None = None,
+        flags: tuple[AnnotationFlag, ...] | tuple[str, ...] = ...,
+    ) -> AnnotationDict: ...
     def add_action(self, action, x: float, y: float, w: float, h: float) -> None: ...
     def highlight(
         self,
@@ -466,10 +485,12 @@ class FPDF(GraphicsStateMixin):
     def text_columns(
         self,
         text: str | None = None,
+        img: str | None = None,
+        img_fill_width: bool = False,
         ncols: int = 1,
         gutter: float = 10,
         balance: bool = False,
-        text_align: Align | str = "LEFT",
+        text_align: Align | _AlignLiteral = "LEFT",
         line_height: float = 1,
         l_margin: float | None = None,
         r_margin: float | None = None,
@@ -490,7 +511,8 @@ class FPDF(GraphicsStateMixin):
         alt_text: str | None = None,
         dims: tuple[float, float] | None = None,
         keep_aspect_ratio: bool = False,
-    ) -> _Image: ...
+    ) -> RasterImageInfo | VectorImageInfo: ...
+    @deprecated("Deprecated since 2.7.7; use fpdf.image_parsing.preload_image() instead")
     def preload_image(
         self, name: str | Image.Image | BytesIO, dims: tuple[float, float] | None = None
     ) -> tuple[str, Any, ImageInfo]: ...

@@ -1,28 +1,37 @@
-from _typeshed import Incomplete
 from collections.abc import Iterable
-from typing import Any
-from typing_extensions import Literal
+from typing import Any, Protocol, TypeVar
+from typing_extensions import Literal, TypeAlias, deprecated
 
 from matplotlib.axes import Axes
-from matplotlib.colors import Colormap
+from matplotlib.colors import Colormap, Normalize
 from matplotlib.typing import ColorType
+from numpy.typing import ArrayLike
 
+from ._core.typing import ColumnName, DataSource
 from .axisgrid import FacetGrid
-from .utils import _LogScale, _Palette
+from .external.kde import _BwMethodType
+from .utils import _DataSourceWideForm, _LogScale, _Palette, _Vector
 
 __all__ = ["displot", "histplot", "kdeplot", "ecdfplot", "rugplot", "distplot"]
 
+_T = TypeVar("_T")
+_OneOrPair: TypeAlias = _T | tuple[_T, _T]
+
+class _Fit(Protocol):
+    def fit(self, a: ArrayLike) -> tuple[ArrayLike, ...]: ...
+    def pdf(self, x: ArrayLike, *params: ArrayLike) -> ArrayLike: ...
+
 def histplot(
-    data: Incomplete | None = None,
+    data: DataSource | _DataSourceWideForm | None = None,
     *,
-    x: Incomplete | None = None,
-    y: Incomplete | None = None,
-    hue: Incomplete | None = None,
-    weights: Incomplete | None = None,
+    x: ColumnName | _Vector | None = None,
+    y: ColumnName | _Vector | None = None,
+    hue: ColumnName | _Vector | None = None,
+    weights: ColumnName | _Vector | None = None,
     stat: str = "count",
-    bins: Incomplete = "auto",
+    bins: _OneOrPair[str | int | ArrayLike] = "auto",
     binwidth: float | tuple[float, float] | None = None,
-    binrange: Incomplete | None = None,
+    binrange: _OneOrPair[tuple[float, float]] | None = None,
     discrete: bool | None = None,
     cumulative: bool = False,
     common_bins: bool = True,
@@ -41,8 +50,8 @@ def histplot(
     cbar_ax: Axes | None = None,
     cbar_kws: dict[str, Any] | None = None,
     palette: _Palette | Colormap | None = None,
-    hue_order: Iterable[str] | None = None,
-    hue_norm: Incomplete | None = None,
+    hue_order: Iterable[ColumnName] | None = None,
+    hue_norm: tuple[float, float] | Normalize | None = None,
     color: ColorType | None = None,
     log_scale: _LogScale | None = None,
     legend: bool = True,
@@ -50,30 +59,30 @@ def histplot(
     **kwargs: Any,
 ) -> Axes: ...
 def kdeplot(
-    data: Incomplete | None = None,
+    data: DataSource | _DataSourceWideForm | None = None,
     *,
-    x: Incomplete | None = None,
-    y: Incomplete | None = None,
-    hue: Incomplete | None = None,
-    weights: Incomplete | None = None,
+    x: ColumnName | _Vector | None = None,
+    y: ColumnName | _Vector | None = None,
+    hue: ColumnName | _Vector | None = None,
+    weights: ColumnName | _Vector | None = None,
     palette: _Palette | Colormap | None = None,
-    hue_order: Iterable[str] | None = None,
-    hue_norm: Incomplete | None = None,
+    hue_order: Iterable[ColumnName] | None = None,
+    hue_norm: tuple[float, float] | Normalize | None = None,
     color: ColorType | None = None,
     fill: bool | None = None,
     multiple: Literal["layer", "stack", "fill"] = "layer",
     common_norm: bool = True,
     common_grid: bool = False,
     cumulative: bool = False,
-    bw_method: str = "scott",
+    bw_method: _BwMethodType = "scott",
     bw_adjust: float = 1,
     warn_singular: bool = True,
     log_scale: _LogScale | None = None,
-    levels: int | Iterable[int] = 10,
+    levels: int | Iterable[float] = 10,
     thresh: float = 0.05,
     gridsize: int = 200,
     cut: float = 3,
-    clip: Incomplete | None = None,
+    clip: _OneOrPair[tuple[float | None, float | None]] | None = None,
     legend: bool = True,
     cbar: bool = False,
     cbar_ax: Axes | None = None,
@@ -82,70 +91,71 @@ def kdeplot(
     **kwargs: Any,
 ) -> Axes: ...
 def ecdfplot(
-    data: Incomplete | None = None,
+    data: DataSource | _DataSourceWideForm | None = None,
     *,
-    x: Incomplete | None = None,
-    y: Incomplete | None = None,
-    hue: Incomplete | None = None,
-    weights: Incomplete | None = None,
-    stat: Literal["proportion", "count"] = "proportion",
+    x: ColumnName | _Vector | None = None,
+    y: ColumnName | _Vector | None = None,
+    hue: ColumnName | _Vector | None = None,
+    weights: ColumnName | _Vector | None = None,
+    stat: Literal["proportion", "percent", "count"] = "proportion",
     complementary: bool = False,
     palette: _Palette | Colormap | None = None,
-    hue_order: Iterable[str] | None = None,
-    hue_norm: Incomplete | None = None,
+    hue_order: Iterable[ColumnName] | None = None,
+    hue_norm: tuple[float, float] | Normalize | None = None,
     log_scale: _LogScale | None = None,
     legend: bool = True,
     ax: Axes | None = None,
     **kwargs: Any,
 ) -> Axes: ...
 def rugplot(
-    data: Incomplete | None = None,
+    data: DataSource | _DataSourceWideForm | None = None,
     *,
-    x: Incomplete | None = None,
-    y: Incomplete | None = None,
-    hue: Incomplete | None = None,
+    x: ColumnName | _Vector | None = None,
+    y: ColumnName | _Vector | None = None,
+    hue: ColumnName | _Vector | None = None,
     height: float = 0.025,
     expand_margins: bool = True,
     palette: _Palette | Colormap | None = None,
-    hue_order: Iterable[str] | None = None,
-    hue_norm: Incomplete | None = None,
+    hue_order: Iterable[ColumnName] | None = None,
+    hue_norm: tuple[float, float] | Normalize | None = None,
     legend: bool = True,
     ax: Axes | None = None,
     **kwargs: Any,
 ) -> Axes: ...
 def displot(
-    data: Incomplete | None = None,
+    data: DataSource | _DataSourceWideForm | None = None,
     *,
-    x: Incomplete | None = None,
-    y: Incomplete | None = None,
-    hue: Incomplete | None = None,
-    row: Incomplete | None = None,
-    col: Incomplete | None = None,
-    weights: Incomplete | None = None,
+    x: ColumnName | _Vector | None = None,
+    y: ColumnName | _Vector | None = None,
+    hue: ColumnName | _Vector | None = None,
+    row: ColumnName | _Vector | None = None,
+    col: ColumnName | _Vector | None = None,
+    weights: ColumnName | _Vector | None = None,
     kind: Literal["hist", "kde", "ecdf"] = "hist",
     rug: bool = False,
     rug_kws: dict[str, Any] | None = None,
     log_scale: _LogScale | None = None,
     legend: bool = True,
     palette: _Palette | Colormap | None = None,
-    hue_order: Iterable[str] | None = None,
-    hue_norm: Incomplete | None = None,
+    hue_order: Iterable[ColumnName] | None = None,
+    hue_norm: tuple[float, float] | Normalize | None = None,
     color: ColorType | None = None,
     col_wrap: int | None = None,
-    row_order: Iterable[str] | None = None,
-    col_order: Iterable[str] | None = None,
+    row_order: Iterable[ColumnName] | None = None,
+    col_order: Iterable[ColumnName] | None = None,
     height: float = 5,
     aspect: float = 1,
     facet_kws: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> FacetGrid: ...
-def distplot(  # deprecated
-    a: Incomplete | None = None,
-    bins: Incomplete | None = None,
+@deprecated("Function `distplot` is deprecated and will be removed in seaborn v0.14.0")
+def distplot(
+    a: ArrayLike | None = None,
+    bins: ArrayLike | None = None,
     hist: bool = True,
     kde: bool = True,
     rug: bool = False,
-    fit: Incomplete | None = None,
+    fit: _Fit | None = None,
     hist_kws: dict[str, Any] | None = None,
     kde_kws: dict[str, Any] | None = None,
     rug_kws: dict[str, Any] | None = None,
@@ -154,7 +164,7 @@ def distplot(  # deprecated
     vertical: bool = False,
     norm_hist: bool = False,
     axlabel: str | Literal[False] | None = None,
-    label: Incomplete | None = None,
+    label: str | None = None,
     ax: Axes | None = None,
-    x: Incomplete | None = None,
+    x: ArrayLike | None = None,
 ) -> Axes: ...

@@ -1,18 +1,23 @@
 from _typeshed import Incomplete
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import Any, Protocol
 from typing_extensions import TypeAlias
 
 from matplotlib.colors import Colormap, Normalize
 from numpy import ndarray
-from pandas import Index, Series, Timedelta, Timestamp
+from pandas import DataFrame, Index, Series, Timedelta, Timestamp
+
+class _SupportsDataFrame(Protocol):
+    # `__dataframe__` should return pandas.core.interchange.dataframe_protocol.DataFrame
+    # but this class needs to be defined as a Protocol, not as an ABC.
+    def __dataframe__(self, nan_as_null: bool = ..., allow_copy: bool = ...) -> Incomplete: ...
 
 ColumnName: TypeAlias = str | bytes | date | datetime | timedelta | bool | complex | Timestamp | Timedelta
 Vector: TypeAlias = Series[Any] | Index[Any] | ndarray[Any, Any]
 VariableSpec: TypeAlias = ColumnName | Vector | None
 VariableSpecList: TypeAlias = list[VariableSpec] | Index[Any] | None
-DataSource: TypeAlias = Incomplete
+DataSource: TypeAlias = DataFrame | _SupportsDataFrame | Mapping[ColumnName, Incomplete] | None
 OrderSpec: TypeAlias = Iterable[str] | None
 NormSpec: TypeAlias = tuple[float | None, float | None] | Normalize | None
 PaletteSpec: TypeAlias = str | list[Incomplete] | dict[Incomplete, Incomplete] | Colormap | None

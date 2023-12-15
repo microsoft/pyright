@@ -1,0 +1,3 @@
+from _typeshed import Incomplete
+
+def diameter(G, seed: Incomplete | None = None): ...

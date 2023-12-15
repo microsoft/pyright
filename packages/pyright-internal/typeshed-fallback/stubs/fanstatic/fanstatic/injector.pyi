@@ -2,7 +2,7 @@ from _typeshed.wsgi import StartResponse, WSGIApplication, WSGIEnvironment
 from abc import abstractmethod
 from collections.abc import Iterable
 from typing import Any
-from typing_extensions import Literal, TypedDict
+from typing_extensions import Literal, TypedDict, Unpack
 
 from fanstatic.core import Dependable, NeededResources, Resource
 from fanstatic.inclusion import Inclusion
@@ -35,8 +35,8 @@ class Injector:
     config: _NeededResourcesConfig
     injector: InjectorPlugin
     def __init__(
-        self, app: WSGIApplication, injector: InjectorPlugin | None = None, **config: Any
-    ) -> None: ...  # FIXME: Switch to Unpack[_NeededResourcesConfig]
+        self, app: WSGIApplication, injector: InjectorPlugin | None = None, **config: Unpack[_NeededResourcesConfig]
+    ) -> None: ...
     def __call__(self, environ: WSGIEnvironment, start_response: StartResponse) -> Iterable[bytes]: ...
 
 class InjectorPlugin:

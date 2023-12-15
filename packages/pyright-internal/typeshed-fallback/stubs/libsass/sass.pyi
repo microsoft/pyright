@@ -1,8 +1,8 @@
 import enum
-from _typeshed import ReadableBuffer, SupportsKeysAndGetItem
+from _typeshed import ConvertibleToFloat, SupportsKeysAndGetItem
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set as AbstractSet
-from typing import Any, Generic, NamedTuple, SupportsFloat, TypeVar, overload, type_check_only
-from typing_extensions import Literal, ParamSpec, Self, SupportsIndex, TypeAlias
+from typing import Any, Generic, NamedTuple, TypeVar, overload, type_check_only
+from typing_extensions import Literal, ParamSpec, Self, TypeAlias
 
 _T = TypeVar("_T")
 _KT = TypeVar("_KT")
@@ -10,7 +10,6 @@ _VT_co = TypeVar("_VT_co", covariant=True)
 _P = ParamSpec("_P")
 _Mode: TypeAlias = Literal["string", "filename", "dirname"]
 _OutputStyle: TypeAlias = Literal["nested", "expanded", "compact", "compressed"]
-_ConvertsToFloat: TypeAlias = SupportsFloat | SupportsIndex | str | ReadableBuffer
 _CustomFunctions: TypeAlias = Mapping[str, Callable[..., Any]] | Sequence[Callable[..., Any]] | AbstractSet[Callable[..., Any]]
 _ImportCallbackRet: TypeAlias = (
     list[tuple[str, str, str]] | list[tuple[str, str]] | list[tuple[str]] | list[tuple[str, ...]] | None
@@ -113,7 +112,7 @@ class _SassNumber(NamedTuple):
     unit: str
 
 class SassNumber(_SassNumber):
-    def __new__(cls, value: _ConvertsToFloat, unit: str | bytes) -> Self: ...
+    def __new__(cls, value: ConvertibleToFloat, unit: str | bytes) -> Self: ...
 
 @type_check_only
 class _SassColor(NamedTuple):
@@ -123,7 +122,7 @@ class _SassColor(NamedTuple):
     a: float
 
 class SassColor(_SassColor):
-    def __new__(cls, r: _ConvertsToFloat, g: _ConvertsToFloat, b: _ConvertsToFloat, a: _ConvertsToFloat) -> Self: ...
+    def __new__(cls, r: ConvertibleToFloat, g: ConvertibleToFloat, b: ConvertibleToFloat, a: ConvertibleToFloat) -> Self: ...
 
 @type_check_only
 class _Separator(enum.Enum):
