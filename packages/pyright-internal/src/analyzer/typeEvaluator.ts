@@ -24266,14 +24266,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const targetIncludesParamSpec = reverseMatching ? !!srcType.details.paramSpec : !!destType.details.paramSpec;
 
-        const destPositionalCount =
-            destParamDetails.argsIndex ?? destParamDetails.firstKeywordOnlyIndex ?? destParamDetails.params.length;
-        const srcPositionalCount =
-            srcParamDetails.argsIndex ?? srcParamDetails.firstKeywordOnlyIndex ?? srcParamDetails.params.length;
+        const destPositionalCount = destParamDetails.firstKeywordOnlyIndex ?? destParamDetails.params.length;
+        const srcPositionalCount = srcParamDetails.firstKeywordOnlyIndex ?? srcParamDetails.params.length;
         const positionalsToMatch = Math.min(destPositionalCount, srcPositionalCount);
 
         // Match positional parameters.
         for (let paramIndex = 0; paramIndex < positionalsToMatch; paramIndex++) {
+            // Skip over the *args parameter since it's handled separately below.
+            if (paramIndex === destParamDetails.argsIndex) {
+                continue;
+            }
+
             const destParam = destParamDetails.params[paramIndex];
             const srcParam = srcParamDetails.params[paramIndex];
 
@@ -24302,7 +24305,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            if (!!destParam.param.hasDefault && !srcParam.param.hasDefault) {
+            if (
+                !!destParam.param.hasDefault &&
+                !srcParam.param.hasDefault &&
+                paramIndex !== srcParamDetails.argsIndex
+            ) {
                 diag?.createAddendum().addMessage(
                     Localizer.DiagnosticAddendum.functionParamDefaultMissing().format({
                         name: srcParamName,
@@ -24417,6 +24424,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // *args parameter type.
                 const srcArgsType = srcParamDetails.params[srcParamDetails.argsIndex].type;
                 for (let paramIndex = srcPositionalCount; paramIndex < destPositionalCount; paramIndex++) {
+                    if (paramIndex === srcParamDetails.argsIndex) {
+                        continue;
+                    }
+
                     const destParamType = destParamDetails.params[paramIndex].type;
                     if (isVariadicTypeVar(destParamType) && !isVariadicTypeVar(srcArgsType)) {
                         diag?.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
@@ -24451,13 +24462,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
             } else if (!srcParamDetails.paramSpec) {
-                diag?.addMessage(
-                    Localizer.DiagnosticAddendum.functionTooManyParams().format({
-                        expected: srcPositionalCount,
-                        received: destPositionalCount,
-                    })
-                );
-                canAssign = false;
+                // If the dest contains a *args, remove it from the positional count
+                // because it's OK for zero source args to match it.
+                let adjDestPositionalCount = destPositionalCount;
+                if (destParamDetails.argsIndex !== undefined && destParamDetails.argsIndex < destPositionalCount) {
+                    adjDestPositionalCount--;
+                }
+
+                if (srcPositionalCount < adjDestPositionalCount) {
+                    diag?.addMessage(
+                        Localizer.DiagnosticAddendum.functionTooManyParams().format({
+                            expected: srcPositionalCount,
+                            received: destPositionalCount,
+                        })
+                    );
+                    canAssign = false;
+                }
             }
         }
 
