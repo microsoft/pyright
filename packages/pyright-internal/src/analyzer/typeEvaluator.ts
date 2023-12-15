@@ -9962,6 +9962,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else if (typeResult.type.details.paramSpec) {
             const paramSpecScopeId = typeResult.type.details.paramSpec.scopeId;
             if (
+                typeResult.type.details.typeVarScopeId === WildcardTypeVarScopeId ||
                 paramSpecScopeId === typeResult.type.details.typeVarScopeId ||
                 paramSpecScopeId === typeResult.type.details.constructorTypeVarScopeId
             ) {
