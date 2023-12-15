@@ -1334,6 +1334,14 @@ test('MatchLiteral1', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('MatchLiteral2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['matchLiteral2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MatchExhaustion1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

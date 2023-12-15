@@ -2227,7 +2227,7 @@ export function narrowTypeForDiscriminatedTupleComparison(
 // Attempts to narrow a type based on a comparison (equal or not equal)
 // between a discriminating field that has a declared literal type to a
 // literal value.
-function narrowTypeForDiscriminatedLiteralFieldComparison(
+export function narrowTypeForDiscriminatedLiteralFieldComparison(
     evaluator: TypeEvaluator,
     referenceType: Type,
     memberName: string,

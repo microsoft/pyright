@@ -37,6 +37,7 @@ import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes'
 import {
     enumerateLiteralsForType,
     narrowTypeForDiscriminatedDictEntryComparison,
+    narrowTypeForDiscriminatedLiteralFieldComparison,
     narrowTypeForDiscriminatedTupleComparison,
 } from './typeGuards';
 import {
@@ -68,6 +69,7 @@ import {
     getTypeVarScopeId,
     getUnknownTypeForCallable,
     isLiteralType,
+    isLiteralTypeOrUnion,
     isMetaclassInstance,
     isNoneInstance,
     isPartlyUnknown,
@@ -1938,6 +1940,45 @@ export function getPatternSubtypeNarrowingCallback(
                     : undefined;
             };
         }
+    }
+
+    // Look for a subject expression of the form "a.b" where "b" is an attribute
+    // that is annotated with a literal type.
+    if (
+        subjectExpression.nodeType === ParseNodeType.MemberAccess &&
+        isMatchingExpression(reference, subjectExpression.leftExpression)
+    ) {
+        const unnarrowedReferenceTypeResult = evaluator.getTypeOfExpression(
+            subjectExpression.leftExpression,
+            EvaluatorFlags.CallBaseDefaults
+        );
+        const unnarrowedReferenceType = unnarrowedReferenceTypeResult.type;
+
+        return (narrowedSubjectType: Type) => {
+            if (isNever(narrowedSubjectType)) {
+                return { type: NeverType.createNever() };
+            }
+
+            if (!isLiteralTypeOrUnion(narrowedSubjectType)) {
+                return undefined;
+            }
+
+            const resultType = mapSubtypes(narrowedSubjectType, (literalSubtype) => {
+                assert(isClassInstance(literalSubtype) && literalSubtype.literalValue !== undefined);
+
+                return narrowTypeForDiscriminatedLiteralFieldComparison(
+                    evaluator,
+                    unnarrowedReferenceType,
+                    subjectExpression.memberName.value,
+                    literalSubtype,
+                    /* isPositiveTest */ true
+                );
+            });
+
+            return {
+                type: resultType,
+            };
+        };
     }
 
     return undefined;
