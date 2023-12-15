@@ -112,6 +112,7 @@ import {
     IntrinsicType,
     ModuleLoaderActions,
     ParameterDeclaration,
+    SpecialBuiltInClassDeclaration,
     TypeAliasDeclaration,
     TypeParameterDeclaration,
     UnresolvedModuleMarker,
@@ -275,7 +276,6 @@ export class Binder extends ParseTreeWalker {
                 // Bind implicit names.
                 // List taken from https://docs.python.org/3/reference/import.html#__name__
                 this._addImplicitSymbolToCurrentScope('__name__', node, 'str');
-                this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str');
                 this._addImplicitSymbolToCurrentScope('__loader__', node, 'Any');
                 this._addImplicitSymbolToCurrentScope('__package__', node, 'str');
                 this._addImplicitSymbolToCurrentScope('__spec__', node, 'Any');
@@ -433,6 +433,7 @@ export class Binder extends ParseTreeWalker {
 
             this._addImplicitSymbolToCurrentScope('__doc__', node, 'str | None');
             this._addImplicitSymbolToCurrentScope('__module__', node, 'str');
+            this._addImplicitSymbolToCurrentScope('__qualname__', node, 'str');
 
             this._dunderSlotsEntries = undefined;
             if (!this._moduleSymbolOnly) {
@@ -1519,7 +1520,6 @@ export class Binder extends ParseTreeWalker {
             flags: FlowFlags.PreFinallyGate,
             id: this._getUniqueFlowNodeId(),
             antecedent: preFinallyReturnOrRaiseLabel,
-            isGateClosed: false,
         };
 
         preFinallyLabel.affectedExpressions = this._trackCodeFlowExpressions(() => {
@@ -4077,7 +4077,6 @@ export class Binder extends ParseTreeWalker {
             'Optional',
             'Annotated',
             'TypeAlias',
-            'OrderedDict',
             'Concatenate',
             'TypeGuard',
             'Unpack',
@@ -4085,6 +4084,7 @@ export class Binder extends ParseTreeWalker {
             'NoReturn',
             'Never',
             'LiteralString',
+            'OrderedDict',
         ]);
 
         const assignedName = assignedNameNode.value;
@@ -4092,18 +4092,22 @@ export class Binder extends ParseTreeWalker {
         if (!specialTypes.has(assignedName)) {
             return false;
         }
-        const symbol = this._bindNameToScope(this._currentScope, annotationNode.valueExpression);
 
+        const specialBuiltInClassDeclaration: SpecialBuiltInClassDeclaration = {
+            type: DeclarationType.SpecialBuiltInClass,
+            node: annotationNode,
+            uri: this._fileInfo.fileUri,
+            range: convertTextRangeToRange(annotationNode, this._fileInfo.lines),
+            moduleName: this._fileInfo.moduleName,
+            isInExceptSuite: this._isInExceptSuite,
+        };
+
+        const symbol = this._bindNameToScope(this._currentScope, annotationNode.valueExpression);
         if (symbol) {
-            symbol.addDeclaration({
-                type: DeclarationType.SpecialBuiltInClass,
-                node: annotationNode,
-                uri: this._fileInfo.fileUri,
-                range: convertTextRangeToRange(annotationNode, this._fileInfo.lines),
-                moduleName: this._fileInfo.moduleName,
-                isInExceptSuite: this._isInExceptSuite,
-            });
+            symbol.addDeclaration(specialBuiltInClassDeclaration);
         }
+
+        AnalyzerNodeInfo.setDeclaration(node, specialBuiltInClassDeclaration);
         return true;
     }
 

@@ -24,7 +24,7 @@ import { FileSystem } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
 import { defaultStubsDirectory } from '../common/pathConsts';
-import { isRootedDiskPath } from '../common/pathUtils';
+import { getFileName, isRootedDiskPath } from '../common/pathUtils';
 import { ServiceProvider } from '../common/serviceProvider';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Range } from '../common/textRange';
@@ -1252,25 +1252,27 @@ export class AnalyzerService {
                         this._console.info(`SourceFile: Received fs event '${event}' for path '${path}'`);
                     }
 
-                    if (isIgnored(path.getFilePath())) {
+                    if (isIgnored(path)) {
                         return;
                     }
 
                     // Wholesale ignore events that appear to be from tmp file / .git modification.
-                    if (path.pathEndsWith('.tmp') || path.pathEndsWith('.git') || path.pathIncludes(_gitDirectory)) {
+                    if (path.endsWith('.tmp') || path.endsWith('.git') || path.includes(_gitDirectory)) {
                         return;
                     }
 
-                    // Make sure path is the true case.
-                    path = this.fs.realCasePath(path);
+                    let uri = Uri.file(path, this.fs.isCaseSensitive, /* checkRelative */ true);
 
-                    const eventInfo = getEventInfo(this.fs, this._console, this._program, event, path);
+                    // Make sure path is the true case.
+                    uri = this.fs.realCasePath(uri);
+
+                    const eventInfo = getEventInfo(this.fs, this._console, this._program, event, uri);
                     if (!eventInfo) {
                         // no-op event, return.
                         return;
                     }
 
-                    if (!this._shouldHandleSourceFileWatchChanges(path, eventInfo.isFile)) {
+                    if (!this._shouldHandleSourceFileWatchChanges(uri, eventInfo.isFile)) {
                         return;
                     }
 
@@ -1278,7 +1280,7 @@ export class AnalyzerService {
                     // then it can't affect the 'import resolution' result. All we need to do is reanalyze the related files
                     // (those that have a transitive dependency on this file).
                     if (eventInfo.isFile && eventInfo.event === 'change') {
-                        this._backgroundAnalysisProgram.markFilesDirty([path], /* evenIfContentsAreSame */ false);
+                        this._backgroundAnalysisProgram.markFilesDirty([uri], /* evenIfContentsAreSame */ false);
                         this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
                         return;
                     }
@@ -1442,16 +1444,18 @@ export class AnalyzerService {
                         this._console.info(`LibraryFile: Received fs event '${event}' for path '${path}'`);
                     }
 
-                    if (isIgnored(path.getFilePath())) {
+                    if (isIgnored(path)) {
                         return;
                     }
 
-                    if (!this._shouldHandleLibraryFileWatchChanges(path, watchList)) {
+                    const uri = Uri.file(path, this.fs.isCaseSensitive, /* checkRelative */ true);
+
+                    if (!this._shouldHandleLibraryFileWatchChanges(uri, watchList)) {
                         return;
                     }
 
                     // If file doesn't exist, it is delete.
-                    const isChange = event === 'change' && this.fs.existsSync(path);
+                    const isChange = event === 'change' && this.fs.existsSync(uri);
                     this._scheduleLibraryAnalysis(isChange);
                 });
             } catch {
@@ -1569,7 +1573,7 @@ export class AnalyzerService {
                 }
 
                 if (event === 'add' || event === 'change') {
-                    const fileName = path.fileName;
+                    const fileName = getFileName(path);
                     if (fileName && configFileNames.some((name) => name === fileName)) {
                         if (this._verboseOutput) {
                             this._console.info(`Received fs event '${event}' for config file`);

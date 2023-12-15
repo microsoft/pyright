@@ -1189,11 +1189,13 @@ export namespace TernaryNode {
 export interface UnpackNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Unpack;
     expression: ExpressionNode;
+    starToken: Token;
 }
 
 export namespace UnpackNode {
     export function create(starToken: Token, expression: ExpressionNode) {
         const node: UnpackNode = {
+            starToken,
             start: starToken.start,
             length: starToken.length,
             nodeType: ParseNodeType.Unpack,

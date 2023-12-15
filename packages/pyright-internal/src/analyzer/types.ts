@@ -10,7 +10,7 @@
 import { assert } from '../common/debug';
 import { Uri } from '../common/uri/uri';
 import { ArgumentNode, ExpressionNode, NameNode, ParameterCategory } from '../parser/parseNodes';
-import { FunctionDeclaration } from './declaration';
+import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
 export const enum TypeCategory {
@@ -123,6 +123,9 @@ export interface TypeSameOptions {
 export interface TypeAliasInfo {
     name: string;
     fullName: string;
+    moduleName: string;
+    fileUri: Uri;
+
     typeVarScopeId: TypeVarScopeId;
 
     // Indicates whether the type alias was declared with the
@@ -264,6 +267,8 @@ export namespace TypeBase {
         type: Type,
         name: string,
         fullName: string,
+        moduleName: string,
+        fileUri: Uri,
         typeVarScopeId: TypeVarScopeId,
         isPep695Syntax: boolean,
         typeParams?: TypeVarType[],
@@ -274,6 +279,8 @@ export namespace TypeBase {
         typeClone.typeAliasInfo = {
             name,
             fullName,
+            moduleName,
+            fileUri,
             typeParameters: typeParams,
             typeArguments: typeArgs,
             typeVarScopeId,
@@ -567,6 +574,7 @@ interface ClassDetails {
     typeSourceId: TypeSourceId;
     baseClasses: Type[];
     mro: Type[];
+    declaration?: ClassDeclaration | SpecialBuiltInClassDeclaration | undefined;
     declaredMetaclass?: ClassType | UnknownType | undefined;
     effectiveMetaclass?: ClassType | UnknownType | undefined;
     fields: SymbolTable;

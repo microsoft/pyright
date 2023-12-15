@@ -230,11 +230,11 @@ function _convertToWorkspaceEditWithDocumentChanges(
     }
 
     // Text edit's file path must refer to original file paths unless it is a new file just created.
-    const mapPerFile = createMapFromItems(editActions.edits, (e) => e.fileUri.key);
-    for (const [key, value] of mapPerFile) {
+    const mapPerFile = createMapFromItems(editActions.edits, (e) => e.fileUri.toString());
+    for (const [uri, value] of mapPerFile) {
         workspaceEdit.documentChanges!.push(
             TextDocumentEdit.create(
-                { uri: key, version: null },
+                { uri, version: null },
                 Array.from(
                     value.map((v) => ({
                         range: v.range,

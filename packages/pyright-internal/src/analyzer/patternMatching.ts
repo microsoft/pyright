@@ -51,6 +51,7 @@ import {
     isSameWithoutLiteralValue,
     isTypeSame,
     isUnknown,
+    isUnpackedVariadicTypeVar,
     NeverType,
     Type,
     TypeBase,
@@ -1108,6 +1109,18 @@ function narrowTypeBasedOnValuePattern(
                                 : AnyType.create();
                         }
 
+                        // If both types are literals, we can compare the literal values directly.
+                        if (
+                            isClassInstance(subjectSubtypeExpanded) &&
+                            isLiteralType(subjectSubtypeExpanded) &&
+                            isClassInstance(valueSubtypeExpanded) &&
+                            isLiteralType(valueSubtypeExpanded)
+                        ) {
+                            return ClassType.isLiteralValueSame(valueSubtypeExpanded, subjectSubtypeExpanded)
+                                ? valueSubtypeUnexpanded
+                                : undefined;
+                        }
+
                         // Determine if assignment is supported for this combination of
                         // value subtype and matching subtype.
                         const returnType = evaluator.useSpeculativeMode(pattern.expression, () =>
@@ -1214,10 +1227,10 @@ function getSequencePatternInfo(
     pattern: PatternSequenceNode,
     type: Type
 ): SequencePatternInfo[] {
-    const entryCount = pattern.entries.length;
-    const starEntryIndex = pattern.starEntryIndex;
+    const patternEntryCount = pattern.entries.length;
+    const patternStarEntryIndex = pattern.starEntryIndex;
     const sequenceInfo: SequencePatternInfo[] = [];
-    const minEntryCount = starEntryIndex === undefined ? entryCount : entryCount - 1;
+    const minPatternEntryCount = patternStarEntryIndex === undefined ? patternEntryCount : patternEntryCount - 1;
 
     doForEachSubtype(type, (subtype) => {
         const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
@@ -1272,19 +1285,79 @@ function getSequencePatternInfo(
                             });
                             pushedEntry = true;
                         } else {
-                            if (
-                                specializedSequence.tupleTypeArguments.length >= minEntryCount &&
-                                (starEntryIndex !== undefined ||
-                                    specializedSequence.tupleTypeArguments.length === minEntryCount)
-                            ) {
-                                sequenceInfo.push({
-                                    subtype,
-                                    entryTypes: specializedSequence.tupleTypeArguments.map((t) => t.type),
-                                    isIndeterminateLength: false,
-                                    isTuple: true,
-                                    isDefiniteNoMatch: false,
-                                });
-                                pushedEntry = true;
+                            const tupleIndeterminateIndex = specializedSequence.tupleTypeArguments.findIndex(
+                                (t) => t.isUnbounded || isUnpackedVariadicTypeVar(t.type)
+                            );
+                            let minTupleLength = specializedSequence.tupleTypeArguments.length;
+                            if (tupleIndeterminateIndex >= 0) {
+                                minTupleLength -= 1;
+                            }
+
+                            if (minTupleLength >= minPatternEntryCount) {
+                                let isDefiniteNoMatch = false;
+                                const leftLength = Math.min(
+                                    patternStarEntryIndex !== undefined ? patternStarEntryIndex : patternEntryCount,
+                                    tupleIndeterminateIndex >= 0
+                                        ? tupleIndeterminateIndex
+                                        : specializedSequence.tupleTypeArguments.length
+                                );
+
+                                for (let i = 0; i < leftLength; i++) {
+                                    const leftPattern = pattern.entries[i];
+                                    const leftType = specializedSequence.tupleTypeArguments[i].type;
+                                    const narrowedType = narrowTypeBasedOnPattern(
+                                        evaluator,
+                                        leftType,
+                                        leftPattern,
+                                        /* isPositiveTest */ true
+                                    );
+
+                                    if (isNever(narrowedType)) {
+                                        isDefiniteNoMatch = true;
+                                    }
+                                }
+
+                                if (patternStarEntryIndex !== undefined || tupleIndeterminateIndex >= 0) {
+                                    const rightLength = Math.min(
+                                        patternStarEntryIndex !== undefined
+                                            ? patternEntryCount - patternStarEntryIndex - 1
+                                            : patternEntryCount,
+                                        tupleIndeterminateIndex >= 0
+                                            ? specializedSequence.tupleTypeArguments.length - tupleIndeterminateIndex
+                                            : specializedSequence.tupleTypeArguments.length
+                                    );
+
+                                    for (let i = 0; i < rightLength; i++) {
+                                        const rightPattern = pattern.entries[patternEntryCount - i - 1];
+                                        const rightType =
+                                            specializedSequence.tupleTypeArguments[
+                                                specializedSequence.tupleTypeArguments.length - i - 1
+                                            ].type;
+                                        const narrowedType = narrowTypeBasedOnPattern(
+                                            evaluator,
+                                            rightType,
+                                            rightPattern,
+                                            /* isPositiveTest */ true
+                                        );
+
+                                        if (isNever(narrowedType)) {
+                                            isDefiniteNoMatch = true;
+                                        }
+                                    }
+                                }
+
+                                if (patternStarEntryIndex !== undefined || minTupleLength === minPatternEntryCount) {
+                                    sequenceInfo.push({
+                                        subtype,
+                                        entryTypes: isDefiniteNoMatch
+                                            ? []
+                                            : specializedSequence.tupleTypeArguments.map((t) => t.type),
+                                        isIndeterminateLength: false,
+                                        isTuple: true,
+                                        isDefiniteNoMatch,
+                                    });
+                                    pushedEntry = true;
+                                }
                             }
                         }
                     }

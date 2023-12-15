@@ -109,7 +109,7 @@ test('AssignmentExpr2', () => {
 
 test('AssignmentExpr3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr3.py']);
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('AssignmentExpr4', () => {
@@ -1101,6 +1101,11 @@ test('ParamSpec49', () => {
     TestUtils.validateResults(results, 5);
 });
 
+test('ParamSpec50', () => {
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec50.py']);
+    TestUtils.validateResults(results, 2);
+});
+
 test('ClassVar1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classVar1.py']);
 
@@ -1291,6 +1296,11 @@ test('TryExcept9', () => {
 test('TryExcept10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept10.py']);
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('TryExcept11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept11.py']);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Del1', () => {

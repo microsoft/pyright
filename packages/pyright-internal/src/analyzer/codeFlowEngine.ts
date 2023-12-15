@@ -145,6 +145,7 @@ export type CachedType = Type | IncompleteType;
 interface CodeFlowTypeCache {
     cache: Map<number, CachedType | undefined>;
     pendingNodes: Set<number>;
+    closedFinallyGateNodes: Set<number>;
 }
 
 // This debugging option prints the control flow graph when getTypeFromCodeFlow is called.
@@ -182,6 +183,7 @@ export function getCodeFlowEngine(
                 flowNodeTypeCache = {
                     cache: new Map<number, CachedType | undefined>(),
                     pendingNodes: new Set<number>(),
+                    closedFinallyGateNodes: new Set<number>(),
                 };
                 flowNodeTypeCacheSet.set(referenceKey, flowNodeTypeCache);
             }
@@ -1048,7 +1050,8 @@ export function getCodeFlowEngine(
             }
 
             function getTypeFromPreFinallyGateFlowNode(preFinallyFlowNode: FlowPreFinallyGate): FlowNodeTypeResult {
-                if (preFinallyFlowNode.isGateClosed) {
+                // Is the finally gate closed?
+                if (flowNodeTypeCache.closedFinallyGateNodes.has(preFinallyFlowNode.id)) {
                     return { type: undefined, isIncomplete: false };
                 }
 
@@ -1064,9 +1067,11 @@ export function getCodeFlowEngine(
             }
 
             function getTypeFromPostFinallyFlowNode(postFinallyFlowNode: FlowPostFinally): FlowNodeTypeResult {
-                const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
+                const wasGateClosed = flowNodeTypeCache.closedFinallyGateNodes.has(
+                    postFinallyFlowNode.preFinallyGate.id
+                );
                 try {
-                    postFinallyFlowNode.preFinallyGate.isGateClosed = true;
+                    flowNodeTypeCache.closedFinallyGateNodes.add(postFinallyFlowNode.preFinallyGate.id);
                     let flowTypeResult: FlowNodeTypeResult | undefined;
 
                     // Use speculative mode for the remainder of the finally suite
@@ -1081,7 +1086,9 @@ export function getCodeFlowEngine(
                         ? flowTypeResult!
                         : setCacheEntry(postFinallyFlowNode, flowTypeResult!.type, /* isIncomplete */ false);
                 } finally {
-                    postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
+                    if (!wasGateClosed) {
+                        flowNodeTypeCache.closedFinallyGateNodes.delete(postFinallyFlowNode.preFinallyGate.id);
+                    }
                 }
             }
 
@@ -1109,7 +1116,8 @@ export function getCodeFlowEngine(
     // is specified, it returns true only if at least one control flow
     // path passes through sourceFlowNode.
     function isFlowNodeReachable(flowNode: FlowNode, sourceFlowNode?: FlowNode, ignoreNoReturn = false): boolean {
-        const visitedFlowNodeMap = new Set<number>();
+        const visitedFlowNodeSet = new Set<number>();
+        const closedFinallyGateSet = new Set<number>();
 
         if (enablePrintControlFlowGraph) {
             printControlFlowGraph(flowNode, /* reference */ undefined, 'isFlowNodeReachable');
@@ -1132,12 +1140,12 @@ export function getCodeFlowEngine(
             while (true) {
                 // If we've already visited this node, we can assume
                 // it wasn't reachable.
-                if (visitedFlowNodeMap.has(curFlowNode.id)) {
+                if (visitedFlowNodeSet.has(curFlowNode.id)) {
                     return false;
                 }
 
                 // Note that we've been here before.
-                visitedFlowNodeMap.add(curFlowNode.id);
+                visitedFlowNodeSet.add(curFlowNode.id);
 
                 if (curFlowNode.flags & FlowFlags.Unreachable) {
                     return false;
@@ -1215,7 +1223,7 @@ export function getCodeFlowEngine(
 
                 if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
                     const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
-                    if (preFinallyFlowNode.isGateClosed) {
+                    if (closedFinallyGateSet.has(preFinallyFlowNode.id)) {
                         return false;
                     }
 
@@ -1225,17 +1233,19 @@ export function getCodeFlowEngine(
 
                 if (curFlowNode.flags & FlowFlags.PostFinally) {
                     const postFinallyFlowNode = curFlowNode as FlowPostFinally;
-                    const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
+                    const wasGateClosed = closedFinallyGateSet.has(postFinallyFlowNode.preFinallyGate.id);
 
                     try {
-                        postFinallyFlowNode.preFinallyGate.isGateClosed = true;
+                        closedFinallyGateSet.add(postFinallyFlowNode.preFinallyGate.id);
                         return isFlowNodeReachableRecursive(
                             postFinallyFlowNode.antecedent,
                             sourceFlowNode,
                             recursionCount
                         );
                     } finally {
-                        postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
+                        if (!wasGateClosed) {
+                            closedFinallyGateSet.delete(postFinallyFlowNode.preFinallyGate.id);
+                        }
                     }
                 }
 

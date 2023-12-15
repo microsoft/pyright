@@ -30,6 +30,7 @@
         "assignmentTargetExpr": "Expression cannot be assignment target",
         "asyncNotInAsyncFunction": "Use of \"async\" not allowed outside of async function",
         "awaitIllegal": "Use of \"await\" requires Python 3.5 or newer",
+        "awaitNotAllowed": "Type annotations cannot use \"await\"",
         "awaitNotInAsync": "\"await\" allowed only within async function",
         "backticksIllegal": "Expressions surrounded by backticks are not supported in Python 3.x; use repr instead",
         "baseClassCircular": "Class cannot derive from itself",
