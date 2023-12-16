@@ -1501,11 +1501,7 @@ function narrowTypeForIsInstance(
                             varType.details.constraints.length === 0
                         ) {
                             newClassType = addConditionToType(newClassType, [
-                                {
-                                    typeVarName: TypeVarType.getNameWithScope(varType),
-                                    constraintIndex: 0,
-                                    isConstrainedTypeVar: false,
-                                },
+                                { typeVar: varType, constraintIndex: 0 },
                             ]) as ClassType;
                         }
 

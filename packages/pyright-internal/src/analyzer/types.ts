@@ -115,6 +115,7 @@ export type InheritanceChain = (ClassType | UnknownType)[];
 export interface TypeSameOptions {
     ignorePseudoGeneric?: boolean;
     ignoreTypeFlags?: boolean;
+    ignoreConditions?: boolean;
     typeFlagsToHonor?: TypeFlags;
     ignoreTypedDictNarrowEntries?: boolean;
     treatAnySameAsUnknown?: boolean;
@@ -2175,9 +2176,8 @@ export namespace AnyType {
 
 // References a single condition associated with a constrained TypeVar.
 export interface TypeCondition {
-    typeVarName: string;
+    typeVar: TypeVarType;
     constraintIndex: number;
-    isConstrainedTypeVar: boolean;
 }
 
 export namespace TypeCondition {
@@ -2206,9 +2206,9 @@ export namespace TypeCondition {
     }
 
     function _compare(c1: TypeCondition, c2: TypeCondition) {
-        if (c1.typeVarName < c2.typeVarName) {
+        if (c1.typeVar.details.name < c2.typeVar.details.name) {
             return -1;
-        } else if (c1.typeVarName > c2.typeVarName) {
+        } else if (c1.typeVar.details.name > c2.typeVar.details.name) {
             return 1;
         }
         if (c1.constraintIndex < c2.constraintIndex) {
@@ -2234,7 +2234,7 @@ export namespace TypeCondition {
         return (
             conditions1.find(
                 (c1, index) =>
-                    c1.typeVarName !== conditions2[index].typeVarName ||
+                    c1.typeVar.nameWithScope !== conditions2[index].typeVar.nameWithScope ||
                     c1.constraintIndex !== conditions2[index].constraintIndex
             ) === undefined
         );
@@ -2255,7 +2255,7 @@ export namespace TypeCondition {
         for (const c1 of conditions1) {
             let foundTypeVarMatch = false;
             const exactMatch = conditions2.find((c2) => {
-                if (c1.typeVarName === c2.typeVarName) {
+                if (c1.typeVar.nameWithScope === c2.typeVar.nameWithScope) {
                     foundTypeVarMatch = true;
                     return c1.constraintIndex === c2.constraintIndex;
                 }
@@ -2832,7 +2832,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
-            if (!TypeCondition.isSame(type1.condition, type2.condition)) {
+            if (!options.ignoreConditions && !TypeCondition.isSame(type1.condition, type2.condition)) {
                 return false;
             }
 
@@ -3305,7 +3305,7 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
     if (isClassInstance(srcType) && srcType.literalValue !== undefined) {
         // Strip the literal.
         srcType = ClassType.cloneWithLiteral(srcType, /* value */ undefined);
-        return isTypeSame(destType, srcType);
+        return isTypeSame(destType, srcType, { ignoreConditions: true });
     }
 
     return false;

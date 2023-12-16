@@ -124,6 +124,6 @@ class G(str):
     @classmethod
     def method1(cls, v: str):
         if type(v) is cls:
-            reveal_type(v, expected_text="G")
+            reveal_type(v, expected_text="G*")
         else:
             reveal_type(v, expected_text="str")

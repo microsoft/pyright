@@ -3536,7 +3536,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const tupleType = getSpecializedTupleType(subtype);
             if (tupleType && tupleType.tupleTypeArguments) {
                 const sourceEntryTypes = tupleType.tupleTypeArguments.map((t) =>
-                    addConditionToType(t.type, getTypeCondition(subtype))
+                    addConditionToType(t.type, getTypeCondition(subtype), /* skipSelfCondition */ true)
                 );
 
                 const unboundedIndex = tupleType.tupleTypeArguments.findIndex((t) => t.isUnbounded);
@@ -3746,7 +3746,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return subtype;
             }
 
-            if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
+            if (isTypeVar(subtype)) {
                 // If this is a recursive type alias placeholder
                 // that hasn't yet been resolved, return it as is.
                 if (subtype.details.recursiveTypeAliasName) {
@@ -3762,7 +3762,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (conditionFilter) {
                             const typeVarName = TypeVarType.getNameWithScope(subtype);
                             const applicableConstraint = conditionFilter.find(
-                                (filter) => filter.typeVarName === typeVarName
+                                (filter) => filter.typeVar.nameWithScope === typeVarName
                             );
 
                             // If this type variable is being constrained to a single index,
@@ -3777,13 +3777,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         typesToCombine.push(
-                            addConditionToType(constraintType, [
-                                {
-                                    typeVarName: TypeVarType.getNameWithScope(subtype),
-                                    constraintIndex,
-                                    isConstrainedTypeVar: true,
-                                },
-                            ])
+                            addConditionToType(constraintType, [{ typeVar: subtype, constraintIndex }])
                         );
                     });
 
@@ -3798,18 +3792,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 let boundType = subtype.details.boundType ?? objectType ?? UnknownType.create();
                 boundType = TypeBase.isInstantiable(subtype) ? convertToInstantiable(boundType) : boundType;
 
-                // Handle Self and type[Self] specially.
-                if (subtype.details.isSynthesizedSelf && isClass(boundType)) {
-                    return ClassType.cloneIncludeSubclasses(boundType);
-                }
-
-                return addConditionToType(boundType, [
-                    {
-                        typeVarName: TypeVarType.getNameWithScope(subtype),
-                        constraintIndex: 0,
-                        isConstrainedTypeVar: false,
-                    },
-                ]);
+                return addConditionToType(boundType, [{ typeVar: subtype, constraintIndex: 0 }]);
             }
 
             return subtype;
@@ -3862,7 +3845,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (transformedType) {
                         // Apply the type condition if it's associated with a constrained TypeVar.
                         const typeCondition = getTypeCondition(subtype)?.filter(
-                            (condition) => condition.isConstrainedTypeVar
+                            (condition) => condition.typeVar.details.constraints.length > 0
                         );
 
                         if (typeCondition && typeCondition.length > 0) {
@@ -5298,7 +5281,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
 
                 if (typeResult) {
-                    type = addConditionToType(typeResult.type, getTypeCondition(baseType));
+                    type = addConditionToType(
+                        typeResult.type,
+                        getTypeCondition(baseType),
+                        /* skipSelfCondition */ true
+                    );
                 }
 
                 if (typeResult?.isIncomplete) {
@@ -11416,11 +11403,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         arg0Type.details.constraints.length === 0
                     ) {
                         typeGuardType = addConditionToType(typeGuardType, [
-                            {
-                                typeVarName: TypeVarType.getNameWithScope(arg0Type),
-                                constraintIndex: 0,
-                                isConstrainedTypeVar: false,
-                            },
+                            { typeVar: arg0Type, constraintIndex: 0 },
                         ]) as ClassType;
                     }
                 }
@@ -22605,7 +22588,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 TypeBase.isInstantiable(destType) === TypeBase.isInstantiable(srcType) &&
                 srcType.condition &&
                 srcType.condition.some((cond) => {
-                    return !cond.isConstrainedTypeVar && cond.typeVarName === destTypeVar.nameWithScope;
+                    return (
+                        cond.typeVar.details.constraints.length === 0 &&
+                        cond.typeVar.nameWithScope === destTypeVar.nameWithScope
+                    );
                 })
             ) {
                 return true;
@@ -23942,7 +23928,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Determine which conditions on this type apply to this type variable.
             // There might be more than one of them.
             const applicableConditions = (getTypeCondition(srcSubtype) ?? []).filter(
-                (constraint) => constraint.typeVarName === destTypeVarName
+                (constraint) => constraint.typeVar.nameWithScope === destTypeVarName
             );
 
             // If there are no applicable conditions, it's not assignable.
@@ -23951,7 +23937,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             return !applicableConditions.some((condition) => {
-                if (condition.typeVarName === TypeVarType.getNameWithScope(destType)) {
+                if (condition.typeVar.nameWithScope === TypeVarType.getNameWithScope(destType)) {
                     if (destType.details.boundType) {
                         assert(
                             condition.constraintIndex === 0,

@@ -1461,7 +1461,9 @@ export function getCodeFlowEngine(
             } else if (subtype.condition) {
                 if (
                     !subtype.condition.some(
-                        (condition) => condition.isConstrainedTypeVar && condition.typeVarName === typeVar.nameWithScope
+                        (condition) =>
+                            condition.typeVar.details.constraints.length > 0 &&
+                            condition.typeVar.nameWithScope === typeVar.nameWithScope
                     )
                 ) {
                     isCompatible = false;
