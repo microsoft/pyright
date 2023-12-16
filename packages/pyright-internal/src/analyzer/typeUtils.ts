@@ -855,9 +855,20 @@ export function getFullNameOfType(type: Type): string | undefined {
     return undefined;
 }
 
-export function addConditionToType(type: Type, condition: TypeCondition[] | undefined): Type {
+export function addConditionToType(
+    type: Type,
+    condition: TypeCondition[] | undefined,
+    skipSelfCondition = false
+): Type {
     if (!condition) {
         return type;
+    }
+
+    if (skipSelfCondition) {
+        condition = condition.filter((c) => !c.isSynthesizedSelf);
+        if (condition.length === 0) {
+            return type;
+        }
     }
 
     switch (type.category) {

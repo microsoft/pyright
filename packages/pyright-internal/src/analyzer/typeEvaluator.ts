@@ -3536,7 +3536,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const tupleType = getSpecializedTupleType(subtype);
             if (tupleType && tupleType.tupleTypeArguments) {
                 const sourceEntryTypes = tupleType.tupleTypeArguments.map((t) =>
-                    addConditionToType(t.type, getTypeCondition(subtype))
+                    addConditionToType(t.type, getTypeCondition(subtype), /* skipSelfCondition */ true)
                 );
 
                 const unboundedIndex = tupleType.tupleTypeArguments.findIndex((t) => t.isUnbounded);
@@ -3746,7 +3746,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return subtype;
             }
 
-            if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
+            if (isTypeVar(subtype)) {
                 // If this is a recursive type alias placeholder
                 // that hasn't yet been resolved, return it as is.
                 if (subtype.details.recursiveTypeAliasName) {
@@ -3782,6 +3782,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     typeVarName: TypeVarType.getNameWithScope(subtype),
                                     constraintIndex,
                                     isConstrainedTypeVar: true,
+                                    isSynthesizedSelf: false,
                                 },
                             ])
                         );
@@ -3798,16 +3799,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 let boundType = subtype.details.boundType ?? objectType ?? UnknownType.create();
                 boundType = TypeBase.isInstantiable(subtype) ? convertToInstantiable(boundType) : boundType;
 
-                // Handle Self and type[Self] specially.
-                if (subtype.details.isSynthesizedSelf && isClass(boundType)) {
-                    return ClassType.cloneIncludeSubclasses(boundType);
-                }
-
                 return addConditionToType(boundType, [
                     {
                         typeVarName: TypeVarType.getNameWithScope(subtype),
                         constraintIndex: 0,
                         isConstrainedTypeVar: false,
+                        isSynthesizedSelf: !!subtype.details.isSynthesizedSelf,
                     },
                 ]);
             }
@@ -5298,7 +5295,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
 
                 if (typeResult) {
-                    type = addConditionToType(typeResult.type, getTypeCondition(baseType));
+                    type = addConditionToType(
+                        typeResult.type,
+                        getTypeCondition(baseType),
+                        /* skipSelfCondition */ true
+                    );
                 }
 
                 if (typeResult?.isIncomplete) {
@@ -11420,6 +11421,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 typeVarName: TypeVarType.getNameWithScope(arg0Type),
                                 constraintIndex: 0,
                                 isConstrainedTypeVar: false,
+                                isSynthesizedSelf: !!arg0Type.details.isSynthesizedSelf,
                             },
                         ]) as ClassType;
                     }

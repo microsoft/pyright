@@ -115,6 +115,7 @@ export type InheritanceChain = (ClassType | UnknownType)[];
 export interface TypeSameOptions {
     ignorePseudoGeneric?: boolean;
     ignoreTypeFlags?: boolean;
+    ignoreConditions?: boolean;
     typeFlagsToHonor?: TypeFlags;
     ignoreTypedDictNarrowEntries?: boolean;
     treatAnySameAsUnknown?: boolean;
@@ -2178,6 +2179,7 @@ export interface TypeCondition {
     typeVarName: string;
     constraintIndex: number;
     isConstrainedTypeVar: boolean;
+    isSynthesizedSelf: boolean;
 }
 
 export namespace TypeCondition {
@@ -2832,7 +2834,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
-            if (!TypeCondition.isSame(type1.condition, type2.condition)) {
+            if (!options.ignoreConditions && !TypeCondition.isSame(type1.condition, type2.condition)) {
                 return false;
             }
 
@@ -3305,7 +3307,7 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
     if (isClassInstance(srcType) && srcType.literalValue !== undefined) {
         // Strip the literal.
         srcType = ClassType.cloneWithLiteral(srcType, /* value */ undefined);
-        return isTypeSame(destType, srcType);
+        return isTypeSame(destType, srcType, { ignoreConditions: true });
     }
 
     return false;

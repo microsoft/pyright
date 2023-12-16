@@ -1505,6 +1505,7 @@ function narrowTypeForIsInstance(
                                     typeVarName: TypeVarType.getNameWithScope(varType),
                                     constraintIndex: 0,
                                     isConstrainedTypeVar: false,
+                                    isSynthesizedSelf: !!varType.details.isSynthesizedSelf,
                                 },
                             ]) as ClassType;
                         }
