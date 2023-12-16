@@ -1,11 +1,11 @@
 # This sample tests the case where a protocol is specialized with
 # a literal type.
 
-from typing import Any, Literal, Protocol, Self, TypeVar
+from typing import Any, Literal, Protocol, TypeVar
 
 
 class Negatable(Protocol):
-    def __neg__(self) -> Self:
+    def __neg__(self) -> "Negatable":
         ...
 
 

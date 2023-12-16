@@ -35,7 +35,7 @@ class P2Child(P2Parent[T], Protocol[T]):
 
 
 class C2(Generic[S]):
-    def f0(self, other: "C2[S]") -> "C2[S]":
+    def f0(self, other: Self) -> "C2[S]":
         return other
 
 

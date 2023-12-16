@@ -1,7 +1,7 @@
 # This sample tests a protocol that uses generics in the "self"
 # parameter.
 
-from typing import Protocol, TypeVar
+from typing import Protocol, Self, TypeVar
 
 T = TypeVar("T")
 
@@ -19,7 +19,7 @@ def generic_get_parent(n: GenericNode) -> GenericNode:
 
 
 class ConcreteNode:
-    def get_parent(self) -> "ConcreteNode":
+    def get_parent(self) -> Self:
         return self
 
 
