@@ -2,9 +2,7 @@
 
 // @filename: test.py
 //// [|/*marker*/A|] = True
-//// if False:
-////     pass
-//// elif([|A|]):
+//// if([|A|]):
 ////     pass
 
 {
