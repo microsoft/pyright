@@ -303,7 +303,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     }
 
     private _addResult(node: NameNode | StringNode) {
-        const range: TextRange = node.nodeType === ParseNodeType.Name ? node : getStringNodeValueRange(node);
+        const range: TextRange = node.nodeType === ParseNodeType.Name ? node.token : getStringNodeValueRange(node);
         this._results.push({ node, range });
     }
 
