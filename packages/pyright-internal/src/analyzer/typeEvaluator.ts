@@ -11685,7 +11685,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             for (const arg of argList) {
                 const argType = getTypeOfArgument(arg)?.type;
-                const isArgTypeCompatible = argType && (isTypeSame(argType, paramSpec) || isAnyOrUnknown(argType));
+                const isArgTypeCompatible =
+                    argType && (isTypeSame(argType, paramSpec, { ignoreTypeFlags: true }) || isAnyOrUnknown(argType));
 
                 if (arg.argumentCategory === ArgumentCategory.UnpackedList && !sawArgs && isArgTypeCompatible) {
                     sawArgs = true;
