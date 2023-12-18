@@ -3370,6 +3370,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
                     typeToAdd.details.typeParameters.map(() => UnknownType.create()),
                     /* isTypeArgumentExplicit */ true
                 );
+                return;
             }
         }
 
