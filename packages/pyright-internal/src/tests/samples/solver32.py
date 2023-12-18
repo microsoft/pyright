@@ -27,7 +27,7 @@ class TimeDelta:
 
 
 class DateTime:
-    def __add__(self, other: bool | int) -> "DateTime":
+    def __add__(self, other: bool | int) -> Self:
         ...
 
     def __sub__(self, other: "DateTime") -> TimeDelta:

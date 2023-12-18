@@ -355,7 +355,10 @@ export function isTypeVarSame(type1: TypeVarType, type2: Type) {
         if (!isTypeSame(type1, subtype)) {
             const conditions = getTypeCondition(subtype);
 
-            if (!conditions || !conditions.some((condition) => condition.typeVarName === type1.nameWithScope)) {
+            if (
+                !conditions ||
+                !conditions.some((condition) => condition.typeVar.nameWithScope === type1.nameWithScope)
+            ) {
                 isCompatible = false;
             }
         }
@@ -855,9 +858,20 @@ export function getFullNameOfType(type: Type): string | undefined {
     return undefined;
 }
 
-export function addConditionToType(type: Type, condition: TypeCondition[] | undefined): Type {
+export function addConditionToType(
+    type: Type,
+    condition: TypeCondition[] | undefined,
+    skipSelfCondition = false
+): Type {
     if (!condition) {
         return type;
+    }
+
+    if (skipSelfCondition) {
+        condition = condition.filter((c) => !c.typeVar.details.isSynthesizedSelf);
+        if (condition.length === 0) {
+            return type;
+        }
     }
 
     switch (type.category) {
@@ -4314,11 +4328,11 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
         for (const condition of type.condition) {
             // This doesn't apply to bound type variables.
-            if (!condition.isConstrainedTypeVar) {
+            if (condition.typeVar.details.constraints.length === 0) {
                 continue;
             }
 
-            const typeVarEntry = signatureContext.getTypeVarByName(condition.typeVarName);
+            const typeVarEntry = signatureContext.getTypeVar(condition.typeVar);
             if (!typeVarEntry || condition.constraintIndex >= typeVarEntry.typeVar.details.constraints.length) {
                 continue;
             }
