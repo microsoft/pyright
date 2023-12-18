@@ -14,6 +14,7 @@ import { NullConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum, DiagnosticCategory } from '../common/diagnostic';
 import { FullAccessHost } from '../common/fullAccessHost';
+import { Host } from '../common/host';
 import { getFileExtension, stripFileExtension } from '../common/pathUtils';
 import { ServiceProvider } from '../common/serviceProvider';
 import { getEmptyRange, Range } from '../common/textRange';
@@ -74,6 +75,7 @@ export class PackageTypeVerifier {
 
     constructor(
         private _serviceProvider: ServiceProvider,
+        private _host: Host,
         commandLineOptions: CommandLineOptions,
         private _packageName: string,
         private _ignoreExternal = false
@@ -95,11 +97,7 @@ export class PackageTypeVerifier {
         }
 
         this._execEnv = this._configOptions.findExecEnvironment(Uri.file('.', _serviceProvider.fs().isCaseSensitive));
-        this._importResolver = new ImportResolver(
-            this._serviceProvider,
-            this._configOptions,
-            new FullAccessHost(this._serviceProvider)
-        );
+        this._importResolver = new ImportResolver(this._serviceProvider, this._configOptions, this._host);
         this._program = new Program(this._importResolver, this._configOptions, this._serviceProvider);
     }
 
@@ -599,6 +597,25 @@ export class PackageTypeVerifier {
 
                     this._addSymbol(report, symbolInfo);
 
+                    if (primaryDecl) {
+                        let resolvedDecl = primaryDecl;
+                        if (resolvedDecl.type === DeclarationType.Alias) {
+                            resolvedDecl =
+                                this._program.evaluator?.resolveAliasDeclaration(
+                                    resolvedDecl,
+                                    /* resolveLocalNames */ true
+                                ) ?? resolvedDecl;
+                        }
+
+                        if (resolvedDecl.type === DeclarationType.Class && isClass(symbolType)) {
+                            this._reportMissingClassDocstring(symbolInfo, symbolType, report);
+                        }
+
+                        if (resolvedDecl.type === DeclarationType.Function && isFunction(symbolType)) {
+                            this._reportMissingFunctionDocstring(symbolInfo, symbolType, declRange, declPath, report);
+                        }
+                    }
+
                     if (!this._isSymbolTypeImplied(scopeType, name)) {
                         this._getSymbolTypeKnownStatus(
                             report,
@@ -655,6 +672,67 @@ export class PackageTypeVerifier {
         return knownStatus;
     }
 
+    private _reportMissingClassDocstring(symbolInfo: SymbolInfo, type: ClassType, report: PackageTypeReport) {
+        if (type.details.docString) {
+            return;
+        }
+
+        this._addSymbolWarning(
+            symbolInfo,
+            `No docstring found for class "${symbolInfo.fullName}"`,
+            getEmptyRange(),
+            Uri.empty()
+        );
+
+        report.missingClassDocStringCount++;
+    }
+
+    private _reportMissingFunctionDocstring(
+        symbolInfo: SymbolInfo | undefined,
+        type: FunctionType,
+        declRange: Range | undefined,
+        declFileUri: Uri | undefined,
+        report: PackageTypeReport
+    ) {
+        if (type.details.parameters.find((param) => param.defaultType && isEllipsisType(param.defaultType))) {
+            if (symbolInfo) {
+                this._addSymbolWarning(
+                    symbolInfo,
+                    `One or more default values in function "${symbolInfo.fullName}" is specified as "..."`,
+                    declRange ?? getEmptyRange(),
+                    declFileUri ?? Uri.empty()
+                );
+            }
+
+            report.missingDefaultParamCount++;
+        }
+
+        if (type.details.docString) {
+            return;
+        }
+
+        // Don't require docstrings for dunder methods.
+        if (symbolInfo && isDunderName(symbolInfo.name)) {
+            return;
+        }
+
+        // Don't require docstrings for overloads.
+        if (FunctionType.isOverloaded(type)) {
+            return;
+        }
+
+        if (symbolInfo) {
+            this._addSymbolWarning(
+                symbolInfo,
+                `No docstring found for function "${symbolInfo.fullName}"`,
+                declRange ?? getEmptyRange(),
+                declFileUri ?? Uri.empty()
+            );
+        }
+
+        report.missingFunctionDocStringCount++;
+    }
+
     // Determines whether the type for the symbol in question is fully known.
     // If not, it adds diagnostics to the symbol information and updates the
     // typeKnownStatus field.
@@ -664,8 +742,7 @@ export class PackageTypeVerifier {
         type: Type,
         declRange: Range,
         declFileUri: Uri,
-        publicSymbols: PublicSymbolSet,
-        skipDocStringCheck = false
+        publicSymbols: PublicSymbolSet
     ): TypeKnownStatus {
         let knownStatus = TypeKnownStatus.Known;
 
@@ -771,8 +848,7 @@ export class PackageTypeVerifier {
                             symbolInfo,
                             declRange,
                             declFileUri,
-                            undefined /* diag */,
-                            skipDocStringCheck
+                            undefined /* diag */
                         )
                     );
                 }
@@ -792,7 +868,7 @@ export class PackageTypeVerifier {
                     const propertyClass = type;
 
                     propMethodInfo.forEach((info) => {
-                        const [methodName, methodAccessor] = info;
+                        const methodAccessor = info[1];
                         let accessType = methodAccessor(propertyClass);
 
                         if (!accessType) {
@@ -810,9 +886,6 @@ export class PackageTypeVerifier {
                             );
                         }
 
-                        // Don't require docstrings for setters or deleters.
-                        const skipDocStringCheck = methodName !== 'fget';
-
                         knownStatus = this._updateKnownStatusIfWorse(
                             knownStatus,
                             this._getSymbolTypeKnownStatus(
@@ -821,8 +894,7 @@ export class PackageTypeVerifier {
                                 accessType,
                                 getEmptyRange(),
                                 Uri.empty(),
-                                publicSymbols,
-                                skipDocStringCheck
+                                publicSymbols
                             )
                         );
                     });
@@ -899,8 +971,7 @@ export class PackageTypeVerifier {
         symbolInfo?: SymbolInfo,
         declRange?: Range,
         declFileUri?: Uri,
-        diag?: DiagnosticAddendum,
-        skipDocStringCheck = false
+        diag?: DiagnosticAddendum
     ): TypeKnownStatus {
         let knownStatus = TypeKnownStatus.Known;
 
@@ -1037,49 +1108,6 @@ export class PackageTypeVerifier {
             }
         }
 
-        if (!type.details.docString) {
-            // Don't require docstrings for private methods.
-            if (!symbolInfo?.isExported) {
-                skipDocStringCheck = true;
-            }
-
-            // Don't require docstrings for dunder methods.
-            if (symbolInfo && isDunderName(symbolInfo.name)) {
-                skipDocStringCheck = true;
-            }
-
-            // Don't require docstrings for overloads.
-            if (FunctionType.isOverloaded(type)) {
-                skipDocStringCheck = true;
-            }
-
-            if (!skipDocStringCheck) {
-                if (symbolInfo) {
-                    this._addSymbolWarning(
-                        symbolInfo,
-                        `No docstring found for function "${symbolInfo.fullName}"`,
-                        declRange ?? getEmptyRange(),
-                        declFileUri ?? Uri.empty()
-                    );
-                }
-
-                report.missingFunctionDocStringCount++;
-            }
-        }
-
-        if (type.details.parameters.find((param) => param.defaultType && isEllipsisType(param.defaultType))) {
-            if (symbolInfo) {
-                this._addSymbolWarning(
-                    symbolInfo,
-                    `One or more default values in function "${symbolInfo.fullName}" is specified as "..."`,
-                    declRange ?? getEmptyRange(),
-                    declFileUri ?? Uri.empty()
-                );
-            }
-
-            report.missingDefaultParamCount++;
-        }
-
         if (symbolInfo) {
             symbolInfo.typeKnownStatus = this._updateKnownStatusIfWorse(symbolInfo.typeKnownStatus, knownStatus);
         }
@@ -1110,16 +1138,7 @@ export class PackageTypeVerifier {
         this._addSymbol(report, symbolInfo);
 
         // Determine whether the class has a proper doc string.
-        if (symbolInfo.isExported && !type.details.docString) {
-            this._addSymbolWarning(
-                symbolInfo,
-                `No docstring found for class "${type.details.fullName}"`,
-                getEmptyRange(),
-                Uri.empty()
-            );
-
-            report.missingClassDocStringCount++;
-        }
+        this._reportMissingClassDocstring(symbolInfo, type, report);
 
         const symbolTableTypeKnownStatus = this._getTypeKnownStatusForSymbolTable(
             report,
@@ -1245,7 +1264,10 @@ export class PackageTypeVerifier {
             scopeType: ScopeType.Module,
         };
 
-        this._addSymbol(report, symbolInfo);
+        // Add the symbol for the module if the name isn't relative.
+        if (!type.moduleName.startsWith('.')) {
+            this._addSymbol(report, symbolInfo);
+        }
 
         const symbolTableTypeKnownStatus = this._getTypeKnownStatusForSymbolTable(
             report,

@@ -27,11 +27,14 @@ import {
 
 import { BackgroundAnalysisProgramFactory, InvalidatedReason } from '../../../analyzer/backgroundAnalysisProgram';
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
+import { PackageTypeReport } from '../../../analyzer/packageTypeReport';
+import { PackageTypeVerifier } from '../../../analyzer/packageTypeVerifier';
 import { findNodeByOffset } from '../../../analyzer/parseTreeUtils';
 import { Program } from '../../../analyzer/program';
 import { AnalyzerService } from '../../../analyzer/service';
 import { CommandResult } from '../../../commands/commandResult';
 import { Char } from '../../../common/charCodes';
+import { CommandLineOptions } from '../../../common/commandLineOptions';
 import { ConfigOptions, SignatureDisplayType } from '../../../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../../../common/console';
 import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
@@ -1457,6 +1460,35 @@ export class TestState {
                 actual ?? { documentChanges: [] }
             );
         }
+    }
+
+    verifyTypeVerifierResults(
+        packageName: string,
+        ignoreUnknownTypesFromImports: boolean,
+        verboseOutput: boolean,
+        expected: PackageTypeReport
+    ) {
+        const commandLineOptions = new CommandLineOptions(
+            this.configOptions.projectRoot.getFilePath(),
+            /* fromVsCodeExtension */ false
+        );
+        commandLineOptions.verboseOutput = verboseOutput;
+        const verifier = new PackageTypeVerifier(
+            this.serviceProvider,
+            testAccessHost,
+            commandLineOptions,
+            packageName,
+            ignoreUnknownTypesFromImports
+        );
+        const report = verifier.verify();
+
+        assert.strictEqual(report.generalDiagnostics.length, expected.generalDiagnostics.length);
+        assert.strictEqual(report.missingClassDocStringCount, expected.missingClassDocStringCount);
+        assert.strictEqual(report.missingDefaultParamCount, expected.missingDefaultParamCount);
+        assert.strictEqual(report.missingFunctionDocStringCount, expected.missingFunctionDocStringCount);
+        assert.strictEqual(report.moduleName, expected.moduleName);
+        assert.strictEqual(report.packageName, expected.packageName);
+        assert.deepStrictEqual(Array.from(report.symbols.keys()), Array.from(expected.symbols.keys()));
     }
 
     setCancelled(numberOfCalls: number): void {
