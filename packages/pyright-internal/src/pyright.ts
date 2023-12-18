@@ -489,7 +489,14 @@ function verifyPackageTypes(
     ignoreUnknownTypesFromImports: boolean
 ): ExitStatus {
     try {
-        const verifier = new PackageTypeVerifier(serviceProvider, options, packageName, ignoreUnknownTypesFromImports);
+        const host = new FullAccessHost(serviceProvider);
+        const verifier = new PackageTypeVerifier(
+            serviceProvider,
+            host,
+            options,
+            packageName,
+            ignoreUnknownTypesFromImports
+        );
         const report = verifier.verify();
         const jsonReport = buildTypeCompletenessReport(packageName, report, minSeverityLevel);
 
@@ -726,9 +733,6 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
     if (completenessReport.ignoreUnknownTypesFromImports) {
         console.info(`    (Ignoring unknown types imported from other packages)`);
     }
-    console.info(`  Functions without docstring: ${completenessReport.missingFunctionDocStringCount}`);
-    console.info(`  Functions without default param: ${completenessReport.missingDefaultParamCount}`);
-    console.info(`  Classes without docstring: ${completenessReport.missingClassDocStringCount}`);
     console.info('');
     console.info(
         `Other symbols referenced but not exported by "${completenessReport.packageName}": ${
@@ -740,6 +744,11 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
     console.info(`  With known type: ${completenessReport.otherSymbolCounts.withKnownType}`);
     console.info(`  With ambiguous type: ${completenessReport.otherSymbolCounts.withAmbiguousType}`);
     console.info(`  With unknown type: ${completenessReport.otherSymbolCounts.withUnknownType}`);
+    console.info('');
+    console.info(`Symbols without documentation:`);
+    console.info(`  Functions without docstring: ${completenessReport.missingFunctionDocStringCount}`);
+    console.info(`  Functions without default param: ${completenessReport.missingDefaultParamCount}`);
+    console.info(`  Classes without docstring: ${completenessReport.missingClassDocStringCount}`);
     console.info('');
     console.info(`Type completeness score: ${Math.round(completenessReport.completenessScore * 1000) / 10}%`);
     console.info('');
