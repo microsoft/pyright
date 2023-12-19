@@ -31,8 +31,10 @@ import {
 // that can be captured by a ParamSpec (or multiple ParamSpecs).
 // We should never hit this limit in practice, but there are certain
 // pathological cases where we could, and we need to protect against
-// this so it doesn't completely exhaust memory.
-const maxSignatureContextCount = 64;
+// this so it doesn't completely exhaust memory. This was previously
+// set to 64, but we have seen cases where a library uses in excess
+// of 300 overloads on a single function.
+const maxSignatureContextCount = 1024;
 
 export interface TypeVarMapEntry {
     typeVar: TypeVarType;
