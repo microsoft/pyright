@@ -2055,7 +2055,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 usage,
                 /* diag */ undefined,
                 flags | MemberAccessFlags.SkipAttributeAccessOverride,
-                objectType
+                objectType,
+                recursionCount
             );
 
             if (descMemberInfo) {
@@ -2089,7 +2090,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 usage,
                 subDiag,
                 effectiveFlags,
-                selfType
+                selfType,
+                recursionCount
             );
         }
 
