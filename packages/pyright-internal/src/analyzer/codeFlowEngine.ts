@@ -479,7 +479,11 @@ export function getCodeFlowEngine(
 
                                 if (flowTypeResult) {
                                     if (isTypeAliasPlaceholder(flowTypeResult.type)) {
-                                        flowTypeResult = undefined;
+                                        // Don't cache a recursive type alias placeholder.
+                                        return {
+                                            type: flowTypeResult.type,
+                                            isIncomplete: true,
+                                        };
                                     } else if (
                                         reference.nodeType === ParseNodeType.MemberAccess &&
                                         evaluator.isAsymmetricAccessorAssignment(targetNode)
