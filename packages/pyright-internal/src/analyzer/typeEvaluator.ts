@@ -20931,14 +20931,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Returns the type of the symbol. If the type is explicitly declared, that type
     // is returned. If not, the type is inferred from assignments to the symbol. All
-    // assigned types are evaluated and combined into a union. If a "usageNode"
-    // node is specified, only declarations that are outside of the current execution
-    // scope or that are reachable (as determined by code flow analysis) are considered.
-    // This helps in cases where there are cyclical dependencies between symbols.
+    // assigned types are evaluated and combined into a union.
     function getEffectiveTypeOfSymbol(symbol: Symbol): Type {
         return getEffectiveTypeOfSymbolForUsage(symbol).type;
     }
 
+    // If a "usageNode" node is specified, only declarations that are outside
+    // of the current execution scope or that are reachable (as determined by
+    // code flow analysis) are considered. This helps in cases where there
+    // are cyclical dependencies between symbols.
     function getEffectiveTypeOfSymbolForUsage(
         symbol: Symbol,
         usageNode?: NameNode,
@@ -20949,22 +20950,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If there's a declared type, it takes precedence over inferred types.
         if (symbol.hasTypedDeclarations()) {
             declaredTypeInfo = getDeclaredTypeOfSymbol(symbol, usageNode);
-
             const declaredType = declaredTypeInfo?.type;
-            const hasMetadata = !!declaredTypeInfo.isTypeAlias;
 
-            if (declaredType || !hasMetadata) {
-                let isIncomplete = false;
-
-                if (declaredType) {
-                    if (isFunction(declaredType) && FunctionType.isPartiallyEvaluated(declaredType)) {
-                        isIncomplete = true;
-                    } else if (isClass(declaredType) && ClassType.isPartiallyEvaluated(declaredType)) {
-                        isIncomplete = true;
-                    }
+            let isIncomplete = false;
+            if (declaredType) {
+                if (isFunction(declaredType) && FunctionType.isPartiallyEvaluated(declaredType)) {
+                    isIncomplete = true;
+                } else if (isClass(declaredType) && ClassType.isPartiallyEvaluated(declaredType)) {
+                    isIncomplete = true;
                 }
+            }
 
+            // If the "declared" type uses a "TypeAlias" type annotation, then
+            // we need to use the inferred type path to evaluate its type.
+            if (declaredType || !declaredTypeInfo.isTypeAlias) {
                 const typedDecls = symbol.getTypedDeclarations();
+
                 const result: EffectiveTypeResult = {
                     type: declaredType ?? UnknownType.create(),
                     isIncomplete,
@@ -20978,6 +20979,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        return inferTypeOfSymbolForUsage(symbol, usageNode, useLastDecl);
+    }
+
+    function inferTypeOfSymbolForUsage(symbol: Symbol, usageNode?: NameNode, useLastDecl = false): EffectiveTypeResult {
         // Look in the inferred type cache to see if we've computed this already.
         let cacheEntries = effectiveTypeCache.get(symbol.id);
         const usageNodeId = usageNode ? usageNode.id : undefined;
@@ -21035,9 +21040,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Determine which declarations to use for inference.
         const declsToConsider: Declaration[] = [];
+        let includesVariableDecl = false;
+        let includesIllegalTypeAliasDecl = false;
 
         let sawExplicitTypeAlias = false;
         decls.forEach((decl, index) => {
+            const resolvedDecl =
+                resolveAliasDeclaration(decl, /* resolveLocalNames */ true, {
+                    allowExternallyHiddenAccess: AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile,
+                }) ?? decl;
+
+            if (!isPossibleTypeAliasDeclaration(resolvedDecl)) {
+                includesIllegalTypeAliasDecl = true;
+            }
+
+            if (resolvedDecl.type === DeclarationType.Variable) {
+                // Exempt typing.pyi, which uses variables to define some
+                // special forms like Any.
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(resolvedDecl.node);
+                if (!fileInfo.isTypingStubFile) {
+                    includesVariableDecl = true;
+                }
+            }
+
             if (declIndexToConsider !== undefined && declIndexToConsider !== index) {
                 return;
             }
@@ -21060,20 +21085,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (usageNode !== undefined) {
                 if (decl.type !== DeclarationType.Alias) {
                     // Is the declaration in the same execution scope as the "usageNode" node?
+                    // If so, we can skip it because code flow analysis will allow us
+                    // to determine the type in this context.
                     const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode);
                     const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
                     if (usageScope === declScope) {
-                        if (!isFlowPathBetweenNodes(decl.node, usageNode)) {
-                            return;
-                        }
+                        return;
                     }
                 }
             }
-
-            const resolvedDecl =
-                resolveAliasDeclaration(decl, /* resolveLocalNames */ true, {
-                    allowExternallyHiddenAccess: AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile,
-                }) ?? decl;
 
             const isExplicitTypeAlias = isExplicitTypeAliasDeclaration(resolvedDecl);
             const isTypeAlias = isExplicitTypeAlias || isPossibleTypeAliasOrTypedDict(resolvedDecl);
@@ -21096,6 +21116,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         const result = getTypeOfSymbolForDecls(symbol, declsToConsider, effectiveTypeCacheKey);
+        result.includesVariableDecl = includesVariableDecl;
+        result.includesIllegalTypeAliasDecl = includesIllegalTypeAliasDecl;
 
         // Add the result to the effective type cache if it doesn't include speculative results.
         if (!result.includesSpeculativeResult) {
@@ -21120,7 +21142,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typesToCombine: Type[] = [];
         let isIncomplete = false;
         let sawPendingEvaluation = false;
-        let includesVariableDecl = false;
         let includesSpeculativeResult = false;
 
         decls.forEach((decl) => {
@@ -21134,13 +21155,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (type) {
                         if (decl.type === DeclarationType.Variable) {
-                            // Exempt typing.pyi, which uses variables to define some
-                            // special forms like Any.
-                            const fileInfo = AnalyzerNodeInfo.getFileInfo(decl.node);
-                            if (!fileInfo.isTypingStubFile) {
-                                includesVariableDecl = true;
-                            }
-
                             let isConstant = false;
                             if (decl.type === DeclarationType.Variable) {
                                 if (decl.isConstant || isFinalVariableDeclaration(decl)) {
@@ -21211,15 +21225,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             type = UnboundType.create();
         }
 
-        return {
-            type,
-            isIncomplete,
-            includesVariableDecl,
-            includesIllegalTypeAliasDecl: !decls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
-            includesSpeculativeResult,
-            isRecursiveDefinition: false,
-            evaluationAttempts,
-        };
+        return { type, isIncomplete, includesSpeculativeResult, evaluationAttempts };
     }
 
     // If a declaration has an explicit type (e.g. a variable with an annotation),

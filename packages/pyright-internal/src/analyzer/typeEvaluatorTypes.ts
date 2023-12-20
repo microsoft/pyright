@@ -288,10 +288,10 @@ export type FunctionArgument = FunctionArgumentWithType | FunctionArgumentWithEx
 export interface EffectiveTypeResult {
     type: Type;
     isIncomplete: boolean;
-    includesVariableDecl: boolean;
-    includesIllegalTypeAliasDecl: boolean;
-    includesSpeculativeResult: boolean;
-    isRecursiveDefinition: boolean;
+    includesVariableDecl?: boolean;
+    includesIllegalTypeAliasDecl?: boolean;
+    includesSpeculativeResult?: boolean;
+    isRecursiveDefinition?: boolean;
     evaluationAttempts?: number;
 }
 
