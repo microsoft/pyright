@@ -10,6 +10,7 @@
  */
 
 import { Range } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
 import {
     ClassNode,
     ExpressionNode,
@@ -31,7 +32,7 @@ import {
     YieldNode,
 } from '../parser/parseNodes';
 
-export const UnresolvedModuleMarker = '*** unresolved ***';
+export const UnresolvedModuleMarker = Uri.file('*** unresolved module ***', /* isCaseSensitive */ true);
 
 export const enum DeclarationType {
     Intrinsic,
@@ -57,9 +58,9 @@ export interface DeclarationBase {
     node: ParseNode;
 
     // The file and range within that file that
-    // contains the declaration. Unless this is an alias, then path refers to the
+    // contains the declaration. Unless this is an alias, then uri refers to the
     // file the alias is referring to.
-    path: string;
+    uri: Uri;
     range: Range;
 
     // The dot-separated import name for the file that
@@ -125,6 +126,9 @@ export interface TypeParameterDeclaration extends DeclarationBase {
 export interface TypeAliasDeclaration extends DeclarationBase {
     type: DeclarationType.TypeAlias;
     node: TypeAliasNode;
+
+    // If a docstring (based on PEP 258) is present...
+    docString?: string | undefined;
 }
 
 export interface VariableDeclaration extends DeclarationBase {
@@ -219,10 +223,10 @@ export interface AliasDeclaration extends DeclarationBase {
 // This interface represents a set of actions that the python loader
 // performs when a module import is encountered.
 export interface ModuleLoaderActions {
-    // The resolved path of the implicit import. This can be empty
-    // if the resolved path doesn't reference a module (e.g. it's
+    // The resolved uri of the implicit import. This can be empty
+    // if the resolved uri doesn't reference a module (e.g. it's
     // a directory).
-    path: string;
+    uri: Uri;
 
     // Is this a dummy entry for an unresolved import?
     isUnresolved?: boolean;
@@ -282,5 +286,5 @@ export function isIntrinsicDeclaration(decl: Declaration): decl is IntrinsicDecl
 }
 
 export function isUnresolvedAliasDeclaration(decl: Declaration): boolean {
-    return isAliasDeclaration(decl) && decl.path === UnresolvedModuleMarker;
+    return isAliasDeclaration(decl) && decl.uri.equals(UnresolvedModuleMarker);
 }

@@ -16,7 +16,7 @@ import {
     getClassDocString,
     getFunctionDocStringInherited,
     getModuleDocString,
-    getModuleDocStringFromPaths,
+    getModuleDocStringFromUris,
     getOverloadedFunctionDocStringsInherited,
     getPropertyDocStringInherited,
     getVariableDocString,
@@ -213,22 +213,35 @@ function getDocumentationPartForTypeAlias(
     evaluator: TypeEvaluator,
     symbol?: Symbol
 ) {
-    if (resolvedDecl?.type === DeclarationType.Variable && resolvedDecl.typeAliasName && resolvedDecl.docString) {
+    if (!resolvedDecl) {
+        return undefined;
+    }
+
+    if (resolvedDecl.type === DeclarationType.TypeAlias) {
         return resolvedDecl.docString;
-    } else if (resolvedDecl?.type === DeclarationType.Variable) {
+    }
+
+    if (resolvedDecl.type === DeclarationType.Variable) {
+        if (resolvedDecl.typeAliasName && resolvedDecl.docString) {
+            return resolvedDecl.docString;
+        }
+
         const decl = (symbol?.getDeclarations().find((d) => d.type === DeclarationType.Variable && !!d.docString) ??
             resolvedDecl) as VariableDeclaration;
         const doc = getVariableDocString(decl, sourceMapper);
         if (doc) {
             return doc;
         }
-    } else if (resolvedDecl?.type === DeclarationType.Function) {
+    }
+
+    if (resolvedDecl.type === DeclarationType.Function) {
         // @property functions
         const doc = getPropertyDocStringInherited(resolvedDecl, sourceMapper, evaluator);
         if (doc) {
             return doc;
         }
     }
+
     return undefined;
 }
 
@@ -310,7 +323,7 @@ export function getDocumentationPartsForTypeAndDecl(
             }
         }
 
-        typeDoc = getModuleDocStringFromPaths([resolvedDecl.path], sourceMapper);
+        typeDoc = getModuleDocStringFromUris([resolvedDecl.uri], sourceMapper);
     }
 
     typeDoc =

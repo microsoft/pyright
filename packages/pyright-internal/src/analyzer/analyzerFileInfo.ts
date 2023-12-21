@@ -13,13 +13,14 @@ import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
+import { Uri } from '../common/uri/uri';
 import { Scope } from './scope';
 import { IPythonMode } from './sourceFile';
 import { SymbolTable } from './symbol';
 
 // Maps import paths to the symbol table for the imported module.
 export interface AbsoluteModuleDescriptor {
-    importingFilePath: string;
+    importingFileUri: Uri;
     nameParts: string[];
 }
 
@@ -29,7 +30,7 @@ export interface LookupImportOptions {
 }
 
 export type ImportLookup = (
-    filePathOrModule: string | AbsoluteModuleDescriptor,
+    fileUriOrModule: Uri | AbsoluteModuleDescriptor,
     options?: LookupImportOptions
 ) => ImportLookupResult | undefined;
 
@@ -52,7 +53,7 @@ export interface AnalyzerFileInfo {
     lines: TextRangeCollection<TextRange>;
     typingSymbolAliases: Map<string, string>;
     definedConstants: Map<string, boolean | string>;
-    filePath: string;
+    fileUri: Uri;
     moduleName: string;
     isStubFile: boolean;
     isTypingStubFile: boolean;

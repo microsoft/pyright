@@ -5,10 +5,33 @@
  *
  * Unit tests for pyright sourceMapperUtils module.
  */
-import * as assert from 'assert';
-import { CancellationTokenSource } from 'vscode-jsonrpc';
+import assert from 'assert';
+import { CancellationToken, CancellationTokenSource } from 'vscode-jsonrpc';
 
-import { buildImportTree } from '../analyzer/sourceMapperUtils';
+import { VariableDeclaration, isVariableDeclaration } from '../analyzer/declaration';
+import { buildImportTree as buildImportTreeImpl } from '../analyzer/sourceMapperUtils';
+import { TypeCategory } from '../analyzer/types';
+import { TextRange } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
+import { ParseNodeType } from '../parser/parseNodes';
+import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
+
+function buildImportTree(
+    sourceFile: string,
+    targetFile: string,
+    importResolver: (f: string) => string[],
+    token: CancellationToken
+): string[] {
+    return buildImportTreeImpl(
+        Uri.file(sourceFile),
+        Uri.file(targetFile),
+        (from) => {
+            const resolved = importResolver(from.getFilePath().slice(1));
+            return resolved.map((f) => Uri.file(f));
+        },
+        token
+    ).map((u) => u.getFilePath().slice(1));
+}
 
 describe('BuildImportTree', () => {
     const tokenSource = new CancellationTokenSource();
@@ -152,3 +175,67 @@ describe('BuildImportTree', () => {
         assert.deepEqual(results, ['E']);
     });
 });
+
+test('find type alias decl', () => {
+    const code = `
+// @filename: test.py
+//// from typing import Mapping
+//// [|/*decl*/M|] = Mapping
+////
+//// def foo(/*marker*/m: M): pass
+    `;
+
+    assertTypeAlias(code);
+});
+
+test('find type alias decl from inferred type', () => {
+    const code = `
+// @filename: test.py
+//// from typing import Mapping
+//// [|/*decl*/M|] = Mapping
+////
+//// def foo(m: M):
+////     return m
+
+// @filename: test1.py
+//// from test import foo
+//// a = { "hello": 10 }
+////
+//// /*marker*/b = foo(a)
+    `;
+
+    assertTypeAlias(code);
+});
+
+function assertTypeAlias(code: string) {
+    const state = parseAndGetTestState(code).state;
+
+    const node = getNodeAtMarker(state, 'marker');
+    assert(node.nodeType === ParseNodeType.Name);
+
+    const type = state.program.evaluator!.getType(node);
+    assert(type?.category === TypeCategory.Class);
+
+    assert.strictEqual(type.details.name, 'Mapping');
+    assert.strictEqual(type.typeAliasInfo?.name, 'M');
+    assert.strictEqual(type.typeAliasInfo.moduleName, 'test');
+
+    const marker = state.getMarkerByName('marker');
+    const markerUri = Uri.file(marker.fileName, state.fs.isCaseSensitive);
+    const mapper = state.program.getSourceMapper(
+        markerUri,
+        CancellationToken.None,
+        /* mapCompiled */ false,
+        /* preferStubs */ true
+    );
+
+    const range = state.getRangeByMarkerName('decl')!;
+    const decls = mapper.findDeclarationsByType(markerUri, type, /* userTypeAlias */ true);
+
+    const decl = decls.find((d) => isVariableDeclaration(d) && d.typeAliasName && d.typeAliasName.value === 'M') as
+        | VariableDeclaration
+        | undefined;
+    assert(decl);
+
+    assert.deepEqual(TextRange.create(decl.node.start, decl.node.length), TextRange.fromBounds(range.pos, range.end));
+}

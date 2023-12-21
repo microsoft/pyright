@@ -34,9 +34,9 @@ export function verifyNoCyclesInChainedFiles<T extends SourceFileInfo>(program: 
         return;
     }
 
-    const set = new Set<string>([fileInfo.sourceFile.getFilePath()]);
+    const set = new Set<string>([fileInfo.sourceFile.getUri().key]);
     while (nextChainedFile) {
-        const path = nextChainedFile.sourceFile.getFilePath();
+        const path = nextChainedFile.sourceFile.getUri().key;
         if (set.has(path)) {
             // We found a cycle.
             fail(
@@ -90,7 +90,7 @@ function _parseAllOpenCells(program: ProgramView): void {
             continue;
         }
 
-        program.getParseResults(file.sourceFile.getFilePath());
+        program.getParseResults(file.sourceFile.getUri());
         program.handleMemoryHighUsage();
     }
 }

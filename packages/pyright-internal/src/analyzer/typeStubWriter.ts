@@ -8,6 +8,7 @@
  * and analyzed python source file.
  */
 
+import { Uri } from '../common/uri/uri';
 import {
     ArgumentCategory,
     AssignmentNode,
@@ -158,13 +159,13 @@ export class TypeStubWriter extends ParseTreeWalker {
     private _trackedImportFrom = new Map<string, TrackedImportFrom>();
     private _accessedImportedSymbols = new Set<string>();
 
-    constructor(private _stubPath: string, private _sourceFile: SourceFile, private _evaluator: TypeEvaluator) {
+    constructor(private _stubPath: Uri, private _sourceFile: SourceFile, private _evaluator: TypeEvaluator) {
         super();
 
         // As a heuristic, we'll include all of the import statements
         // in "__init__.pyi" files even if they're not locally referenced
         // because these are often used as ways to re-export symbols.
-        if (this._stubPath.endsWith('__init__.pyi')) {
+        if (this._stubPath.fileName === '__init__.pyi') {
             this._includeAllImports = true;
         }
     }
@@ -289,7 +290,7 @@ export class TypeStubWriter extends ParseTreeWalker {
                     let returnType = this._evaluator.getFunctionInferredReturnType(functionType.functionType);
                     returnType = removeUnknownFromUnion(returnType);
                     if (!isNever(returnType) && !isUnknown(returnType)) {
-                        line += ` # -> ${this._evaluator.printType(returnType)}:`;
+                        line += ` # -> ${this._evaluator.printType(returnType, { enforcePythonSyntax: true })}:`;
                     }
                 }
             }

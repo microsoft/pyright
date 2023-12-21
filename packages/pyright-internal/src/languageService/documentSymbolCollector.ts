@@ -29,12 +29,12 @@ import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { TypeCategory } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
+import { isDefined } from '../common/core';
 import { assert } from '../common/debug';
 import { ProgramView, ReferenceUseCase, SymbolUsageProvider } from '../common/extensibility';
+import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { TextRange } from '../common/textRange';
 import { ImportAsNode, NameNode, ParseNode, ParseNodeType, StringListNode, StringNode } from '../parser/parseNodes';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
-import { isDefined } from '../common/core';
 
 export type CollectionResult = {
     node: NameNode | StringNode;
@@ -184,17 +184,18 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
         const declarations = getDeclarationsForNameNode(evaluator, node, /* skipUnreachableCode */ false);
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        const fileUri = fileInfo.fileUri;
 
         const resolvedDeclarations: Declaration[] = [];
-        const sourceMapper = program.getSourceMapper(fileInfo.filePath, token);
+        const sourceMapper = program.getSourceMapper(fileUri, token);
         declarations.forEach((decl) => {
             const resolvedDecl = evaluator.resolveAliasDeclaration(decl, resolveLocalName);
             if (resolvedDecl) {
                 addDeclarationIfUnique(resolvedDeclarations, resolvedDecl);
-                if (sourceMapper && isStubFile(resolvedDecl.path)) {
+                if (sourceMapper && isStubFile(resolvedDecl.uri)) {
                     const implDecls = sourceMapper.findDeclarations(resolvedDecl);
                     for (const implDecl of implDecls) {
-                        if (implDecl && implDecl.path) {
+                        if (implDecl && !implDecl.uri.isEmpty()) {
                             addDeclarationIfUnique(resolvedDeclarations, implDecl);
                         }
                     }
@@ -202,7 +203,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             }
         });
 
-        const sourceFileInfo = program.getSourceFileInfo(fileInfo.filePath);
+        const sourceFileInfo = program.getSourceFileInfo(fileUri);
         if (sourceFileInfo && sourceFileInfo.sourceFile.getIPythonMode() === IPythonMode.CellDocs) {
             // Add declarations from chained source files
             let builtinsScope = fileInfo.builtinsScope;
@@ -215,7 +216,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             // Add declarations from files that implicitly import the target file.
             const implicitlyImportedBy = collectImportedByCells(program, sourceFileInfo);
             implicitlyImportedBy.forEach((implicitImport) => {
-                const parseTree = program.getParseResults(implicitImport.sourceFile.getFilePath())?.parseTree;
+                const parseTree = program.getParseResults(implicitImport.sourceFile.getUri())?.parseTree;
                 if (parseTree) {
                     const scope = AnalyzerNodeInfo.getScope(parseTree);
                     const symbol = scope?.lookUpSymbol(node.value);
@@ -302,7 +303,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     }
 
     private _addResult(node: NameNode | StringNode) {
-        const range: TextRange = node.nodeType === ParseNodeType.Name ? node : getStringNodeValueRange(node);
+        const range: TextRange = node.nodeType === ParseNodeType.Name ? node.token : getStringNodeValueRange(node);
         this._results.push({ node, range });
     }
 
@@ -449,7 +450,7 @@ function _getDeclarationsForNonModuleNameNode(
         const type = evaluator.getType(node);
         if (type?.category === TypeCategory.Module) {
             // Synthesize decl for the module.
-            return [createSynthesizedAliasDeclaration(type.filePath)];
+            return [createSynthesizedAliasDeclaration(type.fileUri)];
         }
     }
 

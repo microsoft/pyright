@@ -8,6 +8,7 @@
  */
 
 import { Range, rangesAreEqual } from './textRange';
+import { Uri } from './uri/uri';
 
 export interface TextEditAction {
     range: Range;
@@ -15,7 +16,7 @@ export interface TextEditAction {
 }
 
 export interface FileEditAction extends TextEditAction {
-    filePath: string;
+    fileUri: Uri;
 }
 
 export interface FileEditActions {
@@ -31,18 +32,18 @@ export interface FileOperation {
 
 export interface RenameFileOperation extends FileOperation {
     kind: 'rename';
-    oldFilePath: string;
-    newFilePath: string;
+    oldFileUri: Uri;
+    newFileUri: Uri;
 }
 
 export interface CreateFileOperation extends FileOperation {
     kind: 'create';
-    filePath: string;
+    fileUri: Uri;
 }
 
 export interface DeleteFileOperation extends FileOperation {
     kind: 'delete';
-    filePath: string;
+    fileUri: Uri;
 }
 
 export namespace TextEditAction {
@@ -53,13 +54,13 @@ export namespace TextEditAction {
 
 export namespace FileEditAction {
     export function is(value: any): value is FileEditAction {
-        return value.filePath !== undefined && TextEditAction.is(value);
+        return value.fileUri !== undefined && TextEditAction.is(value);
     }
 
     export function areEqual(e1: FileEditAction, e2: FileEditAction) {
         return (
             e1 === e2 ||
-            (e1.filePath === e2.filePath &&
+            (e1.fileUri.equals(e2.fileUri) &&
                 rangesAreEqual(e1.range, e2.range) &&
                 e1.replacementText === e2.replacementText)
         );

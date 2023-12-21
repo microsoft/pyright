@@ -30,6 +30,7 @@ import {
     OverloadedFunctionType,
     Type,
     TypeBase,
+    TypeVarType,
     UnknownType,
 } from './types';
 import {
@@ -44,6 +45,7 @@ import {
     populateTypeVarContextForSelfType,
     removeParamSpecVariadicsFromSignature,
     requiresSpecialization,
+    synthesizeTypeVarForSelfCls,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
@@ -247,8 +249,22 @@ function assignClassToProtocolInternal(
     const sourceIsInstantiable = TypeBase.isInstantiable(srcType);
     const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
     const selfTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
-    const noLiteralSrcType = evaluator.stripLiteralValue(srcType) as ClassType;
-    populateTypeVarContextForSelfType(selfTypeVarContext, destType, noLiteralSrcType);
+
+    let selfType: ClassType | TypeVarType | undefined;
+    if (isClass(srcType)) {
+        // If the srcType is conditioned on "self", use "Self" as the selfType.
+        // Otherwise use the class type for selfType.
+        if (srcType.condition?.some((c) => c.typeVar.details.isSynthesizedSelf)) {
+            selfType = synthesizeTypeVarForSelfCls(
+                TypeBase.cloneForCondition(srcType, undefined),
+                /* isClsType */ false
+            );
+        } else {
+            selfType = srcType;
+        }
+
+        populateTypeVarContextForSelfType(selfTypeVarContext, destType, selfType);
+    }
 
     // If the source is a TypedDict, use the _TypedDict placeholder class
     // instead. We don't want to use the TypedDict members for protocol
@@ -356,7 +372,7 @@ function assignClassToProtocolInternal(
                 // We can skip this if it's the dest class because it is already
                 // specialized.
                 if (!ClassType.isSameGenericClass(mroClass, destType)) {
-                    destMemberType = partiallySpecializeType(destMemberType, mroClass, srcType);
+                    destMemberType = partiallySpecializeType(destMemberType, mroClass, selfType);
                 }
 
                 if (isInstantiableClass(srcMemberInfo.classType)) {
@@ -367,7 +383,7 @@ function assignClassToProtocolInternal(
                         evaluator.inferReturnTypeIfNecessary(symbolType);
                     }
 
-                    srcMemberType = partiallySpecializeType(symbolType, srcMemberInfo.classType, noLiteralSrcType);
+                    srcMemberType = partiallySpecializeType(symbolType, srcMemberInfo.classType, selfType);
                 } else {
                     srcMemberType = UnknownType.create();
                 }
@@ -382,7 +398,7 @@ function assignClassToProtocolInternal(
                             srcMemberType,
                             isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
                             /* treatConstructorAsClassMember */ undefined,
-                            isMemberFromMetaclass ? srcType : undefined,
+                            isMemberFromMetaclass ? srcType : selfType,
                             diag?.createAddendum(),
                             recursionCount
                         );
@@ -428,7 +444,7 @@ function assignClassToProtocolInternal(
                             destMemberType,
                             isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
                             /* treatConstructorAsClassMember */ undefined,
-                            isMemberFromMetaclass ? srcType : undefined,
+                            isMemberFromMetaclass ? srcType : selfType,
                             diag,
                             recursionCount
                         );

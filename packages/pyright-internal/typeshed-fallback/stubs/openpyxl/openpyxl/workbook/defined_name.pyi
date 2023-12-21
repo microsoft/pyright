@@ -1,4 +1,4 @@
-from _typeshed import Incomplete
+from _typeshed import ConvertibleToInt, Incomplete
 from collections import defaultdict
 from collections.abc import Generator, Iterator
 from re import Pattern
@@ -6,7 +6,7 @@ from typing import ClassVar
 from typing_extensions import Final, Literal
 
 from openpyxl.descriptors import Sequence
-from openpyxl.descriptors.base import Alias, Bool, Integer, String, _ConvertibleToBool, _ConvertibleToInt
+from openpyxl.descriptors.base import Alias, Bool, Integer, String, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.formula.tokenizer import _TokenOperandSubtypes, _TokenTypesNotOperand
 
@@ -40,12 +40,12 @@ class DefinedName(Serialisable):
         description: str | None = None,
         help: str | None = None,
         statusBar: str | None = None,
-        localSheetId: _ConvertibleToInt | None = None,
+        localSheetId: ConvertibleToInt | None = None,
         hidden: _ConvertibleToBool | None = None,
         function: _ConvertibleToBool | None = None,
         vbProcedure: _ConvertibleToBool | None = None,
         xlm: _ConvertibleToBool | None = None,
-        functionGroupId: _ConvertibleToInt | None = None,
+        functionGroupId: ConvertibleToInt | None = None,
         shortcutKey: str | None = None,
         publishToServer: _ConvertibleToBool | None = None,
         workbookParameter: _ConvertibleToBool | None = None,

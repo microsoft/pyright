@@ -1,10 +1,10 @@
-from _typeshed import Incomplete
+from _typeshed import ConvertibleToInt, Incomplete
 from typing import ClassVar
 from typing_extensions import Literal
 
 from openpyxl.chart.axis import NumericAxis, SeriesAxis, TextAxis
 from openpyxl.chart.shapes import GraphicalProperties
-from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool, _ConvertibleToInt
+from openpyxl.descriptors.base import Alias, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.nested import NestedBool, NestedInteger
 from openpyxl.descriptors.serialisable import Serialisable
@@ -20,7 +20,7 @@ class BandFormat(Serialisable):
     graphicalProperties: Alias
     __elements__: ClassVar[tuple[str, ...]]
     def __init__(
-        self, idx: _HasTagAndGet[_ConvertibleToInt] | _ConvertibleToInt = 0, spPr: GraphicalProperties | None = None
+        self, idx: _HasTagAndGet[ConvertibleToInt] | ConvertibleToInt = 0, spPr: GraphicalProperties | None = None
     ) -> None: ...
 
 class BandFormatList(Serialisable):

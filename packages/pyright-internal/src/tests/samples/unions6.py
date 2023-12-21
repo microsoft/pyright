@@ -20,11 +20,11 @@ _T = TypeVar("_T")
 
 class MyList(MutableSequence[_T]):
     @overload
-    def __getitem__(self, __i: SupportsIndex) -> _T:  # type: ignore
+    def __getitem__(self, index: SupportsIndex) -> _T:  # type: ignore
         ...
 
     @overload
-    def __getitem__(self, __s: slice) -> MyList[_T]:
+    def __getitem__(self, index: slice) -> MyList[_T]:
         ...
 
 

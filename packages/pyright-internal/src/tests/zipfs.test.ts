@@ -6,13 +6,12 @@
 
 import * as assert from 'assert';
 import * as path from 'path';
-
-import { combinePaths } from '../common/pathUtils';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
+import { Uri } from '../common/uri/uri';
 
 function runTests(p: string): void {
-    const zipRoot = path.resolve(path.dirname(module.filename), p);
+    const zipRoot = Uri.file(path.resolve(path.dirname(module.filename), p));
     const fs = createFromRealFileSystem();
 
     test('stat root', () => {
@@ -39,13 +38,13 @@ function runTests(p: string): void {
     });
 
     test('stat EGG-INFO', () => {
-        const stats = fs.statSync(combinePaths(zipRoot, 'EGG-INFO'));
+        const stats = fs.statSync(zipRoot.combinePaths('EGG-INFO'));
         assert.strictEqual(stats.isDirectory(), true);
         assert.strictEqual(stats.isFile(), false);
     });
 
     test('readdirEntriesSync root', () => {
-        const entries = fs.readdirEntriesSync(combinePaths(zipRoot, 'EGG-INFO'));
+        const entries = fs.readdirEntriesSync(zipRoot.combinePaths('EGG-INFO'));
         assert.strictEqual(entries.length, 5);
 
         entries.sort((a, b) => compareStringsCaseSensitive(a.name, b.name));
@@ -72,24 +71,24 @@ function runTests(p: string): void {
     });
 
     test('read file', () => {
-        const contents = fs.readFileSync(combinePaths(zipRoot, 'EGG-INFO', 'top_level.txt'), 'utf-8');
+        const contents = fs.readFileSync(zipRoot.combinePaths('EGG-INFO', 'top_level.txt'), 'utf-8');
         assert.strictEqual(contents.trim(), 'test');
     });
 
     test('read file async', async () => {
-        const contents = await fs.readFileText(combinePaths(zipRoot, 'EGG-INFO', 'top_level.txt'), 'utf-8');
+        const contents = await fs.readFileText(zipRoot.combinePaths('EGG-INFO', 'top_level.txt'), 'utf-8');
         assert.strictEqual(contents.trim(), 'test');
     });
 
     test('unlink fails', async () => {
         expect(() => {
-            fs.unlinkSync(combinePaths(zipRoot, 'EGG-INFO', 'top_level.txt'));
+            fs.unlinkSync(zipRoot.combinePaths('EGG-INFO', 'top_level.txt'));
         }).toThrow(/read-only filesystem/);
     });
 
     test('isInZip', () => {
-        assert.strictEqual(fs.isInZip(combinePaths(zipRoot, 'EGG-INFO', 'top_level.txt')), true);
-        assert.strictEqual(fs.isInZip(module.filename), false);
+        assert.strictEqual(fs.isInZip(zipRoot.combinePaths('EGG-INFO', 'top_level.txt')), true);
+        assert.strictEqual(fs.isInZip(Uri.file(module.filename)), false);
     });
 }
 
@@ -98,7 +97,7 @@ describe('egg', () => runTests('./samples/zipfs/basic.egg'));
 describe('jar', () => runTests('./samples/zipfs/basic.jar'));
 
 function runBadTests(p: string): void {
-    const zipRoot = path.resolve(path.dirname(module.filename), p);
+    const zipRoot = Uri.file(path.resolve(path.dirname(module.filename), p));
     const fs = createFromRealFileSystem();
 
     test('stat root', () => {
@@ -108,7 +107,7 @@ function runBadTests(p: string): void {
     });
 
     test('isInZip', () => {
-        assert.strictEqual(fs.isInZip(combinePaths(zipRoot, 'EGG-INFO', 'top_level.txt')), false);
+        assert.strictEqual(fs.isInZip(zipRoot.combinePaths('EGG-INFO', 'top_level.txt')), false);
     });
 }
 

@@ -81,7 +81,7 @@ export function createEnumType(
         className,
         getClassFullName(errorNode, fileInfo.moduleName, className),
         fileInfo.moduleName,
-        fileInfo.filePath,
+        fileInfo.fileUri,
         ClassTypeFlags.EnumClass,
         getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,

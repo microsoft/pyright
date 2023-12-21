@@ -1,6 +1,14 @@
 # This sample tests ParamSpec (PEP 612) behavior.
 
-from typing import Awaitable, Callable, Generic, ParamSpec, TypeVar, overload
+from typing import (
+    Awaitable,
+    Callable,
+    Generic,
+    Iterable,
+    ParamSpec,
+    TypeVar,
+    overload,
+)
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -71,3 +79,11 @@ def func5(f: Callable[[], list[T1]]) -> Callable[[list[T2]], list[T1 | T2]]:
         ...
 
     return decorator2(inner)
+
+
+def func6(x: Iterable[Callable[P, None]]) -> Callable[P, None]:
+    def inner(*args: P.args, **kwargs: P.kwargs) -> None:
+        for fn in x:
+            fn(*args, **kwargs)
+
+    return inner

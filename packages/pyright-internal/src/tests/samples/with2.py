@@ -2,7 +2,8 @@
 # or __aexit__ method.
 
 
-from typing import Any, TypeVar
+from contextlib import AbstractContextManager
+from typing import Any, Literal, TypeVar
 
 _T1 = TypeVar("_T1")
 
@@ -61,3 +62,17 @@ async def test2():
     # needs to be used with async with.
     async with a1 as foo:
         pass
+
+
+class Class5(AbstractContextManager[Any]):
+    def __exit__(self, exc_type: Any, exc_value: Any, tb: Any) -> Literal[True]:
+        return True
+
+
+def test3(val: str | None):
+    val = None
+    with Class5():
+        val = ""
+        raise Exception
+
+    reveal_type(val, expected_text="Literal[''] | None")

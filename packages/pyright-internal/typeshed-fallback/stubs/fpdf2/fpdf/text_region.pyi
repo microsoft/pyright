@@ -1,8 +1,10 @@
 from _typeshed import Incomplete
 from collections.abc import Sequence
 from typing import NamedTuple
+from typing_extensions import Self
 
 from .enums import Align, WrapMode
+from .image_datastructures import RasterImageInfo, VectorImageInfo, _AlignLiteral
 
 class Extents(NamedTuple):
     left: float
@@ -45,9 +47,43 @@ class Paragraph:
     def ln(self, h: float | None = None) -> None: ...
     def build_lines(self, print_sh: bool) -> list[LineWrapper]: ...
 
+class ImageParagraph:
+    region: Incomplete
+    name: Incomplete
+    align: Align | None
+    width: float | None
+    height: float | None
+    fill_width: bool
+    keep_aspect_ratio: bool
+    top_margin: float
+    bottom_margin: float
+    link: Incomplete | None
+    title: Incomplete | None
+    alt_text: Incomplete | None
+    img: Incomplete | None
+    info: Incomplete | None
+
+    def __init__(
+        self,
+        region,
+        name,
+        align: Align | _AlignLiteral | None = None,
+        width: float | None = None,
+        height: float | None = None,
+        fill_width: bool = False,
+        keep_aspect_ratio: bool = False,
+        top_margin: float = 0,
+        bottom_margin: float = 0,
+        link: Incomplete | None = None,
+        title: Incomplete | None = None,
+        alt_text: Incomplete | None = None,
+    ) -> None: ...
+    def build_line(self) -> Self: ...
+    def render(self, col_left: float, col_width: float, max_height: float) -> VectorImageInfo | RasterImageInfo: ...
+
 class ParagraphCollectorMixin:
     pdf: Incomplete
-    text_align: Align | str = "LEFT"
+    text_align: Align
     line_height: Incomplete
     print_sh: Incomplete
     wrapmode: Incomplete
@@ -57,11 +93,13 @@ class ParagraphCollectorMixin:
         pdf,
         *args,
         text: str | None = None,
-        text_align: str = "LEFT",
+        text_align: Align | _AlignLiteral = "LEFT",
         line_height: float = 1.0,
         print_sh: bool = False,
         skip_leading_spaces: bool = False,
         wrapmode: WrapMode | None = None,
+        img: Incomplete | None = None,
+        img_fill_width: bool = False,
         **kwargs,
     ) -> None: ...
     def __enter__(self): ...
@@ -78,6 +116,20 @@ class ParagraphCollectorMixin:
         wrapmode: WrapMode | None = None,
     ): ...
     def end_paragraph(self) -> None: ...
+    def image(
+        self,
+        name,
+        align: Align | _AlignLiteral | None = None,
+        width: float | None = None,
+        height: float | None = None,
+        fill_width: bool = False,
+        keep_aspect_ratio: bool = False,
+        top_margin: float = 0,
+        bottom_margin: float = 0,
+        link: Incomplete | None = None,
+        title: Incomplete | None = None,
+        alt_text: Incomplete | None = None,
+    ) -> None: ...
 
 class TextRegion(ParagraphCollectorMixin):
     def current_x_extents(self, y, height) -> None: ...
@@ -93,6 +145,7 @@ class TextColumnarMixin:
 class TextColumns(TextRegion, TextColumnarMixin):
     balance: Incomplete
     def __init__(self, pdf, *args, ncols: int = 1, gutter: float = 10, balance: bool = False, **kwargs) -> None: ...
-    def __enter__(self): ...
+    def __enter__(self) -> Self: ...
+    def new_column(self) -> None: ...
     def render(self) -> None: ...
     def current_x_extents(self, y, height): ...

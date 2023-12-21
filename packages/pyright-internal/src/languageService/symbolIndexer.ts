@@ -10,18 +10,20 @@ import { CancellationToken, CompletionItemKind, SymbolKind } from 'vscode-langua
 
 import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
-import { Declaration, DeclarationType } from '../analyzer/declaration';
+import { AliasDeclaration, Declaration, DeclarationType } from '../analyzer/declaration';
 import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { getSymbolKind } from '../common/lspUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { Range } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
+import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { convertSymbolKindToCompletionItemKind } from './autoImporter';
-import { getSymbolKind } from '../common/lspUtils';
 
 export interface IndexAliasData {
     readonly originalName: string;
-    readonly modulePath: string;
+    readonly moduleUri: Uri;
     readonly kind: SymbolKind;
     readonly itemKind?: CompletionItemKind | undefined;
 }
@@ -89,7 +91,7 @@ function collectSymbolIndexData(
             return;
         }
 
-        if (DeclarationType.Alias === declaration.type) {
+        if (DeclarationType.Alias === declaration.type && !shouldAliasBeIndexed(declaration)) {
             return;
         }
 
@@ -135,7 +137,7 @@ function collectSymbolIndexDataForName(
         );
     }
 
-    if (DeclarationType.Alias === declaration.type) {
+    if (DeclarationType.Alias === declaration.type && !shouldAliasBeIndexed(declaration)) {
         return;
     }
 
@@ -151,4 +153,15 @@ function collectSymbolIndexDataForName(
     };
 
     indexSymbolData.push(data);
+}
+
+function shouldAliasBeIndexed(declaration: AliasDeclaration) {
+    // Only allow import statements with an alias (`import module as alias` or
+    // `from module import symbol as alias`), since the alias is a symbol specific
+    // to the importing file.
+    return (
+        (declaration.node.nodeType === ParseNodeType.ImportAs ||
+            declaration.node.nodeType === ParseNodeType.ImportFromAs) &&
+        declaration.node.alias !== undefined
+    );
 }

@@ -69,3 +69,7 @@ type TA11 = Callable[..., Any]
 
 def func3(cb: TA11):
     cb()
+
+def func4():
+    # This should generate an error.
+    type TA12 = int

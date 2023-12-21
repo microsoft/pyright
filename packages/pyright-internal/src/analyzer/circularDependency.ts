@@ -10,10 +10,12 @@
  * by picking the alphabetically-first module in the cycle.
  */
 
-export class CircularDependency {
-    private _paths: string[] = [];
+import { Uri } from '../common/uri/uri';
 
-    appendPath(path: string) {
+export class CircularDependency {
+    private _paths: Uri[] = [];
+
+    appendPath(path: Uri) {
         this._paths.push(path);
     }
 

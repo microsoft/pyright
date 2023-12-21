@@ -8,8 +8,9 @@
  */
 
 import { assert } from '../common/debug';
+import { Uri } from '../common/uri/uri';
 import { ArgumentNode, ExpressionNode, NameNode, ParameterCategory } from '../parser/parseNodes';
-import { FunctionDeclaration } from './declaration';
+import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
 export const enum TypeCategory {
@@ -114,6 +115,7 @@ export type InheritanceChain = (ClassType | UnknownType)[];
 export interface TypeSameOptions {
     ignorePseudoGeneric?: boolean;
     ignoreTypeFlags?: boolean;
+    ignoreConditions?: boolean;
     typeFlagsToHonor?: TypeFlags;
     ignoreTypedDictNarrowEntries?: boolean;
     treatAnySameAsUnknown?: boolean;
@@ -122,6 +124,9 @@ export interface TypeSameOptions {
 export interface TypeAliasInfo {
     name: string;
     fullName: string;
+    moduleName: string;
+    fileUri: Uri;
+
     typeVarScopeId: TypeVarScopeId;
 
     // Indicates whether the type alias was declared with the
@@ -263,6 +268,8 @@ export namespace TypeBase {
         type: Type,
         name: string,
         fullName: string,
+        moduleName: string,
+        fileUri: Uri,
         typeVarScopeId: TypeVarScopeId,
         isPep695Syntax: boolean,
         typeParams?: TypeVarType[],
@@ -273,6 +280,8 @@ export namespace TypeBase {
         typeClone.typeAliasInfo = {
             name,
             fullName,
+            moduleName,
+            fileUri,
             typeParameters: typeParams,
             typeArguments: typeArgs,
             typeVarScopeId,
@@ -383,18 +392,18 @@ export interface ModuleType extends TypeBase {
     // The period-delimited import name of this module.
     moduleName: string;
 
-    filePath: string;
+    fileUri: Uri;
 }
 
 export namespace ModuleType {
-    export function create(moduleName: string, filePath: string, symbolTable?: SymbolTable) {
+    export function create(moduleName: string, fileUri: Uri, symbolTable?: SymbolTable) {
         const newModuleType: ModuleType = {
             category: TypeCategory.Module,
             fields: symbolTable || new Map<string, Symbol>(),
             loaderFields: new Map<string, Symbol>(),
             flags: TypeFlags.Instantiable | TypeFlags.Instantiable,
             moduleName,
-            filePath,
+            fileUri,
         };
         return newModuleType;
     }
@@ -561,11 +570,12 @@ interface ClassDetails {
     name: string;
     fullName: string;
     moduleName: string;
-    filePath: string;
+    fileUri: Uri;
     flags: ClassTypeFlags;
     typeSourceId: TypeSourceId;
     baseClasses: Type[];
     mro: Type[];
+    declaration?: ClassDeclaration | SpecialBuiltInClassDeclaration | undefined;
     declaredMetaclass?: ClassType | UnknownType | undefined;
     effectiveMetaclass?: ClassType | UnknownType | undefined;
     fields: SymbolTable;
@@ -604,6 +614,11 @@ export interface TupleTypeArgument {
     // Does the type argument represent a single value or
     // an "unbounded" (zero or more) arguments?
     isUnbounded: boolean;
+
+    // For tuples captured from a callable, this indicates
+    // the corresponding positional parameter has a default
+    // argument and can therefore be omitted.
+    isOptional?: boolean;
 }
 
 export interface PropertyMethodInfo {
@@ -704,7 +719,7 @@ export namespace ClassType {
         name: string,
         fullName: string,
         moduleName: string,
-        filePath: string,
+        fileUri: Uri,
         flags: ClassTypeFlags,
         typeSourceId: TypeSourceId,
         declaredMetaclass: ClassType | UnknownType | undefined,
@@ -717,7 +732,7 @@ export namespace ClassType {
                 name,
                 fullName,
                 moduleName,
-                filePath,
+                fileUri,
                 flags,
                 typeSourceId,
                 baseClasses: [],
@@ -1121,22 +1136,10 @@ export namespace ClassType {
 
     // Same as isTypeSame except that it doesn't compare type arguments.
     export function isSameGenericClass(classType: ClassType, type2: ClassType, recursionCount = 0) {
-        if (recursionCount > maxTypeRecursionCount) {
-            return true;
-        }
-        recursionCount++;
-
         if (!classType.isTypedDictPartial !== !type2.isTypedDictPartial) {
             return false;
         }
 
-        // If the class details match, it's definitely the same class.
-        if (classType.details === type2.details) {
-            return true;
-        }
-
-        // If either or both have aliases (e.g. List -> list), use the
-        // aliases for comparison purposes.
         const class1Details = classType.details;
         const class2Details = type2.details;
 
@@ -1155,6 +1158,11 @@ export namespace ClassType {
         ) {
             return false;
         }
+
+        if (recursionCount > maxTypeRecursionCount) {
+            return true;
+        }
+        recursionCount++;
 
         // Special-case NamedTuple and Tuple classes because we rewrite the base classes
         // in these cases.
@@ -2168,9 +2176,8 @@ export namespace AnyType {
 
 // References a single condition associated with a constrained TypeVar.
 export interface TypeCondition {
-    typeVarName: string;
+    typeVar: TypeVarType;
     constraintIndex: number;
-    isConstrainedTypeVar: boolean;
 }
 
 export namespace TypeCondition {
@@ -2199,9 +2206,9 @@ export namespace TypeCondition {
     }
 
     function _compare(c1: TypeCondition, c2: TypeCondition) {
-        if (c1.typeVarName < c2.typeVarName) {
+        if (c1.typeVar.details.name < c2.typeVar.details.name) {
             return -1;
-        } else if (c1.typeVarName > c2.typeVarName) {
+        } else if (c1.typeVar.details.name > c2.typeVar.details.name) {
             return 1;
         }
         if (c1.constraintIndex < c2.constraintIndex) {
@@ -2227,7 +2234,7 @@ export namespace TypeCondition {
         return (
             conditions1.find(
                 (c1, index) =>
-                    c1.typeVarName !== conditions2[index].typeVarName ||
+                    c1.typeVar.nameWithScope !== conditions2[index].typeVar.nameWithScope ||
                     c1.constraintIndex !== conditions2[index].constraintIndex
             ) === undefined
         );
@@ -2248,7 +2255,7 @@ export namespace TypeCondition {
         for (const c1 of conditions1) {
             let foundTypeVarMatch = false;
             const exactMatch = conditions2.find((c2) => {
-                if (c1.typeVarName === c2.typeVarName) {
+                if (c1.typeVar.nameWithScope === c2.typeVar.nameWithScope) {
                     foundTypeVarMatch = true;
                     return c1.constraintIndex === c2.constraintIndex;
                 }
@@ -2825,7 +2832,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
-            if (!TypeCondition.isSame(type1.condition, type2.condition)) {
+            if (!options.ignoreConditions && !TypeCondition.isSame(type1.condition, type2.condition)) {
                 return false;
             }
 
@@ -3226,15 +3233,11 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
 
     // Sort all of the literal and empty types to the end.
     expandedTypes = expandedTypes.sort((type1, type2) => {
-        if (
-            (isClassInstance(type1) && type1.literalValue !== undefined) ||
-            (isInstantiableClass(type1) && type1.literalValue !== undefined)
-        ) {
+        if (isClass(type1) && type1.literalValue !== undefined) {
             return 1;
-        } else if (
-            (isClassInstance(type2) && type2.literalValue !== undefined) ||
-            (isInstantiableClass(type2) && type2.literalValue !== undefined)
-        ) {
+        }
+
+        if (isClass(type2) && type2.literalValue !== undefined) {
             return -1;
         }
 
@@ -3302,7 +3305,7 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
     if (isClassInstance(srcType) && srcType.literalValue !== undefined) {
         // Strip the literal.
         srcType = ClassType.cloneWithLiteral(srcType, /* value */ undefined);
-        return isTypeSame(destType, srcType);
+        return isTypeSame(destType, srcType, { ignoreConditions: true });
     }
 
     return false;
@@ -3367,6 +3370,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
                     typeToAdd.details.typeParameters.map(() => UnknownType.create()),
                     /* isTypeArgumentExplicit */ true
                 );
+                return;
             }
         }
 

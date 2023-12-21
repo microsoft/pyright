@@ -1,0 +1,3 @@
+from _typeshed import Incomplete
+
+def flow_hierarchy(G, weight: Incomplete | None = None): ...

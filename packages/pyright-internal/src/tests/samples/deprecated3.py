@@ -1,4 +1,4 @@
-# This sample tests the @typing.deprecated decorator introduced in PEP 702.
+# This sample tests the @warning.deprecated decorator introduced in PEP 702.
 
 # This should generate an error if reportDeprecated is enabled.
 from .deprecated2 import func1

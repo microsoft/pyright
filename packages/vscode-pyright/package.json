@@ -2,7 +2,7 @@
     "name": "vscode-pyright",
     "displayName": "Pyright",
     "description": "VS Code static type checking for Python",
-    "version": "1.1.338",
+    "version": "1.1.342",
     "private": true,
     "license": "MIT",
     "author": {
@@ -188,7 +188,7 @@
                 },
                 "python.analysis.diagnosticSeverityOverrides": {
                     "type": "object",
-                    "description": "Allows a user to override the severity levels for individual diagnostics. Use the rule name as a key and one of \"error\", \"warning\", \"information\", \"none\", `true` (alias for \"error\") or `false` (alias for \"none\") as value. The default value shown for each diagnostic is the default when \"python.analysis.typeCheckingMode\" is set to \"basic\". See [here](https://github.com/microsoft/pyright/blob/main/docs/configuration.md#diagnostic-rule-defaults) for defaults for each type checking mode (\"off\", \"basic\" and \"strict\").",
+                    "description": "Allows a user to override the severity levels for individual diagnostics. Use the rule name as a key and one of \"error\", \"warning\", \"information\", \"none\", `true` (alias for \"error\") or `false` (alias for \"none\") as value. The default value shown for each diagnostic is the default when \"python.analysis.typeCheckingMode\" is set to \"standard\". See [here](https://github.com/microsoft/pyright/blob/main/docs/configuration.md#diagnostic-rule-defaults) for defaults for each type checking mode (\"off\", \"basic\", \"standard\", and \"strict\").",
                     "scope": "resource",
                     "properties": {
                         "reportGeneralTypeIssues": {
@@ -229,7 +229,7 @@
                                 "boolean"
                             ],
                             "description": "Diagnostics for member accesses on functions.",
-                            "default": "none",
+                            "default": "error",
                             "enum": [
                                 "none",
                                 "information",
@@ -661,7 +661,7 @@
                                 "boolean"
                             ],
                             "description": "Diagnostics for methods that override a method of the same name in a base class in an incompatible manner (wrong number of parameters, incompatible parameter types, or incompatible return type).",
-                            "default": "none",
+                            "default": "error",
                             "enum": [
                                 "none",
                                 "information",
@@ -677,7 +677,7 @@
                                 "boolean"
                             ],
                             "description": "Diagnostics for overrides in subclasses that redefine a variable in an incompatible way.",
-                            "default": "none",
+                            "default": "error",
                             "enum": [
                                 "none",
                                 "information",
@@ -709,7 +709,7 @@
                                 "boolean"
                             ],
                             "description": "Diagnostics for function overloads that overlap in signature and obscure each other or have incompatible return types.",
-                            "default": "none",
+                            "default": "error",
                             "enum": [
                                 "none",
                                 "information",
@@ -1230,10 +1230,11 @@
                 },
                 "python.analysis.typeCheckingMode": {
                     "type": "string",
-                    "default": "basic",
+                    "default": "standard",
                     "enum": [
                         "off",
                         "basic",
+                        "standard",
                         "strict"
                     ],
                     "description": "Defines the default rule set for type checking.",

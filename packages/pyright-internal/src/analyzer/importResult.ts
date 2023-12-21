@@ -7,6 +7,7 @@
  * Interface that describes the output of the import resolver.
  */
 
+import { Uri } from '../common/uri/uri';
 import { PyTypedInfo } from './pyTypedUtils';
 
 export const enum ImportType {
@@ -19,7 +20,7 @@ export interface ImplicitImport {
     isStubFile: boolean;
     isNativeLib: boolean;
     name: string;
-    path: string;
+    uri: Uri;
     pyTypedInfo?: PyTypedInfo | undefined;
 }
 
@@ -62,11 +63,11 @@ export interface ImportResult {
     // The resolved absolute paths for each of the files in the module name.
     // Parts that have no files (e.g. directories within a namespace
     // package) have empty strings for a resolvedPath.
-    resolvedPaths: string[];
+    resolvedUris: Uri[];
 
     // For absolute imports, the search path that was used to resolve
     // (or partially resolve) the module.
-    searchPath?: string;
+    searchPath?: Uri;
 
     // True if resolved file is a type hint (.pyi) file rather than
     // a python (.py) file.
@@ -103,5 +104,5 @@ export interface ImportResult {
     pyTypedInfo?: PyTypedInfo | undefined;
 
     // The directory of the package, if found.
-    packageDirectory?: string | undefined;
+    packageDirectory?: Uri | undefined;
 }

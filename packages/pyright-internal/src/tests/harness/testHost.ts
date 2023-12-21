@@ -8,16 +8,11 @@ import * as os from 'os';
 import * as pathModule from 'path';
 
 import { NullConsole } from '../../common/console';
-import {
-    combinePaths,
-    directoryExists,
-    fileExists,
-    FileSystemEntries,
-    getFileSize,
-    resolvePaths,
-} from '../../common/pathUtils';
+import { combinePaths, FileSystemEntries, resolvePaths } from '../../common/pathUtils';
 import { createFromRealFileSystem } from '../../common/realFileSystem';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../common/stringUtils';
+import { Uri } from '../../common/uri/uri';
+import { directoryExists, fileExists, getFileSize } from '../../common/uri/uriUtils';
 
 export const HOST: TestHost = createHost();
 
@@ -57,7 +52,7 @@ function createHost(): TestHost {
             return false;
         }
         // If this file exists under a different case, we must be case-insensitve.
-        return !vfs.existsSync(swapCase(__filename));
+        return !vfs.existsSync(Uri.file(swapCase(__filename)));
 
         /** Convert all lowercase chars to uppercase, and vice-versa */
         function swapCase(s: string): string {
@@ -72,9 +67,9 @@ function createHost(): TestHost {
         function filesInFolder(folder: string): string[] {
             let paths: string[] = [];
 
-            for (const file of vfs.readdirSync(folder)) {
+            for (const file of vfs.readdirSync(Uri.file(folder))) {
                 const pathToFile = pathModule.join(folder, file);
-                const stat = vfs.statSync(pathToFile);
+                const stat = vfs.statSync(Uri.file(pathToFile));
                 if (options.recursive && stat.isDirectory()) {
                     paths = paths.concat(filesInFolder(pathToFile));
                 } else if (stat.isFile() && (!spec || file.match(spec))) {
@@ -91,7 +86,7 @@ function createHost(): TestHost {
     function getAccessibleFileSystemEntries(dirname: string): FileSystemEntries {
         try {
             const entries: string[] = vfs
-                .readdirSync(dirname || '.')
+                .readdirSync(Uri.file(dirname || '.'))
                 .sort(useCaseSensitiveFileNames ? compareStringsCaseSensitive : compareStringsCaseInsensitive);
             const files: string[] = [];
             const directories: string[] = [];
@@ -101,7 +96,7 @@ function createHost(): TestHost {
                 }
                 const name = combinePaths(dirname, entry);
                 try {
-                    const stat = vfs.statSync(name);
+                    const stat = vfs.statSync(Uri.file(name));
                     if (!stat) {
                         continue;
                     }
@@ -121,10 +116,10 @@ function createHost(): TestHost {
     }
 
     function readFile(fileName: string, _encoding?: string): string | undefined {
-        if (!fileExists(vfs, fileName)) {
+        if (!fileExists(vfs, Uri.file(fileName))) {
             return undefined;
         }
-        const buffer = vfs.readFileSync(fileName);
+        const buffer = vfs.readFileSync(Uri.file(fileName));
         let len = buffer.length;
         if (len >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
             // Big endian UTF-16 byte order mark detected. Since big endian is not supported by node.js,
@@ -155,18 +150,18 @@ function createHost(): TestHost {
             data = byteOrderMarkIndicator + data;
         }
 
-        vfs.writeFileSync(fileName, data, 'utf8');
+        vfs.writeFileSync(Uri.file(fileName), data, 'utf8');
     }
 
     return {
         useCaseSensitiveFileNames: () => useCaseSensitiveFileNames,
-        getFileSize: (path: string) => getFileSize(vfs, path),
+        getFileSize: (path: string) => getFileSize(vfs, Uri.file(path)),
         readFile: (path) => readFile(path),
         writeFile: (path, content) => {
             writeFile(path, content);
         },
-        fileExists: (path) => fileExists(vfs, path),
-        directoryExists: (path) => directoryExists(vfs, path),
+        fileExists: (path) => fileExists(vfs, Uri.file(path)),
+        directoryExists: (path) => directoryExists(vfs, Uri.file(path)),
         listFiles,
         log: (s) => {
             console.log(s);

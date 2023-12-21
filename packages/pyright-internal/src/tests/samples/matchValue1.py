@@ -6,6 +6,8 @@ from enum import Enum, auto
 from typing import Annotated, TypeVar
 from http import HTTPStatus
 
+# pyright: reportIncompatibleMethodOverride=false
+
 
 def handle_reply(reply: tuple[HTTPStatus, str] | tuple[HTTPStatus]):
     match reply:
@@ -41,6 +43,9 @@ def test_enum(value_to_match: MyEnum):
         case MyEnum.V1 as a1:
             reveal_type(a1, expected_text="Literal[MyEnum.V1]")
             reveal_type(value_to_match, expected_text="Literal[MyEnum.V1]")
+        case y:
+            reveal_type(y, expected_text="Literal[MyEnum.V2]")
+            reveal_type(value_to_match, expected_text="Literal[MyEnum.V2]")
 
 
 def test_class_var(value_to_match: str):

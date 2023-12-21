@@ -8,8 +8,9 @@
 
 import { isNumber, isString } from '../common/core';
 import { assertNever } from '../common/debug';
-import { ensureTrailingDirectorySeparator, stripFileExtension } from '../common/pathUtils';
+import { stripFileExtension } from '../common/pathUtils';
 import { convertOffsetToPosition } from '../common/positionUtils';
+import { Uri } from '../common/uri/uri';
 import { ParseNode, ParseNodeType, isExpressionNode } from '../parser/parseNodes';
 import { AbsoluteModuleDescriptor } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -22,10 +23,10 @@ export type PrintableType = ParseNode | Declaration | Symbol | Type | undefined;
 
 export interface TracePrinter {
     print(o: PrintableType): string;
-    printFileOrModuleName(filePathOrModule: string | AbsoluteModuleDescriptor): string;
+    printFileOrModuleName(fileUriOrModule: Uri | AbsoluteModuleDescriptor): string;
 }
 
-export function createTracePrinter(roots: string[]): TracePrinter {
+export function createTracePrinter(roots: Uri[]): TracePrinter {
     function wrap(value: string | undefined, ch = "'") {
         return value ? `${ch}${value}${ch}` : '';
     }
@@ -33,25 +34,22 @@ export function createTracePrinter(roots: string[]): TracePrinter {
     // Sort roots in desc order so that we compare longer path first
     // when getting relative path.
     // ex) d:/root/.env/lib/site-packages, d:/root/.env
-    roots = roots
-        .map((r) => ensureTrailingDirectorySeparator(r))
-        .sort((a, b) => a.localeCompare(b))
-        .reverse();
+    roots = roots.sort((a, b) => a.key.localeCompare(b.key)).reverse();
 
     const separatorRegExp = /[\\/]/g;
-    function printFileOrModuleName(filePathOrModule: string | AbsoluteModuleDescriptor | undefined) {
-        if (filePathOrModule) {
-            if (typeof filePathOrModule === 'string') {
+    function printFileOrModuleName(fileUriOrModule: Uri | AbsoluteModuleDescriptor | undefined) {
+        if (fileUriOrModule) {
+            if (Uri.isUri(fileUriOrModule)) {
                 for (const root of roots) {
-                    if (filePathOrModule.startsWith(root)) {
-                        const subFile = filePathOrModule.substring(root.length);
-                        return stripFileExtension(subFile).replace(separatorRegExp, '.');
+                    if (fileUriOrModule.isChild(root)) {
+                        const subFile = root.getRelativePath(fileUriOrModule);
+                        return stripFileExtension(subFile!).replace(separatorRegExp, '.');
                     }
                 }
 
-                return filePathOrModule;
-            } else if (filePathOrModule.nameParts) {
-                return filePathOrModule.nameParts.join('.');
+                return fileUriOrModule.toUserVisibleString();
+            } else if (fileUriOrModule.nameParts) {
+                return fileUriOrModule.nameParts.join('.');
             }
         }
         return '';
@@ -117,33 +115,33 @@ export function createTracePrinter(roots: string[]): TracePrinter {
         if (decl) {
             switch (decl.type) {
                 case DeclarationType.Alias:
-                    return `Alias, ${printNode(decl.node)} (${printFileOrModuleName(decl.path)})`;
+                    return `Alias, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
 
                 case DeclarationType.Class:
-                    return `Class, ${printNode(decl.node)} (${printFileOrModuleName(decl.path)})`;
+                    return `Class, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
 
                 case DeclarationType.Function:
-                    return `Function, ${printNode(decl.node)} (${printFileOrModuleName(decl.path)})`;
+                    return `Function, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
 
                 case DeclarationType.Intrinsic:
                     return `Intrinsic, ${printNode(decl.node)} ${decl.intrinsicType} (${printFileOrModuleName(
-                        decl.path
+                        decl.uri
                     )})`;
 
                 case DeclarationType.Parameter:
-                    return `Parameter, ${printNode(decl.node)} (${printFileOrModuleName(decl.path)})`;
+                    return `Parameter, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
 
                 case DeclarationType.TypeParameter:
-                    return `TypeParameter, ${printNode(decl.node)} (${printFileOrModuleName(decl.path)})`;
+                    return `TypeParameter, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
 
                 case DeclarationType.SpecialBuiltInClass:
-                    return `SpecialBuiltInClass, ${printNode(decl.node)} (${printFileOrModuleName(decl.path)})`;
+                    return `SpecialBuiltInClass, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
 
                 case DeclarationType.Variable:
-                    return `Variable, ${printNode(decl.node)} (${printFileOrModuleName(decl.path)})`;
+                    return `Variable, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
 
                 case DeclarationType.TypeAlias:
-                    return `TypeAlias, ${printNode(decl.node)} (${printFileOrModuleName(decl.path)})`;
+                    return `TypeAlias, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
 
                 default:
                     assertNever(decl);
@@ -174,7 +172,7 @@ export function createTracePrinter(roots: string[]): TracePrinter {
             return '';
         }
 
-        let path = printPath ? `(${printFileOrModuleName(getFileInfo(node)?.filePath)})` : '';
+        let path = printPath ? `(${printFileOrModuleName(getFileInfo(node)?.fileUri)})` : '';
 
         const fileInfo = getFileInfo(node);
         if (fileInfo?.lines) {
@@ -228,7 +226,7 @@ export function createTracePrinter(roots: string[]): TracePrinter {
 
     function isDeclaration(o: any): o is Declaration {
         const d = o as Declaration;
-        return d && isNumber(d.type) && isString(d.path) && isString(d.moduleName);
+        return d && isNumber(d.type) && Uri.isUri(d.uri) && isString(d.moduleName);
     }
 
     function isType(o: any): o is Type {

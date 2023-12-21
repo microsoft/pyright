@@ -15,6 +15,7 @@ import {
     getBasicDiagnosticRuleSet,
     getBooleanDiagnosticRules,
     getDiagLevelDiagnosticRules,
+    getStandardDiagnosticRuleSet,
     getStrictDiagnosticRuleSet,
     getStrictModeNotOverriddenRules,
 } from '../common/configOptions';
@@ -28,6 +29,7 @@ import { Localizer } from '../localization/localize';
 import { Token } from '../parser/tokenizerTypes';
 
 const strictSetting = 'strict';
+const standardSetting = 'standard';
 const basicSetting = 'basic';
 
 export interface CommentDiagnostic {
@@ -72,6 +74,10 @@ export function getFileLevelDirectives(
 
 function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
     _overrideRules(ruleSet, getStrictDiagnosticRuleSet(), getStrictModeNotOverriddenRules());
+}
+
+function _applyStandardRules(ruleSet: DiagnosticRuleSet) {
+    _overwriteRules(ruleSet, getStandardDiagnosticRuleSet());
 }
 
 function _applyBasicRules(ruleSet: DiagnosticRuleSet) {
@@ -163,6 +169,8 @@ function _parsePyrightComment(
         // diagnostic rules with their strict counterparts.
         if (operandList.some((s) => s.trim() === strictSetting)) {
             _applyStrictRules(ruleSet);
+        } else if (operandList.some((s) => s.trim() === standardSetting)) {
+            _applyStandardRules(ruleSet);
         } else if (operandList.some((s) => s.trim() === basicSetting)) {
             _applyBasicRules(ruleSet);
         }

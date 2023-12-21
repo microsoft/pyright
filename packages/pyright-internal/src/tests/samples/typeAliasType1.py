@@ -43,3 +43,7 @@ my_tuple = (S, T)
 
 # This should generate two errors because type_params is not a tuple.
 TA10 = TypeAliasType("TA10", int, type_params=my_tuple)
+print(TA10.__value__)
+
+type TA11 = int | str
+print(TA11.__value__)

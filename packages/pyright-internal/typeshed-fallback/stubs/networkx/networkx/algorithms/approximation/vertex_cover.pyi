@@ -1,0 +1,3 @@
+from _typeshed import Incomplete
+
+def min_weighted_vertex_cover(G, weight: Incomplete | None = None): ...

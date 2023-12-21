@@ -1,14 +1,16 @@
 from _typeshed import Incomplete
 from collections.abc import Callable, Sequence
 from typing import NamedTuple
+from typing_extensions import Final
 
 from .enums import Align, WrapMode
 
-SOFT_HYPHEN: str
-HYPHEN: str
-SPACE: str
-NBSP: str
-NEWLINE: str
+SOFT_HYPHEN: Final[str]
+HYPHEN: Final[str]
+SPACE: Final[str]
+NBSP: Final[str]
+NEWLINE: Final[str]
+FORM_FEED: Final[str]
 
 class Fragment:
     characters: list[str]
@@ -70,7 +72,8 @@ class TextLine(NamedTuple):
     align: Align
     height: float
     max_width: float
-    trailing_nl: bool = ...
+    trailing_nl: bool = False
+    trailing_form_feed: bool = False
 
 class SpaceHint(NamedTuple):
     original_fragment_index: int
@@ -114,8 +117,8 @@ class CurrentLine:
         url: str | None = None,
     ): ...
     def trim_trailing_spaces(self) -> None: ...
-    def manual_break(self, align: Align, trailing_nl: bool = False): ...
-    def automatic_break_possible(self): ...
+    def manual_break(self, align: Align, trailing_nl: bool = False, trailing_form_feed: bool = False) -> TextLine: ...
+    def automatic_break_possible(self) -> bool: ...
     def automatic_break(self, align: Align): ...
 
 class MultiLineBreak:

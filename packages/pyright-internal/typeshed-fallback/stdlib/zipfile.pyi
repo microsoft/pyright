@@ -26,7 +26,9 @@ __all__ = [
 if sys.version_info >= (3, 8):
     __all__ += ["Path"]
 
-_DateTuple: TypeAlias = tuple[int, int, int, int, int, int]
+# TODO: use TypeAlias when mypy bugs are fixed
+# https://github.com/python/mypy/issues/16581
+_DateTuple = tuple[int, int, int, int, int, int]  # noqa: Y026
 _ReadWriteMode: TypeAlias = Literal["r", "w"]
 _ReadWriteBinaryMode: TypeAlias = Literal["r", "w", "rb", "wb"]
 _ZipFileMode: TypeAlias = Literal["r", "w", "x", "a"]

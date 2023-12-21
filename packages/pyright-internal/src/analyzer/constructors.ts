@@ -30,7 +30,6 @@ import {
     doForEachSubtype,
     ensureFunctionSignaturesAreUnique,
     getTypeVarScopeId,
-    isPartlyUnknown,
     isTupleClass,
     lookUpClassMember,
     mapSubtypes,
@@ -295,7 +294,10 @@ function validateNewAndInitMethods(
         // but didn't supply solved type arguments, we'll ignore its specialized return
         // type and rely on the __init__ method to supply the type arguments instead.
         let initMethodBindToType = newMethodReturnType;
-        if (isPartlyUnknown(initMethodBindToType)) {
+        if (
+            initMethodBindToType.typeArguments &&
+            initMethodBindToType.typeArguments.some((typeArg) => isUnknown(typeArg))
+        ) {
             initMethodBindToType = ClassType.cloneAsInstance(type);
         }
 

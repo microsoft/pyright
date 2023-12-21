@@ -11,6 +11,7 @@
 // * NOTE * except tests, this should be only file that import "fs"
 import type * as fs from 'fs';
 import { FileWatcher, FileWatcherEventHandler } from './fileWatcher';
+import { Uri } from './uri/uri';
 
 export interface Stats {
     size: number;
@@ -33,48 +34,47 @@ export interface MkDirOptions {
 }
 
 export interface ReadOnlyFileSystem {
-    existsSync(path: string): boolean;
-    chdir(path: string): void;
-    readdirEntriesSync(path: string): fs.Dirent[];
-    readdirSync(path: string): string[];
-    readFileSync(path: string, encoding?: null): Buffer;
-    readFileSync(path: string, encoding: BufferEncoding): string;
-    readFileSync(path: string, encoding?: BufferEncoding | null): string | Buffer;
+    readonly isCaseSensitive: boolean;
+    existsSync(uri: Uri): boolean;
+    chdir(uri: Uri): void;
+    readdirEntriesSync(uri: Uri): fs.Dirent[];
+    readdirSync(uri: Uri): string[];
+    readFileSync(uri: Uri, encoding?: null): Buffer;
+    readFileSync(uri: Uri, encoding: BufferEncoding): string;
+    readFileSync(uri: Uri, encoding?: BufferEncoding | null): string | Buffer;
 
-    statSync(path: string): Stats;
-    realpathSync(path: string): string;
-    getModulePath(): string;
+    statSync(uri: Uri): Stats;
+    realpathSync(uri: Uri): Uri;
+    getModulePath(): Uri;
     // Async I/O
-    readFile(path: string): Promise<Buffer>;
-    readFileText(path: string, encoding?: BufferEncoding): Promise<string>;
+    readFile(uri: Uri): Promise<Buffer>;
+    readFileText(uri: Uri, encoding?: BufferEncoding): Promise<string>;
     // Return path in casing on OS.
-    realCasePath(path: string): string;
+    realCasePath(uri: Uri): Uri;
 
     // See whether the file is mapped to another location.
-    isMappedFilePath(filepath: string): boolean;
+    isMappedUri(uri: Uri): boolean;
 
-    // Get original filepath if the given filepath is mapped.
-    getOriginalFilePath(mappedFilePath: string): string;
+    // Get original uri if the given uri is mapped.
+    getOriginalUri(mappedUri: Uri): Uri;
 
-    // Get mapped filepath if the given filepath is mapped.
-    getMappedFilePath(originalFilepath: string): string;
+    // Get mapped uri if the given uri is mapped.
+    getMappedUri(originalUri: Uri): Uri;
 
-    getUri(path: string): string;
-
-    isInZip(path: string): boolean;
+    isInZip(uri: Uri): boolean;
 }
 
 export interface FileSystem extends ReadOnlyFileSystem {
-    mkdirSync(path: string, options?: MkDirOptions): void;
-    writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null): void;
+    mkdirSync(uri: Uri, options?: MkDirOptions): void;
+    writeFileSync(uri: Uri, data: string | Buffer, encoding: BufferEncoding | null): void;
 
-    unlinkSync(path: string): void;
-    rmdirSync(path: string): void;
+    unlinkSync(uri: Uri): void;
+    rmdirSync(uri: Uri): void;
 
-    createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher;
-    createReadStream(path: string): fs.ReadStream;
-    createWriteStream(path: string): fs.WriteStream;
-    copyFileSync(src: string, dst: string): void;
+    createFileSystemWatcher(uris: Uri[], listener: FileWatcherEventHandler): FileWatcher;
+    createReadStream(uri: Uri): fs.ReadStream;
+    createWriteStream(uri: Uri): fs.WriteStream;
+    copyFileSync(uri: Uri, dst: Uri): void;
 }
 
 export interface TmpfileOptions {
@@ -84,8 +84,8 @@ export interface TmpfileOptions {
 
 export interface TempFile {
     // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
-    tmpdir(): string;
-    tmpfile(options?: TmpfileOptions): string;
+    tmpdir(): Uri;
+    tmpfile(options?: TmpfileOptions): Uri;
     dispose(): void;
 }
 

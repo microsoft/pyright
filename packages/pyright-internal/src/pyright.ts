@@ -28,12 +28,14 @@ import { createDeferred } from './common/deferred';
 import { Diagnostic, DiagnosticCategory } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { FullAccessHost } from './common/fullAccessHost';
-import { combinePaths, getFileSpec, normalizePath, tryStat } from './common/pathUtils';
+import { combinePaths, normalizePath } from './common/pathUtils';
 import { versionFromString } from './common/pythonVersion';
 import { RealTempFile, createFromRealFileSystem } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
 import { createServiceProvider } from './common/serviceProviderExtensions';
 import { Range, isEmptyRange } from './common/textRange';
+import { Uri } from './common/uri/uri';
+import { getFileSpec, tryStat } from './common/uri/uriUtils';
 import { PyrightFileSystem } from './pyrightFileSystem';
 
 const toolName = 'pyright';
@@ -64,11 +66,11 @@ interface PyrightSymbolCount {
 
 interface PyrightTypeCompletenessReport {
     packageName: string;
-    packageRootDirectory?: string | undefined;
+    packageRootDirectory?: Uri | undefined;
     moduleName: string;
-    moduleRootDirectory?: string | undefined;
+    moduleRootDirectory?: Uri | undefined;
     ignoreUnknownTypesFromImports: boolean;
-    pyTypedPath?: string | undefined;
+    pyTypedPath?: Uri | undefined;
     exportedSymbolCounts: PyrightSymbolCount;
     otherSymbolCounts: PyrightSymbolCount;
     missingFunctionDocStringCount: number;
@@ -244,10 +246,9 @@ async function processArgs(): Promise<ExitStatus> {
 
         // Verify the specified file specs to make sure their wildcard roots exist.
         const tempFileSystem = new PyrightFileSystem(createFromRealFileSystem());
-        const tempServiceProvider = createServiceProvider(tempFileSystem, console);
 
         for (const fileDesc of options.includeFileSpecsOverride) {
-            const includeSpec = getFileSpec(tempServiceProvider, '', fileDesc);
+            const includeSpec = getFileSpec(Uri.file(process.cwd(), tempFileSystem.isCaseSensitive), fileDesc);
             try {
                 const stat = tryStat(tempFileSystem, includeSpec.wildcardRoot);
                 if (!stat) {
@@ -361,7 +362,7 @@ async function processArgs(): Promise<ExitStatus> {
     // up the JSON output, which goes to stdout.
     const output = args.outputjson ? new StderrConsole(logLevel) : new StandardConsole(logLevel);
     const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output, new ChokidarFileWatcherProvider(output)));
-    const tempFile = new RealTempFile();
+    const tempFile = new RealTempFile(fileSystem.isCaseSensitive);
     const serviceProvider = createServiceProvider(fileSystem, output, tempFile);
 
     // The package type verification uses a different path.
@@ -386,7 +387,7 @@ async function processArgs(): Promise<ExitStatus> {
     // Refresh service after 2 seconds after the last library file change is detected.
     const service = new AnalyzerService('<default>', serviceProvider, {
         console: output,
-        hostFactory: () => new FullAccessHost(fileSystem),
+        hostFactory: () => new FullAccessHost(serviceProvider),
         libraryReanalysisTimeProvider: () => 2 * 1000,
     });
     const exitStatus = createDeferred<ExitStatus>();
@@ -488,7 +489,14 @@ function verifyPackageTypes(
     ignoreUnknownTypesFromImports: boolean
 ): ExitStatus {
     try {
-        const verifier = new PackageTypeVerifier(serviceProvider, options, packageName, ignoreUnknownTypesFromImports);
+        const host = new FullAccessHost(serviceProvider);
+        const verifier = new PackageTypeVerifier(
+            serviceProvider,
+            host,
+            options,
+            packageName,
+            ignoreUnknownTypesFromImports
+        );
         const report = verifier.verify();
         const jsonReport = buildTypeCompletenessReport(packageName, report, minSeverityLevel);
 
@@ -540,7 +548,7 @@ function buildTypeCompletenessReport(
 
     // Add the general diagnostics.
     completenessReport.generalDiagnostics.forEach((diag) => {
-        const jsonDiag = convertDiagnosticToJson('', diag);
+        const jsonDiag = convertDiagnosticToJson(Uri.empty(), diag);
         if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
             report.generalDiagnostics.push(jsonDiag);
         }
@@ -549,11 +557,11 @@ function buildTypeCompletenessReport(
 
     report.typeCompleteness = {
         packageName,
-        packageRootDirectory: completenessReport.packageRootDirectory,
+        packageRootDirectory: completenessReport.packageRootDirectoryUri,
         moduleName: completenessReport.moduleName,
-        moduleRootDirectory: completenessReport.moduleRootDirectory,
+        moduleRootDirectory: completenessReport.moduleRootDirectoryUri,
         ignoreUnknownTypesFromImports: completenessReport.ignoreExternal,
-        pyTypedPath: completenessReport.pyTypedPath,
+        pyTypedPath: completenessReport.pyTypedPathUri,
         exportedSymbolCounts: {
             withKnownType: 0,
             withAmbiguousType: 0,
@@ -587,7 +595,7 @@ function buildTypeCompletenessReport(
 
         // Convert and filter the diagnostics.
         symbol.diagnostics.forEach((diag) => {
-            const jsonDiag = convertDiagnosticToJson(diag.filePath, diag.diagnostic);
+            const jsonDiag = convertDiagnosticToJson(diag.uri, diag.diagnostic);
             if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
                 diagnostics.push(jsonDiag);
             }
@@ -725,9 +733,6 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
     if (completenessReport.ignoreUnknownTypesFromImports) {
         console.info(`    (Ignoring unknown types imported from other packages)`);
     }
-    console.info(`  Functions without docstring: ${completenessReport.missingFunctionDocStringCount}`);
-    console.info(`  Functions without default param: ${completenessReport.missingDefaultParamCount}`);
-    console.info(`  Classes without docstring: ${completenessReport.missingClassDocStringCount}`);
     console.info('');
     console.info(
         `Other symbols referenced but not exported by "${completenessReport.packageName}": ${
@@ -739,6 +744,11 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
     console.info(`  With known type: ${completenessReport.otherSymbolCounts.withKnownType}`);
     console.info(`  With ambiguous type: ${completenessReport.otherSymbolCounts.withAmbiguousType}`);
     console.info(`  With unknown type: ${completenessReport.otherSymbolCounts.withUnknownType}`);
+    console.info('');
+    console.info(`Symbols without documentation:`);
+    console.info(`  Functions without docstring: ${completenessReport.missingFunctionDocStringCount}`);
+    console.info(`  Functions without default param: ${completenessReport.missingDefaultParamCount}`);
+    console.info(`  Classes without docstring: ${completenessReport.missingClassDocStringCount}`);
     console.info('');
     console.info(`Type completeness score: ${Math.round(completenessReport.completenessScore * 1000) / 10}%`);
     console.info('');
@@ -811,7 +821,7 @@ function reportDiagnosticsAsJson(
                 diag.category === DiagnosticCategory.Warning ||
                 diag.category === DiagnosticCategory.Information
             ) {
-                const jsonDiag = convertDiagnosticToJson(fileDiag.filePath, diag);
+                const jsonDiag = convertDiagnosticToJson(fileDiag.fileUri, diag);
                 if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
                     report.generalDiagnostics.push(jsonDiag);
                 }
@@ -862,9 +872,9 @@ function convertDiagnosticCategoryToSeverity(category: DiagnosticCategory): Seve
     }
 }
 
-function convertDiagnosticToJson(filePath: string, diag: Diagnostic): PyrightJsonDiagnostic {
+function convertDiagnosticToJson(uri: Uri, diag: Diagnostic): PyrightJsonDiagnostic {
     return {
-        file: filePath,
+        file: uri.getFilePath(),
         severity: convertDiagnosticCategoryToSeverity(diag.category),
         message: diag.message,
         range: isEmptyRange(diag.range) ? undefined : diag.range,
@@ -891,9 +901,9 @@ function reportDiagnosticsAsText(
         );
 
         if (fileErrorsAndWarnings.length > 0) {
-            console.info(`${fileDiagnostics.filePath}`);
+            console.info(`${fileDiagnostics.fileUri.toUserVisibleString()}`);
             fileErrorsAndWarnings.forEach((diag) => {
-                const jsonDiag = convertDiagnosticToJson(fileDiagnostics.filePath, diag);
+                const jsonDiag = convertDiagnosticToJson(fileDiagnostics.fileUri, diag);
                 logDiagnosticToConsole(jsonDiag);
 
                 if (diag.category === DiagnosticCategory.Error) {

@@ -8,6 +8,7 @@
  */
 
 import { getEmptyRange } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
 import { NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions, isAliasDeclaration } from './declaration';
@@ -78,7 +79,7 @@ export function areDeclarationsSame(
         return false;
     }
 
-    if (decl1.path !== decl2.path) {
+    if (!decl1.uri.equals(decl2.uri)) {
         return false;
     }
 
@@ -174,16 +175,16 @@ export function getNameNodeForDeclaration(declaration: Declaration): NameNode | 
     throw new Error(`Shouldn't reach here`);
 }
 
-export function isDefinedInFile(decl: Declaration, filePath: string) {
+export function isDefinedInFile(decl: Declaration, fileUri: Uri) {
     if (isAliasDeclaration(decl)) {
         // Alias decl's path points to the original symbol
         // the alias is pointing to. So, we need to get the
         // filepath in that the alias is defined from the node.
-        return getFileInfoFromNode(decl.node)?.filePath === filePath;
+        return getFileInfoFromNode(decl.node)?.fileUri.equals(fileUri);
     }
 
     // Other decls, the path points to the file the symbol is defined in.
-    return decl.path === filePath;
+    return decl.uri.equals(fileUri);
 }
 
 export function getDeclarationsWithUsesLocalNameRemoved(decls: Declaration[]) {
@@ -199,13 +200,13 @@ export function getDeclarationsWithUsesLocalNameRemoved(decls: Declaration[]) {
     });
 }
 
-export function createSynthesizedAliasDeclaration(path: string): AliasDeclaration {
+export function createSynthesizedAliasDeclaration(uri: Uri): AliasDeclaration {
     // The only time this decl is used is for IDE services such as
     // the find all references, hover provider and etc.
     return {
         type: DeclarationType.Alias,
         node: undefined!,
-        path,
+        uri,
         loadSymbolsFromPath: false,
         range: getEmptyRange(),
         implicitImports: new Map<string, ModuleLoaderActions>(),
@@ -267,8 +268,10 @@ export function resolveAliasDeclaration(
         }
 
         let lookupResult: ImportLookupResult | undefined;
-        if (curDeclaration.path && curDeclaration.loadSymbolsFromPath) {
-            lookupResult = importLookup(curDeclaration.path, { skipFileNeededCheck: options.skipFileNeededCheck });
+        if (!curDeclaration.uri.isEmpty() && curDeclaration.loadSymbolsFromPath) {
+            lookupResult = importLookup(curDeclaration.uri, {
+                skipFileNeededCheck: options.skipFileNeededCheck,
+            });
         }
 
         const symbol: Symbol | undefined = lookupResult
@@ -284,11 +287,11 @@ export function resolveAliasDeclaration(
                     // when useLibraryCodeForTypes is disabled), b should be evaluated as Unknown,
                     // not as a module.
                     if (
-                        curDeclaration.path &&
+                        !curDeclaration.uri.isEmpty() &&
                         curDeclaration.submoduleFallback.type === DeclarationType.Alias &&
-                        curDeclaration.submoduleFallback.path
+                        !curDeclaration.submoduleFallback.uri.isEmpty()
                     ) {
-                        const lookupResult = importLookup(curDeclaration.submoduleFallback.path, {
+                        const lookupResult = importLookup(curDeclaration.submoduleFallback.uri, {
                             skipFileNeededCheck: options.skipFileNeededCheck,
                             skipParsing: true,
                         });
@@ -393,7 +396,7 @@ export function resolveAliasDeclaration(
             // the module is foo, and the foo.__init__.py file contains the statement
             // "from foo import bar", we want to import the foo/bar.py submodule.
             if (
-                curDeclaration.path === declaration.path &&
+                curDeclaration.uri.equals(declaration.uri) &&
                 curDeclaration.type === DeclarationType.Alias &&
                 curDeclaration.submoduleFallback
             ) {

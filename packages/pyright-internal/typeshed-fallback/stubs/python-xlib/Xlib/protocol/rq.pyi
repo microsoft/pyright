@@ -1,10 +1,10 @@
-from _typeshed import ReadableBuffer, SliceableBuffer, SupportsTrunc
+from _typeshed import ConvertibleToInt, SliceableBuffer
 from array import array
 
 # Avoid name collision with List.type
 from builtins import type as Type
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, SupportsInt, TypeVar, overload, type_check_only
+from typing import Any, TypeVar, overload, type_check_only
 from typing_extensions import Final, Literal, LiteralString, SupportsIndex, TypeAlias
 
 from Xlib._typing import ErrorHandler, Unused
@@ -14,7 +14,6 @@ from Xlib.ext.xinput import ClassInfoClass
 from Xlib.protocol import display
 
 _T = TypeVar("_T")
-_IntNew: TypeAlias = str | ReadableBuffer | SupportsInt | SupportsIndex | SupportsTrunc
 _ModifierMappingList8Elements: TypeAlias = Sequence[Sequence[int]]
 
 def decode_string(bs: bytes | bytearray) -> str: ...
@@ -237,7 +236,7 @@ class Object(ValueField):
 class PropertyData(ValueField):
     structcode: None
     def parse_binary_value(
-        self, data: SliceableBuffer, display: Unused, length: _IntNew | None, format: int
+        self, data: SliceableBuffer, display: Unused, length: ConvertibleToInt | None, format: int
     ) -> tuple[tuple[int, SliceableBuffer] | None, SliceableBuffer]: ...
     def pack_value(  # type: ignore[override]  # Override Callable
         self, value: tuple[int, Sequence[float] | Sequence[str]]

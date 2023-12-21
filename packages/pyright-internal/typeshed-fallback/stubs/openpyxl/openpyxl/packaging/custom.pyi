@@ -1,22 +1,14 @@
-from _typeshed import Incomplete
+from _typeshed import ConvertibleToFloat, ConvertibleToInt, Incomplete
 from collections.abc import Iterator
 from datetime import datetime
 from typing import Any, Generic, TypeVar
 from typing_extensions import Final, Literal, Self, TypeAlias
 
 from openpyxl.descriptors import Sequence, Strict
-from openpyxl.descriptors.base import (
-    Bool,
-    DateTime,
-    Float,
-    Integer,
-    String,
-    _ConvertibleToBool,
-    _ConvertibleToFloat,
-    _ConvertibleToInt,
-)
+from openpyxl.descriptors.base import Bool, DateTime, Float, Integer, String, _ConvertibleToBool
 from openpyxl.descriptors.nested import NestedText
 from openpyxl.descriptors.serialisable import _ChildSerialisableTreeElement
+from openpyxl.xml.functions import Element
 
 _T = TypeVar("_T")
 
@@ -32,10 +24,10 @@ class _TypedProperty(Strict, Generic[_T]):
     def __init__(self, name: str, value: _T) -> None: ...
     def __eq__(self, other: _TypedProperty[Any]) -> bool: ...  # type: ignore[override]
 
-class IntProperty(_TypedProperty[_ConvertibleToInt]):
+class IntProperty(_TypedProperty[ConvertibleToInt]):
     value: Integer[Literal[False]]
 
-class FloatProperty(_TypedProperty[_ConvertibleToFloat]):
+class FloatProperty(_TypedProperty[ConvertibleToFloat]):
     value: Float[Literal[False]]
 
 class StringProperty(_TypedProperty[str | None]):
@@ -60,7 +52,7 @@ class CustomPropertyList(Strict, Generic[_T]):
     @classmethod
     def from_tree(cls, tree: _ChildSerialisableTreeElement) -> Self: ...
     def append(self, prop) -> None: ...
-    def to_tree(self): ...
+    def to_tree(self) -> Element: ...
     def __len__(self) -> int: ...
     @property
     def names(self) -> list[str]: ...

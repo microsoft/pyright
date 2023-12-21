@@ -37,6 +37,7 @@ import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes'
 import {
     enumerateLiteralsForType,
     narrowTypeForDiscriminatedDictEntryComparison,
+    narrowTypeForDiscriminatedLiteralFieldComparison,
     narrowTypeForDiscriminatedTupleComparison,
 } from './typeGuards';
 import {
@@ -51,6 +52,7 @@ import {
     isSameWithoutLiteralValue,
     isTypeSame,
     isUnknown,
+    isUnpackedVariadicTypeVar,
     NeverType,
     Type,
     TypeBase,
@@ -65,7 +67,9 @@ import {
     doForEachSubtype,
     getTypeCondition,
     getTypeVarScopeId,
+    getUnknownTypeForCallable,
     isLiteralType,
+    isLiteralTypeOrUnion,
     isMetaclassInstance,
     isNoneInstance,
     isPartlyUnknown,
@@ -820,12 +824,29 @@ function narrowTypeBasedOnClassPattern(
                             return undefined;
                         }
 
+                        // Handle NoneType specially.
                         if (
                             isNoneInstance(subjectSubtypeExpanded) &&
                             isInstantiableClass(expandedSubtype) &&
                             ClassType.isBuiltIn(expandedSubtype, 'NoneType')
                         ) {
                             return subjectSubtypeExpanded;
+                        }
+
+                        // Handle Callable specially.
+                        if (isInstantiableClass(expandedSubtype) && ClassType.isBuiltIn(expandedSubtype, 'Callable')) {
+                            const callableType = getUnknownTypeForCallable();
+
+                            if (evaluator.assignType(callableType, subjectSubtypeExpanded)) {
+                                return subjectSubtypeExpanded;
+                            }
+
+                            const subjObjType = convertToInstance(subjectSubtypeExpanded);
+                            if (evaluator.assignType(subjObjType, callableType)) {
+                                return callableType;
+                            }
+
+                            return undefined;
                         }
 
                         if (isClassInstance(subjectSubtypeExpanded)) {
@@ -1090,6 +1111,18 @@ function narrowTypeBasedOnValuePattern(
                                 : AnyType.create();
                         }
 
+                        // If both types are literals, we can compare the literal values directly.
+                        if (
+                            isClassInstance(subjectSubtypeExpanded) &&
+                            isLiteralType(subjectSubtypeExpanded) &&
+                            isClassInstance(valueSubtypeExpanded) &&
+                            isLiteralType(valueSubtypeExpanded)
+                        ) {
+                            return ClassType.isLiteralValueSame(valueSubtypeExpanded, subjectSubtypeExpanded)
+                                ? valueSubtypeUnexpanded
+                                : undefined;
+                        }
+
                         // Determine if assignment is supported for this combination of
                         // value subtype and matching subtype.
                         const returnType = evaluator.useSpeculativeMode(pattern.expression, () =>
@@ -1196,10 +1229,10 @@ function getSequencePatternInfo(
     pattern: PatternSequenceNode,
     type: Type
 ): SequencePatternInfo[] {
-    const entryCount = pattern.entries.length;
-    const starEntryIndex = pattern.starEntryIndex;
+    const patternEntryCount = pattern.entries.length;
+    const patternStarEntryIndex = pattern.starEntryIndex;
     const sequenceInfo: SequencePatternInfo[] = [];
-    const minEntryCount = starEntryIndex === undefined ? entryCount : entryCount - 1;
+    const minPatternEntryCount = patternStarEntryIndex === undefined ? patternEntryCount : patternEntryCount - 1;
 
     doForEachSubtype(type, (subtype) => {
         const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
@@ -1218,6 +1251,13 @@ function getSequencePatternInfo(
                     ClassType.isBuiltIn(mroClass, 'bytes') ||
                     ClassType.isBuiltIn(mroClass, 'bytearray')
                 ) {
+                    // This is definitely not a match.
+                    sequenceInfo.push({
+                        subtype,
+                        entryTypes: [],
+                        isIndeterminateLength: true,
+                        isDefiniteNoMatch: true,
+                    });
                     return;
                 }
 
@@ -1247,19 +1287,79 @@ function getSequencePatternInfo(
                             });
                             pushedEntry = true;
                         } else {
-                            if (
-                                specializedSequence.tupleTypeArguments.length >= minEntryCount &&
-                                (starEntryIndex !== undefined ||
-                                    specializedSequence.tupleTypeArguments.length === minEntryCount)
-                            ) {
-                                sequenceInfo.push({
-                                    subtype,
-                                    entryTypes: specializedSequence.tupleTypeArguments.map((t) => t.type),
-                                    isIndeterminateLength: false,
-                                    isTuple: true,
-                                    isDefiniteNoMatch: false,
-                                });
-                                pushedEntry = true;
+                            const tupleIndeterminateIndex = specializedSequence.tupleTypeArguments.findIndex(
+                                (t) => t.isUnbounded || isUnpackedVariadicTypeVar(t.type)
+                            );
+                            let minTupleLength = specializedSequence.tupleTypeArguments.length;
+                            if (tupleIndeterminateIndex >= 0) {
+                                minTupleLength -= 1;
+                            }
+
+                            if (minTupleLength >= minPatternEntryCount) {
+                                let isDefiniteNoMatch = false;
+                                const leftLength = Math.min(
+                                    patternStarEntryIndex !== undefined ? patternStarEntryIndex : patternEntryCount,
+                                    tupleIndeterminateIndex >= 0
+                                        ? tupleIndeterminateIndex
+                                        : specializedSequence.tupleTypeArguments.length
+                                );
+
+                                for (let i = 0; i < leftLength; i++) {
+                                    const leftPattern = pattern.entries[i];
+                                    const leftType = specializedSequence.tupleTypeArguments[i].type;
+                                    const narrowedType = narrowTypeBasedOnPattern(
+                                        evaluator,
+                                        leftType,
+                                        leftPattern,
+                                        /* isPositiveTest */ true
+                                    );
+
+                                    if (isNever(narrowedType)) {
+                                        isDefiniteNoMatch = true;
+                                    }
+                                }
+
+                                if (patternStarEntryIndex !== undefined || tupleIndeterminateIndex >= 0) {
+                                    const rightLength = Math.min(
+                                        patternStarEntryIndex !== undefined
+                                            ? patternEntryCount - patternStarEntryIndex - 1
+                                            : patternEntryCount,
+                                        tupleIndeterminateIndex >= 0
+                                            ? specializedSequence.tupleTypeArguments.length - tupleIndeterminateIndex
+                                            : specializedSequence.tupleTypeArguments.length
+                                    );
+
+                                    for (let i = 0; i < rightLength; i++) {
+                                        const rightPattern = pattern.entries[patternEntryCount - i - 1];
+                                        const rightType =
+                                            specializedSequence.tupleTypeArguments[
+                                                specializedSequence.tupleTypeArguments.length - i - 1
+                                            ].type;
+                                        const narrowedType = narrowTypeBasedOnPattern(
+                                            evaluator,
+                                            rightType,
+                                            rightPattern,
+                                            /* isPositiveTest */ true
+                                        );
+
+                                        if (isNever(narrowedType)) {
+                                            isDefiniteNoMatch = true;
+                                        }
+                                    }
+                                }
+
+                                if (patternStarEntryIndex !== undefined || minTupleLength === minPatternEntryCount) {
+                                    sequenceInfo.push({
+                                        subtype,
+                                        entryTypes: isDefiniteNoMatch
+                                            ? []
+                                            : specializedSequence.tupleTypeArguments.map((t) => t.type),
+                                        isIndeterminateLength: false,
+                                        isTuple: true,
+                                        isDefiniteNoMatch,
+                                    });
+                                    pushedEntry = true;
+                                }
                             }
                         }
                     }
@@ -1840,6 +1940,45 @@ export function getPatternSubtypeNarrowingCallback(
                     : undefined;
             };
         }
+    }
+
+    // Look for a subject expression of the form "a.b" where "b" is an attribute
+    // that is annotated with a literal type.
+    if (
+        subjectExpression.nodeType === ParseNodeType.MemberAccess &&
+        isMatchingExpression(reference, subjectExpression.leftExpression)
+    ) {
+        const unnarrowedReferenceTypeResult = evaluator.getTypeOfExpression(
+            subjectExpression.leftExpression,
+            EvaluatorFlags.CallBaseDefaults
+        );
+        const unnarrowedReferenceType = unnarrowedReferenceTypeResult.type;
+
+        return (narrowedSubjectType: Type) => {
+            if (isNever(narrowedSubjectType)) {
+                return { type: NeverType.createNever() };
+            }
+
+            if (!isLiteralTypeOrUnion(narrowedSubjectType)) {
+                return undefined;
+            }
+
+            const resultType = mapSubtypes(narrowedSubjectType, (literalSubtype) => {
+                assert(isClassInstance(literalSubtype) && literalSubtype.literalValue !== undefined);
+
+                return narrowTypeForDiscriminatedLiteralFieldComparison(
+                    evaluator,
+                    unnarrowedReferenceType,
+                    subjectExpression.memberName.value,
+                    literalSubtype,
+                    /* isPositiveTest */ true
+                );
+            });
+
+            return {
+                type: resultType,
+            };
+        };
     }
 
     return undefined;

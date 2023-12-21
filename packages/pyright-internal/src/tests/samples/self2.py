@@ -154,7 +154,7 @@ class ReturnSelf:
 class ReturnConcreteShape:
     scale: float = 1.0
 
-    def set_scale(self, scale: float) -> "ReturnConcreteShape":
+    def set_scale(self, scale: float) -> Self:
         self.scale = scale
         return self
 

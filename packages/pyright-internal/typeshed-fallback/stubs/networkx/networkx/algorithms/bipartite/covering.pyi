@@ -1,0 +1,3 @@
+from _typeshed import Incomplete
+
+def min_edge_cover(G, matching_algorithm: Incomplete | None = None): ...

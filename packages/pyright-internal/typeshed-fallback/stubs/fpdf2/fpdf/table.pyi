@@ -14,13 +14,6 @@ from .util import Padding
 
 DEFAULT_HEADINGS_STYLE: FontFace
 
-def draw_box_borders(pdf: FPDF, x1, y1, x2, y2, border: str | Literal[0, 1], fill_color: Incomplete | None = None) -> None: ...
-@dataclass(frozen=True)
-class RowLayoutInfo:
-    height: int
-    triggers_page_jump: bool
-    rendered_height: dict[Incomplete, Incomplete]
-
 class Table:
     rows: list[Row]
 
@@ -48,14 +41,14 @@ class Table:
         outer_border_width: float | None = None,
         num_heading_rows: int = 1,
     ) -> None: ...
-    def row(self, cells: Iterable[str] = ()) -> Row: ...
+    def row(self, cells: Iterable[str] = (), style: FontFace | None = None) -> Row: ...
     def render(self) -> None: ...
     def get_cell_border(self, i, j) -> str | Literal[0, 1]: ...
 
 class Row:
     cells: list[Cell]
     style: FontFace
-    def __init__(self, fpdf: FPDF) -> None: ...
+    def __init__(self, table: Table, style: FontFace | None = None) -> None: ...
     @property
     def cols_count(self) -> int: ...
     @property
@@ -86,3 +79,11 @@ class Cell:
     link: str | int | None
 
     def write(self, text, align: Incomplete | None = None): ...
+
+@dataclass(frozen=True)
+class RowLayoutInfo:
+    height: int
+    triggers_page_jump: bool
+    rendered_height: dict[Incomplete, Incomplete]
+
+def draw_box_borders(pdf: FPDF, x1, y1, x2, y2, border: str | Literal[0, 1], fill_color: Incomplete | None = None) -> None: ...

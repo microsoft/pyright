@@ -70,13 +70,14 @@ export function createProperty(
         decoratorType.details.name,
         getClassFullName(decoratorNode, fileInfo.moduleName, `__property_${fget.details.name}`),
         fileInfo.moduleName,
-        fileInfo.filePath,
+        fileInfo.fileUri,
         ClassTypeFlags.PropertyClass | ClassTypeFlags.BuiltInClass,
         typeSourceId,
         /* declaredMetaclass */ undefined,
         isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
     );
 
+    propertyClass.details.declaration = decoratorType.details.declaration;
     propertyClass.details.typeVarScopeId = decoratorType.details.typeVarScopeId;
     const objectType = evaluator.getBuiltInType(decoratorNode, 'object');
     propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
@@ -171,12 +172,14 @@ export function clonePropertyWithSetter(
         classType.details.name,
         classType.details.fullName,
         classType.details.moduleName,
-        getFileInfo(errorNode).filePath,
+        getFileInfo(errorNode).fileUri,
         flagsToClone,
         classType.details.typeSourceId,
         classType.details.declaredMetaclass,
         classType.details.effectiveMetaclass
     );
+
+    propertyClass.details.declaration = classType.details.declaration;
     propertyClass.details.typeVarScopeId = classType.details.typeVarScopeId;
     const objectType = evaluator.getBuiltInType(errorNode, 'object');
     propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());
@@ -228,12 +231,14 @@ export function clonePropertyWithDeleter(
         classType.details.name,
         classType.details.fullName,
         classType.details.moduleName,
-        getFileInfo(errorNode).filePath,
+        getFileInfo(errorNode).fileUri,
         classType.details.flags,
         classType.details.typeSourceId,
         classType.details.declaredMetaclass,
         classType.details.effectiveMetaclass
     );
+
+    propertyClass.details.declaration = classType.details.declaration;
     propertyClass.details.typeVarScopeId = classType.details.typeVarScopeId;
     const objectType = evaluator.getBuiltInType(errorNode, 'object');
     propertyClass.details.baseClasses.push(isInstantiableClass(objectType) ? objectType : UnknownType.create());

@@ -11,7 +11,12 @@
 
 import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
 
-import { Declaration, DeclarationType, VariableDeclaration } from '../analyzer/declaration';
+import {
+    Declaration,
+    DeclarationType,
+    VariableDeclaration,
+    isUnresolvedAliasDeclaration,
+} from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
@@ -30,10 +35,12 @@ import {
     isTypeVar,
 } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { SignatureDisplayType } from '../common/configOptions';
 import { assertNever, fail } from '../common/debug';
 import { ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { Position, Range, TextRange } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
 import { ExpressionNode, NameNode, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import {
@@ -43,7 +50,6 @@ import {
     getToolTipForType,
     getTypeForToolTip,
 } from './tooltipUtils';
-import { SignatureDisplayType } from '../common/configOptions';
 
 export interface HoverTextPart {
     python?: boolean;
@@ -151,13 +157,13 @@ export class HoverProvider {
 
     constructor(
         private readonly _program: ProgramView,
-        private readonly _filePath: string,
+        private readonly _fileUri: Uri,
         private readonly _position: Position,
         private readonly _format: MarkupKind,
         private readonly _token: CancellationToken
     ) {
-        this._parseResults = this._program.getParseResults(this._filePath);
-        this._sourceMapper = this._program.getSourceMapper(this._filePath, this._token, /* mapCompiled */ true);
+        this._parseResults = this._program.getParseResults(this._fileUri);
+        this._sourceMapper = this._program.getSourceMapper(this._fileUri, this._token, /* mapCompiled */ true);
     }
 
     getHover(): Hover | null {
@@ -274,7 +280,7 @@ export class HoverProvider {
 
     private _addResultsForDeclaration(parts: HoverTextPart[], declaration: Declaration, node: NameNode): void {
         const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
-        if (!resolvedDecl) {
+        if (!resolvedDecl || isUnresolvedAliasDeclaration(resolvedDecl)) {
             this._addResultsPart(parts, `(import) ` + node.value + this._getTypeText(node), /* python */ true);
             return;
         }

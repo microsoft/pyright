@@ -2,7 +2,7 @@
     "name": "pyright-internal",
     "displayName": "pyright",
     "description": "Type checker for the Python language",
-    "version": "1.1.338",
+    "version": "1.1.342",
     "license": "MIT",
     "private": true,
     "files": [
@@ -30,7 +30,7 @@
         "vscode-languageserver": "8.1.0",
         "vscode-languageserver-textdocument": "1.0.10",
         "vscode-languageserver-types": "3.17.3",
-        "vscode-uri": "^3.0.7"
+        "vscode-uri": "^3.0.8"
     },
     "devDependencies": {
         "@types/command-line-args": "^5.2.0",

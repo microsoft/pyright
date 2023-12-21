@@ -84,10 +84,11 @@
       "enum": [
         "off",
         "basic",
+        "standard",
         "strict"
       ],
       "title": "Specifies the default rule set to use for type checking",
-      "default": "basic"
+      "default": "standard"
     },
     "useLibraryCodeForTypes": {
       "$id": "#/properties/useLibraryCodeForTypes",
@@ -152,7 +153,7 @@
       "$id": "#/properties/enableExperimentalFeatures",
       "type": "boolean",
       "title": "Enable the use of experimental features that are not part of the Python typing spec",
-      "default": true
+      "default": false
     },
     "enableTypeIgnoreComments": {
       "$id": "#/properties/enableTypeIgnoreComments",
@@ -164,7 +165,7 @@
       "$id": "#/properties/deprecateTypingAliases",
       "type": "boolean",
       "title": "Treat typing-specific aliases to standard types as deprecated",
-      "default": true
+      "default": false
     },
     "reportGeneralTypeIssues": {
       "$id": "#/properties/reportGeneralTypeIssues",
@@ -182,7 +183,7 @@
       "$id": "#/properties/reportFunctionMemberAccess",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of member accesses on function objects",
-      "default": "none"
+      "default": "error"
     },
     "reportMissingImports": {
       "$id": "#/properties/reportMissingImports",
@@ -200,7 +201,7 @@
       "$id": "#/properties/reportMissingTypeStubs",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of imports that cannot be resolved to type stub files",
-      "default": "none"
+      "default": "warning"
     },
     "reportImportCycles": {
       "$id": "#/properties/reportImportCycles",
@@ -242,7 +243,7 @@
       "$id": "#/properties/reportWildcardImportFromLibrary",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of wlidcard import from external library",
-      "default": "none"
+      "default": "warning"
     },
     "reportOptionalSubscript": {
       "$id": "#/properties/reportOptionalSubscript",
@@ -344,13 +345,13 @@
       "$id": "#/properties/reportIncompatibleMethodOverride",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of method overrides in subclasses that redefine the method in an incompatible way",
-      "default": "none"
+      "default": "error"
     },
     "reportIncompatibleVariableOverride": {
       "$id": "#/properties/reportIncompatibleVariableOverride",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of overrides in subclasses that redefine a variable in an incompatible way",
-      "default": "none"
+      "default": "error"
     },
     "reportInconsistentConstructor": {
       "$id": "#/properties/reportInconsistentConstructor",
@@ -362,7 +363,7 @@
       "$id": "#/properties/reportOverlappingOverload",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of function overloads that overlap in signature and obscure each other or do not agree on return type",
-      "default": "none"
+      "default": "error"
     },
     "reportMissingSuperCall": {
       "$id": "#/properties/reportMissingSuperCall",

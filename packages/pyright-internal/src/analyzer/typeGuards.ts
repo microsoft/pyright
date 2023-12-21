@@ -1480,7 +1480,7 @@ function narrowTypeForIsInstance(
                             className,
                             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
                             fileInfo.moduleName,
-                            fileInfo.filePath,
+                            fileInfo.fileUri,
                             ClassTypeFlags.None,
                             ParseTreeUtils.getTypeSourceId(errorNode),
                             /* declaredMetaclass */ undefined,
@@ -1501,11 +1501,7 @@ function narrowTypeForIsInstance(
                             varType.details.constraints.length === 0
                         ) {
                             newClassType = addConditionToType(newClassType, [
-                                {
-                                    typeVarName: TypeVarType.getNameWithScope(varType),
-                                    constraintIndex: 0,
-                                    isConstrainedTypeVar: false,
-                                },
+                                { typeVar: varType, constraintIndex: 0 },
                             ]) as ClassType;
                         }
 
@@ -2227,7 +2223,7 @@ export function narrowTypeForDiscriminatedTupleComparison(
 // Attempts to narrow a type based on a comparison (equal or not equal)
 // between a discriminating field that has a declared literal type to a
 // literal value.
-function narrowTypeForDiscriminatedLiteralFieldComparison(
+export function narrowTypeForDiscriminatedLiteralFieldComparison(
     evaluator: TypeEvaluator,
     referenceType: Type,
     memberName: string,
@@ -2545,7 +2541,7 @@ function narrowTypeForCallable(
                             className,
                             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
                             fileInfo.moduleName,
-                            fileInfo.filePath,
+                            fileInfo.fileUri,
                             ClassTypeFlags.None,
                             ParseTreeUtils.getTypeSourceId(errorNode),
                             /* declaredMetaclass */ undefined,

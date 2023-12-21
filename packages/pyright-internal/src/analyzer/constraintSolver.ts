@@ -112,8 +112,22 @@ export function assignTypeToTypeVar(
     // Verify that we are solving for the scope associated with this
     // type variable.
     if (!typeVarContext.hasSolveForScope(destType.scopeId)) {
+        // Handle Any as a source.
         if (isAnyOrUnknown(srcType) || (isClass(srcType) && ClassType.derivesFromAnyOrUnknown(srcType))) {
             return true;
+        }
+
+        // Handle a type[Any] as a source.
+        if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'type')) {
+            if (
+                !srcType.typeArguments ||
+                srcType.typeArguments.length < 1 ||
+                isAnyOrUnknown(srcType.typeArguments[0])
+            ) {
+                if (TypeBase.isInstantiable(destType)) {
+                    return true;
+                }
+            }
         }
 
         // Is this the equivalent of an "Unknown" for a ParamSpec?
@@ -276,9 +290,7 @@ export function assignTypeToTypeVar(
     }
 
     if ((flags & AssignTypeFlags.PopulatingExpectedType) !== 0) {
-        // If we're populating the expected type and the srcType is
-        // Unknown, ignore it.
-        if (isUnknown(adjSrcType)) {
+        if ((flags & AssignTypeFlags.SkipPopulateUnknownExpectedType) !== 0 && isUnknown(adjSrcType)) {
             return true;
         }
 
@@ -313,7 +325,7 @@ export function assignTypeToTypeVar(
             ) {
                 // The srcType is narrower than the current wideTypeBound, so replace it.
                 // If it's Any, don't replace it because Any is the narrowest type already.
-                if (!isAny(curWideTypeBound)) {
+                if (!isAnyOrUnknown(curWideTypeBound)) {
                     newWideTypeBound = adjSrcType;
                 }
             } else if (

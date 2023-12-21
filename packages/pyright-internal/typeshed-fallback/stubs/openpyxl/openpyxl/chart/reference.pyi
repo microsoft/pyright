@@ -1,10 +1,10 @@
-from _typeshed import Incomplete, Unused
+from _typeshed import ConvertibleToInt, Incomplete, Unused
 from collections.abc import Generator
 from typing import overload
 from typing_extensions import Literal
 
 from openpyxl.descriptors import Strict
-from openpyxl.descriptors.base import MinMax, String, _ConvertibleToInt
+from openpyxl.descriptors.base import MinMax, String
 
 class DummyWorksheet:
     title: str
@@ -32,10 +32,10 @@ class Reference(Strict):
     def __init__(
         self,
         worksheet: Incomplete | None,
-        min_col: _ConvertibleToInt,
-        min_row: _ConvertibleToInt,
-        max_col: _ConvertibleToInt | None = None,
-        max_row: _ConvertibleToInt | None = None,
+        min_col: ConvertibleToInt,
+        min_row: ConvertibleToInt,
+        max_col: ConvertibleToInt | None = None,
+        max_row: ConvertibleToInt | None = None,
         range_string: str | None = None,
     ) -> None: ...
     def __len__(self) -> int: ...

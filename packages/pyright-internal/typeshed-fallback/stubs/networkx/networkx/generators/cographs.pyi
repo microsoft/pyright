@@ -1,0 +1,3 @@
+from _typeshed import Incomplete
+
+def random_cograph(n, seed: Incomplete | None = None): ...

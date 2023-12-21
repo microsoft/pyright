@@ -9,16 +9,17 @@
 import { ConsoleInterface, LogLevel } from './console';
 import { ReadOnlyFileSystem } from './fileSystem';
 import { Duration, timingStats } from './timing';
+import { Uri } from './uri/uri';
 
 // Consider an operation "long running" if it goes longer than this.
 const durationThresholdForInfoInMs = 2000;
 
-export function getPathForLogging(fs: ReadOnlyFileSystem, filepath: string) {
-    if (fs.isMappedFilePath(filepath)) {
-        return fs.getOriginalFilePath(filepath);
+export function getPathForLogging(fs: ReadOnlyFileSystem, fileUri: Uri) {
+    if (fs.isMappedUri(fileUri)) {
+        return fs.getOriginalUri(fileUri);
     }
 
-    return filepath;
+    return fileUri;
 }
 
 export class LogTracker {

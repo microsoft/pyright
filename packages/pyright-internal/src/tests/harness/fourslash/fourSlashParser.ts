@@ -17,13 +17,13 @@ import {
 } from '../../../common/pathUtils';
 import { distlibFolder, libFolder } from '../vfs/factory';
 import {
-    fileMetadataNames,
     FourSlashData,
     FourSlashFile,
     GlobalMetadataOptionNames,
     Marker,
     MetadataOptionNames,
     Range,
+    fileMetadataNames,
 } from './fourSlashTypes';
 
 /**
@@ -70,13 +70,13 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
 
         if (toBoolean(currentFileOptions[MetadataOptionNames.library])) {
             currentFileName = normalizePath(
-                combinePaths(libFolder, getRelativePath(currentFileName, normalizedBasePath))
+                combinePaths(libFolder.getFilePath(), getRelativePath(currentFileName, normalizedBasePath))
             );
         }
 
         if (toBoolean(currentFileOptions[MetadataOptionNames.distLibrary])) {
             currentFileName = normalizePath(
-                combinePaths(distlibFolder, getRelativePath(currentFileName, normalizedBasePath))
+                combinePaths(distlibFolder.getFilePath(), getRelativePath(currentFileName, normalizedBasePath))
             );
         }
 

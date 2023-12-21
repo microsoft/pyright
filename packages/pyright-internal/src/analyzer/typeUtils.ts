@@ -206,16 +206,20 @@ export const enum AssignTypeFlags {
     // employing narrowing or widening, and don't strip literals.
     PopulatingExpectedType = 1 << 10,
 
+    // Used with PopulatingExpectedType, this flag indicates that a TypeVar
+    // constraint that is Unknown should be ignored.
+    SkipPopulateUnknownExpectedType = 1 << 11,
+
     // Normally, when a class type is assigned to a TypeVar and that class
     // hasn't previously been specialized, it will be specialized with
     // default type arguments (typically "Unknown"). This flag skips
     // this step.
-    AllowUnspecifiedTypeArguments = 1 << 11,
+    AllowUnspecifiedTypeArguments = 1 << 12,
 
     // PEP 544 says that if the dest type is a type[Proto] class,
     // the source must be a "concrete" (non-protocol) class. This
     // flag skips this check.
-    IgnoreProtocolAssignmentCheck = 1 << 12,
+    IgnoreProtocolAssignmentCheck = 1 << 13,
 }
 
 export interface ApplyTypeVarOptions {
@@ -351,13 +355,35 @@ export function isTypeVarSame(type1: TypeVarType, type2: Type) {
         if (!isTypeSame(type1, subtype)) {
             const conditions = getTypeCondition(subtype);
 
-            if (!conditions || !conditions.some((condition) => condition.typeVarName === type1.nameWithScope)) {
+            if (
+                !conditions ||
+                !conditions.some((condition) => condition.typeVar.nameWithScope === type1.nameWithScope)
+            ) {
                 isCompatible = false;
             }
         }
     });
 
     return isCompatible;
+}
+
+// The `deprecated` type has been defined as a function, an overloaded function,
+// and a class in various versions of typeshed. This function checks for all of
+// these variants to determine whether the type is the built-in `deprecated` type.
+export function isBuiltInDeprecatedType(type: Type) {
+    if (isFunction(type)) {
+        return type.details.builtInName === 'deprecated';
+    }
+
+    if (isOverloadedFunction(type)) {
+        return type.overloads.length > 0 && type.overloads[0].details.builtInName === 'deprecated';
+    }
+
+    if (isInstantiableClass(type)) {
+        return ClassType.isBuiltIn(type, 'deprecated');
+    }
+
+    return false;
 }
 
 export function makeInferenceContext(
@@ -832,9 +858,20 @@ export function getFullNameOfType(type: Type): string | undefined {
     return undefined;
 }
 
-export function addConditionToType(type: Type, condition: TypeCondition[] | undefined): Type {
+export function addConditionToType(
+    type: Type,
+    condition: TypeCondition[] | undefined,
+    skipSelfCondition = false
+): Type {
     if (!condition) {
         return type;
+    }
+
+    if (skipSelfCondition) {
+        condition = condition.filter((c) => !c.typeVar.details.isSynthesizedSelf);
+        if (condition.length === 0) {
+            return type;
+        }
     }
 
     switch (type.category) {
@@ -940,6 +977,8 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
                     newType,
                     type.typeAliasInfo.name,
                     type.typeAliasInfo.fullName,
+                    type.typeAliasInfo.moduleName,
+                    type.typeAliasInfo.fileUri,
                     type.typeAliasInfo.typeVarScopeId,
                     type.typeAliasInfo.isPep695Syntax,
                     type.typeAliasInfo.typeParameters,
@@ -1042,6 +1081,14 @@ export function getUnknownTypeForParamSpec(): FunctionType {
         FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
     );
     FunctionType.addDefaultParameters(newFunction);
+    return newFunction;
+}
+
+// Returns the equivalent of "Callable[..., Unknown]".
+export function getUnknownTypeForCallable(): FunctionType {
+    const newFunction = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck);
+    FunctionType.addDefaultParameters(newFunction);
+    newFunction.details.declaredReturnType = UnknownType.create();
     return newFunction;
 }
 
@@ -2350,6 +2397,8 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
             result,
             type.typeAliasInfo.name,
             type.typeAliasInfo.fullName,
+            type.typeAliasInfo.moduleName,
+            type.typeAliasInfo.fileUri,
             type.typeAliasInfo.typeVarScopeId,
             type.typeAliasInfo.isPep695Syntax,
             type.typeAliasInfo.typeParameters,
@@ -2398,6 +2447,8 @@ export function convertToInstantiable(type: Type, includeSubclasses = true): Typ
             result,
             type.typeAliasInfo.name,
             type.typeAliasInfo.fullName,
+            type.typeAliasInfo.moduleName,
+            type.typeAliasInfo.fileUri,
             type.typeAliasInfo.typeVarScopeId,
             type.typeAliasInfo.isPep695Syntax,
             type.typeAliasInfo.typeParameters,
@@ -2546,7 +2597,7 @@ export function containsAnyOrUnknown(type: Type, recurse: boolean): AnyType | Un
 // This function does not use the TypeWalker because it is called very frequently,
 // and allocating a memory walker object for every call significantly increases
 // peak memory usage.
-export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = false, recursionCount = 0): boolean {
+export function isPartlyUnknown(type: Type, recursionCount = 0): boolean {
     if (recursionCount > maxTypeRecursionCount) {
         return false;
     }
@@ -2559,34 +2610,30 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
     // If this is a generic type alias, see if any of its type arguments
     // are either unspecified or are partially known.
     if (type.typeAliasInfo?.typeArguments) {
-        if (
-            type.typeAliasInfo.typeArguments.some((typeArg) =>
-                isPartlyUnknown(typeArg, allowUnknownTypeArgsForClasses, recursionCount)
-            )
-        ) {
+        if (type.typeAliasInfo.typeArguments.some((typeArg) => isPartlyUnknown(typeArg, recursionCount))) {
             return true;
         }
     }
 
     // See if a union contains an unknown type.
     if (isUnion(type)) {
-        return (
-            findSubtype(type, (subtype) => isPartlyUnknown(subtype, allowUnknownTypeArgsForClasses, recursionCount)) !==
-            undefined
-        );
+        return findSubtype(type, (subtype) => isPartlyUnknown(subtype, recursionCount)) !== undefined;
     }
 
     // See if an object or class has an unknown type argument.
     if (isClass(type)) {
-        if (TypeBase.isInstance(type)) {
-            allowUnknownTypeArgsForClasses = false;
+        // If this is a reference to the class itself, as opposed to a reference
+        // to a type that represents the class and its subclasses, don't flag
+        // the type as partially unknown.
+        if (!type.includeSubclasses) {
+            return false;
         }
 
-        if (!allowUnknownTypeArgsForClasses && !ClassType.isPseudoGenericClass(type)) {
+        if (!ClassType.isPseudoGenericClass(type)) {
             const typeArgs = type.tupleTypeArguments?.map((t) => t.type) || type.typeArguments;
             if (typeArgs) {
                 for (const argType of typeArgs) {
-                    if (isPartlyUnknown(argType, allowUnknownTypeArgsForClasses, recursionCount)) {
+                    if (isPartlyUnknown(argType, recursionCount)) {
                         return true;
                     }
                 }
@@ -2599,7 +2646,7 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
     // See if a function has an unknown type.
     if (isOverloadedFunction(type)) {
         return OverloadedFunctionType.getOverloads(type).some((overload) => {
-            return isPartlyUnknown(overload, /* allowUnknownTypeArgsForClasses */ false, recursionCount);
+            return isPartlyUnknown(overload, recursionCount);
         });
     }
 
@@ -2608,7 +2655,7 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
             // Ignore parameters such as "*" that have no name.
             if (type.details.parameters[i].name) {
                 const paramType = FunctionType.getEffectiveParameterType(type, i);
-                if (isPartlyUnknown(paramType, /* allowUnknownTypeArgsForClasses */ false, recursionCount)) {
+                if (isPartlyUnknown(paramType, recursionCount)) {
                     return true;
                 }
             }
@@ -2617,7 +2664,7 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
         if (
             type.details.declaredReturnType &&
             !FunctionType.isParamSpecValue(type) &&
-            isPartlyUnknown(type.details.declaredReturnType, /* allowUnknownTypeArgsForClasses */ false, recursionCount)
+            isPartlyUnknown(type.details.declaredReturnType, recursionCount)
         ) {
             return true;
         }
@@ -3372,6 +3419,8 @@ class TypeVarTransformer {
                         type,
                         type.typeAliasInfo.name,
                         type.typeAliasInfo.fullName,
+                        type.typeAliasInfo.moduleName,
+                        type.typeAliasInfo.fileUri,
                         type.typeAliasInfo.typeVarScopeId,
                         type.typeAliasInfo.isPep695Syntax,
                         type.typeAliasInfo.typeParameters,
@@ -3554,6 +3603,8 @@ class TypeVarTransformer {
                   type,
                   type.typeAliasInfo.name,
                   type.typeAliasInfo.fullName,
+                  type.typeAliasInfo.moduleName,
+                  type.typeAliasInfo.fileUri,
                   type.typeAliasInfo.typeVarScopeId,
                   type.typeAliasInfo.isPep695Syntax,
                   type.typeAliasInfo.typeParameters,
@@ -4277,11 +4328,11 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
         for (const condition of type.condition) {
             // This doesn't apply to bound type variables.
-            if (!condition.isConstrainedTypeVar) {
+            if (condition.typeVar.details.constraints.length === 0) {
                 continue;
             }
 
-            const typeVarEntry = signatureContext.getTypeVarByName(condition.typeVarName);
+            const typeVarEntry = signatureContext.getTypeVar(condition.typeVar);
             if (!typeVarEntry || condition.constraintIndex >= typeVarEntry.typeVar.details.constraints.length) {
                 continue;
             }

@@ -91,6 +91,11 @@ export function verifyDocumentEdits(
                             return false;
                         }
 
+                        if (!actualEdit.textDocument.uri.includes(':')) {
+                            // Not returning a URI, so fail.
+                            return false;
+                        }
+
                         return textEditsAreSame(expectedEdit.edits, actualEdit.edits);
                     }
                     case 'create': {

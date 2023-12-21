@@ -143,7 +143,7 @@ export const enum EvaluatorFlags {
     AllowUnpackedTypedDict = 1 << 23,
 
     // Disallow a type alias defined with a "type" statement.
-    DisallowPep695TypeAlias = 1 << 24,
+    TreatPep695TypeAliasAsObject = 1 << 24,
 
     // If evaluation is a TypeVarType that is a ParamSpec, do
     // not convert it to its corresponding ParamSpec runtime object.
@@ -153,13 +153,13 @@ export const enum EvaluatorFlags {
     DisallowNonTypeSpecialForms = 1 << 26,
 
     // Defaults used for evaluating the LHS of a call expression.
-    CallBaseDefaults = DoNotSpecialize | DisallowPep695TypeAlias,
+    CallBaseDefaults = DoNotSpecialize | TreatPep695TypeAliasAsObject,
 
     // Defaults used for evaluating the LHS of a member access expression.
     IndexBaseDefaults = DoNotSpecialize,
 
     // Defaults used for evaluating the LHS of a member access expression.
-    MemberAccessBaseDefaults = DoNotSpecialize | DisallowPep695TypeAlias,
+    MemberAccessBaseDefaults = DoNotSpecialize | TreatPep695TypeAliasAsObject,
 }
 
 export interface TypeResult<T extends Type = Type> {
@@ -288,10 +288,10 @@ export type FunctionArgument = FunctionArgumentWithType | FunctionArgumentWithEx
 export interface EffectiveTypeResult {
     type: Type;
     isIncomplete: boolean;
-    includesVariableDecl: boolean;
-    includesIllegalTypeAliasDecl: boolean;
-    includesSpeculativeResult: boolean;
-    isRecursiveDefinition: boolean;
+    includesVariableDecl?: boolean;
+    includesIllegalTypeAliasDecl?: boolean;
+    includesSpeculativeResult?: boolean;
+    isRecursiveDefinition?: boolean;
     evaluationAttempts?: number;
 }
 

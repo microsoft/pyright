@@ -1,9 +1,11 @@
+import datetime as dt
 from _typeshed import Incomplete, SupportsGetItem
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any, TypeVar, overload
-from typing_extensions import Literal, SupportsIndex, TypeAlias
+from typing_extensions import Literal, SupportsIndex, TypeAlias, deprecated
 
 import numpy as np
+import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.legend import Legend
@@ -34,6 +36,35 @@ _Legend: TypeAlias = Literal["auto", "brief", "full"] | bool  # noqa: Y047
 _LogScale: TypeAlias = bool | float | tuple[bool | float, bool | float]  # noqa: Y047
 _Palette: TypeAlias = str | Sequence[ColorType] | dict[Incomplete, ColorType]  # noqa: Y047
 _Seed: TypeAlias = int | np.random.Generator | np.random.RandomState  # noqa: Y047
+_Scalar: TypeAlias = (
+    # numeric
+    float
+    | complex
+    | np.number[Any]
+    # categorical
+    | bool
+    | str
+    | bytes
+    | None
+    # dates
+    | dt.date
+    | dt.datetime
+    | dt.timedelta
+    | pd.Timestamp
+    | pd.Timedelta
+)
+_Vector: TypeAlias = Iterable[_Scalar]
+_DataSourceWideForm: TypeAlias = (  # noqa: Y047
+    # Mapping of keys to "convertible to pd.Series" vectors
+    Mapping[Any, _Vector]
+    # Sequence of "convertible to pd.Series" vectors
+    | Sequence[_Vector]
+    # A "convertible to pd.DataFrame" table
+    | Mapping[Any, Mapping[_Scalar, _Scalar]]
+    | NDArray[Any]
+    # Flat "convertible to pd.Series" vector of scalars
+    | Sequence[_Scalar]
+)
 
 DATASET_SOURCE: str
 DATASET_NAMES_URL: str
@@ -44,11 +75,12 @@ def saturate(color: ColorType) -> tuple[float, float, float]: ...
 def set_hls_values(
     color: ColorType, h: float | None = None, l: float | None = None, s: float | None = None
 ) -> tuple[float, float, float]: ...
-def axlabel(xlabel: str, ylabel: str, **kwargs: Any) -> None: ...  # deprecated
+@deprecated("Function `axlabel` is deprecated and will be removed in a future version")
+def axlabel(xlabel: str, ylabel: str, **kwargs: Any) -> None: ...
 def remove_na(vector: _VectorT) -> _VectorT: ...
 def get_color_cycle() -> list[str]: ...
 
-# Please modify `seaborn.axisgrid.FacetGrid.despine` when modifying despine here.
+# `despine` should be kept roughly in line with `seaborn.axisgrid.FacetGrid.despine`
 def despine(
     fig: Figure | None = None,
     ax: Axes | None = None,

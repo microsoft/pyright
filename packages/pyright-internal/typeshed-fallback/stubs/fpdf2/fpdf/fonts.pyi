@@ -2,6 +2,7 @@ import dataclasses
 from _typeshed import Incomplete
 from collections.abc import Generator
 from dataclasses import dataclass
+from typing import overload
 
 from .drawing import DeviceGray, DeviceRGB, Number
 from .enums import TextEmphasis
@@ -12,8 +13,8 @@ class FontFace:
     family: str | None
     emphasis: TextEmphasis | None
     size_pt: int | None
-    color: int | tuple[Number, Number, Number] | DeviceGray | DeviceRGB | None
-    fill_color: int | tuple[Number, Number, Number] | DeviceGray | DeviceRGB | None
+    color: DeviceGray | DeviceRGB | None
+    fill_color: DeviceGray | DeviceRGB | None
 
     def __init__(
         self,
@@ -25,6 +26,13 @@ class FontFace:
     ) -> None: ...
 
     replace = dataclasses.replace
+
+    @overload
+    @staticmethod
+    def combine(default_style: None, override_style: None) -> None: ...  # type: ignore[misc]
+    @overload
+    @staticmethod
+    def combine(default_style: FontFace | None, override_style: FontFace | None) -> FontFace: ...
 
 class _FontMixin:
     i: int

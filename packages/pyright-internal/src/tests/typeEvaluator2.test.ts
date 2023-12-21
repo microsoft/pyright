@@ -10,6 +10,7 @@
 
 import { ConfigOptions } from '../common/configOptions';
 import { PythonVersion } from '../common/pythonVersion';
+import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
 test('CallbackProtocol1', () => {
@@ -133,7 +134,7 @@ test('Assignment11', () => {
 });
 
 test('Assignment12', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['assignment12.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 0);
@@ -228,7 +229,7 @@ test('Super11', () => {
 });
 
 test('MissingSuper1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['missingSuper1.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 0);
@@ -287,7 +288,7 @@ test('isInstance2', () => {
 });
 
 test('isInstance3', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
@@ -334,8 +335,14 @@ test('Unbound5', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('Unbound6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound6.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
+});
+
 test('Assert1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // By default, this is reported as a warning.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['assert1.py'], configOptions);
@@ -479,7 +486,7 @@ test('ConstrainedTypeVar14', () => {
 });
 
 test('ConstrainedTypeVar15', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.disableBytesTypePromotions = true;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constrainedTypeVar15.py'], configOptions);
@@ -506,7 +513,7 @@ test('ConstrainedTypeVar18', () => {
 });
 
 test('MissingTypeArg1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
 
     // By default, reportMissingTypeArgument is disabled.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['missingTypeArg1.py']);
@@ -700,6 +707,18 @@ test('Solver30', () => {
 
 test('Solver31', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver31.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Solver32', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver32.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Solver33', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver33.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
@@ -1179,7 +1198,7 @@ test('Protocol16', () => {
 });
 
 test('Protocol17', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.reportInvalidTypeVarUse = 'error';
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol17.py']);
 
@@ -1211,7 +1230,7 @@ test('Protocol21', () => {
 });
 
 test('Protocol22', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.reportInvalidTypeVarUse = 'error';
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol22.py']);
 
@@ -1368,6 +1387,12 @@ test('Protocol47', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Protocol48', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol48.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict1.py']);
 
@@ -1513,7 +1538,7 @@ test('TypedDict24', () => {
 });
 
 test('TypedDictInline1', () => {
-    const configOptions = new ConfigOptions('.');
+    const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictInline1.py'], configOptions);

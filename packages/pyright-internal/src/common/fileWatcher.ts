@@ -6,6 +6,7 @@
  * file watcher related functionality.
  */
 import { Stats } from './fileSystem';
+import { Uri } from './uri/uri';
 
 export type FileWatcherEventType = 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir';
 export type FileWatcherEventHandler = (eventName: FileWatcherEventType, path: string, stats?: Stats) => void;
@@ -15,7 +16,7 @@ export interface FileWatcher {
 }
 
 export interface FileWatcherHandler {
-    onFileChange(eventType: FileWatcherEventType, path: string): void;
+    onFileChange(eventType: FileWatcherEventType, uri: Uri): void;
 }
 
 export interface FileWatcherProvider {
@@ -23,7 +24,7 @@ export interface FileWatcherProvider {
 }
 
 export const nullFileWatcherHandler: FileWatcherHandler = {
-    onFileChange(_1: FileWatcherEventType, _2: string): void {
+    onFileChange(_1: FileWatcherEventType, _2: Uri): void {
         // do nothing
     },
 };

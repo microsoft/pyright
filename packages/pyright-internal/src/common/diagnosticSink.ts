@@ -14,10 +14,11 @@ import { convertOffsetsToRange } from './positionUtils';
 import { hashString } from './stringUtils';
 import { Range, TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
+import { Uri } from './uri/uri';
 
 // Represents a collection of diagnostics within a file.
 export interface FileDiagnostics {
-    filePath: string;
+    fileUri: Uri;
     version: number | undefined;
     diagnostics: Diagnostic[];
 }
