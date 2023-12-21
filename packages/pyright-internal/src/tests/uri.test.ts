@@ -137,6 +137,11 @@ test('root', () => {
     assert.ok(root10.isRoot());
 });
 
+test('getFilePath', () => {
+    const webUri = Uri.parse('foo:///a/b/c', true);
+    assert.equal(webUri.getFilePath(), '');
+});
+
 test('empty', () => {
     const empty = Uri.parse('', true);
     assert.equal(empty.isEmpty(), true);

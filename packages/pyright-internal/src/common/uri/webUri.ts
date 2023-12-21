@@ -11,7 +11,6 @@
  * - vscode-vfs://github.com/microsoft/debugpy/debugpy/launcher/debugAdapter.py
  */
 
-import * as debug from '../debug';
 import { getRootLength, hasTrailingDirectorySeparator, normalizeSlashes, resolvePaths } from '../pathUtils';
 import { BaseUri } from './baseUri';
 import { cacheMethodWithNoArgs, cacheProperty, cacheStaticFunc } from './memoization';
@@ -161,7 +160,7 @@ export class WebUri extends BaseUri {
     }
 
     override getFilePath(): string {
-        debug.fail(`${this} is not a file based URI.`);
+        return '';
     }
 
     override combinePaths(...paths: string[]): Uri {
