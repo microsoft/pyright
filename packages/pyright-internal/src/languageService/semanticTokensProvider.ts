@@ -13,6 +13,7 @@ import { assertNever } from '../common/debug';
 import { ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
 import { FunctionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
@@ -327,23 +328,25 @@ export class SemanticTokensProvider {
         SemanticTokensProvider.tokenModifiers.map((t) => [t, SemanticTokensProvider.tokenModifiers.indexOf(t)])
     );
 
-    static getSemanticTokens(
-        program: ProgramView,
-        filePath: string,
-        token: CancellationToken
-    ): SemanticTokens | undefined {
-        const parseResults = program.getParseResults(filePath);
-        if (!parseResults) {
+    private readonly _parseResults: ParseResults | undefined;
+
+    constructor(private _program: ProgramView, private _fileUri: Uri, private _token: CancellationToken) {
+        this._parseResults = this._program.getParseResults(this._fileUri);
+    }
+
+    getSemanticTokens(): SemanticTokens | undefined {
+        throwIfCancellationRequested(this._token);
+        if (!this._parseResults) {
             return undefined;
         }
 
-        const evaluator = program.evaluator;
+        const evaluator = this._program.evaluator;
         if (!evaluator) {
             return undefined;
         }
 
         const builder = new SemanticTokensBuilder();
-        new SemanticTokensTreeWalker(builder, parseResults, evaluator, token).findSemanticTokens();
+        new SemanticTokensTreeWalker(builder, this._parseResults, evaluator, this._token).findSemanticTokens();
         return builder.build();
     }
 

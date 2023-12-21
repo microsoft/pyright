@@ -990,14 +990,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected async onSemanticTokens(params: SemanticTokensParams, token: CancellationToken) {
-        const filePath = this.uriParser.decodeTextDocumentUri(params.textDocument.uri);
-        const workspace = await this.getWorkspaceForFile(filePath);
+        const uri = Uri.parse(params.textDocument.uri, this.fs.isCaseSensitive);
+        const workspace = await this.getWorkspaceForFile(uri);
         if (workspace.disableLanguageServices) {
-            return undefined;
+            return;
         }
 
         return workspace.service.run((program) => {
-            return SemanticTokensProvider.getSemanticTokens(program, filePath, token);
+            return new SemanticTokensProvider(program, uri, token).getSemanticTokens();
         }, token);
     }
 
