@@ -113,7 +113,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
     }
 
     if (positionOnlyIndex >= 0) {
-        result.firstPositionOrKeywordIndex = positionOnlyIndex;
+        result.firstPositionOrKeywordIndex = positionOnlyIndex + 1;
     }
 
     for (let i = 0; i < positionOnlyIndex; i++) {
