@@ -336,7 +336,13 @@ export function getTypeNarrowingCallback(
                     testExpression.operator === OperatorType.Equals ? isPositiveTest : !isPositiveTest;
 
                 if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
-                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                    // Use speculative mode here to avoid polluting the type cache. This is
+                    // important in cases where evaluation of the right expression creates
+                    // a false dependency on another variable.
+                    const rightTypeResult = evaluator.useSpeculativeMode(testExpression.rightExpression, () => {
+                        return evaluator.getTypeOfExpression(testExpression.rightExpression);
+                    });
+
                     const rightType = rightTypeResult.type;
 
                     if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
