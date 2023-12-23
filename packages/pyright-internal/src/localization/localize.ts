@@ -264,6 +264,7 @@ export namespace Localizer {
                 getRawString('Diagnostic.baseClassVariableTypeIncompatible')
             );
         export const baseClassUnknown = () => getRawString('Diagnostic.baseClassUnknown');
+        export const binaryOperationNotAllowed = () => getRawString('Diagnostic.binaryOperationNotAllowed');
         export const bindTypeMismatch = () =>
             new ParameterizedString<{ type: string; methodName: string; paramName: string }>(
                 getRawString('Diagnostic.bindTypeMismatch')
@@ -875,6 +876,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.symbolIsPossiblyUnbound'));
         export const symbolOverridden = () =>
             new ParameterizedString<{ name: string; className: string }>(getRawString('Diagnostic.symbolOverridden'));
+        export const ternaryNotAllowed = () => getRawString('Diagnostic.ternaryNotAllowed');
         export const totalOrderingMissingMethod = () => getRawString('Diagnostic.totalOrderingMissingMethod');
         export const trailingCommaInFromImport = () => getRawString('Diagnostic.trailingCommaInFromImport');
         export const tryWithoutExcept = () => getRawString('Diagnostic.tryWithoutExcept');
@@ -1050,6 +1052,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unaccessedVariable'));
         export const unannotatedFunctionSkipped = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unannotatedFunctionSkipped'));
+        export const unaryOperationNotAllowed = () => getRawString('Diagnostic.unaryOperationNotAllowed');
         export const unexpectedAsyncToken = () => getRawString('Diagnostic.unexpectedAsyncToken');
         export const unexpectedExprToken = () => getRawString('Diagnostic.unexpectedExprToken');
         export const unexpectedIndent = () => getRawString('Diagnostic.unexpectedIndent');

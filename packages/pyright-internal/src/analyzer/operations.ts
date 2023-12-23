@@ -686,6 +686,11 @@ export function getTypeOfBinaryOperation(
         }
     }
 
+    if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+        evaluator.addError(Localizer.Diagnostic.binaryOperationNotAllowed(), node);
+        return { type: UnknownType.create() };
+    }
+
     // Optional checks apply to all operations except for boolean operations.
     let isLeftOptionalType = false;
     if (booleanOperatorMap[node.operator] === undefined) {
@@ -936,8 +941,14 @@ export function getTypeOfAugmentedAssignment(
 export function getTypeOfUnaryOperation(
     evaluator: TypeEvaluator,
     node: UnaryOperationNode,
+    flags: EvaluatorFlags,
     inferenceContext: InferenceContext | undefined
 ): TypeResult {
+    if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+        evaluator.addError(Localizer.Diagnostic.unaryOperationNotAllowed(), node);
+        return { type: UnknownType.create() };
+    }
+
     const exprTypeResult = evaluator.getTypeOfExpression(node.expression);
     let exprType = evaluator.makeTopLevelTypeVarsConcrete(transformPossibleRecursiveTypeAlias(exprTypeResult.type));
 
@@ -1053,6 +1064,11 @@ export function getTypeOfTernaryOperation(
     flags: EvaluatorFlags,
     inferenceContext: InferenceContext | undefined
 ): TypeResult {
+    if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+        evaluator.addError(Localizer.Diagnostic.ternaryNotAllowed(), node);
+        return { type: UnknownType.create() };
+    }
+
     evaluator.getTypeOfExpression(node.testExpression);
 
     const typesToCombine: Type[] = [];
