@@ -1067,7 +1067,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.UnaryOperation: {
-                typeResult = getTypeOfUnaryOperation(evaluatorInterface, node, inferenceContext);
+                typeResult = getTypeOfUnaryOperation(evaluatorInterface, node, flags, inferenceContext);
                 break;
             }
 
