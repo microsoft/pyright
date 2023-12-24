@@ -1,6 +1,6 @@
 # This sample tests various error conditions for the Self type
 
-from typing import Callable, TypeVar
+from typing import Callable, Generic, TypeVar
 from typing_extensions import Self
 
 
@@ -96,3 +96,25 @@ class C:
             return bar
 
         return inner
+
+
+class D(Generic[T]):
+    ...
+
+
+# This should generate an error because "Self" cannot be used
+# within a generic class definition.
+class E(D[Self]):
+    ...
+
+
+class MetaA(type):
+    # This should generate an error because "Self" isn't
+    # allowed in a metaclass.
+    def __new__(cls, *args: object) -> Self:
+        ...
+
+    # This should generate an error because "Self" isn't
+    # allowed in a metaclass.
+    def __mul__(cls, count: int) -> list[Self]:
+        ...

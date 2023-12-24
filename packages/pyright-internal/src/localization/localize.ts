@@ -838,6 +838,7 @@ export namespace Localizer {
                 getRawString('Diagnostic.revealTypeExpectedTypeMismatch')
             );
         export const selfTypeContext = () => getRawString('Diagnostic.selfTypeContext');
+        export const selfTypeMetaclass = () => getRawString('Diagnostic.selfTypeMetaclass');
         export const selfTypeWithTypedSelfOrCls = () => getRawString('Diagnostic.selfTypeWithTypedSelfOrCls');
         export const setterGetterTypeMismatch = () => getRawString('Diagnostic.setterGetterTypeMismatch');
         export const starPatternInAsPattern = () => getRawString('Diagnostic.starPatternInAsPattern');

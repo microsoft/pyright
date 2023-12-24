@@ -399,6 +399,7 @@
         "revealTypeExpectedTextMismatch": "Type text mismatch; expected \"{expected}\" but received \"{received}\"",
         "revealTypeExpectedTypeMismatch": "Type mismatch; expected \"{expected}\" but received \"{received}\"",
         "selfTypeContext": "\"Self\" is not valid in this context",
+        "selfTypeMetaclass": "\"Self\" cannot be used within a metaclass (a subclass of \"type\")",
         "selfTypeWithTypedSelfOrCls": "\"Self\" cannot be used in a function with a `self` or `cls` parameter that has a type annotation other than \"Self\"",
         "setterGetterTypeMismatch": "Property setter value type is not assignable to the getter return type",
         "singleOverload": "\"{name}\" is marked as overload, but additional overloads are missing",
