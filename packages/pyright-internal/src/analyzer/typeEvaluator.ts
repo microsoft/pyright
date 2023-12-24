@@ -14661,10 +14661,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        const enclosingClass = ParseTreeUtils.getEnclosingClass(errorNode);
+        let enclosingClass = ParseTreeUtils.getEnclosingClass(errorNode);
+
+        // If `Self` appears anywhere outside of the class body (e.g. a decorator,
+        // base class list, metaclass argument, type parameter list), it is
+        // considered illegal.
+        if (enclosingClass && !ParseTreeUtils.isNodeContainedWithin(errorNode, enclosingClass.suite)) {
+            enclosingClass = undefined;
+        }
+
         const enclosingClassTypeResult = enclosingClass ? getTypeOfClass(enclosingClass) : undefined;
         if (!enclosingClassTypeResult) {
-            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            if ((flags & (EvaluatorFlags.ExpectingTypeAnnotation | EvaluatorFlags.ExpectingInstantiableType)) !== 0) {
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -14672,6 +14680,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     errorNode
                 );
             }
+
+            return UnknownType.create();
+        } else if (isInstantiableMetaclass(enclosingClassTypeResult.classType)) {
+            // If `Self` appears within a metaclass, it is considered illegal.
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.selfTypeMetaclass(),
+                errorNode
+            );
 
             return UnknownType.create();
         }

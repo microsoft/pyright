@@ -1456,7 +1456,7 @@ test('Parameters1', () => {
 test('Self1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self1.py']);
 
-    TestUtils.validateResults(analysisResults, 12);
+    TestUtils.validateResults(analysisResults, 15);
 });
 
 test('Self2', () => {
