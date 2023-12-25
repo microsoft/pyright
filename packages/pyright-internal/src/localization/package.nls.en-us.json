@@ -460,6 +460,7 @@
         "typeCheckOnly": "\"{name}\" is marked as @type_check_only and can be used only in type annotations",
         "typeCommentDeprecated": "Use of type comments is deprecated; use type annotation instead",
         "typedDictAccess": "Could not access item in TypedDict",
+        "typedDictAssignedName": "TypedDict must be assigned to a variable named \"{name}\"",
         "typedDictBadVar": "TypedDict classes can contain only type annotations",
         "typedDictBaseClass": "All base classes for TypedDict classes must also be TypedDict classes",
         "typedDictBoolParam": "Expected \"{name}\" parameter to have a value of True or False",

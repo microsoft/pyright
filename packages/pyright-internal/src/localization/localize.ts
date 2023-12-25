@@ -932,6 +932,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeCheckOnly'));
         export const typeCommentDeprecated = () => getRawString('Diagnostic.typeCommentDeprecated');
         export const typedDictAccess = () => getRawString('Diagnostic.typedDictAccess');
+        export const typedDictAssignedName = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictAssignedName'));
         export const typedDictBadVar = () => getRawString('Diagnostic.typedDictBadVar');
         export const typedDictBaseClass = () => getRawString('Diagnostic.typedDictBaseClass');
         export const typedDictBoolParam = () =>

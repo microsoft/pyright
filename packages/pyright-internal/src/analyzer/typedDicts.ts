@@ -65,7 +65,7 @@ import {
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
-// Creates a new custom TypedDict factory class.
+// Creates a new custom TypedDict "alternate syntax" factory class.
 export function createTypedDictType(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
@@ -77,7 +77,7 @@ export function createTypedDictType(
     // TypedDict supports two different syntaxes:
     // Point2D = TypedDict('Point2D', {'x': int, 'y': int, 'label': str})
     // Point2D = TypedDict('Point2D', x=int, y=int, label=str)
-    let className = 'TypedDict';
+    let className: string | undefined;
     if (argList.length === 0) {
         evaluator.addError(Localizer.Diagnostic.typedDictFirstArg(), errorNode);
     } else {
@@ -93,9 +93,10 @@ export function createTypedDictType(
         }
     }
 
+    const effectiveClassName = className || 'TypedDict';
     const classType = ClassType.createInstantiable(
-        className,
-        ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
+        effectiveClassName,
+        ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, effectiveClassName),
         fileInfo.moduleName,
         fileInfo.fileUri,
         ClassTypeFlags.TypedDictClass,
@@ -192,6 +193,23 @@ export function createTypedDictType(
     }
 
     synthesizeTypedDictClassMethods(evaluator, errorNode, classType, /* isClassFinal */ false);
+
+    // Validate that the assigned variable name is consistent with the provided name.
+    if (errorNode.parent?.nodeType === ParseNodeType.Assignment && className) {
+        const target = errorNode.parent.leftExpression;
+        const typedDictTarget = target.nodeType === ParseNodeType.TypeAnnotation ? target.valueExpression : target;
+
+        if (typedDictTarget.nodeType === ParseNodeType.Name) {
+            if (typedDictTarget.value !== className) {
+                evaluator.addError(
+                    Localizer.Diagnostic.typedDictAssignedName().format({
+                        name: className,
+                    }),
+                    typedDictTarget
+                );
+            }
+        }
+    }
 
     return classType;
 }
