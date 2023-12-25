@@ -16147,27 +16147,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         }
                     }
+                } else if (ClassType.isTypedDictClass(classType)) {
+                    if (arg.name.value === 'total') {
+                        // The "total" and "readonly" parameters apply only for TypedDict classes.
+                        // PEP 589 specifies that the parameter must be either True or False.
+                        const constArgValue = evaluateStaticBoolExpression(
+                            arg.valueExpression,
+                            fileInfo.executionEnvironment,
+                            fileInfo.definedConstants
+                        );
+                        if (constArgValue === undefined) {
+                            addError(
+                                Localizer.Diagnostic.typedDictBoolParam().format({ name: arg.name.value }),
+                                arg.valueExpression
+                            );
+                        } else if (arg.name.value === 'total' && !constArgValue) {
+                            classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
+                        }
+                    } else {
+                        addError(
+                            Localizer.Diagnostic.typedDictInitsubclassParameter().format({ name: arg.name.value }),
+                            arg
+                        );
+                    }
                 } else if (arg.name.value === 'metaclass') {
                     if (metaclassNode) {
                         addError(Localizer.Diagnostic.metaclassDuplicate(), arg);
                     } else {
                         metaclassNode = arg.valueExpression;
-                    }
-                } else if (ClassType.isTypedDictClass(classType) && arg.name.value === 'total') {
-                    // The "total" and "readonly" parameters apply only for TypedDict classes.
-                    // PEP 589 specifies that the parameter must be either True or False.
-                    const constArgValue = evaluateStaticBoolExpression(
-                        arg.valueExpression,
-                        fileInfo.executionEnvironment,
-                        fileInfo.definedConstants
-                    );
-                    if (constArgValue === undefined) {
-                        addError(
-                            Localizer.Diagnostic.typedDictBoolParam().format({ name: arg.name.value }),
-                            arg.valueExpression
-                        );
-                    } else if (arg.name.value === 'total' && !constArgValue) {
-                        classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
                     }
                 } else {
                     // Collect arguments that will be passed to the `__init_subclass__`

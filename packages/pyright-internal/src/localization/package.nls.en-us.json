@@ -472,6 +472,7 @@
         "typedDictFieldReadOnlyRedefinition": "TypedDict field \"{name}\" cannot be redefined as ReadOnly",
         "typedDictFieldRequiredRedefinition": "TypedDict field \"{name}\" cannot be redefined as Required",
         "typedDictFirstArg": "Expected TypedDict class name as first argument",
+        "typedDictInitsubclassParameter": "TypedDict does not support __init_subclass__ parameter \"{name}\"",
         "typedDictNotAllowed": "\"TypedDict\" cannot be used in this context",
         "typedDictSecondArgDict": "Expected dict or keyword parameter as second parameter",
         "typedDictSecondArgDictEntry": "Expected simple dictionary entry",
