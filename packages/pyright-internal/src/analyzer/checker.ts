@@ -3888,6 +3888,9 @@ export class Checker extends ParseTreeWalker {
                     if (isNoneInstance(subtype)) {
                         diag.addMessage(Localizer.DiagnosticAddendum.noneNotAllowed());
                         isSupported = false;
+                    } else if (ClassType.isTypedDictClass(subtype)) {
+                        diag.addMessage(Localizer.DiagnosticAddendum.typedDictClassNotAllowed());
+                        isSupported = false;
                     } else if (subtype.isTypeArgumentExplicit && !subtype.includeSubclasses) {
                         // If it's a class, make sure that it has not been given explicit
                         // type arguments. This will result in a TypeError exception.

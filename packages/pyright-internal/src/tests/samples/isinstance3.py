@@ -5,7 +5,17 @@
 
 import sys
 from abc import abstractmethod
-from typing import Any, Callable, Generic, Sequence, Tuple, Type, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    TypedDict,
+    Union,
+)
 
 if sys.version_info >= (3, 10):
     from types import NoneType
@@ -78,3 +88,13 @@ if isinstance(a, Callable[[], Any]):
 
 if isinstance(a, type(len)):
     ...
+
+
+class TD1(TypedDict):
+    a: int
+
+
+# This should generate an error because TypedDict classes can't
+# be used in an isinstance call.
+if isinstance(a, TD1):
+    pass
