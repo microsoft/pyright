@@ -7604,6 +7604,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 Localizer.Diagnostic.tupleInAnnotation() + diag.getString(),
                 node
             );
+
+            return { type: UnknownType.create() };
         }
 
         if (
@@ -15750,16 +15752,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeParameters = getTypeParamCallback();
         typeAliasTypeVar.details.recursiveTypeParameters = typeParameters;
 
-        if (!isLegalTypeAliasExpressionForm(valueNode)) {
-            addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(valueNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.typeAliasIllegalExpressionForm(),
-                valueNode
-            );
-        }
-
-        const aliasTypeResult = getTypeOfExpressionExpectingType(valueNode, { allowForwardReference: true });
+        const aliasTypeResult = getTypeOfExpressionExpectingType(valueNode, {
+            allowForwardReference: true,
+            enforceTypeAnnotationRules: true,
+        });
         let isIncomplete = false;
         let aliasType = aliasTypeResult.type;
         if (aliasTypeResult.isIncomplete) {
