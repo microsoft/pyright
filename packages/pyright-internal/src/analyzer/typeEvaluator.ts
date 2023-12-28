@@ -20319,7 +20319,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 node,
                 !isAnnotationEvaluationPostponed(AnalyzerNodeInfo.getFileInfo(node))
             );
-            const allowForwardReferences = isWithinTypeAnnotation || fileInfo.isStubFile;
+
+            // Determine if this is part of a "type" statement.
+            const isWithinTypeAliasStatement = !!ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.TypeAlias);
+            const allowForwardReferences = isWithinTypeAnnotation || isWithinTypeAliasStatement || fileInfo.isStubFile;
 
             let symbol: Symbol | undefined;
             const typeParamSymbol = AnalyzerNodeInfo.getTypeParameterSymbol(node);
