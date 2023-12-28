@@ -45,5 +45,9 @@ my_tuple = (S, T)
 TA10 = TypeAliasType("TA10", int, type_params=my_tuple)
 print(TA10.__value__)
 
-type TA11 = int | str
+
+TA11 = TypeAliasType("TA11", int)
 print(TA11.__value__)
+
+type TA12 = int | str
+print(TA12.__value__)
