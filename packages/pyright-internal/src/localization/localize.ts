@@ -646,8 +646,11 @@ export namespace Localizer {
         export const namedTupleNoTypes = () => getRawString('Diagnostic.namedTupleNoTypes');
         export const namedTupleSecondArg = () => getRawString('Diagnostic.namedTupleSecondArg');
         export const newClsParam = () => getRawString('Diagnostic.newClsParam');
+        export const newTypeAnyOrUnknown = () => getRawString('Diagnostic.newTypeAnyOrUnknown');
         export const newTypeBadName = () => getRawString('Diagnostic.newTypeBadName');
         export const newTypeLiteral = () => getRawString('Diagnostic.newTypeLiteral');
+        export const newTypeNameMismatch = () => getRawString('Diagnostic.newTypeNameMismatch');
+        export const newTypeNewTypeClass = () => getRawString('Diagnostic.newTypeNewTypeClass');
         export const newTypeNotAClass = () => getRawString('Diagnostic.newTypeNotAClass');
         export const newTypeParamCount = () => getRawString('Diagnostic.newTypeParamCount');
         export const newTypeProtocolClass = () => getRawString('Diagnostic.newTypeProtocolClass');
@@ -1291,6 +1294,7 @@ export namespace Localizer {
         export const newMethodSignature = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.newMethodSignature'));
         export const noneNotAllowed = () => getRawString('DiagnosticAddendum.noneNotAllowed');
+        export const newTypeClassNotAllowed = () => getRawString('DiagnosticAddendum.newTypeClassNotAllowed');
         export const noOverloadAssignable = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.noOverloadAssignable'));
         export const orPatternMissingName = () =>

@@ -12444,7 +12444,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             errorNode.parent.rightExpression !== errorNode ||
             errorNode.parent.leftExpression.nodeType !== ParseNodeType.Name
         ) {
-            addError(Localizer.Diagnostic.typeAliasTypeMustBeAssigned(), errorNode);
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeAliasTypeMustBeAssigned(),
+                errorNode
+            );
             return undefined;
         }
 
@@ -12454,10 +12459,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (firstArg.valueExpression && firstArg.valueExpression.nodeType === ParseNodeType.StringList) {
             const typeAliasName = firstArg.valueExpression.strings.map((s) => s.value).join('');
             if (typeAliasName !== nameNode.value) {
-                addError(Localizer.Diagnostic.typeAliasTypeNameMismatch(), firstArg.valueExpression);
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.typeAliasTypeNameMismatch(),
+                    firstArg.valueExpression
+                );
             }
         } else {
-            addError(Localizer.Diagnostic.typeAliasTypeNameArg(), firstArg.valueExpression || errorNode);
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeAliasTypeNameArg(),
+                firstArg.valueExpression || errorNode
+            );
             return undefined;
         }
 
@@ -12523,7 +12538,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             if (!isTypeParamListValid) {
-                addError(Localizer.Diagnostic.typeAliasTypeParamInvalid(), typeParamsExpr);
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.typeAliasTypeParamInvalid(),
+                    typeParamsExpr
+                );
                 return undefined;
             }
         }
@@ -12547,7 +12567,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        addError(Localizer.Diagnostic.expectedBoolLiteral(), node);
+        addDiagnostic(
+            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.expectedBoolLiteral(),
+            node
+        );
         return false;
     }
 
@@ -12605,6 +12630,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
+        if (
+            errorNode.parent?.nodeType === ParseNodeType.Assignment &&
+            errorNode.parent.leftExpression.nodeType === ParseNodeType.Name &&
+            errorNode.parent.leftExpression.value !== className
+        ) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.newTypeNameMismatch(),
+                errorNode.parent.leftExpression
+            );
+            return undefined;
+        }
+
         let baseClass = getTypeOfArgumentExpectingType(argList[1]).type;
         let isBaseClassAny = false;
 
@@ -12612,6 +12651,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (objectType && isClassInstance(objectType)) {
                 baseClass = ClassType.cloneAsInstantiable(objectType);
             }
+
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.newTypeAnyOrUnknown(),
+                argList[1].node ?? errorNode
+            );
 
             isBaseClassAny = true;
         }
@@ -12621,14 +12667,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        if (ClassType.isProtocolClass(baseClass)) {
+        if (ClassType.isProtocolClass(baseClass) || ClassType.isTypedDictClass(baseClass)) {
             addError(Localizer.Diagnostic.newTypeProtocolClass(), argList[1].node || errorNode);
         } else if (baseClass.literalValue !== undefined) {
             addError(Localizer.Diagnostic.newTypeLiteral(), argList[1].node || errorNode);
+        } else if (ClassType.isNewTypeClass(baseClass)) {
+            addError(Localizer.Diagnostic.newTypeNewTypeClass(), argList[1].node || errorNode);
         }
 
         let classFlags = baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
-        classFlags |= ClassTypeFlags.Final;
+        classFlags |= ClassTypeFlags.Final | ClassTypeFlags.NewTypeClass;
         const classType = ClassType.createInstantiable(
             className,
             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
