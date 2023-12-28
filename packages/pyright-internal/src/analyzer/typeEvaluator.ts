@@ -4439,9 +4439,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (effectiveTypeInfo.includesVariableDecl && !type.typeAliasInfo) {
                         let isAllowedTypeForVariable = isTypeVar(type) || isTypeAliasPlaceholder(type);
 
-                        if (isClass(type) && !type.includeSubclasses && !symbol.hasTypedDeclarations()) {
+                        if (
+                            isClass(type) &&
+                            !type.includeSubclasses &&
+                            !symbol.hasTypedDeclarations() &&
+                            ClassType.isValidTypeAliasClass(type)
+                        ) {
                             // This check exempts class types that are created by calling
-                            // NewType, NamedTuple, and by invoking a metaclass directly.
+                            // NewType, NamedTuple, etc.
                             isAllowedTypeForVariable = true;
                         }
 
@@ -9477,8 +9482,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (ClassType.isBuiltIn(expandedCallType)) {
             const className = expandedCallType.aliasName ?? expandedCallType.details.name;
 
-            // Handle the 'type' call specially.
-            if (expandedCallType.details.name === 'type') {
+            // Handle a call to a metaclass explicitly.
+            if (isInstantiableMetaclass(expandedCallType)) {
                 if (expandedCallType.typeArguments && expandedCallType.isTypeArgumentExplicit) {
                     addDiagnostic(
                         AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -9501,9 +9506,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     inferenceContext
                 );
 
-                if (argList.length === 1) {
-                    // The one-parameter form of "type" returns the class
-                    // for the specified object.
+                // The one-parameter form of "type" returns the class
+                // for the specified object.
+                if (expandedCallType.details.name === 'type' && argList.length === 1) {
                     const argType = getTypeOfArgument(argList[0]).type;
                     const returnType = mapSubtypes(argType, (subtype) => {
                         if (
@@ -9523,9 +9528,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (argList.length >= 2) {
-                    // The two-parameter form of "type" returns a new class type
+                    // The two-parameter form of a call to a metaclass returns a new class
                     // built from the specified base types.
-                    return { returnType: createType(errorNode, argList) || AnyType.create() };
+                    return {
+                        returnType: createClassFromMetaclass(errorNode, argList, expandedCallType) || AnyType.create(),
+                    };
                 }
 
                 // If the parameter to type() is not statically known,
@@ -12676,7 +12683,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         let classFlags = baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
-        classFlags |= ClassTypeFlags.Final | ClassTypeFlags.NewTypeClass;
+        classFlags |= ClassTypeFlags.Final | ClassTypeFlags.NewTypeClass | ClassTypeFlags.ValidTypeAliasClass;
         const classType = ClassType.createInstantiable(
             className,
             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
@@ -12725,7 +12732,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Implements the semantics of the multi-parameter variant of the "type" call.
-    function createType(errorNode: ExpressionNode, argList: FunctionArgument[]): ClassType | undefined {
+    function createClassFromMetaclass(
+        errorNode: ExpressionNode,
+        argList: FunctionArgument[],
+        metaclass: ClassType
+    ): ClassType | undefined {
         const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
         const arg0Type = getTypeOfArgument(argList[0]).type;
         if (!isClassInstance(arg0Type) || !ClassType.isBuiltIn(arg0Type, 'str')) {
@@ -12734,6 +12745,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const className = (arg0Type.literalValue as string) || '_';
 
         const arg1Type = getTypeOfArgument(argList[1]).type;
+
+        // TODO - properly handle case where tuple of base classes is provided.
         if (!isClassInstance(arg1Type) || !isTupleClass(arg1Type) || arg1Type.tupleTypeArguments === undefined) {
             return undefined;
         }
@@ -12743,7 +12756,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             fileInfo.fileUri,
-            ClassTypeFlags.None,
+            ClassTypeFlags.ValidTypeAliasClass,
             ParseTreeUtils.getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
             arg1Type.details.effectiveMetaclass
@@ -26115,6 +26128,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             case ParseNodeType.List:
             case ParseNodeType.Set:
                 return false;
+
+            case ParseNodeType.BinaryOperation:
+                return (
+                    node.operator === OperatorType.BitwiseOr &&
+                    isLegalTypeAliasExpressionForm(node.leftExpression) &&
+                    isLegalTypeAliasExpressionForm(node.rightExpression)
+                );
+
+            case ParseNodeType.Index:
+                return isLegalTypeAliasExpressionForm(node.baseExpression);
+
+            case ParseNodeType.MemberAccess:
+                return isLegalTypeAliasExpressionForm(node.leftExpression);
         }
 
         return true;

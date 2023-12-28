@@ -99,7 +99,7 @@ export function createTypedDictType(
         ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, effectiveClassName),
         fileInfo.moduleName,
         fileInfo.fileUri,
-        ClassTypeFlags.TypedDictClass,
+        ClassTypeFlags.TypedDictClass | ClassTypeFlags.ValidTypeAliasClass,
         ParseTreeUtils.getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,
         typedDictClass.details.effectiveMetaclass
