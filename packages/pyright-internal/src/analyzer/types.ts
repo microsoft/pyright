@@ -560,6 +560,10 @@ export const enum ClassTypeFlags {
 
     // Created with the NewType call.
     NewTypeClass = 1 << 28,
+
+    // Class is allowed to be used as an implicit type alias even
+    // though it is not defined using a `class` statement.
+    ValidTypeAliasClass = 1 << 29,
 }
 
 export interface DataClassBehaviors {
@@ -1058,6 +1062,10 @@ export namespace ClassType {
 
     export function isNewTypeClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.NewTypeClass);
+    }
+
+    export function isValidTypeAliasClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.ValidTypeAliasClass);
     }
 
     export function isTypedDictClass(classType: ClassType) {
