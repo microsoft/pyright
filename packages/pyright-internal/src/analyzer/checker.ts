@@ -3906,6 +3906,9 @@ export class Checker extends ParseTreeWalker {
                         // "runtime checkable".
                         diag.addMessage(Localizer.DiagnosticAddendum.protocolRequiresRuntimeCheckable());
                         isSupported = false;
+                    } else if (ClassType.isNewTypeClass(subtype)) {
+                        diag.addMessage(Localizer.DiagnosticAddendum.newTypeClassNotAllowed());
+                        isSupported = false;
                     }
                     break;
 

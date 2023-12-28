@@ -557,6 +557,9 @@ export const enum ClassTypeFlags {
 
     // Decorated with @type_check_only.
     TypeCheckOnly = 1 << 27,
+
+    // Created with the NewType call.
+    NewTypeClass = 1 << 28,
 }
 
 export interface DataClassBehaviors {
@@ -1051,6 +1054,10 @@ export namespace ClassType {
 
     export function isTypeCheckOnly(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.TypeCheckOnly);
+    }
+
+    export function isNewTypeClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.NewTypeClass);
     }
 
     export function isTypedDictClass(classType: ClassType) {
