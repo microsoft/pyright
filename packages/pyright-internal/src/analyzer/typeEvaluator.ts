@@ -12532,7 +12532,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             nameNode,
             nameNode,
             valueExpr,
-            /* isPep695Syntax */ false,
+            /* isPep695Syntax */ true,
             /* typeParamNodes */ undefined,
             () => typeParameters
         );
