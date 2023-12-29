@@ -2161,6 +2161,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         classType: ClassType,
         memberName: string,
         selfType?: ClassType | TypeVarType | undefined,
+        diag?: DiagnosticAddendum,
         recursionCount = 0
     ): FunctionType | OverloadedFunctionType | undefined {
         if (recursionCount > maxTypeRecursionCount) {
@@ -2173,7 +2174,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             classType,
             memberName,
             /* usage */ undefined,
-            /* diag */ undefined,
+            diag,
             MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride,
             selfType,
             recursionCount
@@ -2192,6 +2193,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 boundMethodResult.type,
                 '__call__',
                 selfType ?? ClassType.cloneAsInstance(classType),
+                diag,
                 recursionCount
             );
         }
@@ -12800,7 +12802,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         methodName: string,
         argList: TypeResult[],
         errorNode: ExpressionNode,
-        inferenceContext?: InferenceContext
+        inferenceContext?: InferenceContext,
+        diag?: DiagnosticAddendum
     ): Type | undefined {
         let magicMethodSupported = true;
 
@@ -12810,7 +12813,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
             if (isClass(concreteSubtype)) {
-                magicMethodType = getBoundMagicMethod(concreteSubtype, methodName, subtype);
+                magicMethodType = getBoundMagicMethod(concreteSubtype, methodName, subtype, diag);
             }
 
             if (magicMethodType) {
@@ -18297,7 +18300,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     enterMethodName,
                     [],
                     node.expression,
-                    /* inferenceContext */ undefined
+                    /* inferenceContext */ undefined,
+                    additionalHelp.createAddendum()
                 );
 
                 if (enterType) {
@@ -23247,6 +23251,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     concreteSrcType,
                     '__call__',
                     /* selfType */ undefined,
+                    /* diag */ undefined,
                     recursionCount
                 );
                 if (boundMethod) {
@@ -24073,7 +24078,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const boundMethod = getBoundMagicMethod(objType, '__call__', /* selfType */ undefined, recursionCount);
+        const boundMethod = getBoundMagicMethod(
+            objType,
+            '__call__',
+            /* selfType */ undefined,
+            /* diag */ undefined,
+            recursionCount
+        );
         if (boundMethod) {
             return removeParamSpecVariadicsFromSignature(boundMethod);
         }

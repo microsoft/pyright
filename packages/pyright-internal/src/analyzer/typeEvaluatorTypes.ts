@@ -550,6 +550,7 @@ export interface TypeEvaluator {
         classType: ClassType,
         memberName: string,
         selfType?: ClassType | TypeVarType | undefined,
+        diag?: DiagnosticAddendum,
         recursionCount?: number
     ) => FunctionType | OverloadedFunctionType | undefined;
     getTypeOfMagicMethodCall: (
