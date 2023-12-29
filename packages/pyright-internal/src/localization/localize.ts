@@ -1200,6 +1200,8 @@ export namespace Localizer {
             new ParameterizedString<{ destName: string; srcName: string }>(
                 getRawString('DiagnosticAddendum.functionParamName')
             );
+        export const functionParamPositionOnly = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.functionParamPositionOnly'));
         export const functionReturnTypeMismatch = () =>
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.functionReturnTypeMismatch')
