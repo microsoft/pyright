@@ -180,46 +180,51 @@ export const enum AssignTypeFlags {
     // whether overload signatures overlap.
     OverloadOverlapCheck = 1 << 4,
 
+    // When used in conjunction with OverloadOverlapCheck, look
+    // for partial overlaps. For example, `int | list` overlaps
+    // partially with `int | str`.
+    PartialOverloadOverlapCheck = 1 << 5,
+
     // For function types, skip the return type check.
-    SkipFunctionReturnTypeCheck = 1 << 5,
+    SkipFunctionReturnTypeCheck = 1 << 6,
 
     // Allow bool values to be assigned to TypeGuard[x] types.
-    AllowBoolTypeGuard = 1 << 6,
+    AllowBoolTypeGuard = 1 << 7,
 
     // In most cases, literals are stripped when assigning to a
     // type variable. This overrides the standard behavior.
-    RetainLiteralsForTypeVar = 1 << 7,
+    RetainLiteralsForTypeVar = 1 << 8,
 
     // When validating the type of a self or cls parameter, allow
     // a type mismatch. This is used in overload consistency validation
     // because overloads can provide explicit type annotations for self
     // or cls.
-    SkipSelfClsTypeCheck = 1 << 8,
+    SkipSelfClsTypeCheck = 1 << 9,
 
     // If an assignment is made to a TypeVar that is out of scope,
     // do not generate an error. This is used for populating the
     // typeVarContext when handling contravariant parameters in a callable.
-    IgnoreTypeVarScope = 1 << 9,
+    IgnoreTypeVarScope = 1 << 10,
 
     // We're initially populating the typeVarContext with an expected type,
     // so TypeVars should match the specified type exactly rather than
     // employing narrowing or widening, and don't strip literals.
-    PopulatingExpectedType = 1 << 10,
+    PopulatingExpectedType = 1 << 11,
 
     // Used with PopulatingExpectedType, this flag indicates that a TypeVar
     // constraint that is Unknown should be ignored.
-    SkipPopulateUnknownExpectedType = 1 << 11,
+    SkipPopulateUnknownExpectedType = 1 << 12,
 
     // Normally, when a class type is assigned to a TypeVar and that class
     // hasn't previously been specialized, it will be specialized with
     // default type arguments (typically "Unknown"). This flag skips
     // this step.
-    AllowUnspecifiedTypeArguments = 1 << 12,
+    AllowUnspecifiedTypeArguments = 1 << 13,
 
     // PEP 544 says that if the dest type is a type[Proto] class,
     // the source must be a "concrete" (non-protocol) class. This
     // flag skips this check.
-    IgnoreProtocolAssignmentCheck = 1 << 13,
+    IgnoreProtocolAssignmentCheck = 1 << 14,
 }
 
 export interface ApplyTypeVarOptions {
