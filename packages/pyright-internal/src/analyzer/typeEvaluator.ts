@@ -23481,7 +23481,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             const remainingDestSubtypes: Type[] = [];
-            let remainingSrcSubtypes: Type[] = sortedSrcTypes;
+            let remainingSrcSubtypes: Type[] = [...sortedSrcTypes];
+            sortedSrcTypes = []
             let canUseFastPath = true;
 
             // First attempt to match all of the non-generic types in the dest
@@ -23495,6 +23496,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
 
                     if (srcTypeIndex >= 0) {
+                        sortedSrcTypes.push(remainingSrcSubtypes[srcTypeIndex]);
                         remainingSrcSubtypes.splice(srcTypeIndex, 1);
                     } else {
                         remainingDestSubtypes.push(destSubtype);
@@ -23591,7 +23593,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     canUseFastPath = false;
 
                     // We can avoid checking the source subtypes that have already been checked.
-                    sortedSrcTypes = remainingSrcSubtypes;
+                    appendArray(sortedSrcTypes, remainingSrcSubtypes);
                 } else if (remainingDestSubtypes.length === remainingSrcSubtypes.length) {
                     // If the number of remaining source subtypes is the same as the number
                     // of dest TypeVars, try to assign each source subtype to its own dest TypeVar.
@@ -23613,7 +23615,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     });
 
                     // We can avoid checking the source subtypes that have already been checked.
-                    sortedSrcTypes = remainingSrcSubtypes;
+                    appendArray(sortedSrcTypes, remainingSrcSubtypes);
                 } else if (remainingSrcSubtypes.length === 0) {
                     if ((flags & AssignTypeFlags.PopulatingExpectedType) !== 0) {
                         // If we're populating an expected type, try not to leave
@@ -23660,15 +23662,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let isIncompatible = false;
 
-        sortedSrcTypes.forEach((subtype) => {
+        for (let argIndex = 0; argIndex < sortedSrcTypes.length; argIndex++) {
             if (isIncompatible) {
-                return;
+                break;
             }
 
             if (
                 !assignType(
                     destType,
-                    subtype,
+                    sortedSrcTypes[argIndex],
                     /* diag */ undefined,
                     destTypeVarContext,
                     srcTypeVarContext,
@@ -23679,7 +23681,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Determine if the current subtype is subsumed by another subtype
                 // in the same union. If so, we can ignore this.
                 const isSubtypeSubsumed = isTypeSubsumedByOtherType(
-                    subtype,
+                    sortedSrcTypes[argIndex],
                     srcType,
                     /* allowAnyToSubsume */ false,
                     recursionCount
@@ -23690,7 +23692,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !isSubtypeSubsumed &&
                     !assignType(
                         destType,
-                        subtype,
+                        sortedSrcTypes[argIndex],
                         diag?.createAddendum(),
                         destTypeVarContext,
                         srcTypeVarContext,
@@ -23700,8 +23702,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ) {
                     isIncompatible = true;
                 }
+            } else {
+                isIncompatible = false;
+                break;
             }
-        }, /* sortSubtypes */ true);
+        }
 
         if (isIncompatible) {
             diag?.addMessage(

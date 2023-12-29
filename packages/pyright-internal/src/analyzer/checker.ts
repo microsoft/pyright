@@ -2602,17 +2602,32 @@ export class Checker extends ParseTreeWalker {
         for (let i = 0; i < prevOverloads.length; i++) {
             const prevOverload = prevOverloads[i];
             if (this._isOverlappingOverload(functionType, prevOverload)) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportOverlappingOverload,
-                    DiagnosticRule.reportOverlappingOverload,
-                    Localizer.Diagnostic.overlappingOverload().format({
-                        name: node.name.value,
-                        obscured: prevOverloads.length + 1,
-                        obscuredBy: i + 1,
-                    }),
-                    node.name
-                );
-                break;
+                const prevReturnType = FunctionType.getSpecializedReturnType(prevOverload);
+                const returnType = FunctionType.getSpecializedReturnType(functionType);
+                if (
+                    prevReturnType &&
+                    returnType &&
+                    !this._evaluator.assignType(
+                        prevReturnType,
+                        returnType,
+                        /* diag */ undefined,
+                        new TypeVarContext(),
+                        /* srcTypeVarContext */ undefined,
+                        AssignTypeFlags.SkipSolveTypeVars | AssignTypeFlags.IgnoreTypeVarScope
+                    )
+                ) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportOverlappingOverload,
+                        DiagnosticRule.reportOverlappingOverload,
+                        Localizer.Diagnostic.overlappingOverload().format({
+                            name: node.name.value,
+                            obscured: prevOverloads.length + 1,
+                            obscuredBy: i + 1,
+                        }),
+                        node.name
+                    );
+                    break;
+                }
             }
         }
 
