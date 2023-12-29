@@ -278,7 +278,7 @@ function assignClassToProtocolInternal(
 
     let typesAreConsistent = true;
     const checkedSymbolSet = new Set<string>();
-    let assignTypeFlags = flags & AssignTypeFlags.OverloadOverlapCheck;
+    let assignTypeFlags = flags & (AssignTypeFlags.OverloadOverlapCheck | AssignTypeFlags.PartialOverloadOverlapCheck);
 
     assignTypeFlags |= containsLiteralType(srcType, /* includeTypeArgs */ true)
         ? AssignTypeFlags.RetainLiteralsForTypeVar
