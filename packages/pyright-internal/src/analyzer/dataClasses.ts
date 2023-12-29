@@ -525,10 +525,7 @@ export function synthesizeDataClassMethods(
             });
 
             if (keywordOnlyParams.length > 0) {
-                FunctionType.addParameter(initType, {
-                    category: ParameterCategory.ArgsList,
-                    type: AnyType.create(),
-                });
+                FunctionType.addKeywordOnlyParameterSeparator(initType);
                 keywordOnlyParams.forEach((param) => {
                     FunctionType.addParameter(initType, param);
                 });
@@ -769,11 +766,7 @@ function getConverterInputType(
         type: typeVar,
         hasDeclaredType: true,
     });
-    FunctionType.addParameter(targetFunction, {
-        category: ParameterCategory.Simple,
-        name: '',
-        type: UnknownType.create(),
-    });
+    FunctionType.addPositionOnlyParameterSeparator(targetFunction);
 
     if (isFunction(converterType)) {
         const typeVarContext = new TypeVarContext(typeVar.scopeId);

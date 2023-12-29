@@ -3948,10 +3948,7 @@ class TypeVarTransformer {
                     // Insert a keyword-only separator parameter if we previously
                     // unpacked a variadic TypeVar.
                     if (param.category === ParameterCategory.Simple && param.name && insertKeywordOnlySeparator) {
-                        FunctionType.addParameter(newFunctionType, {
-                            category: ParameterCategory.ArgsList,
-                            type: UnknownType.create(),
-                        });
+                        FunctionType.addKeywordOnlyParameterSeparator(newFunctionType);
                         insertKeywordOnlySeparator = false;
                     }
 
