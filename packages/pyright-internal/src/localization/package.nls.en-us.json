@@ -616,6 +616,7 @@
         "finalMethod": "Final method",
         "functionParamDefaultMissing": "Parameter \"{name}\" is missing default argument",
         "functionParamName": "Parameter name mismatch: \"{destName}\" versus \"{srcName}\"",
+        "functionParamPositionOnly": "Position-only parameter mismatch; parameter \"{name}\" is not position-only",
         "functionReturnTypeMismatch": "Function return type \"{sourceType}\" is incompatible with type \"{destType}\"",
         "functionTooFewParams": "Function accepts too few positional parameters; expected {expected} but received {received}",
         "functionTooManyParams": "Function accepts too many positional parameters; expected {expected} but received {received}",
