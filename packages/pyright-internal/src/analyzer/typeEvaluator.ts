@@ -22215,7 +22215,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ) {
         const destTypeArgs = [...(destType.tupleTypeArguments ?? [])];
         const srcTypeArgs = [...(srcType.tupleTypeArguments ?? [])];
-
+        let assignableTupleTypeArgs = 0;
         if (adjustTupleTypeArgs(destTypeArgs, srcTypeArgs, flags)) {
             for (let argIndex = 0; argIndex < srcTypeArgs.length; argIndex++) {
                 const entryDiag = diag?.createAddendum();
@@ -22238,7 +22238,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             })
                         );
                     }
-                    return false;
+                    assignableTupleTypeArgs++;
                 }
             }
         } else {
@@ -22260,7 +22260,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return false;
         }
 
-        return true;
+        if (assignableTupleTypeArgs === srcTypeArgs.length) {
+            return false;
+        } else {
+            return true;
+        }
     }
 
     // Determines whether the specified type can be assigned to the
