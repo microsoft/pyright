@@ -24343,21 +24343,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const destParamName = destParam.param.name ?? '';
             const srcParamName = srcParam.param.name ?? '';
-            if (destParamName && !isPrivateOrProtectedName(destParamName) && !isPrivateOrProtectedName(srcParamName)) {
+            if (destParamName) {
                 const isDestPositionalOnly = destParam.source === ParameterSource.PositionOnly;
                 if (
                     !isDestPositionalOnly &&
                     destParam.param.category !== ParameterCategory.ArgsList &&
-                    srcParam.param.category !== ParameterCategory.ArgsList &&
-                    destParamName !== srcParamName
+                    srcParam.param.category !== ParameterCategory.ArgsList
                 ) {
-                    diag?.createAddendum().addMessage(
-                        Localizer.DiagnosticAddendum.functionParamName().format({
-                            srcName: srcParamName,
-                            destName: destParamName,
-                        })
-                    );
-                    canAssign = false;
+                    if (srcParam.source === ParameterSource.PositionOnly) {
+                        diag?.createAddendum().addMessage(
+                            Localizer.DiagnosticAddendum.functionParamPositionOnly().format({
+                                name: destParamName,
+                            })
+                        );
+                        canAssign = false;
+                    } else if (destParamName !== srcParamName) {
+                        diag?.createAddendum().addMessage(
+                            Localizer.DiagnosticAddendum.functionParamName().format({
+                                srcName: srcParamName,
+                                destName: destParamName,
+                            })
+                        );
+                        canAssign = false;
+                    }
                 }
             }
 

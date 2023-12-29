@@ -64,3 +64,25 @@ def func2() -> None:
 
 
 v: CallbackProto2 = func2
+
+
+class TestClass7(Protocol):
+    def __call__(self, x: int, /, y: str) -> Any:
+        ...
+
+
+def func8(x: int, y: str, /) -> Any:
+    pass
+
+
+def func9(__x: int, __y: str) -> Any:
+    pass
+
+
+# This should generate an error because "y" is position-only
+# in the source but not the dest.
+var7: TestClass7 = func8
+
+# This should generate an error because "y" is position-only
+# in the source but not the dest.
+var8: TestClass7 = func9
