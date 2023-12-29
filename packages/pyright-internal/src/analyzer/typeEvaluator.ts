@@ -2620,6 +2620,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ) {
                         return specializedType.typeArguments[0];
                     }
+
+                    return UnknownType.create();
                 }
             }
 
