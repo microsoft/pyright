@@ -2601,7 +2601,7 @@ export class Checker extends ParseTreeWalker {
     ) {
         for (let i = 0; i < prevOverloads.length; i++) {
             const prevOverload = prevOverloads[i];
-            if (this._isOverlappingOverload(functionType, prevOverload)) {
+            if (this._isOverlappingOverload(functionType, prevOverload, /* partialOverlap */ false)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportOverlappingOverload,
                     DiagnosticRule.reportOverlappingOverload,
@@ -2618,7 +2618,7 @@ export class Checker extends ParseTreeWalker {
 
         for (let i = 0; i < prevOverloads.length; i++) {
             const prevOverload = prevOverloads[i];
-            if (this._isOverlappingOverload(prevOverload, functionType)) {
+            if (this._isOverlappingOverload(prevOverload, functionType, /* partialOverlap */ true)) {
                 const prevReturnType = FunctionType.getSpecializedReturnType(prevOverload);
                 const returnType = FunctionType.getSpecializedReturnType(functionType);
 
@@ -2672,7 +2672,7 @@ export class Checker extends ParseTreeWalker {
         return undefined;
     }
 
-    private _isOverlappingOverload(functionType: FunctionType, prevOverload: FunctionType) {
+    private _isOverlappingOverload(functionType: FunctionType, prevOverload: FunctionType, partialOverlap: boolean) {
         // According to precedent, the __get__ method is special-cased and is
         // exempt from overlapping overload checks. It's not clear why this is
         // the case, but for consistency with other type checkers, we'll honor
@@ -2682,13 +2682,18 @@ export class Checker extends ParseTreeWalker {
             return false;
         }
 
+        let flags = AssignTypeFlags.SkipFunctionReturnTypeCheck | AssignTypeFlags.OverloadOverlapCheck;
+        if (partialOverlap) {
+            flags |= AssignTypeFlags.PartialOverloadOverlapCheck;
+        }
+
         return this._evaluator.assignType(
             functionType,
             prevOverload,
             /* diag */ undefined,
             new TypeVarContext(getTypeVarScopeId(functionType)),
             /* srcTypeVarContext */ undefined,
-            AssignTypeFlags.SkipFunctionReturnTypeCheck | AssignTypeFlags.OverloadOverlapCheck
+            flags
         );
     }
 

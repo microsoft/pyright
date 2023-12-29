@@ -23462,6 +23462,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Sort the subtypes so we have a deterministic order for unions.
         let sortedSrcTypes: Type[] = sortTypes(srcType.subtypes);
+        let matchedSomeSubtypes = false;
 
         // Handle the case where the source and dest are both unions. Try
         // to eliminate as many exact type matches between the src and dest.
@@ -23501,6 +23502,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (srcTypeIndex >= 0) {
                         remainingSrcSubtypes.splice(srcTypeIndex, 1);
+                        matchedSomeSubtypes = true;
                     } else {
                         remainingDestSubtypes.push(destSubtype);
                     }
@@ -23568,6 +23570,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     remainingDestSubtypes.splice(destTypeIndex, 1);
                     remainingSrcSubtypes = remainingSrcSubtypes.filter((t) => t !== srcSubtype);
+
+                    // Note that we have matched at least one subtype indicating
+                    // there is at least some overlap.
+                    matchedSomeSubtypes = true;
                 }
             });
 
@@ -23661,6 +23667,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (canUseFastPath) {
                 return true;
             }
+
+            // If we're looking for type overlaps and at least one type was matched,
+            // consider it as assignable.
+            if ((flags & AssignTypeFlags.PartialOverloadOverlapCheck) !== 0 && matchedSomeSubtypes) {
+                return true;
+            }
         }
 
         let isIncompatible = false;
@@ -23705,10 +23717,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ) {
                     isIncompatible = true;
                 }
+            } else {
+                matchedSomeSubtypes = true;
             }
         }, /* sortSubtypes */ true);
 
         if (isIncompatible) {
+            // If we're looking for type overlaps and at least one type was matched,
+            // consider it as assignable.
+            if ((flags & AssignTypeFlags.PartialOverloadOverlapCheck) !== 0 && matchedSomeSubtypes) {
+                return true;
+            }
+
             diag?.addMessage(
                 Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType))
             );
