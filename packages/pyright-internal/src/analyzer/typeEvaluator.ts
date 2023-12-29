@@ -2403,10 +2403,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Add a keyword separator if necessary.
         if (kwSeparatorIndex < 0) {
-            FunctionType.addParameter(newFunction, {
-                category: ParameterCategory.ArgsList,
-                type: AnyType.create(),
-            });
+            FunctionType.addKeywordOnlyParameterSeparator(newFunction);
         }
 
         tdEntries.forEach((tdEntry, name) => {
@@ -6617,6 +6614,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             hasDeclaredType: true,
                         });
                     });
+                    FunctionType.addPositionOnlyParameterSeparator(functionType);
 
                     assignTypeToTypeVar(
                         evaluatorInterface,
@@ -6642,12 +6640,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (concatTypeArgs && concatTypeArgs.length > 0) {
                         concatTypeArgs.forEach((typeArg, index) => {
                             if (index === concatTypeArgs.length - 1) {
-                                // Add a position-only separator
-                                FunctionType.addParameter(functionType, {
-                                    category: ParameterCategory.Simple,
-                                    isNameSynthesized: false,
-                                    type: UnknownType.create(),
-                                });
+                                FunctionType.addPositionOnlyParameterSeparator(functionType);
 
                                 if (isParamSpec(typeArg)) {
                                     functionType.details.paramSpec = typeArg;
@@ -8024,11 +8017,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (lambdaParams.length > 0) {
             const lastParam = lambdaParams[lambdaParams.length - 1];
             if (lastParam.category === ParameterCategory.Simple && !lastParam.name) {
-                FunctionType.addParameter(expectedType, {
-                    category: ParameterCategory.Simple,
-                    name: '',
-                    type: UnknownType.create(),
-                });
+                FunctionType.addPositionOnlyParameterSeparator(expectedType);
             }
         }
 
@@ -13968,11 +13957,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !isImplicitPositionOnlyParam &&
                     functionType.details.parameters.length > 0
                 ) {
-                    // Insert an implicit "position-only parameter" separator.
-                    FunctionType.addParameter(functionType, {
-                        category: ParameterCategory.Simple,
-                        type: UnknownType.create(),
-                    });
+                    FunctionType.addPositionOnlyParameterSeparator(functionType);
                 }
 
                 if (!isImplicitPositionOnlyParam) {
@@ -13993,11 +13978,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         if (paramsArePositionOnly && functionType.details.parameters.length > 0) {
-            // Insert an implicit "position-only parameter" separator.
-            FunctionType.addParameter(functionType, {
-                category: ParameterCategory.Simple,
-                type: UnknownType.create(),
-            });
+            FunctionType.addPositionOnlyParameterSeparator(functionType);
         }
 
         let typeErrors = false;
@@ -14407,12 +14388,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
 
                 if (typeList.length > 0) {
-                    // Add a positional-only separator to the end of the parameter list.
-                    FunctionType.addParameter(functionType, {
-                        category: ParameterCategory.Simple,
-                        isNameSynthesized: false,
-                        type: UnknownType.create(),
-                    });
+                    FunctionType.addPositionOnlyParameterSeparator(functionType);
                 }
             } else if (isEllipsisType(typeArgs[0].type)) {
                 FunctionType.addDefaultParameters(functionType);
@@ -14425,12 +14401,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (concatTypeArgs && concatTypeArgs.length > 0) {
                         concatTypeArgs.forEach((typeArg, index) => {
                             if (index === concatTypeArgs.length - 1) {
-                                // Add a position-only separator
-                                FunctionType.addParameter(functionType, {
-                                    category: ParameterCategory.Simple,
-                                    isNameSynthesized: false,
-                                    type: UnknownType.create(),
-                                });
+                                FunctionType.addPositionOnlyParameterSeparator(functionType);
 
                                 if (isParamSpec(typeArg)) {
                                     functionType.details.paramSpec = typeArg;
@@ -17471,11 +17442,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !isImplicitPositionOnlyParam &&
                     functionType.details.parameters.length > firstNonClsSelfParamIndex
                 ) {
-                    // Insert an implicit "position-only parameter" separator.
-                    FunctionType.addParameter(functionType, {
-                        category: ParameterCategory.Simple,
-                        type: UnknownType.create(),
-                    });
+                    FunctionType.addPositionOnlyParameterSeparator(functionType);
                 }
 
                 if (!isImplicitPositionOnlyParam) {
@@ -17520,11 +17487,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         if (paramsArePositionOnly && functionType.details.parameters.length > firstNonClsSelfParamIndex) {
-            // Insert an implicit "position-only parameter" separator.
-            FunctionType.addParameter(functionType, {
-                category: ParameterCategory.Simple,
-                type: UnknownType.create(),
-            });
+            FunctionType.addPositionOnlyParameterSeparator(functionType);
         }
 
         // Update the types for the nodes associated with the parameters.

@@ -278,19 +278,10 @@ export function synthesizeTypedDictClassMethods(
         type: ClassType.cloneAsInstance(classType),
         hasDeclaredType: true,
     });
-
-    FunctionType.addParameter(initOverride1, {
-        category: ParameterCategory.Simple,
-        name: '',
-        type: UnknownType.create(),
-    });
+    FunctionType.addPositionOnlyParameterSeparator(initOverride1);
 
     // All subsequent parameters must be named, so insert an empty "*".
-    FunctionType.addParameter(initOverride1, {
-        category: ParameterCategory.ArgsList,
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
+    FunctionType.addKeywordOnlyParameterSeparator(initOverride1);
 
     const initOverride2 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
     FunctionType.addParameter(initOverride2, {
@@ -302,11 +293,7 @@ export function synthesizeTypedDictClassMethods(
     initOverride2.details.declaredReturnType = evaluator.getNoneType();
 
     // All parameters must be named, so insert an empty "*".
-    FunctionType.addParameter(initOverride2, {
-        category: ParameterCategory.ArgsList,
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
+    FunctionType.addKeywordOnlyParameterSeparator(initOverride2);
 
     const entries = getTypedDictMembersForClass(evaluator, classType);
     let allEntriesAreNotRequired = true;
@@ -517,18 +504,8 @@ export function synthesizeTypedDictClassMethods(
                     : ClassType.cloneAsInstance(ClassType.cloneForPartialTypedDict(classType)),
             });
 
-            FunctionType.addParameter(updateMethod1, {
-                category: ParameterCategory.Simple,
-                name: '',
-                type: AnyType.create(),
-            });
-
-            FunctionType.addParameter(updateMethod3, {
-                category: ParameterCategory.ArgsList,
-                name: '',
-                hasDeclaredType: false,
-                type: UnknownType.create(),
-            });
+            FunctionType.addPositionOnlyParameterSeparator(updateMethod1);
+            FunctionType.addKeywordOnlyParameterSeparator(updateMethod3);
 
             updateMethod1.details.declaredReturnType = evaluator.getNoneType();
             updateMethod2.details.declaredReturnType = evaluator.getNoneType();
@@ -580,11 +557,7 @@ export function synthesizeTypedDictClassMethods(
                 });
             }
 
-            FunctionType.addParameter(updateMethod2, {
-                category: ParameterCategory.Simple,
-                name: '',
-                type: AnyType.create(),
-            });
+            FunctionType.addPositionOnlyParameterSeparator(updateMethod2);
 
             // Note that the order of method1 and method2 is swapped. This is done so
             // the method1 signature is used in the error message when neither method2
