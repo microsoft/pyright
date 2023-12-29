@@ -15787,7 +15787,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const typeParameters = getTypeParamCallback();
-        typeAliasTypeVar.details.recursiveTypeParameters = typeParameters;
+        typeAliasTypeVar.details.recursiveTypeParameters = typeParameters || [];
 
         const aliasTypeResult = getTypeOfExpressionExpectingType(valueNode, {
             allowForwardReference: true,

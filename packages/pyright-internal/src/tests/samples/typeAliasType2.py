@@ -49,3 +49,7 @@ JSONNode = TypeAliasType("JSONNode", list[JSONNode] | dict[str, JSONNode] | str 
 
 class A(Generic[T]):
     L = TypeAliasType("L", list[T])
+
+
+# This should generate an error because S is not in scope.
+TA8 = TypeAliasType("TA8", list[S])
