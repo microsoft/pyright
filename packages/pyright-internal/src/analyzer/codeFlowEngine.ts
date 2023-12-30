@@ -492,6 +492,10 @@ export function getCodeFlowEngine(
                                     }
                                 }
 
+                                if (flowTypeResult && !isFlowNodeReachable(flowNode)) {
+                                    flowTypeResult = undefined;
+                                }
+
                                 return setCacheEntry(curFlowNode, flowTypeResult?.type, !!flowTypeResult?.isIncomplete);
                             }
 

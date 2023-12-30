@@ -3240,6 +3240,8 @@ export class Binder extends ParseTreeWalker {
 
     private _createCallFlowNode(node: CallNode) {
         if (!this._isCodeUnreachable()) {
+            this._addExceptTargets(this._currentFlowNode!);
+
             const flowNode: FlowCall = {
                 flags: FlowFlags.Call,
                 id: this._getUniqueFlowNodeId(),
@@ -3248,10 +3250,6 @@ export class Binder extends ParseTreeWalker {
             };
 
             this._currentFlowNode = flowNode;
-        }
-
-        if (!this._isCodeUnreachable()) {
-            this._addExceptTargets(this._currentFlowNode!);
         }
     }
 
