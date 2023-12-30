@@ -25,7 +25,7 @@ import { CommandLineOptions as PyrightCommandLineOptions } from './common/comman
 import { ConsoleInterface, LogLevel, StandardConsole, StderrConsole } from './common/console';
 import { fail } from './common/debug';
 import { createDeferred } from './common/deferred';
-import { Diagnostic, DiagnosticCategory } from './common/diagnostic';
+import { Diagnostic, DiagnosticCategory, compareDiagnostics } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { FullAccessHost } from './common/fullAccessHost';
 import { combinePaths, normalizePath } from './common/pathUtils';
@@ -815,7 +815,7 @@ function reportDiagnosticsAsJson(
     };
 
     fileDiagnostics.forEach((fileDiag) => {
-        fileDiag.diagnostics.forEach((diag) => {
+        fileDiag.diagnostics.sort(compareDiagnostics).forEach((diag) => {
             if (
                 diag.category === DiagnosticCategory.Error ||
                 diag.category === DiagnosticCategory.Warning ||
@@ -892,13 +892,15 @@ function reportDiagnosticsAsText(
 
     fileDiagnostics.forEach((fileDiagnostics) => {
         // Don't report unused code or deprecated diagnostics.
-        const fileErrorsAndWarnings = fileDiagnostics.diagnostics.filter(
-            (diag) =>
-                diag.category !== DiagnosticCategory.UnusedCode &&
-                diag.category !== DiagnosticCategory.UnreachableCode &&
-                diag.category !== DiagnosticCategory.Deprecated &&
-                isDiagnosticIncluded(convertDiagnosticCategoryToSeverity(diag.category), minSeverityLevel)
-        );
+        const fileErrorsAndWarnings = fileDiagnostics.diagnostics
+            .filter(
+                (diag) =>
+                    diag.category !== DiagnosticCategory.UnusedCode &&
+                    diag.category !== DiagnosticCategory.UnreachableCode &&
+                    diag.category !== DiagnosticCategory.Deprecated &&
+                    isDiagnosticIncluded(convertDiagnosticCategoryToSeverity(diag.category), minSeverityLevel)
+            )
+            .sort(compareDiagnostics);
 
         if (fileErrorsAndWarnings.length > 0) {
             console.info(`${fileDiagnostics.fileUri.toUserVisibleString()}`);
