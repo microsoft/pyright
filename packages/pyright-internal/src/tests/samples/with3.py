@@ -3,6 +3,7 @@
 # for the __exit__ or __aexit__ method.
 
 from contextlib import suppress, AsyncExitStack
+from typing import Never
 
 
 def test1() -> None:
@@ -71,3 +72,18 @@ def test4() -> None:
 async def test5() -> str:
     async with AsyncExitStack():
         return "from exit stack"
+
+
+def no_return() -> Never:
+    raise Exception()
+
+
+def test6():
+    val = None
+    with suppress():
+        val = 1
+        no_return()
+        val = 2
+
+    assert val is not None
+    reveal_type(val, expected_text="Literal[1]")
