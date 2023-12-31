@@ -14990,6 +14990,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: AnyType.create() };
         }
 
+        if (typeArgs[0].typeList) {
+            addError(Localizer.Diagnostic.typeArgListNotAllowed(), typeArgs[0].node);
+        }
+
         return {
             type: TypeBase.cloneForAnnotated(typeArgs[0].type),
             isReadOnly: typeArgs[0].isReadOnly,
