@@ -665,6 +665,16 @@ export class Checker extends ParseTreeWalker {
             this._validateGeneratorReturnType(node, functionTypeResult.functionType);
 
             this._reportDeprecatedClassProperty(node, functionTypeResult);
+
+            // If this is not a method, @final is disallowed.
+            if (!containingClassNode && FunctionType.isFinal(functionTypeResult.functionType)) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.finalNonMethod().format({ name: node.name.value }),
+                    node.name
+                );
+            }
         }
 
         // If we're at the module level within a stub file, report a diagnostic
