@@ -241,19 +241,19 @@ def func(val: int | None):
         inner_2()
 ```
 
-### Constrained Type Variables
+### Value-Constrained Type Variables
 
-When a TypeVar is defined, it can be constrained to two or more types.
+When a TypeVar is defined, it can be constrained to two or more types (values).
 
 ```python
 # Example of unconstrained type variable
 _T = TypeVar("_T")
 
-# Example of constrained type variables
+# Example of value-constrained type variables
 _StrOrFloat = TypeVar("_StrOrFloat", str, float)
 ```
 
-When a constrained TypeVar appears more than once within a function signature, the type provided for all instances of the TypeVar must be consistent.
+When a value-constrained TypeVar appears more than once within a function signature, the type provided for all instances of the TypeVar must be consistent.
 
 ```python
 def add(a: _StrOrFloat, b: _StrOrFloat) -> _StrOrFloat:
