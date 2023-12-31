@@ -41,7 +41,12 @@ ClassA._func5 = lambda self: None
 
 class ClassB(ClassA):
     def func1(self):
-        pass
+        # This should generate an error because @final isn't allowed
+        # on non-method functions.
+        @final
+        def func1_inner():
+            pass
+        
 
     @classmethod
     def func2(cls):
@@ -84,3 +89,10 @@ class C(Base4, Base5):
     # and __init__ is marked final there.
     def __init__(self) -> None:
         ...
+
+
+# This should generate an error because @final isn't allowed on
+# non-method functions.
+@final
+def func1():
+    return None

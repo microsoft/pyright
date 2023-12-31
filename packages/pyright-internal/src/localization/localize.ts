@@ -492,6 +492,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; className: string }>(
                 getRawString('Diagnostic.finalMethodOverride')
             );
+        export const finalNonMethod = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.finalNonMethod'));
         export const finalReassigned = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.finalReassigned'));
         export const finalRedeclaration = () =>
