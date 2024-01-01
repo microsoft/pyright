@@ -6045,7 +6045,7 @@ export class Checker extends ParseTreeWalker {
                                     name: memberName,
                                     className: baseClass.details.name,
                                 }) + diagAddendum.getString(),
-                                decl.type === DeclarationType.Function ? decl.node.name : decl.node
+                                getNameNodeForDeclaration(decl) ?? decl.node
                             );
 
                             const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
@@ -6100,7 +6100,7 @@ export class Checker extends ParseTreeWalker {
                                 className: baseClass.details.name,
                                 type: this._evaluator.printType(overrideType),
                             }),
-                            lastDecl.node
+                            getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
                         );
 
                         const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
@@ -6119,6 +6119,7 @@ export class Checker extends ParseTreeWalker {
             if (!isProperty(overrideType)) {
                 const decls = overrideSymbol.getDeclarations();
                 if (decls.length > 0) {
+                    const lastDecl = decls[decls.length - 1];
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
                         DiagnosticRule.reportIncompatibleMethodOverride,
@@ -6126,7 +6127,7 @@ export class Checker extends ParseTreeWalker {
                             name: memberName,
                             className: baseClass.details.name,
                         }),
-                        decls[decls.length - 1].node
+                        getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
                     );
                 }
             } else {
@@ -6156,6 +6157,7 @@ export class Checker extends ParseTreeWalker {
                                 );
                                 const decls = overrideSymbol.getDeclarations();
                                 if (decls.length > 0) {
+                                    const lastDecl = decls[decls.length - 1];
                                     const diag = this._evaluator.addDiagnostic(
                                         this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
                                         DiagnosticRule.reportIncompatibleMethodOverride,
@@ -6163,7 +6165,7 @@ export class Checker extends ParseTreeWalker {
                                             name: memberName,
                                             className: baseClassType.details.name,
                                         }) + diagAddendum.getString(),
-                                        decls[decls.length - 1].node
+                                        getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
                                     );
 
                                     const origDecl = baseClassMethodType.details.declaration;
@@ -6317,7 +6319,7 @@ export class Checker extends ParseTreeWalker {
                                 AnalyzerNodeInfo.getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
                                 message().format({ name: memberName }),
-                                lastDecl.node
+                                getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
                             );
                         }
 
@@ -6330,7 +6332,7 @@ export class Checker extends ParseTreeWalker {
                                 Localizer.Diagnostic.typedDictFieldReadOnlyRedefinition().format({
                                     name: memberName,
                                 }),
-                                lastDecl.node
+                                getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
                             );
                         }
                     }
@@ -6347,7 +6349,7 @@ export class Checker extends ParseTreeWalker {
                                 name: memberName,
                                 className: baseClass.details.name,
                             }),
-                            lastDecl.node
+                            getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
                         );
 
                         if (diag) {
