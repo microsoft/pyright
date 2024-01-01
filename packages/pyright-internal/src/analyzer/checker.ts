@@ -322,8 +322,8 @@ export class Checker extends ParseTreeWalker {
                             if (!ClassType.isProtocolClass(baseClassType)) {
                                 this._evaluator.addError(
                                     Localizer.Diagnostic.protocolBaseClass().format({
-                                        classType: this._evaluator.printType(classTypeResult.classType),
-                                        baseType: this._evaluator.printType(baseClassType),
+                                        classType: classTypeResult.classType.details.name,
+                                        baseType: baseClassType.details.name,
                                     }),
                                     arg.valueExpression
                                 );
