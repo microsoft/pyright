@@ -21,6 +21,7 @@ import {
     nullFileWatcherProvider,
 } from './fileWatcher';
 import { getRootLength } from './pathUtils';
+import { FileUri } from './uri/fileUri';
 import { Uri } from './uri/uri';
 import { getRootUri, isFileSystemCaseSensitive } from './uri/uriUtils';
 
@@ -218,7 +219,7 @@ class RealFileSystem implements FileSystem {
         return this._isCaseSensitive;
     }
     existsSync(uri: Uri) {
-        if (uri.isEmpty()) {
+        if (uri.isEmpty() || !FileUri.isFileUri(uri)) {
             return false;
         }
         const path = uri.getFilePath();
@@ -288,20 +289,50 @@ class RealFileSystem implements FileSystem {
         yarnFS.writeFileSync(path, data, encoding || undefined);
     }
 
-    statSync(uri: Uri) {
-        const path = uri.getFilePath();
-        const stat = yarnFS.statSync(path);
-        // Treat zip/egg files as directories.
-        // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
-        if (hasZipExtension(path)) {
-            if (stat.isFile() && yarnFS.isZip(path)) {
-                stat.isFile = () => false;
-                stat.isDirectory = () => true;
-                (stat as any).isZipDirectory = () => true;
-                return stat;
+    statSync(uri: Uri): fs.Stats {
+        if (FileUri.isFileUri(uri)) {
+            const path = uri.getFilePath();
+            const stat = yarnFS.statSync(path);
+            // Treat zip/egg files as directories.
+            // See: https://github.com/yarnpkg/berry/blob/master/packages/vscode-zipfs/sources/ZipFSProvider.ts
+            if (hasZipExtension(path)) {
+                if (stat.isFile() && yarnFS.isZip(path)) {
+                    stat.isFile = () => false;
+                    stat.isDirectory = () => true;
+                    (stat as any).isZipDirectory = () => true;
+                    return stat;
+                }
             }
+            return stat;
+        } else {
+            return {
+                isFile: () => false,
+                isDirectory: () => false,
+                isBlockDevice: () => false,
+                isCharacterDevice: () => false,
+                isSymbolicLink: () => false,
+                isFIFO: () => false,
+                isSocket: () => false,
+                dev: 0,
+                atimeMs: 0,
+                mtimeMs: 0,
+                ctimeMs: 0,
+                birthtimeMs: 0,
+                size: 0,
+                blksize: 0,
+                blocks: 0,
+                ino: 0,
+                mode: 0,
+                nlink: 0,
+                uid: 0,
+                gid: 0,
+                rdev: 0,
+                atime: new Date(),
+                mtime: new Date(),
+                ctime: new Date(),
+                birthtime: new Date(),
+            };
         }
-        return stat;
     }
 
     rmdirSync(uri: Uri): void {

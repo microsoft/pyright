@@ -792,3 +792,11 @@ test('Realcase use cwd implicitly', () => {
     const fspaths = fsentries.map((entry) => fs.realCasePath(uri.combinePaths(entry)).getFilePath());
     assert.deepStrictEqual(lowerCaseDrive(paths), fspaths);
 });
+
+test('Web URIs dont exist', () => {
+    const fs = createFromRealFileSystem();
+    const uri = Uri.parse('http://www.bing.com', /*ignoreCase*/ true);
+    assert(!fs.existsSync(uri));
+    const stat = fs.statSync(uri);
+    assert(!stat.isFile());
+});
