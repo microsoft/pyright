@@ -55,7 +55,8 @@ export class BackgroundAnalysisBase {
     }
 
     setConfigOptions(configOptions: ConfigOptions) {
-        this.enqueueRequest({ requestType: 'setConfigOptions', data: configOptions });
+        const passable = JSON.parse(JSON.stringify(configOptions));
+        this.enqueueRequest({ requestType: 'setConfigOptions', data: passable });
     }
 
     setTrackedFiles(fileUris: Uri[]) {
