@@ -18,6 +18,7 @@ import {
     InitializationData,
     LogData,
     createConfigOptionsFrom,
+    createJsonObjectFrom,
     getBackgroundWaiter,
     run,
 } from './backgroundThreadBase';
@@ -55,7 +56,7 @@ export class BackgroundAnalysisBase {
     }
 
     setConfigOptions(configOptions: ConfigOptions) {
-        const passable = JSON.parse(JSON.stringify(configOptions));
+        const passable = createJsonObjectFrom(configOptions);
         this.enqueueRequest({ requestType: 'setConfigOptions', data: passable });
     }
 
@@ -220,7 +221,7 @@ export class BackgroundAnalysisBase {
             }
 
             default:
-                debug.fail(`${msg.requestType} is not expected`);
+                debug.fail(`${msg.requestType} is not expected. Message structure: ${JSON.stringify(msg)}`);
         }
     }
 
@@ -454,7 +455,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             }
 
             default: {
-                debug.fail(`${msg.requestType} is not expected`);
+                debug.fail(`${msg.requestType} is not expected. Message structure: ${JSON.stringify(msg)}`);
             }
         }
     }
