@@ -873,7 +873,7 @@ test('ParamSpec3', () => {
 
 test('ParamSpec4', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec4.py']);
-    TestUtils.validateResults(results, 7);
+    TestUtils.validateResults(results, 10);
 });
 
 test('ParamSpec5', () => {

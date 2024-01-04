@@ -71,6 +71,7 @@
         "comparisonAlwaysTrue": "Condition will always evaluate to True since the types \"{leftType}\" and \"{rightType}\" have no overlap",
         "comprehensionInDict": "Comprehension cannot be used with other dictionary entries",
         "comprehensionInSet": "Comprehension cannot be used with other set entries",
+        "concatenateContext": "\"Concatenate\" is not allowed in this context",
         "concatenateParamSpecMissing": "Last type argument for \"Concatenate\" must be a ParamSpec or \"...\"",
         "concatenateTypeArgsMissing": "\"Concatenate\" requires at least two type arguments",
         "conditionalOperandInvalid": "Invalid conditional operand of type \"{type}\"",
