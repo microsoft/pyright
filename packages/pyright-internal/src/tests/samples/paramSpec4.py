@@ -1,7 +1,16 @@
 # This sample tests the type checker's handling of ParamSpec
 # and Concatenate as described in PEP 612.
 
-from typing import Callable, Concatenate, Iterable, ParamSpec, Protocol, TypeVar
+from typing import (
+    Callable,
+    Concatenate,
+    Generic,
+    Iterable,
+    ParamSpec,
+    Protocol,
+    TypeVar,
+    assert_type,
+)
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -130,3 +139,21 @@ def func9(x: Iterable[T]) -> T:
 
 v9 = func9([1, 2])
 reveal_type(v9, expected_text="int")
+
+
+class A(Generic[R, P]):
+    f: Callable[P, str]
+    prop: R
+
+    def __init__(self, f: Callable[P, str], prop: R) -> None:
+        self.f = f
+        self.prop = prop
+
+
+def func10(q: int, /) -> str:
+    ...
+
+
+y1 = A(func10, 1)
+assert_type(y1, A[int, [int]])
+reveal_type(y1, expected_text="A[int, (q: int, /)]")
