@@ -6608,7 +6608,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (typeList) {
                     const functionType = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.ParamSpecValue);
-                    TypeBase.setSpecialForm(functionType);
                     typeList.forEach((paramType, paramIndex) => {
                         FunctionType.addParameter(functionType, {
                             category: ParameterCategory.Simple,
@@ -6618,7 +6617,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             hasDeclaredType: true,
                         });
                     });
-                    FunctionType.addPositionOnlyParameterSeparator(functionType);
+
+                    if (typeList.length > 0) {
+                        FunctionType.addPositionOnlyParameterSeparator(functionType);
+                    }
 
                     assignTypeToTypeVar(
                         evaluatorInterface,
@@ -6677,7 +6679,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         '',
                         FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
                     );
-                    TypeBase.setSpecialForm(functionType);
                     FunctionType.addDefaultParameters(functionType);
                     assignTypeToTypeVar(evaluatorInterface, param, functionType, diag, typeVarContext);
                 } else {
@@ -12377,7 +12378,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             '',
             FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck | FunctionTypeFlags.ParamSpecValue
         );
-        TypeBase.setSpecialForm(functionType);
 
         if (node.nodeType === ParseNodeType.Ellipsis) {
             FunctionType.addDefaultParameters(functionType);
@@ -12396,6 +12396,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     type: convertToInstance(typeResult.type),
                 });
             });
+
+            if (node.entries.length > 0) {
+                FunctionType.addPositionOnlyParameterSeparator(functionType);
+            }
 
             // Update the type cache so we don't attempt to re-evaluate this node.
             // The type doesn't matter, so use Any.
@@ -19703,7 +19707,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (typeParam.details.isParamSpec) {
                     const typeArg = typeArgs[index];
                     const functionType = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.ParamSpecValue);
-                    TypeBase.setSpecialForm(functionType);
 
                     if (isEllipsisType(typeArg.type)) {
                         FunctionType.addDefaultParameters(functionType);
@@ -19723,6 +19726,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 hasDeclaredType: true,
                             });
                         });
+
+                        if (typeArg.typeList.length > 0) {
+                            FunctionType.addPositionOnlyParameterSeparator(functionType);
+                        }
+
                         typeArgTypes.push(functionType);
                         typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(functionType));
                         return;
