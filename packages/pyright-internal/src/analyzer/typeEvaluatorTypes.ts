@@ -152,6 +152,9 @@ export const enum EvaluatorFlags {
     // Protocol and TypedDict are not allowed in this context.
     DisallowNonTypeSpecialForms = 1 << 26,
 
+    // Allow use of the Concatenate special form.
+    AllowConcatenate = 1 << 27,
+
     // Defaults used for evaluating the LHS of a call expression.
     CallBaseDefaults = DoNotSpecialize | TreatPep695TypeAliasAsObject,
 

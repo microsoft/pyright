@@ -322,6 +322,7 @@ export namespace Localizer {
             );
         export const comprehensionInDict = () => getRawString('Diagnostic.comprehensionInDict');
         export const comprehensionInSet = () => getRawString('Diagnostic.comprehensionInSet');
+        export const concatenateContext = () => getRawString('Diagnostic.concatenateContext');
         export const concatenateParamSpecMissing = () => getRawString('Diagnostic.concatenateParamSpecMissing');
         export const concatenateTypeArgsMissing = () => getRawString('Diagnostic.concatenateTypeArgsMissing');
         export const conditionalOperandInvalid = () =>

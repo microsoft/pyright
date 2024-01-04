@@ -157,3 +157,17 @@ def func10(q: int, /) -> str:
 y1 = A(func10, 1)
 assert_type(y1, A[int, [int]])
 reveal_type(y1, expected_text="A[int, (q: int, /)]")
+
+
+# This should generaet an error because Concatenate is not
+# allowed in this context.
+def func11(func: Concatenate[int, ...]) -> None:
+    # This should generate an error because Concatenate is not
+    # allowed in this context.
+    x: Concatenate[int, ...]
+
+
+class B:
+    # This should generate an error because Concatenate is not
+    # allowed in this context.
+    x: Concatenate[int, ...]

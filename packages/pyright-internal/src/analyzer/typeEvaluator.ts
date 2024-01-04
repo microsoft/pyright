@@ -7442,7 +7442,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 adjFlags |= EvaluatorFlags.DisallowClassVar | EvaluatorFlags.DisallowFinal;
             }
 
-            adjFlags |= EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple;
+            adjFlags |= EvaluatorFlags.AllowUnpackedTupleOrTypeVarTuple | EvaluatorFlags.AllowConcatenate;
         }
 
         // Create a local function that validates a single type argument.
@@ -14962,8 +14962,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function createConcatenateType(
         errorNode: ParseNode,
         classType: ClassType,
-        typeArgs: TypeResultWithNode[] | undefined
+        typeArgs: TypeResultWithNode[] | undefined,
+        flags: EvaluatorFlags
     ): Type {
+        if ((flags & EvaluatorFlags.AllowConcatenate) === 0) {
+            addError(Localizer.Diagnostic.concatenateContext(), errorNode);
+            return AnyType.create();
+        }
+
         if (!typeArgs || typeArgs.length === 0) {
             addError(Localizer.Diagnostic.concatenateTypeArgsMissing(), errorNode);
         } else {
@@ -19468,7 +19474,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Concatenate': {
-                    return { type: createConcatenateType(errorNode, classType, typeArgs) };
+                    return { type: createConcatenateType(errorNode, classType, typeArgs, flags) };
                 }
 
                 case 'TypeGuard': {
