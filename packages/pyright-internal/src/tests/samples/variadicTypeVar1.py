@@ -49,3 +49,19 @@ x: list[_Xs] = []
 
 # This should generate an error.
 y: _Xs = ()
+
+
+# This should generate an error because of the name mismatch.
+BadName = TypeVarTuple("Ts1")
+
+# This should generate TypeVarTuple cannot have constraints.
+Ts2 = TypeVarTuple("Ts2", int, str)
+
+# This should generate TypeVarTuple cannot be covariant.
+Ts3 = TypeVarTuple("Ts3", covariant=True)
+
+# This should generate TypeVarTuple cannot be contravariant.
+Ts4 = TypeVarTuple("Ts4", contravariant=True)
+
+# This should generate TypeVarTuple does not accept other keyword arguments.
+Ts5 = TypeVarTuple("Ts5", other=True)

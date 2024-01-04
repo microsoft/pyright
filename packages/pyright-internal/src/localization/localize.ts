@@ -1039,6 +1039,7 @@ export namespace Localizer {
         export const typeVarTupleContext = () => getRawString('Diagnostic.typeVarTupleContext');
         export const typeVarTupleDefaultNotUnpacked = () => getRawString('Diagnostic.typeVarTupleDefaultNotUnpacked');
         export const typeVarTupleMustBeUnpacked = () => getRawString('Diagnostic.typeVarTupleMustBeUnpacked');
+        export const typeVarTupleConstraints = () => getRawString('Diagnostic.typeVarTupleConstraints');
         export const typeVarTupleUnknownParam = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarTupleUnknownParam'));
         export const typeVarUnknownParam = () =>

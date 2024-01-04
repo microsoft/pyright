@@ -12288,6 +12288,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         argList[i].node?.name || argList[i].valueExpression || errorNode
                     );
                 }
+            } else {
+                addError(Localizer.Diagnostic.typeVarTupleConstraints(), argList[i].valueExpression || errorNode);
             }
         }
 
