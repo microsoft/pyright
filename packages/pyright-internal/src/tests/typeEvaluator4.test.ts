@@ -362,7 +362,7 @@ test('Final1', () => {
 
 test('Final2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final2.py']);
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 12);
 });
 
 test('Final3', () => {
@@ -378,6 +378,11 @@ test('Final4', () => {
 test('Final5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final5.py']);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Final6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final6.pyi']);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('InferredTypes1', () => {

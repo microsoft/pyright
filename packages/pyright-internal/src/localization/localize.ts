@@ -708,6 +708,12 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadAbstractMismatch'));
         export const overloadClassMethodInconsistent = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadClassMethodInconsistent'));
+        export const overloadFinalInconsistencyImpl = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadFinalInconsistencyImpl'));
+        export const overloadFinalInconsistencyNoImpl = () =>
+            new ParameterizedString<{ name: string; index: number }>(
+                getRawString('Diagnostic.overloadFinalInconsistencyNoImpl')
+            );
         export const overloadImplementationMismatch = () =>
             new ParameterizedString<{ name: string; index: number }>(
                 getRawString('Diagnostic.overloadImplementationMismatch')
