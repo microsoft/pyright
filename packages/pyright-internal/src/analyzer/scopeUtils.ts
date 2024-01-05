@@ -80,3 +80,17 @@ export function findTopNodeInScope(node: ParseNode, scope: Scope): ParseNode | u
 
     return undefined;
 }
+
+export function isScopeContainedWithin(scope: Scope, potentialParentScope: Scope): boolean {
+    let curScope: Scope | undefined = scope;
+
+    while (curScope) {
+        if (curScope.parent === potentialParentScope) {
+            return true;
+        }
+
+        curScope = curScope.parent;
+    }
+
+    return false;
+}

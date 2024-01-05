@@ -123,6 +123,7 @@ import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { NameBindingType, Scope, ScopeType } from './scope';
+import { isScopeContainedWithin } from './scopeUtils';
 import * as StaticExpressions from './staticExpressions';
 import { Symbol, SymbolFlags, indeterminateSymbolId } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
@@ -137,7 +138,7 @@ interface MemberAccessInfo {
 interface DeferredBindingTask {
     scope: Scope;
     codeFlowExpressions: Set<string>;
-    activeTypeParams: Map<string, Symbol>;
+    activeTypeParams: Map<string, ActiveTypeParameter>;
     callback: () => void;
 }
 
@@ -149,6 +150,11 @@ interface FinalInfo {
 interface ClassVarInfo {
     isClassVar: boolean;
     classVarTypeNode: ExpressionNode | undefined;
+}
+
+interface ActiveTypeParameter {
+    symbol: Symbol;
+    scope: Scope;
 }
 
 // For each flow node within an execution context, we'll add a small
@@ -171,7 +177,7 @@ export class Binder extends ParseTreeWalker {
 
     // Tracks the type parameters that are currently active within the
     // scope and any outer scopes.
-    private _activeTypeParams = new Map<string, Symbol>();
+    private _activeTypeParams = new Map<string, ActiveTypeParameter>();
 
     // Current target function declaration, if currently binding
     // a function. This allows return and yield statements to be
@@ -783,7 +789,7 @@ export class Binder extends ParseTreeWalker {
                     name
                 );
             } else {
-                this._activeTypeParams.set(name.value, symbol);
+                this._activeTypeParams.set(name.value, { symbol, scope: this._currentScope });
             }
         });
 
@@ -1277,7 +1283,16 @@ export class Binder extends ParseTreeWalker {
 
         const typeParamSymbol = this._activeTypeParams.get(node.value);
         if (typeParamSymbol) {
-            AnalyzerNodeInfo.setTypeParameterSymbol(node, typeParamSymbol);
+            const bindingType = this._currentScope.getBindingType(node.value);
+
+            if (bindingType !== NameBindingType.Global) {
+                // See if the type parameter symbol has been shadowed by a
+                // variable within an inner scope.
+                const nameSymbolWithScope = this._currentScope.lookUpSymbolRecursive(node.value);
+                if (!nameSymbolWithScope || !isScopeContainedWithin(nameSymbolWithScope.scope, typeParamSymbol.scope)) {
+                    AnalyzerNodeInfo.setTypeParameterSymbol(node, typeParamSymbol.symbol);
+                }
+            }
         }
 
         // Name nodes have no children.
@@ -2341,7 +2356,7 @@ export class Binder extends ParseTreeWalker {
         node.parameters.forEach((typeParamNode) => {
             const entry = this._activeTypeParams.get(typeParamNode.name.value);
             if (entry) {
-                const decls = entry.getDeclarations();
+                const decls = entry.symbol.getDeclarations();
                 assert(decls && decls.length === 1 && decls[0].type === DeclarationType.TypeParameter);
 
                 if (decls[0].node === typeParamNode) {
