@@ -7195,7 +7195,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: UnknownType.create() };
         }
 
-        // Handle the special case where the object is a Tuple and
+        // Handle the special case where the object is a tuple and
         // the index is a constant number (integer) or a slice with integer
         // start and end values. In these cases, we can determine
         // the exact type by indexing into the tuple type array.
@@ -7232,49 +7232,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             } else if (isClassInstance(valueType) && ClassType.isBuiltIn(valueType, 'slice')) {
                 const tupleType = getSpecializedTupleType(baseType);
-                if (tupleType && tupleType.tupleTypeArguments && !isUnboundedTupleClass(tupleType)) {
-                    if (index0Expr.nodeType === ParseNodeType.Slice && !index0Expr.stepValue) {
-                        // Create a local helper function to evaluate the slice parameters.
-                        const getSliceParameter = (expression: ExpressionNode | undefined, defaultValue: number) => {
-                            let value = defaultValue;
-                            if (expression) {
-                                const valType = getTypeOfExpression(expression).type;
-                                if (
-                                    isClassInstance(valType) &&
-                                    ClassType.isBuiltIn(valType, 'int') &&
-                                    isLiteralType(valType) &&
-                                    typeof valType.literalValue === 'number'
-                                ) {
-                                    value = valType.literalValue;
-                                    if (value < 0) {
-                                        value = tupleType.tupleTypeArguments!.length + value;
-                                    }
-                                } else {
-                                    value = -1;
-                                }
-                            }
-                            return value;
-                        };
 
-                        const startValue = getSliceParameter(index0Expr.startValue, 0);
-                        const endValue = getSliceParameter(index0Expr.endValue, tupleType.tupleTypeArguments.length);
-
-                        if (
-                            startValue >= 0 &&
-                            endValue > 0 &&
-                            endValue <= tupleType.tupleTypeArguments.length &&
-                            tupleClassType &&
-                            isInstantiableClass(tupleClassType)
-                        ) {
-                            return {
-                                type: ClassType.cloneAsInstance(
-                                    specializeTupleClass(
-                                        tupleClassType,
-                                        tupleType.tupleTypeArguments.slice(startValue, endValue)
-                                    )
-                                ),
-                            };
-                        }
+                if (tupleType && index0Expr.nodeType === ParseNodeType.Slice) {
+                    const slicedTupleType = getSlicedTupleType(tupleType, index0Expr);
+                    if (slicedTupleType) {
+                        return { type: slicedTupleType };
                     }
                 }
             }
@@ -7421,6 +7383,64 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             type: callResult.returnType ?? UnknownType.create(),
             isIncomplete: !!callResult.isTypeIncomplete,
         };
+    }
+
+    // Given a tuple type and a slice expression, determines the resulting
+    // type if it can be determined. If not, it returns undefined.
+    function getSlicedTupleType(tupleType: ClassType, sliceNode: SliceNode): Type | undefined {
+        // We don't handle step values.
+        if (sliceNode.stepValue || !tupleType.tupleTypeArguments) {
+            return undefined;
+        }
+
+        const tupleTypeArgs = tupleType.tupleTypeArguments;
+        const startValue = getTupleSliceParameter(sliceNode.startValue, 0, tupleTypeArgs);
+        const endValue = getTupleSliceParameter(sliceNode.endValue, tupleTypeArgs.length, tupleTypeArgs);
+
+        if (startValue === undefined || endValue === undefined || endValue < startValue) {
+            return undefined;
+        }
+
+        const slicedTypeArgs = tupleTypeArgs.slice(startValue, endValue);
+
+        return ClassType.cloneAsInstance(specializeTupleClass(tupleType, slicedTypeArgs));
+    }
+
+    function getTupleSliceParameter(
+        expression: ExpressionNode | undefined,
+        defaultValue: number,
+        tupleTypeArgs: TupleTypeArgument[]
+    ): number | undefined {
+        let value = defaultValue;
+
+        if (expression) {
+            const valType = getTypeOfExpression(expression).type;
+            if (!isClassInstance(valType) || !ClassType.isBuiltIn(valType, 'int') || !isLiteralType(valType)) {
+                return undefined;
+            }
+
+            value = valType.literalValue as number;
+            const unboundedIndex = tupleTypeArgs.findIndex(
+                (typeArg) => typeArg.isUnbounded || isVariadicTypeVar(typeArg.type)
+            );
+
+            if (value < 0) {
+                value = tupleTypeArgs.length + value;
+                if (value < 0) {
+                    return undefined;
+                } else if (unboundedIndex >= 0 && value <= unboundedIndex) {
+                    return undefined;
+                }
+            } else {
+                if (value >= tupleTypeArgs.length) {
+                    return undefined;
+                } else if (unboundedIndex >= 0 && value > unboundedIndex) {
+                    return undefined;
+                }
+            }
+        }
+
+        return value;
     }
 
     function getTypeArgs(node: IndexNode, flags: EvaluatorFlags, options?: GetTypeArgsOptions): TypeResultWithNode[] {
