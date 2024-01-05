@@ -586,6 +586,26 @@ function assignClassToProtocolInternal(
                 typesAreConsistent = false;
             }
 
+            const isDestClassVar = destSymbol.isClassVar();
+            const isSrcClassVar = srcSymbol.isClassVar();
+
+            // If the source is marked as a ClassVar but the dest (the protocol) is not,
+            // or vice versa, the types are not consistent.
+            if (isDestClassVar !== isSrcClassVar) {
+                if (isDestClassVar) {
+                    if (subDiag) {
+                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsClassVarInProtocol().format({ name }));
+                    }
+                } else {
+                    if (subDiag) {
+                        subDiag.addMessage(
+                            Localizer.DiagnosticAddendum.memberIsNotClassVarInProtocol().format({ name })
+                        );
+                    }
+                }
+                typesAreConsistent = false;
+            }
+
             const destPrimaryDecl = getLastTypedDeclaredForSymbol(destSymbol);
             const srcPrimaryDecl = getLastTypedDeclaredForSymbol(srcSymbol);
 
