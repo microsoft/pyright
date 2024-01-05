@@ -18,6 +18,7 @@ class ClassA(Generic[_T, Unpack[_Xs]]):
         # This should generate an error
         self.y: _Xs = shape
 
+    # This should generate two errors
     def func1(self) -> Union[Unpack[_Xs]]:
         ...
 

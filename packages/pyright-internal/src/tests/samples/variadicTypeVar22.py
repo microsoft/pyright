@@ -1,6 +1,9 @@
 # This sample tests the case where a TypeVarTuple is solved using
 # a tuple with literal values.
 
+# Enable experimental features to support Union[*Ts].
+# pyright: enableExperimentalFeatures=true
+
 from typing import Callable, Literal, TypeVarTuple, Union, Unpack
 
 Ts = TypeVarTuple("Ts")

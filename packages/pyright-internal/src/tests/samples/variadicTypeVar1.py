@@ -15,14 +15,14 @@ class ClassA(Generic[_T, Unpack[_Xs]]):
     def __init__(self, *args: Unpack[_Xs]) -> None:
         reveal_type(args, expected_text="tuple[*_Xs@ClassA]")
 
-    # This should generate an error
+    # This should generate two errors.
     def func2(self) -> Union[_Xs]:
         ...
 
     def func3(self) -> tuple[Unpack[_Xs]]:
         ...
 
-    # This should generate an error
+    # This should generate an error.
     def func4(self) -> tuple[_Xs]:
         ...
 

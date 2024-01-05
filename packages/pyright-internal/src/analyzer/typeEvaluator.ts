@@ -15141,7 +15141,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvaluatorFlags
     ): Type {
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
         const types: Type[] = [];
+        let allowSingleTypeArg = false;
 
         if (!typeArgs) {
             // If no type arguments are provided, the resulting type
@@ -15167,14 +15169,39 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // If this is an unpacked tuple, explode out the individual items.
             if (isUnpackedClass(typeArg.type) && typeArg.type.tupleTypeArguments) {
-                typeArg.type.tupleTypeArguments.forEach((tupleTypeArg) => {
-                    types.push(convertToInstantiable(tupleTypeArg.type));
-                });
+                if (fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
+                    typeArg.type.tupleTypeArguments.forEach((tupleTypeArg) => {
+                        types.push(convertToInstantiable(tupleTypeArg.type));
+                    });
+
+                    allowSingleTypeArg = true;
+                } else {
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.unionUnpackedTuple(),
+                        errorNode
+                    );
+
+                    types.push(UnknownType.create());
+                }
             } else {
-                // If this is an unpacked TypeVar, note that it is in a union so we can differentiate
-                // between Unpack[Vs] and Union[Unpack[Vs]].
                 if (isTypeVar(typeArgType) && isUnpackedVariadicTypeVar(typeArgType)) {
-                    typeArgType = TypeVarType.cloneForUnpacked(typeArgType, /* isInUnion */ true);
+                    if (fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
+                        // If this is an unpacked TypeVar, note that it is in a union so we can
+                        // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
+                        typeArgType = TypeVarType.cloneForUnpacked(typeArgType, /* isInUnion */ true);
+                        allowSingleTypeArg = true;
+                    } else {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.unionUnpackedTypeVarTuple(),
+                            errorNode
+                        );
+
+                        typeArgType = UnknownType.create();
+                    }
                 }
 
                 types.push(typeArgType);
@@ -15184,10 +15211,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Validate that we received at least two type arguments. One type argument
         // is allowed if it's an unpacked variadic type var or tuple. None is also allowed
         // since it is used to define NoReturn in typeshed stubs).
-        if (types.length === 1) {
-            if (!isVariadicTypeVar(types[0]) && !isUnpacked(types[0]) && !isNoneInstance(types[0])) {
-                addError(Localizer.Diagnostic.unionTypeArgCount(), errorNode);
-            }
+        if (types.length === 1 && !allowSingleTypeArg && !isNoneInstance(types[0])) {
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.unionTypeArgCount(),
+                errorNode
+            );
         }
 
         const unionType = combineTypes(types);

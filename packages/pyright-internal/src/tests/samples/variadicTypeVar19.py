@@ -1,6 +1,9 @@
 # This sample tests the case where an unpacked TypeVarTuple is used
 # as one or more type arguments for a tuple.
 
+# Enable experimental features to support Union[*Ts].
+# pyright: enableExperimentalFeatures=true
+
 from typing import Generator, Iterable, TypeVar, TypeVarTuple, Union
 
 T = TypeVar("T")

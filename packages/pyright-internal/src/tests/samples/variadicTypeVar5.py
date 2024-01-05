@@ -33,7 +33,7 @@ def callback4(a: int, b: complex, c: str) -> int:
     ...
 
 
-def callback5(a: int, *args: Unpack[_Xs]) -> Union[Unpack[_Xs]]:
+def callback5(a: int, *args: Unpack[_Xs]) -> tuple[Unpack[_Xs]]:
     ...
 
 
