@@ -330,6 +330,8 @@
         "overlappingOverload": "Overload {obscured} for \"{name}\" will never be used because its parameters overlap overload {obscuredBy}",
         "overloadAbstractMismatch": "Overloaded methods must all be abstract or not",
         "overloadClassMethodInconsistent": "Overloads for \"{name}\" use @classmethod inconsistently",
+        "overloadFinalInconsistencyImpl": "Overload for \"{name}\" is marked @final but implementation is not",
+        "overloadFinalInconsistencyNoImpl": "Overload {index} for \"{name}\" is marked @final but overload 1 is not",
         "overloadImplementationMismatch": "Overloaded implementation is not consistent with signature of overload {index}",
         "overloadReturnTypeMismatch": "Overload {prevIndex} for \"{name}\" overlaps overload {newIndex} and returns an incompatible type",
         "overloadStaticMethodInconsistent": "Overloads for \"{name}\" use @staticmethod inconsistently",
