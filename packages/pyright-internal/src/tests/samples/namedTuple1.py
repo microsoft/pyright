@@ -1,7 +1,7 @@
 # This sample tests the type checker's handling of named tuples.
 
 from collections import namedtuple
-from typing import NamedTuple
+from typing import Final, NamedTuple
 
 NamedTuple1 = namedtuple("NamedTuple1", "field1 field2")
 NamedTuple1(1, 2)
@@ -35,12 +35,14 @@ NamedTuple2(field1=1, field2=3)
 # should be two or fewer parameters.
 NamedTuple2(1, 2, 3)
 
+Field1: Final = "field1"
+Field2: Final = "field2"
 
 NamedTuple3 = NamedTuple(
     "NamedTuple3",
     [
-        ("field1", "str"),  # 'str' should be treated as forward reference
-        ("field2", int),
+        (Field1, "str"),  # 'str' should be treated as forward reference
+        (Field2, int),
     ],
 )
 NamedTuple3("hello", 2)
