@@ -21,9 +21,8 @@ class Array(Generic[Unpack[_Xs]]):
         ...
 
 
-def linearize(value: Array[Unpack[_Xs]]) -> Sequence[Union[Unpack[_Xs]]]:
-    reveal_type(value, expected_text="Array[*_Xs@linearize]")
-    return []
+def linearize(value: Array[Unpack[_Xs]]) -> tuple[Unpack[_Xs]]:
+    ...
 
 
 def array_to_tuple(value: Array[Unpack[_Xs]]) -> tuple[complex, Unpack[_Xs]]:
@@ -39,13 +38,13 @@ def func1(x: Array[int, str, str, float], y: Array[()]):
     reveal_type(a1, expected_text="Array[int, float, str]")
 
     a2 = linearize(a1)
-    reveal_type(a2, expected_text="Sequence[int | float | str]")
+    reveal_type(a2, expected_text="tuple[int, float, str]")
 
     b1 = Array()
     reveal_type(b1, expected_text="Array[*tuple[()]]")
 
     b2 = linearize(b1)
-    reveal_type(b2, expected_text="Sequence[Never]")
+    reveal_type(b2, expected_text="tuple[()]")
 
     e = array_to_tuple(x)
     reveal_type(e, expected_text="tuple[complex, int, str, str, float]")

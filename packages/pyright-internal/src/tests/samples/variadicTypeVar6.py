@@ -52,18 +52,18 @@ y2: Alias4[float, str, str] = Array("3.4", 2, "hi", "hi")
 y3 = Alias4[float, str, str](3, 2, "hi", "hi")
 
 
-def func1(a: Alias4[_T, Unpack[_Xs]]) -> Union[_T, Unpack[_Xs]]:
+def func1(a: Alias4[_T, Unpack[_Xs]]) -> tuple[_T, Unpack[_Xs]]:
     ...
 
 
 z1 = func1(Array(3, 4, "hi", 3j))
-reveal_type(z1, expected_text="int | str | complex")
+reveal_type(z1, expected_text="tuple[int, str, complex]")
 
 # This should generate an error.
 z2 = func1(Array(3, 4.3, "hi", 3j))
 
 z3 = func1(Array(3.5, 4))
-reveal_type(z3, expected_text="float")
+reveal_type(z3, expected_text="tuple[float]")
 
 Alias6 = tuple[int, Unpack[_Xs]]
 
