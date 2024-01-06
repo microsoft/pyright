@@ -164,7 +164,7 @@ export function getCodeFlowEngine(
     evaluator: TypeEvaluator,
     speculativeTypeTracker: SpeculativeTypeTracker
 ): CodeFlowEngine {
-    const isReachableRecursionMap = new Map<number, true>();
+    const isReachableRecursionSet = new Set<number>();
     const callIsNoReturnCache = new Map<number, boolean>();
     const isExceptionContextManagerCache = new Map<number, boolean>();
     let flowIncompleteGeneration = 1;
@@ -1264,15 +1264,15 @@ export function getCodeFlowEngine(
         }
 
         // Protect against infinite recursion.
-        if (isReachableRecursionMap.has(flowNode.id)) {
+        if (isReachableRecursionSet.has(flowNode.id)) {
             return true;
         }
-        isReachableRecursionMap.set(flowNode.id, true);
+        isReachableRecursionSet.add(flowNode.id);
 
         try {
             return isFlowNodeReachableRecursive(flowNode, sourceFlowNode);
         } finally {
-            isReachableRecursionMap.delete(flowNode.id);
+            isReachableRecursionSet.delete(flowNode.id);
         }
     }
 

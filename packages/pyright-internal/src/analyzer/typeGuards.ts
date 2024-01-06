@@ -827,12 +827,12 @@ function getTypeNarrowingCallbackForAliasedCondition(
     // If the reference expression is modified within the scope multiple times,
     // we need to validate that it is not modified between the test expression
     // evaluation and the conditional check.
-    const testExprDecl = getDeclsForLocalVar(evaluator, testExpression, testExpression);
+    const testExprDecl = getDeclsForLocalVar(evaluator, testExpression, testExpression, /* requireUnique */ true);
     if (!testExprDecl || testExprDecl.length !== 1 || testExprDecl[0].type !== DeclarationType.Variable) {
         return undefined;
     }
 
-    const referenceDecls = getDeclsForLocalVar(evaluator, reference, testExpression);
+    const referenceDecls = getDeclsForLocalVar(evaluator, reference, testExpression, /* requireUnique */ false);
     if (!referenceDecls) {
         return undefined;
     }
@@ -875,11 +875,13 @@ function getTypeNarrowingCallbackForAliasedCondition(
 }
 
 // Determines whether the symbol is a local variable or parameter within
-// the current scope.
+// the current scope. If requireUnique is true, there can be only one
+// declaration (assignment) of the symbol, otherwise it is rejected.
 function getDeclsForLocalVar(
     evaluator: TypeEvaluator,
     name: NameNode,
-    reachableFrom: ParseNode
+    reachableFrom: ParseNode,
+    requireUnique: boolean
 ): Declaration[] | undefined {
     const scope = getScopeForNode(name);
     if (scope?.type !== ScopeType.Function && scope?.type !== ScopeType.Module) {
@@ -892,6 +894,10 @@ function getDeclsForLocalVar(
     }
 
     const decls = symbol.getDeclarations();
+    if (requireUnique && decls.length > 1) {
+        return undefined;
+    }
+
     if (
         decls.length === 0 ||
         decls.some((decl) => decl.type !== DeclarationType.Variable && decl.type !== DeclarationType.Parameter)
