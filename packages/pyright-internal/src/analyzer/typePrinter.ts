@@ -28,6 +28,7 @@ import {
     isUnpacked,
     isVariadicTypeVar,
     maxTypeRecursionCount,
+    OverloadedFunctionType,
     TupleTypeArgument,
     Type,
     TypeBase,
@@ -486,8 +487,7 @@ function printTypeInternal(
             }
 
             case TypeCategory.OverloadedFunction: {
-                const overloadedType = type;
-                const overloads = overloadedType.overloads.map((overload) =>
+                const overloads = OverloadedFunctionType.getOverloads(type).map((overload) =>
                     printTypeInternal(
                         overload,
                         printTypeFlags,
@@ -497,9 +497,15 @@ function printTypeInternal(
                         recursionCount
                     )
                 );
+
                 if (printTypeFlags & PrintTypeFlags.PythonSyntax) {
                     return 'Callable[..., Any]';
                 }
+
+                if (overloads.length === 1) {
+                    return overloads[0];
+                }
+
                 return `Overload[${overloads.join(', ')}]`;
             }
 
