@@ -819,13 +819,13 @@ export namespace ClassType {
         return newClassType;
     }
 
-    export function cloneIncludeSubclasses(classType: ClassType) {
-        if (classType.includeSubclasses) {
+    export function cloneIncludeSubclasses(classType: ClassType, includeSubclasses = true) {
+        if (!!classType.includeSubclasses === includeSubclasses) {
             return classType;
         }
 
         const newClassType = TypeBase.cloneType(classType);
-        newClassType.includeSubclasses = true;
+        newClassType.includeSubclasses = includeSubclasses;
         return newClassType;
     }
 

@@ -8424,10 +8424,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             return {
-                type: resultIsInstance ? convertToInstance(resultType) : resultType,
+                type: resultIsInstance ? convertToInstance(resultType, /* includeSubclasses */ false) : resultType,
                 bindToSelfType: bindToType
                     ? TypeBase.cloneForCondition(
-                          synthesizeTypeVarForSelfCls(bindToType, /* isClsParam */ false),
+                          synthesizeTypeVarForSelfCls(
+                              ClassType.cloneIncludeSubclasses(bindToType, /* includeSubclasses */ false),
+                              /* isClsParam */ false
+                          ),
                           bindToType.condition
                       )
                     : undefined,
@@ -9318,26 +9321,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { returnType: undefined, argumentErrors: true };
         }
 
-        // Check for an attempt to invoke an abstract static or class method.
-        if (
-            expandedCallType.boundToType &&
-            isInstantiableClass(expandedCallType.boundToType) &&
-            !expandedCallType.boundToType.includeSubclasses
-        ) {
-            if (FunctionType.isAbstractMethod(expandedCallType)) {
-                if (FunctionType.isStaticMethod(expandedCallType) || FunctionType.isClassMethod(expandedCallType)) {
-                    addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.abstractMethodInvocation().format({
-                            method: expandedCallType.details.name,
-                        }),
-                        errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode
-                    );
-                }
-            }
-        }
-
         let effectiveTypeVarContext = typeVarContext;
         if (!effectiveTypeVarContext) {
             // If a typeVarContext wasn't provided by the caller, allocate one here.
@@ -9418,6 +9401,39 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             overloadsUsedForCall: functionResult.overloadsUsedForCall,
             specializedInitSelfType: functionResult.specializedInitSelfType,
         };
+    }
+
+    function isMethodEffectivelyAbstract(functionType: FunctionType): boolean {
+        // If the function is decorated with an @abstractmethod, it's abstract.
+        if (FunctionType.isAbstractMethod(functionType)) {
+            return true;
+        }
+
+        // If the function is a method in a Protocol class and its implementation
+        // is not implemented, it's effectively abstract.
+        if (!functionType.details.methodClass || !ClassType.isProtocolClass(functionType.details.methodClass)) {
+            return false;
+        }
+
+        let implementation: FunctionType | undefined = functionType;
+
+        // If this is an overloaded method, consider the implementation.
+        if (functionType.overloaded) {
+            implementation = OverloadedFunctionType.getImplementation(functionType.overloaded);
+
+            // If there is no implementation and it's in a stub file, assume it's not abstract.
+            if (!implementation) {
+                return (
+                    functionType.details.declaration !== undefined &&
+                    !AnalyzerNodeInfo.getFileInfo(functionType.details.declaration.node).isStubFile
+                );
+            }
+        }
+
+        return (
+            implementation.details.declaration !== undefined &&
+            ParseTreeUtils.isSuiteEmpty(implementation.details.declaration.node.suite)
+        );
     }
 
     function validateCallForOverloadedFunction(
@@ -11125,6 +11141,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let specializedInitSelfType: Type | undefined;
         let anyOrUnknownArgument: UnknownType | AnyType | undefined;
         const typeCondition = getTypeCondition(type);
+
+        // Check for an attempt to invoke an abstract method.
+        if (type.boundToType && !type.boundToType.includeSubclasses && isMethodEffectivelyAbstract(type)) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.abstractMethodInvocation().format({
+                    method: type.details.name,
+                }),
+                errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode
+            );
+        }
 
         if (type.boundTypeVarScopeId) {
             // If the function was bound to a class or object and was a constructor, a

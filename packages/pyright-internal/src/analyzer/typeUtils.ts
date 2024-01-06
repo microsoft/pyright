@@ -492,6 +492,12 @@ export function mapSignatures(
         }
     });
 
+    // Add the unmodified implementation if it's present.
+    const implementation = OverloadedFunctionType.getImplementation(type);
+    if (implementation) {
+        newSignatures.push(implementation);
+    }
+
     if (!changeMade) {
         return type;
     }
@@ -2253,7 +2259,7 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
         classType,
         ClassType.getTypeParameters(classType),
         /* isTypeArgumentExplicit */ false,
-        /* includeSubclasses */ true
+        /* includeSubclasses */ !!classType.includeSubclasses
     );
 
     selfType.details.boundType = ClassType.cloneAsInstance(boundType);
