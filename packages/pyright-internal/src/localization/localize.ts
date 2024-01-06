@@ -371,6 +371,7 @@ export namespace Localizer {
             getRawString('Diagnostic.dataClassTransformPositionalParam');
         export const dataClassTransformUnknownArgument = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.dataClassTransformUnknownArgument'));
+        export const dataProtocolInSubclassCheck = () => getRawString('Diagnostic.dataProtocolInSubclassCheck');
         export const declaredReturnTypePartiallyUnknown = () =>
             new ParameterizedString<{ returnType: string }>(
                 getRawString('Diagnostic.declaredReturnTypePartiallyUnknown')
@@ -1197,6 +1198,8 @@ export namespace Localizer {
         export const dataClassFrozen = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataClassFrozen'));
         export const dataClassFieldLocation = () => getRawString('DiagnosticAddendum.dataClassFieldLocation');
+        export const dataProtocolUnsupported = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataProtocolUnsupported'));
         export const descriptorAccessBindingFailed = () =>
             new ParameterizedString<{ name: string; className: string }>(
                 getRawString('DiagnosticAddendum.descriptorAccessBindingFailed')

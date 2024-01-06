@@ -305,6 +305,12 @@ test('isInstance4', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('isInstance5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance5.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Unbound1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound1.py']);
 

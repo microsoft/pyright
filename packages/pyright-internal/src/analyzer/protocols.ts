@@ -166,6 +166,33 @@ export function assignModuleToProtocol(
     );
 }
 
+// Determines whether the specified class is a protocol class that has
+// only methods, no other symbol types like variables.
+export function isMethodOnlyProtocol(classType: ClassType): boolean {
+    if (!ClassType.isProtocolClass(classType)) {
+        return false;
+    }
+
+    // First check for data members in any protocol base classes.
+    for (const baseClass of classType.details.baseClasses) {
+        if (isClass(baseClass) && ClassType.isProtocolClass(baseClass) && !isMethodOnlyProtocol(baseClass)) {
+            return false;
+        }
+    }
+
+    for (const [, symbol] of classType.details.fields) {
+        if (symbol.isIgnoredForProtocolMatch()) {
+            continue;
+        }
+
+        if (symbol.getDeclarations().some((decl) => decl.type !== DeclarationType.Function)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 // Looks up the protocol compatibility in the cache. If it's not found,
 // return undefined.
 function getProtocolCompatibility(
