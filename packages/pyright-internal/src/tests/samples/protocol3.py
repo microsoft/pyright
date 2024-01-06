@@ -1,7 +1,15 @@
 # This sample tests the assignment of protocols that
 # include property declarations.
 
-from typing import ClassVar, ContextManager, NamedTuple, Protocol, Sequence, TypeVar
+from typing import (
+    ClassVar,
+    ContextManager,
+    Generic,
+    NamedTuple,
+    Protocol,
+    Sequence,
+    TypeVar,
+)
 from dataclasses import dataclass
 
 
@@ -219,7 +227,7 @@ class Concrete11:
 
 
 # This should generate an error because of a ClassVar mismatch.
-p11_1: Protoll = Concrete11()
+p11_1: Proto11 = Concrete11()
 
 
 class Proto12(Protocol):
@@ -231,7 +239,7 @@ class Concrete12:
 
 
 # This should generate an error because of a ClassVar mismatch.
-p12_1: Protol2 = Concrete12()
+p12_1: Proto12 = Concrete12()
 
 
 def func12(p11: Proto11, p12: Proto12):
@@ -240,3 +248,28 @@ def func12(p11: Proto11, p12: Proto12):
 
     # This should generate an error because of a ClassVar mismatch.
     v2: Proto11 = p12
+
+
+T13 = TypeVar("T13", covariant=True)
+
+
+class Proto13(Protocol[T13]):
+    @property
+    def prop1(self) -> T13:
+        ...
+
+
+class Proto14(Proto13[T13], Protocol):
+    ...
+
+
+class Concrete14(Generic[T13]):
+    def __init__(self, val: T13):
+        self.prop1 = val
+
+
+def func14(val: Proto14[T13]):
+    ...
+
+
+func14(Concrete14(1))
