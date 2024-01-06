@@ -52,6 +52,7 @@ import {
     getTypeCondition,
     getTypeVarScopeId,
     isEffectivelyInstantiable,
+    isLiteralTypeOrUnion,
     isPartlyUnknown,
     mapSubtypes,
     sortTypes,
@@ -652,6 +653,7 @@ function assignTypeToConstrainedTypeVar(
 
     const curWideTypeBound = curEntry?.wideBound;
     const curNarrowTypeBound = curEntry?.narrowBound;
+    let forceRetainLiterals = false;
 
     if (isTypeVar(srcType)) {
         if (
@@ -785,6 +787,8 @@ function assignTypeToConstrainedTypeVar(
             })
         );
         return false;
+    } else if (isLiteralTypeOrUnion(constrainedType)) {
+        forceRetainLiterals = true;
     }
 
     if (curNarrowTypeBound && !isAnyOrUnknown(curNarrowTypeBound)) {
@@ -829,7 +833,14 @@ function assignTypeToConstrainedTypeVar(
     } else {
         // Assign the type to the type var.
         if (!typeVarContext.isLocked() && isTypeVarInScope) {
-            updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curWideTypeBound);
+            updateTypeVarType(
+                evaluator,
+                typeVarContext,
+                destType,
+                constrainedType,
+                curWideTypeBound,
+                forceRetainLiterals
+            );
         }
     }
 
