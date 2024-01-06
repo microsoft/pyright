@@ -28,6 +28,7 @@ import {
     isUnpacked,
     isVariadicTypeVar,
     maxTypeRecursionCount,
+    OverloadedFunctionType,
     TupleTypeArgument,
     Type,
     TypeBase,
@@ -487,7 +488,7 @@ function printTypeInternal(
 
             case TypeCategory.OverloadedFunction: {
                 const overloadedType = type;
-                const overloads = overloadedType.overloads.map((overload) =>
+                const overloads = OverloadedFunctionType.getOverloads(overloadedType).map((overload) =>
                     printTypeInternal(
                         overload,
                         printTypeFlags,

@@ -10,29 +10,51 @@ class A(ABC):
     def method1() -> None:
         ...
 
+    @staticmethod
+    @abstractmethod
+    def method2() -> None:
+        pass
+
     @classmethod
     @abstractmethod
-    def method2(cls) -> None:
-        ...
+    def method3(cls) -> None:
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def method4(cls) -> None:
+        pass
 
 
 # This should generate an error.
 A.method1()
 
-# This should generate an error.
 A.method2()
+
+# This should generate an error.
+A.method3()
+
+A.method4()
 
 
 class B(A):
     @staticmethod
     def method1() -> None:
         # This should generate an error.
-        return super().method1()
+        return super(B).method1()
+
+    @staticmethod
+    def method2() -> None:
+        return super(B).method2()
 
     @classmethod
-    def method2(cls) -> None:
+    def method3(cls) -> None:
         # This should generate an error.
-        return super().method2()
+        return super().method3()
+
+    @classmethod
+    def method4(cls) -> None:
+        return super().method4()
 
 
 B.method1()
@@ -41,7 +63,7 @@ B.method2()
 
 def func1(a: type[A]):
     a.method1()
-    a.method2()
+    a.method3()
 
 
 class C(A):
@@ -52,4 +74,4 @@ class C(A):
 C.method1()
 
 # This should generate an error.
-C.method2()
+C.method3()
