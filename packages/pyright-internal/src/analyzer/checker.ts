@@ -105,6 +105,7 @@ import { getParameterListDetails } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
+import { isMethodOnlyProtocol } from './protocols';
 import { RegionComment, RegionCommentType, getRegionComments } from './regions';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
@@ -3689,6 +3690,35 @@ export class Checker extends ParseTreeWalker {
                       }) + diag.getString(),
                 node.arguments[1]
             );
+        }
+
+        // If this call is an issubclass, check for the use of a "data protocol",
+        // which PEP 544 says cannot be used in issubclass.
+        if (!isInstanceCheck) {
+            const diag = new DiagnosticAddendum();
+
+            doForEachSubtype(arg1Type, (arg1Subtype) => {
+                if (
+                    isInstantiableClass(arg1Subtype) &&
+                    ClassType.isProtocolClass(arg1Subtype) &&
+                    !isMethodOnlyProtocol(arg1Subtype)
+                ) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.dataProtocolUnsupported().format({
+                            name: arg1Subtype.details.name,
+                        })
+                    );
+                }
+            });
+
+            if (!diag.isEmpty()) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.dataProtocolInSubclassCheck(),
+                    node.arguments[1]
+                );
+            }
         }
 
         // If this call is within an assert statement, we won't check whether
