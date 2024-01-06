@@ -8424,10 +8424,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             return {
-                type: resultIsInstance ? convertToInstance(resultType) : resultType,
+                type: resultIsInstance ? convertToInstance(resultType, /* includeSubclasses */ false) : resultType,
                 bindToSelfType: bindToType
                     ? TypeBase.cloneForCondition(
-                          synthesizeTypeVarForSelfCls(bindToType, /* isClsParam */ false),
+                          synthesizeTypeVarForSelfCls(
+                              ClassType.cloneIncludeSubclasses(bindToType, /* includeSubclasses */ false),
+                              /* isClsParam */ false
+                          ),
                           bindToType.condition
                       )
                     : undefined,
@@ -9318,26 +9321,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { returnType: undefined, argumentErrors: true };
         }
 
-        // Check for an attempt to invoke an abstract static or class method.
-        if (
-            expandedCallType.boundToType &&
-            isInstantiableClass(expandedCallType.boundToType) &&
-            !expandedCallType.boundToType.includeSubclasses
-        ) {
-            if (FunctionType.isAbstractMethod(expandedCallType)) {
-                if (FunctionType.isStaticMethod(expandedCallType) || FunctionType.isClassMethod(expandedCallType)) {
-                    addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.abstractMethodInvocation().format({
-                            method: expandedCallType.details.name,
-                        }),
-                        errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode
-                    );
-                }
-            }
-        }
-
         let effectiveTypeVarContext = typeVarContext;
         if (!effectiveTypeVarContext) {
             // If a typeVarContext wasn't provided by the caller, allocate one here.
@@ -9418,6 +9401,52 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             overloadsUsedForCall: functionResult.overloadsUsedForCall,
             specializedInitSelfType: functionResult.specializedInitSelfType,
         };
+    }
+
+    function isMethodUnimplementedAbstract(functionType: FunctionType): boolean {
+        let isAbstract = false;
+
+        // If the function is part of a protocol, it's automatically considered abstract
+        // unless it's located in a stub, in which case it must be explicitly marked as
+        // abstract.
+        if (FunctionType.isAbstractMethod(functionType)) {
+            isAbstract = true;
+        } else if (
+            functionType.details.methodClass &&
+            ClassType.isProtocolClass(functionType.details.methodClass) &&
+            functionType.details.declaration &&
+            !AnalyzerNodeInfo.getFileInfo(functionType.details.declaration.node).isStubFile
+        ) {
+            isAbstract = true;
+        }
+
+        if (!isAbstract) {
+            return false;
+        }
+
+        // Determine if the method is unimplemented by looking at whether its
+        // body contains a "trivial" implementation.
+        let implementation: FunctionType | undefined = functionType;
+
+        // If this is an overloaded method, consider the implementation.
+        if (functionType.overloaded) {
+            implementation = OverloadedFunctionType.getImplementation(functionType.overloaded);
+
+            // If there is no implementation and it's in a stub file, assume it's not abstract.
+            if (!implementation) {
+                return (
+                    functionType.details.declaration !== undefined &&
+                    !AnalyzerNodeInfo.getFileInfo(functionType.details.declaration.node).isStubFile
+                );
+            }
+        }
+
+        if (!implementation.details.declaration) {
+            return false;
+        }
+        const decl = implementation.details.declaration;
+
+        return ParseTreeUtils.isSuiteEmpty(decl.node.suite) || methodAlwaysRaisesNotImplemented(decl);
     }
 
     function validateCallForOverloadedFunction(
@@ -11125,6 +11154,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let specializedInitSelfType: Type | undefined;
         let anyOrUnknownArgument: UnknownType | AnyType | undefined;
         const typeCondition = getTypeCondition(type);
+
+        // Check for an attempt to invoke an unimplemented abstract method.
+        if (type.boundToType && !type.boundToType.includeSubclasses && isMethodUnimplementedAbstract(type)) {
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.abstractMethodInvocation().format({
+                    method: type.details.name,
+                }),
+                errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode
+            );
+        }
 
         if (type.boundTypeVarScopeId) {
             // If the function was bound to a class or object and was a constructor, a
