@@ -22031,7 +22031,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         assert(ClassType.isSameGenericClass(destType, srcType));
         assert(destType.details.typeParameters.length > 0);
 
-        const diag = new DiagnosticAddendum();
         const typeVarContext = new TypeVarContext();
         let isAssignable = true;
 
@@ -22066,7 +22065,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         ClassType.cloneAsInstantiable(srcMemberType),
                         destType,
                         srcType,
-                        diag,
+                        /* diag */ undefined,
                         typeVarContext,
                         /* selfTypeVarContext */ undefined,
                         recursionCount
@@ -22096,7 +22095,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !assignType(
                         destMemberType,
                         srcMemberType,
-                        diag,
+                        /* diag */ undefined,
                         typeVarContext,
                         /* srcTypeVarContext */ undefined,
                         flags,
