@@ -6561,32 +6561,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (!typeParameters.some((typeVar) => typeVar.details.isVariadic && !typeVar.isVariadicInUnion)) {
-            let minTypeArgCount = typeParameters.length;
-            const firstNonDefaultParam = typeParameters.findIndex((param) => !!param.details.defaultType);
-            if (firstNonDefaultParam >= 0) {
-                minTypeArgCount = firstNonDefaultParam;
-            }
+        let minTypeArgCount = typeParameters.length;
+        const firstDefaultParamIndex = typeParameters.findIndex((param) => !!param.details.defaultType);
+        if (firstDefaultParamIndex >= 0) {
+            minTypeArgCount = firstDefaultParamIndex;
+        }
 
-            if (typeArgs.length > typeParameters.length) {
-                addError(
-                    Localizer.Diagnostic.typeArgsTooMany().format({
-                        name: printType(baseType),
-                        expected: typeParameters.length,
-                        received: typeArgs.length,
-                    }),
-                    typeArgs[typeParameters.length].node
-                );
-            } else if (typeArgs.length < minTypeArgCount) {
-                addError(
-                    Localizer.Diagnostic.typeArgsTooFew().format({
-                        name: printType(baseType),
-                        expected: typeParameters.length,
-                        received: typeArgs.length,
-                    }),
-                    node.items[node.items.length - 1]
-                );
-            }
+        if (typeArgs.length > typeParameters.length) {
+            addError(
+                Localizer.Diagnostic.typeArgsTooMany().format({
+                    name: printType(baseType),
+                    expected: typeParameters.length,
+                    received: typeArgs.length,
+                }),
+                typeArgs[typeParameters.length].node
+            );
+        } else if (typeArgs.length < minTypeArgCount) {
+            addError(
+                Localizer.Diagnostic.typeArgsTooFew().format({
+                    name: printType(baseType),
+                    expected: typeParameters.length,
+                    received: typeArgs.length,
+                }),
+                node.items[node.items.length - 1]
+            );
         }
 
         // Handle the mypy_extensions.FlexibleAlias type specially.
@@ -19669,10 +19667,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (typeArgs) {
             let minTypeArgCount = typeParameters.length;
-            const firstNonDefaultParam = typeParameters.findIndex((param) => !!param.details.defaultType);
+            const firstDefaultParamIndex = typeParameters.findIndex((param) => !!param.details.defaultType);
 
-            if (firstNonDefaultParam >= 0) {
-                minTypeArgCount = firstNonDefaultParam;
+            if (firstDefaultParamIndex >= 0) {
+                minTypeArgCount = firstDefaultParamIndex;
             }
 
             // Classes that accept inlined type dict type args allow only one.

@@ -90,3 +90,15 @@ def func4(a: int, b: str) -> None:
 
 
 reveal_type(func3(func4), expected_text="tuple[str]")
+
+
+_T1 = TypeVar("_T1")
+_T2 = TypeVar("_T2")
+
+Alias8 = tuple[*_Xs, _T1, _T2]
+
+# This should generate an error because there are
+# enough type arguments.
+a8_1: Alias8[int]
+
+a8_2: Alias8[int, int]
