@@ -15768,7 +15768,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         rightHandType = transformTypeForTypeAlias(
                             rightHandType,
                             typeAliasNameNode,
-                            node.rightExpression,
+                            typeAliasNameNode,
                             /* isPep695Syntax */ false,
                             /* isPep695TypeVarType */ false
                         );
@@ -15918,7 +15918,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         aliasType = transformTypeForTypeAlias(
             aliasType,
             nameNode,
-            valueNode,
+            nameNode,
             isPep695Syntax,
             /* isPep695TypeVarType */ true,
             typeParameters,
