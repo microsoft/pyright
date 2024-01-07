@@ -6415,6 +6415,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return indexTypeResult;
     }
 
+    // If the list of type parameters includes a TypeVarTuple, we may need to adjust
+    // the supplied type arguments to map to the type parameter list.
     function adjustTypeArgumentsForVariadicTypeVar(
         typeArgs: TypeResultWithNode[],
         typeParameters: TypeVarType[],
