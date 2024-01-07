@@ -105,7 +105,7 @@ import { getParameterListDetails } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
-import { isMethodOnlyProtocol } from './protocols';
+import { isMethodOnlyProtocol, isProtocolUnsafeOverlap } from './protocols';
 import { RegionComment, RegionCommentType, getRegionComments } from './regions';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
@@ -3762,6 +3762,14 @@ export class Checker extends ParseTreeWalker {
                             arg1IncludesSubclasses = true;
                         }
                     }
+
+                    if (arg0Type) {
+                        this._validateUnsafeProtocolOverlap(
+                            node.arguments[0].valueExpression,
+                            convertToInstance(arg1Subtype),
+                            isInstanceCheck ? arg0Type : convertToInstance(arg0Type)
+                        );
+                    }
                 } else {
                     // The isinstance and issubclass call supports a variation where the second
                     // parameter is a tuple of classes.
@@ -3773,6 +3781,14 @@ export class Checker extends ParseTreeWalker {
 
                                     if (typeArg.type.includeSubclasses) {
                                         arg1IncludesSubclasses = true;
+                                    }
+
+                                    if (arg0Type) {
+                                        this._validateUnsafeProtocolOverlap(
+                                            node.arguments[0].valueExpression,
+                                            convertToInstance(typeArg.type),
+                                            isInstanceCheck ? arg0Type : convertToInstance(arg0Type)
+                                        );
                                     }
                                 } else {
                                     isValidType = false;
@@ -3913,6 +3929,39 @@ export class Checker extends ParseTreeWalker {
                       }),
                 node
             );
+        }
+    }
+
+    private _validateUnsafeProtocolOverlap(errorNode: ExpressionNode, protocol: ClassType, testType: Type) {
+        // If this is a protocol class, check for an "unsafe overlap"
+        // with the arg0 type.
+        if (ClassType.isProtocolClass(protocol)) {
+            let isUnsafeOverlap = false;
+            const diag = new DiagnosticAddendum();
+
+            doForEachSubtype(testType, (testSubtype) => {
+                if (isClassInstance(testSubtype)) {
+                    if (isProtocolUnsafeOverlap(this._evaluator, protocol, testSubtype)) {
+                        isUnsafeOverlap = true;
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.protocolUnsafeOverlap().format({
+                                name: testSubtype.details.name,
+                            })
+                        );
+                    }
+                }
+            });
+
+            if (isUnsafeOverlap) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.protocolUnsafeOverlap().format({
+                        name: protocol.details.name,
+                    }) + diag.getString(),
+                    errorNode
+                );
+            }
         }
     }
 
