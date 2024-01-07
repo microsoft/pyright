@@ -7537,6 +7537,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             isTupleClass(typeResult.type)
                         ) {
                             typeResult.type = ClassType.cloneForUnpacked(typeResult.type);
+                        } else {
+                            addError(Localizer.Diagnostic.unpackNotAllowed(), arg.valueExpression);
                         }
                     }
                 }
