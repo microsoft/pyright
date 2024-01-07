@@ -102,3 +102,11 @@ Alias8 = tuple[*_Xs, _T1, _T2]
 a8_1: Alias8[int]
 
 a8_2: Alias8[int, int]
+
+
+class ClassA9(Generic[_T1]):
+    pass
+
+
+# This should generate an error.
+a9_1: ClassA9[*tuple[int]]

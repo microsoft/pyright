@@ -6714,6 +6714,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
+                if (isUnpacked(typeArgType) && !isVariadicTypeVar(param)) {
+                    const messageDiag = diag.createAddendum();
+                    messageDiag.addMessage(Localizer.Diagnostic.unpackedArgInTypeArgument());
+                    messageDiag.addTextRange(typeArgs[index].node);
+                    typeArgType = UnknownType.create();
+                }
+
                 assignTypeToTypeVar(
                     evaluatorInterface,
                     param,
