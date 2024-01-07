@@ -797,6 +797,8 @@ export namespace Localizer {
         export const protocolBaseClassWithTypeArgs = () => getRawString('Diagnostic.protocolBaseClassWithTypeArgs');
         export const protocolIllegal = () => getRawString('Diagnostic.protocolIllegal');
         export const protocolNotAllowed = () => getRawString('Diagnostic.protocolNotAllowed');
+        export const protocolUnsafeOverlap = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.protocolUnsafeOverlap'));
         export const protocolVarianceContravariant = () =>
             new ParameterizedString<{ variable: string; class: string }>(
                 getRawString('Diagnostic.protocolVarianceContravariant')
@@ -1407,6 +1409,8 @@ export namespace Localizer {
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.protocolSourceIsNotConcrete')
             );
+        export const protocolUnsafeOverlap = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.protocolUnsafeOverlap'));
         export const pyrightCommentIgnoreTip = () => getRawString('DiagnosticAddendum.pyrightCommentIgnoreTip');
         export const readOnlyAttribute = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.readOnlyAttribute'));

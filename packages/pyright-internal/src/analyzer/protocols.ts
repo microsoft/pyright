@@ -193,6 +193,38 @@ export function isMethodOnlyProtocol(classType: ClassType): boolean {
     return true;
 }
 
+// Determines whether the classType has "unsafe overlap" with a runtime checkable protocol.
+// This can occur because the runtime doesn't do full type comparisons. It simply looks at
+// the presence of specific attributes.
+export function isProtocolUnsafeOverlap(evaluator: TypeEvaluator, protocol: ClassType, classType: ClassType): boolean {
+    // If the classType is compatible with the protocol, then it doesn't overlap unsafely.
+    if (evaluator.assignType(protocol, classType)) {
+        return false;
+    }
+
+    let isUnsafeOverlap = true;
+
+    protocol.details.mro.forEach((mroClass) => {
+        if (!isUnsafeOverlap || !isInstantiableClass(mroClass) || !ClassType.isProtocolClass(mroClass)) {
+            return;
+        }
+
+        mroClass.details.fields.forEach((destSymbol, name) => {
+            if (!isUnsafeOverlap || !destSymbol.isClassMember() || destSymbol.isIgnoredForProtocolMatch()) {
+                return;
+            }
+
+            // Does the classType have a member with the same name?
+            const srcMemberInfo = lookUpClassMember(classType, name);
+            if (!srcMemberInfo) {
+                isUnsafeOverlap = false;
+            }
+        });
+    });
+
+    return isUnsafeOverlap;
+}
+
 // Looks up the protocol compatibility in the cache. If it's not found,
 // return undefined.
 function getProtocolCompatibility(
