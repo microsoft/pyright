@@ -1,7 +1,7 @@
 from _typeshed import ConvertibleToInt, Incomplete, SupportsIter
 from collections.abc import Iterator
-from typing import Any, ClassVar, Protocol
-from typing_extensions import Final, Self
+from typing import Any, ClassVar, Final, Protocol
+from typing_extensions import Self
 
 from openpyxl.descriptors import MetaSerialisable
 from openpyxl.xml.functions import Element

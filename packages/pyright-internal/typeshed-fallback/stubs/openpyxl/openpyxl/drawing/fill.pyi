@@ -1,6 +1,6 @@
 from _typeshed import ConvertibleToFloat, ConvertibleToInt, Incomplete
-from typing import ClassVar
-from typing_extensions import Literal, TypeAlias
+from typing import ClassVar, Literal
+from typing_extensions import TypeAlias
 
 from openpyxl.descriptors.base import Alias, Bool, Integer, MinMax, NoneSet, Set, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList

@@ -1,8 +1,8 @@
 import sys
 from _typeshed import Unused
 from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
-from typing import Any, NoReturn, overload
-from typing_extensions import Literal, Self
+from typing import Any, Literal, NoReturn, overload
+from typing_extensions import Self
 
 import numpy
 from _cffi_backend import _CDataBase

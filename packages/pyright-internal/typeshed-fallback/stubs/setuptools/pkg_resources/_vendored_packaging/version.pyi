@@ -1,4 +1,4 @@
-from typing_extensions import Final
+from typing import Final
 
 __all__ = ["VERSION_PATTERN", "parse", "Version", "InvalidVersion"]
 

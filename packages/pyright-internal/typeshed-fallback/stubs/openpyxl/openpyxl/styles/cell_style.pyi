@@ -1,8 +1,8 @@
 from _typeshed import ConvertibleToInt, Incomplete, Unused
 from array import array
 from collections.abc import Iterable, MutableSequence
-from typing import ClassVar, Generic, TypeVar
-from typing_extensions import Literal, Self
+from typing import ClassVar, Generic, Literal, TypeVar
+from typing_extensions import Self
 
 from openpyxl.descriptors.base import Bool, Integer, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList

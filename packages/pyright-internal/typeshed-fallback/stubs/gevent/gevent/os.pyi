@@ -2,7 +2,7 @@ import os
 import sys
 from _typeshed import FileDescriptor, Incomplete, ReadableBuffer
 from collections.abc import Callable
-from typing_extensions import Literal
+from typing import Literal
 
 def tp_read(fd: FileDescriptor, n: int) -> bytes: ...
 def tp_write(fd: FileDescriptor, buf: ReadableBuffer) -> int: ...
@@ -26,6 +26,5 @@ if sys.platform != "win32":
         forkpty: Callable[[], tuple[int, int]] = ...,
     ) -> tuple[int, int]: ...
 
-    if sys.version_info >= (3, 8):
-        posix_spawn = os.posix_spawn
-        posix_spawnp = os.posix_spawnp
+    posix_spawn = os.posix_spawn
+    posix_spawnp = os.posix_spawnp

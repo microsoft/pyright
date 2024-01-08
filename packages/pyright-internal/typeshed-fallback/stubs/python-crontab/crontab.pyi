@@ -7,8 +7,8 @@ from collections.abc import Callable, Generator, Iterable, Iterator
 from datetime import datetime
 from logging import Logger
 from types import TracebackType
-from typing import Any, overload
-from typing_extensions import Self, SupportsIndex, TypeAlias
+from typing import Any, SupportsIndex, overload
+from typing_extensions import Self, TypeAlias
 
 from cronlog import CronLog
 

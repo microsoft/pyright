@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 from collections.abc import Iterable, Iterator
-from typing import ClassVar
-from typing_extensions import Self, TypedDict
+from typing import ClassVar, TypedDict
+from typing_extensions import Self
 
 from pkg_resources import Environment
 

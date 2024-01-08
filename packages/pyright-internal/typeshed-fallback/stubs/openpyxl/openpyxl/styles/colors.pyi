@@ -1,8 +1,8 @@
 from _typeshed import ConvertibleToFloat, ConvertibleToInt, Incomplete, Unused
 from collections.abc import Iterator
 from re import Pattern
-from typing import ClassVar, TypeVar, overload
-from typing_extensions import Final, Literal, Self
+from typing import ClassVar, Final, Literal, TypeVar, overload
+from typing_extensions import Self
 
 from openpyxl.descriptors import Strict, Typed
 from openpyxl.descriptors.base import _N, Bool, Integer, MinMax, String, _ConvertibleToBool

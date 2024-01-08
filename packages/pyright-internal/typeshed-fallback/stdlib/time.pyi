@@ -1,7 +1,7 @@
 import sys
 from _typeshed import structseq
-from typing import Any, Protocol
-from typing_extensions import Final, Literal, TypeAlias, final
+from typing import Any, Final, Literal, Protocol, final
+from typing_extensions import TypeAlias
 
 _TimeTuple: TypeAlias = tuple[int, int, int, int, int, int, int, int, int]
 
@@ -25,7 +25,7 @@ if sys.platform != "win32":
     if sys.platform != "linux" and sys.platform != "darwin":
         CLOCK_HIGHRES: int  # Solaris only
 
-if sys.version_info >= (3, 8) and sys.platform == "darwin":
+if sys.platform == "darwin":
     CLOCK_UPTIME_RAW: int
 
 if sys.version_info >= (3, 9) and sys.platform == "linux":
@@ -64,10 +64,6 @@ class struct_time(structseq[Any | int], _TimeTuple):
     def tm_gmtoff(self) -> int: ...
 
 def asctime(t: _TimeTuple | struct_time = ...) -> str: ...
-
-if sys.version_info < (3, 8):
-    def clock() -> float: ...
-
 def ctime(secs: float | None = ...) -> str: ...
 def gmtime(secs: float | None = ...) -> struct_time: ...
 def localtime(secs: float | None = ...) -> struct_time: ...

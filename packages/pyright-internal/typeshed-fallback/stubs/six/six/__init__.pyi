@@ -9,8 +9,7 @@ from functools import wraps as wraps
 from importlib.util import spec_from_loader as spec_from_loader
 from io import BytesIO as BytesIO, StringIO as StringIO
 from re import Pattern
-from typing import Any, AnyStr, NoReturn, Protocol, TypeVar, overload
-from typing_extensions import Literal
+from typing import Any, AnyStr, Literal, NoReturn, Protocol, TypeVar, overload
 
 from six import moves as moves
 

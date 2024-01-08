@@ -1,7 +1,6 @@
 from _typeshed import StrPath, SupportsRead
 from collections.abc import MutableSequence, Sequence
-from typing import Any
-from typing_extensions import Literal
+from typing import Any, Literal
 
 g_token_cache: dict[str, list[tuple[str, str]]]  # undocumented
 python3: Literal[True]

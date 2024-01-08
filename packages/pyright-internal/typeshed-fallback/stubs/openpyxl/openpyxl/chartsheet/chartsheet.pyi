@@ -1,6 +1,5 @@
 from _typeshed import Incomplete, Unused
-from typing import ClassVar
-from typing_extensions import Literal
+from typing import ClassVar, Literal
 
 from openpyxl import _Decodable, _VisibilityType
 from openpyxl.chartsheet.custom import CustomChartsheetViews

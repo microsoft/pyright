@@ -1,7 +1,6 @@
 from _typeshed import Incomplete
 from datetime import datetime
-from typing import ClassVar, overload
-from typing_extensions import Literal
+from typing import ClassVar, Literal, overload
 
 from openpyxl.descriptors import DateTime
 from openpyxl.descriptors.base import Alias

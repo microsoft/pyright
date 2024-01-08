@@ -1,7 +1,6 @@
 import re
 from collections.abc import Iterable, KeysView
-from typing import overload
-from typing_extensions import Literal
+from typing import Literal, overload
 
 def is_ascii(s: str) -> bool: ...
 

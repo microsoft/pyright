@@ -1,7 +1,6 @@
 from _typeshed import FileDescriptorOrPath, Incomplete, SupportsRead
 from enum import IntEnum
-from typing import Protocol
-from typing_extensions import Final, Literal
+from typing import Final, Literal, Protocol
 
 from PIL.Image import Transpose
 

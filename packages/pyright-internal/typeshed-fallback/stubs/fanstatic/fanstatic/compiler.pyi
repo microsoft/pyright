@@ -2,8 +2,7 @@ from _typeshed import StrOrBytesPath
 from abc import abstractmethod
 from logging import Logger
 from subprocess import Popen
-from typing import Any, ClassVar, NewType
-from typing_extensions import Literal
+from typing import Any, ClassVar, Literal, NewType
 
 import setuptools.command.sdist
 from fanstatic.core import Resource

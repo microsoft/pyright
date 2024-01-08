@@ -1,6 +1,5 @@
 from _typeshed import ConvertibleToInt, Unused
-from typing import ClassVar, overload
-from typing_extensions import Literal
+from typing import ClassVar, Literal, overload
 
 from openpyxl.chart.label import DataLabel as _DataLabel
 from openpyxl.chart.marker import Marker

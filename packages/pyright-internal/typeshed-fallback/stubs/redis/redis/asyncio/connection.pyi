@@ -3,8 +3,8 @@ import enum
 import ssl
 from _typeshed import Incomplete
 from collections.abc import Callable, Iterable, Mapping
-from typing import Any, Protocol, overload
-from typing_extensions import Literal, TypeAlias, TypedDict
+from typing import Any, Literal, Protocol, TypedDict, overload
+from typing_extensions import TypeAlias
 
 from redis import RedisError
 from redis.asyncio.retry import Retry

@@ -1,7 +1,6 @@
 from _typeshed import Incomplete, Unused
 from enum import IntEnum
-from typing import ClassVar
-from typing_extensions import Literal
+from typing import ClassVar, Literal
 
 from ._binary import o8 as o8
 from .ImageFile import ImageFile

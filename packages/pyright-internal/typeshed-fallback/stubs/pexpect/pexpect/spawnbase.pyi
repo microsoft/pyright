@@ -41,7 +41,7 @@ class SpawnBase:
     logfile_send: _Logfile
     maxread: Incomplete
     searchwindowsize: Incomplete
-    delaybeforesend: float
+    delaybeforesend: float | None
     delayafterclose: float
     delayafterterminate: float
     delayafterread: float

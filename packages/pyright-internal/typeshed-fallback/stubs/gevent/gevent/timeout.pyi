@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from types import TracebackType
-from typing import Any, TypeVar, overload
-from typing_extensions import Literal, ParamSpec, Self
+from typing import Any, Literal, TypeVar, overload
+from typing_extensions import ParamSpec, Self
 
 from gevent._types import _TimerWatcher
 

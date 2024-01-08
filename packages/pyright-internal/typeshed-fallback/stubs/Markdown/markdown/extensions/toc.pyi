@@ -1,7 +1,6 @@
 from collections.abc import Iterator, MutableSet
 from re import Pattern
-from typing import Any
-from typing_extensions import TypedDict
+from typing import Any, TypedDict
 from xml.etree.ElementTree import Element
 
 from markdown.core import Markdown

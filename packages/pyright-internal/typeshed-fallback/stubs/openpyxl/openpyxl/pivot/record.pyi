@@ -1,6 +1,5 @@
 from _typeshed import Incomplete, Unused
-from typing import ClassVar
-from typing_extensions import Literal
+from typing import ClassVar, Literal
 
 from openpyxl.descriptors.base import Typed
 from openpyxl.descriptors.excel import ExtensionList

@@ -1,8 +1,8 @@
 from _typeshed import FileDescriptor, StrOrBytesPath
 from collections.abc import Callable
 from types import TracebackType
-from typing import Any, overload
-from typing_extensions import Literal, Self, TypeVarTuple, Unpack
+from typing import Any, Literal, overload
+from typing_extensions import Self, TypeVarTuple, Unpack
 
 from gevent._types import _Loop, _StatResult
 

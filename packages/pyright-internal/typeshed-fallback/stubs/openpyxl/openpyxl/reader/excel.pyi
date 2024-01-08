@@ -1,5 +1,6 @@
 from _typeshed import Incomplete
-from typing_extensions import Final, Literal, TypeAlias
+from typing import Final, Literal
+from typing_extensions import TypeAlias
 from zipfile import ZipFile
 
 from openpyxl import _ZipFileFileProtocol

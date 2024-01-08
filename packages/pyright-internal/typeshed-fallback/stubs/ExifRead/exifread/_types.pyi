@@ -1,7 +1,7 @@
 # Stubs-only module with type aliases for ExifRead.
 
-from typing import Any, Protocol
-from typing_extensions import Literal, TypeAlias
+from typing import Any, Literal, Protocol
+from typing_extensions import TypeAlias
 
 # The second item of the value tuple - if it exists - can be a variety of types,
 # including a callable or another dict.

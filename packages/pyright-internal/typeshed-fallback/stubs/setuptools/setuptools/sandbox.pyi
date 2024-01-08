@@ -1,7 +1,7 @@
 import sys
 from types import TracebackType
-from typing import Any
-from typing_extensions import Literal, Self
+from typing import Any, Literal
+from typing_extensions import Self
 
 from ._distutils.errors import DistutilsError
 

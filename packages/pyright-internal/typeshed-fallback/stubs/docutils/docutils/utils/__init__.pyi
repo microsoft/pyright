@@ -2,7 +2,8 @@ import optparse
 from _typeshed import Incomplete
 from builtins import list as _list  # alias to avoid name clashes with fields named list
 from collections.abc import Iterable
-from typing_extensions import Literal, TypeAlias
+from typing import Literal
+from typing_extensions import TypeAlias
 
 from docutils import ApplicationError
 from docutils.io import FileOutput

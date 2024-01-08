@@ -2,7 +2,7 @@ from _typeshed import Incomplete
 from collections.abc import Iterable
 from dataclasses import dataclass
 from io import BytesIO
-from typing_extensions import Literal
+from typing import Literal
 
 from PIL import Image
 

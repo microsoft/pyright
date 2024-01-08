@@ -47,26 +47,15 @@ class CDLL:
     _name: str
     _handle: int
     _FuncPtr: type[_FuncPointer]
-    if sys.version_info >= (3, 8):
-        def __init__(
-            self,
-            name: str | None,
-            mode: int = ...,
-            handle: int | None = None,
-            use_errno: bool = False,
-            use_last_error: bool = False,
-            winmode: int | None = None,
-        ) -> None: ...
-    else:
-        def __init__(
-            self,
-            name: str | None,
-            mode: int = ...,
-            handle: int | None = None,
-            use_errno: bool = False,
-            use_last_error: bool = False,
-        ) -> None: ...
-
+    def __init__(
+        self,
+        name: str | None,
+        mode: int = ...,
+        handle: int | None = None,
+        use_errno: bool = False,
+        use_last_error: bool = False,
+        winmode: int | None = None,
+    ) -> None: ...
     def __getattr__(self, name: str) -> _NamedFuncPointer: ...
     def __getitem__(self, name_or_ordinal: str) -> _NamedFuncPointer: ...
 

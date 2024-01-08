@@ -1,7 +1,6 @@
 from _typeshed import Incomplete, Unused
 from collections.abc import Callable, Iterable, Iterator, Mapping, MutableSequence
-from typing import Any, ClassVar, NamedTuple, TypeVar, overload
-from typing_extensions import SupportsIndex
+from typing import Any, ClassVar, NamedTuple, SupportsIndex, TypeVar, overload
 
 _S = TypeVar("_S", bound=MutableSequence[str])
 

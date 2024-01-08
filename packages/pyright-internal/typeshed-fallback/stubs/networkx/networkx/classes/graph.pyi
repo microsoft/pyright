@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 from collections.abc import Callable, Collection, Hashable, Iterable, Iterator, Mapping, MutableMapping
-from typing import ClassVar, TypeVar, overload
+from typing import Any, ClassVar, TypeVar, overload
 from typing_extensions import Self, TypeAlias
 
 import numpy
@@ -9,16 +9,19 @@ from networkx.classes.digraph import DiGraph
 from networkx.classes.reportviews import DiDegreeView, NodeView, OutEdgeView
 
 _Node = TypeVar("_Node", bound=Hashable)
+_NodeWithData: TypeAlias = tuple[_Node, dict[str, Any]]
+_NodePlus: TypeAlias = _Node | _NodeWithData[_Node]
 _Edge: TypeAlias = tuple[_Node, _Node]
-_EdgePlus: TypeAlias = _Edge[_Node] | tuple[_Node, _Node, dict[str, Incomplete]]
-_MapFactory: TypeAlias = Callable[[], MutableMapping[str, Incomplete]]
+_EdgeWithData: TypeAlias = tuple[_Node, _Node, dict[str, Any]]
+_EdgePlus: TypeAlias = _Edge[_Node] | _EdgeWithData[_Node]
+_MapFactory: TypeAlias = Callable[[], MutableMapping[str, Any]]
 _NBunch: TypeAlias = _Node | Iterable[_Node] | None
 _Data: TypeAlias = (
     Graph[_Node]
-    | dict[_Node, dict[_Node, dict[str, Incomplete]]]
+    | dict[_Node, dict[_Node, dict[str, Any]]]
     | dict[_Node, Iterable[_Node]]
     | Iterable[_EdgePlus[_Node]]
-    | numpy.ndarray[_Node, Incomplete]
+    | numpy.ndarray[_Node, Any]
     # | scipy.sparse.base.spmatrix
 )
 
@@ -42,9 +45,7 @@ class Graph(Collection[_Node]):
     def __contains__(self, n: object) -> bool: ...
     def __len__(self) -> int: ...
     def add_node(self, node_for_adding: _Node, **attr) -> None: ...
-    def add_nodes_from(
-        self, nodes_for_adding: Iterable[_Node | tuple[_Node, dict[str, Incomplete]]], **attr: Incomplete
-    ) -> None: ...
+    def add_nodes_from(self, nodes_for_adding: Iterable[_NodePlus[_Node]], **attr: Incomplete) -> None: ...
     def remove_node(self, n: _Node) -> None: ...
     def remove_nodes_from(self, nodes: Iterable[_Node]) -> None: ...
     nodes: NodeView[_Node]

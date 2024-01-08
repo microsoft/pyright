@@ -1,7 +1,6 @@
 from _typeshed import Incomplete, Unused
 from collections.abc import Iterator
-from typing import ClassVar
-from typing_extensions import Literal
+from typing import ClassVar, Literal
 
 from openpyxl.descriptors.base import Alias, Bool, Convertible, _ConvertibleToBool, _ConvertibleToMultiCellRange
 from openpyxl.descriptors.serialisable import Serialisable

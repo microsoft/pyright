@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from typing_extensions import Final
+from typing import Final
 
 from ..lexer import Lexer, RegexLexer
 from ..token import _TokenType

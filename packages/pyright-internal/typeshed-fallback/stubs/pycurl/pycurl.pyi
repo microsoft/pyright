@@ -1,6 +1,7 @@
 import sys
 from _typeshed import Incomplete
-from typing_extensions import Self, final
+from typing import final
+from typing_extensions import Self
 
 version: str
 

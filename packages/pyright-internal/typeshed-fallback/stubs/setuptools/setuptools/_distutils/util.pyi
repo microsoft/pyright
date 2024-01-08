@@ -1,6 +1,5 @@
 from collections.abc import Callable, Mapping
-from typing import Any
-from typing_extensions import Literal
+from typing import Any, Literal
 
 def get_host_platform() -> str: ...
 def get_platform() -> str: ...

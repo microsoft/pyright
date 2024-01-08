@@ -2,8 +2,8 @@
 # "KeyError: 'pywintypes'"
 from _typeshed import Incomplete
 from datetime import datetime
-from typing import NoReturn
-from typing_extensions import Literal, Never
+from typing import Literal, NoReturn
+from typing_extensions import Never
 
 import _win32typing
 

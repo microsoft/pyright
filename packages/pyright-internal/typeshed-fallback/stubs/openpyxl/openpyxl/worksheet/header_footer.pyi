@@ -1,7 +1,7 @@
 from _typeshed import ConvertibleToInt
 from re import Pattern
-from typing import ClassVar
-from typing_extensions import Final, Literal, Self
+from typing import ClassVar, Final, Literal
+from typing_extensions import Self
 
 from openpyxl.descriptors import Strict
 from openpyxl.descriptors.base import Alias, Bool, Integer, MatchPattern, String, Typed, _ConvertibleToBool

@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 from collections.abc import Callable, Collection, Hashable, Iterable
-from typing import TypeVar, overload
-from typing_extensions import Literal, TypeAlias
+from typing import Literal, TypeVar, overload
+from typing_extensions import TypeAlias
 
 import numpy
 from networkx.classes.graph import Graph, _Node

@@ -1,7 +1,7 @@
 from _typeshed import ConvertibleToFloat, Incomplete
 from collections.abc import Iterator
-from typing import ClassVar
-from typing_extensions import Final, Literal, TypeAlias
+from typing import ClassVar, Final, Literal
+from typing_extensions import TypeAlias
 
 from openpyxl.descriptors.base import Alias, Bool, Min, MinMax, NoneSet, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable

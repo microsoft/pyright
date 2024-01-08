@@ -1,5 +1,6 @@
 from netaddr.contrib.subnet_splitter import SubnetSplitter as SubnetSplitter
 from netaddr.core import (
+    INET_ATON as INET_ATON,
     INET_PTON as INET_PTON,
     NOHOST as NOHOST,
     ZEROFILL as ZEROFILL,

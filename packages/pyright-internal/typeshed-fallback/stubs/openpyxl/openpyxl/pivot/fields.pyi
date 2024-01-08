@@ -1,7 +1,6 @@
 from _typeshed import ConvertibleToFloat, ConvertibleToInt, Incomplete
 from datetime import datetime
-from typing import ClassVar, overload
-from typing_extensions import Literal
+from typing import ClassVar, Literal, overload
 
 from openpyxl.descriptors.base import Bool, DateTime, Float, Integer, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable

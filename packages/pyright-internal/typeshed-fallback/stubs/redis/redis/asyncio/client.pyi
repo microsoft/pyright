@@ -2,8 +2,8 @@ from _typeshed import Incomplete, Unused
 from collections.abc import AsyncIterator, Awaitable, Callable, Generator, Iterable, Mapping, MutableMapping, Sequence
 from datetime import datetime, timedelta
 from types import TracebackType
-from typing import Any, ClassVar, NoReturn, Protocol, overload
-from typing_extensions import Literal, Self, TypeAlias, TypedDict
+from typing import Any, ClassVar, Literal, NoReturn, Protocol, TypedDict, overload
+from typing_extensions import Self, TypeAlias
 
 from redis import RedisError
 from redis.asyncio.connection import ConnectCallbackT, Connection, ConnectionPool

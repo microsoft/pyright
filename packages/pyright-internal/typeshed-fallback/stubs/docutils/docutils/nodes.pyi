@@ -3,8 +3,8 @@ import xml.dom.minidom
 from _typeshed import Incomplete
 from abc import abstractmethod
 from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
-from typing import Any, ClassVar, Protocol, TypeVar, overload
-from typing_extensions import Literal, Self, SupportsIndex
+from typing import Any, ClassVar, Literal, Protocol, SupportsIndex, TypeVar, overload
+from typing_extensions import Self
 
 from docutils.transforms import Transformer
 

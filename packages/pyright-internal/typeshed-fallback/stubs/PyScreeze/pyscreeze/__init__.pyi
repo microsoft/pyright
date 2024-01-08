@@ -1,8 +1,8 @@
 import sys
 from _typeshed import ConvertibleToFloat, Incomplete, StrOrBytesPath, Unused
 from collections.abc import Callable, Generator
-from typing import NamedTuple, TypeVar, overload
-from typing_extensions import Final, ParamSpec, TypeAlias
+from typing import Final, NamedTuple, TypeVar, overload
+from typing_extensions import ParamSpec, TypeAlias
 
 from PIL import Image
 

@@ -2,8 +2,7 @@ from _typeshed import ConvertibleToInt, Incomplete
 from collections import defaultdict
 from collections.abc import Generator, Iterator
 from re import Pattern
-from typing import ClassVar
-from typing_extensions import Final, Literal
+from typing import ClassVar, Final, Literal
 
 from openpyxl.descriptors import Sequence
 from openpyxl.descriptors.base import Alias, Bool, Integer, String, _ConvertibleToBool

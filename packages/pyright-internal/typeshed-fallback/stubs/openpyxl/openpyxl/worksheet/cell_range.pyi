@@ -1,8 +1,7 @@
 from _typeshed import ConvertibleToInt, Incomplete
 from collections.abc import Generator, Iterator
 from itertools import product
-from typing import Any, overload
-from typing_extensions import Literal
+from typing import Any, Literal, overload
 
 from openpyxl.descriptors import Strict
 from openpyxl.descriptors.base import MinMax

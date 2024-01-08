@@ -1,6 +1,6 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
-from typing_extensions import Final
+from typing import Final
 
 __all__ = [
     "write_graphml",

@@ -1,5 +1,5 @@
 from collections.abc import Iterator, Mapping, Set as AbstractSet
-from typing_extensions import TypedDict
+from typing import TypedDict
 
 from pygments.token import _TokenType
 

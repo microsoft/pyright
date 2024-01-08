@@ -1,7 +1,7 @@
 from _typeshed import ConvertibleToFloat, Incomplete, Unused
 from collections.abc import Iterable, Iterator, Sequence as ABCSequence
-from typing import ClassVar
-from typing_extensions import Final, Literal, TypeAlias
+from typing import ClassVar, Final, Literal
+from typing_extensions import TypeAlias
 
 from openpyxl.descriptors import Sequence, Strict
 from openpyxl.descriptors.base import Alias, Float, MinMax, NoneSet, Set

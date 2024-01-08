@@ -1,6 +1,6 @@
 from collections.abc import Callable
-from typing import Any, Protocol
-from typing_extensions import Literal, TypeAlias
+from typing import Any, Literal, Protocol
+from typing_extensions import TypeAlias
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray

@@ -5,7 +5,7 @@
 from _typeshed import StrOrBytesPath
 from collections.abc import Generator, Iterable
 from types import CodeType
-from typing_extensions import Literal
+from typing import Literal
 
 from PyInstaller.building.build_main import Analysis
 from PyInstaller.building.datastruct import TOC

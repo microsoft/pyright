@@ -1,6 +1,6 @@
 import re
 from _typeshed import StrPath
-from typing_extensions import Literal
+from typing import Literal
 
 from xdg.IniFile import IniFile
 
