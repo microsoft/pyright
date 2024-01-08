@@ -316,7 +316,7 @@ test('TypeAliasType1', () => {
 
 test('TypeAliasType2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasType2.py']);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('TypedDictReadOnly1', () => {

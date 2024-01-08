@@ -145,7 +145,7 @@ reveal_type(
 val4 = test_5(test_5, b=True)
 reveal_type(
     val4,
-    expected_text="type[list[Overload[(a: (**P(1)@test_5) -> type[T(1)@test_5], *, b: Literal[False] | None = ...) -> type[list[type[T(1)@test_5]]], (a: T(1)@test_5, *args: int, b: Literal[False] | None = ...) -> type[list[T(1)@test_5]], (a: T(1)@test_5, *args: int, b: Literal[True] = ...) -> type[list[T(1)@test_5]], (a: Any, *args: int, b: Any = ...) -> Any]]]",
+    expected_text="type[list[Overload[(a: (**P(1)@test_5) -> type[T(1)@test_5], *, b: Literal[False] | None = ...) -> type[list[type[T(1)@test_5]]], (a: T(1)@test_5, *args: int, b: Literal[False] | None = ...) -> type[list[T(1)@test_5]], (a: T(1)@test_5, *args: int, b: Literal[True] = ...) -> type[list[T(1)@test_5]]]]]",
 )
 
 

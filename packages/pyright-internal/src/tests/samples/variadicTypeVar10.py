@@ -28,7 +28,7 @@ def process_batch_channels(x: Array[Batch, Unpack[tuple[Any, ...]], Channels]) -
     ...
 
 
-def expect_variadic_array1(x: Array[Batch, Unpack[Shape]]) -> Union[Unpack[Shape]]:
+def expect_variadic_array1(x: Array[Batch, Unpack[Shape]]) -> tuple[Unpack[Shape]]:
     ...
 
 

@@ -1,9 +1,9 @@
 # This sample tests the type handler's handling of the
 # built-in NewType function.
 
-from typing import NewType, TypeVar
+from typing import Any, NewType, TypeVar, TypedDict
 
-MyString = NewType("MyString", str)
+MyString = NewType("MyString", "str")
 
 
 def must_take_string(p1: str):
@@ -37,10 +37,10 @@ MyString2 = NewType("MyString2", func1(str))
 NewTypeBad1 = NewType()
 
 # This should generate an error because NewType requires two arguments.
-NewTypeBad2 = NewType("Hi")
+NewTypeBad2 = NewType("NewTypeBad2")
 
 # This should generate an error because NewType requires two arguments.
-NewTypeBad3 = NewType("Hi", int, int)
+NewTypeBad3 = NewType("NewTypeBad3", int, int)
 
 # This should generate an error because the first argument must be a string literal.
 NewTypeBad4 = NewType(int, int)
@@ -48,3 +48,32 @@ NewTypeBad4 = NewType(int, int)
 args = ("Hi", int)
 # This should generate an error because two positional args are needed.
 NewTypeBad5 = NewType(*args)
+
+# This should generate an error because type cannot be Any.
+NewTypeBad6 = NewType("NewTypeBad6", Any)
+
+
+class TD1(TypedDict):
+    x: int
+
+
+# This should generate an error because type cannot be a TypedDict.
+NewTypeBad7 = NewType("NewTypeBad7", TD1)
+
+# This should generate an error because type cannot be another NewType.
+NewTypeBad8 = NewType("NewTypeBad8", MyString)
+
+# This should generate an error because the name doesn't match.
+NewTypeBad9 = NewType("NewTypeBad9Not", int)
+
+
+def func2(x: MyString):
+    # This should generate an error because isinstance can't be used
+    # with a NewType.
+    if isinstance(x, MyString):
+        pass
+
+    # This should generate an error because issubclass can't be used
+    # with a NewType.
+    if issubclass(type(x), (MyString, int)):
+        pass

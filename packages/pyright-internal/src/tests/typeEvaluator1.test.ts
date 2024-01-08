@@ -601,7 +601,7 @@ test('Expression6', () => {
 test('Expression7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expression7.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Expression8', () => {
@@ -1456,7 +1456,7 @@ test('Parameters1', () => {
 test('Self1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self1.py']);
 
-    TestUtils.validateResults(analysisResults, 12);
+    TestUtils.validateResults(analysisResults, 15);
 });
 
 test('Self2', () => {
@@ -1590,7 +1590,7 @@ test('TupleUnpack2', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack2.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 20);
+    TestUtils.validateResults(analysisResults1, 19);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack2.py'], configOptions);

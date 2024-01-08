@@ -297,7 +297,7 @@ test('Overload5', () => {
 
     configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 11);
+    TestUtils.validateResults(analysisResults, 12);
 });
 
 test('Overload6', () => {
@@ -362,7 +362,7 @@ test('Final1', () => {
 
 test('Final2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final2.py']);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 12);
 });
 
 test('Final3', () => {
@@ -378,6 +378,11 @@ test('Final4', () => {
 test('Final5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final5.py']);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Final6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final6.pyi']);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('InferredTypes1', () => {
@@ -873,7 +878,7 @@ test('ParamSpec3', () => {
 
 test('ParamSpec4', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec4.py']);
-    TestUtils.validateResults(results, 7);
+    TestUtils.validateResults(results, 10);
 });
 
 test('ParamSpec5', () => {
@@ -1104,6 +1109,11 @@ test('ParamSpec49', () => {
 test('ParamSpec50', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec50.py']);
     TestUtils.validateResults(results, 2);
+});
+
+test('ParamSpec51', () => {
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec51.py']);
+    TestUtils.validateResults(results, 0);
 });
 
 test('ClassVar1', () => {

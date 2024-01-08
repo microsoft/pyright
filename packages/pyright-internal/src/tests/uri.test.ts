@@ -137,6 +137,11 @@ test('root', () => {
     assert.ok(root10.isRoot());
 });
 
+test('getFilePath', () => {
+    const webUri = Uri.parse('foo:///a/b/c', true);
+    assert.equal(webUri.getFilePath(), '');
+});
+
 test('empty', () => {
     const empty = Uri.parse('', true);
     assert.equal(empty.isEmpty(), true);
@@ -786,4 +791,12 @@ test('Realcase use cwd implicitly', () => {
 
     const fspaths = fsentries.map((entry) => fs.realCasePath(uri.combinePaths(entry)).getFilePath());
     assert.deepStrictEqual(lowerCaseDrive(paths), fspaths);
+});
+
+test('Web URIs dont exist', () => {
+    const fs = createFromRealFileSystem();
+    const uri = Uri.parse('http://www.bing.com', /*ignoreCase*/ true);
+    assert(!fs.existsSync(uri));
+    const stat = fs.statSync(uri);
+    assert(!stat.isFile());
 });

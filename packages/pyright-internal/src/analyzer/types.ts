@@ -130,7 +130,8 @@ export interface TypeAliasInfo {
     typeVarScopeId: TypeVarScopeId;
 
     // Indicates whether the type alias was declared with the
-    // "type" syntax introduced in PEP 695.
+    // "type" syntax introduced in PEP 695 or was created by a direct
+    // call to the TypeAliasType constructor.
     isPep695Syntax: boolean;
 
     // Type parameters, if type alias is generic
@@ -556,6 +557,13 @@ export const enum ClassTypeFlags {
 
     // Decorated with @type_check_only.
     TypeCheckOnly = 1 << 27,
+
+    // Created with the NewType call.
+    NewTypeClass = 1 << 28,
+
+    // Class is allowed to be used as an implicit type alias even
+    // though it is not defined using a `class` statement.
+    ValidTypeAliasClass = 1 << 29,
 }
 
 export interface DataClassBehaviors {
@@ -811,13 +819,13 @@ export namespace ClassType {
         return newClassType;
     }
 
-    export function cloneIncludeSubclasses(classType: ClassType) {
-        if (classType.includeSubclasses) {
+    export function cloneIncludeSubclasses(classType: ClassType, includeSubclasses = true) {
+        if (!!classType.includeSubclasses === includeSubclasses) {
             return classType;
         }
 
         const newClassType = TypeBase.cloneType(classType);
-        newClassType.includeSubclasses = true;
+        newClassType.includeSubclasses = includeSubclasses;
         return newClassType;
     }
 
@@ -1050,6 +1058,14 @@ export namespace ClassType {
 
     export function isTypeCheckOnly(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.TypeCheckOnly);
+    }
+
+    export function isNewTypeClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.NewTypeClass);
+    }
+
+    export function isValidTypeAliasClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.ValidTypeAliasClass);
     }
 
     export function isTypedDictClass(classType: ClassType) {
@@ -1662,8 +1678,21 @@ export namespace FunctionType {
         delete newFunction.details.paramSpec;
 
         if (paramSpecValue) {
+            const typeParameters = Array.from(type.details.parameters);
+            let droppedLastParam = false;
+
+            // If the paramSpec includes a position-only separator
+            // and the existing function ends on a position-only separator,
+            // we need to remove the latter in favor of the former.
+            if (paramSpecValue.details.parameters.some((param) => isPositionOnlySeparator(param))) {
+                if (typeParameters.length > 0 && isPositionOnlySeparator(typeParameters[typeParameters.length - 1])) {
+                    typeParameters.pop();
+                    droppedLastParam = true;
+                }
+            }
+
             newFunction.details.parameters = [
-                ...type.details.parameters,
+                ...typeParameters,
                 ...paramSpecValue.details.parameters.map((param) => {
                     return {
                         category: param.category,
@@ -1704,11 +1733,20 @@ export namespace FunctionType {
                     parameterTypes: Array.from(type.specializedTypes.parameterTypes),
                     returnType: type.specializedTypes.returnType,
                 };
+                if (droppedLastParam) {
+                    newFunction.specializedTypes.parameterTypes.pop();
+                }
+
                 if (type.specializedTypes.parameterDefaultArgs) {
                     newFunction.specializedTypes.parameterDefaultArgs = Array.from(
                         type.specializedTypes.parameterDefaultArgs
                     );
+
+                    if (droppedLastParam) {
+                        newFunction.specializedTypes.parameterDefaultArgs.pop();
+                    }
                 }
+
                 paramSpecValue.details.parameters.forEach((paramInfo) => {
                     newFunction.specializedTypes!.parameterTypes.push(paramInfo.type);
                     if (newFunction.specializedTypes!.parameterDefaultArgs) {
@@ -2048,6 +2086,20 @@ export namespace FunctionType {
         if (type.specializedTypes) {
             type.specializedTypes.parameterTypes.push(param.type);
         }
+    }
+
+    export function addPositionOnlyParameterSeparator(type: FunctionType) {
+        addParameter(type, {
+            category: ParameterCategory.Simple,
+            type: AnyType.create(),
+        });
+    }
+
+    export function addKeywordOnlyParameterSeparator(type: FunctionType) {
+        addParameter(type, {
+            category: ParameterCategory.ArgsList,
+            type: AnyType.create(),
+        });
     }
 
     export function getSpecializedReturnType(type: FunctionType, includeInferred = true) {
@@ -2903,8 +2955,8 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
-            const positionalOnlyIndex1 = params1.findIndex((param) => isPositionOnlySeparator(param));
-            const positionalOnlyIndex2 = params2.findIndex((param) => isPositionOnlySeparator(param));
+            const positionOnlyIndex1 = params1.findIndex((param) => isPositionOnlySeparator(param));
+            const positionOnlyIndex2 = params2.findIndex((param) => isPositionOnlySeparator(param));
 
             // Make sure the parameter details match.
             for (let i = 0; i < params1.length; i++) {
@@ -2915,8 +2967,8 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                     return false;
                 }
 
-                const isName1Relevant = positionalOnlyIndex1 !== undefined && i >= positionalOnlyIndex1;
-                const isName2Relevant = positionalOnlyIndex2 !== undefined && i >= positionalOnlyIndex2;
+                const isName1Relevant = positionOnlyIndex1 !== undefined && i > positionOnlyIndex1;
+                const isName2Relevant = positionOnlyIndex2 !== undefined && i > positionOnlyIndex2;
 
                 if (isName1Relevant !== isName2Relevant) {
                     return false;
@@ -2926,6 +2978,10 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                     if (param1.name !== param2.name) {
                         return false;
                     }
+                } else if (isPositionOnlySeparator(param1) && isPositionOnlySeparator(param2)) {
+                    continue;
+                } else if (isKeywordOnlySeparator(param1) && isKeywordOnlySeparator(param2)) {
+                    continue;
                 }
 
                 const param1Type = FunctionType.getEffectiveParameterType(type1, i);

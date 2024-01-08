@@ -62,7 +62,7 @@ test('Override a specific string', () => {
     try {
         assert.equal(value, 'Import is foo');
         const nonMovedValue = Localizer.Diagnostic.abstractMethodInvocation().format({ method: 'foo' });
-        assert.equal(nonMovedValue, 'Method "foo" cannot be called because it is abstract');
+        assert.equal(nonMovedValue, 'Method "foo" cannot be called because it is abstract and unimplemented');
     } finally {
         setGetRawString(originalRawString);
     }

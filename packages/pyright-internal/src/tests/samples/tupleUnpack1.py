@@ -36,8 +36,8 @@ def func7(v7: tuple[Unpack[tuple[bool, Unpack[tuple[int, float]]]]]):
     reveal_type(v7, expected_text="tuple[bool, int, float]")
 
 
-def func8(v8: Union[Unpack[tuple[Unpack[tuple[bool, Unpack[tuple[int, ...]]]]]]]):
-    reveal_type(v8, expected_text="bool | int")
+def func8(v8: tuple[Unpack[tuple[bool, Unpack[tuple[int, ...]]]]]):
+    reveal_type(v8, expected_text="tuple[bool, *tuple[int, ...]]")
 
 
 # This should generate an error because unpack isn't allowed for simple parameters.

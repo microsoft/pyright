@@ -128,6 +128,23 @@ export class Diagnostic {
     }
 }
 
+// Compares two diagnostics by location for sorting.
+export function compareDiagnostics(d1: Diagnostic, d2: Diagnostic) {
+    if (d1.range.start.line < d2.range.start.line) {
+        return -1;
+    } else if (d1.range.start.line > d2.range.start.line) {
+        return 1;
+    }
+
+    if (d1.range.start.character < d2.range.start.character) {
+        return -1;
+    } else if (d1.range.start.character > d2.range.start.character) {
+        return 1;
+    }
+
+    return 0;
+}
+
 // Helps to build additional information that can be appended to a diagnostic
 // message. It supports hierarchical information and flexible formatting.
 export class DiagnosticAddendum {

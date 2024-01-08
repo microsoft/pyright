@@ -32,9 +32,13 @@ class ClassB:
     ...
 
 
+# This should generate an error because binary operators are not allowed
+# in type annotations.
 def func4(a: ClassA and ClassB):
-    reveal_type(a, expected_text="ClassB")
+    ...
 
 
+# This should generate an error because binary operators are not allowed
+# in type annotations.
 def func5(a: ClassA or ClassB):
-    reveal_type(a, expected_text="ClassA")
+    ...

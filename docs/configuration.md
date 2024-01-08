@@ -373,3 +373,15 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUninitializedInstanceVariable       | "none"     | "none"     | "none"     | "none"     |
 | reportUnnecessaryTypeIgnoreComment        | "none"     | "none"     | "none"     | "none"     |
 | reportUnusedCallResult                    | "none"     | "none"     | "none"     | "none"     |
+
+
+## Locale Configuration
+
+Pyright provides diagnostic messages that are translated to multiple languages. By default, pyright uses the default locale of the operating system. You can override the desired locale through the use of one of the following environment variables, listed in priority order.
+
+```
+LC_ALL="de"
+LC_MESSAGES="en-us"
+LANG="zh-cn"
+LANGUAGE="fr"
+```

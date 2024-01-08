@@ -93,6 +93,13 @@ export class BackgroundThreadBase {
     }
 }
 
+export function createJsonObjectFrom(configOptions: ConfigOptions): any {
+    return {
+        ...JSON.parse(JSON.stringify(configOptions)),
+        defineConstant: configOptions.defineConstant, // This is the only field that can't be stringified.
+    };
+}
+
 export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     const configOptions = new ConfigOptions(Uri.fromJsonObj(jsonObject.projectRoot));
     const getFileSpec = (fileSpec: any): FileSpec => {

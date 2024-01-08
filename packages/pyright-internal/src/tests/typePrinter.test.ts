@@ -121,11 +121,7 @@ test('FunctionTypes', () => {
         name: 'a',
     });
 
-    FunctionType.addParameter(funcTypeA, {
-        category: ParameterCategory.Simple,
-        hasDeclaredType: true,
-        type: AnyType.create(),
-    });
+    FunctionType.addPositionOnlyParameterSeparator(funcTypeA);
 
     FunctionType.addParameter(funcTypeA, {
         category: ParameterCategory.ArgsList,
@@ -161,11 +157,7 @@ test('FunctionTypes', () => {
         name: 'a',
     });
 
-    FunctionType.addParameter(funcTypeB, {
-        category: ParameterCategory.Simple,
-        hasDeclaredType: true,
-        type: AnyType.create(),
-    });
+    FunctionType.addPositionOnlyParameterSeparator(funcTypeB);
 
     const paramSpecP = TypeVarType.createInstance('P');
     paramSpecP.details.isParamSpec = true;

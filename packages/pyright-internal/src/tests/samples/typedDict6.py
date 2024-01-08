@@ -5,20 +5,16 @@ from typing import NotRequired, Required, TypedDict
 
 Movie = TypedDict("Movie", {"name": str, "year": int})
 
-# This should generate an error because
-# the arguments are missing.
+# This should generate an error because the arguments are missing.
 Movie2 = TypedDict()
 
-# This should generate an error because
-# the arguments are missing.
+# This should generate an error because the arguments are missing.
 Movie3 = TypedDict("Movie3")
 
-# This should generate an error because
-# the argument type is wrong.
+# This should generate an error because the argument type is wrong.
 Movie4 = TypedDict("Movie4", 3)
 
-# This should generate an error because
-# the argument type is wrong.
+# This should generate an error because the argument type is wrong.
 Movie5 = TypedDict(3, {})
 
 Movie6 = TypedDict("Movie6", {}, total=False)
@@ -28,12 +24,10 @@ Movie7 = TypedDict("Movie7", {}, total=True)
 # accepts only True or False.
 Movie8 = TypedDict("Movie8", {}, total=3)
 
-# This should generate an error because the third arg
-# is unknown.
+# This should generate an error because the third arg is unknown.
 Movie9 = TypedDict("Movie9", {}, random=3)
 
-# This should generate an error because the third arg
-# is unknown.
+# This should generate an error because the third arg is unknown.
 Movie10 = TypedDict("Movie10", {}, 3)
 
 # This should generate an error because a fourth arg
@@ -82,3 +76,8 @@ Movie12 = TypedDict(
 )
 
 movie12: Movie12 = {"title": "Two Towers", "predecessor": {"title": "Fellowship"}}
+
+
+# This should generate an error because the name doesn't match.
+# the arguments are missing.
+Movie13 = TypedDict("NotMovie13", {"name": str, "year": int})

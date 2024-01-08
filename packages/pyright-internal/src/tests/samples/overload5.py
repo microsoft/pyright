@@ -365,3 +365,32 @@ def func20(choices: AllStr) -> AllStr:
 
 def func20(choices: AllStr) -> AllStr:
     ...
+
+
+# This should generate an overlapping overload error.
+@overload
+def func21(self, p1: int | set[int], /) -> str:
+    ...
+
+
+@overload
+def func21(self, p1: int | list[int], /) -> int:
+    ...
+
+
+def func21(self, p1: int | set[int] | list[int], /) -> str | int:
+    return ""
+
+
+@overload
+def func22(self, p1: str | set[int], /) -> str:
+    ...
+
+
+@overload
+def func22(self, p1: int | list[int], /) -> int:
+    ...
+
+
+def func22(self, p1: str | int | set[int] | list[int], /) -> str | int:
+    return ""

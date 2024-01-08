@@ -28,6 +28,7 @@ import { FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     computeMroLinearization,
     convertToInstance,
+    isLiteralType,
     isTupleClass,
     isUnboundedTupleClass,
     specializeTupleClass,
@@ -115,7 +116,7 @@ export function createNamedTupleType(
         ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
         fileInfo.moduleName,
         fileInfo.fileUri,
-        ClassTypeFlags.ReadOnlyInstanceVariables,
+        ClassTypeFlags.ReadOnlyInstanceVariables | ClassTypeFlags.ValidTypeAliasClass,
         ParseTreeUtils.getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,
         isInstantiableClass(namedTupleType) ? namedTupleType.details.effectiveMetaclass : UnknownType.create()
@@ -257,12 +258,22 @@ export function createNamedTupleType(
                         entryType = UnknownType.create();
                     }
 
-                    if (entryNameNode && entryNameNode.nodeType === ParseNodeType.StringList) {
-                        entryName = entryNameNode.strings.map((s) => s.value).join('');
-                        if (!entryName) {
-                            evaluator.addError(Localizer.Diagnostic.namedTupleEmptyName(), entryNameNode);
+                    if (entryNameNode) {
+                        const nameTypeResult = evaluator.getTypeOfExpression(entryNameNode);
+                        if (
+                            isClassInstance(nameTypeResult.type) &&
+                            ClassType.isBuiltIn(nameTypeResult.type, 'str') &&
+                            isLiteralType(nameTypeResult.type)
+                        ) {
+                            entryName = nameTypeResult.type.literalValue as string;
+
+                            if (!entryName) {
+                                evaluator.addError(Localizer.Diagnostic.namedTupleEmptyName(), entryNameNode);
+                            } else {
+                                entryName = renameKeyword(evaluator, entryName, allowRename, entryNameNode, index);
+                            }
                         } else {
-                            entryName = renameKeyword(evaluator, entryName, allowRename, entryNameNode, index);
+                            addGenericGetAttribute = true;
                         }
                     } else {
                         addGenericGetAttribute = true;

@@ -12,7 +12,6 @@ type TA1[K] = dict[K, V]
 
 
 T1 = TypeVar("T1")
-T2 = TypeVar("T2")
 
 # This should generate an error because it uses old type
 # variables in a type alias statement.

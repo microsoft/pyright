@@ -46,14 +46,12 @@ def func6(x: TA4):
 Ts = TypeVarTuple("Ts")
 
 
-def func3(
-    path: str, *args: Unpack[tuple[Unpack[Ts], str]]
-) -> Union[Unpack[tuple[Unpack[Ts], int]]]:
+def func3(path: str, *args: Unpack[tuple[Unpack[Ts], str]]) -> tuple[Unpack[Ts], int]:
     ...
 
 
 v3 = func3("", 1, "2", 3.3, None, "")
-reveal_type(v3, expected_text="int | str | float | None")
+reveal_type(v3, expected_text="tuple[int, str, float, None, int]")
 
 func3("", "")
 

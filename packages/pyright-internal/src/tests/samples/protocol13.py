@@ -1,5 +1,5 @@
 # This sample tests the handling of protocol class methods that
-# include named-only parameters that match to positional parameters
+# include keyword-only parameters that match to positional parameters
 # within class that is being tested for protocol compatibility.
 
 from typing import Protocol

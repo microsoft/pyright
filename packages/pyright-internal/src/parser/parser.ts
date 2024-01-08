@@ -482,7 +482,7 @@ export class Parser {
             this._getNextToken();
         }
 
-        const expression = this._parseOrTest();
+        const expression = this._parseTestExpression(/* allowAssignmentExpression */ false);
 
         return TypeAliasNode.create(typeToken, name, expression, typeParameters);
     }

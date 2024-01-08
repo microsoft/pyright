@@ -3,6 +3,7 @@
 
 from typing import Any, NewType
 
+# This should generate an error.
 A = NewType("A", Any)
 
 

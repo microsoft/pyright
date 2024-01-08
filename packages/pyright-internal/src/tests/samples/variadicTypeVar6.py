@@ -52,18 +52,18 @@ y2: Alias4[float, str, str] = Array("3.4", 2, "hi", "hi")
 y3 = Alias4[float, str, str](3, 2, "hi", "hi")
 
 
-def func1(a: Alias4[_T, Unpack[_Xs]]) -> Union[_T, Unpack[_Xs]]:
+def func1(a: Alias4[_T, Unpack[_Xs]]) -> tuple[_T, Unpack[_Xs]]:
     ...
 
 
 z1 = func1(Array(3, 4, "hi", 3j))
-reveal_type(z1, expected_text="int | str | complex")
+reveal_type(z1, expected_text="tuple[int, str, complex]")
 
 # This should generate an error.
 z2 = func1(Array(3, 4.3, "hi", 3j))
 
 z3 = func1(Array(3.5, 4))
-reveal_type(z3, expected_text="float")
+reveal_type(z3, expected_text="tuple[float]")
 
 Alias6 = tuple[int, Unpack[_Xs]]
 
@@ -90,3 +90,23 @@ def func4(a: int, b: str) -> None:
 
 
 reveal_type(func3(func4), expected_text="tuple[str]")
+
+
+_T1 = TypeVar("_T1")
+_T2 = TypeVar("_T2")
+
+Alias8 = tuple[*_Xs, _T1, _T2]
+
+# This should generate an error because there are
+# enough type arguments.
+a8_1: Alias8[int]
+
+a8_2: Alias8[int, int]
+
+
+class ClassA9(Generic[_T1]):
+    pass
+
+
+# This should generate an error.
+a9_1: ClassA9[*tuple[int]]

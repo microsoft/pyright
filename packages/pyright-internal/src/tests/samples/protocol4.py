@@ -30,6 +30,8 @@ class B:
     x: int
 
 
+# This should generate an error because x is not a ClassVar in B
+# but is a ClassVar in the protocol.
 b: ProtoB = B()
 
 

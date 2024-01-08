@@ -82,7 +82,7 @@ export function createEnumType(
         getClassFullName(errorNode, fileInfo.moduleName, className),
         fileInfo.moduleName,
         fileInfo.fileUri,
-        ClassTypeFlags.EnumClass,
+        ClassTypeFlags.EnumClass | ClassTypeFlags.ValidTypeAliasClass,
         getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,
         enumClass.details.effectiveMetaclass

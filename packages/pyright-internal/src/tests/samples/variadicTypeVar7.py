@@ -2,6 +2,8 @@
 
 # pyright: reportMissingModuleSource=false
 
+# Enable experimental features to support Union[*Ts].
+# pyright: enableExperimentalFeatures=true
 
 from typing import Any, Callable, Generic, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack

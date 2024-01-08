@@ -2,6 +2,9 @@
 # TypeVarTuple is used in an unpacked argument and assigned to another
 # TypeVarTuple parameter.
 
+# Enable experimental features to support Union[*Ts].
+# pyright: enableExperimentalFeatures=true
+
 from typing import TypeVar, TypeVarTuple, Union, Unpack
 
 T = TypeVar("T")

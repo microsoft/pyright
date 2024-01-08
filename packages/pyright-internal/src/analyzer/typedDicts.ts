@@ -65,7 +65,7 @@ import {
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
-// Creates a new custom TypedDict factory class.
+// Creates a new custom TypedDict "alternate syntax" factory class.
 export function createTypedDictType(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
@@ -77,7 +77,7 @@ export function createTypedDictType(
     // TypedDict supports two different syntaxes:
     // Point2D = TypedDict('Point2D', {'x': int, 'y': int, 'label': str})
     // Point2D = TypedDict('Point2D', x=int, y=int, label=str)
-    let className = 'TypedDict';
+    let className: string | undefined;
     if (argList.length === 0) {
         evaluator.addError(Localizer.Diagnostic.typedDictFirstArg(), errorNode);
     } else {
@@ -93,12 +93,13 @@ export function createTypedDictType(
         }
     }
 
+    const effectiveClassName = className || 'TypedDict';
     const classType = ClassType.createInstantiable(
-        className,
-        ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
+        effectiveClassName,
+        ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, effectiveClassName),
         fileInfo.moduleName,
         fileInfo.fileUri,
-        ClassTypeFlags.TypedDictClass,
+        ClassTypeFlags.TypedDictClass | ClassTypeFlags.ValidTypeAliasClass,
         ParseTreeUtils.getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,
         typedDictClass.details.effectiveMetaclass
@@ -193,6 +194,23 @@ export function createTypedDictType(
 
     synthesizeTypedDictClassMethods(evaluator, errorNode, classType, /* isClassFinal */ false);
 
+    // Validate that the assigned variable name is consistent with the provided name.
+    if (errorNode.parent?.nodeType === ParseNodeType.Assignment && className) {
+        const target = errorNode.parent.leftExpression;
+        const typedDictTarget = target.nodeType === ParseNodeType.TypeAnnotation ? target.valueExpression : target;
+
+        if (typedDictTarget.nodeType === ParseNodeType.Name) {
+            if (typedDictTarget.value !== className) {
+                evaluator.addError(
+                    Localizer.Diagnostic.typedDictAssignedName().format({
+                        name: className,
+                    }),
+                    typedDictTarget
+                );
+            }
+        }
+    }
+
     return classType;
 }
 
@@ -260,19 +278,10 @@ export function synthesizeTypedDictClassMethods(
         type: ClassType.cloneAsInstance(classType),
         hasDeclaredType: true,
     });
-
-    FunctionType.addParameter(initOverride1, {
-        category: ParameterCategory.Simple,
-        name: '',
-        type: UnknownType.create(),
-    });
+    FunctionType.addPositionOnlyParameterSeparator(initOverride1);
 
     // All subsequent parameters must be named, so insert an empty "*".
-    FunctionType.addParameter(initOverride1, {
-        category: ParameterCategory.ArgsList,
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
+    FunctionType.addKeywordOnlyParameterSeparator(initOverride1);
 
     const initOverride2 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
     FunctionType.addParameter(initOverride2, {
@@ -284,11 +293,7 @@ export function synthesizeTypedDictClassMethods(
     initOverride2.details.declaredReturnType = evaluator.getNoneType();
 
     // All parameters must be named, so insert an empty "*".
-    FunctionType.addParameter(initOverride2, {
-        category: ParameterCategory.ArgsList,
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
+    FunctionType.addKeywordOnlyParameterSeparator(initOverride2);
 
     const entries = getTypedDictMembersForClass(evaluator, classType);
     let allEntriesAreNotRequired = true;
@@ -499,18 +504,8 @@ export function synthesizeTypedDictClassMethods(
                     : ClassType.cloneAsInstance(ClassType.cloneForPartialTypedDict(classType)),
             });
 
-            FunctionType.addParameter(updateMethod1, {
-                category: ParameterCategory.Simple,
-                name: '',
-                type: AnyType.create(),
-            });
-
-            FunctionType.addParameter(updateMethod3, {
-                category: ParameterCategory.ArgsList,
-                name: '',
-                hasDeclaredType: false,
-                type: UnknownType.create(),
-            });
+            FunctionType.addPositionOnlyParameterSeparator(updateMethod1);
+            FunctionType.addKeywordOnlyParameterSeparator(updateMethod3);
 
             updateMethod1.details.declaredReturnType = evaluator.getNoneType();
             updateMethod2.details.declaredReturnType = evaluator.getNoneType();
@@ -562,11 +557,7 @@ export function synthesizeTypedDictClassMethods(
                 });
             }
 
-            FunctionType.addParameter(updateMethod2, {
-                category: ParameterCategory.Simple,
-                name: '',
-                type: AnyType.create(),
-            });
+            FunctionType.addPositionOnlyParameterSeparator(updateMethod2);
 
             // Note that the order of method1 and method2 is swapped. This is done so
             // the method1 signature is used in the error message when neither method2

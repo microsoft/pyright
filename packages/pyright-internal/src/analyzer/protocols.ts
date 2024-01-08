@@ -166,6 +166,65 @@ export function assignModuleToProtocol(
     );
 }
 
+// Determines whether the specified class is a protocol class that has
+// only methods, no other symbol types like variables.
+export function isMethodOnlyProtocol(classType: ClassType): boolean {
+    if (!ClassType.isProtocolClass(classType)) {
+        return false;
+    }
+
+    // First check for data members in any protocol base classes.
+    for (const baseClass of classType.details.baseClasses) {
+        if (isClass(baseClass) && ClassType.isProtocolClass(baseClass) && !isMethodOnlyProtocol(baseClass)) {
+            return false;
+        }
+    }
+
+    for (const [, symbol] of classType.details.fields) {
+        if (symbol.isIgnoredForProtocolMatch()) {
+            continue;
+        }
+
+        if (symbol.getDeclarations().some((decl) => decl.type !== DeclarationType.Function)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// Determines whether the classType has "unsafe overlap" with a runtime checkable protocol.
+// This can occur because the runtime doesn't do full type comparisons. It simply looks at
+// the presence of specific attributes.
+export function isProtocolUnsafeOverlap(evaluator: TypeEvaluator, protocol: ClassType, classType: ClassType): boolean {
+    // If the classType is compatible with the protocol, then it doesn't overlap unsafely.
+    if (evaluator.assignType(protocol, classType)) {
+        return false;
+    }
+
+    let isUnsafeOverlap = true;
+
+    protocol.details.mro.forEach((mroClass) => {
+        if (!isUnsafeOverlap || !isInstantiableClass(mroClass) || !ClassType.isProtocolClass(mroClass)) {
+            return;
+        }
+
+        mroClass.details.fields.forEach((destSymbol, name) => {
+            if (!isUnsafeOverlap || !destSymbol.isClassMember() || destSymbol.isIgnoredForProtocolMatch()) {
+                return;
+            }
+
+            // Does the classType have a member with the same name?
+            const srcMemberInfo = lookUpClassMember(classType, name);
+            if (!srcMemberInfo) {
+                isUnsafeOverlap = false;
+            }
+        });
+    });
+
+    return isUnsafeOverlap;
+}
+
 // Looks up the protocol compatibility in the cache. If it's not found,
 // return undefined.
 function getProtocolCompatibility(
@@ -278,7 +337,7 @@ function assignClassToProtocolInternal(
 
     let typesAreConsistent = true;
     const checkedSymbolSet = new Set<string>();
-    let assignTypeFlags = flags & AssignTypeFlags.OverloadOverlapCheck;
+    let assignTypeFlags = flags & (AssignTypeFlags.OverloadOverlapCheck | AssignTypeFlags.PartialOverloadOverlapCheck);
 
     assignTypeFlags |= containsLiteralType(srcType, /* includeTypeArgs */ true)
         ? AssignTypeFlags.RetainLiteralsForTypeVar
@@ -498,10 +557,11 @@ function assignClassToProtocolInternal(
                     }
                 } else {
                     // Extract the property type from the property class.
-                    const getterType = evaluator.getGetterTypeFromProperty(
-                        destMemberType,
-                        /* inferTypeIfNeeded */ true
-                    );
+                    let getterType = evaluator.getGetterTypeFromProperty(destMemberType, /* inferTypeIfNeeded */ true);
+
+                    if (getterType) {
+                        getterType = partiallySpecializeType(getterType, mroClass);
+                    }
 
                     if (
                         !getterType ||
@@ -581,6 +641,26 @@ function assignClassToProtocolInternal(
                 } else {
                     if (subDiag) {
                         subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsNotFinalInProtocol().format({ name }));
+                    }
+                }
+                typesAreConsistent = false;
+            }
+
+            const isDestClassVar = destSymbol.isClassVar();
+            const isSrcClassVar = srcSymbol.isClassVar();
+
+            // If the source is marked as a ClassVar but the dest (the protocol) is not,
+            // or vice versa, the types are not consistent.
+            if (isDestClassVar !== isSrcClassVar) {
+                if (isDestClassVar) {
+                    if (subDiag) {
+                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsClassVarInProtocol().format({ name }));
+                    }
+                } else {
+                    if (subDiag) {
+                        subDiag.addMessage(
+                            Localizer.DiagnosticAddendum.memberIsNotClassVarInProtocol().format({ name })
+                        );
                     }
                 }
                 typesAreConsistent = false;
