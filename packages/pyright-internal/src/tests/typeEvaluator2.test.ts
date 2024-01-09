@@ -312,7 +312,7 @@ test('isInstance5', () => {
 });
 
 test('isInstance6', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isInstance6.py']);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance6.py']);
 
     TestUtils.validateResults(analysisResults, 3);
 });
