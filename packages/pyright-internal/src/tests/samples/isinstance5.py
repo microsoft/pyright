@@ -36,12 +36,12 @@ def func2(a: Any):
 
     # This should generate an error because data protocols
     # are not allowed with issubclass checks.
-    if issubclass(a, DataProtocol):
+    if issubclass(a, (DataProtocol, NonDataProtocol)):
         return
 
     # This should generate an error because data protocols
     # are not allowed with issubclass checks.
-    if issubclass(a, DataProtocol2):
+    if issubclass(a, (DataProtocol2, NonDataProtocol)):
         return
 
     if issubclass(a, NonDataProtocol):

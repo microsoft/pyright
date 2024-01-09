@@ -311,6 +311,12 @@ test('isInstance5', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('isInstance6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isInstance6.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('Unbound1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound1.py']);
 
@@ -1403,12 +1409,6 @@ test('Protocol48', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol48.py']);
 
     TestUtils.validateResults(analysisResults, 0);
-});
-
-test('Protocol49', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol49.py']);
-
-    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('TypedDict1', () => {

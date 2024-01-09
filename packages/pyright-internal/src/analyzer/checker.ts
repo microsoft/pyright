@@ -3701,15 +3701,15 @@ export class Checker extends ParseTreeWalker {
 
             doForEachSubtype(arg1Type, (arg1Subtype) => {
                 if (
-                    isInstantiableClass(arg1Subtype) &&
-                    ClassType.isProtocolClass(arg1Subtype) &&
-                    !isMethodOnlyProtocol(arg1Subtype)
+                    isClassInstance(arg1Subtype) &&
+                    ClassType.isTupleClass(arg1Subtype) &&
+                    arg1Subtype.tupleTypeArguments
                 ) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.dataProtocolUnsupported().format({
-                            name: arg1Subtype.details.name,
-                        })
-                    );
+                    arg1Subtype.tupleTypeArguments.forEach((typeArg) => {
+                        this._validateNotDataProtocol(typeArg.type, diag);
+                    });
+                } else {
+                    this._validateNotDataProtocol(arg1Subtype, diag);
                 }
             });
 
@@ -4025,6 +4025,16 @@ export class Checker extends ParseTreeWalker {
         });
 
         return isSupported;
+    }
+
+    private _validateNotDataProtocol(type: Type, diag: DiagnosticAddendum) {
+        if (isInstantiableClass(type) && ClassType.isProtocolClass(type) && !isMethodOnlyProtocol(type)) {
+            diag.addMessage(
+                Localizer.DiagnosticAddendum.dataProtocolUnsupported().format({
+                    name: type.details.name,
+                })
+            );
+        }
     }
 
     private _isSymbolPrivate(nameValue: string, scopeType: ScopeType) {
