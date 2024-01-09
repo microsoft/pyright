@@ -1245,7 +1245,7 @@ test('Circular2', () => {
 test('TryExcept1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept1.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('TryExcept2', () => {
