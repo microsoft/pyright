@@ -77,9 +77,11 @@ export function createImportedModuleDescriptor(moduleName: string): ImportedModu
 }
 
 type CachedImportResults = Map<string, ImportResult>;
-interface SupportedVersionRange {
+interface SupportedVersionInfo {
     min: PythonVersion;
     max?: PythonVersion | undefined;
+    unsupportedPlatforms?: string[];
+    supportedPlatforms?: string[];
 }
 
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
@@ -99,7 +101,7 @@ export class ImportResolver {
     private _cachedModuleNameResults = new Map<string, Map<string, ModuleImportInfo>>();
     private _cachedTypeshedRoot: Uri | undefined;
     private _cachedTypeshedStdLibPath: Uri | undefined;
-    private _cachedTypeshedStdLibModuleVersions: Map<string, SupportedVersionRange> | undefined;
+    private _cachedTypeshedStdLibModuleVersionInfo: Map<string, SupportedVersionInfo> | undefined;
     private _cachedTypeshedThirdPartyPath: Uri | undefined;
     private _cachedTypeshedThirdPartyPackagePaths: Map<string, Uri[]> | undefined;
     private _cachedTypeshedThirdPartyPackageRoots: Uri[] | undefined;
@@ -321,7 +323,12 @@ export class ImportResolver {
 
     getTypeshedStdLibPath(execEnv: ExecutionEnvironment) {
         const unused: string[] = [];
-        return this._getStdlibTypeshedPath(this._configOptions.typeshedPath, execEnv.pythonVersion, unused);
+        return this._getStdlibTypeshedPath(
+            this._configOptions.typeshedPath,
+            execEnv.pythonVersion,
+            execEnv.pythonPlatform,
+            unused
+        );
     }
 
     getTypeshedThirdPartyPath(execEnv: ExecutionEnvironment) {
@@ -344,6 +351,7 @@ export class ImportResolver {
         const stdTypeshed = this._getStdlibTypeshedPath(
             this._configOptions.typeshedPath,
             execEnv.pythonVersion,
+            execEnv.pythonPlatform,
             importFailureInfo
         );
         if (stdTypeshed) {
@@ -438,21 +446,55 @@ export class ImportResolver {
         return this._cachedPythonSearchPaths.paths;
     }
 
-    getTypeshedStdlibExcludeList(customTypeshedPath: Uri, pythonVersion: PythonVersion): Uri[] {
+    getTypeshedStdlibExcludeList(
+        customTypeshedPath: Uri,
+        pythonVersion: PythonVersion,
+        pythonPlatform: string | undefined
+    ): Uri[] {
         const unused: string[] = [];
-        const typeshedStdlibPath = this._getStdlibTypeshedPath(customTypeshedPath, pythonVersion, unused);
+        const typeshedStdlibPath = this._getStdlibTypeshedPath(
+            customTypeshedPath,
+            pythonVersion,
+            pythonPlatform,
+            unused
+        );
         const excludes: Uri[] = [];
 
         if (!typeshedStdlibPath) {
             return excludes;
         }
 
-        if (!this._cachedTypeshedStdLibModuleVersions) {
-            this._cachedTypeshedStdLibModuleVersions = this._readTypeshedStdLibVersions(customTypeshedPath, []);
+        if (!this._cachedTypeshedStdLibModuleVersionInfo) {
+            this._cachedTypeshedStdLibModuleVersionInfo = this._readTypeshedStdLibVersions(customTypeshedPath, []);
         }
 
-        this._cachedTypeshedStdLibModuleVersions.forEach((versionRange, moduleName) => {
-            if (versionRange.max !== undefined && pythonVersion > versionRange.max) {
+        this._cachedTypeshedStdLibModuleVersionInfo.forEach((versionInfo, moduleName) => {
+            let shouldExcludeModule = false;
+
+            if (versionInfo.max !== undefined && pythonVersion > versionInfo.max) {
+                shouldExcludeModule = true;
+            }
+
+            if (pythonPlatform !== undefined) {
+                const pythonPlatformLower = pythonPlatform.toLowerCase();
+
+                // If there are supported platforms listed, and we are not using one
+                // of those supported platforms, exclude it.
+                if (versionInfo.supportedPlatforms) {
+                    if (versionInfo.supportedPlatforms.every((p) => p.toLowerCase() !== pythonPlatformLower)) {
+                        shouldExcludeModule = true;
+                    }
+                }
+
+                // If there are unsupported platforms listed, see if we're using one of them.
+                if (versionInfo.unsupportedPlatforms) {
+                    if (versionInfo.unsupportedPlatforms.some((p) => p.toLowerCase() === pythonPlatformLower)) {
+                        shouldExcludeModule = true;
+                    }
+                }
+            }
+
+            if (shouldExcludeModule) {
                 // Add excludes for both the ".pyi" file and the directory that contains it
                 // (in case it's using a "__init__.pyi" file).
                 const moduleDirPath = typeshedStdlibPath.combinePaths(...moduleName.split('.'));
@@ -1061,6 +1103,7 @@ export class ImportResolver {
         const stdLibTypeshedPath = this._getStdlibTypeshedPath(
             this._configOptions.typeshedPath,
             execEnv.pythonVersion,
+            execEnv.pythonPlatform,
             importFailureInfo
         );
 
@@ -1078,6 +1121,7 @@ export class ImportResolver {
                         moduleDescriptor,
                         this._configOptions.typeshedPath,
                         execEnv.pythonVersion,
+                        execEnv.pythonPlatform,
                         []
                     )
                 ) {
@@ -1799,6 +1843,7 @@ export class ImportResolver {
             const path = this._getStdlibTypeshedPath(
                 this._configOptions.typeshedPath,
                 execEnv.pythonVersion,
+                execEnv.pythonPlatform,
                 importFailureInfo,
                 moduleDescriptor
             );
@@ -1918,6 +1963,7 @@ export class ImportResolver {
             const path = this._getStdlibTypeshedPath(
                 this._configOptions.typeshedPath,
                 execEnv.pythonVersion,
+                execEnv.pythonPlatform,
                 importFailureInfo,
                 moduleDescriptor
             );
@@ -1961,6 +2007,7 @@ export class ImportResolver {
     private _getStdlibTypeshedPath(
         customTypeshedPath: Uri | undefined,
         pythonVersion: PythonVersion,
+        pythonPlatform: string | undefined,
         importFailureInfo: string[],
         moduleDescriptor?: ImportedModuleDescriptor
     ) {
@@ -1972,6 +2019,7 @@ export class ImportResolver {
                 moduleDescriptor,
                 customTypeshedPath,
                 pythonVersion,
+                pythonPlatform,
                 importFailureInfo
             )
         ) {
@@ -1989,10 +2037,11 @@ export class ImportResolver {
         moduleDescriptor: ImportedModuleDescriptor,
         customTypeshedPath: Uri | undefined,
         pythonVersion: PythonVersion,
+        pythonPlatform: string | undefined,
         importFailureInfo: string[]
     ) {
-        if (!this._cachedTypeshedStdLibModuleVersions) {
-            this._cachedTypeshedStdLibModuleVersions = this._readTypeshedStdLibVersions(
+        if (!this._cachedTypeshedStdLibModuleVersionInfo) {
+            this._cachedTypeshedStdLibModuleVersionInfo = this._readTypeshedStdLibVersions(
                 customTypeshedPath,
                 importFailureInfo
             );
@@ -2002,14 +2051,31 @@ export class ImportResolver {
         // referenced in the import statement are valid for this version of Python.
         for (let namePartCount = 1; namePartCount <= moduleDescriptor.nameParts.length; namePartCount++) {
             const namePartsToConsider = moduleDescriptor.nameParts.slice(0, namePartCount);
-            const versionRange = this._cachedTypeshedStdLibModuleVersions.get(namePartsToConsider.join('.'));
-            if (versionRange) {
-                if (pythonVersion < versionRange.min) {
+            const versionInfo = this._cachedTypeshedStdLibModuleVersionInfo.get(namePartsToConsider.join('.'));
+
+            if (versionInfo) {
+                if (pythonVersion < versionInfo.min) {
                     return false;
                 }
 
-                if (versionRange.max !== undefined && pythonVersion > versionRange.max) {
+                if (versionInfo.max !== undefined && pythonVersion > versionInfo.max) {
                     return false;
+                }
+
+                if (pythonPlatform !== undefined) {
+                    const pythonPlatformLower = pythonPlatform.toLowerCase();
+
+                    if (versionInfo.supportedPlatforms) {
+                        if (versionInfo.supportedPlatforms.every((p) => p.toLowerCase() !== pythonPlatformLower)) {
+                            return false;
+                        }
+                    }
+
+                    if (versionInfo.unsupportedPlatforms) {
+                        if (versionInfo.unsupportedPlatforms.some((p) => p.toLowerCase() === pythonPlatformLower)) {
+                            return false;
+                        }
+                    }
                 }
             }
         }
@@ -2020,8 +2086,8 @@ export class ImportResolver {
     private _readTypeshedStdLibVersions(
         customTypeshedPath: Uri | undefined,
         importFailureInfo: string[]
-    ): Map<string, SupportedVersionRange> {
-        const versionRangeMap = new Map<string, SupportedVersionRange>();
+    ): Map<string, SupportedVersionInfo> {
+        const versionRangeMap = new Map<string, SupportedVersionInfo>();
 
         // Read the VERSIONS file from typeshed.
         const typeshedStdLibPath = this._getTypeshedSubdirectory(
@@ -2038,7 +2104,12 @@ export class ImportResolver {
                     const fileContents = this.fileSystem.readFileSync(versionsFilePath, 'utf8');
                     fileContents.split(/\r?\n/).forEach((line) => {
                         const commentSplit = line.split('#');
-                        const colonSplit = commentSplit[0].split(':');
+
+                        // Platform-specific information can be specified after a semicolon.
+                        const semicolonSplit = commentSplit[0].split(';').map((s) => s.trim());
+
+                        // Version information is found after a colon.
+                        const colonSplit = semicolonSplit[0].split(':');
                         if (colonSplit.length !== 2) {
                             return;
                         }
@@ -2068,7 +2139,43 @@ export class ImportResolver {
                             maxVersion = versionFromString(versionSplit[1].trim());
                         }
 
-                        versionRangeMap.set(moduleName, { min: minVersion, max: maxVersion });
+                        // A semicolon can be followed by a semicolon-delimited list of other
+                        // exclusions. The "platform" exclusion is a comma delimited list platforms
+                        // that are supported or not supported.
+                        let supportedPlatforms: string[] | undefined;
+                        let unsupportedPlatforms: string[] | undefined;
+                        const platformsHeader = 'platforms=';
+                        let platformExclusions = semicolonSplit.slice(1).find((s) => s.startsWith(platformsHeader));
+
+                        if (platformExclusions) {
+                            platformExclusions = platformExclusions.trim().substring(platformsHeader.length);
+                            const commaSplit = platformExclusions.split(',');
+                            for (let platform of commaSplit) {
+                                platform = platform.trim();
+                                let isUnsupported = false;
+
+                                // Remove the '!' from the start if it's an exclusion.
+                                if (platform.startsWith('!')) {
+                                    isUnsupported = true;
+                                    platform = platform.substring(1);
+                                }
+
+                                if (isUnsupported) {
+                                    unsupportedPlatforms = unsupportedPlatforms ?? [];
+                                    unsupportedPlatforms.push(platform);
+                                } else {
+                                    supportedPlatforms = supportedPlatforms ?? [];
+                                    supportedPlatforms.push(platform);
+                                }
+                            }
+                        }
+
+                        versionRangeMap.set(moduleName, {
+                            min: minVersion,
+                            max: maxVersion,
+                            supportedPlatforms,
+                            unsupportedPlatforms,
+                        });
                     });
                 } else {
                     importFailureInfo.push(`Typeshed stdlib VERSIONS file is unexpectedly large`);

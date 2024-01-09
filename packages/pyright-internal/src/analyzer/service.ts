@@ -742,7 +742,8 @@ export class AnalyzerService {
         ) {
             const excludeList = this.getImportResolver().getTypeshedStdlibExcludeList(
                 configOptions.typeshedPath,
-                configOptions.defaultPythonVersion
+                configOptions.defaultPythonVersion,
+                configOptions.defaultPythonPlatform
             );
 
             this._console.info(`Excluding typeshed stdlib stubs according to VERSIONS file:`);
