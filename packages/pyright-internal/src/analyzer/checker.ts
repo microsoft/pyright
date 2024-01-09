@@ -4876,21 +4876,14 @@ export class Checker extends ParseTreeWalker {
                         }
                     }
                 } else if (decls[0].type === DeclarationType.Function) {
-                    if (
-                        decls.every(
-                            (decl) =>
-                                decl.type !== DeclarationType.Function || ParseTreeUtils.isSuiteEmpty(decl.node.suite)
-                        )
-                    ) {
-                        if (!decls[0].uri.hasExtension('.pyi')) {
-                            if (!isSymbolImplemented(name)) {
-                                diagAddendum.addMessage(
-                                    Localizer.DiagnosticAddendum.missingProtocolMember().format({
-                                        name,
-                                        classType: member.classType.details.name,
-                                    })
-                                );
-                            }
+                    if (this._isUnimplementedProtocolMethod(member.symbol)) {
+                        if (!isSymbolImplemented(name)) {
+                            diagAddendum.addMessage(
+                                Localizer.DiagnosticAddendum.missingProtocolMember().format({
+                                    name,
+                                    classType: member.classType.details.name,
+                                })
+                            );
                         }
                     }
                 }
@@ -5018,6 +5011,48 @@ export class Checker extends ParseTreeWalker {
 
             paramIndex++;
         });
+    }
+
+    // Determine whether a method defined in a protocol should be considered
+    // "unimplemented". This is an under-specified part of the typing spec.
+    private _isUnimplementedProtocolMethod(symbol: Symbol): boolean {
+        const symbolType = this._evaluator.getEffectiveTypeOfSymbol(symbol);
+
+        // Behavior differs between stub files and source files.
+        const decls = symbol.getDeclarations();
+        const isDeclaredInStubFile = decls.length > 0 && isStubFile(decls[0].uri);
+
+        if (isFunction(symbolType)) {
+            const decl = symbolType.details.declaration;
+            if (decl) {
+                return isDeclaredInStubFile
+                    ? FunctionType.isAbstractMethod(symbolType)
+                    : ParseTreeUtils.isSuiteEmpty(decl.node.suite);
+            }
+        } else if (isOverloadedFunction(symbolType)) {
+            // If an implementation is present and has an empty body, assume
+            // the function is unimplemented.
+            const impl = OverloadedFunctionType.getImplementation(symbolType);
+            if (impl) {
+                const decl = impl.details.declaration;
+                if (decl) {
+                    return ParseTreeUtils.isSuiteEmpty(decl.node.suite);
+                }
+
+                return false;
+            }
+
+            if (isDeclaredInStubFile) {
+                // If no implementation was present, see if any of the overloads
+                // are marked as abstract.
+                const overloads = OverloadedFunctionType.getOverloads(symbolType);
+                return overloads.some((overload) => FunctionType.isAbstractMethod(overload));
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     // If a class is marked final, it must implement all abstract methods,

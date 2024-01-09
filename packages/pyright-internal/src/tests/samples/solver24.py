@@ -2,7 +2,7 @@
 # a union of type variables.
 
 from os import PathLike
-from typing import AnyStr, Generic, Iterable, Iterator, TypeAlias, TypeVar
+from typing import AnyStr, Generic, Iterable, Iterator, Protocol, TypeAlias, TypeVar
 
 V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
@@ -34,7 +34,7 @@ class ClassC(Generic[AnyStr]):
     ...
 
 
-class ClassD(Iterator[ClassC[AnyStr]]):
+class ClassD(Iterator[ClassC[AnyStr]], Protocol):
     ...
 
 

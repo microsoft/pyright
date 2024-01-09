@@ -1,12 +1,16 @@
 # This sample tests the detection of mutually-incompatible base classes
 # in classes that use multiple inheritance.
 
-from typing import Collection, Mapping, Sequence, TypeVar
+from typing import Collection, Iterator, Mapping, Sequence, TypeVar
 
 
 # This should generate an error.
 class A(Mapping[str, int], Collection[int]):
-    ...
+    def __len__(self) -> int:
+        ...
+
+    def __iter__(self) -> Iterator[str]:
+        ...
 
 
 # This should generate an error.
@@ -37,9 +41,16 @@ S = TypeVar("S")
 
 
 class G(Mapping[T, S], Collection[T]):
-    ...
+    def __len__(self) -> int:
+        ...
 
+    def __iter__(self) -> Iterator[T]:
+        ...
 
 # This should generate an error.
 class H(Mapping[T, S], Collection[S]):
-    ...
+    def __len__(self) -> int:
+        ...
+
+    def __iter__(self) -> Iterator[T]:
+        ...
