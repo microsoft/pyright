@@ -6,8 +6,8 @@ import sys
 from _typeshed import FileDescriptorOrPath, StrOrBytesPath, StrPath, Unused
 from collections.abc import Iterable, Mapping, Sequence
 from types import CodeType
-from typing import ClassVar
-from typing_extensions import Final, Literal, TypeAlias
+from typing import ClassVar, Final, Literal
+from typing_extensions import TypeAlias
 
 from PyInstaller.building import _PyiBlockCipher
 from PyInstaller.building.build_main import Analysis

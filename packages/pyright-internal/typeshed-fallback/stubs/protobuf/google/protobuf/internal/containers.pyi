@@ -1,11 +1,9 @@
 from collections.abc import Callable, Iterable, Iterator, MutableMapping, Sequence
-from typing import Any, TypeVar, overload
-from typing_extensions import SupportsIndex
+from typing import Any, Protocol, SupportsIndex, TypeVar, overload
 
 from google.protobuf.descriptor import Descriptor
 from google.protobuf.internal.message_listener import MessageListener
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
-from google.protobuf.internal.type_checkers import _ValueChecker
 from google.protobuf.message import Message
 
 _T = TypeVar("_T")
@@ -13,6 +11,10 @@ _K = TypeVar("_K", bound=bool | int | str)
 _ScalarV = TypeVar("_ScalarV", bound=bool | int | float | str | bytes)
 _MessageV = TypeVar("_MessageV", bound=Message)
 _M = TypeVar("_M")
+
+class _ValueChecker(Protocol[_T]):
+    def CheckValue(self, proposed_value: _T) -> _T: ...
+    def DefaultValue(self) -> _T: ...
 
 class BaseContainer(Sequence[_T]):
     def __init__(self, message_listener: MessageListener) -> None: ...

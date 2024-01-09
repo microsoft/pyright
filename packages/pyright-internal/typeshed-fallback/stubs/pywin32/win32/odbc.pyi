@@ -1,5 +1,6 @@
 from _typeshed import Incomplete
-from typing_extensions import Literal, TypeAlias
+from typing import Literal
+from typing_extensions import TypeAlias
 
 import _win32typing
 

@@ -3,8 +3,8 @@ from _typeshed.wsgi import WSGIEnvironment
 from collections.abc import Callable, Collection, ItemsView, Iterator, KeysView, MutableMapping, ValuesView
 from datetime import date, datetime, timedelta
 from hashlib import _Hash
-from typing import Any, Protocol, TypeVar, overload
-from typing_extensions import Literal, TypeAlias
+from typing import Any, Literal, Protocol, TypeVar, overload
+from typing_extensions import TypeAlias
 
 from webob.descriptors import _AsymmetricProperty
 from webob.request import Request

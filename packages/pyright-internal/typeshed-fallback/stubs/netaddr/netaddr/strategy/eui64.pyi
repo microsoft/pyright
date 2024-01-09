@@ -1,7 +1,6 @@
 from collections.abc import Iterable, Sequence
 from re import Pattern
-from typing import ClassVar
-from typing_extensions import Literal
+from typing import ClassVar, Literal
 
 AF_EUI64: Literal[64]
 width: Literal[64]

@@ -1193,7 +1193,7 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
                     : adjustedSubtype;
             }
 
-            const isEllipsis = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'ellipsis');
+            const isEllipsis = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['EllipsisType', 'ellipsis']);
 
             // See if it's a match for "...".
             if (isEllipsis === isPositiveTest) {

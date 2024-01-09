@@ -1,6 +1,5 @@
 from io import TextIOWrapper
-from typing import Any
-from typing_extensions import Literal
+from typing import Any, Literal
 
 PY2: Literal[False]
 PY3: Literal[True]

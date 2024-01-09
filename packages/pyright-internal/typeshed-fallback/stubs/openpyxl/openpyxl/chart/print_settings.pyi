@@ -1,6 +1,5 @@
 from _typeshed import ConvertibleToFloat
-from typing import ClassVar
-from typing_extensions import Literal
+from typing import ClassVar, Literal
 
 from openpyxl.descriptors.base import Alias, Float, Typed
 from openpyxl.descriptors.serialisable import Serialisable

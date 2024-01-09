@@ -2,7 +2,7 @@ import sys
 
 if sys.platform != "win32":
     from collections.abc import Sequence
-    from typing_extensions import TypedDict
+    from typing import TypedDict
 
     from gevent._types import _Watcher
     from gevent.hub import Hub

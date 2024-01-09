@@ -18,7 +18,7 @@ class spawn(SpawnBase):
         self,
         command: str,
         args: list[str] = [],
-        timeout: int = 30,
+        timeout: float | None = 30,
         maxread: int = 2000,
         searchwindowsize: int | None = None,
         logfile: _Logfile | None = None,

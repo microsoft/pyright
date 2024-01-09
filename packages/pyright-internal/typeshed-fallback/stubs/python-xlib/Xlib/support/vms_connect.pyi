@@ -1,7 +1,7 @@
 from _socket import _Address
 from re import Pattern
 from socket import socket
-from typing_extensions import Final
+from typing import Final
 
 from Xlib._typing import Unused
 

@@ -1,6 +1,5 @@
 from _typeshed import Incomplete, SupportsRead
-from typing import Any, overload
-from typing_extensions import Literal
+from typing import Any, Literal, overload
 from xml.etree.ElementTree import Element
 
 @overload

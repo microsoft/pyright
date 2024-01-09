@@ -1,8 +1,8 @@
 import _tkinter
 import sys
 import tkinter
-from typing import Any, overload
-from typing_extensions import Literal, TypeAlias, TypedDict
+from typing import Any, Literal, TypedDict, overload
+from typing_extensions import TypeAlias
 
 if sys.version_info >= (3, 9):
     __all__ = ["NORMAL", "ROMAN", "BOLD", "ITALIC", "nametofont", "Font", "families", "names"]

@@ -1,6 +1,5 @@
 from collections.abc import Callable
-from typing import IO, Any, Generic, TypeVar, overload
-from typing_extensions import SupportsIndex
+from typing import IO, Any, Generic, SupportsIndex, TypeVar, overload
 
 _TB = TypeVar("_TB", bound=_BaseEntry)
 _TP = TypeVar("_TP", bound=POFile)

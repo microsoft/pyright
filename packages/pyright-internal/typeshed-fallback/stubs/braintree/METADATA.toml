@@ -1,4 +1,4 @@
-version = "4.24.*"
+version = "4.25.*"
 upstream_repository = "https://github.com/braintree/braintree_python"
 partial_stub = true
 

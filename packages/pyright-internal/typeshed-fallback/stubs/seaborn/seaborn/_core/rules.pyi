@@ -1,6 +1,5 @@
 from collections import UserString
-from typing import Any
-from typing_extensions import Literal
+from typing import Any, Literal
 
 from pandas import Series
 

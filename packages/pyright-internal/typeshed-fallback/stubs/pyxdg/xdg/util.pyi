@@ -1,5 +1,5 @@
 from shutil import which as which
-from typing_extensions import Literal
+from typing import Literal
 
 PY3: Literal[True]
 

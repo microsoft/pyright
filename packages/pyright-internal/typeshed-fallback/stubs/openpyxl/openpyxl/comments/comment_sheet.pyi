@@ -1,7 +1,7 @@
 from _typeshed import ConvertibleToInt, Incomplete, Unused
 from collections.abc import Generator
-from typing import ClassVar, overload
-from typing_extensions import Literal, TypeAlias
+from typing import ClassVar, Literal, overload
+from typing_extensions import TypeAlias
 
 from openpyxl.cell.text import Text
 from openpyxl.comments.author import AuthorList

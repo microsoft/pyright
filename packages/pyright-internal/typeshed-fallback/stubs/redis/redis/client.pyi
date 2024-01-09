@@ -4,8 +4,8 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from datetime import datetime, timedelta
 from re import Pattern
 from types import TracebackType
-from typing import Any, ClassVar, TypeVar, overload
-from typing_extensions import Literal, Self, TypeAlias
+from typing import Any, ClassVar, Literal, TypeVar, overload
+from typing_extensions import Self, TypeAlias
 
 from redis import RedisError
 

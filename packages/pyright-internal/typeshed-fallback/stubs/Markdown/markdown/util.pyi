@@ -1,7 +1,6 @@
 from collections.abc import Iterator
 from re import Pattern
-from typing import Any, Generic, TypeVar, overload
-from typing_extensions import TypedDict
+from typing import Any, Generic, TypedDict, TypeVar, overload
 
 from markdown.core import Markdown
 

@@ -1,6 +1,6 @@
 from collections.abc import Iterable
-from typing import overload
-from typing_extensions import Literal, Self
+from typing import Literal, overload
+from typing_extensions import Self
 
 from openpyxl.cell.text import InlineFont
 from openpyxl.descriptors import Strict, String, Typed

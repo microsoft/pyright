@@ -1,7 +1,7 @@
 from _typeshed import SupportsItems
 from collections.abc import Callable, Iterable, Iterator
-from typing import Any, NamedTuple, TypeVar, overload
-from typing_extensions import Literal, Self, TypeAlias
+from typing import Any, Literal, NamedTuple, TypeVar, overload
+from typing_extensions import Self, TypeAlias
 
 _T = TypeVar("_T")
 _ListOrTuple: TypeAlias = list[_T] | tuple[_T, ...]

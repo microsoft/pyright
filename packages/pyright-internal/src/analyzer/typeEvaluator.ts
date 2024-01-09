@@ -1329,7 +1329,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ClassType.isTupleClass(typeResult.type) &&
                 typeResult.type.tupleTypeArguments?.length === 0;
 
-            const isEllipsis = isClassInstance(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'ellipsis');
+            const isEllipsis =
+                isClassInstance(typeResult.type) && ClassType.isBuiltIn(typeResult.type, ['EllipsisType', 'ellipsis']);
 
             if (!isEmptyVariadic && !isEllipsis) {
                 addExpectedClassDiagnostic(typeResult.type, node);
@@ -1369,7 +1370,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if ((flags & EvaluatorFlags.ConvertEllipsisToAny) !== 0) {
             typeResult = { type: AnyType.create(/* isEllipsis */ true) };
         } else {
-            const ellipsisType = getBuiltInObject(node, 'ellipsis') || AnyType.create();
+            const ellipsisType =
+                getBuiltInObject(node, 'EllipsisType') ?? getBuiltInObject(node, 'ellipsis') ?? AnyType.create();
             typeResult = { type: ellipsisType };
         }
         return typeResult;
@@ -12490,7 +12492,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return functionType;
             }
 
-            if (isClassInstance(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'ellipsis')) {
+            if (
+                isClassInstance(typeResult.type) &&
+                ClassType.isBuiltIn(typeResult.type, ['EllipsisType', 'ellipsis'])
+            ) {
                 FunctionType.addDefaultParameters(functionType);
                 return functionType;
             }

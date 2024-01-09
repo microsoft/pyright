@@ -2,8 +2,7 @@
 from _typeshed import FileDescriptorOrPath, GenericPath
 from collections.abc import Iterable
 from types import ModuleType
-from typing import AnyStr, overload
-from typing_extensions import Final, Literal
+from typing import AnyStr, Final, Literal, overload
 
 strict_collect_mode: bool
 is_64bits: Final[bool]
@@ -58,9 +57,6 @@ def exec_command(
     *cmdargs: str, encoding: str | None = None, raise_enoent: bool | None = None, **kwargs: int | bool | Iterable[int] | None
 ) -> str: ...
 def exec_command_rc(*cmdargs: str, **kwargs: float | bool | Iterable[int] | None) -> int: ...
-def exec_command_stdout(
-    *command_args: str, encoding: str | None = None, **kwargs: float | str | bytes | bool | Iterable[int] | None
-) -> str: ...
 def exec_command_all(
     *cmdargs: str, encoding: str | None = None, **kwargs: int | bool | Iterable[int] | None
 ) -> tuple[int, str, str]: ...

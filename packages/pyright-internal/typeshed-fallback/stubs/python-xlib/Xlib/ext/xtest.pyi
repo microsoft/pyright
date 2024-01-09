@@ -1,4 +1,4 @@
-from typing_extensions import Final
+from typing import Final
 
 from Xlib._typing import Unused
 from Xlib.display import Display

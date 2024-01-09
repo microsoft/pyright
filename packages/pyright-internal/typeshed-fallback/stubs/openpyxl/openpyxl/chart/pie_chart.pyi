@@ -1,6 +1,6 @@
 from _typeshed import ConvertibleToFloat, Incomplete, Unused
-from typing import ClassVar
-from typing_extensions import Literal, TypeAlias
+from typing import ClassVar, Literal
+from typing_extensions import TypeAlias
 
 from openpyxl.chart.axis import ChartLines
 from openpyxl.chart.label import DataLabelList

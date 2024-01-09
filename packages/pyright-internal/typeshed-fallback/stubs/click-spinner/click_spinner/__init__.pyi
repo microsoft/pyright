@@ -1,8 +1,8 @@
 import threading
 from collections.abc import Iterator
 from types import TracebackType
-from typing import Protocol
-from typing_extensions import Literal, Self
+from typing import Literal, Protocol
+from typing_extensions import Self
 
 __version__: str
 

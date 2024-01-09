@@ -1,7 +1,7 @@
 from _typeshed import Incomplete, Unused
 from collections import defaultdict
 from logging import Logger
-from typing_extensions import Final
+from typing import Final
 
 from .annotations import AnnotationDict
 from .encryption import StandardSecurityHandler

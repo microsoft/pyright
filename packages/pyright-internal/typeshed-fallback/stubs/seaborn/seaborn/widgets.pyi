@@ -1,5 +1,4 @@
-from typing import overload
-from typing_extensions import Literal
+from typing import Literal, overload
 
 from matplotlib.colors import LinearSegmentedColormap
 

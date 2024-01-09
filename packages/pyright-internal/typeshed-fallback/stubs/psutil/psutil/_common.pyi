@@ -2,8 +2,7 @@ import enum
 from _typeshed import Incomplete, StrOrBytesPath, SupportsWrite
 from collections.abc import Callable
 from socket import AF_INET6 as AF_INET6, AddressFamily, SocketKind
-from typing import Any, NamedTuple, TypeVar, overload
-from typing_extensions import Literal
+from typing import Any, Literal, NamedTuple, TypeVar, overload
 
 POSIX: bool
 WINDOWS: bool

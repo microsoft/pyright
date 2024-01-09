@@ -1,7 +1,6 @@
 from _typeshed import Incomplete, SupportsItems, SupportsKeysAndGetItem, Unused
 from collections.abc import Generator, Hashable, Iterable, Iterator
-from typing import TypeVar, overload
-from typing_extensions import Literal
+from typing import Literal, TypeVar, overload
 
 from networkx.algorithms.planarity import PlanarEmbedding
 from networkx.classes.digraph import DiGraph

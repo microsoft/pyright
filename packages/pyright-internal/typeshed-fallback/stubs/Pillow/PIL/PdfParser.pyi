@@ -1,8 +1,7 @@
 import collections
 from _typeshed import Incomplete
 from types import TracebackType
-from typing import Any
-from typing_extensions import Literal
+from typing import Any, Literal
 
 def encode_text(s: str) -> bytes: ...
 

@@ -1,7 +1,6 @@
 from _typeshed import Incomplete
 from collections.abc import Hashable, Mapping
-from typing import TypeVar, overload
-from typing_extensions import Literal
+from typing import Literal, TypeVar, overload
 
 from networkx.classes.digraph import DiGraph
 from networkx.classes.graph import Graph

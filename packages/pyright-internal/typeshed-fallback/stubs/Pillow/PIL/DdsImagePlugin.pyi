@@ -1,5 +1,4 @@
-from typing import ClassVar
-from typing_extensions import Final, Literal
+from typing import ClassVar, Final, Literal
 
 from .ImageFile import ImageFile
 

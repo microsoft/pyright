@@ -1,7 +1,6 @@
 from _typeshed import Incomplete
 from collections.abc import Callable, Sequence
-from typing import NamedTuple
-from typing_extensions import Final
+from typing import Final, NamedTuple
 
 from .enums import Align, WrapMode
 

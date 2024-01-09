@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from io import BytesIO
 from logging import Logger
 from types import TracebackType
-from typing import Any
-from typing_extensions import Literal, TypeAlias
+from typing import Any, Literal
+from typing_extensions import TypeAlias
 
 from PIL import Image
 

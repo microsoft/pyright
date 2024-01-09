@@ -1,6 +1,7 @@
 from collections.abc import Generator
 from re import Pattern
-from typing_extensions import Final, TypeAlias
+from typing import Final
+from typing_extensions import TypeAlias
 
 # "1:1" | "A1:A1" | "A:A"
 _RangeBoundariesTuple: TypeAlias = tuple[None, int, None, int] | tuple[int, int, int, int] | tuple[int, None, int, None]

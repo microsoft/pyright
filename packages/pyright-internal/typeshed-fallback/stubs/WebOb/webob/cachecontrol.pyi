@@ -1,6 +1,6 @@
 from collections.abc import Callable, MutableMapping
-from typing import Any, Generic, TypeVar, overload
-from typing_extensions import Literal, Self, TypeAlias
+from typing import Any, Generic, Literal, TypeVar, overload
+from typing_extensions import Self, TypeAlias
 
 from webob.request import Request
 from webob.response import Response

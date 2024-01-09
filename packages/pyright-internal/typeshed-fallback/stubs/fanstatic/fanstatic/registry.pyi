@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from collections.abc import Iterable
 from threading import Lock
-from typing import Any, ClassVar, Protocol, TypeVar
-from typing_extensions import Literal, Self
+from typing import Any, ClassVar, Literal, Protocol, TypeVar
+from typing_extensions import Self
 
 from fanstatic.compiler import Compiler, Minifier
 from fanstatic.core import Library

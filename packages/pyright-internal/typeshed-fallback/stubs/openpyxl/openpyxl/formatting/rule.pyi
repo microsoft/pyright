@@ -1,6 +1,6 @@
 from _typeshed import ConvertibleToInt, Incomplete, Unused
-from typing import ClassVar, overload
-from typing_extensions import Literal, TypeAlias
+from typing import ClassVar, Literal, overload
+from typing_extensions import TypeAlias
 
 from openpyxl.descriptors import Float, Strict
 from openpyxl.descriptors.base import Bool, Integer, NoneSet, Set, String, Typed, _ConvertibleToBool

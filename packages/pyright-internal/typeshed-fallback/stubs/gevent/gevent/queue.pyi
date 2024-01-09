@@ -3,8 +3,8 @@ from collections.abc import Iterable
 
 # technically it is using _PySimpleQueue, which has the same interface as SimpleQueue
 from queue import Empty as Empty, Full as Full, SimpleQueue as SimpleQueue
-from typing import Any, Generic, TypeVar, overload
-from typing_extensions import Literal, Self, final
+from typing import Any, Generic, Literal, TypeVar, final, overload
+from typing_extensions import Self
 
 from gevent._waiter import Waiter
 from gevent.hub import Hub

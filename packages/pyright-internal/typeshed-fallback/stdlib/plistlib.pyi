@@ -6,39 +6,9 @@ from enum import Enum
 from typing import IO, Any
 from typing_extensions import Self
 
-if sys.version_info >= (3, 9):
-    __all__ = ["InvalidFileException", "FMT_XML", "FMT_BINARY", "load", "dump", "loads", "dumps", "UID"]
-elif sys.version_info >= (3, 8):
-    __all__ = [
-        "readPlist",
-        "writePlist",
-        "readPlistFromBytes",
-        "writePlistToBytes",
-        "Data",
-        "InvalidFileException",
-        "FMT_XML",
-        "FMT_BINARY",
-        "load",
-        "dump",
-        "loads",
-        "dumps",
-        "UID",
-    ]
-else:
-    __all__ = [
-        "readPlist",
-        "writePlist",
-        "readPlistFromBytes",
-        "writePlistToBytes",
-        "Data",
-        "InvalidFileException",
-        "FMT_XML",
-        "FMT_BINARY",
-        "load",
-        "dump",
-        "loads",
-        "dumps",
-    ]
+__all__ = ["InvalidFileException", "FMT_XML", "FMT_BINARY", "load", "dump", "loads", "dumps", "UID"]
+if sys.version_info < (3, 9):
+    __all__ += ["readPlist", "writePlist", "readPlistFromBytes", "writePlistToBytes", "Data"]
 
 class PlistFormat(Enum):
     FMT_XML: int
@@ -96,14 +66,13 @@ if sys.version_info < (3, 9):
         data: bytes
         def __init__(self, data: bytes) -> None: ...
 
-if sys.version_info >= (3, 8):
-    class UID:
-        data: int
-        def __init__(self, data: int) -> None: ...
-        def __index__(self) -> int: ...
-        def __reduce__(self) -> tuple[type[Self], tuple[int]]: ...
-        def __hash__(self) -> int: ...
-        def __eq__(self, other: object) -> bool: ...
+class UID:
+    data: int
+    def __init__(self, data: int) -> None: ...
+    def __index__(self) -> int: ...
+    def __reduce__(self) -> tuple[type[Self], tuple[int]]: ...
+    def __hash__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
 
 class InvalidFileException(ValueError):
     def __init__(self, message: str = "Invalid file") -> None: ...

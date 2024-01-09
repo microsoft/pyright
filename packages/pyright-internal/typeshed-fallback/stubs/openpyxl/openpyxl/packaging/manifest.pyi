@@ -1,7 +1,6 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
-from typing import ClassVar
-from typing_extensions import Final, Literal
+from typing import ClassVar, Final, Literal
 
 from openpyxl.descriptors.base import String
 from openpyxl.descriptors.serialisable import Serialisable

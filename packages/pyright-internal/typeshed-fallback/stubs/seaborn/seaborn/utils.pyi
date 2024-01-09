@@ -1,8 +1,8 @@
 import datetime as dt
 from _typeshed import Incomplete, SupportsGetItem
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import Any, TypeVar, overload
-from typing_extensions import Literal, SupportsIndex, TypeAlias, deprecated
+from typing import Any, Literal, SupportsIndex, TypeVar, overload
+from typing_extensions import TypeAlias, deprecated
 
 import numpy as np
 import pandas as pd

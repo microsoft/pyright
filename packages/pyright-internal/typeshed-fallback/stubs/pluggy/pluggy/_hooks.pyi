@@ -1,7 +1,7 @@
 from collections.abc import Callable, Generator, Mapping, Sequence
 from types import ModuleType
-from typing import Any, TypeVar, overload
-from typing_extensions import TypeAlias, TypedDict
+from typing import Any, TypedDict, TypeVar, overload
+from typing_extensions import TypeAlias
 
 from ._result import _Result
 

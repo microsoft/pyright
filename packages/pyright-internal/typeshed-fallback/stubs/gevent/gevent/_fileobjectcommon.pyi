@@ -9,8 +9,8 @@ from _typeshed import (
     ReadableBuffer,
 )
 from types import TracebackType
-from typing import IO, Any, AnyStr, ClassVar, Generic, TypeVar, overload
-from typing_extensions import Literal, Self
+from typing import IO, Any, AnyStr, ClassVar, Generic, Literal, TypeVar, overload
+from typing_extensions import Self
 
 from gevent.lock import DummySemaphore, Semaphore
 from gevent.threadpool import ThreadPool

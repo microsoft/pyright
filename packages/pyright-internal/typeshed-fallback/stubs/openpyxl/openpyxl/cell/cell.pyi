@@ -1,8 +1,7 @@
 from _typeshed import ReadableBuffer
 from datetime import datetime
 from re import Pattern
-from typing import overload
-from typing_extensions import Final, Literal
+from typing import Final, Literal, overload
 
 from openpyxl.cell import _CellValue, _TimeTypes
 from openpyxl.comments.comments import Comment

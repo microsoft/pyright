@@ -2,8 +2,8 @@ from _typeshed import Incomplete, SupportsRead, SupportsWrite, Unused
 from collections.abc import Callable, Iterable, Iterator, MutableMapping, Sequence
 from enum import IntEnum
 from pathlib import Path
-from typing import Any, ClassVar, Protocol, SupportsBytes
-from typing_extensions import Literal, Self, TypeAlias, TypeGuard
+from typing import Any, ClassVar, Literal, Protocol, SupportsBytes
+from typing_extensions import Self, TypeAlias, TypeGuard
 
 from PIL.PyAccess import PyAccess
 

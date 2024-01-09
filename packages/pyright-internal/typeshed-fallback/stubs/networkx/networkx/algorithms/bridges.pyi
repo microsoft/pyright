@@ -1,7 +1,6 @@
 from _typeshed import Incomplete
 from collections.abc import Callable, Generator
-from typing import overload
-from typing_extensions import Literal
+from typing import Literal, overload
 
 from networkx.classes.graph import Graph, _Node
 

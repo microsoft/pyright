@@ -3,8 +3,8 @@ import os
 from _typeshed import Incomplete, SupportsKeysAndGetItem
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from typing import IO, Any, NoReturn, TypeVar
-from typing_extensions import Literal, Never, Self, TypedDict
+from typing import IO, Any, Literal, NoReturn, TypedDict, TypeVar
+from typing_extensions import Never, Self
 
 import matplotlib as mpl
 from matplotlib.artist import Artist

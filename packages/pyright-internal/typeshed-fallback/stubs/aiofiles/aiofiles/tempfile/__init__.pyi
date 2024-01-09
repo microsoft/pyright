@@ -10,8 +10,7 @@ from _typeshed import (
     StrPath,
 )
 from asyncio import AbstractEventLoop
-from typing import AnyStr, TypeVar, overload
-from typing_extensions import Literal
+from typing import AnyStr, Literal, TypeVar, overload
 
 from ..base import AiofilesContextManager
 from ..threadpool.binary import AsyncBufferedIOBase, AsyncBufferedReader, AsyncFileIO

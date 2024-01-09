@@ -1,6 +1,6 @@
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, ClassVar, Protocol
-from typing_extensions import Literal, Self
+from typing import Any, ClassVar, Literal, Protocol
+from typing_extensions import Self
 from xml.etree.ElementTree import Element
 
 from . import blockparser, inlinepatterns, postprocessors, preprocessors, treeprocessors

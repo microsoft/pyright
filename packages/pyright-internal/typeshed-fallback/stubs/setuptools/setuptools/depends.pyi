@@ -1,6 +1,5 @@
 from _typeshed import Incomplete
-from typing import IO, Any
-from typing_extensions import Literal
+from typing import IO, Any, Literal
 
 __all__ = ["Require", "find_module", "get_module_constant", "extract_constant"]
 
