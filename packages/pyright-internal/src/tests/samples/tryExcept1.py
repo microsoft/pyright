@@ -2,6 +2,9 @@
 # try/except/raise statements
 
 
+from typing import TypeVar
+
+
 def func1():
     try:
         pass
@@ -49,3 +52,25 @@ def func4():
         pass
     except Exception2:
         pass
+
+
+def func5():
+    try:
+        return 1
+    # This should generate an error.
+    except int:
+        pass
+    # This should generate an error.
+    except (NotImplementedError, str):
+        pass
+    except BaseException:
+        pass
+
+
+T = TypeVar("T", bound=BaseException)
+
+def func6(*errors: type[T]):
+    try:
+        return 1
+    except errors as e:
+        return e

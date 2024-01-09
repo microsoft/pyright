@@ -2920,6 +2920,8 @@ export class Checker extends ParseTreeWalker {
                     UnknownType.create();
 
                 resultingExceptionType = mapSubtypes(iterableType, (subtype) => {
+                    subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
                     if (isAnyOrUnknown(subtype) || isNever(subtype)) {
                         return subtype;
                     }
