@@ -36,6 +36,7 @@
         "@types/command-line-args": "^5.2.0",
         "@types/fs-extra": "^11.0.1",
         "@types/jest": "^29.5.3",
+        "@types/lodash": "^4.14.202",
         "@types/node": "^17.0.45",
         "@types/tmp": "^0.2.3",
         "jest": "^29.6.1",
