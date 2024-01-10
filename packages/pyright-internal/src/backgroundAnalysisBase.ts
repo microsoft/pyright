@@ -17,10 +17,10 @@ import {
     BackgroundThreadBase,
     InitializationData,
     LogData,
-    createConfigOptionsFrom,
-    createJsonObjectFrom,
+    deserialize,
     getBackgroundWaiter,
     run,
+    serialize,
 } from './backgroundThreadBase';
 import {
     OperationCanceledException,
@@ -52,56 +52,55 @@ export class BackgroundAnalysisBase {
     }
 
     setImportResolver(importResolver: ImportResolver) {
-        this.enqueueRequest({ requestType: 'setImportResolver', data: importResolver.host.kind });
+        this.enqueueRequest({ requestType: 'setImportResolver', data: serialize(importResolver.host.kind) });
     }
 
     setConfigOptions(configOptions: ConfigOptions) {
-        const passable = createJsonObjectFrom(configOptions);
-        this.enqueueRequest({ requestType: 'setConfigOptions', data: passable });
+        this.enqueueRequest({ requestType: 'setConfigOptions', data: serialize(configOptions) });
     }
 
     setTrackedFiles(fileUris: Uri[]) {
-        this.enqueueRequest({ requestType: 'setTrackedFiles', data: fileUris.map((f) => f.toString()) });
+        this.enqueueRequest({ requestType: 'setTrackedFiles', data: serialize(fileUris) });
     }
 
     setAllowedThirdPartyImports(importNames: string[]) {
-        this.enqueueRequest({ requestType: 'setAllowedThirdPartyImports', data: importNames });
+        this.enqueueRequest({ requestType: 'setAllowedThirdPartyImports', data: serialize(importNames) });
     }
 
     ensurePartialStubPackages(executionRoot: string | undefined) {
-        this.enqueueRequest({ requestType: 'ensurePartialStubPackages', data: { executionRoot } });
+        this.enqueueRequest({ requestType: 'ensurePartialStubPackages', data: serialize({ executionRoot }) });
     }
 
     setFileOpened(fileUri: Uri, version: number | null, contents: string, options: OpenFileOptions) {
         this.enqueueRequest({
             requestType: 'setFileOpened',
-            data: { fileUri: fileUri.toString(), version, contents, options },
+            data: serialize({ fileUri, version, contents, options }),
         });
     }
 
     updateChainedUri(fileUri: Uri, chainedUri: Uri | undefined) {
         this.enqueueRequest({
             requestType: 'updateChainedFileUri',
-            data: { fileUri: fileUri.toString(), chainedUri: chainedUri?.toString() },
+            data: serialize({ fileUri, chainedUri }),
         });
     }
 
     setFileClosed(fileUri: Uri, isTracked?: boolean) {
-        this.enqueueRequest({ requestType: 'setFileClosed', data: { fileUri: fileUri.toString(), isTracked } });
+        this.enqueueRequest({ requestType: 'setFileClosed', data: serialize({ fileUri, isTracked }) });
     }
 
     addInterimFile(fileUri: Uri) {
-        this.enqueueRequest({ requestType: 'addInterimFile', data: { fileUri: fileUri.toString() } });
+        this.enqueueRequest({ requestType: 'addInterimFile', data: serialize({ fileUri }) });
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean) {
-        this.enqueueRequest({ requestType: 'markAllFilesDirty', data: { evenIfContentsAreSame } });
+        this.enqueueRequest({ requestType: 'markAllFilesDirty', data: serialize({ evenIfContentsAreSame }) });
     }
 
     markFilesDirty(fileUris: Uri[], evenIfContentsAreSame: boolean) {
         this.enqueueRequest({
             requestType: 'markFilesDirty',
-            data: { fileUris: fileUris.map((f) => f.toString()), evenIfContentsAreSame },
+            data: serialize({ fileUris, evenIfContentsAreSame }),
         });
     }
 
@@ -118,7 +117,7 @@ export class BackgroundAnalysisBase {
         const cancellationId = getCancellationTokenId(token);
         this.enqueueRequest({
             requestType: 'analyzeFile',
-            data: { fileUri: fileUri.toString(), cancellationId },
+            data: serialize({ fileUri, cancellationId }),
             port: port2,
         });
 
@@ -139,7 +138,7 @@ export class BackgroundAnalysisBase {
         const cancellationId = getCancellationTokenId(token);
         this.enqueueRequest({
             requestType: 'getDiagnosticsForRange',
-            data: { fileUri: fileUri.toString(), range, cancellationId },
+            data: serialize({ fileUri, range, cancellationId }),
             port: port2,
         });
 
@@ -165,12 +164,12 @@ export class BackgroundAnalysisBase {
         const cancellationId = getCancellationTokenId(token);
         this.enqueueRequest({
             requestType: 'writeTypeStub',
-            data: {
-                targetImportPath: targetImportPath.toString(),
+            data: serialize({
+                targetImportPath,
                 targetIsSingleFile,
-                stubPath: stubPath.toString(),
+                stubPath,
                 cancellationId,
-            },
+            }),
             port: port2,
         });
 
@@ -181,7 +180,7 @@ export class BackgroundAnalysisBase {
     }
 
     invalidateAndForceReanalysis(reason: InvalidatedReason) {
-        this.enqueueRequest({ requestType: 'invalidateAndForceReanalysis', data: { reason } });
+        this.enqueueRequest({ requestType: 'invalidateAndForceReanalysis', data: serialize({ reason }) });
     }
 
     restart() {
@@ -208,7 +207,7 @@ export class BackgroundAnalysisBase {
     protected onMessage(msg: AnalysisResponse) {
         switch (msg.requestType) {
             case 'log': {
-                const logData = msg.data as LogData;
+                const logData = deserialize<LogData>(msg.data);
                 this.log(logData.level, logData.message);
                 break;
             }
@@ -216,7 +215,7 @@ export class BackgroundAnalysisBase {
             case 'analysisResult': {
                 // Change in diagnostics due to host such as file closed rather than
                 // analyzing files.
-                this._onAnalysisCompletion(convertAnalysisResults(msg.data));
+                this._onAnalysisCompletion(convertAnalysisResults(deserialize(msg.data)));
                 break;
             }
 
@@ -244,7 +243,7 @@ export class BackgroundAnalysisBase {
     ) {
         switch (msg.requestType) {
             case 'analysisResult': {
-                this._onAnalysisCompletion(convertAnalysisResults(msg.data));
+                this._onAnalysisCompletion(convertAnalysisResults(deserialize(msg.data)));
                 break;
             }
 
@@ -281,7 +280,7 @@ export class BackgroundAnalysisBase {
         port1.on('message', (msg: AnalysisResponse) => this.handleAnalysisResponse(msg, program, port1, port2, token));
 
         const cancellationId = getCancellationTokenId(token);
-        this.enqueueRequest({ requestType, data: cancellationId, port: port2 });
+        this.enqueueRequest({ requestType, data: serialize(cancellationId), port: port2 });
     }
 }
 
@@ -326,28 +325,28 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected onMessage(msg: AnalysisRequest) {
-        this.log(LogLevel.Log, `Background analysis message: ${msg.requestType}`);
-
         switch (msg.requestType) {
             case 'analyze': {
                 const port = msg.port!;
-                const token = getCancellationTokenFromId(msg.data);
+                const data = deserialize(msg.data);
+                const token = getCancellationTokenFromId(data);
 
-                this.handleAnalyze(port, msg.data, token);
+                this.handleAnalyze(port, data, token);
                 break;
             }
 
             case 'resumeAnalysis': {
                 const port = msg.port!;
-                const token = getCancellationTokenFromId(msg.data);
+                const data = deserialize(msg.data);
+                const token = getCancellationTokenFromId(data);
 
-                this.handleResumeAnalysis(port, msg.data, token);
+                this.handleResumeAnalysis(port, data, token);
                 break;
             }
 
             case 'analyzeFile': {
                 run(() => {
-                    const { fileUri, cancellationId } = msg.data;
+                    const { fileUri, cancellationId } = deserialize(msg.data);
                     const token = getCancellationTokenFromId(cancellationId);
 
                     return this.handleAnalyzeFile(fileUri, token);
@@ -357,7 +356,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
             case 'getDiagnosticsForRange': {
                 run(() => {
-                    const { fileUri, range, cancellationId } = msg.data;
+                    const { fileUri, range, cancellationId } = deserialize(msg.data);
                     const token = getCancellationTokenFromId(cancellationId);
 
                     return this.handleGetDiagnosticsForRange(fileUri, range, token);
@@ -367,7 +366,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
             case 'writeTypeStub': {
                 run(() => {
-                    const { targetImportPath, targetIsSingleFile, stubPath, cancellationId } = msg.data;
+                    const { targetImportPath, targetIsSingleFile, stubPath, cancellationId } = deserialize(msg.data);
                     const token = getCancellationTokenFromId(cancellationId);
 
                     this.handleWriteTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
@@ -376,69 +375,69 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             }
 
             case 'setImportResolver': {
-                this.handleSetImportResolver(msg.data);
+                this.handleSetImportResolver(deserialize(msg.data));
                 break;
             }
 
             case 'setConfigOptions': {
-                this.handleSetConfigOptions(createConfigOptionsFrom(msg.data));
+                this.handleSetConfigOptions(deserialize<ConfigOptions>(msg.data));
                 break;
             }
 
             case 'setTrackedFiles': {
-                this.handleSetTrackedFiles(msg.data);
+                this.handleSetTrackedFiles(deserialize(msg.data));
                 break;
             }
 
             case 'setAllowedThirdPartyImports': {
-                this.handleSetAllowedThirdPartyImports(msg.data);
+                this.handleSetAllowedThirdPartyImports(deserialize(msg.data));
                 break;
             }
 
             case 'ensurePartialStubPackages': {
-                const { executionRoot } = msg.data;
+                const { executionRoot } = deserialize(msg.data);
                 this.handleEnsurePartialStubPackages(executionRoot);
                 break;
             }
 
             case 'setFileOpened': {
-                const { fileUri, version, contents, options } = msg.data;
+                const { fileUri, version, contents, options } = deserialize(msg.data);
                 this.handleSetFileOpened(fileUri, version, contents, options);
                 break;
             }
 
             case 'updateChainedFileUri': {
-                const { fileUri, chainedUri } = msg.data;
+                const { fileUri, chainedUri } = deserialize(msg.data);
                 this.handleUpdateChainedfileUri(fileUri, chainedUri);
                 break;
             }
 
             case 'setFileClosed': {
-                const { fileUri, isTracked } = msg.data;
+                const { fileUri, isTracked } = deserialize(msg.data);
                 this.handleSetFileClosed(fileUri, isTracked);
                 break;
             }
 
             case 'addInterimFile': {
-                const { fileUri } = msg.data;
+                const { fileUri } = deserialize(msg.data);
                 this.handleAddInterimFile(fileUri);
                 break;
             }
 
             case 'markAllFilesDirty': {
-                const { evenIfContentsAreSame } = msg.data;
+                const { evenIfContentsAreSame } = deserialize(msg.data);
                 this.handleMarkAllFilesDirty(evenIfContentsAreSame);
                 break;
             }
 
             case 'markFilesDirty': {
-                const { fileUris, evenIfContentsAreSame } = msg.data;
+                const { fileUris, evenIfContentsAreSame } = deserialize(msg.data);
                 this.handleMarkFilesDirty(fileUris, evenIfContentsAreSame);
                 break;
             }
 
             case 'invalidateAndForceReanalysis': {
-                const { reason } = msg.data;
+                const { reason } = deserialize(msg.data);
                 this.handleInvalidateAndForceReanalysis(reason);
                 break;
             }
@@ -507,20 +506,20 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         }
     }
 
-    protected handleAnalyzeFile(fileUri: string, token: CancellationToken) {
+    protected handleAnalyzeFile(fileUri: Uri, token: CancellationToken) {
         throwIfCancellationRequested(token);
-        return this.program.analyzeFile(Uri.parse(fileUri, this.isCaseSensitive), token);
+        return this.program.analyzeFile(fileUri, token);
     }
 
-    protected handleGetDiagnosticsForRange(fileUri: string, range: Range, token: CancellationToken) {
+    protected handleGetDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken) {
         throwIfCancellationRequested(token);
-        return this.program.getDiagnosticsForRange(Uri.parse(fileUri, this.isCaseSensitive), range);
+        return this.program.getDiagnosticsForRange(fileUri, range);
     }
 
     protected handleWriteTypeStub(
-        targetImportPath: string,
+        targetImportPath: Uri,
         targetIsSingleFile: boolean,
-        stubPath: string,
+        stubPath: Uri,
         token: CancellationToken
     ) {
         analyzeProgram(
@@ -532,12 +531,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
             token
         );
 
-        this.program.writeTypeStub(
-            Uri.parse(targetImportPath, this.isCaseSensitive),
-            targetIsSingleFile,
-            Uri.parse(stubPath, this.isCaseSensitive),
-            token
-        );
+        this.program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
     }
 
     protected handleSetImportResolver(hostKind: HostKind) {
@@ -561,8 +555,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         this.program.setImportResolver(this.importResolver);
     }
 
-    protected handleSetTrackedFiles(fileUris: string[]) {
-        const diagnostics = this.program.setTrackedFiles(fileUris.map((f) => Uri.parse(f, this.isCaseSensitive)));
+    protected handleSetTrackedFiles(fileUris: Uri[]) {
+        const diagnostics = this.program.setTrackedFiles(fileUris);
         this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
     }
 
@@ -578,35 +572,39 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected handleSetFileOpened(
-        fileUri: string,
+        fileUri: Uri,
         version: number | null,
         contents: string,
         options: OpenFileOptions | undefined
     ) {
-        this.program.setFileOpened(Uri.parse(fileUri, this.isCaseSensitive), version, contents, options);
-    }
-
-    protected handleUpdateChainedfileUri(fileUri: string, chainedfileUri: string | undefined) {
-        this.program.updateChainedUri(
-            Uri.parse(fileUri, this.isCaseSensitive),
-            chainedfileUri ? Uri.parse(chainedfileUri, this.isCaseSensitive) : undefined
+        this.program.setFileOpened(
+            fileUri,
+            version,
+            contents,
+            options
+                ? {
+                      ...options,
+                      chainedFileUri: Uri.fromJsonObj(options?.chainedFileUri),
+                  }
+                : undefined
         );
     }
 
-    protected handleSetFileClosed(fileUri: string, isTracked: boolean | undefined) {
-        const diagnostics = this.program.setFileClosed(Uri.parse(fileUri, this.isCaseSensitive), isTracked);
+    protected handleUpdateChainedfileUri(fileUri: Uri, chainedfileUri: Uri | undefined) {
+        this.program.updateChainedUri(fileUri, chainedfileUri);
+    }
+
+    protected handleSetFileClosed(fileUri: Uri, isTracked: boolean | undefined) {
+        const diagnostics = this.program.setFileClosed(fileUri, isTracked);
         this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
     }
 
-    protected handleAddInterimFile(fileUri: string) {
-        this.program.addInterimFile(Uri.parse(fileUri, this.isCaseSensitive));
+    protected handleAddInterimFile(fileUri: Uri) {
+        this.program.addInterimFile(fileUri);
     }
 
-    protected handleMarkFilesDirty(fileUris: string[], evenIfContentsAreSame: boolean) {
-        this.program.markFilesDirty(
-            fileUris.map((f) => Uri.parse(f, this.isCaseSensitive)),
-            evenIfContentsAreSame
-        );
+    protected handleMarkFilesDirty(fileUris: Uri[], evenIfContentsAreSame: boolean) {
+        this.program.markFilesDirty(fileUris, evenIfContentsAreSame);
     }
 
     protected handleMarkAllFilesDirty(evenIfContentsAreSame: boolean) {
@@ -645,17 +643,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         // them. This causes a DataCloneError when posting.
         // See https://stackoverflow.com/questions/68467946/datacloneerror-the-object-could-not-be-cloned-firefox-browser
         // We turn them back into JSON so we can use Uri.fromJsonObj on the other side.
-        const postableResults = {
-            ...result,
-            diagnostics: result.diagnostics.map((d) => {
-                return {
-                    ...d,
-                    fileUri: JSON.parse(JSON.stringify(d.fileUri)),
-                    diagnostics: convertDiagnostics(d.diagnostics),
-                };
-            }),
-        };
-        port.postMessage({ requestType: 'analysisResult', data: postableResults });
+        port.postMessage({ requestType: 'analysisResult', data: serialize(result) });
     }
 
     private _onMessageWrapper(msg: AnalysisRequest) {
@@ -725,7 +713,7 @@ function convertDiagnostics(diagnostics: Diagnostic[]) {
 
         if (d._relatedInfo) {
             for (const info of d._relatedInfo) {
-                diag.addRelatedInfo(info.message, JSON.parse(JSON.stringify(info.uri)), info.range);
+                diag.addRelatedInfo(info.message, info.uri, info.range);
             }
         }
 
@@ -756,7 +744,7 @@ export type AnalysisRequestKind =
 
 export interface AnalysisRequest {
     requestType: AnalysisRequestKind;
-    data: any;
+    data: string | null;
     port?: MessagePort | undefined;
 }
 
@@ -764,7 +752,7 @@ export type AnalysisResponseKind = 'log' | 'analysisResult' | 'analysisPaused' |
 
 export interface AnalysisResponse {
     requestType: AnalysisResponseKind;
-    data: any;
+    data: string | null;
 }
 
 export interface RefreshOptions {

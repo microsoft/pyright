@@ -404,3 +404,17 @@ export function getRootUri(isCaseSensitive: boolean): Uri | undefined {
     }
     return undefined;
 }
+
+export function encodeUri(fs: ReadOnlyFileSystem, uri: Uri): string {
+    // Convert to a URI string that the LSP client understands (mapped files are only local to the server).
+    return fs.getOriginalUri(uri).toString();
+}
+
+export function isUri(path: string): boolean {
+    const firstColon = path.indexOf(':');
+    const firstSlash = path.indexOf('/');
+    if (firstColon > 1 && firstColon < firstSlash) {
+        return true;
+    }
+    return false;
+}

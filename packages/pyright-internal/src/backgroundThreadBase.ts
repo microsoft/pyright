@@ -17,7 +17,6 @@ import { ServiceProvider } from './common/serviceProvider';
 import './common/serviceProviderExtensions';
 import { ServiceKeys } from './common/serviceProviderExtensions';
 import { Uri } from './common/uri/uri';
-import { FileSpec } from './common/uri/uriUtils';
 
 export class BackgroundConsole implements ConsoleInterface {
     // We always generate logs in the background. For the foreground,
@@ -39,7 +38,7 @@ export class BackgroundConsole implements ConsoleInterface {
         this.post(LogLevel.Error, msg);
     }
     protected post(level: LogLevel, msg: string) {
-        parentPort?.postMessage({ requestType: 'log', data: { level: level, message: msg } });
+        parentPort?.postMessage({ requestType: 'log', data: serialize({ level: level, message: msg }) });
     }
 }
 
@@ -76,7 +75,7 @@ export class BackgroundThreadBase {
     }
 
     protected log(level: LogLevel, msg: string) {
-        //parentPort?.postMessage({ requestType: 'log', data: { level: level, message: msg } });
+        parentPort?.postMessage({ requestType: 'log', data: serialize({ level: level, message: msg }) });
     }
 
     protected getConsole() {
@@ -93,69 +92,73 @@ export class BackgroundThreadBase {
     }
 }
 
-export function createJsonObjectFrom(configOptions: ConfigOptions): any {
-    return {
-        ...JSON.parse(JSON.stringify(configOptions)),
-        defineConstant: configOptions.defineConstant, // This is the only field that can't be stringified.
-    };
+// Function used to serialize specific types that can't automatically be serialized.
+// Exposed here so it can be reused by a caller that wants to add more cases.
+export function serializeReplacer(key: string, value: any) {
+    if (Uri.isUri(value)) {
+        return { uri_str: value.toString(), case_sensitive: value.isCaseSensitive };
+    }
+    if (value instanceof Map) {
+        return { map_val: [...value] };
+    }
+    if (value instanceof Set) {
+        return { set_val: [...value] };
+    }
+    if (value instanceof RegExp) {
+        return { regexp_val: { source: value.source, flags: value.flags } };
+    }
+    if (value instanceof ConfigOptions) {
+        const entries = Object.entries(value);
+        return { config_options: entries.reduce((obj, e, i) => ({ ...obj, [e[0]]: e[1] }), {}) };
+    }
+
+    return value;
 }
 
-export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
-    const configOptions = new ConfigOptions(Uri.fromJsonObj(jsonObject.projectRoot));
-    const getFileSpec = (fileSpec: any): FileSpec => {
-        return {
-            wildcardRoot: Uri.fromJsonObj(fileSpec.wildcardRoot),
-            regExp: new RegExp(fileSpec.regExp.source, fileSpec.regExp.flags),
-            hasDirectoryWildcard: fileSpec.hasDirectoryWildcard,
-        };
-    };
+export function serialize(obj: any): string {
+    // Convert the object to a string so it can be sent across a message port.
+    return JSON.stringify(obj, serializeReplacer);
+}
 
-    configOptions.pythonEnvironmentName = jsonObject.pythonEnvironmentName;
-    configOptions.pythonPath = Uri.fromJsonObj(jsonObject.pythonPath);
-    configOptions.typeshedPath = Uri.fromJsonObj(jsonObject.typeshedPath);
-    configOptions.stubPath = Uri.fromJsonObj(jsonObject.stubPath);
-    configOptions.autoExcludeVenv = jsonObject.autoExcludeVenv;
-    configOptions.verboseOutput = jsonObject.verboseOutput;
-    configOptions.defineConstant = new Map<string, boolean | string>(jsonObject.defineConstant);
-    configOptions.checkOnlyOpenFiles = jsonObject.checkOnlyOpenFiles;
-    configOptions.useLibraryCodeForTypes = jsonObject.useLibraryCodeForTypes;
-    configOptions.internalTestMode = jsonObject.internalTestMode;
-    configOptions.indexGenerationMode = jsonObject.indexGenerationMode;
-    configOptions.venvPath = Uri.fromJsonObj(jsonObject.venvPath);
-    configOptions.venv = jsonObject.venv;
-    configOptions.defaultPythonVersion = jsonObject.defaultPythonVersion;
-    configOptions.defaultPythonPlatform = jsonObject.defaultPythonPlatform;
-    configOptions.defaultExtraPaths = jsonObject.defaultExtraPaths?.map((p: any) => Uri.fromJsonObj(p));
-    configOptions.diagnosticRuleSet = jsonObject.diagnosticRuleSet;
-    configOptions.executionEnvironments = jsonObject.executionEnvironments?.map((e: any) => {
-        return {
-            ...e,
-            root: Uri.fromJsonObj(e.root),
-            extraPaths: e.extraPaths?.map((p: any) => Uri.fromJsonObj(p)),
-        };
-    });
-    configOptions.autoImportCompletions = jsonObject.autoImportCompletions;
-    configOptions.indexing = jsonObject.indexing;
-    configOptions.taskListTokens = jsonObject.taskListTokens;
-    configOptions.logTypeEvaluationTime = jsonObject.logTypeEvaluationTime;
-    configOptions.typeEvaluationTimeThreshold = jsonObject.typeEvaluationTimeThreshold;
-    configOptions.include = jsonObject.include.map((f: any) => getFileSpec(f));
-    configOptions.exclude = jsonObject.exclude.map((f: any) => getFileSpec(f));
-    configOptions.ignore = jsonObject.ignore.map((f: any) => getFileSpec(f));
-    configOptions.strict = jsonObject.strict.map((f: any) => getFileSpec(f));
-    configOptions.functionSignatureDisplay = jsonObject.functionSignatureDisplay;
+export function deserializeReviver(key: string, value: any) {
+    if (value && typeof value === 'object') {
+        if (value.uri_str !== undefined) {
+            return Uri.parse(value.uri_str, value.case_sensitive);
+        }
+        if (value.map_val) {
+            return new Map(value.map_val);
+        }
+        if (value.set_val) {
+            return new Set(value.set_val);
+        }
+        if (value.regexp_val) {
+            return new RegExp(value.regexp_val.source, value.regexp_val.flags);
+        }
+        if (value.config_options) {
+            const configOptions = new ConfigOptions(value.config_options.projectRoot);
+            Object.assign(configOptions, value.config_options);
+            return configOptions;
+        }
+    }
+    return value;
+}
 
-    return configOptions;
+export function deserialize<T = any>(json: string | null): T {
+    if (!json) {
+        return undefined as any;
+    }
+    // Convert the string back to an object.
+    return JSON.parse(json, deserializeReviver);
 }
 
 export interface MessagePoster {
     postMessage(value: any, transferList?: ReadonlyArray<TransferListItem>): void;
 }
 
-export function run<T = any>(code: () => T, port: MessagePoster) {
+export function run<T = any>(code: () => T, port: MessagePoster, serializer = serialize) {
     try {
         const result = code();
-        port.postMessage({ kind: 'ok', data: result });
+        port.postMessage({ kind: 'ok', data: serializer(result) });
     } catch (e: any) {
         if (OperationCanceledException.is(e)) {
             port.postMessage({ kind: 'cancelled', data: e.message });
@@ -166,12 +169,12 @@ export function run<T = any>(code: () => T, port: MessagePoster) {
     }
 }
 
-export function getBackgroundWaiter<T>(port: MessagePort): Promise<T> {
+export function getBackgroundWaiter<T>(port: MessagePort, deserializer = deserialize): Promise<T> {
     return new Promise((resolve, reject) => {
         port.on('message', (m: RequestResponse) => {
             switch (m.kind) {
                 case 'ok':
-                    resolve(m.data);
+                    resolve(deserializer(m.data));
                     break;
 
                 case 'cancelled':

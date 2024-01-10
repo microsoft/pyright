@@ -97,7 +97,7 @@ interface PyrightPublicSymbolReport {
 }
 
 interface PyrightJsonDiagnostic {
-    file: string;
+    uri: Uri;
     severity: SeverityLevel;
     message: string;
     range?: Range | undefined;
@@ -874,7 +874,7 @@ function convertDiagnosticCategoryToSeverity(category: DiagnosticCategory): Seve
 
 function convertDiagnosticToJson(uri: Uri, diag: Diagnostic): PyrightJsonDiagnostic {
     return {
-        file: uri.getFilePath(),
+        uri,
         severity: convertDiagnosticCategoryToSeverity(diag.category),
         message: diag.message,
         range: isEmptyRange(diag.range) ? undefined : diag.range,
@@ -935,8 +935,8 @@ function reportDiagnosticsAsText(
 
 function logDiagnosticToConsole(diag: PyrightJsonDiagnostic, prefix = '  ') {
     let message = prefix;
-    if (diag.file) {
-        message += `${diag.file}:`;
+    if (!diag.uri.isEmpty()) {
+        message += `${diag.uri.toUserVisibleString()}:`;
     }
     if (diag.range && !isEmptyRange(diag.range)) {
         message +=
