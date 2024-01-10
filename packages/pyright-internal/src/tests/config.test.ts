@@ -10,7 +10,6 @@
 import assert from 'assert';
 
 import { AnalyzerService } from '../analyzer/service';
-import { createConfigOptionsFrom } from '../backgroundThreadBase';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../common/console';
@@ -22,6 +21,8 @@ import { createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
 import { TestAccessHost } from './harness/testAccessHost';
 import { TestFileSystem } from './harness/vfs/filesystem';
+import { cloneDeep } from 'lodash';
+import { deserialize, serialize } from '../backgroundThreadBase';
 
 function createAnalyzer(console?: ConsoleInterface) {
     const cons = console ?? new NullConsole();
@@ -335,7 +336,15 @@ test('verify config fileSpecs after cloning', () => {
     const config = new ConfigOptions(Uri.file(process.cwd()));
     const sp = createServiceProvider(fs, new NullConsole());
     config.initializeFromJson(configFile, undefined, sp, new TestAccessHost());
-    const cloned = createConfigOptionsFrom(config);
+    const cloned = cloneDeep(config);
 
     assert.deepEqual(config.ignore, cloned.ignore);
+});
+
+test('verify can serialize config options', () => {
+    const config = new ConfigOptions(Uri.file(process.cwd()));
+    const serialized = serialize(config);
+    const deserialized = deserialize<ConfigOptions>(serialized);
+    assert.deepEqual(config, deserialized);
+    assert.ok(deserialized.findExecEnvironment(Uri.file('foo/bar.py')));
 });
