@@ -14133,11 +14133,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // or the final expression contain an "await" operator anywhere within
         // the expression, it is treated as an async generator.
         let isAsync = node.forIfNodes.some((comp) => {
-            return (
-                (comp.nodeType === ParseNodeType.ListComprehensionFor && comp.isAsync) ||
-                (comp.nodeType === ParseNodeType.ListComprehensionIf &&
-                    ParseTreeUtils.containsAwaitNode(comp.testExpression))
-            );
+            if (comp.nodeType === ParseNodeType.ListComprehensionFor && comp.isAsync) {
+                return true;
+            }
+            return ParseTreeUtils.containsAwaitNode(comp);
         });
         let type: Type = UnknownType.create();
 
@@ -14159,16 +14158,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
         const elementType = elementTypeResult.type;
 
-        // Handle the special case where a generator function (e.g. `(await x for x in y)`)
-        // is expected to be an AsyncGenerator.
-        if (
-            !isAsync &&
-            inferenceContext &&
-            isClassInstance(inferenceContext.expectedType) &&
-            ClassType.isBuiltIn(inferenceContext.expectedType, 'AsyncGenerator')
-        ) {
-            isAsync = true;
-        }
         const builtInIteratorType = getTypingType(node, isAsync ? 'AsyncGenerator' : 'Generator');
 
         if (builtInIteratorType && isInstantiableClass(builtInIteratorType)) {
