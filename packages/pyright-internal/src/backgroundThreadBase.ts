@@ -96,20 +96,20 @@ export class BackgroundThreadBase {
 // Exposed here so it can be reused by a caller that wants to add more cases.
 export function serializeReplacer(key: string, value: any) {
     if (Uri.isUri(value)) {
-        return { uri_str: value.toString(), case_sensitive: value.isCaseSensitive };
+        return { __serialized_uri_str: value.toString(), __serialized_case_sensitive: value.isCaseSensitive };
     }
     if (value instanceof Map) {
-        return { map_val: [...value] };
+        return { __serialized_map_val: [...value] };
     }
     if (value instanceof Set) {
-        return { set_val: [...value] };
+        return { __serialized_set_val: [...value] };
     }
     if (value instanceof RegExp) {
-        return { regexp_val: { source: value.source, flags: value.flags } };
+        return { __serialized_regexp_val: { source: value.source, flags: value.flags } };
     }
     if (value instanceof ConfigOptions) {
         const entries = Object.entries(value);
-        return { config_options: entries.reduce((obj, e, i) => ({ ...obj, [e[0]]: e[1] }), {}) };
+        return { __serialized_config_options: entries.reduce((obj, e, i) => ({ ...obj, [e[0]]: e[1] }), {}) };
     }
 
     return value;
@@ -122,21 +122,21 @@ export function serialize(obj: any): string {
 
 export function deserializeReviver(key: string, value: any) {
     if (value && typeof value === 'object') {
-        if (value.uri_str !== undefined) {
-            return Uri.parse(value.uri_str, value.case_sensitive);
+        if (value.__serialized_uri_str !== undefined) {
+            return Uri.parse(value.__serialized_uri_str, value.__serialized_case_sensitive);
         }
-        if (value.map_val) {
-            return new Map(value.map_val);
+        if (value.__serialized_map_val) {
+            return new Map(value.__serialized_map_val);
         }
-        if (value.set_val) {
-            return new Set(value.set_val);
+        if (value.__serialized_set_val) {
+            return new Set(value.__serialized_set_val);
         }
-        if (value.regexp_val) {
-            return new RegExp(value.regexp_val.source, value.regexp_val.flags);
+        if (value.__serialized_regexp_val) {
+            return new RegExp(value.__serialized_regexp_val.source, value.__serialized_regexp_val.flags);
         }
-        if (value.config_options) {
-            const configOptions = new ConfigOptions(value.config_options.projectRoot);
-            Object.assign(configOptions, value.config_options);
+        if (value.__serialized_config_options) {
+            const configOptions = new ConfigOptions(value.__serialized_config_options.projectRoot);
+            Object.assign(configOptions, value.__serialized_config_options);
             return configOptions;
         }
     }
