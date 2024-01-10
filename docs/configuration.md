@@ -4,7 +4,7 @@ Pyright offers flexible configuration options specified in a JSON-formatted text
 
 Pyright settings can also be specified in a `[tool.pyright]` section of a “pyproject.toml” file. A “pyrightconfig.json” file always takes precedent over “pyproject.toml” if both are present. For a sample pyproject.toml file, see [below](configuration.md#sample-pyprojecttoml-file).
 
-Relative paths specified within the config file are relative to the config file’s location. Paths with shell variables (including `~`) are not supported. Paths within a the config file should generally be relative paths so the config file can be shared by other developers who contribute to the project.
+Relative paths specified within the config file are relative to the config file’s location. Paths with shell variables (including `~`) are not supported. Paths within a config file should generally be relative paths so the config file can be shared by other developers who contribute to the project.
 
 ## Main Configuration Options
 
