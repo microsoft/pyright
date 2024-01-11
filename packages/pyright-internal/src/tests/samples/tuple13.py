@@ -26,6 +26,9 @@ def func1(val1: tuple[int, str, None], val2: tuple[int, ...]):
     x7 = val2[:2]
     reveal_type(x7, expected_text="tuple[int, ...]")
 
+    x8 = val1[1:3]
+    reveal_type(x8, expected_text="tuple[str, None]")
+
 
 def func2(val1: tuple[str, *tuple[int, ...], None]):
     x1 = val1[:2]

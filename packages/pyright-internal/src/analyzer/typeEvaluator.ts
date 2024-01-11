@@ -7441,7 +7441,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return undefined;
                 }
             } else {
-                if (value >= tupleTypeArgs.length) {
+                if (value > tupleTypeArgs.length) {
                     return undefined;
                 } else if (unboundedIndex >= 0 && value > unboundedIndex) {
                     return undefined;
