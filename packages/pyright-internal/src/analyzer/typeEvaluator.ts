@@ -7441,7 +7441,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return undefined;
                 }
             } else {
-                if (value >= tupleTypeArgs.length) {
+                if (value > tupleTypeArgs.length) {
                     return undefined;
                 } else if (unboundedIndex >= 0 && value > unboundedIndex) {
                     return undefined;
@@ -7533,16 +7533,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (arg.argumentCategory !== ArgumentCategory.Simple) {
                     if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
-                        if (isVariadicTypeVar(typeResult.type) && !typeResult.type.isVariadicUnpacked) {
-                            typeResult.type = TypeVarType.cloneForUnpacked(typeResult.type);
-                        } else if (
-                            isInstantiableClass(typeResult.type) &&
-                            !typeResult.type.includeSubclasses &&
-                            isTupleClass(typeResult.type)
-                        ) {
-                            typeResult.type = ClassType.cloneForUnpacked(typeResult.type);
-                        } else {
-                            addError(Localizer.Diagnostic.unpackNotAllowed(), arg.valueExpression);
+                        if (!options?.isAnnotatedClass || index === 0) {
+                            if (isVariadicTypeVar(typeResult.type) && !typeResult.type.isVariadicUnpacked) {
+                                typeResult.type = TypeVarType.cloneForUnpacked(typeResult.type);
+                            } else if (
+                                isInstantiableClass(typeResult.type) &&
+                                !typeResult.type.includeSubclasses &&
+                                isTupleClass(typeResult.type)
+                            ) {
+                                typeResult.type = ClassType.cloneForUnpacked(typeResult.type);
+                            } else {
+                                addError(Localizer.Diagnostic.unpackNotAllowed(), arg.valueExpression);
+                            }
                         }
                     }
                 }
