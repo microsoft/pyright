@@ -14631,13 +14631,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else if (itemExpr.constType === KeywordType.None) {
                     type = noneClassType ?? UnknownType.create();
                 }
-            } else if (
-                itemExpr.nodeType === ParseNodeType.UnaryOperation &&
-                itemExpr.operator === OperatorType.Subtract
-            ) {
-                if (itemExpr.expression.nodeType === ParseNodeType.Number) {
-                    if (!itemExpr.expression.isImaginary && itemExpr.expression.isInteger) {
-                        type = cloneBuiltinClassWithLiteral(node, 'int', -itemExpr.expression.value);
+            } else if (itemExpr.nodeType === ParseNodeType.UnaryOperation) {
+                if (itemExpr.operator === OperatorType.Subtract || itemExpr.operator === OperatorType.Add) {
+                    if (itemExpr.expression.nodeType === ParseNodeType.Number) {
+                        if (!itemExpr.expression.isImaginary && itemExpr.expression.isInteger) {
+                            type = cloneBuiltinClassWithLiteral(
+                                node,
+                                'int',
+                                itemExpr.operator === OperatorType.Subtract
+                                    ? -itemExpr.expression.value
+                                    : itemExpr.expression.value
+                            );
+                        }
                     }
                 }
             }
