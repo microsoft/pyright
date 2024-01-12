@@ -41,6 +41,14 @@ export class EmptyUri extends BaseUri {
         return true;
     }
 
+    get fragment(): string {
+        return '';
+    }
+
+    static isEmptyUri(uri: any): boolean {
+        return uri?._key === EmptyKey;
+    }
+
     override isEmpty(): boolean {
         return true;
     }
@@ -105,6 +113,10 @@ export class EmptyUri extends BaseUri {
     }
 
     override stripExtension(): Uri {
+        return this;
+    }
+
+    withFragment(fragment: string): Uri {
         return this;
     }
 

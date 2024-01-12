@@ -10,7 +10,6 @@ import assert from 'assert';
 import { CancellationToken, MarkupKind } from 'vscode-languageserver';
 
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { Uri } from '../common/uri/uri';
 import { SignatureHelpProvider } from '../languageService/signatureHelpProvider';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 
@@ -78,12 +77,12 @@ function checkSignatureHelp(code: string, expects: boolean) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName('marker');
 
-    const parseResults = state.workspace.service.getParseResult(Uri.file(marker.fileName))!;
+    const parseResults = state.workspace.service.getParseResult(marker.fileUri)!;
     const position = convertOffsetToPosition(marker.position, parseResults.tokenizerOutput.lines);
 
     const actual = new SignatureHelpProvider(
         state.workspace.service.test_program,
-        Uri.file(marker.fileName),
+        marker.fileUri,
         position,
         MarkupKind.Markdown,
         /*hasSignatureLabelOffsetCapability*/ true,

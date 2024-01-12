@@ -13,7 +13,9 @@ import { CancellationToken, DocumentSymbol, Location, SymbolInformation } from '
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ProgramView } from '../common/extensibility';
+import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { Uri } from '../common/uri/uri';
+import { encodeUri } from '../common/uri/uriUtils';
 import { ParseResults } from '../parser/parser';
 import { IndexSymbolData, SymbolIndexer } from './symbolIndexer';
 
@@ -25,7 +27,7 @@ export function convertToFlatSymbols(
     const flatSymbols: SymbolInformation[] = [];
 
     for (const symbol of symbolList) {
-        _appendToFlatSymbolsRecursive(flatSymbols, uri, symbol);
+        _appendToFlatSymbolsRecursive(program.fileSystem, flatSymbols, uri, symbol);
     }
 
     return flatSymbols;
@@ -113,6 +115,7 @@ export class DocumentSymbolProvider {
 }
 
 function _appendToFlatSymbolsRecursive(
+    fs: ReadOnlyFileSystem,
     flatSymbols: SymbolInformation[],
     documentUri: Uri,
     symbol: DocumentSymbol,
@@ -121,7 +124,7 @@ function _appendToFlatSymbolsRecursive(
     const flatSymbol: SymbolInformation = {
         name: symbol.name,
         kind: symbol.kind,
-        location: Location.create(documentUri.toString(), symbol.range),
+        location: Location.create(encodeUri(fs, documentUri), symbol.range),
     };
 
     if (symbol.tags) {
@@ -136,7 +139,7 @@ function _appendToFlatSymbolsRecursive(
 
     if (symbol.children) {
         for (const child of symbol.children) {
-            _appendToFlatSymbolsRecursive(flatSymbols, documentUri, child, symbol);
+            _appendToFlatSymbolsRecursive(fs, flatSymbols, documentUri, child, symbol);
         }
     }
 }

@@ -89,7 +89,13 @@ export class ServiceProvider {
 
     clone() {
         const serviceProvider = new ServiceProvider();
-        this._container.forEach((value, key) => serviceProvider._container.set(key, value));
+        this._container.forEach((value, key) => {
+            if (key.kind === 'group') {
+                serviceProvider._container.set(key, [...(value ?? [])]);
+            } else {
+                serviceProvider._container.set(key, value);
+            }
+        });
 
         return serviceProvider;
     }

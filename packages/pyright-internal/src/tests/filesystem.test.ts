@@ -172,7 +172,7 @@ test('createFromFileSystem1', () => {
     });
 
     // check existing typeshed folder on virtual path inherited from base snapshot from physical file system
-    const entries = fs.readdirSync(Uri.file(factory.typeshedFolder));
+    const entries = fs.readdirSync(factory.typeshedFolder);
     assert(entries.length > 0);
 
     // confirm file
@@ -181,7 +181,7 @@ test('createFromFileSystem1', () => {
 
 test('createFromFileSystem2', () => {
     const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ true, { cwd: factory.srcFolder });
-    const entries = fs.readdirSync(Uri.file(factory.typeshedFolder.toUpperCase()));
+    const entries = fs.readdirSync(Uri.file(factory.typeshedFolder.getFilePath().toUpperCase()));
     assert(entries.length > 0);
 });
 
@@ -189,10 +189,10 @@ test('createFromFileSystemWithCustomTypeshedPath', () => {
     const invalidpath = normalizeSlashes(combinePaths(host.HOST.getWorkspaceRoot(), '../docs'));
     const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ false, {
         cwd: factory.srcFolder,
-        meta: { [factory.typeshedFolder]: invalidpath },
+        meta: { [factory.typeshedFolder.getFilePath()]: invalidpath },
     });
 
-    const entries = fs.readdirSync(Uri.file(factory.typeshedFolder));
+    const entries = fs.readdirSync(factory.typeshedFolder);
     assert(entries.filter((e) => e.endsWith('.md')).length > 0);
 });
 

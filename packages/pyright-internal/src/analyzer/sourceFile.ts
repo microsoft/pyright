@@ -30,7 +30,7 @@ import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import { Localizer } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
-import { IParser, ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
+import { ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
 import { IgnoreComment } from '../parser/tokenizer';
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
@@ -303,6 +303,10 @@ export class SourceFile {
 
     isStubFile() {
         return this._isStubFile;
+    }
+
+    isTypingStubFile() {
+        return this._isTypingStubFile;
     }
 
     isThirdPartyPyTypedPresent() {
@@ -878,10 +882,6 @@ export class SourceFile {
         this._ipythonMode = enable ? IPythonMode.CellDocs : IPythonMode.None;
     }
 
-    protected createParser(): IParser {
-        return new Parser();
-    }
-
     protected createDiagnosticSink(): DiagnosticSink {
         return new DiagnosticSink();
     }
@@ -1379,14 +1379,14 @@ export class SourceFile {
         parseOptions.skipFunctionAndClassBody = configOptions.indexGenerationMode ?? false;
 
         // Parse the token stream, building the abstract syntax tree.
-        const parser = this.createParser();
+        const parser = new Parser();
         return parser.parseSourceFile(fileContents, parseOptions, diagSink);
     }
 
     private _fireFileDirtyEvent() {
         this.serviceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => {
             try {
-                l.fileDirty?.(this._uri);
+                l.onFileDirty?.(this._uri);
             } catch (ex: any) {
                 const console = this.serviceProvider.tryGet(ServiceKeys.console);
                 if (console) {

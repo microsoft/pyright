@@ -365,6 +365,25 @@ export function isFileSystemCaseSensitiveInternal(fs: FileSystem, tmp: TempFile)
     }
 }
 
+export function getDirectoryChangeKind(
+    fs: ReadOnlyFileSystem,
+    oldDirectory: Uri,
+    newDirectory: Uri
+): 'Same' | 'Renamed' | 'Moved' {
+    if (oldDirectory.equals(newDirectory)) {
+        return 'Same';
+    }
+
+    const relativePaths = oldDirectory.getRelativePathComponents(newDirectory);
+
+    // 2 means only last folder name has changed.
+    if (relativePaths.length === 2 && relativePaths[0] === '..' && relativePaths[1] !== '..') {
+        return 'Renamed';
+    }
+
+    return 'Moved';
+}
+
 export function deduplicateFolders(listOfFolders: Uri[][]): Uri[] {
     const foldersToWatch = new Map<string, Uri>();
 

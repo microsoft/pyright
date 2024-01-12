@@ -431,9 +431,9 @@ export class AutoImporter {
 
     protected isStubFileOrHasInit<T>(map: Map<string, T>, uri: Uri) {
         const fileDir = uri.getDirectory();
-        const initPathPy = fileDir.combinePaths('__init__.py');
-        const initPathPyi = initPathPy.addPath('i');
-        const isStub = uri.pathEndsWith('.pyi');
+        const initPathPy = fileDir.initPyUri;
+        const initPathPyi = fileDir.initPyiUri;
+        const isStub = uri.hasExtension('.pyi');
         const hasInit = map.has(initPathPy.key) || map.has(initPathPyi.key);
         return { isStub, hasInit };
     }

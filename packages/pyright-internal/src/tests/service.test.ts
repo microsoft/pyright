@@ -186,7 +186,7 @@ test('excluded but still part of program', () => {
     while (state.workspace.service.test_program.analyze());
 
     assert.strictEqual(
-        state.workspace.service.test_shouldHandleSourceFileWatchChanges(Uri.file(marker.fileName), /* isFile */ true),
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(marker.fileUri, /* isFile */ true),
         true
     );
 });

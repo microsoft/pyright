@@ -992,7 +992,7 @@ export class Program {
         this._discardCachedParseResults();
         this._parsedFileCount = 0;
 
-        this.serviceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => l.clearCache?.());
+        this.serviceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => l.onClearCache?.());
     }
 
     private _handleMemoryHighUsage() {

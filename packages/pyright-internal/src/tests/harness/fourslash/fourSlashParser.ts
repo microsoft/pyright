@@ -15,6 +15,7 @@ import {
     normalizePath,
     normalizeSlashes,
 } from '../../../common/pathUtils';
+import { Uri } from '../../../common/uri/uri';
 import { distlibFolder, libFolder } from '../vfs/factory';
 import {
     FourSlashData,
@@ -198,6 +199,7 @@ function recordObjectMarker(
 
     const marker: Marker = {
         fileName,
+        fileUri: Uri.file(fileName),
         position: location.position,
         data: markerValue,
     };
@@ -221,6 +223,7 @@ function recordMarker(
 ): Marker | undefined {
     const marker: Marker = {
         fileName,
+        fileUri: Uri.file(fileName),
         position: location.position,
     };
 
@@ -309,6 +312,7 @@ function parseFileContent(
 
                         const range: Range = {
                             fileName,
+                            fileUri: Uri.file(fileName),
                             pos: rangeStart!.position,
                             end: i - 1 - difference,
                             marker: rangeStart!.marker,

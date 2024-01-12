@@ -10,7 +10,6 @@ import { CancellationToken } from 'vscode-jsonrpc';
 import { findNodeByOffset } from '../analyzer/parseTreeUtils';
 import { FileEditAction } from '../common/editAction';
 import { TextEditTracker } from '../common/textEditTracker';
-import { Uri } from '../common/uri/uri';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
 import { convertRangeToFileEditAction } from './testStateUtils';
@@ -115,7 +114,7 @@ function verifyRemoveNodes(code: string) {
     const ranges = state.getRanges();
     const changeRanges = _getChangeRanges(ranges);
     for (const range of changeRanges) {
-        const parseResults = state.program.getParseResults(Uri.file(range.fileName))!;
+        const parseResults = state.program.getParseResults(range.fileUri)!;
         const node = findNodeByOffset(parseResults.parseTree, range.pos)!;
         tracker.removeNodes({ node, parseResults });
     }

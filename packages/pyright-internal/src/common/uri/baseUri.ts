@@ -28,7 +28,7 @@ export abstract class BaseUri implements Uri {
     abstract get fileName(): string;
 
     // Returns just the fileName without any extensions
-    get fileNameWithoutExtension(): string {
+    get fileNameWithoutExtensions(): string {
         const fileName = this.fileName;
         const index = fileName.lastIndexOf('.');
         if (index > 0) {
@@ -74,6 +74,8 @@ export abstract class BaseUri implements Uri {
         return this.combinePaths('py.typed');
     }
 
+    abstract get fragment(): string;
+
     isEmpty(): boolean {
         return false;
     }
@@ -100,6 +102,15 @@ export abstract class BaseUri implements Uri {
             ? this.lastExtension === ext
             : this.lastExtension.toLowerCase() === ext.toLowerCase();
     }
+
+    containsExtension(ext: string): boolean {
+        const fileName = this.fileName;
+        // Use a regex so we keep the . on the front of the extension.
+        const extensions = fileName.split(/(?=\.)/g);
+        return extensions.some((e) => (this.isCaseSensitive ? e === ext : e.toLowerCase() === ext.toLowerCase()));
+    }
+
+    abstract withFragment(fragment: string): Uri;
 
     abstract addPath(extra: string): Uri;
 

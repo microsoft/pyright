@@ -29,6 +29,8 @@ import { Uri } from './uri/uri';
 export interface SourceFile {
     // See whether we can convert these to regular properties.
     isStubFile(): boolean;
+    isTypingStubFile(): boolean;
+
     isThirdPartyPyTypedPresent(): boolean;
 
     getIPythonMode(): IPythonMode;
@@ -109,22 +111,15 @@ export interface EditableProgram extends ProgramView {
 // Mutable wrapper around a program. Allows the FG thread to forward this request to the BG thread
 // Any edits made to this program will persist and mutate the program's state permanently.
 export interface ProgramMutator {
-    addInterimFile(file: string): void;
+    addInterimFile(fileUri: Uri): void;
     setFileOpened(
         fileUri: Uri,
         version: number | null,
         contents: string,
         ipythonMode: IPythonMode,
-        chainedFilePath?: string,
-        realFilePath?: string
+        chainedFilePath?: Uri
     ): void;
-    updateOpenFileContents(
-        path: string,
-        version: number | null,
-        contents: string,
-        ipythonMode: IPythonMode,
-        realFilePath?: string
-    ): void;
+    updateOpenFileContents(path: Uri, version: number | null, contents: string, ipythonMode: IPythonMode): void;
 }
 
 export enum ReferenceUseCase {
@@ -157,9 +152,9 @@ export interface SymbolUsageProvider {
 }
 
 export interface StatusMutationListener {
-    fileDirty?: (fileUri: Uri) => void;
-    clearCache?: () => void;
-    updateSettings?: <T extends ServerSettings>(settings: T) => void;
+    onFileDirty?: (fileUri: Uri) => void;
+    onClearCache?: () => void;
+    onUpdateSettings?: <T extends ServerSettings>(settings: T) => void;
 }
 
 export interface DebugInfoInspector {

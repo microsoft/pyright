@@ -266,11 +266,11 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.setCompletionCallback(callback);
     }
 
-    setOptions(commandLineOptions: CommandLineOptions): void {
+    setOptions(commandLineOptions: CommandLineOptions, newRoot?: Uri): void {
         this._commandLineOptions = commandLineOptions;
 
         const host = this._hostFactory();
-        const configOptions = this._getConfigOptions(host, commandLineOptions);
+        const configOptions = this._getConfigOptions(host, commandLineOptions, newRoot);
 
         if (configOptions.pythonPath) {
             // Make sure we have default python environment set.
@@ -507,13 +507,12 @@ export class AnalyzerService {
 
     // Calculates the effective options based on the command-line options,
     // an optional config file, and default values.
-    private _getConfigOptions(host: Host, commandLineOptions: CommandLineOptions): ConfigOptions {
-        let projectRoot = this.fs.realCasePath(
-            Uri.file(commandLineOptions.executionRoot, this.fs.isCaseSensitive, /* checkRelative */ true)
-        );
-        const executionRoot = this.fs.realCasePath(
-            Uri.file(commandLineOptions.executionRoot, this.fs.isCaseSensitive, /* checkRelative */ true)
-        );
+    private _getConfigOptions(host: Host, commandLineOptions: CommandLineOptions, possibleRoot?: Uri): ConfigOptions {
+        const executionRootUri =
+            possibleRoot ??
+            Uri.file(commandLineOptions.executionRoot, this.fs.isCaseSensitive, /* checkRelative */ true);
+        const executionRoot = this.fs.realCasePath(executionRootUri);
+        let projectRoot = executionRoot;
         let configFilePath: Uri | undefined;
         let pyprojectFilePath: Uri | undefined;
 

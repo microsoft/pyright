@@ -292,7 +292,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     protected logTracker: LogTracker;
     protected isCaseSensitive = true;
 
-    protected constructor(serviceProvider: ServiceProvider) {
+    protected constructor(protected serviceProvider: ServiceProvider) {
         super(workerData as InitializationData, serviceProvider);
 
         // Stash the base directory into a global variable.

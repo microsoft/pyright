@@ -304,11 +304,11 @@ export namespace NewLineToken {
 
 export interface KeywordToken extends Token {
     readonly type: TokenType.Keyword;
-    readonly keywordType: number;
+    readonly keywordType: KeywordType;
 }
 
 export namespace KeywordToken {
-    export function create(start: number, length: number, keywordType: number, comments: Comment[] | undefined) {
+    export function create(start: number, length: number, keywordType: KeywordType, comments: Comment[] | undefined) {
         const token: KeywordToken = {
             start,
             length,
