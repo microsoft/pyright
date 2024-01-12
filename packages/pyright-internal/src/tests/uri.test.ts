@@ -1,10 +1,9 @@
 /*
- * pathUtils.test.ts
+ * uri.test.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
- * Author: Eric Traut
  *
- * Unit tests for pathUtils module.
+ * Unit tests for Uris.
  */
 
 import assert from 'assert';
@@ -103,6 +102,36 @@ test('extname', () => {
     assert.equal(extname6, '.foo');
 });
 
+test('fragment', () => {
+    const fragment = Uri.parse('foo:///a/b/c#bar', true).fragment;
+    assert.equal(fragment, 'bar');
+    const fragment2 = Uri.parse('foo:///a/b/c#bar#baz', true).fragment;
+    assert.equal(fragment2, 'bar#baz');
+    const fragment3 = Uri.parse('foo:///a/b/c?query#bar#baz', true).fragment;
+    assert.equal(fragment3, 'bar#baz');
+    const fragment4 = Uri.parse('foo:///a/b/c?query', true).fragment;
+    assert.equal(fragment4, '');
+    const fragment5 = Uri.parse('foo:///a/b/c', true).withFragment('bar').fragment;
+    assert.equal(fragment5, 'bar');
+    const fragment6 = Uri.parse('foo:///a/b/c#bar', true).withFragment('').fragment;
+    assert.equal(fragment6, '');
+});
+
+test('containsExtension', () => {
+    const uri1 = Uri.parse('foo:///a/b/c.py', true);
+    assert.ok(uri1.containsExtension('.py'));
+    assert.ok(!uri1.containsExtension('.PY'));
+    assert.ok(!uri1.containsExtension('.pyi'));
+    const uri2 = Uri.parse('foo:///a/b/c.pyi', true);
+    assert.ok(uri2.containsExtension('.pyi'));
+    assert.ok(!uri2.containsExtension('.PYI'));
+    assert.ok(!uri2.containsExtension('.py'));
+    const uri3 = Uri.parse('foo:///a/b/c.pyi.ipynb', false);
+    assert.ok(uri3.containsExtension('.pyi'));
+    assert.ok(uri3.containsExtension('.ipynb'));
+    assert.ok(!uri3.containsExtension('.PYI'));
+});
+
 test('root', () => {
     const root1 = Uri.parse('foo://authority/a/b/c', true).root;
     assert.equal(root1.toString(), 'foo://authority/');
@@ -135,11 +164,6 @@ test('root', () => {
     assert.equal(root10.toString(), 'file://c:/');
     assert.equal(root10.getRootPathLength(), 5);
     assert.ok(root10.isRoot());
-});
-
-test('getFilePath', () => {
-    const webUri = Uri.parse('foo:///a/b/c', true);
-    assert.equal(webUri.getFilePath(), '');
 });
 
 test('empty', () => {

@@ -35,7 +35,7 @@ test('test applyWorkspaceEdits changes', async () => {
         cloned,
         {
             changes: {
-                [Uri.file(range.fileName).toString()]: [
+                [range.fileUri.toString()]: [
                     {
                         range: state.convertPositionRange(range),
                         newText: 'Text Changed',
@@ -47,7 +47,7 @@ test('test applyWorkspaceEdits changes', async () => {
     );
 
     assert.strictEqual(fileChanged.size, 1);
-    assert.strictEqual(cloned.test_program.getSourceFile(Uri.file(range.fileName))?.getFileContent(), 'Text Changed');
+    assert.strictEqual(cloned.test_program.getSourceFile(range.fileUri)?.getFileContent(), 'Text Changed');
 });
 
 test('test edit mode for workspace', async () => {
@@ -67,7 +67,7 @@ test('test edit mode for workspace', async () => {
                 documentChanges: [
                     TextDocumentEdit.create(
                         {
-                            uri: Uri.file(range.fileName).toString(),
+                            uri: range.fileUri.toString(),
                             version: null,
                         },
                         [
@@ -83,7 +83,7 @@ test('test edit mode for workspace', async () => {
         );
 
         assert.strictEqual(fileChanged.size, 1);
-        const info = program.getSourceFileInfo(Uri.file(range.fileName))!;
+        const info = program.getSourceFileInfo(range.fileUri)!;
         const sourceFile = info.sourceFile;
 
         program.analyzeFile(sourceFile.getUri(), CancellationToken.None);
@@ -154,7 +154,7 @@ test('test edit mode for workspace', async () => {
     }, CancellationToken.None);
 
     // After leaving edit mode, we should be back to where we were.
-    const oldSourceFile = state.workspace.service.test_program.getSourceFile(Uri.file(range.fileName));
+    const oldSourceFile = state.workspace.service.test_program.getSourceFile(range.fileUri);
     state.workspace.service.backgroundAnalysisProgram.analyzeFile(oldSourceFile!.getUri(), CancellationToken.None);
 
     assert.strictEqual(oldSourceFile?.getFileContent(), '');
@@ -187,7 +187,7 @@ test('test applyWorkspaceEdits documentChanges', async () => {
             documentChanges: [
                 TextDocumentEdit.create(
                     {
-                        uri: Uri.file(range.fileName).toString(),
+                        uri: range.fileUri.toString(),
                         version: null,
                     },
                     [
@@ -203,7 +203,7 @@ test('test applyWorkspaceEdits documentChanges', async () => {
     );
 
     assert.strictEqual(fileChanged.size, 1);
-    assert.strictEqual(cloned.test_program.getSourceFile(Uri.file(range.fileName))?.getFileContent(), 'Text Changed');
+    assert.strictEqual(cloned.test_program.getSourceFile(range.fileUri)?.getFileContent(), 'Text Changed');
 });
 
 test('test generateWorkspaceEdits', async () => {
@@ -295,7 +295,7 @@ test('test generateWorkspaceEdits', async () => {
 
     assert.strictEqual(fileChanged.size, 2);
 
-    const actualEdits = generateWorkspaceEdit(state.workspace.service, cloned, fileChanged);
+    const actualEdits = generateWorkspaceEdit(state.workspace.service.fs, state.workspace.service, cloned, fileChanged);
     verifyWorkspaceEdit(
         {
             changes: {

@@ -46,7 +46,7 @@ export const libFolder = Uri.file(
 export const distlibFolder = Uri.file(
     combinePaths(MODULE_PATH, normalizeSlashes(combinePaths(pathConsts.lib, pathConsts.distPackages)))
 );
-export const typeshedFolder = combinePaths(MODULE_PATH, normalizeSlashes(pathConsts.typeshedFallback));
+export const typeshedFolder = Uri.file(combinePaths(MODULE_PATH, normalizeSlashes(pathConsts.typeshedFallback)));
 export const srcFolder = normalizeSlashes('/.src');
 
 /**
@@ -73,7 +73,7 @@ export function createFromFileSystem(
 ) {
     const typeshedPath = meta ? meta[GlobalMetadataOptionNames.typeshed] : undefined;
     if (typeshedPath) {
-        mountPaths.set(typeshedFolder, typeshedPath);
+        mountPaths.set(typeshedFolder.key, typeshedPath);
     }
 
     const fs = getBuiltLocal(host, ignoreCase, cwd, mountPaths).shadow();
@@ -127,8 +127,8 @@ function getBuiltLocal(
     mountPaths: Map<string, string>
 ): TestFileSystem {
     // Ensure typeshed folder
-    if (!mountPaths.has(typeshedFolder)) {
-        mountPaths.set(typeshedFolder, resolvePaths(host.getWorkspaceRoot(), pathConsts.typeshedFallback));
+    if (!mountPaths.has(typeshedFolder.key)) {
+        mountPaths.set(typeshedFolder.key, resolvePaths(host.getWorkspaceRoot(), pathConsts.typeshedFallback));
     }
 
     if (!canReuseCache(host, mountPaths)) {

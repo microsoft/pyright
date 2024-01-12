@@ -233,7 +233,6 @@ enum SortCategory {
 // which item was selected.
 export interface CompletionItemData {
     uri: string; // Have to be strings because this data is passed across the LSP boundary.
-    workspaceUri: string;
     position: Position;
     autoImportText?: string;
     symbolLabel?: string;
@@ -274,10 +273,6 @@ const maxRecentCompletions = 128;
 export class CompletionProvider {
     private static _mostRecentCompletions: RecentCompletionInfo[] = [];
 
-    // If we're being asked to resolve a completion item, we run the
-    // original completion algorithm and look for this symbol.
-    private _itemToResolve: CompletionItem | undefined;
-
     // Indicates whether invocation position is inside of string literal
     // token or an f-string expression.
     private _stringLiteralContainer: StringToken | FStringStartToken | undefined = undefined;
@@ -286,9 +281,12 @@ export class CompletionProvider {
     protected readonly parseResults: ParseResults;
     protected readonly sourceMapper: SourceMapper;
 
+    // If we're being asked to resolve a completion item, we run the
+    // original completion algorithm and look for this symbol.
+    protected itemToResolve: CompletionItem | undefined;
+
     constructor(
         protected readonly program: ProgramView,
-        private readonly _workspaceRootUri: Uri,
         protected readonly fileUri: Uri,
         protected readonly position: Position,
         protected readonly options: CompletionOptions,
@@ -377,7 +375,7 @@ export class CompletionProvider {
             return;
         }
 
-        this._itemToResolve = completionItem;
+        this.itemToResolve = completionItem;
         if (!completionItemData.autoImportText) {
             // Rerun the completion lookup. It will fill in additional information
             // about the item to be resolved. We'll ignore the rest of the returned
@@ -660,21 +658,22 @@ export class CompletionProvider {
 
         // Are we resolving a completion item? If so, see if this symbol
         // is the one that we're trying to match.
-        if (this._itemToResolve) {
-            const completionItemData = fromLSPAny<CompletionItemData>(this._itemToResolve.data);
+        if (this.itemToResolve) {
+            const completionItemData = fromLSPAny<CompletionItemData>(this.itemToResolve.data);
 
             if (completionItemData.symbolLabel !== name) {
                 // It's not what we are looking for.
                 return;
             }
 
+            if (
+                this.itemToResolve.additionalTextEdits === undefined &&
+                detail.edits?.additionalTextEdits !== undefined
+            ) {
+                this.itemToResolve.additionalTextEdits = convertToTextEdits(detail.edits.additionalTextEdits);
+            }
+
             if (completionItemData.autoImportText) {
-                if (
-                    completionItemData.autoImportText === autoImportText?.importText &&
-                    detail.edits?.additionalTextEdits
-                ) {
-                    this._itemToResolve.additionalTextEdits = convertToTextEdits(detail.edits.additionalTextEdits);
-                }
                 return;
             }
 
@@ -707,7 +706,7 @@ export class CompletionProvider {
             );
 
             if (this.options.format === MarkupKind.Markdown || this.options.format === MarkupKind.PlainText) {
-                this._itemToResolve.documentation = getCompletionItemDocumentation(
+                this.itemToResolve.documentation = getCompletionItemDocumentation(
                     typeDetail,
                     documentation,
                     this.options.format
@@ -929,7 +928,6 @@ export class CompletionProvider {
         }
 
         const completionItemData: CompletionItemData = {
-            workspaceUri: this._workspaceRootUri.toString(),
             uri: this.fileUri.toString(),
             position: this.position,
         };
@@ -1050,10 +1048,10 @@ export class CompletionProvider {
             completionItem.additionalTextEdits = convertToTextEdits(detail.edits.additionalTextEdits);
 
             // This is for auto import entries from indices which skip symbols.
-            if (this._itemToResolve) {
-                const data = fromLSPAny<CompletionItemData>(this._itemToResolve.data);
+            if (this.itemToResolve) {
+                const data = fromLSPAny<CompletionItemData>(this.itemToResolve.data);
                 if (data.autoImportText === completionItemData.autoImportText) {
-                    this._itemToResolve.additionalTextEdits = completionItem.additionalTextEdits;
+                    this.itemToResolve.additionalTextEdits = completionItem.additionalTextEdits;
                 }
             }
         }
@@ -1960,7 +1958,7 @@ export class CompletionProvider {
 
         // Add auto-import suggestions from other modules.
         // Ignore this check for privates, since they are not imported.
-        if (!priorWord.startsWith('_') && !this._itemToResolve) {
+        if (!priorWord.startsWith('_') && !this.itemToResolve) {
             this.addAutoImportCompletions(priorWord, similarityLimit, this.options.lazyEdit, completionMap);
         }
 
@@ -2206,8 +2204,9 @@ export class CompletionProvider {
 
             // Find the lowest tree to search the symbol.
             if (
-                ParseTreeUtils.getFileInfoFromNode(startingNode)?.fileUri ===
-                ParseTreeUtils.getFileInfoFromNode(scopeRoot)?.fileUri
+                ParseTreeUtils.getFileInfoFromNode(startingNode)?.fileUri.equals(
+                    ParseTreeUtils.getFileInfoFromNode(scopeRoot)?.fileUri
+                )
             ) {
                 startingNode = scopeRoot;
             }
@@ -2825,7 +2824,6 @@ export class CompletionProvider {
                 completionItem.kind = CompletionItemKind.Variable;
 
                 const completionItemData: CompletionItemData = {
-                    workspaceUri: this._workspaceRootUri.toString(),
                     uri: this.fileUri.toString(),
                     position: this.position,
                 };

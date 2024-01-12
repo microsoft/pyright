@@ -45,12 +45,11 @@ test('check chained files', () => {
     const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
 
     const marker = data.markerPositions.get('marker')!;
-    const markerUri = Uri.file(marker.fileName);
+    const markerUri = marker.fileUri;
 
     const parseResult = service.getParseResult(markerUri)!;
     const result = new CompletionProvider(
         service.test_program,
-        basePath,
         markerUri,
         convertOffsetToPosition(marker.position, parseResult.tokenizerOutput.lines),
         {
@@ -87,7 +86,7 @@ test('modify chained files', () => {
 
     // Make sure files are all realized.
     const marker = data.markerPositions.get('marker')!;
-    const markerUri = Uri.file(marker.fileName);
+    const markerUri = marker.fileUri;
     const parseResult = service.getParseResult(markerUri)!;
 
     // Close file in the middle of the chain
@@ -98,7 +97,6 @@ test('modify chained files', () => {
 
     const result = new CompletionProvider(
         service.test_program,
-        basePath,
         markerUri,
         convertOffsetToPosition(marker.position, parseResult.tokenizerOutput.lines),
         {
@@ -136,7 +134,7 @@ test('modify chained files', async () => {
     const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
 
     const marker = data.markerPositions.get('marker')!;
-    const markerUri = Uri.file(marker.fileName);
+    const markerUri = marker.fileUri;
     const range = data.ranges.find((r) => r.marker === marker)!;
 
     const parseResults = service.getParseResult(markerUri)!;
@@ -185,7 +183,7 @@ test('chained files with 1000s of files', async () => {
     const basePath = Uri.file(normalizeSlashes('/'));
     const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
     const marker = data.markerPositions.get('marker')!;
-    const markerUri = Uri.file(marker.fileName);
+    const markerUri = marker.fileUri;
     const range = data.ranges.find((r) => r.marker === marker)!;
 
     const parseResults = service.getParseResult(markerUri)!;
@@ -215,7 +213,7 @@ test('imported by files', async () => {
     analyze(service.test_program);
 
     const marker = data.markerPositions.get('marker')!;
-    const markerUri = Uri.file(marker.fileName);
+    const markerUri = marker.fileUri;
     const range = data.ranges.find((r) => r.marker === marker)!;
 
     const parseResults = service.getParseResult(markerUri)!;
@@ -242,7 +240,7 @@ test('re ordering cells', async () => {
     analyze(service.test_program);
 
     const marker = data.markerPositions.get('marker')!;
-    const markerUri = Uri.file(marker.fileName);
+    const markerUri = marker.fileUri;
     const range = data.ranges.find((r) => r.marker === marker)!;
 
     const bottom = data.markerPositions.get('bottom')!;

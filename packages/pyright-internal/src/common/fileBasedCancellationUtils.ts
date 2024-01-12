@@ -24,12 +24,19 @@ import {
     getCancellationFolderName,
     setCancellationFolderName,
 } from './cancellationUtils';
+import { Uri } from './uri/uri';
+
+class StatSyncFromFs {
+    statSync(uri: Uri) {
+        return fs.statSync(uri.getFilePath());
+    }
+}
 
 class OwningFileToken extends FileBasedToken {
     private _disposed = false;
 
-    constructor(cancellationFilePath: string) {
-        super(cancellationFilePath, fs);
+    constructor(cancellationId: string) {
+        super(cancellationId, new StatSyncFromFs());
     }
 
     override get isCancellationRequested(): boolean {
@@ -54,7 +61,7 @@ class OwningFileToken extends FileBasedToken {
 
     private _createPipe() {
         try {
-            fs.writeFileSync(this.cancellationFilePath, '', { flag: 'w' });
+            fs.writeFileSync(this.cancellationFilePath.getFilePath(), '', { flag: 'w' });
         } catch {
             // Ignore the exception.
         }
@@ -62,7 +69,7 @@ class OwningFileToken extends FileBasedToken {
 
     private _removePipe() {
         try {
-            fs.unlinkSync(this.cancellationFilePath);
+            fs.unlinkSync(this.cancellationFilePath.getFilePath());
         } catch {
             // Ignore the exception.
         }
@@ -71,14 +78,14 @@ class OwningFileToken extends FileBasedToken {
 
 class FileBasedCancellationTokenSource implements AbstractCancellationTokenSource {
     private _token: CancellationToken | undefined;
-    constructor(private _cancellationFilePath: string, private _ownFile: boolean = false) {}
+    constructor(private _cancellationId: string, private _ownFile: boolean = false) {}
 
     get token(): CancellationToken {
         if (!this._token) {
             // Be lazy and create the token only when actually needed.
             this._token = this._ownFile
-                ? new OwningFileToken(this._cancellationFilePath)
-                : new FileBasedToken(this._cancellationFilePath, fs);
+                ? new OwningFileToken(this._cancellationId)
+                : new FileBasedToken(this._cancellationId, new StatSyncFromFs());
         }
         return this._token;
     }
@@ -112,15 +119,15 @@ function getCancellationFolderPath(folderName: string) {
     return path.join(os.tmpdir(), 'python-languageserver-cancellation', folderName);
 }
 
-function getCancellationFilePath(folderName: string, id: CancellationId) {
-    return path.join(getCancellationFolderPath(folderName), `cancellation-${String(id)}.tmp`);
+function getCancellationFileUri(folderName: string, id: CancellationId): string {
+    return Uri.file(path.join(getCancellationFolderPath(folderName), `cancellation-${String(id)}.tmp`)).toString();
 }
 
 class FileCancellationReceiverStrategy implements CancellationReceiverStrategy {
     constructor(readonly folderName: string) {}
 
     createCancellationTokenSource(id: CancellationId): AbstractCancellationTokenSource {
-        return new FileBasedCancellationTokenSource(getCancellationFilePath(this.folderName, id));
+        return new FileBasedCancellationTokenSource(getCancellationFileUri(this.folderName, id));
     }
 }
 
@@ -169,7 +176,7 @@ export function getCancellationTokenFromId(cancellationId: string) {
         return CancellationToken.None;
     }
 
-    return new FileBasedToken(cancellationId, fs);
+    return new FileBasedToken(cancellationId, new StatSyncFromFs());
 }
 
 let cancellationSourceId = 0;
@@ -187,7 +194,7 @@ export class FileBasedCancellationProvider implements CancellationProvider {
         }
 
         return new FileBasedCancellationTokenSource(
-            getCancellationFilePath(folderName, `${this._prefix}-${String(cancellationSourceId++)}`),
+            getCancellationFileUri(folderName, `${this._prefix}-${String(cancellationSourceId++)}`),
             /* ownFile */ true
         );
     }

@@ -105,7 +105,9 @@ test('Range', () => {
     const data = parseTestData('.', code, 'test.py');
     assert.equal(data.files[0].content, content);
 
-    assert.deepEqual(data.ranges, [{ fileName: 'test.py', pos: 13, end: 17, marker: undefined }]);
+    assert.deepEqual(data.ranges, [
+        { fileName: 'test.py', fileUri: Uri.file('test.py'), pos: 13, end: 17, marker: undefined },
+    ]);
 });
 
 test('Marker', () => {
@@ -120,7 +122,7 @@ test('Marker', () => {
     const data = parseTestData('.', code, 'test.py');
     assert.equal(data.files[0].content, content);
 
-    const marker = { fileName: 'test.py', position: 13 };
+    const marker = { fileName: 'test.py', fileUri: Uri.file('test.py'), position: 13 };
     assert.deepEqual(data.markers, [marker]);
     assert.deepEqual(data.markerPositions.get('marker1'), marker);
 });
@@ -138,7 +140,9 @@ test('MarkerWithData', () => {
     const data = parseTestData('.', code, 'test.py');
     assert.equal(data.files[0].content, content);
 
-    assert.deepEqual(data.markers, [{ fileName: 'test.py', position: 13, data: { data1: '1', data2: '2' } }]);
+    assert.deepEqual(data.markers, [
+        { fileName: 'test.py', fileUri: Uri.file('test.py'), position: 13, data: { data1: '1', data2: '2' } },
+    ]);
     assert.equal(data.markerPositions.size, 0);
 });
 
@@ -155,7 +159,12 @@ test('MarkerWithDataAndName', () => {
     const data = parseTestData('.', code, 'test.py');
     assert.equal(data.files[0].content, content);
 
-    const marker = { fileName: 'test.py', position: 13, data: { name: 'marker1', data1: '1', data2: '2' } };
+    const marker = {
+        fileName: 'test.py',
+        fileUri: Uri.file('test.py'),
+        position: 13,
+        data: { name: 'marker1', data1: '1', data2: '2' },
+    };
     assert.deepEqual(data.markers, [marker]);
     assert.deepEqual(data.markerPositions.get(marker.data.name), marker);
 });
@@ -173,11 +182,11 @@ test('RangeWithMarker', () => {
     const data = parseTestData('.', code, 'test.py');
     assert.equal(data.files[0].content, content);
 
-    const marker = { fileName: 'test.py', position: 13 };
+    const marker = { fileName: 'test.py', fileUri: Uri.file('test.py'), position: 13 };
     assert.deepEqual(data.markers, [marker]);
     assert.deepEqual(data.markerPositions.get('marker1'), marker);
 
-    assert.deepEqual(data.ranges, [{ fileName: 'test.py', pos: 13, end: 17, marker }]);
+    assert.deepEqual(data.ranges, [{ fileName: 'test.py', fileUri: Uri.file('test.py'), pos: 13, end: 17, marker }]);
 });
 
 test('RangeWithMarkerAndJsonData', () => {
@@ -193,11 +202,16 @@ test('RangeWithMarkerAndJsonData', () => {
     const data = parseTestData('.', code, 'test.py');
     assert.equal(data.files[0].content, content);
 
-    const marker = { fileName: 'test.py', position: 13, data: { name: 'marker1', data1: '1', data2: '2' } };
+    const marker = {
+        fileName: 'test.py',
+        fileUri: Uri.file('test.py'),
+        position: 13,
+        data: { name: 'marker1', data1: '1', data2: '2' },
+    };
     assert.deepEqual(data.markers, [marker]);
     assert.deepEqual(data.markerPositions.get(marker.data.name), marker);
 
-    assert.deepEqual(data.ranges, [{ fileName: 'test.py', pos: 13, end: 17, marker }]);
+    assert.deepEqual(data.ranges, [{ fileName: 'test.py', fileUri: Uri.file('test.py'), pos: 13, end: 17, marker }]);
 });
 
 test('Multiple Files', () => {

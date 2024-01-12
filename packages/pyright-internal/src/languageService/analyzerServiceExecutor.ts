@@ -13,7 +13,7 @@ import { AnalyzerService, getNextServiceId } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { LogLevel } from '../common/console';
 import { FileSystem } from '../common/fileSystem';
-import { Uri } from '../common/uri/uri';
+import { FileUri } from '../common/uri/fileUri';
 import { LanguageServerInterface, ServerSettings } from '../languageServerBase';
 import { WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../workspaceFactory';
 
@@ -25,15 +25,13 @@ export interface CloneOptions {
 
 export class AnalyzerServiceExecutor {
     static runWithOptions(
-        languageServiceRootUri: Uri,
         workspace: Workspace,
         serverSettings: ServerSettings,
         typeStubTargetImportName?: string,
         trackFiles = true
     ): void {
         const commandLineOptions = getEffectiveCommandLineOptions(
-            languageServiceRootUri.getFilePath(),
-            workspace.rootUri.getFilePath(),
+            FileUri.isFileUri(workspace.rootUri) ? workspace.rootUri.getFilePath() : workspace.rootUri.toString(),
             serverSettings,
             trackFiles,
             typeStubTargetImportName,
@@ -41,7 +39,7 @@ export class AnalyzerServiceExecutor {
         );
 
         // Setting options causes the analyzer service to re-analyze everything.
-        workspace.service.setOptions(commandLineOptions);
+        workspace.service.setOptions(commandLineOptions, workspace.rootUri);
     }
 
     static async cloneService(
@@ -77,7 +75,6 @@ export class AnalyzerServiceExecutor {
 
         const serverSettings = await ls.getSettings(workspace);
         AnalyzerServiceExecutor.runWithOptions(
-            ls.rootUri,
             tempWorkspace,
             serverSettings,
             options.typeStubTargetImportName,
@@ -89,7 +86,6 @@ export class AnalyzerServiceExecutor {
 }
 
 function getEffectiveCommandLineOptions(
-    languageServiceRootPath: string,
     workspaceRootPath: string,
     serverSettings: ServerSettings,
     trackFiles: boolean,

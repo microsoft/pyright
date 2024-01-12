@@ -9,6 +9,7 @@ import { Location } from 'vscode-languageserver-types';
 import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { DocumentRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
+import { encodeUri } from '../common/uri/uriUtils';
 
 export function canNavigateToFile(fs: ReadOnlyFileSystem, path: Uri): boolean {
     return !fs.isInZip(path);
@@ -27,5 +28,5 @@ export function convertDocumentRangeToLocation(fs: ReadOnlyFileSystem, range: Do
         return undefined;
     }
 
-    return Location.create(range.uri.toString(), range.range);
+    return Location.create(encodeUri(fs, range.uri), range.range);
 }

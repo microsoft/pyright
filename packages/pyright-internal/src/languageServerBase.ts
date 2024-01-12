@@ -111,7 +111,7 @@ import { ProgressReportTracker, ProgressReporter } from './common/progressReport
 import { ServiceProvider } from './common/serviceProvider';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { Uri } from './common/uri/uri';
-import { encodeUri, deduplicateFolders, isFile } from './common/uri/uriUtils';
+import { deduplicateFolders, encodeUri, isFile } from './common/uri/uriUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CallHierarchyProvider } from './languageService/callHierarchyProvider';
 import { CompletionItemData, CompletionProvider } from './languageService/completionProvider';
@@ -522,7 +522,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         serverSettings: ServerSettings,
         typeStubTargetImportName?: string
     ) {
-        AnalyzerServiceExecutor.runWithOptions(this.rootUri, workspace, serverSettings, typeStubTargetImportName);
+        AnalyzerServiceExecutor.runWithOptions(workspace, serverSettings, typeStubTargetImportName);
         workspace.searchPathsToWatch = workspace.service.librarySearchUrisToWatch ?? [];
     }
 
@@ -1028,7 +1028,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         return workspace.service.run((program) => {
             const completions = new CompletionProvider(
                 program,
-                workspace.rootUri,
                 uri,
                 params.position,
                 {
@@ -1059,7 +1058,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             workspace.service.run((program) => {
                 return new CompletionProvider(
                     program,
-                    workspace.rootUri,
                     uri,
                     completionItemData.position,
                     {
@@ -1287,7 +1285,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected convertDiagnostics(fs: FileSystem, fileDiagnostics: FileDiagnostics): PublishDiagnosticsParams[] {
         return [
             {
-                uri: fileDiagnostics.fileUri.toString(),
+                uri: encodeUri(fs, fileDiagnostics.fileUri),
                 version: fileDiagnostics.version,
                 diagnostics: this._convertDiagnostics(fs, fileDiagnostics.diagnostics),
             },

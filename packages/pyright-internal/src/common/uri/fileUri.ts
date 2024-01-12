@@ -40,6 +40,10 @@ export class FileUri extends BaseUri {
         return 'file';
     }
 
+    get fragment(): string {
+        return this._fragment;
+    }
+
     @cacheProperty()
     override get fileName(): string {
         return getFileName(this._filePath);
@@ -187,6 +191,10 @@ export class FileUri extends BaseUri {
         } else {
             return this;
         }
+    }
+
+    withFragment(fragment: string): Uri {
+        return FileUri.createFileUri(this._filePath, this._query, fragment, undefined, this._isCaseSensitive);
     }
 
     protected override getPathComponentsImpl(): string[] {

@@ -33,7 +33,7 @@ export interface Host {
         pythonPath: Uri | undefined,
         script: Uri,
         args: string[],
-        cwd: string,
+        cwd: Uri,
         token: CancellationToken
     ): Promise<ScriptOutput>;
 }
@@ -64,7 +64,7 @@ export class NoAccessHost implements Host {
         pythonPath: Uri | undefined,
         scriptPath: Uri,
         args: string[],
-        cwd: string,
+        cwd: Uri,
         token: CancellationToken
     ): Promise<ScriptOutput> {
         return { stdout: '', stderr: '' };

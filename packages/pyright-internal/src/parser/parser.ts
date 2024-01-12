@@ -206,10 +206,6 @@ const enum ParseTextMode {
 // Limit the max child node depth to prevent stack overflows.
 const maxChildNodeDepth = 256;
 
-export interface IParser {
-    parseSourceFile(fileContents: string, parseOptions: ParseOptions, diagSink: DiagnosticSink): ParseResults;
-}
-
 export class Parser {
     private _fileContents?: string;
     private _tokenizerOutput?: TokenizerOutput;

@@ -405,19 +405,19 @@ class RealFileSystem implements FileSystem {
                 return uri;
             }
 
-            // If it does exist, skip this for symlinks.
-            const path = uri.getFilePath();
-            const stat = fs.lstatSync(path);
-            if (stat.isSymbolicLink()) {
+            // realpathSync.native will return casing as in OS rather than
+            // trying to preserve casing given.
+            const realCase = fs.realpathSync.native(uri.getFilePath());
+
+            // If the original and real case paths differ by anything other than case,
+            // then there's a symbolic link or something of that sort involved. Return
+            // the original path instead.
+            if (uri.getFilePath().toLowerCase() !== realCase.toLowerCase()) {
                 return uri;
             }
 
-            // realpathSync.native will return casing as in OS rather than
-            // trying to preserve casing given.
-            const realCase = fs.realpathSync.native(path);
-
             // On UNC mapped drives we want to keep the original drive letter.
-            if (getRootLength(realCase) !== getRootLength(path)) {
+            if (getRootLength(realCase) !== getRootLength(uri.getFilePath())) {
                 return uri;
             }
 

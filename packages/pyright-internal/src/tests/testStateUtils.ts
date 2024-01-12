@@ -34,7 +34,7 @@ export function convertFileEditActionToString(edit: FileEditAction): string {
 export function convertRangeToFileEditAction(state: TestState, range: Range, replacementText?: string): FileEditAction {
     const data = range.marker?.data as { r: string } | undefined;
     return {
-        fileUri: Uri.file(range.fileName),
+        fileUri: range.fileUri,
         replacementText: (replacementText ?? data?.r ?? 'N/A').replace(/!n!/g, '\n'),
         range: state.convertPositionRange(range),
     };
@@ -51,7 +51,7 @@ export function verifyEdits(
         assert(
             expected.some((a) => {
                 return (
-                    a.fileUri === edit.fileUri &&
+                    a.fileUri.equals(edit.fileUri) &&
                     rangesAreEqual(a.range, edit.range) &&
                     a.replacementText === edit.replacementText
                 );

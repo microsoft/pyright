@@ -44,68 +44,50 @@ export interface Uri {
     readonly pytypedUri: Uri;
 
     // Returns the filename without any extensions
-    readonly fileNameWithoutExtension: string;
+    readonly fileNameWithoutExtensions: string;
 
     // Indicates if the underlying file system for this URI is case sensitive or not.
     readonly isCaseSensitive: boolean;
 
+    // Returns the fragment part of a URI.
+    readonly fragment: string;
+
     isEmpty(): boolean;
-
     toString(): string;
-
     toUserVisibleString(): string;
-
     // Determines whether a path consists only of a path root.
     isRoot(): boolean;
-
-    // Determines whether a Uri is a child of some parent Uri.
+    // Determines whether a Uri is a child of some parent Uri. Meaning the parent Uri is a prefix of this Uri.
     isChild(parent: Uri): boolean;
-
     isLocal(): boolean;
-
     isUntitled(): boolean;
-
     equals(other: Uri | undefined): boolean;
-
+    // Returns true if the `other` is the parent of `this`. Meaning `other` is a prefix of `this`.
     startsWith(other: Uri | undefined): boolean;
-
     pathStartsWith(name: string): boolean;
-
     pathEndsWith(name: string): boolean;
-
     pathIncludes(include: string): boolean;
     matchesRegex(regex: RegExp): boolean;
-
     addPath(extra: string): Uri;
-
     // Returns a URI where the path is the directory name of the original URI, similar to the UNIX dirname command.
     getDirectory(): Uri;
-
     getRootPathLength(): number;
-
     // How long the path for this Uri is.
     getPathLength(): number;
-
     combinePaths(...paths: string[]): Uri;
-
     getRelativePath(child: Uri): string | undefined;
-
     getPathComponents(): readonly string[];
-
     getPath(): string;
-
     getFilePath(): string;
-
     getRelativePathComponents(to: Uri): readonly string[];
     getShortenedFileName(maxDirLength?: number): string;
-
     stripExtension(): Uri;
-
     stripAllExtensions(): Uri;
     replaceExtension(ext: string): Uri;
-
     addExtension(ext: string): Uri;
     hasExtension(ext: string): boolean;
+    containsExtension(ext: string): boolean;
+    withFragment(fragment: string): Uri;
 }
 
 // Returns just the fsPath path portion of a vscode URI.
@@ -130,7 +112,7 @@ function getFilePath(uri: URI): string {
 
     // vscode.URI normalizes the path to use the correct path separators.
     // We need to do the same.
-    if (process.platform === 'win32') {
+    if (process?.platform === 'win32') {
         filePath = filePath.replace(/\//g, '\\');
     }
 
@@ -152,7 +134,7 @@ function normalizeUri(uri: string | URI): { uri: URI; str: string } {
 
     // Original URI may not have resolved all the `..` in the path, so remove them.
     // Note: this also has the effect of removing any trailing slashes.
-    const finalURI = Utils.resolvePath(parsed);
+    const finalURI = parsed.path.length > 0 ? Utils.resolvePath(parsed) : parsed;
     const finalString = finalURI.path.length !== parsed.path.length ? finalURI.toString() : originalString;
     return { uri: finalURI, str: finalString };
 }
@@ -186,6 +168,9 @@ export namespace Uri {
         }
         if (WebUri.isWebUri(jsonObj)) {
             return WebUri.fromJsonObj(jsonObj);
+        }
+        if (EmptyUri.isEmptyUri(jsonObj)) {
+            return EmptyUri.instance;
         }
         return jsonObj;
     }

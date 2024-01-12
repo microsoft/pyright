@@ -38,6 +38,10 @@ export class WebUri extends BaseUri {
         return true;
     }
 
+    get fragment(): string {
+        return this._fragment;
+    }
+
     @cacheProperty()
     override get root(): Uri {
         const rootPath = this.getRootPath();
@@ -160,7 +164,7 @@ export class WebUri extends BaseUri {
     }
 
     override getFilePath(): string {
-        return '';
+        return ''; // Web URIs don't have file paths so this is always empty.
     }
 
     override combinePaths(...paths: string[]): Uri {
@@ -192,6 +196,10 @@ export class WebUri extends BaseUri {
         } else {
             return this;
         }
+    }
+
+    withFragment(fragment: string): Uri {
+        return WebUri.createWebUri(this._scheme, this._authority, this._path, this._query, fragment, undefined);
     }
 
     protected override getPathComponentsImpl(): string[] {

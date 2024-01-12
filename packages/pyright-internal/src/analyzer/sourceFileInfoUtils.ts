@@ -42,7 +42,7 @@ export function verifyNoCyclesInChainedFiles<T extends SourceFileInfo>(program: 
             fail(
                 program.serviceProvider
                     .tryGet(ServiceKeys.debugInfoInspector)
-                    ?.getCycleDetail(program, nextChainedFile) ?? `Found a cycle in implicit imports files`
+                    ?.getCycleDetail(program, nextChainedFile) ?? `Found a cycle in implicit imports files for ${path}`
             );
         }
 

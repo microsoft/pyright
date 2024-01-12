@@ -453,7 +453,7 @@ test('resolve alias of not needed file', () => {
     const evaluator = state.workspace.service.getEvaluator()!;
     state.openFile(marker.fileName);
 
-    const markerUri = Uri.file(marker.fileName);
+    const markerUri = marker.fileUri;
     const parseResults = state.workspace.service.getParseResult(markerUri)!;
     const nameNode = findNodeByOffset(parseResults.parseTree, marker.position) as NameNode;
     const aliasDecls = evaluator.getDeclarationsForNameNode(nameNode)!;
