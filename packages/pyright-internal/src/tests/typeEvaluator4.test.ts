@@ -1217,9 +1217,9 @@ test('Annotated1', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_8;
     const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['annotated1.py'], configOptions);
-    TestUtils.validateResults(analysisResults38, 4);
+    TestUtils.validateResults(analysisResults38, 5);
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['annotated1.py'], configOptions);
     TestUtils.validateResults(analysisResults39, 3);
 });
