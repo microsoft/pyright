@@ -1710,3 +1710,9 @@ test('SpecialForm1', () => {
 
     TestUtils.validateResults(analysisResults, 4);
 });
+
+test('SpecialForm2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialForm2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});

@@ -12,21 +12,11 @@ class Class2:
     a: int
 
 
+# This should generate an error
 a1: type[Class1] | type[Class2] = Class1 | Class2
 
 # This should generate an error
-print(a1.a)
-
-# This should generate an error
-a1()
-
 a2: type[Class1] | type[Class2] = Union[Class1, Class2]
-
-# This should generate an error
-print(a2.a)
-
-# This should generate an error
-a2()
 
 
 b1 = Class1 | Class2

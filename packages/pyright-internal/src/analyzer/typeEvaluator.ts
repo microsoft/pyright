@@ -300,7 +300,6 @@ import {
     TypeBase,
     TypeCategory,
     TypeCondition,
-    TypeFlags,
     TypeVarScopeId,
     TypeVarScopeType,
     TypeVarType,
@@ -579,6 +578,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let noneType: Type | undefined;
     let objectType: Type | undefined;
     let typeClassType: Type | undefined;
+    let unionClassType: Type | undefined;
     let awaitableProtocolType: Type | undefined;
     let functionObj: Type | undefined;
     let tupleClassType: Type | undefined;
@@ -919,6 +919,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             objectType = getBuiltInObject(node, 'object');
             typeClassType = getBuiltInType(node, 'type');
             functionObj = getBuiltInObject(node, 'function');
+            unionClassType = getTypesType(node, 'UnionType');
 
             // Initialize and cache "Collection" to break a cyclical dependency
             // that occurs when resolving tuple below.
@@ -942,6 +943,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!mappingType) {
                 // Fall back on 'Mapping' if 'SupportsKeysAndGetItem' is not available.
                 mappingType = getTypingType(node, 'Mapping');
+            }
+
+            // Wire up the `Any` class to the special-form version of our internal AnyType.
+            const objectClass = getBuiltInType(node, 'object');
+            if (
+                objectClass &&
+                isInstantiableClass(objectClass) &&
+                typeClassType &&
+                isInstantiableClass(typeClassType)
+            ) {
+                const anyClass = ClassType.createInstantiable(
+                    'Any',
+                    'typing.Any',
+                    'typing',
+                    Uri.empty(),
+                    ClassTypeFlags.BuiltInClass,
+                    /* typeSourceId */ -1,
+                    /* declaredMetaclass */ undefined,
+                    /* effectiveMetaclass */ typeClassType
+                );
+                anyClass.details.baseClasses.push(objectClass);
+                computeMroLinearization(anyClass);
+                const anySpecialForm = AnyType.createSpecialForm();
+                if (isAny(anySpecialForm)) {
+                    anySpecialForm.specialForm = anyClass;
+                }
             }
         }
     }
@@ -2905,10 +2932,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return noneType ?? UnknownType.create();
     }
 
+    function getUnionClassType(): Type {
+        return unionClassType ?? UnknownType.create();
+    }
+
     function getTypingType(node: ParseNode, symbolName: string): Type | undefined {
         return (
             getTypeOfModule(node, symbolName, ['typing']) ?? getTypeOfModule(node, symbolName, ['typing_extensions'])
         );
+    }
+
+    function getTypesType(node: ParseNode, symbolName: string): Type | undefined {
+        return getTypeOfModule(node, symbolName, ['types']);
     }
 
     function getTypeshedType(node: ParseNode, symbolName: string): Type | undefined {
@@ -4505,17 +4540,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             reportUseOfTypeCheckOnly(type, node);
         }
 
-        if ((flags & EvaluatorFlags.TreatPep695TypeAliasAsObject) !== 0) {
-            if (type.typeAliasInfo?.name && type.typeAliasInfo.isPep695Syntax && TypeBase.isSpecialForm(type)) {
-                const typeAliasType = getTypingType(node, 'TypeAliasType');
-                if (typeAliasType && isInstantiableClass(typeAliasType)) {
-                    type = ClassType.cloneAsInstance(typeAliasType);
-                } else {
-                    type = UnknownType.create();
-                }
-            }
-        }
-
         if ((flags & EvaluatorFlags.ExpectingInstantiableType) !== 0) {
             if ((flags & EvaluatorFlags.AllowGenericClassType) === 0) {
                 if (isInstantiableClass(type) && ClassType.isBuiltIn(type, 'Generic')) {
@@ -5130,8 +5154,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // It can also come up in cases like "isinstance(x, (list, dict))".
         // We need to check for functions as well to handle Callable.
         if (
-            isInstantiableClass(typeResult.type) ||
-            (isFunction(typeResult.type) && TypeBase.isSpecialForm(typeResult.type))
+            (isInstantiableClass(typeResult.type) && !typeResult.type.includeSubclasses) ||
+            typeResult.type.specialForm
         ) {
             const argNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.Argument);
             if (argNode && argNode?.parent?.nodeType === ParseNodeType.Call) {
@@ -5179,12 +5203,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
         }
 
-        // Handle the special case where the expression is an actual
-        // UnionType special form.
-        if (isUnion(baseType) && TypeBase.isSpecialForm(baseType)) {
-            if (objectType) {
-                baseType = objectType;
-            }
+        if (baseType.specialForm) {
+            baseType = baseType.specialForm;
         }
 
         if (isParamSpec(baseType) && baseType.paramSpecAccess) {
@@ -6362,12 +6382,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const indexTypeResult = getTypeOfIndexWithBaseType(
-            node,
-            baseTypeResult,
-            { method: 'get' },
-            flags & ~EvaluatorFlags.TreatPep695TypeAliasAsObject
-        );
+        const indexTypeResult = getTypeOfIndexWithBaseType(node, baseTypeResult, { method: 'get' }, flags);
 
         if (isCodeFlowSupportedForReference(node)) {
             // We limit type narrowing for index expressions to built-in types that are
@@ -6896,7 +6911,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (ClassType.isSpecialBuiltIn(concreteSubtype, 'Literal')) {
                         // Special-case Literal types.
-                        return createLiteralType(node, flags);
+                        return createLiteralType(concreteSubtype, node, flags);
                     }
 
                     if (ClassType.isBuiltIn(concreteSubtype, 'InitVar')) {
@@ -9122,7 +9137,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
         recursionCount++;
 
-        if (TypeBase.isSpecialForm(callTypeResult.type)) {
+        // Special forms are not callable.
+        if (callTypeResult.type.specialForm) {
             const exprNode = errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode;
             addDiagnostic(
                 AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -11854,8 +11870,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ? EvaluatorFlags.AllowMissingTypeArgs |
                       EvaluatorFlags.EvaluateStringLiteralAsType |
                       EvaluatorFlags.DisallowParamSpec |
-                      EvaluatorFlags.DisallowTypeVarTuple |
-                      EvaluatorFlags.TreatPep695TypeAliasAsObject
+                      EvaluatorFlags.DisallowTypeVarTuple
                     : EvaluatorFlags.DoNotSpecialize;
                 const exprTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
@@ -14413,9 +14428,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // to two arguments.The first argument, if present, should be an ellipsis,
     // a ParamSpec, a Concatenate, or a list of positional parameter types.
     // The second argument, if present, should specify the return type.
-    function createCallableType(typeArgs: TypeResultWithNode[] | undefined, errorNode: ParseNode): FunctionType {
+    function createCallableType(
+        classType: ClassType,
+        typeArgs: TypeResultWithNode[] | undefined,
+        errorNode: ParseNode
+    ): FunctionType {
         const functionType = FunctionType.createInstantiable(FunctionTypeFlags.None);
-        TypeBase.setSpecialForm(functionType);
+        functionType.specialForm = classType;
         functionType.details.declaredReturnType = UnknownType.create();
         functionType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode);
 
@@ -14563,10 +14582,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeArg0Type = UnknownType.create();
         }
 
-        const optionalType = combineTypes([typeArg0Type, noneClassType ?? UnknownType.create()]);
-
-        if (isUnion(optionalType)) {
-            TypeBase.setSpecialForm(optionalType);
+        let optionalType = combineTypes([typeArg0Type, noneClassType ?? UnknownType.create()]);
+        if (unionClassType && isInstantiableClass(unionClassType)) {
+            optionalType = TypeBase.cloneAsSpecialForm(optionalType, unionClassType);
         }
 
         return optionalType;
@@ -14581,17 +14599,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return UnknownType.create();
     }
 
-    function cloneBuiltinClassWithLiteral(node: ParseNode, builtInName: string, value: LiteralValue): Type {
+    function cloneBuiltinClassWithLiteral(
+        node: ParseNode,
+        literalClassType: ClassType,
+        builtInName: string,
+        value: LiteralValue
+    ): Type {
         const type = getBuiltInType(node, builtInName);
         if (isInstantiableClass(type)) {
-            return ClassType.cloneWithLiteral(type, value);
+            const literalType = ClassType.cloneWithLiteral(type, value);
+            literalType.specialForm = literalClassType;
+            return literalType;
         }
 
         return UnknownType.create();
     }
 
     // Creates a type that represents a Literal.
-    function createLiteralType(node: IndexNode, flags: EvaluatorFlags): Type {
+    function createLiteralType(classType: ClassType, node: IndexNode, flags: EvaluatorFlags): Type {
         if (node.items.length === 0) {
             addError(Localizer.Diagnostic.literalEmptyArgs(), node.baseExpression);
             return UnknownType.create();
@@ -14615,19 +14640,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const isBytes = (itemExpr.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
                 const value = itemExpr.strings.map((s) => s.value).join('');
                 if (isBytes) {
-                    type = cloneBuiltinClassWithLiteral(node, 'bytes', value);
+                    type = cloneBuiltinClassWithLiteral(node, classType, 'bytes', value);
                 } else {
-                    type = cloneBuiltinClassWithLiteral(node, 'str', value);
+                    type = cloneBuiltinClassWithLiteral(node, classType, 'str', value);
                 }
             } else if (itemExpr.nodeType === ParseNodeType.Number) {
                 if (!itemExpr.isImaginary && itemExpr.isInteger) {
-                    type = cloneBuiltinClassWithLiteral(node, 'int', itemExpr.value);
+                    type = cloneBuiltinClassWithLiteral(node, classType, 'int', itemExpr.value);
                 }
             } else if (itemExpr.nodeType === ParseNodeType.Constant) {
                 if (itemExpr.constType === KeywordType.True) {
-                    type = cloneBuiltinClassWithLiteral(node, 'bool', true);
+                    type = cloneBuiltinClassWithLiteral(node, classType, 'bool', true);
                 } else if (itemExpr.constType === KeywordType.False) {
-                    type = cloneBuiltinClassWithLiteral(node, 'bool', false);
+                    type = cloneBuiltinClassWithLiteral(node, classType, 'bool', false);
                 } else if (itemExpr.constType === KeywordType.None) {
                     type = noneClassType ?? UnknownType.create();
                 }
@@ -14637,6 +14662,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (!itemExpr.expression.isImaginary && itemExpr.expression.isInteger) {
                             type = cloneBuiltinClassWithLiteral(
                                 node,
+                                classType,
                                 'int',
                                 itemExpr.operator === OperatorType.Subtract
                                     ? -itemExpr.expression.value
@@ -15093,7 +15119,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeArgs: TypeResultWithNode[] | undefined,
         paramLimit?: number,
         allowParamSpec = false,
-        isCallable = false
+        isSpecialForm = true
     ): Type {
         const isTupleTypeParam = ClassType.isTupleClass(classType);
 
@@ -15198,8 +15224,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             returnType = ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
         }
 
-        if (!isCallable) {
-            TypeBase.setSpecialForm(returnType);
+        if (isSpecialForm) {
+            returnType = TypeBase.cloneAsSpecialForm(returnType, classType);
         }
 
         return returnType;
@@ -15291,9 +15317,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
-        const unionType = combineTypes(types);
-        if (isUnion(unionType)) {
-            TypeBase.setSpecialForm(unionType);
+        let unionType = combineTypes(types);
+        if (unionClassType && isInstantiableClass(unionClassType)) {
+            unionType = TypeBase.cloneAsSpecialForm(unionType, unionClassType);
         }
 
         return unionType;
@@ -15422,7 +15448,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const fileInfo = AnalyzerNodeInfo.getFileInfo(name);
-        const typeAlias = TypeBase.cloneForTypeAlias(
+        let typeAlias = TypeBase.cloneForTypeAlias(
             type,
             name.value,
             ParseTreeUtils.getClassFullName(name, fileInfo.moduleName, name.value),
@@ -15436,7 +15462,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // All PEP 695 type aliases are special forms because they are
         // TypeAliasType objects at runtime.
         if (isPep695Syntax || isPep695TypeVarType) {
-            typeAlias.flags |= TypeFlags.SpecialForm;
+            const typeAliasTypeClass = getTypingType(errorNode, 'TypeAliasType');
+            if (typeAliasTypeClass && isInstantiableClass(typeAliasTypeClass)) {
+                typeAlias = TypeBase.cloneAsSpecialForm(typeAlias, typeAliasTypeClass);
+            }
         }
 
         return typeAlias;
@@ -16072,8 +16101,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 EvaluatorFlags.DisallowNakedGeneric |
                 EvaluatorFlags.DisallowTypeVarsWithScopeId |
                 EvaluatorFlags.AssociateTypeVarsWithCurrentScope |
-                EvaluatorFlags.EnforceTypeVarVarianceConsistency |
-                EvaluatorFlags.TreatPep695TypeAliasAsObject;
+                EvaluatorFlags.EnforceTypeVarVarianceConsistency;
             if (fileInfo.isStubFile) {
                 exprFlags |= EvaluatorFlags.AllowForwardReferences;
             }
@@ -16108,7 +16136,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     // Any is allowed as a base class. Remove its "special form" flag to avoid
                     // false positive errors.
-                    if (isAny(argType) && TypeBase.isSpecialForm(argType)) {
+                    if (isAny(argType) && argType.specialForm) {
                         argType = AnyType.create();
                     }
 
@@ -16174,6 +16202,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // circular dependency.
                             if (derivesFromClassRecursive(argType, classType, /* ignoreUnknown */ true)) {
                                 addError(Localizer.Diagnostic.baseClassCircular(), arg);
+                                argType = UnknownType.create();
+                            }
+
+                            // If the class is attempting to derive from a TypeAliasType,
+                            // generate an error.
+                            if (argType.specialForm && ClassType.isBuiltIn(argType.specialForm, 'TypeAliasType')) {
+                                addError(Localizer.Diagnostic.typeAliasTypeBaseClass(), arg);
                                 argType = UnknownType.create();
                             }
                         }
@@ -19474,7 +19509,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const aliasedName = classType.aliasName || classType.details.name;
             switch (aliasedName) {
                 case 'Callable': {
-                    return { type: createCallableType(typeArgs, errorNode) };
+                    return { type: createCallableType(classType, typeArgs, errorNode) };
                 }
 
                 case 'Never': {
@@ -19502,7 +19537,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Type': {
-                    let typeType = createSpecialType(classType, typeArgs, 1);
+                    let typeType = createSpecialType(
+                        classType,
+                        typeArgs,
+                        1,
+                        /* allowParamSpec */ undefined,
+                        /* isSpecialForm */ false
+                    );
                     if (isInstantiableClass(typeType)) {
                         typeType = explodeGenericClass(typeType);
                     }
@@ -19555,7 +19596,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Tuple': {
-                    return { type: createSpecialType(classType, typeArgs, /* paramLimit */ undefined) };
+                    return {
+                        type: createSpecialType(
+                            classType,
+                            typeArgs,
+                            /* paramLimit */ undefined,
+                            /* allowParamSpec */ false,
+                            /* isSpecialForm */ false
+                        ),
+                    };
                 }
 
                 case 'Union': {
@@ -19638,7 +19687,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         typeArgs,
                         1,
                         /* allowParamSpec */ undefined,
-                        /* isCallable */ true
+                        /* isSpecialForm */ false
                     );
 
                     if (isInstantiableClass(typeType)) {
@@ -19658,7 +19707,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         typeArgs,
                         /* paramLimit */ undefined,
                         /* allowParamSpec */ undefined,
-                        /* isCallable */ true
+                        /* isSpecialForm */ false
                     ),
                 };
             }
@@ -22640,6 +22689,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
+        // If the source type is a special form, use the literal special form
+        // class rather than the symbolic form.
+        if (srcType.specialForm) {
+            srcType = srcType.specialForm;
+        }
+
         if (recursionCount > maxTypeRecursionCount) {
             return true;
         }
@@ -22949,7 +23004,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        if (isAnyOrUnknown(srcType) && !TypeBase.isSpecialForm(srcType)) {
+        if (isAnyOrUnknown(srcType) && !srcType.specialForm) {
             const targetTypeVarContext =
                 (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
             if (targetTypeVarContext) {
@@ -23348,7 +23403,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                     }
                 }
-            } else if (isAnyOrUnknown(concreteSrcType) && !TypeBase.isSpecialForm(concreteSrcType)) {
+            } else if (isAnyOrUnknown(concreteSrcType) && !concreteSrcType.specialForm) {
                 return (flags & AssignTypeFlags.OverloadOverlapCheck) === 0;
             } else if (isUnion(concreteSrcType)) {
                 return assignType(
@@ -26518,6 +26573,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getTupleClassType,
         getObjectType,
         getNoneType,
+        getUnionClassType,
         getBuiltInObject,
         getTypingType,
         assignTypeArguments,

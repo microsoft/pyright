@@ -63,9 +63,6 @@ export const enum TypeFlags {
     // This type refers to a type that is wrapped an "Annotated"
     // (PEP 593) annotation.
     Annotated = 1 << 2,
-
-    // This type is a special form like "UnionType".
-    SpecialForm = 1 << 3,
 }
 
 export type UnionableType =
@@ -154,6 +151,12 @@ interface TypeBase {
     // it is assumed to be zero.
     instantiableNestingLevel?: number;
 
+    // Used in cases where the type is an instantiable special form such as
+    // UnionType, Literal, or Required. These are not directly instantiable
+    // and are simple classes when used in value (runtime) expressions but
+    // have special meaning when used in a type expression.
+    specialForm?: ClassType;
+
     // Used only for type aliases
     typeAliasInfo?: TypeAliasInfo | undefined;
 
@@ -195,14 +198,6 @@ export namespace TypeBase {
         return (type.flags & TypeFlags.Annotated) !== 0;
     }
 
-    export function isSpecialForm(type: TypeBase) {
-        return (type.flags & TypeFlags.SpecialForm) !== 0;
-    }
-
-    export function setSpecialForm(type: TypeBase) {
-        return (type.flags |= TypeFlags.SpecialForm);
-    }
-
     export function isAmbiguous(type: TypeBase) {
         return !!type.isAmbiguous;
     }
@@ -210,6 +205,13 @@ export namespace TypeBase {
     export function cloneType<T extends TypeBase>(type: T): T {
         const clone = { ...type };
         delete clone.cached;
+        return clone;
+    }
+
+    export function cloneAsSpecialForm<T extends TypeBase>(type: T, specialForm: ClassType): T {
+        const clone = { ...type };
+        delete clone.cached;
+        clone.specialForm = specialForm;
         return clone;
     }
 
@@ -767,7 +769,7 @@ export namespace ClassType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstance(type, /* cache */ includeSubclasses);
-        newInstance.flags &= ~TypeFlags.SpecialForm;
+        delete newInstance.specialForm;
         if (includeSubclasses) {
             newInstance.includeSubclasses = true;
         }
@@ -781,7 +783,6 @@ export namespace ClassType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstantiable(type, includeSubclasses);
-        newInstance.flags &= ~TypeFlags.SpecialForm;
         if (includeSubclasses) {
             newInstance.includeSubclasses = true;
         }
@@ -1614,7 +1615,7 @@ export namespace FunctionType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstance(type, /* cache */ true);
-        newInstance.flags &= ~TypeFlags.SpecialForm;
+        delete newInstance.specialForm;
         return newInstance;
     }
 
@@ -1624,7 +1625,6 @@ export namespace FunctionType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstantiable(type, /* cache */ true);
-        newInstance.flags &= ~TypeFlags.SpecialForm;
         return newInstance;
     }
 
@@ -2190,7 +2190,7 @@ export namespace AnyType {
     const _anyInstanceSpecialForm: AnyType = {
         category: TypeCategory.Any,
         isEllipsis: false,
-        flags: TypeFlags.Instance | TypeFlags.Instantiable | TypeFlags.SpecialForm,
+        flags: TypeFlags.Instance | TypeFlags.Instantiable,
     };
 
     const _anyInstance: AnyType = {
@@ -2216,13 +2216,8 @@ export namespace AnyType {
 
 export namespace AnyType {
     export function convertToInstance(type: AnyType): AnyType {
-        // Remove the "special form" flag if it's set. Otherwise
-        // simply return the existing type.
-        if (TypeBase.isSpecialForm(type)) {
-            return AnyType.create();
-        }
-
-        return type;
+        // Remove the "special form" if set. Otherwise return the existing type.
+        return type.specialForm ? AnyType.create() : type;
     }
 }
 
@@ -2535,7 +2530,7 @@ export namespace TypeVarType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstance(type, /* cache */ true);
-        newInstance.flags &= ~TypeFlags.SpecialForm;
+        delete newInstance.specialForm;
         return newInstance;
     }
 
@@ -2545,7 +2540,6 @@ export namespace TypeVarType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstantiable(type, /* cache */ true);
-        newInstance.flags &= ~TypeFlags.SpecialForm;
         return newInstance;
     }
 
