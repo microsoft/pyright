@@ -1421,7 +1421,9 @@ function narrowTypeForIsInstance(
                                 /* diag */ undefined,
                                 /* destTypeVarContext */ undefined,
                                 /* srcTypeVarContext */ undefined,
-                                AssignTypeFlags.IgnoreTypeVarScope | AssignTypeFlags.IgnoreProtocolAssignmentCheck
+                                AssignTypeFlags.IgnoreTypeVarScope |
+                                    AssignTypeFlags.IgnoreProtocolAssignmentCheck |
+                                    AssignTypeFlags.AllowIsinstanceSpecialForms
                             )
                         ) {
                             // If the variable type is a superclass of the isinstance
@@ -1593,7 +1595,16 @@ function narrowTypeForIsInstance(
                         } else {
                             foundSuperclass = true;
                         }
-                    } else if (evaluator.assignType(concreteVarType, filterType)) {
+                    } else if (
+                        evaluator.assignType(
+                            concreteVarType,
+                            filterType,
+                            /* diag */ undefined,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            AssignTypeFlags.AllowIsinstanceSpecialForms
+                        )
+                    ) {
                         if (isPositiveTest) {
                             filteredTypes.push(filterType);
                         }

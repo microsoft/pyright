@@ -909,6 +909,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasRedeclared'));
         export const typeAliasStatementIllegal = () => getRawString('Diagnostic.typeAliasStatementIllegal');
         export const typeAliasStatementBadScope = () => getRawString('Diagnostic.typeAliasStatementBadScope');
+        export const typeAliasTypeBaseClass = () => getRawString('Diagnostic.typeAliasTypeBaseClass');
         export const typeAliasTypeMustBeAssigned = () => getRawString('Diagnostic.typeAliasTypeMustBeAssigned');
         export const typeAliasTypeNameArg = () => getRawString('Diagnostic.typeAliasTypeNameArg');
         export const typeAliasTypeNameMismatch = () => getRawString('Diagnostic.typeAliasTypeNameMismatch');
@@ -1431,6 +1432,7 @@ export namespace Localizer {
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('DiagnosticAddendum.tupleSizeMismatch')
             );
+        export const typeAliasInstanceCheck = () => getRawString('DiagnosticAddendum.typeAliasInstanceCheck');
         export const typeAssignmentMismatch = () =>
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.typeAssignmentMismatch')
