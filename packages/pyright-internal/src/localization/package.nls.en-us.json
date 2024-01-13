@@ -295,7 +295,6 @@
         "newTypeBadName": "The first argument to NewType must be a string literal",
         "newTypeLiteral": "NewType cannot be used with Literal type",
         "newTypeNameMismatch": "NewType must be assigned to a variable with the same name",
-        "newTypeNewTypeClass": "NewType cannot be used with a class created with NewType",
         "newTypeNotAClass": "Expected class as second argument to NewType",
         "newTypeParamCount": "NewType requires two positional arguments",
         "newTypeProtocolClass": "NewType cannot be used with structural type (a protocol or TypedDict class)",
