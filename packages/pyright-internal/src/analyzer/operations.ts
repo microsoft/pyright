@@ -640,9 +640,11 @@ export function getTypeOfBinaryOperation(
                 flags | EvaluatorFlags.ExpectingInstantiableType
             );
 
-            const newUnion = combineTypes([adjustedLeftType, adjustedRightType]);
-            if (isUnion(newUnion)) {
-                TypeBase.setSpecialForm(newUnion);
+            let newUnion = combineTypes([adjustedLeftType, adjustedRightType]);
+
+            const unionClass = evaluator.getUnionClassType();
+            if (unionClass && isInstantiableClass(unionClass)) {
+                newUnion = TypeBase.cloneAsSpecialForm(newUnion, unionClass);
             }
 
             // Check for "stringified" forward reference type expressions. The "|" operator

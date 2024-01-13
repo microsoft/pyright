@@ -3976,6 +3976,12 @@ export class Checker extends ParseTreeWalker {
             subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
             subtype = transformPossibleRecursiveTypeAlias(subtype);
 
+            if (subtype.specialForm && ClassType.isBuiltIn(subtype.specialForm, 'TypeAliasType')) {
+                diag.addMessage(Localizer.DiagnosticAddendum.typeAliasInstanceCheck());
+                isSupported = false;
+                return;
+            }
+
             switch (subtype.category) {
                 case TypeCategory.Any:
                 case TypeCategory.Unknown:
