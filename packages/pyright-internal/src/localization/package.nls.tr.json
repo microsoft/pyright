@@ -700,7 +700,6 @@
         "propertyMissingDeleter": "\"{name}\" özelliği tanımlı bir siliciye sahip değil",
         "propertyMissingSetter": "\"{name}\" özelliği tanımlı bir ayarlayıcıya sahip değil",
         "protocolIncompatible": "\"{sourceType}\", \"{destType}\" protokol ayarlarıyla uyumsuz",
-        "protocolMemberClassVar": "\"{name}\" bir sınıf değişkeni değil",
         "protocolMemberMissing": "\"{name}\" yok",
         "protocolRequiresRuntimeCheckable": "Protokol sınıfının örnekle ve sınıf denetimleriyle birlikte kullanılabilmesi için @runtime_checkable olması gerekir",
         "protocolSourceIsNotConcrete": "\"{sourceType}\" somut bir sınıf türü değil ve \"{destType}\" türüne atanamaz",

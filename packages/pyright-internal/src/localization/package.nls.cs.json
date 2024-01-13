@@ -700,7 +700,6 @@
         "propertyMissingDeleter": "Vlastnost {name} nemá definovaný odstraňovač",
         "propertyMissingSetter": "Vlastnost {name} nemá definovanou metodu setter",
         "protocolIncompatible": "{sourceType} není kompatibilní s protokolem {destType}",
-        "protocolMemberClassVar": "{name} není proměnná třídy",
         "protocolMemberMissing": "{name} není k dispozici",
         "protocolRequiresRuntimeCheckable": "Třída protokolu musí být @runtime_checkable, aby se použila při kontrolách instancí a tříd.",
         "protocolSourceIsNotConcrete": "„{sourceType}“ není konkrétní typ třídy a nedá se přiřadit k typu „{destType}“",

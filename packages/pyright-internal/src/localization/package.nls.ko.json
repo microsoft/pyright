@@ -700,7 +700,6 @@
         "propertyMissingDeleter": "\"{name}\" 속성에 정의된 삭제자가 없습니다.",
         "propertyMissingSetter": "\"{name}\" 속성에 정의된 setter가 없습니다.",
         "protocolIncompatible": "‘{sourceType}’은(는) ‘{destType}’ 프로토콜과 호환되지 않습니다.",
-        "protocolMemberClassVar": "\"{name}\"은(는) 클래스 변수가 아닙니다.",
         "protocolMemberMissing": "\"{name}\"이(가) 없습니다.",
         "protocolRequiresRuntimeCheckable": "인스턴스 및 클래스 검사와 함께 사용하려면 프로토콜 클래스를 @runtime_checkable 합니다.",
         "protocolSourceIsNotConcrete": "‘{sourceType}’은(는) 구체적인 클래스 형식이 아니므로 ‘{destType}’ 형식에 할당할 수 없습니다.",

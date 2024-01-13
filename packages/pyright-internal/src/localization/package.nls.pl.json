@@ -700,7 +700,6 @@
         "propertyMissingDeleter": "Właściwość „{name}” nie ma zdefiniowanego elementu usuwającego",
         "propertyMissingSetter": "Właściwość „{name}” nie ma zdefiniowanej metody ustawiającej",
         "protocolIncompatible": "Protokół „{sourceType}” jest niezgodny z protokołem „{destType}”",
-        "protocolMemberClassVar": "Nazwa „{name}” nie jest zmienną klasową",
         "protocolMemberMissing": "Brak nazwy „{name}”.",
         "protocolRequiresRuntimeCheckable": "Klasa protokołu musi być @runtime_checkable, aby mogła być używana ze sprawdzaniem wystąpienia i klasy",
         "protocolSourceIsNotConcrete": "„{sourceType}” nie jest typem specyficznej klasy i nie można go przypisać do typu „{destType}”",
