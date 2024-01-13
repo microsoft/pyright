@@ -12809,16 +12809,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!isInstantiableClass(baseClass)) {
-            addError(Localizer.Diagnostic.newTypeNotAClass(), argList[1].node || errorNode);
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.newTypeNotAClass(),
+                argList[1].node || errorNode
+            );
             return undefined;
         }
 
         if (ClassType.isProtocolClass(baseClass) || ClassType.isTypedDictClass(baseClass)) {
-            addError(Localizer.Diagnostic.newTypeProtocolClass(), argList[1].node || errorNode);
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.newTypeProtocolClass(),
+                argList[1].node || errorNode
+            );
         } else if (baseClass.literalValue !== undefined) {
-            addError(Localizer.Diagnostic.newTypeLiteral(), argList[1].node || errorNode);
-        } else if (ClassType.isNewTypeClass(baseClass)) {
-            addError(Localizer.Diagnostic.newTypeNewTypeClass(), argList[1].node || errorNode);
+            addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.newTypeLiteral(),
+                argList[1].node || errorNode
+            );
         }
 
         let classFlags = baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);

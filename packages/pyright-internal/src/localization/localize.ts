@@ -654,7 +654,6 @@ export namespace Localizer {
         export const newTypeBadName = () => getRawString('Diagnostic.newTypeBadName');
         export const newTypeLiteral = () => getRawString('Diagnostic.newTypeLiteral');
         export const newTypeNameMismatch = () => getRawString('Diagnostic.newTypeNameMismatch');
-        export const newTypeNewTypeClass = () => getRawString('Diagnostic.newTypeNewTypeClass');
         export const newTypeNotAClass = () => getRawString('Diagnostic.newTypeNotAClass');
         export const newTypeParamCount = () => getRawString('Diagnostic.newTypeParamCount');
         export const newTypeProtocolClass = () => getRawString('Diagnostic.newTypeProtocolClass');
