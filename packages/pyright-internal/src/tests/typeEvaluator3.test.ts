@@ -1236,6 +1236,14 @@ test('VariadicTypeVar27', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('VariadicTypeVar28', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar28.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Match1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

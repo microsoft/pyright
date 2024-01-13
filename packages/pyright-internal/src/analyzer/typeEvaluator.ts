@@ -6447,8 +6447,50 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): TypeResultWithNode[] {
         const variadicIndex = typeParameters.findIndex((param) => isVariadicTypeVar(param));
 
+        // Is there a *tuple[T, ...] somewhere in the type arguments that we can expand if needed?
+        let srcUnboundedTupleType: Type | undefined;
+        let srcUnboundedTupleIndex = typeArgs.findIndex((arg) => {
+            if (
+                isUnpackedClass(arg.type) &&
+                arg.type.tupleTypeArguments &&
+                arg.type.tupleTypeArguments.length === 1 &&
+                arg.type.tupleTypeArguments[0].isUnbounded
+            ) {
+                srcUnboundedTupleType = arg.type.tupleTypeArguments[0].type;
+                return true;
+            }
+
+            return false;
+        });
+
+        if (
+            srcUnboundedTupleType &&
+            srcUnboundedTupleIndex >= 0 &&
+            variadicIndex >= 0 &&
+            typeArgs.length < typeParameters.length
+        ) {
+            // "Smear" the tuple type across type argument slots prior to the variadic type var.
+            while (variadicIndex > srcUnboundedTupleIndex) {
+                typeArgs = [
+                    ...typeArgs.slice(0, srcUnboundedTupleIndex),
+                    { node: typeArgs[srcUnboundedTupleIndex].node, type: srcUnboundedTupleType },
+                    ...typeArgs.slice(srcUnboundedTupleIndex),
+                ];
+                srcUnboundedTupleIndex++;
+            }
+
+            // "Smear" the tuple type across type argument slots following the variadic type var.
+            while (typeArgs.length < typeParameters.length) {
+                typeArgs = [
+                    ...typeArgs.slice(0, srcUnboundedTupleIndex + 1),
+                    { node: typeArgs[srcUnboundedTupleIndex].node, type: srcUnboundedTupleType },
+                    ...typeArgs.slice(srcUnboundedTupleIndex + 1),
+                ];
+            }
+        }
+
         // Do we need to adjust the type arguments to map to a variadic type
-        // param at the end of the list?
+        // param somewhere in the list?
         if (variadicIndex >= 0) {
             const variadicTypeVar = typeParameters[variadicIndex];
 
