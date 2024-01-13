@@ -110,6 +110,11 @@ export function assignTypeToTypeVar(
         return true;
     }
 
+    // Handle type[T] as a dest and a special form as a source.
+    if (TypeBase.isInstantiable(destType) && isInstantiableClass(srcType) && ClassType.isSpecialFormClass(srcType)) {
+        return false;
+    }
+
     // Verify that we are solving for the scope associated with this
     // type variable.
     if (!typeVarContext.hasSolveForScope(destType.scopeId)) {

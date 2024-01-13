@@ -1710,3 +1710,21 @@ test('SpecialForm1', () => {
 
     TestUtils.validateResults(analysisResults, 4);
 });
+
+test('SpecialForm2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialForm2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('SpecialForm3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialForm3.py']);
+
+    TestUtils.validateResults(analysisResults, 22);
+});
+
+test('SpecialForm4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialForm4.py']);
+
+    TestUtils.validateResults(analysisResults, 69);
+});

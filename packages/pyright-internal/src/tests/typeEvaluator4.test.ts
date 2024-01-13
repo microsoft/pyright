@@ -845,7 +845,7 @@ test('Unions4', () => {
 test('Unions5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unions5.py']);
 
-    TestUtils.validateResults(analysisResults, 8);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('Unions6', () => {

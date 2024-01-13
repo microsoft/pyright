@@ -12,7 +12,7 @@ def func1(a: type[_T1]) -> _T1:
     return a()
 
 
-a = func1(Optional[int])
+a = func1(int)
 
 
 def func2(a: type[_T2]) -> type[_T2]:

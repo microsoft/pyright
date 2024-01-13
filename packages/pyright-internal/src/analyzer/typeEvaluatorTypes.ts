@@ -142,9 +142,6 @@ export const enum EvaluatorFlags {
     // Allow Unpack annotation for TypedDict.
     AllowUnpackedTypedDict = 1 << 23,
 
-    // Disallow a type alias defined with a "type" statement.
-    TreatPep695TypeAliasAsObject = 1 << 24,
-
     // If evaluation is a TypeVarType that is a ParamSpec, do
     // not convert it to its corresponding ParamSpec runtime object.
     SkipConvertParamSpecToRuntimeObject = 1 << 25,
@@ -156,13 +153,13 @@ export const enum EvaluatorFlags {
     AllowConcatenate = 1 << 27,
 
     // Defaults used for evaluating the LHS of a call expression.
-    CallBaseDefaults = DoNotSpecialize | TreatPep695TypeAliasAsObject,
+    CallBaseDefaults = DoNotSpecialize,
 
     // Defaults used for evaluating the LHS of a member access expression.
     IndexBaseDefaults = DoNotSpecialize,
 
     // Defaults used for evaluating the LHS of a member access expression.
-    MemberAccessBaseDefaults = DoNotSpecialize | TreatPep695TypeAliasAsObject,
+    MemberAccessBaseDefaults = DoNotSpecialize,
 }
 
 export interface TypeResult<T extends Type = Type> {
@@ -613,6 +610,7 @@ export interface TypeEvaluator {
     getTupleClassType: () => ClassType | undefined;
     getObjectType: () => Type;
     getNoneType: () => Type;
+    getUnionClassType(): Type;
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     inferReturnTypeIfNecessary: (type: Type) => void;
     inferTypeParameterVarianceForClass: (type: ClassType) => void;

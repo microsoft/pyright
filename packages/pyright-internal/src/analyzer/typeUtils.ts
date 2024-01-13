@@ -57,6 +57,7 @@ import {
     TypeVarScopeId,
     TypeVarScopeType,
     TypeVarType,
+    UnboundType,
     UnionType,
     UnknownType,
     Variance,
@@ -225,6 +226,11 @@ export const enum AssignTypeFlags {
     // the source must be a "concrete" (non-protocol) class. This
     // flag skips this check.
     IgnoreProtocolAssignmentCheck = 1 << 14,
+
+    // Normally all special form classes are incompatible with type[T],
+    // but a few of them are allowed in the context of an isinstance
+    // or issubclass call.
+    AllowIsinstanceSpecialForms = 1 << 15,
 }
 
 export interface ApplyTypeVarOptions {
@@ -2396,6 +2402,18 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
 
             case TypeCategory.Any: {
                 return AnyType.convertToInstance(subtype);
+            }
+
+            case TypeCategory.Unknown: {
+                return UnknownType.convertToInstance(subtype);
+            }
+
+            case TypeCategory.Never: {
+                return NeverType.convertToInstance(subtype);
+            }
+
+            case TypeCategory.Unbound: {
+                return UnboundType.convertToInstance(subtype);
             }
         }
 
