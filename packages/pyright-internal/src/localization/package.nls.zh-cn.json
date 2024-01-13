@@ -700,7 +700,6 @@
         "propertyMissingDeleter": "属性“{name}”没有定义的删除程序",
         "propertyMissingSetter": "属性“{name}”没有定义的资源库",
         "protocolIncompatible": "“{sourceType}”与协议“{destType}”不兼容",
-        "protocolMemberClassVar": "“{name}”不是类变量",
         "protocolMemberMissing": "“{name}”不存在",
         "protocolRequiresRuntimeCheckable": "协议类必须为 @runtime_checkable 才能用于实例和类检查",
         "protocolSourceIsNotConcrete": "“{sourceType}”不是具体类类型，无法分配给类型“{destType}”",

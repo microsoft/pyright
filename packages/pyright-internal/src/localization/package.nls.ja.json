@@ -700,7 +700,6 @@
         "propertyMissingDeleter": "プロパティ \"{name}\" に定義済みの削除子がありません",
         "propertyMissingSetter": "プロパティ \"{name}\" に定義済みのセッターがありません",
         "protocolIncompatible": "\"{sourceType}\" はプロトコル \"{destType}\" と互換性がありません",
-        "protocolMemberClassVar": "\"{name}\" はクラス変数ではありません",
         "protocolMemberMissing": "\"{name}\" が存在しません",
         "protocolRequiresRuntimeCheckable": "インスタンスとクラスのチェックで使用するには、プロトコル クラスは @runtime_checkable である必要があります",
         "protocolSourceIsNotConcrete": "\"{sourceType}\" は具象クラス型ではないため、型 \"{destType}\" に割り当てることはできません",

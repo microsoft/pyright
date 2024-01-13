@@ -700,7 +700,6 @@
         "propertyMissingDeleter": "屬性 \"{name}\" 沒有定義的 deleter",
         "propertyMissingSetter": "屬性 \"{name}\" 沒有定義的 setter",
         "protocolIncompatible": "\"{sourceType}\" 與通訊協定 \"{destType}\" 不相容",
-        "protocolMemberClassVar": "\"{name}\" 不是類別變數",
         "protocolMemberMissing": "\"{name}\" 不存在",
         "protocolRequiresRuntimeCheckable": "通訊協定類別必須為 @runtime_checkable，才能搭配執行個體和類別檢查使用",
         "protocolSourceIsNotConcrete": "\"{sourceType}\" 不是實體類別型別，因此無法指派給型別 \"{destType}\"",

@@ -700,7 +700,6 @@
         "propertyMissingDeleter": "La propriété « {name} » n’a pas de deleter défini",
         "propertyMissingSetter": "La propriété « {name} » n’a pas de méthode setter définie",
         "protocolIncompatible": "\"{sourceType}\" est incompatible avec le protocole \"{destType}\"",
-        "protocolMemberClassVar": "« {name} » n’est pas une variable de classe",
         "protocolMemberMissing": "« {name} » n’est pas présent",
         "protocolRequiresRuntimeCheckable": "La classe de protocole doit être @runtime_checkable à utiliser avec des vérifications d’instance et de classe",
         "protocolSourceIsNotConcrete": "\"{sourceType}\" n'est pas un type de classe concret et ne peut pas être affecté au type \"{destType}\"",

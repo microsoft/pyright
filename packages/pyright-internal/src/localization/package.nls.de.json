@@ -700,7 +700,6 @@
         "propertyMissingDeleter": "Die Eigenschaft \"{name}\" hat keinen definierten Deleter.",
         "propertyMissingSetter": "Die Eigenschaft \"{name}\" hat keinen definierten Setter.",
         "protocolIncompatible": "\"{sourceType}\" ist nicht mit dem Protokoll \"{destType}\" kompatibel.",
-        "protocolMemberClassVar": "\"{name}\" ist keine Klassenvariable.",
         "protocolMemberMissing": "\"{name}\" ist nicht vorhanden.",
         "protocolRequiresRuntimeCheckable": "Die Protokollklasse muss @runtime_checkable sein, damit sie mit Instanz- und Klassenprüfungen verwendet werden kann.",
         "protocolSourceIsNotConcrete": "\"{sourceType}\" ist kein konkreter Klassentyp und kann dem Typ \"{destType}\" nicht zugewiesen werden.",

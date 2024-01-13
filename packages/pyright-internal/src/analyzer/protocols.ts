@@ -305,7 +305,7 @@ function assignClassToProtocolInternal(
         return isTypeSame(destType, srcType);
     }
 
-    const sourceIsInstantiable = TypeBase.isInstantiable(srcType);
+    const sourceIsClassObject = isClass(srcType) && TypeBase.isInstantiable(srcType);
     const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
     const selfTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
 
@@ -371,7 +371,7 @@ function assignClassToProtocolInternal(
 
             // Special-case the `__class_getitem__` for normal protocol comparison.
             // This is a convention agreed upon by typeshed maintainers.
-            if (!sourceIsInstantiable && name === '__class_getitem__') {
+            if (!sourceIsClassObject && name === '__class_getitem__') {
                 return;
             }
 
@@ -396,7 +396,7 @@ function assignClassToProtocolInternal(
             if (isClass(srcType)) {
                 // Look in the metaclass first if we're treating the source as an instantiable class.
                 if (
-                    sourceIsInstantiable &&
+                    sourceIsClassObject &&
                     srcType.details.effectiveMetaclass &&
                     isInstantiableClass(srcType.details.effectiveMetaclass)
                 ) {
@@ -417,15 +417,6 @@ function assignClassToProtocolInternal(
                 }
 
                 srcSymbol = srcMemberInfo.symbol;
-
-                if (
-                    destSymbol.isClassVar() &&
-                    !srcMemberInfo.symbol.isClassVar() &&
-                    !srcMemberInfo.symbol.isClassMember()
-                ) {
-                    diag?.addMessage(Localizer.DiagnosticAddendum.protocolMemberClassVar().format({ name }));
-                    typesAreConsistent = false;
-                }
 
                 // Partially specialize the type of the symbol based on the MRO class.
                 // We can skip this if it's the dest class because it is already
@@ -451,7 +442,7 @@ function assignClassToProtocolInternal(
                 if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
                     if (isMemberFromMetaclass || isInstantiableClass(srcMemberInfo.classType)) {
                         const boundSrcFunction = evaluator.bindFunctionToClassOrObject(
-                            sourceIsInstantiable && !isMemberFromMetaclass
+                            sourceIsClassObject && !isMemberFromMetaclass
                                 ? srcType
                                 : ClassType.cloneAsInstance(srcType),
                             srcMemberType,
@@ -535,7 +526,7 @@ function assignClassToProtocolInternal(
                 if (
                     isClassInstance(srcMemberType) &&
                     ClassType.isPropertyClass(srcMemberType) &&
-                    !sourceIsInstantiable
+                    !sourceIsClassObject
                 ) {
                     if (
                         !assignProperty(
@@ -648,22 +639,33 @@ function assignClassToProtocolInternal(
 
             const isDestClassVar = destSymbol.isClassVar();
             const isSrcClassVar = srcSymbol.isClassVar();
+            const isSrcVariable = srcSymbol.getDeclarations().some((decl) => decl.type === DeclarationType.Variable);
 
-            // If the source is marked as a ClassVar but the dest (the protocol) is not,
-            // or vice versa, the types are not consistent.
-            if (isDestClassVar !== isSrcClassVar) {
+            if (sourceIsClassObject) {
+                // If the source is not marked as a ClassVar or the dest (the protocol) is,
+                // the types are not consistent given that the source is a class object.
                 if (isDestClassVar) {
-                    if (subDiag) {
-                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsClassVarInProtocol().format({ name }));
+                    subDiag?.addMessage(Localizer.DiagnosticAddendum.memberIsClassVarInProtocol().format({ name }));
+                    typesAreConsistent = false;
+                } else if (isSrcVariable && !isSrcClassVar) {
+                    if (!isMemberFromMetaclass) {
+                        subDiag?.addMessage(Localizer.DiagnosticAddendum.memberIsNotClassVarInClass().format({ name }));
+                        typesAreConsistent = false;
                     }
-                } else {
-                    if (subDiag) {
-                        subDiag.addMessage(
+                }
+            } else {
+                // If the source is marked as a ClassVar but the dest (the protocol) is not,
+                // or vice versa, the types are not consistent.
+                if (isDestClassVar !== isSrcClassVar) {
+                    if (isDestClassVar) {
+                        subDiag?.addMessage(Localizer.DiagnosticAddendum.memberIsClassVarInProtocol().format({ name }));
+                    } else {
+                        subDiag?.addMessage(
                             Localizer.DiagnosticAddendum.memberIsNotClassVarInProtocol().format({ name })
                         );
                     }
+                    typesAreConsistent = false;
                 }
-                typesAreConsistent = false;
             }
 
             const destPrimaryDecl = getLastTypedDeclaredForSymbol(destSymbol);

@@ -700,7 +700,6 @@
         "propertyMissingDeleter": "Для свойства \"{name}\" не определен метод удаления",
         "propertyMissingSetter": "Для свойства \"{name}\" не определен метод задания",
         "protocolIncompatible": "\"{sourceType}\" несовместим с протоколом \"{destType}\"",
-        "protocolMemberClassVar": "\"{name}\" не является переменной класса",
         "protocolMemberMissing": "\"{name}\" отсутствует.",
         "protocolRequiresRuntimeCheckable": "Класс протокола должен быть @runtime_checkable, чтобы его можно было использовать при проверках экземпляров и классов",
         "protocolSourceIsNotConcrete": "\"{sourceType}\" не является конкретным типом класса и не может быть присвоен типу \"{destType}\"",
