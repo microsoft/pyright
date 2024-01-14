@@ -2,6 +2,7 @@
 # described in PEP 634) that contain class patterns.
 
 from typing import Any, Generic, Literal, NamedTuple, TypeVar
+from typing_extensions import LiteralString
 from dataclasses import dataclass, field
 
 foo = 3
@@ -88,6 +89,19 @@ def test_literal(value_to_match: Literal[3]):
         case str() as a3:
             reveal_type(a3, expected_text="Never")
             reveal_type(value_to_match, expected_text="Never")
+
+
+def test_literal_string(value_to_match: LiteralString) -> None:
+    match value_to_match:
+        case "a" as a1:
+            reveal_type(value_to_match, expected_text="Literal['a']")
+            reveal_type(a1, expected_text="Literal['a']")
+        case str() as a2:
+            reveal_type(value_to_match, expected_text="LiteralString")
+            reveal_type(a2, expected_text="LiteralString")
+        case a3:
+            reveal_type(value_to_match, expected_text="Never")
+            reveal_type(a3, expected_text="Never")
 
 
 TFloat = TypeVar("TFloat", bound=float)
