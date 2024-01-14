@@ -871,14 +871,6 @@ export namespace ClassType {
         return newClassType;
     }
 
-    export function cloneWithNewTypeParameters(classType: ClassType, typeParams: TypeVarType[]): ClassType {
-        const newClassType = TypeBase.cloneType(classType);
-        newClassType.details = { ...newClassType.details };
-        newClassType.details.typeParameters = typeParams;
-        newClassType.details.requiresVarianceInference = false;
-        return newClassType;
-    }
-
     export function cloneRemoveTypePromotions(classType: ClassType): ClassType {
         if (!classType.includePromotions) {
             return classType;

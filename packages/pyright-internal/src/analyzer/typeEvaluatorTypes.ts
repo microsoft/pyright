@@ -47,6 +47,7 @@ import {
     TypeCondition,
     TypeVarType,
     UnknownType,
+    Variance,
 } from './types';
 import { AssignTypeFlags, ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -606,7 +607,7 @@ export interface TypeEvaluator {
         isTypeIncomplete: boolean,
         srcExpr: ExpressionNode
     ) => void;
-    assignClassToSelf: (destType: ClassType, srcType: ClassType) => boolean;
+    assignClassToSelf: (destType: ClassType, srcType: ClassType, assumedVariance: Variance) => boolean;
     getBuiltInObject: (node: ParseNode, name: string, typeArguments?: Type[]) => Type;
     getTypedDictClassType: () => ClassType | undefined;
     getTupleClassType: () => ClassType | undefined;

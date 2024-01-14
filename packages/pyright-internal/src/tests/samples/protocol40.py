@@ -3,7 +3,7 @@
 
 from typing import Generic, Protocol, TypeVar, Self
 
-T = TypeVar("T")
+T = TypeVar("T", covariant=True)
 S = TypeVar("S", covariant=True)
 
 

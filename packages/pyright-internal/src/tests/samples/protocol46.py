@@ -9,11 +9,11 @@ T = TypeVar("T")
 
 
 class ProtoA(Protocol[T_contra, T]):
-    def method1(self) -> "ProtoA[T_contra, T]":
+    def method1(self, value: T_contra) -> "ProtoA[T_contra, T]":
         ...
 
     @classmethod
-    def method2(cls, value: T) -> None:
+    def method2(cls, value: T) -> T:
         ...
 
 
@@ -23,11 +23,11 @@ class ProtoB(Protocol[T_contra, T]):
 
 
 class ImplA:
-    def method1(self) -> Self:
+    def method1(self, value: int) -> Self:
         ...
 
     @classmethod
-    def method2(cls, value: int) -> None:
+    def method2(cls, value: int) -> int:
         ...
 
 
@@ -35,11 +35,11 @@ class ImplB:
     def method3(self) -> ImplA:
         ...
 
-    def method1(self) -> Self:
+    def method1(self, value: int) -> Self:
         ...
 
     @classmethod
-    def method2(cls: type[ProtoB[Never, T]], value: list[T]) -> None:
+    def method2(cls: type[ProtoB[Never, T]], value: list[T]) -> list[T]:
         ...
 
 

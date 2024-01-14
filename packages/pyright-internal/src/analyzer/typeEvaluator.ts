@@ -387,6 +387,11 @@ interface AliasMapEntry {
     isSpecialForm?: boolean;
 }
 
+interface AssignClassToSelfInfo {
+    class: ClassType;
+    assumedVariance: Variance;
+}
+
 interface ParamAssignmentInfo {
     argsNeeded: number;
     argsReceived: number;
@@ -567,6 +572,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const asymmetricAccessorAssignmentCache = new Set<number>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     const suppressedNodeStack: ParseNode[] = [];
+    const assignClassToSelfStack: AssignClassToSelfInfo[] = [];
 
     let functionRecursionMap = new Set<number>();
     let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
@@ -16954,12 +16960,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         });
 
-        // Replace all of the type parameters with invariant TypeVars.
-        const updatedTypeParams = classType.details.typeParameters.map((typeParam) =>
-            TypeVarType.cloneAsInvariant(typeParam)
-        );
-        const updatedClassType = ClassType.cloneWithNewTypeParameters(classType, updatedTypeParams);
-
         const dummyTypeObject = ClassType.createInstantiable(
             '__varianceDummy',
             '',
@@ -16971,7 +16971,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             undefined
         );
 
-        updatedTypeParams.forEach((param, paramIndex) => {
+        classType.details.typeParameters.forEach((param, paramIndex) => {
             // Skip variadics and ParamSpecs.
             if (param.details.isVariadic || param.details.isParamSpec) {
                 return;
@@ -16984,7 +16984,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with an object instance.
-            const srcTypeArgs = updatedTypeParams.map((p, i) => {
+            const srcTypeArgs = classType.details.typeParameters.map((p, i) => {
                 if (p.details.isVariadic) {
                     return p;
                 }
@@ -16994,28 +16994,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with itself.
-            const destTypeArgs = updatedTypeParams.map((p, i) => {
+            const destTypeArgs = classType.details.typeParameters.map((p, i) => {
                 return i === paramIndex || p.details.isVariadic ? p : dummyTypeObject;
             });
 
-            const srcType = ClassType.cloneForSpecialization(
-                updatedClassType,
-                srcTypeArgs,
-                /* isTypeArgumentExplicit */ true
-            );
+            const srcType = ClassType.cloneForSpecialization(classType, srcTypeArgs, /* isTypeArgumentExplicit */ true);
             const destType = ClassType.cloneForSpecialization(
-                updatedClassType,
+                classType,
                 destTypeArgs,
                 /* isTypeArgumentExplicit */ true
             );
 
-            const isDestSubtypeOfSrc = assignClassToSelf(srcType, destType, /* ignoreBaseClassVariance */ false);
+            const isDestSubtypeOfSrc = assignClassToSelf(
+                srcType,
+                destType,
+                Variance.Covariant,
+                /* ignoreBaseClassVariance */ false
+            );
 
             let inferredVariance: Variance;
             if (isDestSubtypeOfSrc) {
                 inferredVariance = Variance.Covariant;
             } else {
-                const isSrcSubtypeOfDest = assignClassToSelf(destType, srcType, /* ignoreBaseClassVariance */ false);
+                const isSrcSubtypeOfDest = assignClassToSelf(
+                    destType,
+                    srcType,
+                    Variance.Contravariant,
+                    /* ignoreBaseClassVariance */ false
+                );
                 if (isSrcSubtypeOfDest) {
                     inferredVariance = Variance.Contravariant;
                 } else {
@@ -22206,6 +22212,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function assignClassToSelf(
         destType: ClassType,
         srcType: ClassType,
+        assumedVariance: Variance,
         ignoreBaseClassVariance = true,
         recursionCount = 0
     ): boolean {
@@ -22215,135 +22222,149 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeVarContext = new TypeVarContext();
         let isAssignable = true;
 
-        destType.details.fields.forEach((symbol, name) => {
-            if (!isAssignable || symbol.isIgnoredForProtocolMatch()) {
-                return;
-            }
+        // Use a try/catch block here to make sure that we reset
+        // the assignClassToSelfClass to undefined if an exception occurs.
+        try {
+            // Stash the current class type so any references to it are treated
+            // as though all TypeParameters are invariant.
+            assignClassToSelfStack.push({ class: destType, assumedVariance });
 
-            // Constructor methods are exempt from variance calculations.
-            if (name === '__new__' || name === '__init__') {
-                return;
-            }
-
-            const memberInfo = lookUpClassMember(srcType, name);
-            assert(memberInfo !== undefined);
-
-            let destMemberType = getEffectiveTypeOfSymbol(symbol);
-            const srcMemberType = getTypeOfMember(memberInfo);
-            destMemberType = partiallySpecializeType(destMemberType, destType);
-
-            // Properties require special processing.
-            if (
-                isClassInstance(destMemberType) &&
-                ClassType.isPropertyClass(destMemberType) &&
-                isClassInstance(srcMemberType) &&
-                ClassType.isPropertyClass(srcMemberType)
-            ) {
-                if (
-                    !assignProperty(
-                        evaluatorInterface,
-                        ClassType.cloneAsInstantiable(destMemberType),
-                        ClassType.cloneAsInstantiable(srcMemberType),
-                        destType,
-                        srcType,
-                        /* diag */ undefined,
-                        typeVarContext,
-                        /* selfTypeVarContext */ undefined,
-                        recursionCount
-                    )
-                ) {
-                    isAssignable = false;
+            destType.details.fields.forEach((symbol, name) => {
+                if (!isAssignable || symbol.isIgnoredForProtocolMatch()) {
+                    return;
                 }
-            } else {
-                const primaryDecl = symbol.getDeclarations()[0];
 
-                let flags = AssignTypeFlags.Default;
+                // Constructor methods are exempt from variance calculations.
+                if (name === '__new__' || name === '__init__') {
+                    return;
+                }
+
+                const memberInfo = lookUpClassMember(srcType, name);
+                assert(memberInfo !== undefined);
+
+                let destMemberType = getEffectiveTypeOfSymbol(symbol);
+                const srcMemberType = getTypeOfMember(memberInfo);
+                destMemberType = partiallySpecializeType(destMemberType, destType);
+
+                // Properties require special processing.
                 if (
-                    primaryDecl?.type === DeclarationType.Variable &&
-                    !isFinalVariableDeclaration(primaryDecl) &&
-                    !ClassType.isFrozenDataClass(destType)
+                    isClassInstance(destMemberType) &&
+                    ClassType.isPropertyClass(destMemberType) &&
+                    isClassInstance(srcMemberType) &&
+                    ClassType.isPropertyClass(srcMemberType)
                 ) {
-                    // Class and instance variables that are mutable need to
-                    // enforce invariance. We will exempt variables that are
-                    // private or protected, since these are presumably
-                    // not modifiable outside of the class.
-                    if (!isPrivateOrProtectedName(name)) {
-                        flags |= AssignTypeFlags.EnforceInvariance;
+                    if (
+                        !assignProperty(
+                            evaluatorInterface,
+                            ClassType.cloneAsInstantiable(destMemberType),
+                            ClassType.cloneAsInstantiable(srcMemberType),
+                            destType,
+                            srcType,
+                            /* diag */ undefined,
+                            typeVarContext,
+                            /* selfTypeVarContext */ undefined,
+                            recursionCount
+                        )
+                    ) {
+                        isAssignable = false;
+                    }
+                } else {
+                    const primaryDecl = symbol.getDeclarations()[0];
+
+                    let flags = AssignTypeFlags.Default;
+                    if (
+                        primaryDecl?.type === DeclarationType.Variable &&
+                        !isFinalVariableDeclaration(primaryDecl) &&
+                        !ClassType.isFrozenDataClass(destType)
+                    ) {
+                        // Class and instance variables that are mutable need to
+                        // enforce invariance. We will exempt variables that are
+                        // private or protected, since these are presumably
+                        // not modifiable outside of the class.
+                        if (!isPrivateOrProtectedName(name)) {
+                            flags |= AssignTypeFlags.EnforceInvariance;
+                        }
+                    }
+
+                    if (
+                        !assignType(
+                            destMemberType,
+                            srcMemberType,
+                            /* diag */ undefined,
+                            typeVarContext,
+                            /* srcTypeVarContext */ undefined,
+                            flags | AssignTypeFlags.IgnoreSelfClsParamCompatibility,
+                            recursionCount
+                        )
+                    ) {
+                        isAssignable = false;
                     }
                 }
+            });
 
-                if (
-                    !assignType(
-                        destMemberType,
-                        srcMemberType,
-                        /* diag */ undefined,
-                        typeVarContext,
-                        /* srcTypeVarContext */ undefined,
-                        flags,
-                        recursionCount
-                    )
-                ) {
-                    isAssignable = false;
-                }
+            if (!isAssignable) {
+                return false;
             }
-        });
 
-        if (!isAssignable) {
-            return false;
-        }
+            // Now handle generic base classes.
+            destType.details.baseClasses.forEach((baseClass) => {
+                if (
+                    isInstantiableClass(baseClass) &&
+                    !ClassType.isBuiltIn(baseClass, 'object') &&
+                    !ClassType.isBuiltIn(baseClass, 'Protocol') &&
+                    !ClassType.isBuiltIn(baseClass, 'Generic') &&
+                    baseClass.details.typeParameters.length > 0
+                ) {
+                    const specializedDestBaseClass = specializeForBaseClass(destType, baseClass);
+                    const specializedSrcBaseClass = specializeForBaseClass(srcType, baseClass);
 
-        // Now handle generic base classes.
-        destType.details.baseClasses.forEach((baseClass) => {
-            if (
-                isInstantiableClass(baseClass) &&
-                !ClassType.isBuiltIn(baseClass, 'object') &&
-                !ClassType.isBuiltIn(baseClass, 'Protocol') &&
-                !ClassType.isBuiltIn(baseClass, 'Generic') &&
-                baseClass.details.typeParameters.length > 0
-            ) {
-                const specializedDestBaseClass = specializeForBaseClass(destType, baseClass);
-                const specializedSrcBaseClass = specializeForBaseClass(srcType, baseClass);
-
-                if (!ignoreBaseClassVariance) {
-                    specializedDestBaseClass.details.typeParameters.forEach((param, index) => {
-                        if (
-                            !param.details.isParamSpec &&
-                            !param.details.isVariadic &&
-                            !param.details.isSynthesized &&
-                            specializedSrcBaseClass.typeArguments &&
-                            index < specializedSrcBaseClass.typeArguments.length &&
-                            specializedDestBaseClass.typeArguments &&
-                            index < specializedDestBaseClass.typeArguments.length
-                        ) {
-                            const paramVariance = param.details.declaredVariance;
-                            if (isTypeVar(specializedSrcBaseClass.typeArguments[index])) {
-                                if (paramVariance === Variance.Invariant || paramVariance === Variance.Contravariant) {
-                                    isAssignable = false;
-                                }
-                            } else if (isTypeVar(specializedDestBaseClass.typeArguments[index])) {
-                                if (paramVariance === Variance.Invariant || paramVariance === Variance.Covariant) {
-                                    isAssignable = false;
+                    if (!ignoreBaseClassVariance) {
+                        specializedDestBaseClass.details.typeParameters.forEach((param, index) => {
+                            if (
+                                !param.details.isParamSpec &&
+                                !param.details.isVariadic &&
+                                !param.details.isSynthesized &&
+                                specializedSrcBaseClass.typeArguments &&
+                                index < specializedSrcBaseClass.typeArguments.length &&
+                                specializedDestBaseClass.typeArguments &&
+                                index < specializedDestBaseClass.typeArguments.length
+                            ) {
+                                const paramVariance = param.details.declaredVariance;
+                                if (isTypeVar(specializedSrcBaseClass.typeArguments[index])) {
+                                    if (
+                                        paramVariance === Variance.Invariant ||
+                                        paramVariance === Variance.Contravariant
+                                    ) {
+                                        isAssignable = false;
+                                    }
+                                } else if (isTypeVar(specializedDestBaseClass.typeArguments[index])) {
+                                    if (paramVariance === Variance.Invariant || paramVariance === Variance.Covariant) {
+                                        isAssignable = false;
+                                    }
                                 }
                             }
-                        }
-                    });
-                }
+                        });
+                    }
 
-                if (
-                    isAssignable &&
-                    !assignClassToSelf(
-                        specializedDestBaseClass,
-                        specializedSrcBaseClass,
-                        ignoreBaseClassVariance,
-                        recursionCount
-                    )
-                ) {
-                    isAssignable = false;
+                    if (
+                        isAssignable &&
+                        !assignClassToSelf(
+                            specializedDestBaseClass,
+                            specializedSrcBaseClass,
+                            assumedVariance,
+                            ignoreBaseClassVariance,
+                            recursionCount
+                        )
+                    ) {
+                        isAssignable = false;
+                    }
                 }
-            }
-        });
+            });
 
-        return isAssignable;
+            return isAssignable;
+        } finally {
+            assignClassToSelfStack.pop();
+        }
     }
 
     // Adjusts the source and/or dest type arguments list to attempt to match
@@ -22693,6 +22714,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let destTypeArgs: Type[];
         let srcTypeArgs: Type[] | undefined;
 
+        // Are we performing protocol variance validation for this class? If so,
+        // treat all of the type parameters as invariant even if they are declared
+        // otherwise.
+        const assignClassToSelfInfo = assignClassToSelfStack.find((info) =>
+            ClassType.isSameGenericClass(info.class, destType)
+        );
+        const assumedVariance = assignClassToSelfInfo?.assumedVariance;
+
         // If either source or dest type arguments are missing, they are
         // treated as "Any", so they are assumed to be assignable.
         if (!destType.typeArguments || !srcType.typeArguments) {
@@ -22717,7 +22746,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const destTypeArg = destArgIndex >= 0 ? destTypeArgs[destArgIndex] : UnknownType.create();
             const destTypeParam = destArgIndex < destTypeParams.length ? destTypeParams[destArgIndex] : undefined;
             const assignmentDiag = new DiagnosticAddendum();
-            const variance = destTypeParam ? TypeVarType.getVariance(destTypeParam) : Variance.Covariant;
+            const variance =
+                assumedVariance ?? (destTypeParam ? TypeVarType.getVariance(destTypeParam) : Variance.Covariant);
             let effectiveFlags: AssignTypeFlags;
             let errorSource: () => ParameterizedString<{ name: string; sourceType: string; destType: string }>;
             let includeDiagAddendum = true;
@@ -24670,6 +24700,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Match positional parameters.
         for (let paramIndex = 0; paramIndex < positionalsToMatch; paramIndex++) {
+            if (
+                paramIndex === 0 &&
+                destType.details.methodClass &&
+                (flags & AssignTypeFlags.IgnoreSelfClsParamCompatibility) !== 0
+            ) {
+                if (FunctionType.isInstanceMethod(destType) || FunctionType.isClassMethod(destType)) {
+                    continue;
+                }
+            }
+
             // Skip over the *args parameter since it's handled separately below.
             if (paramIndex === destParamDetails.argsIndex) {
                 continue;

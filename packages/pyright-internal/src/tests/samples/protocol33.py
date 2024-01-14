@@ -3,8 +3,8 @@
 
 from typing import Generic, TypeVar, Protocol
 
-T = TypeVar("T")
-U = TypeVar("U")
+T = TypeVar("T", covariant=True)
+U = TypeVar("U", covariant=True)
 
 
 class AProto(Generic[T, U], Protocol):
