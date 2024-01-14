@@ -4893,6 +4893,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 let defaultType: Type;
                 if (param.details.defaultType || param.details.isParamSpec) {
                     defaultType = applySolvedTypeVars(param, typeVarContext, { unknownIfNotFound: true });
+                } else if (param.details.isVariadic && tupleClassType && isInstantiableClass(tupleClassType)) {
+                    defaultType = ClassType.cloneForUnpacked(
+                        specializeTupleClass(ClassType.cloneAsInstance(tupleClassType), [
+                            { type: UnknownType.create(), isUnbounded: true },
+                        ])
+                    );
                 } else {
                     defaultType = UnknownType.create();
                 }

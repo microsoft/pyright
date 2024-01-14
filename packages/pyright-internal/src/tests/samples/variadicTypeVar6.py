@@ -17,10 +17,10 @@ class Array(Generic[Unpack[_Xs]]):
 
 Alias1 = Array[Unpack[_Xs]]
 
-# This should generate an error
+# This should generate an error.
 Alias2 = Array[_Xs]
 
-# This should generate an error
+# This should generate an error.
 Alias3 = Array[_T, int, _Xs]
 
 # This should generate an error if reportMissingTypeArgument is enabled.
@@ -73,7 +73,7 @@ Alias6 = tuple[int, Unpack[_Xs]]
 def func2(x: Alias6[float, bool], y: Alias6, z: Alias6[()]):
     reveal_type(x, expected_text="tuple[int, float, bool]")
 
-    reveal_type(y, expected_text="tuple[int, Unknown]")
+    reveal_type(y, expected_text="tuple[int, *tuple[Unknown, ...]]")
 
     reveal_type(z, expected_text="tuple[int]")
 
