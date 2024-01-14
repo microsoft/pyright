@@ -5,12 +5,12 @@ from typing import Callable, Generic, TypeVar
 from typing_extensions import TypeVarTuple, Unpack
 
 
-P = TypeVarTuple("P")
+Ts = TypeVarTuple("Ts")
 T = TypeVar("T", covariant=True)
 
 
-class Call(Generic[Unpack[P]]):
-    def __init__(self, *args: Unpack[P]) -> None:
+class Call(Generic[Unpack[Ts]]):
+    def __init__(self, *args: Unpack[Ts]) -> None:
         self.args = args
 
 
@@ -19,12 +19,12 @@ class Return(Generic[T]):
         self.result = result
 
 
-TailRec = Call[Unpack[P]] | Return[T]
+TailRec = Call[Unpack[Ts]] | Return[T]
 
 
 def tail_rec(
-    fn: Callable[[Unpack[P]], TailRec[Unpack[P], T]]
-) -> Callable[[Unpack[P]], T]:
+    fn: Callable[[Unpack[Ts]], TailRec[Unpack[Ts], T]]
+) -> Callable[[Unpack[Ts]], T]:
     ...
 
 
@@ -36,3 +36,14 @@ def factorial(n: int, acc: int) -> TailRec[int, int, int]:
 
 
 reveal_type(factorial, expected_text="(int, int) -> int")
+
+
+Alias10 = tuple[T, *Ts]
+Alias11 = tuple[*Ts]
+Alias12 = tuple[T, *Ts, T]
+
+
+def func5(a10: Alias10, a11: Alias11, a12: Alias12):
+    reveal_type(a10, expected_text="tuple[Unknown, *tuple[Unknown, ...]]")
+    reveal_type(a11, expected_text="tuple[Unknown, ...]")
+    reveal_type(a12, expected_text="tuple[Unknown, *tuple[Unknown, ...], Unknown]")
