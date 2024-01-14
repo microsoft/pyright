@@ -737,14 +737,20 @@ function narrowTypeBasedOnClassPattern(
                 }
 
                 if (pattern.arguments.length === 0) {
-                    if (
-                        isClass(classInstance) &&
-                        isClass(subjectSubtypeExpanded) &&
-                        ClassType.isSameGenericClass(classInstance, subjectSubtypeExpanded)
-                    ) {
-                        // We know that this match will always succeed, so we can
-                        // eliminate this subtype.
-                        return undefined;
+                    if (isClass(classInstance) && isClass(subjectSubtypeExpanded)) {
+                        if (ClassType.isSameGenericClass(classInstance, subjectSubtypeExpanded)) {
+                            // We know that this match will always succeed, so we can
+                            // eliminate this subtype.
+                            return undefined;
+                        }
+
+                        // Handle LiteralString as a special case.
+                        if (
+                            ClassType.isBuiltIn(classInstance, 'str') &&
+                            ClassType.isBuiltIn(subjectSubtypeExpanded, 'LiteralString')
+                        ) {
+                            return undefined;
+                        }
                     }
 
                     return subjectSubtypeExpanded;
@@ -853,17 +859,11 @@ function narrowTypeBasedOnClassPattern(
                             let resultType: Type;
 
                             if (
-                                evaluator.assignType(
-                                    expandedSubtype,
-                                    ClassType.cloneAsInstantiable(subjectSubtypeExpanded)
-                                )
+                                evaluator.assignType(ClassType.cloneAsInstance(expandedSubtype), subjectSubtypeExpanded)
                             ) {
                                 resultType = subjectSubtypeExpanded;
                             } else if (
-                                evaluator.assignType(
-                                    ClassType.cloneAsInstantiable(subjectSubtypeExpanded),
-                                    expandedSubtype
-                                )
+                                evaluator.assignType(subjectSubtypeExpanded, ClassType.cloneAsInstance(expandedSubtype))
                             ) {
                                 resultType = addConditionToType(
                                     convertToInstance(unexpandedSubtype),
