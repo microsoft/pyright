@@ -163,6 +163,7 @@ import {
     Type,
     TypeBase,
     TypeCategory,
+    TypeVarScopeType,
     TypeVarType,
     TypedDictEntry,
     UnknownType,
@@ -4736,7 +4737,11 @@ export class Checker extends ParseTreeWalker {
         let isContraTypeVar = false;
 
         doForEachSubtype(returnType, (subtype) => {
-            if (isTypeVar(subtype) && subtype.details.declaredVariance === Variance.Contravariant) {
+            if (
+                isTypeVar(subtype) &&
+                subtype.details.declaredVariance === Variance.Contravariant &&
+                subtype.scopeType === TypeVarScopeType.Class
+            ) {
                 isContraTypeVar = true;
             }
         });
