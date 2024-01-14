@@ -136,7 +136,6 @@ import {
     getClassFieldsRecursive,
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
-    getProtocolSymbols,
     getProtocolSymbolsRecursive,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
@@ -361,8 +360,6 @@ export class Checker extends ParseTreeWalker {
             this._validateFinalClassNotAbstract(classTypeResult.classType, node);
 
             this._validateDataClassPostInit(classTypeResult.classType, node);
-
-            this._validateProtocolCompatibility(classTypeResult.classType, node);
 
             this._reportDuplicateEnumMembers(classTypeResult.classType);
 
@@ -4827,85 +4824,6 @@ export class Checker extends ParseTreeWalker {
         });
     }
 
-    // If a non-protocol class explicitly inherits from a protocol class and does
-    // not explicit derive from ABC, this method verifies that any class or instance
-    // variables declared but not assigned in the protocol class are implemented in
-    // the subclass. It also checks that any empty functions declared in the protocol
-    // are implemented in the subclass.
-    private _validateProtocolCompatibility(classType: ClassType, errorNode: ClassNode) {
-        if (ClassType.isProtocolClass(classType)) {
-            return;
-        }
-
-        // If a class derives from ABC, exempt it from this check. This is used for
-        // mixins that derive from a protocol but do not directly implement all
-        // of the protocol's methods.
-        if (classType.details.mro.some((mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'ABC'))) {
-            return;
-        }
-
-        const diagAddendum = new DiagnosticAddendum();
-
-        const isSymbolImplemented = (name: string) => {
-            return classType.details.mro.some((mroClass) => {
-                return isClass(mroClass) && !ClassType.isProtocolClass(mroClass) && mroClass.details.fields.has(name);
-            });
-        };
-
-        classType.details.baseClasses.forEach((baseClass) => {
-            if (!isClass(baseClass) || !ClassType.isProtocolClass(baseClass)) {
-                return;
-            }
-
-            const protocolSymbols = getProtocolSymbols(baseClass);
-
-            protocolSymbols.forEach((member, name) => {
-                const decls = member.symbol.getDeclarations();
-
-                if (decls.length === 0 || !isClass(member.classType)) {
-                    return;
-                }
-
-                if (decls[0].type === DeclarationType.Variable) {
-                    // If none of the declarations involve assignments, assume it's
-                    // not implemented in the protocol.
-                    if (!decls.some((decl) => decl.type === DeclarationType.Variable && !!decl.inferredTypeSource)) {
-                        // This is a variable declaration that is not implemented in the
-                        // protocol base class. Make sure it's implemented in the derived class.
-                        if (!isSymbolImplemented(name)) {
-                            diagAddendum.addMessage(
-                                Localizer.DiagnosticAddendum.missingProtocolMember().format({
-                                    name,
-                                    classType: member.classType.details.name,
-                                })
-                            );
-                        }
-                    }
-                } else if (decls[0].type === DeclarationType.Function) {
-                    if (this._isUnimplementedProtocolMethod(member.symbol)) {
-                        if (!isSymbolImplemented(name)) {
-                            diagAddendum.addMessage(
-                                Localizer.DiagnosticAddendum.missingProtocolMember().format({
-                                    name,
-                                    classType: member.classType.details.name,
-                                })
-                            );
-                        }
-                    }
-                }
-            });
-        });
-
-        if (!diagAddendum.isEmpty()) {
-            this._evaluator.addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.missingProtocolMembers() + diagAddendum.getString(),
-                errorNode.name
-            );
-        }
-    }
-
     // If a class is a dataclass with a `__post_init__` method, verify that its
     // signature is correct.
     private _validateDataClassPostInit(classType: ClassType, errorNode: ClassNode) {
@@ -5019,48 +4937,6 @@ export class Checker extends ParseTreeWalker {
         });
     }
 
-    // Determine whether a method defined in a protocol should be considered
-    // "unimplemented". This is an under-specified part of the typing spec.
-    private _isUnimplementedProtocolMethod(symbol: Symbol): boolean {
-        const symbolType = this._evaluator.getEffectiveTypeOfSymbol(symbol);
-
-        // Behavior differs between stub files and source files.
-        const decls = symbol.getDeclarations();
-        const isDeclaredInStubFile = decls.length > 0 && isStubFile(decls[0].uri);
-
-        if (isFunction(symbolType)) {
-            const decl = symbolType.details.declaration;
-            if (decl) {
-                return isDeclaredInStubFile
-                    ? FunctionType.isAbstractMethod(symbolType)
-                    : ParseTreeUtils.isSuiteEmpty(decl.node.suite);
-            }
-        } else if (isOverloadedFunction(symbolType)) {
-            // If an implementation is present and has an empty body, assume
-            // the function is unimplemented.
-            const impl = OverloadedFunctionType.getImplementation(symbolType);
-            if (impl) {
-                const decl = impl.details.declaration;
-                if (decl) {
-                    return ParseTreeUtils.isSuiteEmpty(decl.node.suite);
-                }
-
-                return false;
-            }
-
-            if (isDeclaredInStubFile) {
-                // If no implementation was present, see if any of the overloads
-                // are marked as abstract.
-                const overloads = OverloadedFunctionType.getOverloads(symbolType);
-                return overloads.some((overload) => FunctionType.isAbstractMethod(overload));
-            }
-
-            return true;
-        }
-
-        return false;
-    }
-
     // If a class is marked final, it must implement all abstract methods,
     // otherwise it is of no use.
     private _validateFinalClassNotAbstract(classType: ClassType, errorNode: ClassNode) {
@@ -5072,19 +4948,19 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const abstractMethods = this._evaluator.getAbstractMethods(classType);
-        if (abstractMethods.length === 0) {
+        const abstractSymbols = this._evaluator.getAbstractSymbols(classType);
+        if (abstractSymbols.length === 0) {
             return;
         }
 
         const diagAddendum = new DiagnosticAddendum();
         const errorsToDisplay = 2;
 
-        abstractMethods.forEach((abstractMethod, index) => {
+        abstractSymbols.forEach((abstractMethod, index) => {
             if (index === errorsToDisplay) {
                 diagAddendum.addMessage(
                     Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
-                        count: abstractMethods.length - errorsToDisplay,
+                        count: abstractSymbols.length - errorsToDisplay,
                     })
                 );
             } else if (index < errorsToDisplay) {

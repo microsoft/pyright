@@ -260,10 +260,11 @@ export interface CallSignatureInfo {
 
 // Used to determine whether an abstract method has been
 // overridden by a non-abstract method.
-export interface AbstractMethod {
+export interface AbstractSymbol {
     symbol: Symbol;
     symbolName: string;
     classType: Type;
+    hasImplementation: boolean;
 }
 
 export interface FunctionArgumentBase {
@@ -571,7 +572,7 @@ export interface TypeEvaluator {
         recursionCount?: number
     ) => FunctionType | OverloadedFunctionType | undefined;
     getCallSignatureInfo: (node: CallNode, activeIndex: number, activeOrFake: boolean) => CallSignatureInfo | undefined;
-    getAbstractMethods: (classType: ClassType) => AbstractMethod[];
+    getAbstractSymbols: (classType: ClassType) => AbstractSymbol[];
     narrowConstrainedTypeVar: (node: ParseNode, typeVar: TypeVarType) => Type | undefined;
 
     assignType: (

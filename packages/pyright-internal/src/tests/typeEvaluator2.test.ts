@@ -1279,12 +1279,6 @@ test('Protocol26', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Protocol27', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol27.py']);
-
-    TestUtils.validateResults(analysisResults, 4);
-});
-
 test('Protocol28', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol28.py']);
 
@@ -1409,6 +1403,18 @@ test('Protocol48', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol48.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('ProtocolExplicit1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit1.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('ProtocolExplicit3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit3.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('TypedDict1', () => {

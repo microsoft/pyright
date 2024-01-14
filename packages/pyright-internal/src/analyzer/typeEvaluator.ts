@@ -119,6 +119,7 @@ import {
     resolveAliasDeclaration as resolveAliasDeclarationUtil,
 } from './declarationUtils';
 import {
+    FunctionDecoratorInfo,
     addOverloadsToFunctionType,
     applyClassDecorator,
     applyFunctionDecorator,
@@ -160,7 +161,7 @@ import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbo
 import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { SpeculativeModeOptions, SpeculativeTypeTracker } from './typeCacheUtils';
 import {
-    AbstractMethod,
+    AbstractSymbol,
     AnnotationTypeOptions,
     ArgResult,
     CallResult,
@@ -9486,50 +9487,95 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         };
     }
 
-    function isMethodUnimplementedAbstract(functionType: FunctionType): boolean {
-        let isAbstract = false;
+    // Determines whether a symbol is abstract. In an ABC class, this means a function
+    // is specifically decorated with @abstractmethod. In a protocol class, the rules
+    // are more complicated and depend on whether the method is defined in a stub file.
+    function getAbstractSymbolInfo(classType: ClassType, symbolName: string): AbstractSymbol | undefined {
+        const isProtocolClass = ClassType.isProtocolClass(classType);
 
-        // If the function is part of a protocol, it's automatically considered abstract
-        // unless it's located in a stub, in which case it must be explicitly marked as
-        // abstract.
-        if (FunctionType.isAbstractMethod(functionType)) {
-            isAbstract = true;
-        } else if (
-            functionType.details.methodClass &&
-            ClassType.isProtocolClass(functionType.details.methodClass) &&
-            functionType.details.declaration &&
-            !AnalyzerNodeInfo.getFileInfo(functionType.details.declaration.node).isStubFile
-        ) {
-            isAbstract = true;
+        const symbol = classType.details.fields.get(symbolName);
+        if (!symbol) {
+            return undefined;
         }
 
-        if (!isAbstract) {
-            return false;
+        // Ignore instance variables. Also, ignore named tuple members, which are
+        // modeled in pyright as instance variables, but their runtime implementation
+        // uses a descriptor object.
+        if (!symbol.isClassMember() && !symbol.isNamedTupleMemberMember()) {
+            return undefined;
         }
 
-        // Determine if the method is unimplemented by looking at whether its
-        // body contains a "trivial" implementation.
-        let implementation: FunctionType | undefined = functionType;
+        const lastDecl = getLastTypedDeclaredForSymbol(symbol);
+        if (!lastDecl) {
+            return undefined;
+        }
 
-        // If this is an overloaded method, consider the implementation.
-        if (functionType.overloaded) {
-            implementation = OverloadedFunctionType.getImplementation(functionType.overloaded);
-
-            // If there is no implementation and it's in a stub file, assume it's not abstract.
-            if (!implementation) {
-                return (
-                    functionType.details.declaration !== undefined &&
-                    !AnalyzerNodeInfo.getFileInfo(functionType.details.declaration.node).isStubFile
-                );
+        // Handle protocol variables specially.
+        if (isProtocolClass && lastDecl.type === DeclarationType.Variable) {
+            // If none of the declarations involve assignments, assume it's
+            // not implemented in the protocol.
+            const allDecls = symbol.getDeclarations();
+            if (!allDecls.some((decl) => decl.type === DeclarationType.Variable && !!decl.inferredTypeSource)) {
+                return { symbol, symbolName, classType, hasImplementation: false };
             }
         }
 
-        if (!implementation.details.declaration) {
-            return false;
+        if (lastDecl.type !== DeclarationType.Function) {
+            return undefined;
         }
-        const decl = implementation.details.declaration;
 
-        return ParseTreeUtils.isSuiteEmpty(decl.node.suite) || methodAlwaysRaisesNotImplemented(decl);
+        let isAbstract = false;
+        const lastFunctionInfo = getFunctionInfoFromDecorators(evaluatorInterface, lastDecl.node, /* isInClass */ true);
+        if ((lastFunctionInfo.flags & FunctionTypeFlags.AbstractMethod) !== 0) {
+            isAbstract = true;
+        }
+
+        const isStubFile = AnalyzerNodeInfo.getFileInfo(lastDecl.node).isStubFile;
+
+        // In an overloaded method, the first overload can also be marked abstract.
+        // In stub files, there is no implementation, so this is the only way to mark
+        // an overloaded method as abstract.
+        const firstDecl = symbol.getDeclarations()[0];
+        let firstFunctionInfo: FunctionDecoratorInfo | undefined;
+
+        if (firstDecl !== lastDecl && firstDecl.type === DeclarationType.Function) {
+            firstFunctionInfo = getFunctionInfoFromDecorators(evaluatorInterface, firstDecl.node, /* isInClass */ true);
+            if ((firstFunctionInfo.flags & FunctionTypeFlags.AbstractMethod) !== 0) {
+                isAbstract = true;
+            }
+
+            // If there's no implementation, assume it's unimplemented.
+            if (isProtocolClass && (lastFunctionInfo.flags & FunctionTypeFlags.Overloaded) !== 0) {
+                // If this is a protocol class method defined in a stub file and
+                // it's not marked abstract, assume it's not abstract and implemented.
+                if (isProtocolClass && !isAbstract && isStubFile) {
+                    return undefined;
+                }
+
+                return { symbol, symbolName, classType, hasImplementation: false };
+            }
+        }
+
+        // In a non-protocol class, if the method isn't explicitly marked abstract,
+        // then it's not abstract.
+        if (!isProtocolClass && !isAbstract) {
+            return undefined;
+        }
+
+        const hasImplementation =
+            !ParseTreeUtils.isSuiteEmpty(lastDecl.node.suite) && !methodAlwaysRaisesNotImplemented(lastDecl);
+
+        // If this is a protocol class, the method isn't explicitly marked
+        // as abstract, and there is an implementation, then it's a default
+        // implementation, and it's not considered abstract. If it's in a stub
+        // file, assume it's implemented in this case.
+        if (isProtocolClass && !isAbstract) {
+            if (hasImplementation || isStubFile) {
+                return undefined;
+            }
+        }
+
+        return { symbol, symbolName, classType, hasImplementation };
     }
 
     function validateCallForOverloadedFunction(
@@ -9751,17 +9797,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (ClassType.supportsAbstractMethods(expandedCallType)) {
-            const abstractMethods = getAbstractMethods(expandedCallType);
-            if (abstractMethods.length > 0 && !expandedCallType.includeSubclasses && !isTypeVar(unexpandedCallType)) {
+            const abstractSymbols = getAbstractSymbols(expandedCallType);
+
+            if (abstractSymbols.length > 0 && !expandedCallType.includeSubclasses && !isTypeVar(unexpandedCallType)) {
                 // If the class is abstract, it can't be instantiated.
                 const diagAddendum = new DiagnosticAddendum();
                 const errorsToDisplay = 2;
 
-                abstractMethods.forEach((abstractMethod, index) => {
+                abstractSymbols.forEach((abstractMethod, index) => {
                     if (index === errorsToDisplay) {
                         diagAddendum.addMessage(
                             Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
-                                count: abstractMethods.length - errorsToDisplay,
+                                count: abstractSymbols.length - errorsToDisplay,
                             })
                         );
                     } else if (index < errorsToDisplay) {
@@ -11233,15 +11280,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeCondition = getTypeCondition(type);
 
         // Check for an attempt to invoke an unimplemented abstract method.
-        if (type.boundToType && !type.boundToType.includeSubclasses && isMethodUnimplementedAbstract(type)) {
-            addDiagnostic(
-                AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.abstractMethodInvocation().format({
-                    method: type.details.name,
-                }),
-                errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode
-            );
+        if (type.boundToType && !type.boundToType.includeSubclasses && type.details.methodClass) {
+            const abstractSymbolInfo = getAbstractSymbolInfo(type.details.methodClass, type.details.name);
+
+            if (abstractSymbolInfo && !abstractSymbolInfo.hasImplementation) {
+                addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.abstractMethodInvocation().format({
+                        method: type.details.name,
+                    }),
+                    errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode
+                );
+            }
         }
 
         if (type.boundTypeVarScopeId) {
@@ -26125,62 +26176,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
-    function getAbstractMethods(classType: ClassType): AbstractMethod[] {
-        const symbolTable = new Map<string, AbstractMethod>();
+    // Returns a list of unimplemented abstract symbols (methods or variables) for
+    // the specified class.
+    function getAbstractSymbols(classType: ClassType): AbstractSymbol[] {
+        const symbolTable = new Map<string, AbstractSymbol>();
 
         ClassType.getReverseMro(classType).forEach((mroClass) => {
             if (isInstantiableClass(mroClass)) {
-                // See if this class is introducing a new abstract method that has not been
-                // introduced previously or if it is overriding an abstract method with
+                // See if this class is introducing a new abstract symbol that has not been
+                // introduced previously or if it is overriding an abstract symbol with
                 // a non-abstract one.
                 mroClass.details.fields.forEach((symbol, symbolName) => {
-                    // We do a quick-and-dirty evaluation of methods based on
-                    // decorators to determine which ones are abstract. This allows
-                    // us to avoid evaluating the full function types.
-                    // Handle named tuple fields as though they are class members here.
-                    // We model them as instance variables, but they're actually implemented
-                    // using class variable descriptors, and these overwrite a class variable
-                    // abstract method.
-                    if (symbol.isClassMember() || symbol.isNamedTupleMemberMember()) {
-                        let isAbstract: boolean;
+                    const abstractSymbolInfo = getAbstractSymbolInfo(mroClass, symbolName);
 
-                        const decl = getLastTypedDeclaredForSymbol(symbol);
-                        if (decl && decl.type === DeclarationType.Function) {
-                            const functionFlags = getFunctionInfoFromDecorators(
-                                evaluatorInterface,
-                                decl.node,
-                                true
-                            ).flags;
-                            isAbstract = !!(functionFlags & FunctionTypeFlags.AbstractMethod);
-                        } else {
-                            // If a symbol is overridden by a non-function, it is no longer
-                            // considered abstract. This can happen in some code, for example,
-                            // when a base class declares an abstract property and a subclass
-                            // "overrides" it with an instance variable.
-                            isAbstract = false;
-                        }
-
-                        if (isAbstract) {
-                            symbolTable.set(symbolName, {
-                                symbol,
-                                symbolName,
-                                classType: mroClass,
-                            });
-                        } else {
-                            symbolTable.delete(symbolName);
-                        }
+                    if (abstractSymbolInfo) {
+                        symbolTable.set(symbolName, abstractSymbolInfo);
+                    } else {
+                        symbolTable.delete(symbolName);
                     }
                 });
             }
         });
 
-        // Create a final list of methods that are abstract.
-        const methodList: AbstractMethod[] = [];
+        // Create a final list of symbols that are abstract.
+        const symbolList: AbstractSymbol[] = [];
         symbolTable.forEach((method) => {
-            methodList.push(method);
+            symbolList.push(method);
         });
 
-        return methodList;
+        return symbolList;
     }
 
     // If the memberType is an instance or class method, creates a new
@@ -26658,7 +26682,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getTypeOfMagicMethodCall,
         bindFunctionToClassOrObject,
         getCallSignatureInfo,
-        getAbstractMethods,
+        getAbstractSymbols,
         narrowConstrainedTypeVar,
         assignType,
         validateOverrideMethod,
