@@ -6098,7 +6098,9 @@ export class Checker extends ParseTreeWalker {
             if (reportFinalMethodOverride) {
                 const decl = getLastTypedDeclaredForSymbol(overrideSymbol);
                 if (decl && decl.type === DeclarationType.Function) {
-                    const diag = this._evaluator.addError(
+                    const diag = this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
+                        DiagnosticRule.reportIncompatibleMethodOverride,
                         Localizer.Diagnostic.finalMethodOverride().format({
                             name: memberName,
                             className: baseClass.details.name,
