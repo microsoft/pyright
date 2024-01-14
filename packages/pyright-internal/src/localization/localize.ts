@@ -629,7 +629,6 @@ export namespace Localizer {
             );
         export const methodReturnsNonObject = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.methodReturnsNonObject'));
-        export const missingProtocolMembers = () => getRawString('Diagnostic.missingProtocolMembers');
         export const missingSuperCall = () =>
             new ParameterizedString<{ methodName: string }>(getRawString('Diagnostic.missingSuperCall'));
         export const moduleAsType = () => getRawString('Diagnostic.moduleAsType');
@@ -1298,10 +1297,6 @@ export namespace Localizer {
         export const metaclassConflict = () =>
             new ParameterizedString<{ metaclass1: string; metaclass2: string }>(
                 getRawString('DiagnosticAddendum.metaclassConflict')
-            );
-        export const missingProtocolMember = () =>
-            new ParameterizedString<{ name: string; classType: string }>(
-                getRawString('DiagnosticAddendum.missingProtocolMember')
             );
         export const missingGetter = () => getRawString('DiagnosticAddendum.missingGetter');
         export const missingSetter = () => getRawString('DiagnosticAddendum.missingSetter');

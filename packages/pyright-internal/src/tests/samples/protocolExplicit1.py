@@ -3,7 +3,7 @@
 # and functions defined in the protocol.
 
 from abc import ABC, abstractmethod
-from typing import ClassVar, Protocol
+from typing import ClassVar, Protocol, final
 
 
 class Protocol1(Protocol):
@@ -26,9 +26,12 @@ class Protocol3(Protocol2, Protocol):
     cm11: int
 
 
-# This should generate an error.
 class Concrete1(Protocol1):
     ...
+
+
+# This should generate an error because some attributes are not implemented.
+Concrete1()
 
 
 class Concrete2(Protocol1):
@@ -36,12 +39,18 @@ class Concrete2(Protocol1):
     im1 = 0
 
 
-# This should generate an error.
+Concrete2()
+
+
 class Concrete3(Protocol1, Protocol3):
     cm1 = 3
 
     def __init__(self):
         im1 = 0
+
+
+# This should generate an error.
+Concrete3()
 
 
 class Concrete4(Protocol1, Protocol3):
@@ -54,13 +63,17 @@ class Concrete4(Protocol1, Protocol3):
         self.cm11 = 3
 
 
+Concrete4()
+
+
 class Protocol5(Protocol):
-    def foo(self) -> int:
+    def method1(self) -> int:
         ...
 
 
-# This should generate an error because "foo" is
-# not implemented.
+# This should generate an error because "method1" is
+# not implemented and it is marked final.
+@final
 class Concrete5(Protocol5):
     pass
 
@@ -73,6 +86,7 @@ class Mixin:
     x = 3
 
 
+@final
 class Concrete6(Mixin, Protocol6):
     pass
 
@@ -85,14 +99,16 @@ class Protocol7(Protocol):
 
 class Mixin7(Protocol7, ABC):
     def method1(self):
-        print("foo")
+        pass
 
 
 # This should generate an error because it
-# does not implement method1.
+# does not implement method1 and is marked final.
+@final
 class Concrete7A(Protocol7):
     pass
 
 
+@final
 class Concrete7B(Mixin7, Protocol7):
     pass

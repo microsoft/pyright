@@ -50,7 +50,7 @@ import {
     isOverloadedFunction,
 } from './types';
 
-interface FunctionDecoratorInfo {
+export interface FunctionDecoratorInfo {
     flags: FunctionTypeFlags;
     deprecationMessage: string | undefined;
 }
