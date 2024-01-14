@@ -5,7 +5,7 @@
 from typing import Generic, Protocol, Tuple, TypeVar
 
 
-T = TypeVar("T")
+T = TypeVar("T", covariant=True)
 
 
 class A(Protocol[T]):

@@ -231,6 +231,10 @@ export const enum AssignTypeFlags {
     // but a few of them are allowed in the context of an isinstance
     // or issubclass call.
     AllowIsinstanceSpecialForms = 1 << 15,
+
+    // When comparing two methods, skip the type check for the "self" or "cls"
+    // parameters. This is used for variance inference and validation.
+    IgnoreSelfClsParamCompatibility = 1 << 16,
 }
 
 export interface ApplyTypeVarOptions {

@@ -101,3 +101,12 @@ class Protocol10(Protocol[_T1_co]):
 
 class Protocol11(Protocol[_T1]):
     x: _T1 | None
+
+
+class Protocol12(Protocol[_T1_contra]):
+    def m1(self: "Protocol12[_T1_contra]", x: _T1_contra) -> None:
+        ...
+
+    @classmethod
+    def m2(cls: "type[Protocol12[_T1_contra]]") -> None:
+        ...

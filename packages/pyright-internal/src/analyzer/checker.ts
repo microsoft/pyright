@@ -5140,12 +5140,6 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        // Replace all of the type parameters with invariant TypeVars.
-        const updatedTypeParams = classType.details.typeParameters.map((typeParam) =>
-            TypeVarType.cloneAsInvariant(typeParam)
-        );
-        const updatedClassType = ClassType.cloneWithNewTypeParameters(classType, updatedTypeParams);
-
         const objectObject = ClassType.cloneAsInstance(objectType);
         const dummyTypeObject = ClassType.createInstantiable(
             '__varianceDummy',
@@ -5158,7 +5152,7 @@ export class Checker extends ParseTreeWalker {
             undefined
         );
 
-        updatedTypeParams.forEach((param, paramIndex) => {
+        classType.details.typeParameters.forEach((param, paramIndex) => {
             // Skip variadics and ParamSpecs.
             if (param.details.isVariadic || param.details.isParamSpec) {
                 return;
@@ -5171,7 +5165,7 @@ export class Checker extends ParseTreeWalker {
 
             // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with an object instance.
-            const srcTypeArgs = updatedTypeParams.map((p, i) => {
+            const srcTypeArgs = classType.details.typeParameters.map((p, i) => {
                 if (p.details.isVariadic) {
                     return p;
                 }
@@ -5180,28 +5174,24 @@ export class Checker extends ParseTreeWalker {
 
             // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with itself.
-            const destTypeArgs = updatedTypeParams.map((p, i) => {
+            const destTypeArgs = classType.details.typeParameters.map((p, i) => {
                 return i === paramIndex || p.details.isVariadic ? p : dummyTypeObject;
             });
 
-            const srcType = ClassType.cloneForSpecialization(
-                updatedClassType,
-                srcTypeArgs,
-                /* isTypeArgumentExplicit */ true
-            );
+            const srcType = ClassType.cloneForSpecialization(classType, srcTypeArgs, /* isTypeArgumentExplicit */ true);
             const destType = ClassType.cloneForSpecialization(
-                updatedClassType,
+                classType,
                 destTypeArgs,
                 /* isTypeArgumentExplicit */ true
             );
 
-            const isDestSubtypeOfSrc = this._evaluator.assignClassToSelf(srcType, destType);
+            const isDestSubtypeOfSrc = this._evaluator.assignClassToSelf(srcType, destType, Variance.Covariant);
 
             let expectedVariance: Variance;
             if (isDestSubtypeOfSrc) {
                 expectedVariance = Variance.Covariant;
             } else {
-                const isSrcSubtypeOfDest = this._evaluator.assignClassToSelf(destType, srcType);
+                const isSrcSubtypeOfDest = this._evaluator.assignClassToSelf(destType, srcType, Variance.Contravariant);
                 if (isSrcSubtypeOfDest) {
                     expectedVariance = Variance.Contravariant;
                 } else {
