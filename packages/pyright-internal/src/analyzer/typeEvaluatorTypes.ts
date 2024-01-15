@@ -12,6 +12,7 @@ import { CancellationToken } from 'vscode-languageserver-protocol';
 import { DiagnosticLevel } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';
 import {
     ArgumentCategory,
@@ -37,6 +38,8 @@ import * as DeclarationUtils from './declarationUtils';
 import { SymbolWithScope } from './scope';
 import { Symbol } from './symbol';
 import { PrintTypeFlags } from './typePrinter';
+import { AssignTypeFlags, ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
+import { TypeVarContext } from './typeVarContext';
 import {
     AnyType,
     ClassType,
@@ -49,8 +52,6 @@ import {
     UnknownType,
     Variance,
 } from './types';
-import { AssignTypeFlags, ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 
 // Maximum number of unioned subtypes for an inferred type (e.g.
 // a list) before the type is considered an "Any".
@@ -638,8 +639,7 @@ export interface TypeEvaluator {
     addDeprecated: (message: string, node: ParseNode) => void;
 
     addDiagnostic: (
-        diagLevel: DiagnosticLevel,
-        rule: string,
+        rule: DiagnosticRule,
         message: string,
         node: ParseNode,
         range?: TextRange
@@ -647,7 +647,7 @@ export interface TypeEvaluator {
     addDiagnosticForTextRange: (
         fileInfo: AnalyzerFileInfo,
         diagLevel: DiagnosticLevel,
-        rule: string,
+        rule: DiagnosticRule | '',
         message: string,
         range: TextRange
     ) => Diagnostic | undefined;

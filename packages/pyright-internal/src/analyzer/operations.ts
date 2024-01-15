@@ -11,7 +11,7 @@
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { PythonVersion } from '../common/pythonVersion';
-import { Localizer } from '../localization/localize';
+import { LocMessage } from '../localization/localize';
 import {
     AugmentedAssignmentNode,
     BinaryOperationNode,
@@ -203,7 +203,7 @@ export function validateBinaryOperation(
 
                             if (!returnType) {
                                 diag.addMessage(
-                                    Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                                    LocMessage.typeNotSupportBinaryOperator().format({
                                         operator: printOperator(operator),
                                         leftType: evaluator.printType(leftSubtype),
                                         rightType: evaluator.printType(rightSubtypeExpanded),
@@ -466,7 +466,7 @@ export function validateBinaryOperation(
                             if (!resultType) {
                                 if (inferenceContext) {
                                     diag.addMessage(
-                                        Localizer.Diagnostic.typeNotSupportBinaryOperatorBidirectional().format({
+                                        LocMessage.typeNotSupportBinaryOperatorBidirectional().format({
                                             operator: printOperator(operator),
                                             leftType: evaluator.printType(leftSubtypeExpanded),
                                             rightType: evaluator.printType(rightSubtypeExpanded),
@@ -475,7 +475,7 @@ export function validateBinaryOperation(
                                     );
                                 } else {
                                     diag.addMessage(
-                                        Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                                        LocMessage.typeNotSupportBinaryOperator().format({
                                             operator: printOperator(operator),
                                             leftType: evaluator.printType(leftSubtypeExpanded),
                                             rightType: evaluator.printType(rightSubtypeExpanded),
@@ -613,9 +613,8 @@ export function getTypeOfBinaryOperation(
                 // is an illegal syntax or a valid application of the "|" operator.
                 if (!isAnyOrUnknown(adjustedLeftType)) {
                     evaluator.addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.unionSyntaxIllegal(),
+                        LocMessage.unionSyntaxIllegal(),
                         node,
                         node.operatorToken
                     );
@@ -681,9 +680,8 @@ export function getTypeOfBinaryOperation(
 
                     if (!isAllowed) {
                         evaluator.addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.unionForwardReferenceNotAllowed(),
+                            LocMessage.unionForwardReferenceNotAllowed(),
                             stringNode
                         );
                     }
@@ -698,9 +696,8 @@ export function getTypeOfBinaryOperation(
         // Exempt "|" because it might be a union operation involving unknowns.
         if (node.operator !== OperatorType.BitwiseOr) {
             evaluator.addDiagnostic(
-                getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.binaryOperationNotAllowed(),
+                LocMessage.binaryOperationNotAllowed(),
                 node
             );
             return { type: UnknownType.create() };
@@ -751,17 +748,14 @@ export function getTypeOfBinaryOperation(
         typeErrors = true;
 
         if (!isIncomplete) {
-            const fileInfo = getFileInfo(node);
-
             if (isLeftOptionalType && diag.getMessages().length === 1) {
                 // If the left was an optional type and there is just one diagnostic,
                 // assume that it was due to a "None" not being supported. Report
                 // this as a reportOptionalOperand diagnostic rather than a
                 // reportGeneralTypeIssues diagnostic.
                 evaluator.addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportOptionalOperand,
                     DiagnosticRule.reportOptionalOperand,
-                    Localizer.Diagnostic.noneOperator().format({
+                    LocMessage.noneOperator().format({
                         operator: printOperator(node.operator),
                     }),
                     node.leftExpression
@@ -779,9 +773,8 @@ export function getTypeOfBinaryOperation(
                 }
 
                 evaluator.addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                    LocMessage.typeNotSupportBinaryOperator().format({
                         operator: printOperator(node.operator),
                         leftType: evaluator.printType(leftType),
                         rightType: evaluator.printType(rightType),
@@ -925,11 +918,9 @@ export function getTypeOfAugmentedAssignment(
         // assignment, fall back on the normal binary expression evaluator.
         if (!diag.isEmpty() || !type || isNever(type)) {
             if (!isIncomplete) {
-                const fileInfo = getFileInfo(node);
                 evaluator.addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                    LocMessage.typeNotSupportBinaryOperator().format({
                         operator: printOperator(node.operator),
                         leftType: evaluator.printType(leftType),
                         rightType: evaluator.printType(rightType),
@@ -961,12 +952,7 @@ export function getTypeOfUnaryOperation(
     inferenceContext: InferenceContext | undefined
 ): TypeResult {
     if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
-        evaluator.addDiagnostic(
-            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.unaryOperationNotAllowed(),
-            node
-        );
+        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.unaryOperationNotAllowed(), node);
         return { type: UnknownType.create() };
     }
 
@@ -992,9 +978,8 @@ export function getTypeOfUnaryOperation(
     if (node.operator !== OperatorType.Not) {
         if (isOptionalType(exprType)) {
             evaluator.addDiagnostic(
-                getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
                 DiagnosticRule.reportOptionalOperand,
-                Localizer.Diagnostic.noneOperator().format({
+                LocMessage.noneOperator().format({
                     operator: printOperator(node.operator),
                 }),
                 node.expression
@@ -1045,13 +1030,10 @@ export function getTypeOfUnaryOperation(
 
             if (!type) {
                 if (!isIncomplete) {
-                    const fileInfo = getFileInfo(node);
-
                     if (inferenceContext) {
                         evaluator.addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typeNotSupportUnaryOperatorBidirectional().format({
+                            LocMessage.typeNotSupportUnaryOperatorBidirectional().format({
                                 operator: printOperator(node.operator),
                                 type: evaluator.printType(exprType),
                                 expectedType: evaluator.printType(inferenceContext.expectedType),
@@ -1060,9 +1042,8 @@ export function getTypeOfUnaryOperation(
                         );
                     } else {
                         evaluator.addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typeNotSupportUnaryOperator().format({
+                            LocMessage.typeNotSupportUnaryOperator().format({
                                 operator: printOperator(node.operator),
                                 type: evaluator.printType(exprType),
                             }),
@@ -1088,12 +1069,7 @@ export function getTypeOfTernaryOperation(
     const fileInfo = getFileInfo(node);
 
     if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
-        evaluator.addDiagnostic(
-            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.ternaryNotAllowed(),
-            node
-        );
+        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.ternaryNotAllowed(), node);
         return { type: UnknownType.create() };
     }
 

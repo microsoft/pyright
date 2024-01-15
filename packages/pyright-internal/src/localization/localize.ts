@@ -1551,3 +1551,6 @@ export namespace Localizer {
         export const indexValueDetail = () => getRawString('Completion.indexValueDetail');
     }
 }
+
+export const LocMessage = Localizer.Diagnostic;
+export const LocAddendum = Localizer.DiagnosticAddendum;
