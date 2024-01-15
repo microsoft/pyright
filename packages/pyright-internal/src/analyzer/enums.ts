@@ -8,14 +8,7 @@
  */
 
 import { assert } from '../common/debug';
-import {
-    ArgumentCategory,
-    AssignmentNode,
-    ExpressionNode,
-    NameNode,
-    ParseNode,
-    ParseNodeType,
-} from '../parser/parseNodes';
+import { ArgumentCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { VariableDeclaration } from './declaration';
 import {
@@ -274,12 +267,13 @@ export function createEnumType(
 
 export function transformTypeForPossibleEnumClass(
     evaluator: TypeEvaluator,
-    node: NameNode,
+    statementNode: ParseNode,
+    nameNode: NameNode,
     getValueType: () => Type
 ): Type | undefined {
     // If the node is within a class that derives from the metaclass
     // "EnumMeta", we need to treat assignments differently.
-    const enclosingClassNode = getEnclosingClass(node, /* stopAtFunction */ true);
+    const enclosingClassNode = getEnclosingClass(statementNode, /* stopAtFunction */ true);
     if (!enclosingClassNode) {
         return undefined;
     }
@@ -299,31 +293,32 @@ export function transformTypeForPossibleEnumClass(
     let isMemberOfEnumeration = false;
     let isUnpackedTuple = false;
 
-    const assignmentNode = getParentNodeOfType(node, ParseNodeType.Assignment) as AssignmentNode | undefined;
-
-    if (assignmentNode && isNodeContainedWithin(node, assignmentNode.leftExpression)) {
+    if (
+        statementNode.nodeType === ParseNodeType.Assignment &&
+        isNodeContainedWithin(nameNode, statementNode.leftExpression)
+    ) {
         isMemberOfEnumeration = true;
 
-        if (getParentNodeOfType(node, ParseNodeType.Tuple)) {
+        if (getParentNodeOfType(nameNode, ParseNodeType.Tuple)) {
             isUnpackedTuple = true;
         }
     } else if (
-        getFileInfo(node).isStubFile &&
-        node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-        node.parent.valueExpression === node
+        getFileInfo(nameNode).isStubFile &&
+        nameNode.parent?.nodeType === ParseNodeType.TypeAnnotation &&
+        nameNode.parent.valueExpression === nameNode
     ) {
         isMemberOfEnumeration = true;
     }
 
     // The spec specifically excludes names that start and end with a single underscore.
     // This also includes dunder names.
-    if (isSingleDunderName(node.value)) {
-        isMemberOfEnumeration = false;
+    if (isSingleDunderName(nameNode.value)) {
+        return undefined;
     }
 
     // Specifically exclude "value" and "name". These are reserved by the enum metaclass.
-    if (node.value === 'name' || node.value === 'value') {
-        isMemberOfEnumeration = false;
+    if (nameNode.value === 'name' || nameNode.value === 'value') {
+        return undefined;
     }
 
     let valueType: Type;
@@ -348,7 +343,7 @@ export function transformTypeForPossibleEnumClass(
                 evaluator.getTypeOfIterator(
                     { type: valueType },
                     /* isAsync */ false,
-                    node,
+                    nameNode,
                     /* emitNotIterableError */ false
                 )?.type ?? UnknownType.create();
         }
@@ -356,26 +351,43 @@ export function transformTypeForPossibleEnumClass(
 
     // The spec excludes descriptors.
     if (isClassInstance(valueType) && valueType.details.fields.get('__get__')) {
-        isMemberOfEnumeration = false;
+        return undefined;
     }
 
     // The enum spec doesn't explicitly specify this, but it
     // appears that callables are excluded.
     if (!findSubtype(valueType, (subtype) => !isFunction(subtype) && !isOverloadedFunction(subtype))) {
-        isMemberOfEnumeration = false;
+        return undefined;
     }
 
-    if (isMemberOfEnumeration) {
-        const enumLiteral = new EnumLiteral(
-            enumClassInfo.classType.details.fullName,
-            enumClassInfo.classType.details.name,
-            node.value,
-            valueType
-        );
-        return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(enumClassInfo.classType, enumLiteral));
+    // Handle the Python 3.11 "enum.member()" and "enum.nonmember()" features.
+    if (isClassInstance(valueType) && ClassType.isBuiltIn(valueType)) {
+        if (valueType.details.fullName === 'enum.nonmember') {
+            return valueType.typeArguments && valueType.typeArguments.length > 0
+                ? valueType.typeArguments[0]
+                : UnknownType.create();
+        }
+
+        if (valueType.details.fullName === 'enum.member') {
+            valueType =
+                valueType.typeArguments && valueType.typeArguments.length > 0
+                    ? valueType.typeArguments[0]
+                    : UnknownType.create();
+            isMemberOfEnumeration = true;
+        }
     }
 
-    return undefined;
+    if (!isMemberOfEnumeration) {
+        return undefined;
+    }
+
+    const enumLiteral = new EnumLiteral(
+        enumClassInfo.classType.details.fullName,
+        enumClassInfo.classType.details.name,
+        nameNode.value,
+        valueType
+    );
+    return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(enumClassInfo.classType, enumLiteral));
 }
 
 export function isDeclInEnumClass(evaluator: TypeEvaluator, decl: VariableDeclaration): boolean {
