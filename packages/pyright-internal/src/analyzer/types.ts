@@ -1399,6 +1399,9 @@ export const enum FunctionTypeFlags {
 
     // Decorated with @override as defined in PEP 698.
     Overridden = 1 << 18,
+
+    // Decorated with @no_type_check.
+    NoTypeCheck = 1 << 19,
 }
 
 interface FunctionDetails {

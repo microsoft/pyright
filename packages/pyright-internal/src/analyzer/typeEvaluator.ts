@@ -3163,17 +3163,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        // Should we suppress this diagnostic because it's within an unannotated function?
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        if (!fileInfo.diagnosticRuleSet.analyzeUnannotatedFunctions) {
-            const containingFunction = ParseTreeUtils.getEnclosingFunction(node);
+        const containingFunction = ParseTreeUtils.getEnclosingFunction(node);
 
-            // Is the target node within the body of the function? If so, suppress the diagnostic.
-            if (
-                containingFunction &&
-                ParseTreeUtils.isUnannotatedFunction(containingFunction) &&
-                ParseTreeUtils.isNodeContainedWithin(node, containingFunction.suite)
-            ) {
+        if (containingFunction) {
+            // Should we suppress this diagnostic because it's within an unannotated function?
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+            if (!fileInfo.diagnosticRuleSet.analyzeUnannotatedFunctions) {
+                // Is the target node within the body of the function? If so, suppress the diagnostic.
+                if (
+                    ParseTreeUtils.isUnannotatedFunction(containingFunction) &&
+                    ParseTreeUtils.isNodeContainedWithin(node, containingFunction.suite)
+                ) {
+                    return undefined;
+                }
+            }
+
+            // Should we suppress this diagnostic because it's within a no_type_check function?
+            const containingClassNode = ParseTreeUtils.getEnclosingClass(containingFunction, /* stopAtFunction */ true);
+            const functionInfo = getFunctionInfoFromDecorators(
+                evaluatorInterface,
+                containingFunction,
+                !!containingClassNode
+            );
+
+            if ((functionInfo.flags & FunctionTypeFlags.NoTypeCheck) !== 0) {
                 return undefined;
             }
         }
@@ -17630,7 +17643,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (paramTypeNode) {
-                annotatedType = getTypeOfParameterAnnotation(paramTypeNode, param.category);
+                if ((functionInfo.flags & FunctionTypeFlags.NoTypeCheck) !== 0) {
+                    annotatedType = UnknownType.create();
+                } else {
+                    annotatedType = getTypeOfParameterAnnotation(paramTypeNode, param.category);
+                }
 
                 if (isVariadicTypeVar(annotatedType) && !annotatedType.isVariadicUnpacked) {
                     addError(

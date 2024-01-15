@@ -113,6 +113,8 @@ export function getFunctionInfoFromDecorators(
                 flags |= FunctionTypeFlags.Overridden;
             } else if (decoratorType.details.builtInName === 'type_check_only') {
                 flags |= FunctionTypeFlags.TypeCheckOnly;
+            } else if (decoratorType.details.builtInName === 'no_type_check') {
+                flags |= FunctionTypeFlags.NoTypeCheck;
             } else if (decoratorType.details.builtInName === 'overload') {
                 flags |= FunctionTypeFlags.Overloaded;
             }
