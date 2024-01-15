@@ -4,4 +4,4 @@ from basedpyright.run_node import run
 
 
 def main():
-    run("pyright")
+    run("index")

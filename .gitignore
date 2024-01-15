@@ -129,3 +129,6 @@ Thumbs.db
 .pyprojectx
 **/__pycache__
 /.venv/
+
+# js files copied into the basedpyright pypi package
+basedpyright/*.js

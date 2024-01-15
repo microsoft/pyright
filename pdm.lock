@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.1"
-content_hash = "sha256:0b9c9966076ff58276cd5fd44137149e910e8c762c4a8c89b02b788d01de9c7d"
+content_hash = "sha256:78b9fa5c4040a4e3e1fc3d7ea7abab7a61ee1eacce474f30ec4b68664df9f53e"
 
 [[package]]
 name = "astroid"
@@ -19,62 +19,6 @@ dependencies = [
 files = [
     {file = "astroid-3.0.2-py3-none-any.whl", hash = "sha256:d6e62862355f60e716164082d6b4b041d38e2a8cf1c7cd953ded5108bac8ff5c"},
     {file = "astroid-3.0.2.tar.gz", hash = "sha256:4a61cf0a59097c7bb52689b0fd63717cd2a8a14dc9f1eee97b82d814881c8c91"},
-]
-
-[[package]]
-name = "basedmypy"
-version = "2.3.0"
-requires_python = ">=3.8"
-summary = "Based static typing for Python"
-groups = ["dev"]
-dependencies = [
-    "basedtyping>=0.0.3",
-    "mypy-extensions>=1.0.0",
-    "tomli>=1.1.0; python_version < \"3.11\"",
-    "typing-extensions>=4.1.0",
-]
-files = [
-    {file = "basedmypy-2.3.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:c38ea60a186ec5b4e5800c6b30f0d27d907eaf025a647c5d376c6e12b85dadde"},
-    {file = "basedmypy-2.3.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:19f21c43cfe4e8617410a7460863477a1be35b6125b80cc767c1aa1df148de0c"},
-    {file = "basedmypy-2.3.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:70b6b752f40e1d21e17500cf8041cd756d430b82cbf4ffce1f1b5b46593f8ce1"},
-    {file = "basedmypy-2.3.0-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:32da5239645abc17c2773becb6e42bfebf63134ac31db528906e7e7e8ed7067c"},
-    {file = "basedmypy-2.3.0-cp310-cp310-win_amd64.whl", hash = "sha256:c3636e8d5a61124f2c2a262294ca0d97cc19245a677115ad99b90724087e6443"},
-    {file = "basedmypy-2.3.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:b40542cce22b9b84d59631f1c09556b82bc6ca96f075a527390055154b1197b3"},
-    {file = "basedmypy-2.3.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:47e5d1529eccd3d890c66c69f75601d629d2402334d729c94ab4a34dfde250d2"},
-    {file = "basedmypy-2.3.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d01ebdbc8c0fe55d4493388d00802fa46a8f9a131ab98fa8d068de599f09d484"},
-    {file = "basedmypy-2.3.0-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:5b882c8ccf24f3fb4df6c61357e58837dbfef177b235f818a5b258f41ff5b67e"},
-    {file = "basedmypy-2.3.0-cp311-cp311-win_amd64.whl", hash = "sha256:bc90c2b54c7948866699ffb7800c309f3d94ff6174b507ea63d775873a35b63e"},
-    {file = "basedmypy-2.3.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:d2a11517384ef58ac02cea60939ee8db9b948c3a19209d811ccd389ce229da32"},
-    {file = "basedmypy-2.3.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:6e8a3db700f6296ec4fdb3565c8f222d53f7e0f5756eec68ef42303862b8e5e0"},
-    {file = "basedmypy-2.3.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:95507d9f9c93b378f88990efba35a46ad99ff1452f4dae76cec87ab17212ef31"},
-    {file = "basedmypy-2.3.0-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:a19e0cba3573e9f4d3d8f59162e1412d8523fd10e250b53f28907367ec2372c9"},
-    {file = "basedmypy-2.3.0-cp312-cp312-win_amd64.whl", hash = "sha256:42cbad82650345b41f13d7a5d86141502c8384f13bcab087550d6cfb5f66fdfb"},
-    {file = "basedmypy-2.3.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:63d3621016dbfd568e464139326eb929532d18c597d6a6033c3f3f45c16f527c"},
-    {file = "basedmypy-2.3.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:8e69209909e454b42cd9337af89ad401207dc3dd315a180e3cc3e3905372d297"},
-    {file = "basedmypy-2.3.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:96f3f5bfb767b8110345e3c9b1122fc1841433b623fea7849c7ddfdaf82276fd"},
-    {file = "basedmypy-2.3.0-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:808309efb6a09004b1fe58eddcb337ba68c42a8cf0accda890d0dea203947f87"},
-    {file = "basedmypy-2.3.0-cp38-cp38-win_amd64.whl", hash = "sha256:b9847cc608b4581c1ff8d2364ca0afc014bc222f86d6f06645488352469a25b8"},
-    {file = "basedmypy-2.3.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:4109fad62459ecbd88097d8e5340afeda400ace34586c44d87d09b668f9d44d0"},
-    {file = "basedmypy-2.3.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:5d8805a62248002ff79ae95c63f06f8df9a18b6d15d2592b843dc351e14be778"},
-    {file = "basedmypy-2.3.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e1a724142bcbfe7dcf863457d100eec98ae9412b12f8422121c1708240f57dbd"},
-    {file = "basedmypy-2.3.0-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:9fd17acb3eb2da752460442ace69cb71adbb401434724258141770bb97d139fd"},
-    {file = "basedmypy-2.3.0-cp39-cp39-win_amd64.whl", hash = "sha256:1c5d471541a1f33dc6fc5e41876e07c0c42dcc93d400df2ab0abbc6d4e2340e8"},
-    {file = "basedmypy-2.3.0-py3-none-any.whl", hash = "sha256:8e36e6ad996203d3f524afb6c96adc4b33203d94f35ff8703790629f117675ee"},
-    {file = "basedmypy-2.3.0.tar.gz", hash = "sha256:0c4bafc220c65fb75ef6dcf9e44294ec7dbc317e385e96c57e40a8b4eccde4bc"},
-]
-
-[[package]]
-name = "basedtyping"
-version = "0.1.3"
-requires_python = ">=3.8,<4.0"
-summary = "Utilities for basedmypy"
-groups = ["dev"]
-dependencies = [
-    "typing-extensions<5.0,>=4.1",
-]
-files = [
-    {file = "basedtyping-0.1.3-py3-none-any.whl", hash = "sha256:cf5b27ba62b463bd8931098194b8c27baf7a28d72421c7b8382a60380d82fa08"},
-    {file = "basedtyping-0.1.3.tar.gz", hash = "sha256:0e89fb79fbcc124898de6990267c0600fb0506ce2f1f4e8de9999a798a375962"},
 ]
 
 [[package]]
@@ -315,6 +259,7 @@ version = "4.9.0"
 requires_python = ">=3.8"
 summary = "Backported and Experimental Type Hints for Python 3.8+"
 groups = ["dev"]
+marker = "python_version < \"3.11\""
 files = [
     {file = "typing_extensions-4.9.0-py3-none-any.whl", hash = "sha256:af72aea155e91adfc61c3ae9e0e342dbc0cba726d6cba4b6c72c1f34e47291cd"},
     {file = "typing_extensions-4.9.0.tar.gz", hash = "sha256:23478f88c37f27d76ac8aee6c905017a143b0b1b886c3c9f66bc2fd94f9f5783"},

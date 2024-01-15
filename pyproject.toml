@@ -8,13 +8,16 @@ package-type = "library"
 dev = ["black>=23", "pylint>=3.0.0a7", "ruff>=0.0.290"]
 
 [tool.pdm.version]
-source = "file"
-path = "__init__.py"
+source = "call"
+getter = "dynamic_info:get_version"
+
+[tool.pdm.description]
+source = "call"
+getter = "dynamic_info:get_description"
 
 [project]
 name = "basedpyright"
-dynamic = ["version"]
-description = "Default template for PDM package"
+dynamic = ["version", "description"]
 authors = [
     { name = "detachhead", email = "detachhead@users.noreply.github.com" },
 ]
@@ -245,6 +248,8 @@ max-line-length = 200
 [tool.pyright]
 pythonVersion = "3.8"
 pythonPlatform = "All"
+include = ["basedpyright", "dynamic_info.py", "pdm_build.py"]
+exclude = ['basedpyright/dist']
 reportMissingTypeStubs = false
 strictListInference = true
 strictDictionaryInference = true
@@ -291,7 +296,7 @@ reportUnnecessaryComparison = true
 reportUnnecessaryContains = true
 reportAssertAlwaysTrue = true
 reportSelfClsParameterName = true
-reportImplicitStringConcatenation = false  # conflicts with black
+reportImplicitStringConcatenation = false                     # conflicts with black
 reportInvalidStubStatement = true
 reportIncompleteStub = true
 reportUnsupportedDunderAll = true
