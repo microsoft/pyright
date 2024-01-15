@@ -6,7 +6,7 @@
   "command": {
     "version": {
       "push": false,
-      "tagVersionPrefix": "",
+      "tagVersionPrefix": "v",
       "message": "Published basedpyright %s"
     }
   }
