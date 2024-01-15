@@ -40,6 +40,86 @@
                     }
                 }
             }
+        },
+        {
+          "label": "pdm install requirements",
+          "type": "shell",
+          "command": "./pw",
+          "args": ["install"],
+          "presentation": {
+            "clear": true
+          },
+          "problemMatcher": []
+        },
+        {
+          "label": "pdm update lockfile",
+          "type": "shell",
+          "command": "./pw",
+          "args": ["pdm", "update"],
+          "presentation": {
+            "clear": true
+          },
+          "problemMatcher": []
+        },
+        {
+          "label": "pdm refresh lockfile (no update)",
+          "type": "shell",
+          "command": "./pw",
+          "args": ["pdm", "lock", "--refresh"],
+          "presentation": {
+            "clear": true
+          },
+          "problemMatcher": []
+        },
+        {
+          "label": "basedmypy - all files",
+          "type": "shell",
+          "command": "./pw",
+          "args": ["pdm", "run", "mypy_all"],
+          "presentation": {
+            "clear": true
+          },
+          "problemMatcher": []
+        },
+        {
+          "label": "ruff - all files",
+          "type": "shell",
+          "command": "${command:python.interpreterPath}",
+          "args": ["-m", "ruff", "."],
+          "presentation": {
+            "clear": true
+          },
+          "problemMatcher": []
+        },
+        {
+          "label": "ruff fix - all files",
+          "type": "shell",
+          "command": "${command:python.interpreterPath}",
+          "args": ["-m", "ruff", "--fix", "."],
+          "presentation": {
+            "clear": true
+          },
+          "problemMatcher": []
+        },
+        {
+          "label": "pylint - all files",
+          "type": "shell",
+          "command": "${command:python.interpreterPath}",
+          "args": ["-m", "pylint", "basedpyright", "tests"],
+          "presentation": {
+            "clear": true
+          },
+          "problemMatcher": []
+        },
+        {
+          "label": "black - all files",
+          "type": "shell",
+          "command": "${command:python.interpreterPath}",
+          "args": ["-m", "black", "--color", "."],
+          "presentation": {
+            "clear": true
+          },
+          "problemMatcher": []
         }
     ]
 }

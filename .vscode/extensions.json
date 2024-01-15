@@ -1,6 +1,16 @@
 {
     "recommendations": [
         "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode"
+        "esbenp.prettier-vscode",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.pylint",
+        "ms-python.black-formatter",
+        "ms-python.mypy-type-checker",
+        "charliermarsh.ruff",
+        "shd101wyy.markdown-preview-enhanced",
+        "mhutchie.git-graph",
+        "tamasfe.even-better-toml",
+        "redhat.vscode-yaml"
     ]
 }

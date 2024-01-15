@@ -124,5 +124,8 @@ junit.xml
 .DS_Store
 Thumbs.db
 
-# Potential venv
-.venv
+# python stuff
+.pdm-python
+.pyprojectx
+**/__pycache__
+/.venv/

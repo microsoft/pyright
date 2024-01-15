@@ -1,0 +1,318 @@
+[tool.pyprojectx]
+main = ["pdm"]
+
+[tool.pdm]
+package-type = "library"
+
+[project]
+name = "basedpyright"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    { name = "detachhead", email = "detachhead@users.noreply.github.com" },
+]
+dependencies = ["nodejs-bin>=18.4.0a4"]
+requires-python = ">=3.8"
+readme = "README.md"
+license = { text = "MIT" }
+
+[project.urls]
+repository = "https://github.com/detachhead/basedpyright"
+
+[project.scripts]
+pyright = 'basedpyright.pyright:main'
+pyright-langserver = 'basedpyright.langserver:main'
+
+[build-system]
+requires = ["pdm-backend", "nodejs-bin>=18.4.0a4"]
+build-backend = "pdm.backend"
+
+[tool.pdm.dev-dependencies]
+lint = ["black>=23", "basedmypy>=2.1", "pylint>=3.0.0a7", "ruff>=0.0.290"]
+
+[tool.black]
+target-version = ["py38"]
+skip-magic-trailing-comma = true
+preview = true
+force-exclude = "pw"
+
+[tool.pylint.MASTER]
+fail-on = "I"
+bad-names = ["foo", "bar", "baz", "retval"]
+load-plugins = [
+    # we don't use all of these but enabling them all for completeness since there's no error if a rule is not found
+    "pylint.extensions.bad_builtin",
+    "pylint.extensions.broad_try_caluse",
+    "pylint.extensions.check_elif",
+    "pylint.extensions.code_style",
+    "pylint.extensions.comparetozero",
+    "pylint.extensions.comparison_placement",
+    "pylint.extensions.confusing_elif",
+    "pylint.extensions.consider_refactoring_into_while_condition",
+    "pylint.extensions.consider_ternary_expression",
+    "pylint.extensions.dict_init_mutate",
+    "pylint.extensions.docparams",
+    "pylint.extensions.docstyle",
+    "pylint.extensions.dunder",
+    "pylint.extensions.empty_comment",
+    "pylint.extensions.emptystring",
+    "pylint.extensions.eq_without_hash",
+    "pylint.extensions.for_any_all",
+    "pylint.extensions.magic_value",
+    "pylint.extensions.no_self_use",
+    "pylint.extensions.overlapping_exceptions",
+    "pylint.extensions.private_import",
+    "pylint.extensions.redefined_loop_name",
+    "pylint.extensions.redefined_variable_type",
+    "pylint.extensions.set_membership",
+    "pylint.extensions.typing",
+    "pylint.extensions.while_used",
+]
+
+[tool.pylint."MESSAGE CONTROL"]
+disable = ["R", "C", "E", "F", "W", "I"]
+enable = [
+    "useless-suppression",
+    # rules that have not yet been implemented in ruff. once all of these are implemented in ruff, we should remove pylint
+    # (see https://github.com/astral-sh/ruff/issues/970):
+    "possibly-unused-variable",
+    "access-member-before-definition",
+    "assigning-non-slot",
+    "assignment-from-no-return",
+    "assignment-from-none",
+    "bad-except-order",
+    "bad-exception-cause",
+    "bad-reversed-sequence",
+    "bad-super-call",
+    "catching-non-exception",
+    "class-variable-slots-conflict",
+    "dict-iter-missing-items",
+    "inconsistent-mro",
+    "init-is-generator",
+    "invalid-bool-returned",
+    "invalid-bytes-returned",
+    "invalid-character-carriage-return",
+    "invalid-class-object",
+    "invalid-enum-extension",
+    "invalid-envvar-value",
+    "invalid-format-returned",
+    "invalid-getnewargs-ex-returned",
+    "invalid-getnewargs-returned",
+    "invalid-index-returned",
+    "invalid-length-hint-returned",
+    "invalid-length-returned",
+    "invalid-metaclass",
+    "invalid-repr-returned",
+    "invalid-sequence-index",
+    "invalid-slice-index",
+    "invalid-slice-step",
+    "invalid-slots",
+    "invalid-slots-object",
+    "invalid-star-assignment-target",
+    "invalid-str-returned",
+    "invalid-unary-operand-type",
+    "invalid-unicode-codec",
+    "logging-format-truncated",
+    "logging-unsupported-format",
+    "method-hidden",
+    "misplaced-format-function",
+    "missing-kwoa",
+    "modified-iterating-dict",
+    "modified-iterating-set",
+    "non-iterator-returned",
+    "nonlocal-and-global",
+    "not-a-mapping",
+    "not-async-context-manager",
+    "not-callable",
+    "not-context-manager",
+    "potential-index-error",
+    "raising-non-exception",
+    "redundant-keyword-arg",
+    "relative-beyond-top-level",
+    "singledispatch-method",
+    "singledispatchmethod-function",
+    "star-needs-assignment-target",
+    "unhashable-member",
+    "unpacking-non-sequence",
+    "unsupported-assignment-operation",
+    "unsupported-binary-operation",
+    "unsupported-delete-operation",
+    "abstract-method",
+    "anomalous-unicode-escape-in-string",
+    "arguments-out-of-order",
+    "arguments-renamed",
+    "attribute-defined-outside-init",
+    "bad-builtin",
+    "bad-indentation",
+    "bad-staticmethod-argument",
+    "bad-thread-instantiation",
+    "comparison-with-callable",
+    "confusing-with-statement",
+    "cyclic-import",
+    "deprecated-argument",
+    "deprecated-class",
+    "deprecated-decorator",
+    "deprecated-method",
+    "deprecated-module",
+    "differing-param-doc",
+    "differing-type-doc",
+    "global-variable-undefined",
+    "invalid-format-index",
+    "invalid-overridden-method",
+    "method-cache-max-size-none",
+    "missing-any-param-doc",
+    "missing-format-attribute",
+    "missing-param-doc",
+    "missing-parentheses-for-call-in-test",
+    "missing-raises-doc",
+    "missing-return-doc",
+    "missing-return-type-doc",
+    "missing-timeout",
+    "missing-yield-doc",
+    "missing-yield-type-doc",
+    "modified-iterating-list",
+    "multiple-constructor-doc",
+    "nan-comparison",
+    "non-ascii-file-name",
+    "non-parent-init-called",
+    "non-str-assignment-to-dunder-name",
+    "overlapping-except",
+    "overridden-final-method",
+    "preferred-module",
+    "raising-format-tuple",
+    "redeclared-assigned-name",
+    "redefined-outer-name",
+    "redefined-slots-in-subclass",
+    "redundant-returns-doc",
+    "redundant-unittest-assert",
+    "redundant-yields-doc",
+    "self-cls-assignment",
+    "shallow-copy-environ",
+    "signature-differs",
+    "super-init-not-called",
+    "unbalanced-dict-unpacking",
+    "unbalanced-tuple-unpacking",
+    "undefined-loop-variable",
+    "unnecessary-ellipsis",
+    "unreachable",
+    "unused-private-member",
+    "unused-wildcard-import",
+    "useless-param-doc",
+    "useless-parent-delegation",
+    "useless-type-doc",
+    "using-constant-test",
+    "using-final-decorator-in-unsupported-version",
+    "while-used",
+    "wrong-exception-operation",
+    "bad-file-encoding",
+    "bad-mcs-classmethod-argument",
+    "bad-mcs-method-argument",
+    "dict-init-mutate",
+    "invalid-characters-in-docstring",
+    "mixed-line-endings",
+    "superfluous-parens",
+    "unexpected-line-ending-format",
+    "use-implicit-booleaness-not-comparison",
+    "chained-comparison",
+    "condition-evals-to-constant",
+    "confusing-consecutive-elif",
+    "consider-swap-variables",
+    "consider-using-augmented-assign",
+    "consider-using-join",
+    "consider-using-max-builtin",
+    "consider-using-min-builtin",
+    "consider-using-namedtuple-or-dataclass",
+    "consider-using-tuple",
+    "simplifiable-condition",
+    "simplify-boolean-expression",
+    "stop-iteration-return",
+    "use-set-for-membership",
+    "useless-return",
+]
+
+[tool.pylint.REPORTS]
+reports = "no"
+output-format = "colorized"
+score = "no"
+
+[tool.pylint.FORMAT]
+max-line-length = 200
+
+[tool.mypy]
+allow_redefinition = false
+enable_error_code = "helpful-string"
+default_return = false               # enabled for our own code only as 3rd party code is not coompatible
+cache_dir = 'nul'                    # disable cache because it sucks
+
+[tool.pyright]
+# we dont use pyright for type checking, this is just for vscode import suggestions and reachability checks
+pythonVersion = "3.8"
+pythonPlatform = "All"
+
+[tool.ruff]
+unsafe-fixes = true
+extend-select = ["ALL"]
+ignore = [
+    "ANN",     # flake8-annotations (covered by mypy)
+    "COM",     # flake8-commas (covered by black)
+    "EM",      # flake8-errmsg
+    "FIX",     # flake8-fixme
+    "PLR0913", # Too many arguments to function call
+    "PLR0912", # Too many branches
+    "PLR0915", # Too many statements
+    "PLR2004", # Magic value used in comparison
+    "PLR1722", # Use `sys.exit()` instead of `exit`
+    "PLW2901", # `for` loop variable overwritten by assignment target
+    "PLE0605", # Invalid format for `__all__`, must be `tuple` or `list` (covered by mypy)
+    "PLR0911", # Too many return statements
+    "PLW0603", # Using the global statement is discouraged
+    "PLC0105", # `TypeVar` name does not reflect its covariance
+    "PLC0414", # Import alias does not rename original package (used by mypy for explicit re-export)
+    "RUF013",  # PEP 484 prohibits implicit Optional (covered by mypy)
+    "RUF016",  # Slice in indexed access to type (covered by mypy)
+    "TRY002",  # Create your own exception
+    "TRY003",  # Avoid specifying long messages outside the exception class
+    "D10",     # Missing docstring
+    "D203",    # 1 blank line required before class docstring
+    "D204",    # 1 blank line required after class docstring (handled by black)
+    "D205",    # 1 blank line required between summary line and description
+    "D209",    # Multi-line docstring closing quotes should be on a separate line
+    "D210",    # No whitespaces allowed surrounding docstring text (conflicts with black when docstring ends with quote (eg. """this is a "quote" """))
+    "D212",    # Multi-line docstring summary should start at the first line
+    "D213",    # Multi-line docstring summary should start at the second line
+    "D400",    # First line should end with a period
+    "D401",    # First line should be in imperative mood
+    "D403",    # First word of the first line should be properly capitalized
+    "D404",    # First word of the docstring should not be `This`
+    "D405",    # Section name should be properly capitalized
+    "D406",    # Section name should end with a newline
+    "D415",    # First line should end with a period, question mark, or exclamation point
+    "D418",    # Function/Method decorated with @overload shouldn't contain a docstring (vscode supports it)
+    "PT013",   # Found incorrect import of pytest, use simple import pytest instead (only for bad linters that can't check the qualname)
+    "TD002",   # Missing author in TODO
+    "PGH003",  # Use specific rule codes when ignoring type issues (covered by mypy)
+    "E701",    # Multiple statements on one line (sometimes conflicts with black)
+    "CPY001",  # missing-copyright-notice
+    "C901",    # max-complexity
+]
+target-version = "py38"
+respect-gitignore = true
+line-length = 100
+preview = true
+extend-exclude = ["pw"]
+
+[tool.ruff.pycodestyle]
+ignore-overlong-task-comments = true
+
+[tool.ruff.flake8-pytest-style]
+# not including the parenthesis causes Any expression in mypy
+fixture-parentheses = true
+
+[tool.ruff.per-file-ignores]
+"*.pyi" = ["A001", "A002", "N"] # we don't control names in 3rd party modules
+"tests/**/*.py" = [
+    "S101", # Use of assert detected (pytest uses assert statements)
+]
+[tool.ruff.isort]
+combine-as-imports = true
+required-imports = ["from __future__ import annotations"]
