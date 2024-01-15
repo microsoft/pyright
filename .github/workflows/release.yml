@@ -9,6 +9,23 @@ env:
   NODE_VERSION: '16' # Shipped with VS Code.
 
 jobs:
+  publish_pypi:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      packages: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Get npm cache directory
+        id: npm-cache
+        run: |
+          echo "::set-output name=dir::$(npm config get cache)"
+
+      - run: ./pw pdm publish
+
   publish_extension:
     runs-on: ubuntu-latest
     name: Publish extension to marketplace
