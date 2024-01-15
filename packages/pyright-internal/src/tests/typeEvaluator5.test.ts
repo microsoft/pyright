@@ -369,3 +369,8 @@ test('TypeCheckOnly1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeCheckOnly1.py']);
     TestUtils.validateResults(analysisResults, 4);
 });
+
+test('NoTypeCheck1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['noTypeCheck1.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});
