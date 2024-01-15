@@ -944,6 +944,12 @@ test('Enum8', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Enum9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum9.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('EnumAuto1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enumAuto1.py']);
 

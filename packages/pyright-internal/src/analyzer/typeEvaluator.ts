@@ -15922,6 +15922,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     rightHandType =
                         transformTypeForPossibleEnumClass(
                             evaluatorInterface,
+                            node,
                             node.leftExpression,
                             () => rightHandType!
                         ) ?? rightHandType;
@@ -17455,6 +17456,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 decoratedType = newDecoratedType;
             }
         }
+
+        // In case this is an enum class and a method wrapped in an enum.member.
+        decoratedType =
+            transformTypeForPossibleEnumClass(evaluatorInterface, node, node.name, () => decoratedType!) ??
+            decoratedType;
 
         // See if there are any overloads provided by previous function declarations.
         if (isFunction(decoratedType)) {
@@ -20832,12 +20838,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (declaredType) {
                         // Apply enum transform if appropriate.
                         if (declaration.node.nodeType === ParseNodeType.Name) {
-                            declaredType =
-                                transformTypeForPossibleEnumClass(
-                                    evaluatorInterface,
-                                    declaration.node,
-                                    () => declaredType!
-                                ) ?? declaredType;
+                            const variableNode =
+                                ParseTreeUtils.getParentNodeOfType(declaration.node, ParseNodeType.Assignment) ??
+                                ParseTreeUtils.getParentNodeOfType(declaration.node, ParseNodeType.TypeAnnotation);
+
+                            if (variableNode) {
+                                declaredType =
+                                    transformTypeForPossibleEnumClass(
+                                        evaluatorInterface,
+                                        variableNode,
+                                        declaration.node,
+                                        () => declaredType!
+                                    ) ?? declaredType;
+                            }
                         }
 
                         if (isClassInstance(declaredType) && ClassType.isBuiltIn(declaredType, 'TypeAlias')) {
@@ -21150,18 +21163,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             })?.type;
 
             if (inferredType && resolvedDecl.node.nodeType === ParseNodeType.Name) {
-                // See if this is an enum member. If so, we need to handle it as a special case.
-                const enumMemberType = transformTypeForPossibleEnumClass(evaluatorInterface, resolvedDecl.node, () => {
-                    assert(resolvedDecl.inferredTypeSource !== undefined);
-                    const inferredTypeSource = resolvedDecl.inferredTypeSource;
-                    return (
-                        evaluateTypeForSubnode(inferredTypeSource, () => {
-                            evaluateTypesForStatement(inferredTypeSource);
-                        })?.type ?? UnknownType.create()
+                const variableNode =
+                    ParseTreeUtils.getParentNodeOfType(resolvedDecl.node, ParseNodeType.Assignment) ??
+                    ParseTreeUtils.getParentNodeOfType(resolvedDecl.node, ParseNodeType.TypeAnnotation);
+
+                if (variableNode) {
+                    // See if this is an enum member. If so, we need to handle it as a special case.
+                    const enumMemberType = transformTypeForPossibleEnumClass(
+                        evaluatorInterface,
+                        variableNode,
+                        resolvedDecl.node,
+                        () => {
+                            assert(resolvedDecl.inferredTypeSource !== undefined);
+                            const inferredTypeSource = resolvedDecl.inferredTypeSource;
+                            return (
+                                evaluateTypeForSubnode(inferredTypeSource, () => {
+                                    evaluateTypesForStatement(inferredTypeSource);
+                                })?.type ?? UnknownType.create()
+                            );
+                        }
                     );
-                });
-                if (enumMemberType) {
-                    inferredType = enumMemberType;
+
+                    if (enumMemberType) {
+                        inferredType = enumMemberType;
+                    }
                 }
             }
 
