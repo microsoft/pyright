@@ -23,6 +23,7 @@ import { AnalyzerService } from './analyzer/service';
 import { ChokidarFileWatcherProvider } from './common/chokidarFileWatcherProvider';
 import { CommandLineOptions as PyrightCommandLineOptions } from './common/commandLineOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, StderrConsole } from './common/console';
+import { fail } from './common/debug';
 import { createDeferred } from './common/deferred';
 import { Diagnostic, DiagnosticCategory, compareDiagnostics } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
