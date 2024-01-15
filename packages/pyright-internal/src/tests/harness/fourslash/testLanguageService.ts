@@ -97,6 +97,7 @@ export class TestLanguageService implements LanguageServerInterface {
                 fileSystem: this.fs,
             }),
             disableLanguageServices: false,
+            disableTaggedHints: false,
             disableOrganizeImports: false,
             disableWorkspaceSymbol: false,
             isInitialized: createInitStatus(),
@@ -125,6 +126,7 @@ export class TestLanguageService implements LanguageServerInterface {
             openFilesOnly: this._workspace.service.getConfigOptions().checkOnlyOpenFiles,
             useLibraryCodeForTypes: this._workspace.service.getConfigOptions().useLibraryCodeForTypes,
             disableLanguageServices: this._workspace.disableLanguageServices,
+            disableTaggedHints: this._workspace.disableTaggedHints,
             autoImportCompletions: this._workspace.service.getConfigOptions().autoImportCompletions,
             functionSignatureDisplay: this._workspace.service.getConfigOptions().functionSignatureDisplay,
         };

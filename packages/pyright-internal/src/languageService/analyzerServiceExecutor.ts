@@ -67,6 +67,7 @@ export class AnalyzerServiceExecutor {
                 options.fileSystem
             ),
             disableLanguageServices: true,
+            disableTaggedHints: true,
             disableOrganizeImports: true,
             disableWorkspaceSymbol: true,
             isInitialized: createInitStatus(),
@@ -103,6 +104,7 @@ function getEffectiveCommandLineOptions(
     commandLineOptions.typeEvaluationTimeThreshold = serverSettings.typeEvaluationTimeThreshold ?? 50;
     commandLineOptions.enableAmbientAnalysis = trackFiles;
     commandLineOptions.pythonEnvironmentName = pythonEnvironmentName;
+    commandLineOptions.disableTaggedHints = serverSettings.disableTaggedHints;
 
     if (!trackFiles) {
         commandLineOptions.watchForSourceChanges = false;

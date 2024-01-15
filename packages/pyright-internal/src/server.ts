@@ -91,6 +91,7 @@ export class PyrightServer extends LanguageServerBase {
             openFilesOnly: true,
             useLibraryCodeForTypes: true,
             disableLanguageServices: false,
+            disableTaggedHints: false,
             disableOrganizeImports: false,
             typeCheckingMode: 'standard',
             diagnosticSeverityOverrides: {},
@@ -205,6 +206,7 @@ export class PyrightServer extends LanguageServerBase {
                 }
 
                 serverSettings.disableLanguageServices = !!pyrightSection.disableLanguageServices;
+                serverSettings.disableTaggedHints = !!pyrightSection.disableTaggedHints;
                 serverSettings.disableOrganizeImports = !!pyrightSection.disableOrganizeImports;
 
                 const typeCheckingMode = pyrightSection.typeCheckingMode;

@@ -79,6 +79,7 @@ export interface Workspace {
     kinds: string[];
     service: AnalyzerService;
     disableLanguageServices: boolean;
+    disableTaggedHints: boolean;
     disableOrganizeImports: boolean;
     disableWorkspaceSymbol: boolean;
     isInitialized: InitStatus;
@@ -383,6 +384,7 @@ export class WorkspaceFactory {
             pythonPathKind,
             service: this._createService(name, rootUri, kinds),
             disableLanguageServices: false,
+            disableTaggedHints: false,
             disableOrganizeImports: false,
             disableWorkspaceSymbol: false,
             isInitialized: createInitStatus(),

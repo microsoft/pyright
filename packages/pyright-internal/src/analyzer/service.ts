@@ -641,6 +641,8 @@ export class AnalyzerService {
 
         this._configFileUri = configFilePath || pyprojectFilePath;
 
+        configOptions.disableTaggedHints = !!commandLineOptions.disableTaggedHints;
+
         // If we found a config file, parse it to compute the effective options.
         let configJsonObj: object | undefined;
         if (configFilePath) {

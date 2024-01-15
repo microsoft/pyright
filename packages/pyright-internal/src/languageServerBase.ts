@@ -138,6 +138,7 @@ export interface ServerSettings {
     typeCheckingMode?: string | undefined;
     useLibraryCodeForTypes?: boolean | undefined;
     disableLanguageServices?: boolean | undefined;
+    disableTaggedHints?: boolean | undefined;
     disableOrganizeImports?: boolean | undefined;
     autoSearchPaths?: boolean | undefined;
     extraPaths?: Uri[] | undefined;
@@ -509,6 +510,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.updateOptionsAndRestartService(workspace, serverSettings);
 
         workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
+        workspace.disableTaggedHints = !!serverSettings.disableTaggedHints;
         workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
 
         // Don't use workspace.isInitialized directly since it might have been

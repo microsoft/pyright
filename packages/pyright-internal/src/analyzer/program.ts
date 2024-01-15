@@ -16,7 +16,7 @@ import { ConfigOptions, ExecutionEnvironment, matchFileSpecs } from '../common/c
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import * as debug from '../common/debug';
 import { assert } from '../common/debug';
-import { Diagnostic } from '../common/diagnostic';
+import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction } from '../common/editAction';
 import { EditableProgram, ProgramView } from '../common/extensibility';
@@ -889,11 +889,18 @@ export class Program {
 
         this._sourceFileList.forEach((sourceFileInfo) => {
             if (this._shouldCheckFile(sourceFileInfo)) {
-                const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
-                    options,
-                    sourceFileInfo.diagnosticsVersion
-                );
+                let diagnostics = sourceFileInfo.sourceFile.getDiagnostics(options, sourceFileInfo.diagnosticsVersion);
                 if (diagnostics !== undefined) {
+                    // Filter out all categories that are translated to tagged hints?
+                    if (options.disableTaggedHints) {
+                        diagnostics = diagnostics.filter(
+                            (diag) =>
+                                diag.category !== DiagnosticCategory.UnreachableCode &&
+                                diag.category !== DiagnosticCategory.UnusedCode &&
+                                diag.category !== DiagnosticCategory.Deprecated
+                        );
+                    }
+
                     fileDiagnostics.push({
                         fileUri: sourceFileInfo.sourceFile.getUri(),
                         version: sourceFileInfo.sourceFile.getClientVersion(),

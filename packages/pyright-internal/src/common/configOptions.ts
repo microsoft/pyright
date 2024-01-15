@@ -857,6 +857,9 @@ export class ConfigOptions {
     // Was this config initialized from JSON (pyrightconfig/pyproject)?
     initializedFromJson = false;
 
+    // Filter out any hint diagnostics with tags?
+    disableTaggedHints = false;
+
     //---------------------------------------------------------------
     // Diagnostics Rule Set
 

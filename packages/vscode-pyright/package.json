@@ -1261,6 +1261,12 @@
                     "description": "Disables type completion, definitions, and references.",
                     "scope": "resource"
                 },
+                "pyright.disableTaggedHints": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Disable hint diagnostics with special hints for grayed-out or strike-through text.",
+                    "scope": "resource"
+                },
                 "pyright.disableOrganizeImports": {
                     "type": "boolean",
                     "default": false,
