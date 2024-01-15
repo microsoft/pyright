@@ -64,23 +64,24 @@ module.exports = (_, { mode }) => {
             ],
         },
         plugins: [new CopyPlugin({ patterns: [{ from: typeshedFallback, to: 'typeshed-fallback' }] })],
-        optimization: {
-            splitChunks: {
-                cacheGroups: {
-                    defaultVendors: {
-                        name: 'vendor',
-                        test: /[\\/]node_modules[\\/]/,
-                        chunks: 'all',
-                        priority: -10,
-                    },
-                    pyright: {
-                        name: 'pyright-internal',
-                        chunks: 'all',
-                        test: /[\\/]pyright-internal[\\/]/,
-                        priority: -20,
-                    },
-                },
-            },
-        },
+        // this causes errors to not show in the vscode extension for some reason:
+        // optimization: {
+        //     splitChunks: {
+        //         cacheGroups: {
+        //             defaultVendors: {
+        //                 name: 'vendor',
+        //                 test: /[\\/]node_modules[\\/]/,
+        //                 chunks: 'all',
+        //                 priority: -10,
+        //             },
+        //             pyright: {
+        //                 name: 'pyright-internal',
+        //                 chunks: 'all',
+        //                 test: /[\\/]pyright-internal[\\/]/,
+        //                 priority: -20,
+        //             },
+        //         },
+        //     },
+        // },
     };
 };
