@@ -1,6 +1,15 @@
-![Pyright](https://github.com/microsoft/pyright/blob/main/docs/img/PyrightLarge.png)
+# basedpyright
 
-# Static Type Checker for Python
+basedpyright is a work-in-progress fork of pyright. the main goals of this project are to:
+
+* [x] allow the version of pyright used in vscode to be pinned to the same version used in your project
+* [x] support a first-party command-line version hosted on pypi that comes bundled with nodejs and the pyright npm package instead of installing them on the fly
+* [ ] feature-parity with [basedmypy](https://github.com/kotlinisland/basedmypy)
+* [ ] fix instances where code is incorrectly labeled as unreachable
+
+# upstream readme
+
+## Static Type Checker for Python
 
 Pyright is a full-featured, standards-based static type checker for Python. It is designed for high performance and can be used with large Python source bases.
 
