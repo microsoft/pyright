@@ -45,7 +45,7 @@
           "label": "pdm install requirements",
           "type": "shell",
           "command": "./pw",
-          "args": ["install"],
+          "args": ["pdm", "install"],
           "presentation": {
             "clear": true
           },
