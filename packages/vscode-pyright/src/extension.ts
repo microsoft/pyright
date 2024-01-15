@@ -72,7 +72,7 @@ export async function activate(context: ExtensionContext) {
     let serverOptions: ServerOptions | undefined = undefined;
     if (workspace.getConfiguration('pyright').get('importStrategy') === 'fromEnvironment') {
         const pythonApi = await PythonExtension.api();
-        const scriptName = 'pyright-langserver';
+        const scriptName = 'basedpyright-langserver';
         const executablePath = path.join(
             pythonApi.environments.getActiveEnvironmentPath().path,
             '..',

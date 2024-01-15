@@ -7,7 +7,7 @@
         "version": {
             "push": false,
             "tagVersionPrefix": "",
-            "message": "Published %s"
+            "message": "Published basedpyright %s"
         }
     }
 }

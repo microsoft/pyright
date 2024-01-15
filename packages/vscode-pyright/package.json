@@ -1,14 +1,14 @@
 {
     "name": "vscode-pyright",
-    "displayName": "Pyright",
-    "description": "VS Code static type checking for Python",
+    "displayName": "BasedPyright",
+    "description": "VS Code static type checking for Python (but based)",
     "version": "1.1.346",
     "private": true,
     "license": "MIT",
     "author": {
         "name": "Microsoft Corporation"
     },
-    "publisher": "ms-pyright",
+    "publisher": "detachhead",
     "repository": {
         "type": "git",
         "url": "https://github.com/Microsoft/pyright"
@@ -1306,7 +1306,7 @@
     },
     "scripts": {
         "clean": "shx rm -rf ./dist ./out",
-        "prepackage": "node ./build/renamePackage.js pyright",
+        "prepackage": "node ./build/renamePackage.js basedpyright",
         "package": "vsce package",
         "postpackage": "node ./build/renamePackage.js vscode-pyright",
         "vscode:prepublish": "node ./build/checkPackage.js && npm run clean && webpack --mode production --progress",

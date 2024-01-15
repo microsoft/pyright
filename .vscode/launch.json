@@ -36,10 +36,10 @@
             "preLaunchTask": "npm: build:extension:dev",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/packages/vscode-pyright",
-                // The published extension is named "ms-pyright.pyright", but in debug mode it's "ms-pyright.vscode-pyright"
+                // The published extension is named "detachhead.basedpyright", but in debug mode it's "ms-pyright.vscode-pyright"
                 // to allow the extension code to participate in the lerna monorepo. Make sure that the published extension
                 // isn't enabled, otherwise both are loaded and conflict.
-                "--disable-extension=ms-pyright.pyright"
+                "--disable-extension=detachhead.basedpyright"
             ],
             "smartStep": true,
             "sourceMaps": true,
@@ -55,10 +55,10 @@
             "preLaunchTask": "Watch extension",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/packages/vscode-pyright",
-                // The published extension is named "ms-pyright.pyright", but in debug mode it's "ms-pyright.vscode-pyright"
+                // The published extension is named "detachhead.basedpyright", but in debug mode it's "ms-pyright.vscode-pyright"
                 // to allow the extension code to participate in the lerna monorepo. Make sure that the published extension
                 // isn't enabled, otherwise both are loaded and conflict.
-                "--disable-extension=ms-pyright.pyright"
+                "--disable-extension=detachhead.basedpyright"
             ],
             "smartStep": true,
             "sourceMaps": true,

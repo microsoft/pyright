@@ -4,9 +4,16 @@ main = ["pdm"]
 [tool.pdm]
 package-type = "library"
 
+[tool.pdm.dev-dependencies]
+dev = ["black>=23", "pylint>=3.0.0a7", "ruff>=0.0.290"]
+
+[tool.pdm.version]
+source = "file"
+path = "__init__.py"
+
 [project]
 name = "basedpyright"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Default template for PDM package"
 authors = [
     { name = "detachhead", email = "detachhead@users.noreply.github.com" },
@@ -20,15 +27,12 @@ license = { text = "MIT" }
 repository = "https://github.com/detachhead/basedpyright"
 
 [project.scripts]
-pyright = 'basedpyright.pyright:main'
-pyright-langserver = 'basedpyright.langserver:main'
+basedpyright = 'basedpyright.pyright:main'
+basedpyright-langserver = 'basedpyright.langserver:main'
 
 [build-system]
 requires = ["pdm-backend", "nodejs-bin>=18.4.0a4"]
 build-backend = "pdm.backend"
-
-[tool.pdm.dev-dependencies]
-lint = ["black>=23", "basedmypy>=2.1", "pylint>=3.0.0a7", "ruff>=0.0.290"]
 
 [tool.black]
 target-version = ["py38"]
@@ -238,16 +242,66 @@ score = "no"
 [tool.pylint.FORMAT]
 max-line-length = 200
 
-[tool.mypy]
-allow_redefinition = false
-enable_error_code = "helpful-string"
-default_return = false               # enabled for our own code only as 3rd party code is not coompatible
-cache_dir = 'nul'                    # disable cache because it sucks
-
 [tool.pyright]
-# we dont use pyright for type checking, this is just for vscode import suggestions and reachability checks
 pythonVersion = "3.8"
 pythonPlatform = "All"
+reportMissingTypeStubs = false
+strictListInference = true
+strictDictionaryInference = true
+strictSetInference = true
+deprecateTypingAliases = true
+enableExperimentalFeatures = true
+disableBytesTypePromotions = true
+reportPropertyTypeMismatch = true
+reportFunctionMemberAccess = true
+reportMissingModuleSource = true
+reportImportCycles = true
+reportUnusedClass = true
+reportUnusedFunction = true
+reportUnusedVariable = true
+reportDuplicateImport = true
+reportWildcardImportFromLibrary = true
+reportUntypedFunctionDecorator = true
+reportUntypedClassDecorator = true
+reportUntypedBaseClass = true
+reportUntypedNamedTuple = true
+reportPrivateUsage = true
+reportTypeCommentUsage = true
+reportConstantRedefinition = true
+reportDeprecated = true
+reportIncompatibleMethodOverride = true
+reportIncompatibleVariableOverride = true
+reportInconsistentConstructor = true
+reportOverlappingOverload = true
+reportMissingSuperCall = true
+reportUninitializedInstanceVariable = true
+reportInvalidStringEscapeSequence = true
+reportUnknownParameterType = true
+reportUnknownArgumentType = true
+reportUnknownLambdaType = true
+reportUnknownVariableType = true
+reportUnknownMemberType = true
+reportMissingParameterType = true
+reportMissingTypeArgument = true
+reportInvalidTypeVarUse = true
+reportCallInDefaultInitializer = true
+reportUnnecessaryIsInstance = true
+reportUnnecessaryCast = true
+reportUnnecessaryComparison = true
+reportUnnecessaryContains = true
+reportAssertAlwaysTrue = true
+reportSelfClsParameterName = true
+reportImplicitStringConcatenation = false  # conflicts with black
+reportInvalidStubStatement = true
+reportIncompleteStub = true
+reportUnsupportedDunderAll = true
+reportUnusedCallResult = true
+reportUnusedCoroutine = true
+reportUnusedExpression = true
+reportUnnecessaryTypeIgnoreComment = true
+reportMatchNotExhaustive = true
+reportImplicitOverride = true
+reportShadowedImports = true
 
 [tool.ruff]
 unsafe-fixes = true

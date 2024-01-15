@@ -2,10 +2,190 @@
 # It is not intended for manual editing.
 
 [metadata]
-groups = ["default"]
+groups = ["default", "dev"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.1"
-content_hash = "sha256:b15d5f94f9ae3c567c12f1b4e97f1002b452d978d777cb753000fed1f850df87"
+content_hash = "sha256:0b9c9966076ff58276cd5fd44137149e910e8c762c4a8c89b02b788d01de9c7d"
+
+[[package]]
+name = "astroid"
+version = "3.0.2"
+requires_python = ">=3.8.0"
+summary = "An abstract syntax tree for Python with inference support."
+groups = ["dev"]
+dependencies = [
+    "typing-extensions>=4.0.0; python_version < \"3.11\"",
+]
+files = [
+    {file = "astroid-3.0.2-py3-none-any.whl", hash = "sha256:d6e62862355f60e716164082d6b4b041d38e2a8cf1c7cd953ded5108bac8ff5c"},
+    {file = "astroid-3.0.2.tar.gz", hash = "sha256:4a61cf0a59097c7bb52689b0fd63717cd2a8a14dc9f1eee97b82d814881c8c91"},
+]
+
+[[package]]
+name = "basedmypy"
+version = "2.3.0"
+requires_python = ">=3.8"
+summary = "Based static typing for Python"
+groups = ["dev"]
+dependencies = [
+    "basedtyping>=0.0.3",
+    "mypy-extensions>=1.0.0",
+    "tomli>=1.1.0; python_version < \"3.11\"",
+    "typing-extensions>=4.1.0",
+]
+files = [
+    {file = "basedmypy-2.3.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:c38ea60a186ec5b4e5800c6b30f0d27d907eaf025a647c5d376c6e12b85dadde"},
+    {file = "basedmypy-2.3.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:19f21c43cfe4e8617410a7460863477a1be35b6125b80cc767c1aa1df148de0c"},
+    {file = "basedmypy-2.3.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:70b6b752f40e1d21e17500cf8041cd756d430b82cbf4ffce1f1b5b46593f8ce1"},
+    {file = "basedmypy-2.3.0-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:32da5239645abc17c2773becb6e42bfebf63134ac31db528906e7e7e8ed7067c"},
+    {file = "basedmypy-2.3.0-cp310-cp310-win_amd64.whl", hash = "sha256:c3636e8d5a61124f2c2a262294ca0d97cc19245a677115ad99b90724087e6443"},
+    {file = "basedmypy-2.3.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:b40542cce22b9b84d59631f1c09556b82bc6ca96f075a527390055154b1197b3"},
+    {file = "basedmypy-2.3.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:47e5d1529eccd3d890c66c69f75601d629d2402334d729c94ab4a34dfde250d2"},
+    {file = "basedmypy-2.3.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d01ebdbc8c0fe55d4493388d00802fa46a8f9a131ab98fa8d068de599f09d484"},
+    {file = "basedmypy-2.3.0-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:5b882c8ccf24f3fb4df6c61357e58837dbfef177b235f818a5b258f41ff5b67e"},
+    {file = "basedmypy-2.3.0-cp311-cp311-win_amd64.whl", hash = "sha256:bc90c2b54c7948866699ffb7800c309f3d94ff6174b507ea63d775873a35b63e"},
+    {file = "basedmypy-2.3.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:d2a11517384ef58ac02cea60939ee8db9b948c3a19209d811ccd389ce229da32"},
+    {file = "basedmypy-2.3.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:6e8a3db700f6296ec4fdb3565c8f222d53f7e0f5756eec68ef42303862b8e5e0"},
+    {file = "basedmypy-2.3.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:95507d9f9c93b378f88990efba35a46ad99ff1452f4dae76cec87ab17212ef31"},
+    {file = "basedmypy-2.3.0-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:a19e0cba3573e9f4d3d8f59162e1412d8523fd10e250b53f28907367ec2372c9"},
+    {file = "basedmypy-2.3.0-cp312-cp312-win_amd64.whl", hash = "sha256:42cbad82650345b41f13d7a5d86141502c8384f13bcab087550d6cfb5f66fdfb"},
+    {file = "basedmypy-2.3.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:63d3621016dbfd568e464139326eb929532d18c597d6a6033c3f3f45c16f527c"},
+    {file = "basedmypy-2.3.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:8e69209909e454b42cd9337af89ad401207dc3dd315a180e3cc3e3905372d297"},
+    {file = "basedmypy-2.3.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:96f3f5bfb767b8110345e3c9b1122fc1841433b623fea7849c7ddfdaf82276fd"},
+    {file = "basedmypy-2.3.0-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:808309efb6a09004b1fe58eddcb337ba68c42a8cf0accda890d0dea203947f87"},
+    {file = "basedmypy-2.3.0-cp38-cp38-win_amd64.whl", hash = "sha256:b9847cc608b4581c1ff8d2364ca0afc014bc222f86d6f06645488352469a25b8"},
+    {file = "basedmypy-2.3.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:4109fad62459ecbd88097d8e5340afeda400ace34586c44d87d09b668f9d44d0"},
+    {file = "basedmypy-2.3.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:5d8805a62248002ff79ae95c63f06f8df9a18b6d15d2592b843dc351e14be778"},
+    {file = "basedmypy-2.3.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e1a724142bcbfe7dcf863457d100eec98ae9412b12f8422121c1708240f57dbd"},
+    {file = "basedmypy-2.3.0-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:9fd17acb3eb2da752460442ace69cb71adbb401434724258141770bb97d139fd"},
+    {file = "basedmypy-2.3.0-cp39-cp39-win_amd64.whl", hash = "sha256:1c5d471541a1f33dc6fc5e41876e07c0c42dcc93d400df2ab0abbc6d4e2340e8"},
+    {file = "basedmypy-2.3.0-py3-none-any.whl", hash = "sha256:8e36e6ad996203d3f524afb6c96adc4b33203d94f35ff8703790629f117675ee"},
+    {file = "basedmypy-2.3.0.tar.gz", hash = "sha256:0c4bafc220c65fb75ef6dcf9e44294ec7dbc317e385e96c57e40a8b4eccde4bc"},
+]
+
+[[package]]
+name = "basedtyping"
+version = "0.1.3"
+requires_python = ">=3.8,<4.0"
+summary = "Utilities for basedmypy"
+groups = ["dev"]
+dependencies = [
+    "typing-extensions<5.0,>=4.1",
+]
+files = [
+    {file = "basedtyping-0.1.3-py3-none-any.whl", hash = "sha256:cf5b27ba62b463bd8931098194b8c27baf7a28d72421c7b8382a60380d82fa08"},
+    {file = "basedtyping-0.1.3.tar.gz", hash = "sha256:0e89fb79fbcc124898de6990267c0600fb0506ce2f1f4e8de9999a798a375962"},
+]
+
+[[package]]
+name = "black"
+version = "23.12.1"
+requires_python = ">=3.8"
+summary = "The uncompromising code formatter."
+groups = ["dev"]
+dependencies = [
+    "click>=8.0.0",
+    "mypy-extensions>=0.4.3",
+    "packaging>=22.0",
+    "pathspec>=0.9.0",
+    "platformdirs>=2",
+    "tomli>=1.1.0; python_version < \"3.11\"",
+    "typing-extensions>=4.0.1; python_version < \"3.11\"",
+]
+files = [
+    {file = "black-23.12.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:e0aaf6041986767a5e0ce663c7a2f0e9eaf21e6ff87a5f95cbf3675bfd4c41d2"},
+    {file = "black-23.12.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:c88b3711d12905b74206227109272673edce0cb29f27e1385f33b0163c414bba"},
+    {file = "black-23.12.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a920b569dc6b3472513ba6ddea21f440d4b4c699494d2e972a1753cdc25df7b0"},
+    {file = "black-23.12.1-cp310-cp310-win_amd64.whl", hash = "sha256:3fa4be75ef2a6b96ea8d92b1587dd8cb3a35c7e3d51f0738ced0781c3aa3a5a3"},
+    {file = "black-23.12.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:8d4df77958a622f9b5a4c96edb4b8c0034f8434032ab11077ec6c56ae9f384ba"},
+    {file = "black-23.12.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:602cfb1196dc692424c70b6507593a2b29aac0547c1be9a1d1365f0d964c353b"},
+    {file = "black-23.12.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9c4352800f14be5b4864016882cdba10755bd50805c95f728011bcb47a4afd59"},
+    {file = "black-23.12.1-cp311-cp311-win_amd64.whl", hash = "sha256:0808494f2b2df923ffc5723ed3c7b096bd76341f6213989759287611e9837d50"},
+    {file = "black-23.12.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:25e57fd232a6d6ff3f4478a6fd0580838e47c93c83eaf1ccc92d4faf27112c4e"},
+    {file = "black-23.12.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:2d9e13db441c509a3763a7a3d9a49ccc1b4e974a47be4e08ade2a228876500ec"},
+    {file = "black-23.12.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6d1bd9c210f8b109b1762ec9fd36592fdd528485aadb3f5849b2740ef17e674e"},
+    {file = "black-23.12.1-cp312-cp312-win_amd64.whl", hash = "sha256:ae76c22bde5cbb6bfd211ec343ded2163bba7883c7bc77f6b756a1049436fbb9"},
+    {file = "black-23.12.1-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:1fa88a0f74e50e4487477bc0bb900c6781dbddfdfa32691e780bf854c3b4a47f"},
+    {file = "black-23.12.1-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:a4d6a9668e45ad99d2f8ec70d5c8c04ef4f32f648ef39048d010b0689832ec6d"},
+    {file = "black-23.12.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b18fb2ae6c4bb63eebe5be6bd869ba2f14fd0259bda7d18a46b764d8fb86298a"},
+    {file = "black-23.12.1-cp38-cp38-win_amd64.whl", hash = "sha256:c04b6d9d20e9c13f43eee8ea87d44156b8505ca8a3c878773f68b4e4812a421e"},
+    {file = "black-23.12.1-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:3e1b38b3135fd4c025c28c55ddfc236b05af657828a8a6abe5deec419a0b7055"},
+    {file = "black-23.12.1-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:4f0031eaa7b921db76decd73636ef3a12c942ed367d8c3841a0739412b260a54"},
+    {file = "black-23.12.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:97e56155c6b737854e60a9ab1c598ff2533d57e7506d97af5481141671abf3ea"},
+    {file = "black-23.12.1-cp39-cp39-win_amd64.whl", hash = "sha256:dd15245c8b68fe2b6bd0f32c1556509d11bb33aec9b5d0866dd8e2ed3dba09c2"},
+    {file = "black-23.12.1-py3-none-any.whl", hash = "sha256:78baad24af0f033958cad29731e27363183e140962595def56423e626f4bee3e"},
+    {file = "black-23.12.1.tar.gz", hash = "sha256:4ce3ef14ebe8d9509188014d96af1c456a910d5b5cbf434a09fef7e024b3d0d5"},
+]
+
+[[package]]
+name = "click"
+version = "8.1.7"
+requires_python = ">=3.7"
+summary = "Composable command line interface toolkit"
+groups = ["dev"]
+dependencies = [
+    "colorama; platform_system == \"Windows\"",
+]
+files = [
+    {file = "click-8.1.7-py3-none-any.whl", hash = "sha256:ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"},
+    {file = "click-8.1.7.tar.gz", hash = "sha256:ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de"},
+]
+
+[[package]]
+name = "colorama"
+version = "0.4.6"
+requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
+summary = "Cross-platform colored terminal text."
+groups = ["dev"]
+marker = "sys_platform == \"win32\" or platform_system == \"Windows\""
+files = [
+    {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
+    {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
+]
+
+[[package]]
+name = "dill"
+version = "0.3.7"
+requires_python = ">=3.7"
+summary = "serialize all of Python"
+groups = ["dev"]
+files = [
+    {file = "dill-0.3.7-py3-none-any.whl", hash = "sha256:76b122c08ef4ce2eedcd4d1abd8e641114bfc6c2867f49f3c41facf65bf19f5e"},
+    {file = "dill-0.3.7.tar.gz", hash = "sha256:cc1c8b182eb3013e24bd475ff2e9295af86c1a38eb1aff128dac8962a9ce3c03"},
+]
+
+[[package]]
+name = "isort"
+version = "5.13.2"
+requires_python = ">=3.8.0"
+summary = "A Python utility / library to sort Python imports."
+groups = ["dev"]
+files = [
+    {file = "isort-5.13.2-py3-none-any.whl", hash = "sha256:8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6"},
+    {file = "isort-5.13.2.tar.gz", hash = "sha256:48fdfcb9face5d58a4f6dde2e72a1fb8dcaf8ab26f95ab49fab84c2ddefb0109"},
+]
+
+[[package]]
+name = "mccabe"
+version = "0.7.0"
+requires_python = ">=3.6"
+summary = "McCabe checker, plugin for flake8"
+groups = ["dev"]
+files = [
+    {file = "mccabe-0.7.0-py2.py3-none-any.whl", hash = "sha256:6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e"},
+    {file = "mccabe-0.7.0.tar.gz", hash = "sha256:348e0240c33b60bbdf4e523192ef919f28cb2c3d7d5c7794f74009290f236325"},
+]
+
+[[package]]
+name = "mypy-extensions"
+version = "1.0.0"
+requires_python = ">=3.5"
+summary = "Type system extensions for programs checked with the mypy type checker."
+groups = ["dev"]
+files = [
+    {file = "mypy_extensions-1.0.0-py3-none-any.whl", hash = "sha256:4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"},
+    {file = "mypy_extensions-1.0.0.tar.gz", hash = "sha256:75dbf8955dc00442a438fc4d0666508a9a97b6bd41aa2f0ffe9d2f2725af0782"},
+]
 
 [[package]]
 name = "nodejs-bin"
@@ -21,4 +201,121 @@ files = [
     {file = "nodejs_bin-18.4.0a4-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:21f1f77ddc8fe05353bb6d6ee8e5a62edb3a8dcdb2740a5f9307fd8d9eef6691"},
     {file = "nodejs_bin-18.4.0a4-py3-none-win32.whl", hash = "sha256:59671fdc563dabb8be8a0b6dae4169d780482b3c9e0fba3f9aa2b7ee8d2261ac"},
     {file = "nodejs_bin-18.4.0a4-py3-none-win_amd64.whl", hash = "sha256:cbd509218b4b17f75ee7841f9c21d5cacc1626d3b823a652a6627dbad18228ec"},
+]
+
+[[package]]
+name = "packaging"
+version = "23.2"
+requires_python = ">=3.7"
+summary = "Core utilities for Python packages"
+groups = ["dev"]
+files = [
+    {file = "packaging-23.2-py3-none-any.whl", hash = "sha256:8c491190033a9af7e1d931d0b5dacc2ef47509b34dd0de67ed209b5203fc88c7"},
+    {file = "packaging-23.2.tar.gz", hash = "sha256:048fb0e9405036518eaaf48a55953c750c11e1a1b68e0dd1a9d62ed0c092cfc5"},
+]
+
+[[package]]
+name = "pathspec"
+version = "0.12.1"
+requires_python = ">=3.8"
+summary = "Utility library for gitignore style pattern matching of file paths."
+groups = ["dev"]
+files = [
+    {file = "pathspec-0.12.1-py3-none-any.whl", hash = "sha256:a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"},
+    {file = "pathspec-0.12.1.tar.gz", hash = "sha256:a482d51503a1ab33b1c67a6c3813a26953dbdc71c31dacaef9a838c4e29f5712"},
+]
+
+[[package]]
+name = "platformdirs"
+version = "4.1.0"
+requires_python = ">=3.8"
+summary = "A small Python package for determining appropriate platform-specific dirs, e.g. a \"user data dir\"."
+groups = ["dev"]
+files = [
+    {file = "platformdirs-4.1.0-py3-none-any.whl", hash = "sha256:11c8f37bcca40db96d8144522d925583bdb7a31f7b0e37e3ed4318400a8e2380"},
+    {file = "platformdirs-4.1.0.tar.gz", hash = "sha256:906d548203468492d432bcb294d4bc2fff751bf84971fbb2c10918cc206ee420"},
+]
+
+[[package]]
+name = "pylint"
+version = "3.0.3"
+requires_python = ">=3.8.0"
+summary = "python code static checker"
+groups = ["dev"]
+dependencies = [
+    "astroid<=3.1.0-dev0,>=3.0.1",
+    "colorama>=0.4.5; sys_platform == \"win32\"",
+    "dill>=0.2; python_version < \"3.11\"",
+    "dill>=0.3.6; python_version >= \"3.11\"",
+    "dill>=0.3.7; python_version >= \"3.12\"",
+    "isort!=5.13.0,<6,>=4.2.5",
+    "mccabe<0.8,>=0.6",
+    "platformdirs>=2.2.0",
+    "tomli>=1.1.0; python_version < \"3.11\"",
+    "tomlkit>=0.10.1",
+    "typing-extensions>=3.10.0; python_version < \"3.10\"",
+]
+files = [
+    {file = "pylint-3.0.3-py3-none-any.whl", hash = "sha256:7a1585285aefc5165db81083c3e06363a27448f6b467b3b0f30dbd0ac1f73810"},
+    {file = "pylint-3.0.3.tar.gz", hash = "sha256:58c2398b0301e049609a8429789ec6edf3aabe9b6c5fec916acd18639c16de8b"},
+]
+
+[[package]]
+name = "ruff"
+version = "0.1.13"
+requires_python = ">=3.7"
+summary = "An extremely fast Python linter and code formatter, written in Rust."
+groups = ["dev"]
+files = [
+    {file = "ruff-0.1.13-py3-none-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:e3fd36e0d48aeac672aa850045e784673449ce619afc12823ea7868fcc41d8ba"},
+    {file = "ruff-0.1.13-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:9fb6b3b86450d4ec6a6732f9f60c4406061b6851c4b29f944f8c9d91c3611c7a"},
+    {file = "ruff-0.1.13-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:b13ba5d7156daaf3fd08b6b993360a96060500aca7e307d95ecbc5bb47a69296"},
+    {file = "ruff-0.1.13-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:9ebb40442f7b531e136d334ef0851412410061e65d61ca8ce90d894a094feb22"},
+    {file = "ruff-0.1.13-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:226b517f42d59a543d6383cfe03cccf0091e3e0ed1b856c6824be03d2a75d3b6"},
+    {file = "ruff-0.1.13-py3-none-manylinux_2_17_ppc64.manylinux2014_ppc64.whl", hash = "sha256:5f0312ba1061e9b8c724e9a702d3c8621e3c6e6c2c9bd862550ab2951ac75c16"},
+    {file = "ruff-0.1.13-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:2f59bcf5217c661254bd6bc42d65a6fd1a8b80c48763cb5c2293295babd945dd"},
+    {file = "ruff-0.1.13-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:e6894b00495e00c27b6ba61af1fc666f17de6140345e5ef27dd6e08fb987259d"},
+    {file = "ruff-0.1.13-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9a1600942485c6e66119da294c6294856b5c86fd6df591ce293e4a4cc8e72989"},
+    {file = "ruff-0.1.13-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:ee3febce7863e231a467f90e681d3d89210b900d49ce88723ce052c8761be8c7"},
+    {file = "ruff-0.1.13-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:dcaab50e278ff497ee4d1fe69b29ca0a9a47cd954bb17963628fa417933c6eb1"},
+    {file = "ruff-0.1.13-py3-none-musllinux_1_2_i686.whl", hash = "sha256:f57de973de4edef3ad3044d6a50c02ad9fc2dff0d88587f25f1a48e3f72edf5e"},
+    {file = "ruff-0.1.13-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:7a36fa90eb12208272a858475ec43ac811ac37e91ef868759770b71bdabe27b6"},
+    {file = "ruff-0.1.13-py3-none-win32.whl", hash = "sha256:a623349a505ff768dad6bd57087e2461be8db58305ebd5577bd0e98631f9ae69"},
+    {file = "ruff-0.1.13-py3-none-win_amd64.whl", hash = "sha256:f988746e3c3982bea7f824c8fa318ce7f538c4dfefec99cd09c8770bd33e6539"},
+    {file = "ruff-0.1.13-py3-none-win_arm64.whl", hash = "sha256:6bbbc3042075871ec17f28864808540a26f0f79a4478c357d3e3d2284e832998"},
+    {file = "ruff-0.1.13.tar.gz", hash = "sha256:e261f1baed6291f434ffb1d5c6bd8051d1c2a26958072d38dfbec39b3dda7352"},
+]
+
+[[package]]
+name = "tomli"
+version = "2.0.1"
+requires_python = ">=3.7"
+summary = "A lil' TOML parser"
+groups = ["dev"]
+marker = "python_version < \"3.11\""
+files = [
+    {file = "tomli-2.0.1-py3-none-any.whl", hash = "sha256:939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc"},
+    {file = "tomli-2.0.1.tar.gz", hash = "sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f"},
+]
+
+[[package]]
+name = "tomlkit"
+version = "0.12.3"
+requires_python = ">=3.7"
+summary = "Style preserving TOML library"
+groups = ["dev"]
+files = [
+    {file = "tomlkit-0.12.3-py3-none-any.whl", hash = "sha256:b0a645a9156dc7cb5d3a1f0d4bab66db287fcb8e0430bdd4664a095ea16414ba"},
+    {file = "tomlkit-0.12.3.tar.gz", hash = "sha256:75baf5012d06501f07bee5bf8e801b9f343e7aac5a92581f20f80ce632e6b5a4"},
+]
+
+[[package]]
+name = "typing-extensions"
+version = "4.9.0"
+requires_python = ">=3.8"
+summary = "Backported and Experimental Type Hints for Python 3.8+"
+groups = ["dev"]
+files = [
+    {file = "typing_extensions-4.9.0-py3-none-any.whl", hash = "sha256:af72aea155e91adfc61c3ae9e0e342dbc0cba726d6cba4b6c72c1f34e47291cd"},
+    {file = "typing_extensions-4.9.0.tar.gz", hash = "sha256:23478f88c37f27d76ac8aee6c905017a143b0b1b886c3c9f66bc2fd94f9f5783"},
 ]

@@ -39,7 +39,7 @@ jobs:
       - run: npm run install:all
 
       - name: Build VSIX
-        working-directory: packages/vscode-pyright
+        working-directory: packages/vscode-basedpyright
         run: |
           npm run package
           mv pyright-*.vsix ${{ env.VSIX_NAME }}
@@ -47,7 +47,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: ${{ env.ARTIFACT_NAME_VSIX }}
-          path: packages/vscode-pyright/${{ env.VSIX_NAME }}
+          path: packages/vscode-basedpyright/${{ env.VSIX_NAME }}
 
   create_release:
     runs-on: ubuntu-latest
@@ -67,7 +67,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: Published ${{ github.ref_name }}
+          name: Published basedpyright ${{ github.ref_name }}
           draft: true
           artifacts: ./artifacts/${{ env.ARTIFACT_NAME_VSIX }}/${{ env.VSIX_NAME }}
           artifactContentType: application/zip

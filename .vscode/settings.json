@@ -35,7 +35,6 @@
     "python.analysis.typeCheckingMode": "off",
     "python.analysis.autoFormatStrings": true,
     "python.analysis.gotoDefinitionInStringLiteral": true,
-    "python.analysis.typeshedPaths": ["./.venv/lib/site-packages/mypy/typeshed"],
     "pylint.importStrategy": "fromEnvironment",
     "pylint.severity": {
         "convention": "Warning",

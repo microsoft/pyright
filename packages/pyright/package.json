@@ -1,5 +1,6 @@
 {
     "name": "pyright",
+    "private": true,
     "displayName": "Pyright",
     "description": "Type checker for the Python language",
     "version": "1.1.346",
