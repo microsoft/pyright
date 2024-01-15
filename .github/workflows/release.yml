@@ -10,7 +10,6 @@ env:
 
 jobs:
   publish_extension:
-    if: ${{ github.repository == 'microsoft/pyright' }}
     runs-on: ubuntu-latest
     name: Publish extension to marketplace
 

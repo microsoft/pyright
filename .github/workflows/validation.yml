@@ -4,17 +4,10 @@ env:
   NODE_VERSION: '16' # Shipped with VS Code.
   PYTHON_VERSION: 3.11
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+on: push
 
 jobs:
   typecheck:
-    if: github.repository == 'microsoft/pyright'
     runs-on: ubuntu-latest
     name: Typecheck
 
@@ -41,7 +34,6 @@ jobs:
       - run: npx lerna exec --stream --no-bail -- tsc --noEmit
 
   style:
-    if: github.repository == 'microsoft/pyright'
     runs-on: ubuntu-latest
     name: Style
 
