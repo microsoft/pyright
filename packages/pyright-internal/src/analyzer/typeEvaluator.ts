@@ -3102,10 +3102,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return addDiagnosticWithSuppressionCheck('information', message, node, range);
     }
 
-    function addWarning(message: string, node: ParseNode, range?: TextRange) {
-        return addDiagnosticWithSuppressionCheck('warning', message, node, range);
-    }
-
     function addError(message: string, node: ParseNode, range?: TextRange) {
         return addDiagnosticWithSuppressionCheck('error', message, node, range);
     }
@@ -26761,8 +26757,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isFinalVariable,
         isFinalVariableDeclaration,
         isExplicitTypeAliasDeclaration,
-        addError,
-        addWarning,
         addInformation,
         addUnusedCode,
         addUnreachableCode,

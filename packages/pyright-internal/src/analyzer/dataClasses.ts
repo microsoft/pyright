@@ -504,7 +504,12 @@ export function synthesizeDataClassMethods(
                     const effectiveName = entry.alias || entry.name;
 
                     if (!entry.alias && entry.nameNode && isPrivateName(entry.nameNode.value)) {
-                        evaluator.addError(Localizer.Diagnostic.dataClassFieldWithPrivateName(), entry.nameNode);
+                        evaluator.addDiagnostic(
+                            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.dataClassFieldWithPrivateName(),
+                            entry.nameNode
+                        );
                     }
 
                     const functionParam: FunctionParameter = {
@@ -1019,7 +1024,12 @@ export function validateDataClassTransformDecorator(
     // Parse the arguments to the call.
     node.arguments.forEach((arg) => {
         if (!arg.name || arg.argumentCategory !== ArgumentCategory.Simple) {
-            evaluator.addError(Localizer.Diagnostic.dataClassTransformPositionalParam(), arg);
+            evaluator.addDiagnostic(
+                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.dataClassTransformPositionalParam(),
+                arg
+            );
             return;
         }
 
@@ -1031,7 +1041,9 @@ export function validateDataClassTransformDecorator(
                     fileInfo.definedConstants
                 );
                 if (value === undefined) {
-                    evaluator.addError(
+                    evaluator.addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
                         arg.valueExpression
                     );
@@ -1049,7 +1061,9 @@ export function validateDataClassTransformDecorator(
                     fileInfo.definedConstants
                 );
                 if (value === undefined) {
-                    evaluator.addError(
+                    evaluator.addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
                         arg.valueExpression
                     );
@@ -1067,7 +1081,9 @@ export function validateDataClassTransformDecorator(
                     fileInfo.definedConstants
                 );
                 if (value === undefined) {
-                    evaluator.addError(
+                    evaluator.addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
                         arg.valueExpression
                     );
@@ -1085,7 +1101,9 @@ export function validateDataClassTransformDecorator(
                     fileInfo.definedConstants
                 );
                 if (value === undefined) {
-                    evaluator.addError(
+                    evaluator.addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
                         arg.valueExpression
                     );
@@ -1114,7 +1132,9 @@ export function validateDataClassTransformDecorator(
                             !isOverloadedFunction(entry.type)
                     )
                 ) {
-                    evaluator.addError(
+                    evaluator.addDiagnostic(
+                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.dataClassTransformFieldSpecifier().format({
                             type: evaluator.printType(valueType),
                         }),
@@ -1137,7 +1157,9 @@ export function validateDataClassTransformDecorator(
             }
 
             default:
-                evaluator.addError(
+                evaluator.addDiagnostic(
+                    AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
                     Localizer.Diagnostic.dataClassTransformUnknownArgument().format({ name: arg.name.value }),
                     arg.valueExpression
                 );

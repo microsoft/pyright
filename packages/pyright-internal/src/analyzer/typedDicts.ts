@@ -79,7 +79,12 @@ export function createTypedDictType(
     // Point2D = TypedDict('Point2D', x=int, y=int, label=str)
     let className: string | undefined;
     if (argList.length === 0) {
-        evaluator.addError(Localizer.Diagnostic.typedDictFirstArg(), errorNode);
+        evaluator.addDiagnostic(
+            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.typedDictFirstArg(),
+            errorNode
+        );
     } else {
         const nameArg = argList[0];
         if (
@@ -87,7 +92,12 @@ export function createTypedDictType(
             !nameArg.valueExpression ||
             nameArg.valueExpression.nodeType !== ParseNodeType.StringList
         ) {
-            evaluator.addError(Localizer.Diagnostic.typedDictFirstArg(), argList[0].valueExpression || errorNode);
+            evaluator.addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typedDictFirstArg(),
+                argList[0].valueExpression || errorNode
+            );
         } else {
             className = nameArg.valueExpression.strings.map((s) => s.value).join('');
         }
@@ -115,7 +125,12 @@ export function createTypedDictType(
 
     let usingDictSyntax = false;
     if (argList.length < 2) {
-        evaluator.addError(Localizer.Diagnostic.typedDictSecondArgDict(), errorNode);
+        evaluator.addDiagnostic(
+            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.typedDictSecondArgDict(),
+            errorNode
+        );
     } else {
         const entriesArg = argList[1];
 
@@ -136,7 +151,12 @@ export function createTypedDictType(
                 }
 
                 if (entrySet.has(entry.name.value)) {
-                    evaluator.addError(Localizer.Diagnostic.typedDictEntryUnique(), entry.valueExpression);
+                    evaluator.addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typedDictEntryUnique(),
+                        entry.valueExpression
+                    );
                     continue;
                 }
 
@@ -144,7 +164,6 @@ export function createTypedDictType(
                 entrySet.add(entry.name.value);
 
                 const newSymbol = new Symbol(SymbolFlags.InstanceMember);
-                const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                 const declaration: VariableDeclaration = {
                     type: DeclarationType.Variable,
                     node: entry.name,
@@ -164,7 +183,12 @@ export function createTypedDictType(
                 classFields.set(entry.name.value, newSymbol);
             }
         } else {
-            evaluator.addError(Localizer.Diagnostic.typedDictSecondArgDict(), errorNode);
+            evaluator.addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typedDictSecondArgDict(),
+                errorNode
+            );
         }
     }
 
@@ -179,7 +203,9 @@ export function createTypedDictType(
                         arg.valueExpression.constType === KeywordType.True
                     )
                 ) {
-                    evaluator.addError(
+                    evaluator.addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.typedDictBoolParam().format({ name: arg.name.value }),
                         arg.valueExpression || errorNode
                     );
@@ -187,7 +213,12 @@ export function createTypedDictType(
                     classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
                 }
             } else {
-                evaluator.addError(Localizer.Diagnostic.typedDictExtraArgs(), arg.valueExpression || errorNode);
+                evaluator.addDiagnostic(
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.typedDictExtraArgs(),
+                    arg.valueExpression || errorNode
+                );
             }
         }
     }
@@ -201,7 +232,9 @@ export function createTypedDictType(
 
         if (typedDictTarget.nodeType === ParseNodeType.Name) {
             if (typedDictTarget.value !== className) {
-                evaluator.addError(
+                evaluator.addDiagnostic(
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
                     Localizer.Diagnostic.typedDictAssignedName().format({
                         name: className,
                     }),
@@ -737,23 +770,43 @@ function getTypedDictFieldsFromDictSyntax(
 
     entryDict.entries.forEach((entry) => {
         if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
-            evaluator.addError(Localizer.Diagnostic.typedDictSecondArgDictEntry(), entry);
+            evaluator.addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typedDictSecondArgDictEntry(),
+                entry
+            );
             return;
         }
 
         if (entry.keyExpression.nodeType !== ParseNodeType.StringList) {
-            evaluator.addError(Localizer.Diagnostic.typedDictEntryName(), entry.keyExpression);
+            evaluator.addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typedDictEntryName(),
+                entry.keyExpression
+            );
             return;
         }
 
         const entryName = entry.keyExpression.strings.map((s) => s.value).join('');
         if (!entryName) {
-            evaluator.addError(Localizer.Diagnostic.typedDictEmptyName(), entry.keyExpression);
+            evaluator.addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typedDictEmptyName(),
+                entry.keyExpression
+            );
             return;
         }
 
         if (entrySet.has(entryName)) {
-            evaluator.addError(Localizer.Diagnostic.typedDictEntryUnique(), entry.keyExpression);
+            evaluator.addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typedDictEntryUnique(),
+                entry.keyExpression
+            );
             return;
         }
 
@@ -1081,7 +1134,12 @@ export function getTypeOfIndexedTypedDict(
     usage: EvaluatorUsage
 ): TypeResult | undefined {
     if (node.items.length !== 1) {
-        evaluator.addError(Localizer.Diagnostic.typeArgsMismatchOne().format({ received: node.items.length }), node);
+        evaluator.addDiagnostic(
+            AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.typeArgsMismatchOne().format({ received: node.items.length }),
+            node
+        );
         return { type: UnknownType.create() };
     }
 
