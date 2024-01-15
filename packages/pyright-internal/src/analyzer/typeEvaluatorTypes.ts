@@ -632,8 +632,6 @@ export interface TypeEvaluator {
     isFinalVariableDeclaration: (decl: Declaration) => boolean;
     isExplicitTypeAliasDeclaration: (decl: Declaration) => boolean;
 
-    addError: (message: string, node: ParseNode, range?: TextRange) => Diagnostic | undefined;
-    addWarning: (message: string, node: ParseNode, range?: TextRange) => Diagnostic | undefined;
     addInformation: (message: string, node: ParseNode, range?: TextRange) => Diagnostic | undefined;
     addUnusedCode: (node: ParseNode, textRange: TextRange) => void;
     addUnreachableCode: (node: ParseNode, textRange: TextRange) => void;

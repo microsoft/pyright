@@ -612,7 +612,13 @@ export function getTypeOfBinaryOperation(
                 // If the left type is Any, we can't say for sure whether this
                 // is an illegal syntax or a valid application of the "|" operator.
                 if (!isAnyOrUnknown(adjustedLeftType)) {
-                    evaluator.addError(Localizer.Diagnostic.unionSyntaxIllegal(), node, node.operatorToken);
+                    evaluator.addDiagnostic(
+                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.unionSyntaxIllegal(),
+                        node,
+                        node.operatorToken
+                    );
                 }
             }
 
@@ -691,7 +697,12 @@ export function getTypeOfBinaryOperation(
     if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
         // Exempt "|" because it might be a union operation involving unknowns.
         if (node.operator !== OperatorType.BitwiseOr) {
-            evaluator.addError(Localizer.Diagnostic.binaryOperationNotAllowed(), node);
+            evaluator.addDiagnostic(
+                getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.binaryOperationNotAllowed(),
+                node
+            );
             return { type: UnknownType.create() };
         }
     }
@@ -950,7 +961,12 @@ export function getTypeOfUnaryOperation(
     inferenceContext: InferenceContext | undefined
 ): TypeResult {
     if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
-        evaluator.addError(Localizer.Diagnostic.unaryOperationNotAllowed(), node);
+        evaluator.addDiagnostic(
+            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.unaryOperationNotAllowed(),
+            node
+        );
         return { type: UnknownType.create() };
     }
 
@@ -1069,8 +1085,15 @@ export function getTypeOfTernaryOperation(
     flags: EvaluatorFlags,
     inferenceContext: InferenceContext | undefined
 ): TypeResult {
+    const fileInfo = getFileInfo(node);
+
     if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
-        evaluator.addError(Localizer.Diagnostic.ternaryNotAllowed(), node);
+        evaluator.addDiagnostic(
+            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+            DiagnosticRule.reportGeneralTypeIssues,
+            Localizer.Diagnostic.ternaryNotAllowed(),
+            node
+        );
         return { type: UnknownType.create() };
     }
 
@@ -1080,7 +1103,6 @@ export function getTypeOfTernaryOperation(
     let isIncomplete = false;
     let typeErrors = false;
 
-    const fileInfo = getFileInfo(node);
     const constExprValue = evaluateStaticBoolExpression(
         node.testExpression,
         fileInfo.executionEnvironment,

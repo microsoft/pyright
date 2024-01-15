@@ -321,7 +321,9 @@ export class Checker extends ParseTreeWalker {
                             !ClassType.isBuiltIn(baseClassType, 'Generic')
                         ) {
                             if (!ClassType.isProtocolClass(baseClassType)) {
-                                this._evaluator.addError(
+                                this._evaluator.addDiagnostic(
+                                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
                                     Localizer.Diagnostic.protocolBaseClass().format({
                                         classType: classTypeResult.classType.details.name,
                                         baseType: baseClassType.details.name,
@@ -540,7 +542,9 @@ export class Checker extends ParseTreeWalker {
             });
 
             if (paramSpecParams.length === 1 && paramSpecParams[0].typeAnnotation) {
-                this._evaluator.addError(
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
                     Localizer.Diagnostic.paramSpecArgsKwargsUsage(),
                     paramSpecParams[0].typeAnnotation
                 );
@@ -937,7 +941,12 @@ export class Checker extends ParseTreeWalker {
         if (enclosingFunctionNode?.isAsync && node.returnExpression) {
             const functionDecl = AnalyzerNodeInfo.getDeclaration(enclosingFunctionNode);
             if (functionDecl?.type === DeclarationType.Function && functionDecl.isGenerator) {
-                this._evaluator.addError(Localizer.Diagnostic.returnInAsyncGenerator(), node.returnExpression);
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.returnInAsyncGenerator(),
+                    node.returnExpression
+                );
             }
         }
 
@@ -1126,7 +1135,9 @@ export class Checker extends ParseTreeWalker {
                 });
 
                 if (!diagAddendum.isEmpty()) {
-                    this._evaluator.addError(
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.expectedExceptionObj() + diagAddendum.getString(),
                         node.valueExpression
                     );
@@ -1211,7 +1222,9 @@ export class Checker extends ParseTreeWalker {
                         scope.type !== ScopeType.Module &&
                         scope.type !== ScopeType.Builtin
                     ) {
-                        this._evaluator.addError(
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.typeAliasNotInModuleOrClass(),
                             node.leftExpression.typeAnnotation
                         );
@@ -1408,7 +1421,12 @@ export class Checker extends ParseTreeWalker {
                             (fStringContainer.token.flags & quoteTypeMask) === (stringNode.token.flags & quoteTypeMask)
                     )
                 ) {
-                    this._evaluator.addError(Localizer.Diagnostic.formatStringNestedQuote(), stringNode);
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.formatStringNestedQuote(),
+                        stringNode
+                    );
                 }
             }
         }
@@ -1529,7 +1547,12 @@ export class Checker extends ParseTreeWalker {
             node.module.nameParts[0].value === '__future__'
         ) {
             if (!ParseTreeUtils.isValidLocationForFutureImport(node)) {
-                this._evaluator.addError(Localizer.Diagnostic.futureImportLocationNotAllowed(), node);
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.futureImportLocationNotAllowed(),
+                    node
+                );
             }
         }
 
@@ -1633,7 +1656,12 @@ export class Checker extends ParseTreeWalker {
         const scope = getScopeForNode(node);
         if (scope) {
             if (scope.type !== ScopeType.Class && scope.type !== ScopeType.Module && scope.type !== ScopeType.Builtin) {
-                this._evaluator.addError(Localizer.Diagnostic.typeAliasStatementBadScope(), node.name);
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.typeAliasStatementBadScope(),
+                    node.name
+                );
             }
         }
 
@@ -2947,7 +2975,9 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (!diagAddendum.isEmpty()) {
-            this._evaluator.addError(
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.exceptionTypeNotClass().format({
                     type: this._evaluator.printType(exceptionType),
                 }),
@@ -3133,7 +3163,12 @@ export class Checker extends ParseTreeWalker {
         decls.forEach((decl) => {
             if (this._evaluator.isFinalVariableDeclaration(decl)) {
                 if (sawFinal) {
-                    this._evaluator.addError(Localizer.Diagnostic.finalRedeclaration().format({ name }), decl.node);
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.finalRedeclaration().format({ name }),
+                        decl.node
+                    );
                 }
                 sawFinal = true;
             }
@@ -3145,7 +3180,12 @@ export class Checker extends ParseTreeWalker {
                     // the assignment is within an `__init__` method, so ignore class
                     // scopes here.
                     if (scopeType !== ScopeType.Class) {
-                        this._evaluator.addError(Localizer.Diagnostic.finalReassigned().format({ name }), decl.node);
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.finalReassigned().format({ name }),
+                            decl.node
+                        );
                     }
                 }
                 sawAssignment = true;
@@ -3183,7 +3223,12 @@ export class Checker extends ParseTreeWalker {
                 }
 
                 if (!isImplicitlyAssigned && !isProtocolClass) {
-                    this._evaluator.addError(Localizer.Diagnostic.finalUnassigned().format({ name }), firstDecl.node);
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.finalUnassigned().format({ name }),
+                        firstDecl.node
+                    );
                 }
             }
         }
@@ -3197,7 +3242,12 @@ export class Checker extends ParseTreeWalker {
         if (typeAliasDecl && decls.length > 1) {
             decls.forEach((decl) => {
                 if (decl !== typeAliasDecl) {
-                    this._evaluator.addError(Localizer.Diagnostic.typeAliasRedeclared().format({ name }), decl.node);
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeAliasRedeclared().format({ name }),
+                        decl.node
+                    );
                 }
             });
         }
@@ -4565,7 +4615,12 @@ export class Checker extends ParseTreeWalker {
     // strings, and "pass" statements or ellipses.
     private _validateTypedDictClassSuite(suiteNode: SuiteNode) {
         const emitBadStatementError = (node: ParseNode) => {
-            this._evaluator.addError(Localizer.Diagnostic.typedDictBadVar(), node);
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typedDictBadVar(),
+                node
+            );
         };
 
         suiteNode.statements.forEach((statement) => {
@@ -4788,7 +4843,9 @@ export class Checker extends ParseTreeWalker {
                 !SymbolNameUtils.isPrivateName(name)
             ) {
                 const decl = localSymbol.getDeclarations()[0];
-                this._evaluator.addError(
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
                     Localizer.Diagnostic.finalRedeclarationBySubclass().format({
                         name,
                         className: parentSymbol.classType.details.name,
@@ -4820,7 +4877,9 @@ export class Checker extends ParseTreeWalker {
                     ClassType.isSameGenericClass(symbolType, classType) &&
                     symbolType.literalValue !== undefined
                 ) {
-                    this._evaluator.addError(
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.duplicateEnumMember().format({ name }),
                         decls[1].node
                     );

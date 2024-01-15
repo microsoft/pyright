@@ -784,7 +784,7 @@ export class Binder extends ParseTreeWalker {
             AnalyzerNodeInfo.setTypeParameterSymbol(name, symbol);
 
             if (this._activeTypeParams.has(name.value)) {
-                this._addError(
+                this._addSyntaxError(
                     Localizer.Diagnostic.typeParameterExistingTypeParameter().format({ name: name.value }),
                     name
                 );
@@ -1017,7 +1017,7 @@ export class Binder extends ParseTreeWalker {
 
         const evaluationNode = ParseTreeUtils.getEvaluationNodeForAssignmentExpression(node);
         if (!evaluationNode) {
-            this._addError(Localizer.Diagnostic.assignmentExprContext(), node);
+            this._addSyntaxError(Localizer.Diagnostic.assignmentExprContext(), node);
             this.walk(node.name);
         } else {
             // Bind the name to the containing scope. This special logic is required
@@ -1033,7 +1033,7 @@ export class Binder extends ParseTreeWalker {
             while (curScope && curScope !== containerScope) {
                 const localSymbol = curScope.lookUpSymbol(node.name.value);
                 if (localSymbol) {
-                    this._addError(
+                    this._addSyntaxError(
                         Localizer.Diagnostic.assignmentExprComprehension().format({ name: node.name.value }),
                         node.name
                     );
@@ -1204,7 +1204,7 @@ export class Binder extends ParseTreeWalker {
         if (node.asyncToken && !this._fileInfo.ipythonMode) {
             const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
             if (!enclosingFunction || !enclosingFunction.isAsync) {
-                this._addError(Localizer.Diagnostic.asyncNotInAsyncFunction(), node.asyncToken);
+                this._addSyntaxError(Localizer.Diagnostic.asyncNotInAsyncFunction(), node.asyncToken);
             }
         }
 
@@ -1256,7 +1256,7 @@ export class Binder extends ParseTreeWalker {
 
     override visitYield(node: YieldNode): boolean {
         if (this._isInListComprehension(node, /* ignoreOutermostIterable */ true)) {
-            this._addError(Localizer.Diagnostic.yieldWithinListCompr(), node);
+            this._addSyntaxError(Localizer.Diagnostic.yieldWithinListCompr(), node);
         }
 
         this._bindYield(node);
@@ -1265,7 +1265,7 @@ export class Binder extends ParseTreeWalker {
 
     override visitYieldFrom(node: YieldFromNode): boolean {
         if (this._isInListComprehension(node, /* ignoreOutermostIterable */ true)) {
-            this._addError(Localizer.Diagnostic.yieldWithinListCompr(), node);
+            this._addSyntaxError(Localizer.Diagnostic.yieldWithinListCompr(), node);
         }
 
         this._bindYield(node);
@@ -1629,7 +1629,7 @@ export class Binder extends ParseTreeWalker {
             // generator expressions is deferred and therefore can be
             // run within the context of an async function later.
             if (node.parent?.nodeType !== ParseNodeType.ListComprehension) {
-                this._addError(Localizer.Diagnostic.awaitNotInAsync(), node);
+                this._addSyntaxError(Localizer.Diagnostic.awaitNotInAsync(), node);
             }
         }
 
@@ -1644,14 +1644,14 @@ export class Binder extends ParseTreeWalker {
 
             // Is the binding inconsistent?
             if (this._currentScope.getBindingType(nameValue) === NameBindingType.Nonlocal) {
-                this._addError(Localizer.Diagnostic.nonLocalRedefinition().format({ name: nameValue }), name);
+                this._addSyntaxError(Localizer.Diagnostic.nonLocalRedefinition().format({ name: nameValue }), name);
             }
 
             const valueWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
             // Was the name already assigned within this scope before it was declared global?
             if (valueWithScope && valueWithScope.scope === this._currentScope) {
-                this._addError(Localizer.Diagnostic.globalReassignment().format({ name: nameValue }), name);
+                this._addSyntaxError(Localizer.Diagnostic.globalReassignment().format({ name: nameValue }), name);
             }
 
             // Add it to the global scope if it's not already added.
@@ -1669,23 +1669,23 @@ export class Binder extends ParseTreeWalker {
         const globalScope = this._currentScope.getGlobalScope().scope;
 
         if (this._currentScope === globalScope) {
-            this._addError(Localizer.Diagnostic.nonLocalInModule(), node);
+            this._addSyntaxError(Localizer.Diagnostic.nonLocalInModule(), node);
         } else {
             node.nameList.forEach((name) => {
                 const nameValue = name.value;
 
                 // Is the binding inconsistent?
                 if (this._currentScope.getBindingType(nameValue) === NameBindingType.Global) {
-                    this._addError(Localizer.Diagnostic.globalRedefinition().format({ name: nameValue }), name);
+                    this._addSyntaxError(Localizer.Diagnostic.globalRedefinition().format({ name: nameValue }), name);
                 }
 
                 const valueWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
                 // Was the name already assigned within this scope before it was declared nonlocal?
                 if (valueWithScope && valueWithScope.scope === this._currentScope) {
-                    this._addError(Localizer.Diagnostic.nonLocalReassignment().format({ name: nameValue }), name);
+                    this._addSyntaxError(Localizer.Diagnostic.nonLocalReassignment().format({ name: nameValue }), name);
                 } else if (!valueWithScope || valueWithScope.scope === globalScope) {
-                    this._addError(Localizer.Diagnostic.nonLocalNoBinding().format({ name: nameValue }), name);
+                    this._addSyntaxError(Localizer.Diagnostic.nonLocalNoBinding().format({ name: nameValue }), name);
                 }
 
                 if (valueWithScope) {
@@ -1792,7 +1792,7 @@ export class Binder extends ParseTreeWalker {
 
         if (node.isWildcardImport) {
             if (ParseTreeUtils.getEnclosingClass(node) || ParseTreeUtils.getEnclosingFunction(node)) {
-                this._addError(Localizer.Diagnostic.wildcardInFunction(), node);
+                this._addSyntaxError(Localizer.Diagnostic.wildcardInFunction(), node);
             }
 
             if (importInfo) {
@@ -2071,7 +2071,7 @@ export class Binder extends ParseTreeWalker {
                 // Top level async with is allowed in ipython mode.
                 const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
                 if (!enclosingFunction || !enclosingFunction.isAsync) {
-                    this._addError(Localizer.Diagnostic.asyncNotInAsyncFunction(), node.asyncToken);
+                    this._addSyntaxError(Localizer.Diagnostic.asyncNotInAsyncFunction(), node.asyncToken);
                 }
             }
         });
@@ -2188,7 +2188,7 @@ export class Binder extends ParseTreeWalker {
                             // generator expressions is deferred and therefore can be
                             // run within the context of an async function later.
                             if (node.parent?.nodeType === ParseNodeType.List) {
-                                this._addError(Localizer.Diagnostic.asyncNotInAsyncFunction(), compr.asyncToken);
+                                this._addSyntaxError(Localizer.Diagnostic.asyncNotInAsyncFunction(), compr.asyncToken);
                             }
                         }
                     }
@@ -4158,12 +4158,12 @@ export class Binder extends ParseTreeWalker {
 
         if (!functionNode) {
             if (!ParseTreeUtils.getEnclosingLambda(node)) {
-                this._addError(Localizer.Diagnostic.yieldOutsideFunction(), node);
+                this._addSyntaxError(Localizer.Diagnostic.yieldOutsideFunction(), node);
             }
         } else if (functionNode.isAsync && node.nodeType === ParseNodeType.YieldFrom) {
             // PEP 525 indicates that 'yield from' is not allowed in an
             // async function.
-            this._addError(Localizer.Diagnostic.yieldFromOutsideAsync(), node);
+            this._addSyntaxError(Localizer.Diagnostic.yieldFromOutsideAsync(), node);
         }
 
         if (this._targetFunctionDeclaration) {
@@ -4190,15 +4190,9 @@ export class Binder extends ParseTreeWalker {
         let diagnostic: Diagnostic | undefined;
         switch (diagLevel) {
             case 'error':
-                diagnostic = this._addError(message, textRange);
-                break;
-
             case 'warning':
-                diagnostic = this._addWarning(message, textRange);
-                break;
-
             case 'information':
-                diagnostic = this._addInformation(message, textRange);
+                diagnostic = this._fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, textRange);
                 break;
 
             case 'none':
@@ -4215,16 +4209,8 @@ export class Binder extends ParseTreeWalker {
         return diagnostic;
     }
 
-    private _addError(message: string, textRange: TextRange) {
+    private _addSyntaxError(message: string, textRange: TextRange) {
         return this._fileInfo.diagnosticSink.addDiagnosticWithTextRange('error', message, textRange);
-    }
-
-    private _addWarning(message: string, textRange: TextRange) {
-        return this._fileInfo.diagnosticSink.addDiagnosticWithTextRange('warning', message, textRange);
-    }
-
-    private _addInformation(message: string, textRange: TextRange) {
-        return this._fileInfo.diagnosticSink.addDiagnosticWithTextRange('information', message, textRange);
     }
 }
 
