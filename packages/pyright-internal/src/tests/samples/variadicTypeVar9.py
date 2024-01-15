@@ -6,7 +6,8 @@ from typing_extensions import TypeVarTuple, Unpack
 
 
 Ts = TypeVarTuple("Ts")
-T = TypeVar("T", covariant=True)
+T_co = TypeVar("T_co", covariant=True)
+T = TypeVar("T")
 
 
 class Call(Generic[Unpack[Ts]]):
@@ -14,8 +15,8 @@ class Call(Generic[Unpack[Ts]]):
         self.args = args
 
 
-class Return(Generic[T]):
-    def __init__(self, /, result: T) -> None:
+class Return(Generic[T_co]):
+    def __init__(self, /, result: T_co) -> None:
         self.result = result
 
 
@@ -23,8 +24,8 @@ TailRec = Call[Unpack[Ts]] | Return[T]
 
 
 def tail_rec(
-    fn: Callable[[Unpack[Ts]], TailRec[Unpack[Ts], T]]
-) -> Callable[[Unpack[Ts]], T]:
+    fn: Callable[[Unpack[Ts]], TailRec[Unpack[Ts], T_co]]
+) -> Callable[[Unpack[Ts]], T_co]:
     ...
 
 

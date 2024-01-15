@@ -7,15 +7,17 @@ from typing import Generic, TypeVar, TypeAlias
 T1 = TypeVar("T1")
 T2 = TypeVar("T2", covariant=True)
 T3 = TypeVar("T3", contravariant=True)
+T4 = TypeVar("T4")
+T5 = TypeVar("T5")
 
 
 class A(Generic[T1]):
     pass
 
 
-A_Alias_1: TypeAlias = A[T2]
+A_Alias_1: TypeAlias = A[T1]
 
-A_Alias_2: TypeAlias = A_Alias_1[T2 | int]
+A_Alias_2: TypeAlias = A_Alias_1[T1 | int]
 
 
 # This should generate an error because the variance is incompatible.
@@ -37,7 +39,7 @@ class B(Generic[T1, T2]):
     pass
 
 
-B_Alias_1 = B[T2, T3]
+B_Alias_1 = B[T4, T5]
 
 
 # This should generate an error because the variance is incompatible.

@@ -15257,6 +15257,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Don't include any synthesized type variables.
             typeParameters = typeParameters.filter((typeVar) => !typeVar.details.isSynthesized);
+
+            const typeVarsWithInvalidVariance = typeParameters.filter(
+                (typeParam) =>
+                    typeParam.details.declaredVariance === Variance.Covariant ||
+                    typeParam.details.declaredVariance === Variance.Contravariant
+            );
+
+            if (typeVarsWithInvalidVariance.length > 0) {
+                const typeVarNames = typeVarsWithInvalidVariance.map((typeVar) => typeVar.details.name);
+                // TODO - localize
+                addDiagnostic(
+                    DiagnosticRule.reportInvalidTypeVarUse,
+                    `Type variables scoped to a type alias cannot be covariant or contravariant: ${typeVarNames.join(
+                        ', '
+                    )}`,
+                    errorNode
+                );
+            }
         }
 
         // Convert all type variables to instances.
@@ -17291,6 +17309,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         } else {
             functionType.details.typeParameters = typeParametersSeen;
+
+            const typeVarsWithInvalidVariance = typeParametersSeen.filter(
+                (typeVar) =>
+                    typeVar.details.declaredVariance === Variance.Covariant ||
+                    typeVar.details.declaredVariance === Variance.Contravariant
+            );
+
+            if (typeVarsWithInvalidVariance.length > 0) {
+                const typeVarNames = typeVarsWithInvalidVariance.map((typeVar) => typeVar.details.name);
+                // TODO - localize
+                addDiagnostic(
+                    DiagnosticRule.reportInvalidTypeVarUse,
+                    `Type variables scoped to a function cannot be covariant or contravariant: ${typeVarNames.join(
+                        ', '
+                    )}`,
+                    node.name
+                );
+            }
         }
 
         let paramsArePositionOnly = true;

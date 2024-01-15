@@ -8,6 +8,7 @@ T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
 T_contra = TypeVar("T_contra", contravariant=True)
 
+
 # This should generate an error because the type parameter for list
 # is invariant, so T_co here cannot be covariant.
 class Class1(list[T_co]):
@@ -139,8 +140,8 @@ class ContraToContraToContra(Contra[Contra[Contra[T_co]]]):
     ...
 
 
-Co_TA = Co[T_co]
-Contra_TA = Contra[T_contra]
+Co_TA = Co[T]
+Contra_TA = Contra[T]
 
 
 class CoToContra_WithTA(Contra_TA[Co_TA[T_contra]]):
