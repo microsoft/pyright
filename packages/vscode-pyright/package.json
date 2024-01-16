@@ -1306,7 +1306,7 @@
     },
     "scripts": {
         "clean": "shx rm -rf ./dist ./out",
-        "prepackage": "node ./build/renamePackage.js pyright",
+        "prepackage": "node ./build/renamePackage.js basedpyright",
         "package": "vsce package",
         "postpackage": "node ./build/renamePackage.js vscode-pyright",
         "vscode:prepublish": "node ./build/checkPackage.js && npm run clean && webpack --mode production --progress",
