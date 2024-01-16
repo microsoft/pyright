@@ -5,11 +5,11 @@
     },
     "[javascript]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "editor.formatOnSave": true
-    },
-    "editor.codeActionsOnSave": {
-        "source.fixAll.eslint": "always",
-        "source.organizeImports": "always"
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.fixAll.eslint": "always",
+            "source.organizeImports": "always"
+        },
     },
     "typescript.tsdk": "node_modules/typescript/lib",
     "python.languageServer": "None",
@@ -46,7 +46,10 @@
     },
     "black-formatter.importStrategy": "fromEnvironment",
     "[python]": {
-        "editor.defaultFormatter": "ms-python.black-formatter"
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "always"
+        }
     },
     "yaml.schemas": {
         "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/github-workflow.json": ".github/workflows/*.yaml"
