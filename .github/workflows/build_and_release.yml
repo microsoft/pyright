@@ -41,10 +41,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - id: current-version
-        run: echo ::set-output name=CURRENT_VERSION::$(./pw pdm show --version)
-
       - run: npm run install:all
+
+      - id: current-version
+        run: echo ::set-output name=CURRENT_VERSION::$(node -p "require(\"./lerna.json\").version")
 
       - name: Build VSIX
         working-directory: ${{ env.VSIX_DIR }}
