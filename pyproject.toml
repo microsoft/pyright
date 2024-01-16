@@ -1,5 +1,5 @@
 [tool.pyprojectx]
-main = ["pdm"]
+main = ["pdm==2.11.2"]
 
 [tool.pdm]
 package-type = "library"
@@ -7,17 +7,16 @@ package-type = "library"
 [tool.pdm.dev-dependencies]
 dev = ["black>=23", "pylint>=3.0.0a7", "ruff>=0.0.290"]
 
-[tool.pdm.version]
-source = "call"
-getter = "dynamic_info:get_version"
-
-[tool.pdm.description]
-source = "call"
-getter = "dynamic_info:get_description"
+# https://github.com/pdm-project/pdm/issues/2561
+# [tool.pdm.version]
+# source = "file"
+# path = "__version__.py"
 
 [project]
 name = "basedpyright"
-dynamic = ["version", "description"]
+description = "static type checking for Python (but based)"
+version = "0.2.2"
+# dynamic = ["version"]
 authors = [
     { name = "detachhead", email = "detachhead@users.noreply.github.com" },
 ]
