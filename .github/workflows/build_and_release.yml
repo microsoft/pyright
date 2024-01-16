@@ -1,0 +1,78 @@
+name: 'build and release'
+
+env:
+  NODE_VERSION: '16' # Shipped with VS Code.
+  ARTIFACT_NAME_VSIX: vsix
+  VSIX_NAME: vscode-pyright.vsix
+  VSIX_DIR: packages/vscode-pyright
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      packages: write
+      pull-requests: read
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Get npm cache directory
+        id: npm-cache
+        run: |
+          echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        with:
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - id: current-version
+        run: echo ::set-output name=CURRENT_VERSION::$(./pw pdm show --version)
+
+      # https://github.com/pdm-project/pdm/issues/2561
+      - run: lerna version  ${{ steps.current-version.outputs.CURRENT_VERSION }} --force-publish --no-git-tag-version --yes
+
+      - run: npm run install:all
+
+      - name: Build VSIX
+        working-directory: ${{ env.VSIX_DIR }}
+        run: |
+          npm run package
+          mv basedpyright-*.vsix ${{ env.VSIX_NAME }}
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.ARTIFACT_NAME_VSIX }}
+          path: ${{ env.VSIX_DIR }}/${{ env.VSIX_NAME }}
+
+      - name: publish pypi package
+        run: ./pw pdm publish
+
+      # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
+      - name: Publish VSIX
+        run: ./node_modules/.bin/vsce publish --packagePath ${{ env.VSIX_NAME }} --pat ${{ secrets.VSCE_TOKEN }} --noVerify
+        working-directory: ${{ env.VSIX_DIR }}
+
+      - uses: marvinpinto/action-automatic-releases@v1.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          prerelease: false
+          files: |
+            dist/*
+            ${{ env.VSIX_DIR }}/${{ env.VSIX_NAME }}
+          automatic_release_tag: v${{ steps.current-version.outputs.CURRENT_VERSION }}
