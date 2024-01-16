@@ -44,9 +44,6 @@ jobs:
       - id: current-version
         run: echo ::set-output name=CURRENT_VERSION::$(./pw pdm show --version)
 
-      # https://github.com/pdm-project/pdm/issues/2561
-      - run: lerna version  ${{ steps.current-version.outputs.CURRENT_VERSION }} --force-publish --no-git-tag-version --yes
-
       - run: npm run install:all
 
       - name: Build VSIX
