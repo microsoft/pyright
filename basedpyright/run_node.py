@@ -7,4 +7,4 @@ from nodejs import node
 
 
 def run(script_name: str):
-    _ = node.run([Path(__file__).parent / f"{script_name}.js", *sys.argv[1:]])
+    sys.exit(node.call([Path(__file__).parent / f"{script_name}.js", *sys.argv[1:]]))
