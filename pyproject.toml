@@ -247,7 +247,7 @@ max-line-length = 200
 [tool.pyright]
 pythonVersion = "3.8"
 pythonPlatform = "All"
-include = ["basedpyright", "dynamic_info.py", "pdm_build.py"]
+include = ["basedpyright", "__version__.py", "pdm_build.py"]
 exclude = ['basedpyright/dist']
 reportMissingTypeStubs = false
 strictListInference = true
@@ -295,7 +295,7 @@ reportUnnecessaryComparison = true
 reportUnnecessaryContains = true
 reportAssertAlwaysTrue = true
 reportSelfClsParameterName = true
-reportImplicitStringConcatenation = false                     # conflicts with black
+reportImplicitStringConcatenation = false                    # conflicts with black
 reportInvalidStubStatement = true
 reportIncompleteStub = true
 reportUnsupportedDunderAll = true
