@@ -276,7 +276,8 @@ function printTypeInternal(
                                     isVariadicTypeVar(typeParam) &&
                                     isClassInstance(typeArg) &&
                                     isTupleClass(typeArg) &&
-                                    typeArg.tupleTypeArguments
+                                    typeArg.tupleTypeArguments &&
+                                    typeArg.tupleTypeArguments.every((typeArg) => !typeArg.isUnbounded)
                                 ) {
                                     typeArg.tupleTypeArguments.forEach((tupleTypeArg) => {
                                         argumentStrings!.push(

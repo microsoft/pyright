@@ -13,7 +13,7 @@ import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { Localizer } from '../localization/localize';
+import { LocAddendum, LocMessage } from '../localization/localize';
 import {
     ArgumentCategory,
     ExpressionNode,
@@ -28,7 +28,6 @@ import {
     PatternSequenceNode,
     PatternValueNode,
 } from '../parser/parseNodes';
-import { getFileInfo } from './analyzerNodeInfo';
 import { CodeFlowReferenceExpressionNode } from './codeFlowTypes';
 import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { getTypeVarScopesForNode, isMatchingExpression } from './parseTreeUtils';
@@ -788,9 +787,8 @@ function narrowTypeBasedOnClassPattern(
 
     if (!TypeBase.isInstantiable(exprType) && !isNever(exprType)) {
         evaluator.addDiagnostic(
-            getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.DiagnosticAddendum.typeNotClass().format({ type: evaluator.printType(exprType) }),
+            LocAddendum.typeNotClass().format({ type: evaluator.printType(exprType) }),
             pattern.className
         );
         return NeverType.createNever();
@@ -1554,26 +1552,23 @@ export function assignTypeToPatternTargets(
         case ParseNodeType.PatternCapture: {
             if (pattern.isWildcard) {
                 if (!isTypeIncomplete) {
-                    const fileInfo = getFileInfo(pattern);
                     if (isUnknown(narrowedType)) {
                         evaluator.addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                             DiagnosticRule.reportUnknownVariableType,
-                            Localizer.Diagnostic.wildcardPatternTypeUnknown(),
+                            LocMessage.wildcardPatternTypeUnknown(),
                             pattern.target
                         );
                     } else if (isPartlyUnknown(narrowedType)) {
                         const diagAddendum = new DiagnosticAddendum();
                         diagAddendum.addMessage(
-                            Localizer.DiagnosticAddendum.typeOfSymbol().format({
+                            LocAddendum.typeOfSymbol().format({
                                 name: '_',
                                 type: evaluator.printType(narrowedType, { expandTypeAlias: true }),
                             })
                         );
                         evaluator.addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                             DiagnosticRule.reportUnknownVariableType,
-                            Localizer.Diagnostic.wildcardPatternTypePartiallyUnknown() + diagAddendum.getString(),
+                            LocMessage.wildcardPatternTypePartiallyUnknown() + diagAddendum.getString(),
                             pattern.target
                         );
                     }
@@ -1770,17 +1765,15 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
         exprType.isTypeArgumentExplicit
     ) {
         evaluator.addDiagnostic(
-            getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.classPatternTypeAlias().format({ type: evaluator.printType(exprType) }),
+            LocMessage.classPatternTypeAlias().format({ type: evaluator.printType(exprType) }),
             pattern.className
         );
     } else if (!isInstantiableClass(exprType)) {
         if (!isNever(exprType)) {
             evaluator.addDiagnostic(
-                getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.DiagnosticAddendum.typeNotClass().format({ type: evaluator.printType(exprType) }),
+                LocAddendum.typeNotClass().format({ type: evaluator.printType(exprType) }),
                 pattern.className
             );
         }
@@ -1791,9 +1784,8 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
         if (isBuiltIn) {
             if (pattern.arguments.length === 1 && pattern.arguments[0].name) {
                 evaluator.addDiagnostic(
-                    getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.classPatternBuiltInArgPositional(),
+                    LocMessage.classPatternBuiltInArgPositional(),
                     pattern.arguments[0].name
                 );
             }
@@ -1818,9 +1810,8 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
 
         if (positionalPatternCount > expectedPatternCount) {
             evaluator.addDiagnostic(
-                getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.classPatternPositionalArgCount().format({
+                LocMessage.classPatternPositionalArgCount().format({
                     type: exprType.details.name,
                     expected: expectedPatternCount,
                     received: positionalPatternCount,
@@ -1986,9 +1977,8 @@ export function getPatternSubtypeNarrowingCallback(
 
 function reportUnnecessaryPattern(evaluator: TypeEvaluator, pattern: PatternAtomNode, subjectType: Type): void {
     evaluator.addDiagnostic(
-        getFileInfo(pattern).diagnosticRuleSet.reportUnnecessaryComparison,
         DiagnosticRule.reportUnnecessaryComparison,
-        Localizer.Diagnostic.patternNeverMatches().format({ type: evaluator.printType(subjectType) }),
+        LocMessage.patternNeverMatches().format({ type: evaluator.printType(subjectType) }),
         pattern
     );
 }

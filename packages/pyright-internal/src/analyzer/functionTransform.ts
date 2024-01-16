@@ -9,9 +9,8 @@
  */
 
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { Localizer } from '../localization/localize';
+import { LocMessage } from '../localization/localize';
 import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
-import { getFileInfo } from './analyzerNodeInfo';
 import { Symbol, SymbolFlags } from './symbol';
 import { FunctionArgument, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
 import {
@@ -74,9 +73,8 @@ function applyTotalOrderingTransform(
 
     if (!firstMemberFound) {
         evaluator.addDiagnostic(
-            getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.totalOrderingMissingMethod(),
+            LocMessage.totalOrderingMissingMethod(),
             errorNode
         );
         return result;

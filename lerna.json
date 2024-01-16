@@ -1,13 +1,13 @@
 {
-  "packages": [
-    "packages/*"
-  ],
-  "version": "0.2.5",
-  "command": {
-    "version": {
-      "push": false,
-      "tagVersionPrefix": "v",
-      "message": "Published basedpyright %s"
+    "packages": [
+        "packages/*"
+    ],
+    "version": "0.2.5",
+    "command": {
+        "version": {
+            "push": false,
+            "tagVersionPrefix": "",
+            "message": "Published %s"
+        }
     }
-  }
 }

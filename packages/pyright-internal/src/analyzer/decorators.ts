@@ -10,7 +10,7 @@
 
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { Localizer } from '../localization/localize';
+import { LocMessage } from '../localization/localize';
 import {
     ArgumentCategory,
     CallNode,
@@ -573,9 +573,8 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
 
             if (isPrevOverloadAbstract !== isCurrentOverloadAbstract) {
                 evaluator.addDiagnostic(
-                    getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.overloadAbstractMismatch().format({ name: node.name.value }),
+                    LocMessage.overloadAbstractMismatch().format({ name: node.name.value }),
                     node.name
                 );
             }

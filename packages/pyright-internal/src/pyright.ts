@@ -42,6 +42,7 @@ const toolName = 'pyright';
 
 type SeverityLevel = 'error' | 'warning' | 'information';
 
+// These values are publicly documented. Do not change them.
 enum ExitStatus {
     NoErrors = 0,
     ErrorsReported = 1,
@@ -50,6 +51,7 @@ enum ExitStatus {
     ParameterError = 4,
 }
 
+// The schema for this object is publicly documented. Do not change it.
 interface PyrightJsonResults {
     version: string;
     time: string;
@@ -58,19 +60,21 @@ interface PyrightJsonResults {
     typeCompleteness?: PyrightTypeCompletenessReport;
 }
 
+// The schema for this object is publicly documented. Do not change it.
 interface PyrightSymbolCount {
     withKnownType: number;
     withAmbiguousType: number;
     withUnknownType: number;
 }
 
+// The schema for this object is publicly documented. Do not change it.
 interface PyrightTypeCompletenessReport {
     packageName: string;
-    packageRootDirectory?: Uri | undefined;
+    packageRootDirectory?: string | undefined;
     moduleName: string;
-    moduleRootDirectory?: Uri | undefined;
+    moduleRootDirectory?: string | undefined;
     ignoreUnknownTypesFromImports: boolean;
-    pyTypedPath?: Uri | undefined;
+    pyTypedPath?: string | undefined;
     exportedSymbolCounts: PyrightSymbolCount;
     otherSymbolCounts: PyrightSymbolCount;
     missingFunctionDocStringCount: number;
@@ -81,10 +85,12 @@ interface PyrightTypeCompletenessReport {
     symbols: PyrightPublicSymbolReport[];
 }
 
+// The schema for this object is publicly documented. Do not change it.
 interface PyrightPublicModuleReport {
     name: string;
 }
 
+// The schema for this object is publicly documented. Do not change it.
 interface PyrightPublicSymbolReport {
     category: string;
     name: string;
@@ -96,14 +102,16 @@ interface PyrightPublicSymbolReport {
     alternateNames?: string[] | undefined;
 }
 
+// The schema for this object is publicly documented. Do not change it.
 interface PyrightJsonDiagnostic {
-    uri: Uri;
+    file: string;
     severity: SeverityLevel;
     message: string;
     range?: Range | undefined;
     rule?: string | undefined;
 }
 
+// The schema for this object is publicly documented. Do not change it.
 interface PyrightJsonSummary {
     filesAnalyzed: number;
     errorCount: number;
@@ -112,6 +120,7 @@ interface PyrightJsonSummary {
     timeInSec: number;
 }
 
+// The schema for this object is publicly documented. Do not change it.
 interface DiagnosticResult {
     errorCount: number;
     warningCount: number;
@@ -548,7 +557,7 @@ function buildTypeCompletenessReport(
 
     // Add the general diagnostics.
     completenessReport.generalDiagnostics.forEach((diag) => {
-        const jsonDiag = convertDiagnosticToJson(Uri.empty(), diag);
+        const jsonDiag = convertDiagnosticToJson(Uri.empty().getFilePath(), diag);
         if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
             report.generalDiagnostics.push(jsonDiag);
         }
@@ -557,11 +566,11 @@ function buildTypeCompletenessReport(
 
     report.typeCompleteness = {
         packageName,
-        packageRootDirectory: completenessReport.packageRootDirectoryUri,
+        packageRootDirectory: completenessReport.packageRootDirectoryUri?.getFilePath(),
         moduleName: completenessReport.moduleName,
-        moduleRootDirectory: completenessReport.moduleRootDirectoryUri,
+        moduleRootDirectory: completenessReport.moduleRootDirectoryUri?.getFilePath(),
         ignoreUnknownTypesFromImports: completenessReport.ignoreExternal,
-        pyTypedPath: completenessReport.pyTypedPathUri,
+        pyTypedPath: completenessReport.pyTypedPathUri?.getFilePath(),
         exportedSymbolCounts: {
             withKnownType: 0,
             withAmbiguousType: 0,
@@ -595,7 +604,7 @@ function buildTypeCompletenessReport(
 
         // Convert and filter the diagnostics.
         symbol.diagnostics.forEach((diag) => {
-            const jsonDiag = convertDiagnosticToJson(diag.uri, diag.diagnostic);
+            const jsonDiag = convertDiagnosticToJson(diag.uri.getFilePath(), diag.diagnostic);
             if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
                 diagnostics.push(jsonDiag);
             }
@@ -821,7 +830,7 @@ function reportDiagnosticsAsJson(
                 diag.category === DiagnosticCategory.Warning ||
                 diag.category === DiagnosticCategory.Information
             ) {
-                const jsonDiag = convertDiagnosticToJson(fileDiag.fileUri, diag);
+                const jsonDiag = convertDiagnosticToJson(fileDiag.fileUri.getFilePath(), diag);
                 if (isDiagnosticIncluded(jsonDiag.severity, minSeverityLevel)) {
                     report.generalDiagnostics.push(jsonDiag);
                 }
@@ -872,9 +881,9 @@ function convertDiagnosticCategoryToSeverity(category: DiagnosticCategory): Seve
     }
 }
 
-function convertDiagnosticToJson(uri: Uri, diag: Diagnostic): PyrightJsonDiagnostic {
+function convertDiagnosticToJson(filePath: string, diag: Diagnostic): PyrightJsonDiagnostic {
     return {
-        uri,
+        file: filePath,
         severity: convertDiagnosticCategoryToSeverity(diag.category),
         message: diag.message,
         range: isEmptyRange(diag.range) ? undefined : diag.range,
@@ -905,7 +914,7 @@ function reportDiagnosticsAsText(
         if (fileErrorsAndWarnings.length > 0) {
             console.info(`${fileDiagnostics.fileUri.toUserVisibleString()}`);
             fileErrorsAndWarnings.forEach((diag) => {
-                const jsonDiag = convertDiagnosticToJson(fileDiagnostics.fileUri, diag);
+                const jsonDiag = convertDiagnosticToJson(fileDiagnostics.fileUri.getFilePath(), diag);
                 logDiagnosticToConsole(jsonDiag);
 
                 if (diag.category === DiagnosticCategory.Error) {
@@ -935,8 +944,8 @@ function reportDiagnosticsAsText(
 
 function logDiagnosticToConsole(diag: PyrightJsonDiagnostic, prefix = '  ') {
     let message = prefix;
-    if (!diag.uri.isEmpty()) {
-        message += `${diag.uri.toUserVisibleString()}:`;
+    if (diag.file) {
+        message += `${diag.file}:`;
     }
     if (diag.range && !isEmptyRange(diag.range)) {
         message +=

@@ -11,7 +11,7 @@
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { Localizer } from '../localization/localize';
+import { LocMessage } from '../localization/localize';
 import {
     ArgumentCategory,
     ExpressionNode,
@@ -82,19 +82,13 @@ export function createNamedTupleType(
     }
 
     if (argList.length === 0) {
-        evaluator.addDiagnostic(
-            getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.namedTupleFirstArg(),
-            errorNode
-        );
+        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.namedTupleFirstArg(), errorNode);
     } else {
         const nameArg = argList[0];
         if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
             evaluator.addDiagnostic(
-                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.namedTupleFirstArg(),
+                LocMessage.namedTupleFirstArg(),
                 argList[0].valueExpression || errorNode
             );
         } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
@@ -168,12 +162,7 @@ export function createNamedTupleType(
     const entryTypes: Type[] = [];
 
     if (argList.length < 2) {
-        evaluator.addDiagnostic(
-            getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.namedTupleSecondArg(),
-            errorNode
-        );
+        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.namedTupleSecondArg(), errorNode);
         addGenericGetAttribute = true;
     } else {
         const entriesArg = argList[1];
@@ -268,9 +257,8 @@ export function createNamedTupleType(
                             );
                         } else {
                             evaluator.addDiagnostic(
-                                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.namedTupleNameType(),
+                                LocMessage.namedTupleNameType(),
                                 entry
                             );
                         }
@@ -290,9 +278,8 @@ export function createNamedTupleType(
 
                             if (!entryName) {
                                 evaluator.addDiagnostic(
-                                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                     DiagnosticRule.reportGeneralTypeIssues,
-                                    Localizer.Diagnostic.namedTupleEmptyName(),
+                                    LocMessage.namedTupleEmptyName(),
                                     entryNameNode
                                 );
                             } else {
@@ -311,9 +298,8 @@ export function createNamedTupleType(
 
                     if (entryMap.has(entryName)) {
                         evaluator.addDiagnostic(
-                            getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.namedTupleNameUnique(),
+                            LocMessage.namedTupleNameUnique(),
                             entryNameNode || entry
                         );
                     }
@@ -517,11 +503,6 @@ function renameKeyword(
         return `_${index}`;
     }
 
-    evaluator.addDiagnostic(
-        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-        DiagnosticRule.reportGeneralTypeIssues,
-        Localizer.Diagnostic.namedTupleNameKeyword(),
-        errorNode
-    );
+    evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.namedTupleNameKeyword(), errorNode);
     return name;
 }

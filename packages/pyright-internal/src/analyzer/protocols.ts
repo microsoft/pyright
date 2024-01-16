@@ -10,7 +10,7 @@
 
 import { assert } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
-import { Localizer } from '../localization/localize';
+import { LocAddendum } from '../localization/localize';
 import { assignTypeToTypeVar } from './constraintSolver';
 import { DeclarationType } from './declaration';
 import { assignProperty } from './properties';
@@ -411,7 +411,7 @@ function assignClassToProtocolInternal(
                 }
 
                 if (!srcMemberInfo) {
-                    diag?.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
+                    diag?.addMessage(LocAddendum.protocolMemberMissing().format({ name }));
                     typesAreConsistent = false;
                     return;
                 }
@@ -470,7 +470,7 @@ function assignClassToProtocolInternal(
                 srcSymbol = srcType.fields.get(name);
 
                 if (!srcSymbol) {
-                    diag?.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
+                    diag?.addMessage(LocAddendum.protocolMemberMissing().format({ name }));
                     typesAreConsistent = false;
                     return;
                 }
@@ -542,7 +542,7 @@ function assignClassToProtocolInternal(
                         )
                     ) {
                         if (subDiag) {
-                            subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                            subDiag.addMessage(LocAddendum.memberTypeMismatch().format({ name }));
                         }
                         typesAreConsistent = false;
                     }
@@ -567,7 +567,7 @@ function assignClassToProtocolInternal(
                         )
                     ) {
                         if (subDiag) {
-                            subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                            subDiag.addMessage(LocAddendum.memberTypeMismatch().format({ name }));
                         }
                         typesAreConsistent = false;
                     }
@@ -577,9 +577,7 @@ function assignClassToProtocolInternal(
                         // is not defined in the dest property.
                         if (lookUpClassMember(destMemberType, '__set__', MemberAccessFlags.SkipInstanceMembers)) {
                             if (subDiag) {
-                                subDiag.addMessage(
-                                    Localizer.DiagnosticAddendum.memberIsWritableInProtocol().format({ name })
-                                );
+                                subDiag.addMessage(LocAddendum.memberIsWritableInProtocol().format({ name }));
                             }
                             typesAreConsistent = false;
                         }
@@ -607,9 +605,9 @@ function assignClassToProtocolInternal(
                 ) {
                     if (subDiag) {
                         if (isInvariant) {
-                            subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsInvariant().format({ name }));
+                            subDiag.addMessage(LocAddendum.memberIsInvariant().format({ name }));
                         }
-                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                        subDiag.addMessage(LocAddendum.memberTypeMismatch().format({ name }));
                     }
                     typesAreConsistent = false;
                 } else {
@@ -627,11 +625,11 @@ function assignClassToProtocolInternal(
             if (isDestFinal !== isSrcFinal) {
                 if (isDestFinal) {
                     if (subDiag) {
-                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsFinalInProtocol().format({ name }));
+                        subDiag.addMessage(LocAddendum.memberIsFinalInProtocol().format({ name }));
                     }
                 } else {
                     if (subDiag) {
-                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsNotFinalInProtocol().format({ name }));
+                        subDiag.addMessage(LocAddendum.memberIsNotFinalInProtocol().format({ name }));
                     }
                 }
                 typesAreConsistent = false;
@@ -645,11 +643,11 @@ function assignClassToProtocolInternal(
                 // If the source is not marked as a ClassVar or the dest (the protocol) is,
                 // the types are not consistent given that the source is a class object.
                 if (isDestClassVar) {
-                    subDiag?.addMessage(Localizer.DiagnosticAddendum.memberIsClassVarInProtocol().format({ name }));
+                    subDiag?.addMessage(LocAddendum.memberIsClassVarInProtocol().format({ name }));
                     typesAreConsistent = false;
                 } else if (isSrcVariable && !isSrcClassVar) {
                     if (!isMemberFromMetaclass) {
-                        subDiag?.addMessage(Localizer.DiagnosticAddendum.memberIsNotClassVarInClass().format({ name }));
+                        subDiag?.addMessage(LocAddendum.memberIsNotClassVarInClass().format({ name }));
                         typesAreConsistent = false;
                     }
                 }
@@ -658,11 +656,9 @@ function assignClassToProtocolInternal(
                 // or vice versa, the types are not consistent.
                 if (isDestClassVar !== isSrcClassVar) {
                     if (isDestClassVar) {
-                        subDiag?.addMessage(Localizer.DiagnosticAddendum.memberIsClassVarInProtocol().format({ name }));
+                        subDiag?.addMessage(LocAddendum.memberIsClassVarInProtocol().format({ name }));
                     } else {
-                        subDiag?.addMessage(
-                            Localizer.DiagnosticAddendum.memberIsNotClassVarInProtocol().format({ name })
-                        );
+                        subDiag?.addMessage(LocAddendum.memberIsNotClassVarInProtocol().format({ name }));
                     }
                     typesAreConsistent = false;
                 }
@@ -688,7 +684,7 @@ function assignClassToProtocolInternal(
 
                 if (!isDestReadOnly && isSrcReadOnly) {
                     if (subDiag) {
-                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsWritableInProtocol().format({ name }));
+                        subDiag.addMessage(LocAddendum.memberIsWritableInProtocol().format({ name }));
                     }
                     typesAreConsistent = false;
                 }
