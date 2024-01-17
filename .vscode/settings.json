@@ -11,6 +11,11 @@
             "source.organizeImports": "always"
         },
     },
+    "[yaml]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true
+    },
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "typescript.tsdk": "node_modules/typescript/lib",
     "python.languageServer": "None",
     "editor.formatOnSave": true,
