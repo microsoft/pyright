@@ -65,3 +65,10 @@ def func7(m: Meta1, x: type[Parent1] | type[Child1]) -> None:
         reveal_type(m, expected_text="type[Parent1] | type[Child1]")
     else:
         reveal_type(m, expected_text="Meta1")
+
+
+def func8(cls: type):
+    if isinstance(cls, Meta1):
+        reveal_type(cls, expected_text="Meta1")
+    else:
+        reveal_type(cls, expected_text="type")
