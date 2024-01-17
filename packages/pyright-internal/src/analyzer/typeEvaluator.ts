@@ -14062,13 +14062,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let typeErrors = false;
 
         // If any of the "for" clauses are marked async or any of the "if" clauses
-        // or the final expression contain an "await" operator anywhere within
-        // the expression, it is treated as an async generator.
-        let isAsync = node.forIfNodes.some((comp) => {
+        // or any clause other than the leftmost "for" contain an "await" operator,
+        // it is treated as an async generator.
+        let isAsync = node.forIfNodes.some((comp, index) => {
             if (comp.nodeType === ParseNodeType.ListComprehensionFor && comp.isAsync) {
                 return true;
             }
-            return ParseTreeUtils.containsAwaitNode(comp);
+            return index > 0 && ParseTreeUtils.containsAwaitNode(comp);
         });
         let type: Type = UnknownType.create();
 
