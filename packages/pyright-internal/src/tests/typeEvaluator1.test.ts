@@ -23,6 +23,14 @@ test('Unreachable1', () => {
     TestUtils.validateResults(analysisResults, 0, 0, 2, 1, 4);
 });
 
+test('Unreachable1 reportUnreachable', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportUnreachable = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unreachable1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 4, 0, 2, 1, 0);
+});
+
 test('Builtins1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['builtins1.py']);
 

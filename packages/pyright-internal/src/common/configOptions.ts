@@ -323,6 +323,11 @@ export interface DiagnosticRuleSet {
 
     // Report missing @override decorator.
     reportImplicitOverride: DiagnosticLevel;
+
+    // basedpyright options:
+
+    // Report unreachable code
+    reportUnreachable: DiagnosticLevel;
 }
 
 export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {

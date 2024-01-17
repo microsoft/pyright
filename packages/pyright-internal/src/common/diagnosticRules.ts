@@ -85,4 +85,7 @@ export enum DiagnosticRule {
     reportMatchNotExhaustive = 'reportMatchNotExhaustive',
     reportShadowedImports = 'reportShadowedImports',
     reportImplicitOverride = 'reportImplicitOverride',
+
+    // basedpyright options:
+    reportUnreachable = 'reportUnreachable',
 }

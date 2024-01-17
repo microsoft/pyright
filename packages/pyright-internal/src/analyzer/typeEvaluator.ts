@@ -3089,7 +3089,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function addUnreachableCode(node: ParseNode, textRange: TextRange) {
         if (!isDiagnosticSuppressedForNode(node)) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-            fileInfo.diagnosticSink.addUnreachableCodeWithTextRange(LocMessage.unreachableCode(), textRange);
+            const message = LocMessage.unreachableCode();
+            if (fileInfo.diagnosticRuleSet.reportUnreachable === 'none') {
+                fileInfo.diagnosticSink.addUnreachableCodeWithTextRange(message, textRange);
+            } else {
+                addDiagnostic(DiagnosticRule.reportUnreachable, message, node, textRange);
+            }
         }
     }
 
@@ -3106,7 +3111,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         node: ParseNode,
         range?: TextRange
     ) {
-        if (!isDiagnosticSuppressedForNode(node) && isNodeReachable(node)) {
+        if (!isDiagnosticSuppressedForNode(node)) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             return fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range || node);
         }
