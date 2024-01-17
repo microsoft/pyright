@@ -243,6 +243,7 @@ score = "no"
 max-line-length = 200
 
 [tool.pyright]
+ignore = ["pw"]
 pythonVersion = "3.8"
 pythonPlatform = "All"
 include = ["basedpyright", "get_version.py", "pdm_build.py"]
@@ -309,7 +310,7 @@ reportShadowedImports = true
 unsafe-fixes = true
 extend-select = ["ALL"]
 ignore = [
-    "ANN",     # flake8-annotations (covered by mypy)
+    "ANN",     # flake8-annotations (covered by pyright)
     "COM",     # flake8-commas (covered by black)
     "EM",      # flake8-errmsg
     "FIX",     # flake8-fixme
@@ -319,13 +320,13 @@ ignore = [
     "PLR2004", # Magic value used in comparison
     "PLR1722", # Use `sys.exit()` instead of `exit`
     "PLW2901", # `for` loop variable overwritten by assignment target
-    "PLE0605", # Invalid format for `__all__`, must be `tuple` or `list` (covered by mypy)
+    "PLE0605", # Invalid format for `__all__`, must be `tuple` or `list` (covered by pyright)
     "PLR0911", # Too many return statements
     "PLW0603", # Using the global statement is discouraged
     "PLC0105", # `TypeVar` name does not reflect its covariance
-    "PLC0414", # Import alias does not rename original package (used by mypy for explicit re-export)
-    "RUF013",  # PEP 484 prohibits implicit Optional (covered by mypy)
-    "RUF016",  # Slice in indexed access to type (covered by mypy)
+    "PLC0414", # Import alias does not rename original package (used by pyright for explicit re-export)
+    "RUF013",  # PEP 484 prohibits implicit Optional (covered by pyright)
+    "RUF016",  # Slice in indexed access to type (covered by pyright)
     "TRY002",  # Create your own exception
     "TRY003",  # Avoid specifying long messages outside the exception class
     "D10",     # Missing docstring
@@ -346,7 +347,6 @@ ignore = [
     "D418",    # Function/Method decorated with @overload shouldn't contain a docstring (vscode supports it)
     "PT013",   # Found incorrect import of pytest, use simple import pytest instead (only for bad linters that can't check the qualname)
     "TD002",   # Missing author in TODO
-    "PGH003",  # Use specific rule codes when ignoring type issues (covered by mypy)
     "E701",    # Multiple statements on one line (sometimes conflicts with black)
     "CPY001",  # missing-copyright-notice
     "C901",    # max-complexity
@@ -359,10 +359,6 @@ extend-exclude = ["pw"]
 
 [tool.ruff.pycodestyle]
 ignore-overlong-task-comments = true
-
-[tool.ruff.flake8-pytest-style]
-# not including the parenthesis causes Any expression in mypy
-fixture-parentheses = true
 
 [tool.ruff.per-file-ignores]
 "*.pyi" = ["A001", "A002", "N"] # we don't control names in 3rd party modules
