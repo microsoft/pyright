@@ -224,6 +224,8 @@ test('AutoSearchPathsOn', () => {
     const service = createAnalyzer(nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd.getFilePath(), /* fromVsCodeExtension */ false);
     commandLineOptions.autoSearchPaths = true;
+    //hacky way to prevent it from detecting the pyproject.toml at the root of this project
+    commandLineOptions.fromVsCodeExtension = true;
     service.setOptions(commandLineOptions);
 
     const configOptions = service.test_getConfigOptions(commandLineOptions);
