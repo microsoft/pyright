@@ -72,10 +72,10 @@
           "problemMatcher": []
         },
         {
-          "label": "basedmypy - all files",
+          "label": "basedpyright - all files",
           "type": "shell",
           "command": "./pw",
-          "args": ["pdm", "run", "mypy_all"],
+          "args": ["pdm", "run", "basedpyright"],
           "presentation": {
             "clear": true
           },
