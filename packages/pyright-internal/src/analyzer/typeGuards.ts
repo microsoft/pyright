@@ -1620,7 +1620,9 @@ function narrowTypeForIsInstance(
         // match, then the original variable type survives the filter.
         if (!isPositiveTest) {
             if (!foundSuperclass || isClassRelationshipIndeterminate) {
-                filteredTypes.push(negativeFallbackType);
+                filteredTypes.push(
+                    isInstanceCheck ? convertToInstantiable(negativeFallbackType) : negativeFallbackType
+                );
             }
         }
 
@@ -1811,7 +1813,7 @@ function narrowTypeForIsInstance(
                     }
                 }
 
-                if (isClassInstance(subtype) && !isSubtypeMetaclass) {
+                if (isClassInstance(subtype)) {
                     return combineTypes(
                         filterClassType(
                             convertToInstance(unexpandedSubtype),
