@@ -31,7 +31,11 @@ jobs:
 
       - run: npm run install:all
 
-      - run: npx lerna exec --stream --no-bail -- tsc --noEmit
+      - name: typescript typecheck
+        run: npx lerna exec --stream --no-bail -- tsc --noEmit
+
+      - name: python typecheck
+        run: ./pw run basedpyright
 
   style:
     runs-on: ubuntu-latest
