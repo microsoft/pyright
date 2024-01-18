@@ -80,6 +80,7 @@ enable = [
     # rules that have not yet been implemented in ruff. once all of these are implemented in ruff, we should remove pylint
     # (see https://github.com/astral-sh/ruff/issues/970):
     "possibly-unused-variable",
+    "disallowed-name",
     "access-member-before-definition",
     "assigning-non-slot",
     "assignment-from-no-return",
