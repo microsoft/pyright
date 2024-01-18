@@ -36,10 +36,10 @@ IOPRIO_CLASS_BE: int
 IOPRIO_CLASS_IDLE: int
 
 class IOPriority(enum.IntEnum):
-    IOPRIO_CLASS_NONE: int
-    IOPRIO_CLASS_RT: int
-    IOPRIO_CLASS_BE: int
-    IOPRIO_CLASS_IDLE: int
+    IOPRIO_CLASS_NONE = ...
+    IOPRIO_CLASS_RT = ...
+    IOPRIO_CLASS_BE = ...
+    IOPRIO_CLASS_IDLE = ...
 
 PROC_STATUSES: Any
 TCP_STATUSES: Any

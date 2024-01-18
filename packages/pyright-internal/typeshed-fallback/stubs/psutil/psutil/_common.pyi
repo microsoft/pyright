@@ -48,16 +48,16 @@ NIC_DUPLEX_HALF: int
 NIC_DUPLEX_UNKNOWN: int
 
 class NicDuplex(enum.IntEnum):
-    NIC_DUPLEX_FULL: int
-    NIC_DUPLEX_HALF: int
-    NIC_DUPLEX_UNKNOWN: int
+    NIC_DUPLEX_FULL = ...
+    NIC_DUPLEX_HALF = ...
+    NIC_DUPLEX_UNKNOWN = ...
 
 POWER_TIME_UNKNOWN: int
 POWER_TIME_UNLIMITED: int
 
 class BatteryTime(enum.IntEnum):
-    POWER_TIME_UNKNOWN: int
-    POWER_TIME_UNLIMITED: int
+    POWER_TIME_UNKNOWN = ...
+    POWER_TIME_UNLIMITED = ...
 
 ENCODING: str
 ENCODING_ERRS: str
