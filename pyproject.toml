@@ -38,7 +38,7 @@ build-backend = "pdm.backend"
 target-version = ["py38"]
 skip-magic-trailing-comma = true
 preview = true
-force-exclude = "pw"
+force-exclude = "pw|pyright\\-internal"
 
 [tool.pylint.MASTER]  
 fail-on = "I"
