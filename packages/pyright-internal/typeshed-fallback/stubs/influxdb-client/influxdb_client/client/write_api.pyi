@@ -17,9 +17,9 @@ _Observable: TypeAlias = Any  # reactivex.Observable
 logger: logging.Logger
 
 class WriteType(Enum):
-    batching: int
-    asynchronous: int
-    synchronous: int
+    batching = ...
+    asynchronous = ...
+    synchronous = ...
 
 class WriteOptions:
     write_type: WriteType

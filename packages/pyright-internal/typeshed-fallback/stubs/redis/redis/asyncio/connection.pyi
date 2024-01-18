@@ -21,7 +21,7 @@ SYM_EMPTY: bytes
 SERVER_CLOSED_CONNECTION_ERROR: str
 
 class _Sentinel(enum.Enum):
-    sentinel: Any
+    sentinel = ...
 
 SENTINEL: Any
 MODULE_LOAD_ERROR: str
