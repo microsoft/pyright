@@ -516,6 +516,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportMatchNotExhaustive: 'none',
         reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
+        reportUnreachable: 'none',
     };
 
     return diagSettings;
@@ -601,6 +602,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportMatchNotExhaustive: 'none',
         reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
+        reportUnreachable: 'none',
     };
 
     return diagSettings;
@@ -686,6 +688,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportMatchNotExhaustive: 'none',
         reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
+        reportUnreachable: 'none',
     };
 
     return diagSettings;
@@ -771,6 +774,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportMatchNotExhaustive: 'error',
         reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
+        reportUnreachable: 'error',
     };
 
     return diagSettings;
