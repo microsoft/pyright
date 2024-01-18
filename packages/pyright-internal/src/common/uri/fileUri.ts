@@ -25,7 +25,7 @@ import { Uri } from './uri';
 
 export class FileUri extends BaseUri {
     private _formattedString: string | undefined;
-    private constructor(
+    protected constructor(
         key: string,
         private readonly _filePath: string,
         private readonly _query: string,

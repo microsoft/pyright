@@ -13,6 +13,7 @@ import { FileSystem, ReadOnlyFileSystem, Stats, TempFile } from '../fileSystem';
 import {
     getRegexEscapedSeparator,
     isDirectoryWildcardPatternPresent,
+    resolvePaths,
     stripTrailingDirectorySeparator,
 } from '../pathUtils';
 import { Uri } from './uri';
@@ -427,4 +428,8 @@ export function getRootUri(isCaseSensitive: boolean): Uri | undefined {
 export function encodeUri(fs: ReadOnlyFileSystem, uri: Uri): string {
     // Convert to a URI string that the LSP client understands (mapped files are only local to the server).
     return fs.getOriginalUri(uri).toString();
+}
+
+export function resolveFilePath(root: Uri, filePath: string) {
+    return Uri.file(resolvePaths(root.getFilePath(), filePath));
 }
