@@ -242,7 +242,7 @@
     "reportWildcardImportFromLibrary": {
       "$id": "#/properties/reportWildcardImportFromLibrary",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of wlidcard import from external library",
+      "title": "Controls reporting of wildcard import from external library",
       "default": "warning"
     },
     "reportOptionalSubscript": {
