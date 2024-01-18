@@ -14,7 +14,7 @@ const EmptyKey = '<empty>';
 export class EmptyUri extends FileUri {
     private static _instance = new EmptyUri();
     private constructor() {
-        super(EmptyKey, '', '', '', undefined, false);
+        super(EmptyKey, '', '', '', undefined, /* isCaseSensitive */ true);
     }
 
     static get instance() {
