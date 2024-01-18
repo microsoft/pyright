@@ -40,7 +40,7 @@ skip-magic-trailing-comma = true
 preview = true
 force-exclude = "pw"
 
-[tool.pylint.MASTER]
+[tool.pylint.MASTER]  
 fail-on = "I"
 bad-names = ["foo", "bar", "baz", "retval"]
 load-plugins = [
@@ -355,7 +355,7 @@ target-version = "py38"
 respect-gitignore = true
 line-length = 100
 preview = true
-extend-exclude = ["pw"]
+extend-exclude = ["pw", "packages/pyright-internal/typeshed-fallback", "packages/pyright-internal/src/tests/samples"]
 
 [tool.ruff.pycodestyle]
 ignore-overlong-task-comments = true
