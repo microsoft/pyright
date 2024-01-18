@@ -244,11 +244,10 @@ score = "no"
 max-line-length = 200
 
 [tool.pyright]
-ignore = ["pw"]
+ignore = ["pw", "basedpyright/dist", "packages"]
 pythonVersion = "3.8"
 pythonPlatform = "All"
 include = ["basedpyright", "get_version.py", "pdm_build.py"]
-exclude = ['basedpyright/dist']
 reportMissingTypeStubs = false
 strictListInference = true
 strictDictionaryInference = true
