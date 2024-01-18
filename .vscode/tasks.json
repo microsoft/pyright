@@ -105,7 +105,7 @@
           "label": "pylint - all files",
           "type": "shell",
           "command": "${command:python.interpreterPath}",
-          "args": ["-m", "pylint", "basedpyright", "tests"],
+          "args": ["-m", "pylint", "basedpyright"],
           "presentation": {
             "clear": true
           },
