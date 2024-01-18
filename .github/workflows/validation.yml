@@ -7,10 +7,8 @@ env:
 on: push
 
 jobs:
-  typecheck:
+  static_checks:
     runs-on: ubuntu-latest
-    name: Typecheck
-
     steps:
       - uses: actions/checkout@v3
 
@@ -34,36 +32,23 @@ jobs:
       - name: typescript typecheck
         run: npx lerna exec --stream --no-bail -- tsc --noEmit
 
+      - run: npm run check
+
+      - run: ./pw pdm lock --check
+
       - run: ./pw pdm install
 
       - name: python typecheck
         run: ./pw pdm run basedpyright
 
-  style:
-    runs-on: ubuntu-latest
-    name: Style
+      - name: ruff
+        run: ./pw pdm run ruff .
 
-    steps:
-      - uses: actions/checkout@v3
+      - name: pylint
+        run: ./pw pdm run pylint basedpyright
 
-      - uses: actions/setup-node@v3
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Get npm cache directory
-        id: npm-cache
-        run: |
-          echo "::set-output name=dir::$(npm config get cache)"
-      - uses: actions/cache@v3
-        with:
-          path: ${{ steps.npm-cache.outputs.dir }}
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      - run: npm run install:all
-
-      - run: npm run check
+      - name: black
+        run: ./pw pdm run black --check --diff .
 
   test:
     strategy:
@@ -73,8 +58,6 @@ jobs:
 
     name: Test ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    needs: typecheck
-
     steps:
       - uses: actions/checkout@v3
 
@@ -148,7 +131,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     name: Build
-    needs: typecheck
+    needs: static_checks
 
     steps:
       - uses: actions/checkout@v3
@@ -180,8 +163,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Required
     needs:
-      - typecheck
-      - style
+      - static_checks
       - test
       - build
 
