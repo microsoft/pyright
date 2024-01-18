@@ -314,8 +314,8 @@ class _ASN1Object(_ASN1ObjectBase):
     def fromname(cls, name: str) -> Self: ...
 
 class Purpose(_ASN1Object, enum.Enum):
-    SERVER_AUTH: _ASN1Object
-    CLIENT_AUTH: _ASN1Object
+    SERVER_AUTH = ...
+    CLIENT_AUTH = ...
 
 class SSLSocket(socket.socket):
     context: SSLContext
