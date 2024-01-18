@@ -307,7 +307,7 @@ export function transformTypeForPossibleEnumClass(
         nameNode.parent?.nodeType === ParseNodeType.TypeAnnotation &&
         nameNode.parent.valueExpression === nameNode
     ) {
-        isMemberOfEnumeration = true;
+        // isMemberOfEnumeration = true;
     }
 
     // The spec specifically excludes names that start and end with a single underscore.
