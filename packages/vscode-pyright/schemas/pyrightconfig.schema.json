@@ -242,7 +242,7 @@
     "reportWildcardImportFromLibrary": {
       "$id": "#/properties/reportWildcardImportFromLibrary",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of wlidcard import from external library",
+      "title": "Controls reporting of wildcard import from external library",
       "default": "warning"
     },
     "reportOptionalSubscript": {
@@ -470,7 +470,7 @@
     "reportSelfClsParameterName": {
       "$id": "#/properties/reportSelfClsParameterName",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting assert expressions that will always evaluate to true",
+      "title": "Controls reporting missing or misnamed self parameters",
       "default": "warning"
     },
     "reportImplicitStringConcatenation": {
