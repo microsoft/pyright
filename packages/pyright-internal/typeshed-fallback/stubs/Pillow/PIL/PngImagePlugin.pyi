@@ -10,13 +10,13 @@ MAX_TEXT_CHUNK: Incomplete
 MAX_TEXT_MEMORY: Incomplete
 
 class Disposal(IntEnum):
-    OP_NONE: int
-    OP_BACKGROUND: int
-    OP_PREVIOUS: int
+    OP_NONE = ...
+    OP_BACKGROUND = ...
+    OP_PREVIOUS = ...
 
 class Blend(IntEnum):
-    OP_SOURCE: int
-    OP_OVER: int
+    OP_SOURCE = ...
+    OP_OVER = ...
 
 class ChunkStream:
     fp: Incomplete
