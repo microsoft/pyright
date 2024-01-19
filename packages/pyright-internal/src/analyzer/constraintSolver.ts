@@ -456,7 +456,7 @@ export function assignTypeToTypeVar(
                 ) {
                     newNarrowTypeBound = adjSrcType;
                 } else if (isVariadicTypeVar(destType)) {
-                    const widenedType = widenTypeForVariadicTypeVar(curNarrowTypeBound, adjSrcType);
+                    const widenedType = widenTypeForVariadicTypeVar(evaluator, curNarrowTypeBound, adjSrcType);
                     if (!widenedType) {
                         diag?.addMessage(
                             LocAddendum.typeAssignmentMismatch().format(
@@ -1199,7 +1199,12 @@ export function populateTypeVarContextBasedOnExpectedType(
 // For normal TypeVars, the constraint solver can widen a type by combining
 // two otherwise incompatible types into a union. For TypeVarTuples, we need
 // to do the equivalent operation for unpacked tuples.
-function widenTypeForVariadicTypeVar(type1: Type, type2: Type): Type | undefined {
+function widenTypeForVariadicTypeVar(evaluator: TypeEvaluator, type1: Type, type2: Type): Type | undefined {
+    // The typing spec indicates that the type should always be "exactly
+    // the same type" if a TypeVarTuple is used in multiple locations.
+    // This is problematic for a number of reasons, but in the interest
+    // of sticking to the spec, we'll enforce that here.
+
     // If the two types are not unpacked tuples, we can't combine them.
     if (!isUnpackedClass(type1) || !isUnpackedClass(type2)) {
         return undefined;
@@ -1214,28 +1219,14 @@ function widenTypeForVariadicTypeVar(type1: Type, type2: Type): Type | undefined
         return undefined;
     }
 
-    let canCombine = true;
+    const strippedType1 = stripLiteralValueForUnpackedTuple(evaluator, type1);
+    const strippedType2 = stripLiteralValueForUnpackedTuple(evaluator, type2);
 
-    const tupleTypeArgs: TupleTypeArgument[] = type1.tupleTypeArguments.map((arg1, index) => {
-        const arg2 = type2.tupleTypeArguments![index];
-
-        // If an entry is unbound in length and the corresponding entry in the
-        // other tuple is not (or vice versa), we can't combine them.
-        if (arg1.isUnbounded !== arg2.isUnbounded) {
-            canCombine = false;
-        }
-
-        return {
-            isUnbounded: arg1.isUnbounded,
-            type: combineTypes([arg1.type, arg2.type]),
-        };
-    });
-
-    if (!canCombine) {
-        return undefined;
+    if (isTypeSame(strippedType1, strippedType2)) {
+        return strippedType1;
     }
 
-    return specializeTupleClass(type1, tupleTypeArgs, /* isTypeArgumentExplicit */ true, /* isUnpackedTuple */ true);
+    return undefined;
 }
 
 // If the provided type is an unpacked tuple, this function strips the
