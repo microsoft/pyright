@@ -130,7 +130,8 @@ import {
     getEnumAutoValueType,
     getTypeOfEnumMember,
     isDeclInEnumClass,
-    isKnownEnumType,
+    isEnumClassWithMembers,
+    isEnumMetaclass,
     transformTypeForPossibleEnumClass,
 } from './enums';
 import { applyFunctionTransform } from './functionTransform';
@@ -9669,14 +9670,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return { returnType: UnknownType.create(), argumentErrors: true };
             }
 
-            if (isClass(unexpandedCallType) && isKnownEnumType(className)) {
-                return {
-                    returnType:
-                        createEnumType(evaluatorInterface, errorNode, expandedCallType, argList) ??
-                        UnknownType.create(),
-                };
-            }
-
             if (className === 'TypedDict') {
                 return { returnType: createTypedDictType(evaluatorInterface, errorNode, expandedCallType, argList) };
             }
@@ -9684,6 +9677,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (className === 'auto' && argList.length === 0) {
                 return { returnType: getEnumAutoValueType(evaluatorInterface, errorNode) };
             }
+        }
+
+        // Is it a call to an Enum class factory?
+        if (
+            isClass(expandedCallType) &&
+            expandedCallType.details.effectiveMetaclass &&
+            isClass(expandedCallType.details.effectiveMetaclass) &&
+            isEnumMetaclass(expandedCallType.details.effectiveMetaclass) &&
+            !isEnumClassWithMembers(evaluatorInterface, expandedCallType)
+        ) {
+            return {
+                returnType:
+                    createEnumType(evaluatorInterface, errorNode, expandedCallType, argList) ??
+                    convertToInstance(unexpandedCallType),
+            };
         }
 
         if (ClassType.supportsAbstractMethods(expandedCallType)) {
@@ -16403,9 +16411,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     classType.details.declaredMetaclass = metaclassType;
                     if (isInstantiableClass(metaclassType)) {
-                        if (ClassType.isBuiltIn(metaclassType, 'EnumMeta')) {
+                        if (isEnumMetaclass(metaclassType)) {
                             classType.details.flags |= ClassTypeFlags.EnumClass;
-                        } else if (ClassType.isBuiltIn(metaclassType, 'ABCMeta')) {
+                        }
+
+                        if (ClassType.isBuiltIn(metaclassType, 'ABCMeta')) {
                             classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
                         }
                     }
@@ -16803,10 +16813,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else {
                         effectiveMetaclass = baseClassMeta ? UnknownType.create() : undefined;
                         break;
-                    }
-
-                    if (ClassType.isEnumClass(baseClass)) {
-                        classType.details.flags |= ClassTypeFlags.EnumClass;
                     }
                 } else {
                     // If one of the base classes is unknown, then the effective

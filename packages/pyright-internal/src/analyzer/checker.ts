@@ -98,6 +98,7 @@ import { getBoundCallMethod, getBoundInitMethod, getBoundNewMethod } from './con
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
 import { getNameNodeForDeclaration } from './declarationUtils';
 import { deprecatedAliases, deprecatedSpecialForms } from './deprecatedSymbols';
+import { isEnumClassWithMembers } from './enums';
 import { ImportResolver, ImportedModuleDescriptor, createImportedModuleDescriptor } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
@@ -4500,24 +4501,12 @@ export class Checker extends ParseTreeWalker {
     // enum class that has already defined values.
     private _validateEnumClassOverride(node: ClassNode, classType: ClassType) {
         classType.details.baseClasses.forEach((baseClass, index) => {
-            if (isClass(baseClass) && ClassType.isEnumClass(baseClass)) {
-                // Determine whether the base enum class defines an enumerated value.
-                let baseEnumDefinesValue = false;
-
-                baseClass.details.fields.forEach((symbol) => {
-                    const symbolType = this._evaluator.getEffectiveTypeOfSymbol(symbol);
-                    if (isClassInstance(symbolType) && ClassType.isSameGenericClass(symbolType, baseClass)) {
-                        baseEnumDefinesValue = true;
-                    }
-                });
-
-                if (baseEnumDefinesValue) {
-                    this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.enumClassOverride().format({ name: baseClass.details.name }),
-                        node.arguments[index]
-                    );
-                }
+            if (isClass(baseClass) && isEnumClassWithMembers(this._evaluator, baseClass)) {
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.enumClassOverride().format({ name: baseClass.details.name }),
+                    node.arguments[index]
+                );
             }
         });
     }

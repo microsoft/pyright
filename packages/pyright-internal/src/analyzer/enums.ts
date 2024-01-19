@@ -42,9 +42,31 @@ import {
     isOverloadedFunction,
 } from './types';
 
-export function isKnownEnumType(className: string) {
-    const knownEnumTypes = ['Enum', 'IntEnum', 'StrEnum', 'Flag', 'IntFlag'];
-    return knownEnumTypes.some((c) => c === className);
+// Determines whether the class is an Enum metaclass or a subclass thereof.
+export function isEnumMetaclass(classType: ClassType) {
+    return classType.details.mro.some(
+        (mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, ['EnumMeta', 'EnumType'])
+    );
+}
+
+// Determines whether this is an enum class that has at least one enum
+// member defined.
+export function isEnumClassWithMembers(evaluator: TypeEvaluator, classType: ClassType) {
+    if (!isClass(classType) || !ClassType.isEnumClass(classType)) {
+        return false;
+    }
+
+    // Determine whether the enum class defines a member.
+    let definesValue = false;
+
+    classType.details.fields.forEach((symbol) => {
+        const symbolType = evaluator.getEffectiveTypeOfSymbol(symbol);
+        if (isClassInstance(symbolType) && ClassType.isSameGenericClass(symbolType, classType)) {
+            definesValue = true;
+        }
+    });
+
+    return definesValue;
 }
 
 // Creates a new custom enum class with named values.

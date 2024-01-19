@@ -195,3 +195,11 @@ reveal_type(TestEnum12.c, expected_text="() -> None")
 
 # This should generate an error because of the name mismatch.
 BadName = Enum("GoodName", "A", "B")
+
+
+class TestEnum13(metaclass=CustomEnumMeta1):
+    pass
+
+
+TestEnum14 = TestEnum13("TestEnum14", "A, B, C")
+reveal_type(TestEnum14.A, expected_text="Literal[TestEnum14.A]")
