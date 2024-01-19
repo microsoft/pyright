@@ -40,7 +40,7 @@ skip-magic-trailing-comma = true
 preview = true
 force-exclude = "pw|pyright\\-internal"
 
-[tool.pylint.MASTER]  
+[tool.pylint.MASTER]
 fail-on = "I"
 bad-names = ["foo", "bar", "baz", "retval"]
 load-plugins = [
@@ -307,6 +307,7 @@ reportUnnecessaryTypeIgnoreComment = true
 reportMatchNotExhaustive = true
 reportImplicitOverride = true
 reportShadowedImports = true
+reportUnreachable = true
 
 [tool.ruff]
 unsafe-fixes = true
