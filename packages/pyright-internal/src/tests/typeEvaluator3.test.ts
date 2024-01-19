@@ -935,7 +935,7 @@ test('Enum6', () => {
 test('Enum7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum7.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Enum8', () => {
@@ -946,6 +946,12 @@ test('Enum8', () => {
 
 test('Enum9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum9.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Enum10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum10.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

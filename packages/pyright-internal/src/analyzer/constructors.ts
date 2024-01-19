@@ -133,6 +133,12 @@ export function validateConstructorArguments(
         if (metaclassResult.argumentErrors || !evaluator.assignType(convertToInstance(type), metaclassReturnType)) {
             return metaclassResult;
         }
+
+        // Handle the special case of an enum class, where the __new__ and __init__
+        // methods are replaced at runtime by the metaclass.
+        if (ClassType.isEnumClass(type)) {
+            return metaclassResult;
+        }
     }
 
     // Determine whether the class overrides the object.__new__ method.
