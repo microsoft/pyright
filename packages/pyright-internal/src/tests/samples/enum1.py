@@ -203,3 +203,18 @@ class TestEnum13(metaclass=CustomEnumMeta1):
 
 TestEnum14 = TestEnum13("TestEnum14", "A, B, C")
 reveal_type(TestEnum14.A, expected_text="Literal[TestEnum14.A]")
+
+
+class TestEnum15(Enum):
+    _value_: str
+    A = 1
+    B = 2
+
+    def __init__(self, value: int):
+        self._value_ = str(value)
+
+
+te15_A = TestEnum15.A
+reveal_type(te15_A, expected_text="Literal[TestEnum15.A]")
+reveal_type(te15_A.value, expected_text="str")
+reveal_type(te15_A._value_, expected_text="str")
