@@ -33,7 +33,6 @@ import {
     Type,
     TypeBase,
     TypeCategory,
-    TypeFlags,
     TypeVarType,
     Variance,
 } from './types';
@@ -539,11 +538,7 @@ function printTypeInternal(
                             const sourceSubtypeInstance = convertToInstance(sourceSubtype);
 
                             for (const unionSubtype of type.subtypes) {
-                                if (
-                                    isTypeSame(sourceSubtypeInstance, unionSubtype, {
-                                        typeFlagsToHonor: TypeFlags.Instance | TypeFlags.Instantiable,
-                                    })
-                                ) {
+                                if (isTypeSame(sourceSubtypeInstance, unionSubtype)) {
                                     if (!subtypeHandledSet.has(unionSubtypeIndex)) {
                                         allSubtypesPreviouslyHandled = false;
                                     }

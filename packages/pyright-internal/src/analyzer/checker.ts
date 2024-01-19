@@ -910,6 +910,7 @@ export class Checker extends ParseTreeWalker {
 
     override visitReturn(node: ReturnNode): boolean {
         let returnTypeResult: TypeResult;
+        let returnType: Type | undefined;
 
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
         const declaredReturnType = enclosingFunctionNode
@@ -921,6 +922,13 @@ export class Checker extends ParseTreeWalker {
         } else {
             // There is no return expression, so "None" is assumed.
             returnTypeResult = { type: this._evaluator.getNoneType() };
+        }
+
+        returnType = returnTypeResult.type;
+
+        // If this type is a special form, use the special form instead.
+        if (returnType.specialForm) {
+            returnType = returnType.specialForm;
         }
 
         // If the enclosing function is async and a generator, the return
@@ -952,7 +960,7 @@ export class Checker extends ParseTreeWalker {
                     if (
                         this._evaluator.assignType(
                             declaredReturnType,
-                            returnTypeResult.type,
+                            returnType,
                             diagAddendum,
                             new TypeVarContext(),
                             /* srcTypeVarContext */ undefined,
@@ -987,7 +995,7 @@ export class Checker extends ParseTreeWalker {
                                 if (
                                     this._evaluator.assignType(
                                         adjustedReturnType,
-                                        returnTypeResult.type,
+                                        returnType,
                                         diagAddendum,
                                         /* destTypeVarContext */ undefined,
                                         /* srcTypeVarContext */ undefined,
@@ -1010,7 +1018,7 @@ export class Checker extends ParseTreeWalker {
                         this._evaluator.addDiagnostic(
                             DiagnosticRule.reportGeneralTypeIssues,
                             LocMessage.returnTypeMismatch().format({
-                                exprType: this._evaluator.printType(returnTypeResult.type),
+                                exprType: this._evaluator.printType(returnType),
                                 returnType: this._evaluator.printType(declaredReturnType),
                             }) + diagAddendum.getString(),
                             node.returnExpression ?? node,
@@ -1020,17 +1028,17 @@ export class Checker extends ParseTreeWalker {
                 }
             }
 
-            if (isUnknown(returnTypeResult.type)) {
+            if (isUnknown(returnType)) {
                 this._evaluator.addDiagnostic(
                     DiagnosticRule.reportUnknownVariableType,
                     LocMessage.returnTypeUnknown(),
                     node.returnExpression ?? node
                 );
-            } else if (isPartlyUnknown(returnTypeResult.type)) {
+            } else if (isPartlyUnknown(returnType)) {
                 this._evaluator.addDiagnostic(
                     DiagnosticRule.reportUnknownVariableType,
                     LocMessage.returnTypePartiallyUnknown().format({
-                        returnType: this._evaluator.printType(returnTypeResult.type, { expandTypeAlias: true }),
+                        returnType: this._evaluator.printType(returnType, { expandTypeAlias: true }),
                     }),
                     node.returnExpression ?? node
                 );

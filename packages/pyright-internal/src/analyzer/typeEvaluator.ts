@@ -14675,8 +14675,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // We'll abuse our internal types a bit by specializing it with
     // a type argument anyway.
     function createTypeGuardType(
-        errorNode: ParseNode,
         classType: ClassType,
+        errorNode: ParseNode,
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvaluatorFlags
     ): Type {
@@ -14939,8 +14939,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function createConcatenateType(
-        errorNode: ParseNode,
         classType: ClassType,
+        errorNode: ParseNode,
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvaluatorFlags
     ): Type {
@@ -14972,7 +14972,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return createSpecialType(classType, typeArgs, /* paramLimit */ undefined, /* allowParamSpec */ true);
     }
 
-    function createAnnotatedType(errorNode: ParseNode, typeArgs: TypeResultWithNode[] | undefined): TypeResult {
+    function createAnnotatedType(
+        classType: ClassType,
+        errorNode: ParseNode,
+        typeArgs: TypeResultWithNode[] | undefined
+    ): TypeResult {
         if (typeArgs && typeArgs.length < 2) {
             addError(LocMessage.annotatedTypeArgMissing(), errorNode);
         }
@@ -14986,7 +14990,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return {
-            type: TypeBase.cloneForAnnotated(typeArgs[0].type),
+            type: TypeBase.cloneAsSpecialForm(typeArgs[0].type, classType),
             isReadOnly: typeArgs[0].isReadOnly,
             isRequired: typeArgs[0].isRequired,
             isNotRequired: typeArgs[0].isNotRequired,
@@ -18003,6 +18007,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                         let returnType = returnTypeResult.type;
 
+                                        // If the type is a special form, use the special form instead.
+                                        if (returnType.specialForm) {
+                                            returnType = returnType.specialForm;
+                                        }
+
                                         // If the return type includes an instance of a class with isEmptyContainer
                                         // set, clear that because we don't want this flag to "leak" into the
                                         // inferred return type.
@@ -19442,15 +19451,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Annotated': {
-                    return createAnnotatedType(errorNode, typeArgs);
+                    return createAnnotatedType(classType, errorNode, typeArgs);
                 }
 
                 case 'Concatenate': {
-                    return { type: createConcatenateType(errorNode, classType, typeArgs, flags) };
+                    return { type: createConcatenateType(classType, errorNode, typeArgs, flags) };
                 }
 
                 case 'TypeGuard': {
-                    return { type: createTypeGuardType(errorNode, classType, typeArgs, flags) };
+                    return { type: createTypeGuardType(classType, errorNode, typeArgs, flags) };
                 }
 
                 case 'Unpack': {
