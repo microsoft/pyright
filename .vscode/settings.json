@@ -59,5 +59,6 @@
     "search.exclude": {
         "pw": true
     },
-    "python.terminal.activateEnvInCurrentTerminal": true
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "jest.autoRun": {},
 }
