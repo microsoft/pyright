@@ -951,7 +951,7 @@ export class ConfigOptions {
     findExecEnvironment(file: Uri): ExecutionEnvironment {
         return (
             this.executionEnvironments.find((env) => {
-                const envRoot = Uri.isUri(env.root) ? env.root : this.projectRoot.combinePaths(env.root || '');
+                const envRoot = Uri.isUri(env.root) ? env.root : this.projectRoot.resolvePaths(env.root || '');
                 return file.startsWith(envRoot);
             }) ?? this.getDefaultExecEnvironment()
         );
@@ -1108,7 +1108,7 @@ export class ConfigOptions {
             if (typeof configObj.venvPath !== 'string') {
                 console.error(`Config "venvPath" field must contain a string.`);
             } else {
-                this.venvPath = this.projectRoot.combinePaths(configObj.venvPath);
+                this.venvPath = this.projectRoot.resolvePaths(configObj.venvPath);
             }
         }
 
@@ -1133,7 +1133,7 @@ export class ConfigOptions {
                     if (typeof path !== 'string') {
                         console.error(`Config "extraPaths" field ${pathIndex} must be a string.`);
                     } else {
-                        this.defaultExtraPaths!.push(this.projectRoot.combinePaths(path));
+                        this.defaultExtraPaths!.push(this.projectRoot.resolvePaths(path));
                     }
                 });
             }
@@ -1173,7 +1173,7 @@ export class ConfigOptions {
                 console.error(`Config "typeshedPath" field must contain a string.`);
             } else {
                 this.typeshedPath = configObj.typeshedPath
-                    ? this.projectRoot.combinePaths(configObj.typeshedPath)
+                    ? this.projectRoot.resolvePaths(configObj.typeshedPath)
                     : undefined;
             }
         }
@@ -1187,7 +1187,7 @@ export class ConfigOptions {
                 console.error(`Config "typingsPath" field must contain a string.`);
             } else {
                 console.error(`Config "typingsPath" is now deprecated. Please, use stubPath instead.`);
-                this.stubPath = this.projectRoot.combinePaths(configObj.typingsPath);
+                this.stubPath = this.projectRoot.resolvePaths(configObj.typingsPath);
             }
         }
 
@@ -1195,7 +1195,7 @@ export class ConfigOptions {
             if (typeof configObj.stubPath !== 'string') {
                 console.error(`Config "stubPath" field must contain a string.`);
             } else {
-                this.stubPath = this.projectRoot.combinePaths(configObj.stubPath);
+                this.stubPath = this.projectRoot.resolvePaths(configObj.stubPath);
             }
         }
 
@@ -1341,15 +1341,15 @@ export class ConfigOptions {
 
         if (autoSearchPaths) {
             // Auto-detect the common scenario where the sources are under the src folder
-            const srcPath = this.projectRoot.combinePaths(pathConsts.src);
-            if (fs.existsSync(srcPath) && !fs.existsSync(srcPath.combinePaths('__init__.py'))) {
+            const srcPath = this.projectRoot.resolvePaths(pathConsts.src);
+            if (fs.existsSync(srcPath) && !fs.existsSync(srcPath.resolvePaths('__init__.py'))) {
                 paths.push(fs.realCasePath(srcPath));
             }
         }
 
         if (extraPaths && extraPaths.length > 0) {
             for (const p of extraPaths) {
-                const path = this.projectRoot.combinePaths(p);
+                const path = this.projectRoot.resolvePaths(p);
                 paths.push(fs.realCasePath(path));
                 if (isDirectory(fs, path)) {
                     appendArray(paths, getPathsFromPthFiles(fs, path));
@@ -1421,7 +1421,7 @@ export class ConfigOptions {
 
             // Validate the root.
             if (envObj.root && typeof envObj.root === 'string') {
-                newExecEnv.root = this.projectRoot.combinePaths(envObj.root);
+                newExecEnv.root = this.projectRoot.resolvePaths(envObj.root);
             } else {
                 console.error(`Config executionEnvironments index ${index}: missing root value.`);
             }
@@ -1441,7 +1441,7 @@ export class ConfigOptions {
                                     ` extraPaths field ${pathIndex} must be a string.`
                             );
                         } else {
-                            newExecEnv.extraPaths.push(this.projectRoot.combinePaths(path));
+                            newExecEnv.extraPaths.push(this.projectRoot.resolvePaths(path));
                         }
                     });
                 }

@@ -237,7 +237,7 @@ test('Multiple Files', () => {
 
     assert.equal(data.files.filter((f) => f.fileName === normalizeSlashes('./src/A.py'))[0].content, getContent('A'));
     assert.equal(
-        data.files.filter((f) => f.fileName === factory.libFolder.combinePaths('src/B.py').getFilePath())[0].content,
+        data.files.filter((f) => f.fileName === factory.libFolder.resolvePaths('src/B.py').getFilePath())[0].content,
         getContent('B')
     );
     assert.equal(data.files.filter((f) => f.fileName === normalizeSlashes('./src/C.py'))[0].content, getContent('C'));

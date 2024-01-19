@@ -105,7 +105,7 @@ export class PyrightServer extends LanguageServerBase {
             if (pythonSection) {
                 const pythonPath = pythonSection.pythonPath;
                 if (pythonPath && isString(pythonPath) && !isPythonBinary(pythonPath)) {
-                    serverSettings.pythonPath = workspace.rootUri.combinePaths(
+                    serverSettings.pythonPath = workspace.rootUri.resolvePaths(
                         expandPathVariables(workspace.rootUri, pythonPath)
                     );
                 }
@@ -113,7 +113,7 @@ export class PyrightServer extends LanguageServerBase {
                 const venvPath = pythonSection.venvPath;
 
                 if (venvPath && isString(venvPath)) {
-                    serverSettings.venvPath = workspace.rootUri.combinePaths(
+                    serverSettings.venvPath = workspace.rootUri.resolvePaths(
                         expandPathVariables(workspace.rootUri, venvPath)
                     );
                 }
@@ -125,7 +125,7 @@ export class PyrightServer extends LanguageServerBase {
                 if (typeshedPaths && Array.isArray(typeshedPaths) && typeshedPaths.length > 0) {
                     const typeshedPath = typeshedPaths[0];
                     if (typeshedPath && isString(typeshedPath)) {
-                        serverSettings.typeshedPath = workspace.rootUri.combinePaths(
+                        serverSettings.typeshedPath = workspace.rootUri.resolvePaths(
                             expandPathVariables(workspace.rootUri, typeshedPath)
                         );
                     }
@@ -133,7 +133,7 @@ export class PyrightServer extends LanguageServerBase {
 
                 const stubPath = pythonAnalysisSection.stubPath;
                 if (stubPath && isString(stubPath)) {
-                    serverSettings.stubPath = workspace.rootUri.combinePaths(
+                    serverSettings.stubPath = workspace.rootUri.resolvePaths(
                         expandPathVariables(workspace.rootUri, stubPath)
                     );
                 }
@@ -166,7 +166,7 @@ export class PyrightServer extends LanguageServerBase {
                 if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
                     serverSettings.extraPaths = extraPaths
                         .filter((p) => p && isString(p))
-                        .map((p) => workspace.rootUri.combinePaths(expandPathVariables(workspace.rootUri, p)));
+                        .map((p) => workspace.rootUri.resolvePaths(expandPathVariables(workspace.rootUri, p)));
                 }
 
                 serverSettings.includeFileSpecs = this._getStringValues(pythonAnalysisSection.include);

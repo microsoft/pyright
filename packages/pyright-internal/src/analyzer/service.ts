@@ -523,7 +523,7 @@ export class AnalyzerService {
             configFilePath = this.fs.realCasePath(
                 isRootedDiskPath(commandLineOptions.configFilePath)
                     ? Uri.file(commandLineOptions.configFilePath, this.fs.isCaseSensitive, /* checkRelative */ true)
-                    : projectRoot.combinePaths(commandLineOptions.configFilePath)
+                    : projectRoot.resolvePaths(commandLineOptions.configFilePath)
             );
             if (!this.fs.existsSync(configFilePath)) {
                 this._console.info(`Configuration file not found at ${configFilePath.toUserVisibleString()}.`);
@@ -719,7 +719,7 @@ export class AnalyzerService {
         // duplicates.
         if (commandLineOptions.venvPath) {
             if (!configOptions.venvPath) {
-                configOptions.venvPath = projectRoot.combinePaths(commandLineOptions.venvPath);
+                configOptions.venvPath = projectRoot.resolvePaths(commandLineOptions.venvPath);
             } else {
                 reportDuplicateSetting('venvPath', configOptions.venvPath.toUserVisibleString());
             }
@@ -727,7 +727,7 @@ export class AnalyzerService {
 
         if (commandLineOptions.typeshedPath) {
             if (!configOptions.typeshedPath) {
-                configOptions.typeshedPath = projectRoot.combinePaths(commandLineOptions.typeshedPath);
+                configOptions.typeshedPath = projectRoot.resolvePaths(commandLineOptions.typeshedPath);
             } else {
                 reportDuplicateSetting('typeshedPath', configOptions.typeshedPath.toUserVisibleString());
             }
@@ -777,7 +777,7 @@ export class AnalyzerService {
 
         if (commandLineOptions.stubPath) {
             if (!configOptions.stubPath) {
-                configOptions.stubPath = this.fs.realCasePath(projectRoot.combinePaths(commandLineOptions.stubPath));
+                configOptions.stubPath = this.fs.realCasePath(projectRoot.resolvePaths(commandLineOptions.stubPath));
             } else {
                 reportDuplicateSetting('stubPath', configOptions.stubPath.toUserVisibleString());
             }
@@ -790,7 +790,7 @@ export class AnalyzerService {
             }
         } else {
             // If no stub path was specified, use a default path.
-            configOptions.stubPath = configOptions.projectRoot.combinePaths(defaultStubsDirectory);
+            configOptions.stubPath = configOptions.projectRoot.resolvePaths(defaultStubsDirectory);
         }
 
         // Do some sanity checks on the specified settings and report missing
@@ -807,7 +807,7 @@ export class AnalyzerService {
             // then, resolveImport won't consider venv
             configOptions.venv = configOptions.venv ?? this._configOptions.venv;
             if (configOptions.venv && configOptions.venvPath) {
-                const fullVenvPath = configOptions.venvPath.combinePaths(configOptions.venv);
+                const fullVenvPath = configOptions.venvPath.resolvePaths(configOptions.venv);
 
                 if (!this.fs.existsSync(fullVenvPath) || !isDirectory(this.fs, fullVenvPath)) {
                     this._console.error(
@@ -854,7 +854,7 @@ export class AnalyzerService {
     private _getTypeStubFolder() {
         const stubPath =
             this._configOptions.stubPath ??
-            this.fs.realCasePath(this._configOptions.projectRoot.combinePaths(defaultStubsDirectory));
+            this.fs.realCasePath(this._configOptions.projectRoot.resolvePaths(defaultStubsDirectory));
 
         if (!this._typeStubTargetUri || !this._typeStubTargetImportName) {
             const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
@@ -883,8 +883,8 @@ export class AnalyzerService {
         }
 
         // Generate a typings subdirectory hierarchy.
-        const typingsSubdirPath = stubPath.combinePaths(typeStubInputTargetParts[0]);
-        const typingsSubdirHierarchy = stubPath.combinePaths(...typeStubInputTargetParts);
+        const typingsSubdirPath = stubPath.resolvePaths(typeStubInputTargetParts[0]);
+        const typingsSubdirHierarchy = stubPath.resolvePaths(...typeStubInputTargetParts);
 
         try {
             // Generate a new typings subdirectory if necessary.
@@ -906,7 +906,7 @@ export class AnalyzerService {
 
     private _findConfigFile(searchPath: Uri): Uri | undefined {
         for (const name of configFileNames) {
-            const fileName = searchPath.combinePaths(name);
+            const fileName = searchPath.resolvePaths(name);
             if (this.fs.existsSync(fileName)) {
                 return this.fs.realCasePath(fileName);
             }
@@ -919,7 +919,7 @@ export class AnalyzerService {
     }
 
     private _findPyprojectTomlFile(searchPath: Uri) {
-        const fileName = searchPath.combinePaths(pyprojectTomlName);
+        const fileName = searchPath.resolvePaths(pyprojectTomlName);
         if (this.fs.existsSync(fileName)) {
             return this.fs.realCasePath(fileName);
         }
@@ -1147,7 +1147,7 @@ export class AnalyzerService {
             }
 
             if (this._configOptions.autoExcludeVenv) {
-                if (envMarkers.some((f) => this.fs.existsSync(absolutePath.combinePaths(...f)))) {
+                if (envMarkers.some((f) => this.fs.existsSync(absolutePath.resolvePaths(...f)))) {
                     // Save auto exclude paths in the configOptions once we found them.
                     if (!FileSpec.isInPath(absolutePath, exclude)) {
                         exclude.push(getFileSpec(this._configOptions.projectRoot, `${absolutePath}/**`));
@@ -1375,8 +1375,7 @@ export class AnalyzerService {
         const parentPath = path.getDirectory();
         const hasInit =
             parentPath.startsWith(this._configOptions.projectRoot) &&
-            (this.fs.existsSync(parentPath.combinePaths('__init__.py')) ||
-                this.fs.existsSync(parentPath.combinePaths('__init__.pyi')));
+            (this.fs.existsSync(parentPath.initPyUri) || this.fs.existsSync(parentPath.initPyiUri));
 
         // We don't have any file under the given path and its parent folder doesn't have __init__ then this folder change
         // doesn't have any meaning to us.

@@ -146,8 +146,8 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
                         // Merge partial stub packages to the library.
                         partialStubs = partialStubs ?? this._getRelativePathPartialStubs(partialStubPackagePath);
                         for (const partialStub of partialStubs) {
-                            const originalPyiFile = partialStubPackagePath.combinePaths(partialStub);
-                            const mappedPyiFile = packagePath.combinePaths(partialStub);
+                            const originalPyiFile = partialStubPackagePath.resolvePaths(partialStub);
+                            const mappedPyiFile = packagePath.resolvePaths(partialStub);
                             this.recordMovedEntry(mappedPyiFile, originalPyiFile, packagePath);
                         }
                     } catch {

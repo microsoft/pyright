@@ -810,13 +810,13 @@ export class Program {
             // not any files that the target module happened to import.
             const relativePath = targetImportPath.getRelativePath(fileUri);
             if (relativePath !== undefined) {
-                let typeStubPath = stubPath.combinePaths(relativePath);
+                let typeStubPath = stubPath.resolvePaths(relativePath);
 
                 // If the target is a single file implementation, as opposed to
                 // a package in a directory, transform the name of the type stub
                 // to __init__.pyi because we're placing it in a directory.
                 if (targetIsSingleFile) {
-                    typeStubPath = typeStubPath.getDirectory().combinePaths('__init__.pyi');
+                    typeStubPath = typeStubPath.getDirectory().initPyiUri;
                 } else {
                     typeStubPath = typeStubPath.replaceExtension('.pyi');
                 }
@@ -1194,6 +1194,11 @@ export class Program {
             (stubFileUri: Uri, implFileUri: Uri) => {
                 let stubFileInfo = this.getSourceFileInfo(stubFileUri);
                 if (!stubFileInfo) {
+                    // make sure uri exits before adding interimFile
+                    if (!this.fileSystem.existsSync(stubFileUri)) {
+                        return undefined;
+                    }
+
                     // Special case for import statement like "import X.Y". The SourceFile
                     // for X might not be in memory since import `X.Y` only brings in Y.
                     stubFileInfo = this.addInterimFile(stubFileUri);
@@ -1205,6 +1210,11 @@ export class Program {
             (f) => {
                 let fileInfo = this.getBoundSourceFileInfo(f);
                 if (!fileInfo) {
+                    // make sure uri exits before adding interimFile
+                    if (!this.fileSystem.existsSync(f)) {
+                        return undefined;
+                    }
+
                     // Special case for import statement like "import X.Y". The SourceFile
                     // for X might not be in memory since import `X.Y` only brings in Y.
                     fileInfo = this.addInterimFile(f);

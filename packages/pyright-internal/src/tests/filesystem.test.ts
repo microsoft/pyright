@@ -33,7 +33,7 @@ test('Folders', () => {
     fs.chdir(cwd.combinePaths('a'));
     assert.equal(fs.cwd(), normalizeSlashes('/a'));
 
-    fs.chdir(cwd.combinePaths('..'));
+    fs.chdir(cwd.resolvePaths('..'));
     fs.rmdirSync(cwd.combinePaths('a'));
 
     // no such dir exist
@@ -66,7 +66,7 @@ test('Files', () => {
     const buffer1 = fs.readFileSync(uri);
     assert.equal(buffer1.toString(), 'hello');
 
-    const p = cwd.combinePaths('a/b/c');
+    const p = cwd.resolvePaths('a/b/c');
     fs.mkdirpSync(p.getFilePath());
 
     const f = p.combinePaths('2.txt');

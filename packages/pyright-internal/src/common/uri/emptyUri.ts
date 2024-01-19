@@ -6,7 +6,7 @@
  * URI class that represents an empty URI.
  */
 
-import { BaseUri } from './baseUri';
+import { BaseUri, JsonObjType } from './baseUri';
 import { Uri } from './uri';
 
 const EmptyKey = '<empty>';
@@ -43,6 +43,12 @@ export class EmptyUri extends BaseUri {
 
     get fragment(): string {
         return '';
+    }
+
+    override toJsonObj(): JsonObjType {
+        return {
+            _key: EmptyKey,
+        };
     }
 
     static isEmptyUri(uri: any): boolean {
@@ -104,7 +110,15 @@ export class EmptyUri extends BaseUri {
         return 0;
     }
 
+    override resolvePaths(...paths: string[]): Uri {
+        return this;
+    }
+
     override combinePaths(...paths: string[]): Uri {
+        return this;
+    }
+
+    override combinePathsUnsafe(...paths: string[]): Uri {
         return this;
     }
 
@@ -120,8 +134,16 @@ export class EmptyUri extends BaseUri {
         return this;
     }
 
+    override stripAllExtensions(): Uri {
+        return this;
+    }
+
     protected override getPathComponentsImpl(): string[] {
         return [];
+    }
+
+    protected override normalizeSlashes(path: string): string {
+        return '';
     }
 
     protected override getRootPath(): string {
