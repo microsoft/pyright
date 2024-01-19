@@ -27,10 +27,12 @@
       "$id": "#/properties/include",
       "type": "array",
       "title": "Files and directories included in type analysis",
+      "description": "Paths of directories or files that should be included. If no paths are specified, pyright defaults to the directory that contains the config file. Paths may contain wildcard characters: `**` (a directory or multiple levels of directories), `*` (a sequence of zero or more characters), or `?` (a single character). If no include paths are specified, the root path for the workspace is assumed.",
+      "x-intellij-html-description": "Paths of directories or files that should be included. If no paths are specified, pyright defaults to the directory that contains the config file. Paths may contain wildcard characters: <code>**</code> (a directory or multiple levels of directories), <code>*</code> (a sequence of zero or more characters), or <code>?</code> (a single character). If no include paths are specified, the root path for the workspace is assumed.",
       "items": {
         "$id": "#/properties/include/items",
         "type": "string",
-        "title": "File or directory to include in type analysis",
+        "description": "File or directory to include in type analysis",
         "pattern": "^(.*)$"
       }
     },
@@ -38,6 +40,8 @@
       "$id": "#/properties/exclude",
       "type": "array",
       "title": "Files and directories excluded from type analysis",
+      "description": "Paths of directories or files that should not be included. These override the includes directories, allowing specific subdirectories to be ignored. Note that files in the exclude paths may still be included in the analysis if they are referenced (imported) by source files that are not excluded. Paths may contain wildcard characters: `**` (a directory or multiple levels of directories), `*` (a sequence of zero or more characters), or `?` (a single character). If no exclude paths are specified, Pyright automatically excludes the following: `**/node_modules`, `**/__pycache__`, `**/.*` and any virtual environment directories.",
+      "x-intellij-html-description": "Paths of directories or files that should not be included. These override the includes directories, allowing specific subdirectories to be ignored. Note that files in the exclude paths may still be included in the analysis if they are referenced (imported) by source files that are not excluded. Paths may contain wildcard characters: <code>**</code> (a directory or multiple levels of directories), <code>*</code> (a sequence of zero or more characters), or <code>?</code> (a single character). If no exclude paths are specified, Pyright automatically excludes the following: <code>**/node_modules</code>, <code>**/__pycache__</code>, <code>**/.*</code> and any virtual environment directories.",
       "items": {
         "$id": "#/properties/exclude/items",
         "type": "string",
@@ -49,6 +53,8 @@
       "$id": "#/properties/ignore",
       "type": "array",
       "title": "Files and directories whose diagnostics are suppressed",
+      "description": "Paths of directories or files whose diagnostic output (errors and warnings) should be suppressed even if they are an included file or within the transitive closure of an included file. Paths may contain wildcard characters: `**` (a directory or multiple levels of directories), `*` (a sequence of zero or more characters), or `?` (a single character).",
+      "x-intellij-html-description": "Paths of directories or files whose diagnostic output (errors and warnings) should be suppressed even if they are an included file or within the transitive closure of an included file. Paths may contain wildcard characters: <code>**</code> (a directory or multiple levels of directories), <code>*</code> (a sequence of zero or more characters), or <code>?</code> (a single character).",
       "items": {
         "$id": "#/properties/ignore/items",
         "type": "string",
@@ -59,11 +65,13 @@
     "strict": {
       "$id": "#/properties/strict",
       "type": "array",
-      "title": "Files and directories that should use 'strict' type checking rules",
+      "title": "Files and directories that should use \"strict\" type checking rules",
+      "description": "Paths of directories or files that should use \"strict\" analysis if they are included. This is the same as manually adding a `# pyright: strict` comment. In strict mode, most type-checking rules are enabled. Refer to this table for details about which rules are enabled in strict mode. Paths may contain wildcard characters: `**` (a directory or multiple levels of directories), `*` (a sequence of zero or more characters), or `?` (a single character).",
+      "x-intellij-html-description": "Paths of directories or files that should use &quot;strict&quot; analysis if they are included. This is the same as manually adding a <code># pyright: strict</code> comment. In strict mode, most type-checking rules are enabled. Refer to this table for details about which rules are enabled in strict mode. Paths may contain wildcard characters: <code>**</code> (a directory or multiple levels of directories), <code>*</code> (a sequence of zero or more characters), or <code>?</code> (a single character).",
       "items": {
         "$id": "#/properties/strict/items",
         "type": "string",
-        "title": "File or directory that should use 'strict' type checking rules",
+        "title": "File or directory that should use \"strict\" type checking rules",
         "pattern": "^(.*)$"
       }
     },
@@ -71,11 +79,15 @@
       "$id": "#/properties/defineConstant",
       "type": "object",
       "title": "Identifiers that should be treated as constants",
-      "properties": {
-      },
+      "description": "Set of identifiers that should be assumed to contain a constant value wherever used within this program. For example, `{ \"DEBUG\": true }` indicates that pyright should assume that the identifier `DEBUG` will always be equal to `True`. If this identifier is used within a conditional expression (such as `if not DEBUG:`) pyright will use the indicated value to determine whether the guarded block is reachable or not. Member expressions that reference one of these constants (e.g. `my_module.DEBUG`) are also supported.",
+      "x-intellij-html-description": "Set of identifiers that should be assumed to contain a constant value wherever used within this program. For example, <code>{ &quot;DEBUG&quot;: true }</code> indicates that pyright should assume that the identifier <code>DEBUG</code> will always be equal to <code>True</code>. If this identifier is used within a conditional expression (such as <code>if not DEBUG:</code>) pyright will use the indicated value to determine whether the guarded block is reachable or not. Member expressions that reference one of these constants (e.g. <code>my_module.DEBUG</code>) are also supported.",
+      "properties": {},
       "additionalProperties": {
-          "type": ["string", "boolean"],
-          "title": "Value of constant (boolean or string)"
+        "type": [
+          "string",
+          "boolean"
+        ],
+        "title": "Value of constant (boolean or string)"
       }
     },
     "typeCheckingMode": {
@@ -88,18 +100,24 @@
         "strict"
       ],
       "title": "Specifies the default rule set to use for type checking",
+      "description": "Specifies the default rule set to use. Some rules can be overridden using additional configuration flags documented below. If set to `off`, all type-checking rules are disabled, but Python syntax and semantic errors are still reported.",
+      "x-intellij-html-description": "Specifies the default rule set to use. Some rules can be overridden using additional configuration flags documented below. If set to <code>off</code>, all type-checking rules are disabled, but Python syntax and semantic errors are still reported.",
       "default": "standard"
     },
     "useLibraryCodeForTypes": {
       "$id": "#/properties/useLibraryCodeForTypes",
       "type": "boolean",
       "title": "Use library implementations to extract type information when type stub is not present",
+      "description": "Determines whether pyright reads, parses and analyzes library code to extract type information in the absence of type stub files. Type information will typically be incomplete. We recommend using type stubs where possible.",
       "default": true
     },
     "typeshedPath": {
       "$id": "#/properties/typeshedPath",
       "type": "string",
-      "title": "Path to directory containing typeshed type stub files",
+      "title": "Path to directory containing `typeshed` type stub files",
+      "description": "Path to a directory that contains `typeshed` type stub files. Pyright ships with a bundled copy of `typeshed` type stubs. If you want to use a different version of `typeshed` stubs, you can clone the `typeshed` GitHub repo (https://github.com/python/typeshed) to a local directory and reference the location with this path. This option is useful if you're actively contributing updates to `typeshed`.",
+      "markdownDescription": "Path to a directory that contains `typeshed` type stub files. Pyright ships with a bundled copy of `typeshed` type stubs. If you want to use a different version of `typeshed` stubs, you can clone [the `typeshed` GitHub repo](https://github.com/python/typeshed) to a local directory and reference the location with this path. This option is useful if you're actively contributing updates to `typeshed`.",
+      "x-intellij-html-description": "Path to a directory that contains <code>typeshed</code> type stub files. Pyright ships with a bundled copy of <code>typeshed</code> type stubs. If you want to use a different version of <code>typeshed</code> stubs, you can clone <a href=\"https://github.com/python/typeshed\">the <code>typeshed</code> GitHub repo</a> to a local directory and reference the location with this path. This option is useful if you&#39;re actively contributing updates to <code>typeshed</code>.",
       "default": "",
       "pattern": "^(.*)$"
     },
@@ -107,6 +125,8 @@
       "$id": "#/properties/stubPath",
       "type": "string",
       "title": "Path to directory containing custom type stub files",
+      "description": "Path to a directory that contains custom type stubs. Each package's type stub file(s) are expected to be in its own subdirectory. The default value of this setting is `./typings` (`typingsPath` is now deprecated).",
+      "x-intellij-html-description": "Path to a directory that contains custom type stubs. Each package&#39;s type stub file(s) are expected to be in its own subdirectory. The default value of this setting is <code>./typings</code> (<code>typingsPath</code> is now deprecated).",
       "default": "",
       "examples": [
         "src/typestubs"
@@ -117,444 +137,553 @@
       "$id": "#/properties/disableBytesTypePromotions",
       "type": "boolean",
       "title": "Do not treat `bytearray` and `memoryview` as implicit subtypes of `bytes`",
+      "description": "Disables legacy behavior where `bytearray` and `memoryview` are considered subtypes of bytes. PEP 688 deprecates this behavior, but this switch is provided to restore the older behavior.",
+      "x-intellij-html-description": "Disables legacy behavior where <code>bytearray</code> and <code>memoryview</code> are considered subtypes of bytes. <a href=\"https://peps.python.org/pep-0688/\">PEP 688</a> deprecates this behavior, but this switch is provided to restore the older behavior.",
       "default": false
     },
     "strictListInference": {
       "$id": "#/properties/strictListInference",
       "type": "boolean",
       "title": "Infer strict types for list expressions",
+      "description": "When inferring the type of a list, use strict type assumptions. For example, the expression `[1, 'a', 3.4]` could be inferred to be of type `list[Any]` or `list[int | str | float]`. If this setting is `true`, it will use the latter (stricter) type.",
+      "x-intellij-html-description": "When inferring the type of a list, use strict type assumptions. For example, the expression <code>[1, &#39;a&#39;, 3.4]</code> could be inferred to be of type <code>list[Any]</code> or <code>list[int | str | float]</code>. If this setting is <code>true</code>, it will use the latter (stricter) type.",
       "default": false
     },
     "strictSetInference": {
       "$id": "#/properties/strictSetInference",
       "type": "boolean",
       "title": "Infer strict types for set expressions",
+      "description": "When inferring the type of a set, use strict type assumptions. For example, the expression `{1, 'a', 3.4}` could be inferred to be of type `set[Any]` or `set[int | str | float]`. If this setting is `true`, it will use the latter (stricter) type.",
+      "x-intellij-html-description": "When inferring the type of a set, use strict type assumptions. For example, the expression <code>{1, &#39;a&#39;, 3.4}</code> could be inferred to be of type <code>set[Any]</code> or <code>set[int | str | float]</code>. If this setting is <code>true</code>, it will use the latter (stricter) type.",
       "default": false
     },
     "strictDictionaryInference": {
       "$id": "#/properties/strictDictionaryInference",
       "type": "boolean",
       "title": "Infer strict types for dictionary expressions",
+      "description": "When inferring the type of a dictionary's keys and values, use strict type assumptions. For example, the expression `{'a': 1, 'b': 'a'}` could be inferred to be of type `dict[str, Any]` or `dict[str, int | str]`. If this setting is `true`, it will use the latter (stricter) type.",
+      "x-intellij-html-description": "When inferring the type of a dictionary&#39;s keys and values, use strict type assumptions. For example, the expression <code>{&#39;a&#39;: 1, &#39;b&#39;: &#39;a&#39;}</code> could be inferred to be of type <code>dict[str, Any]</code> or <code>dict[str, int | str]</code>. If this setting is <code>true</code>, it will use the latter (stricter) type.",
       "default": false
     },
     "analyzeUnannotatedFunctions": {
       "$id": "#/properties/analyzeUnannotatedFunctions",
       "type": "boolean",
       "title": "Analyze and report diagnostics for functions that have no annotations",
+      "description": "Analyze and report errors for functions and methods that have no type annotations for input parameters or return types.",
       "default": true
     },
     "strictParameterNoneValue": {
       "$id": "#/properties/strictParameterNoneValue",
       "type": "boolean",
       "title": "Allow implicit Optional when default parameter value is None",
+      "description": "PEP 484 indicates that when a function parameter is assigned a default value of `None`, its type should implicitly be `Optional` even if the explicit type is not. When enabled, this rule requires that parameter type annotations use `Optional` explicitly in this case.",
+      "x-intellij-html-description": "<a href=\"https://peps.python.org/pep-0484/\">PEP 484</a> indicates that when a function parameter is assigned a default value of <code>None</code>, its type should implicitly be <code>Optional</code> even if the explicit type is not. When enabled, this rule requires that parameter type annotations use <code>Optional</code> explicitly in this case.",
       "default": true
     },
     "enableExperimentalFeatures": {
       "$id": "#/properties/enableExperimentalFeatures",
       "type": "boolean",
       "title": "Enable the use of experimental features that are not part of the Python typing spec",
+      "description": "Enables a set of experimental (mostly undocumented) features that correspond to proposed or exploratory changes to the Python typing standard. These features will likely change or be removed, so they should not be used except for experimentation purposes.",
       "default": false
     },
     "enableTypeIgnoreComments": {
       "$id": "#/properties/enableTypeIgnoreComments",
       "type": "boolean",
-      "title": "Allow \"# type: ignore\" comments",
+      "title": "Allow `# type: ignore` comments",
+      "description": "PEP 484 defines support for `# type: ignore` comments. This switch enables or disables support for these comments. This does not affect `# pyright: ignore` comments.",
+      "x-intellij-html-description": "<a href=\"https://peps.python.org/pep-0484/\">PEP 484</a> defines support for <code># type: ignore</code> comments. This switch enables or disables support for these comments. This does not affect <code># pyright: ignore</code> comments.",
       "default": true
     },
     "deprecateTypingAliases": {
       "$id": "#/properties/deprecateTypingAliases",
       "type": "boolean",
       "title": "Treat typing-specific aliases to standard types as deprecated",
+      "description": "PEP 585 indicates that aliases to types in standard collections that were introduced solely to support generics are deprecated as of Python 3.9. This switch controls whether these are treated as deprecated. This applies only when `pythonVersion` is 3.9 or newer. The default value for this setting is `false` but may be switched to `true` in the future.",
+      "x-intellij-html-description": "<a href=\"https://peps.python.org/pep-0585/\">PEP 585</a> indicates that aliases to types in standard collections that were introduced solely to support generics are deprecated as of Python 3.9. This switch controls whether these are treated as deprecated. This applies only when <code>pythonVersion</code> is 3.9 or newer. The default value for this setting is <code>false</code> but may be switched to <code>true</code> in the future.",
       "default": false
     },
     "reportGeneralTypeIssues": {
       "$id": "#/properties/reportGeneralTypeIssues",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of general type issues",
+      "description": "Generate or suppress diagnostics for general type inconsistencies, unsupported operations, argument/parameter mismatches, etc. This covers all of the basic type-checking rules not covered by other rules. It does not include syntax errors.",
       "default": "error"
     },
     "reportPropertyTypeMismatch": {
       "$id": "#/properties/reportPropertyTypeMismatch",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of property getter/setter type mismatches",
+      "description": "Generate or suppress diagnostics for properties where the type of the value passed to the setter is not assignable to the value returned by the getter. Such mismatches violate the intended use of properties, which are meant to act like variables.",
       "default": "none"
     },
     "reportFunctionMemberAccess": {
       "$id": "#/properties/reportFunctionMemberAccess",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of member accesses on function objects",
+      "description": "Generate or suppress diagnostics for non-standard member accesses for functions.",
       "default": "error"
     },
     "reportMissingImports": {
       "$id": "#/properties/reportMissingImports",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of imports that cannot be resolved",
+      "description": "Generate or suppress diagnostics for imports that have no corresponding imported python file or type stub file.",
       "default": "error"
     },
     "reportMissingModuleSource": {
       "$id": "#/properties/reportMissingModuleSource",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of imports that cannot be resolved to source files",
+      "description": "Generate or suppress diagnostics for imports that have no corresponding source file. This happens when a type stub is found, but the module source file was not found, indicating that the code may fail at runtime when using this execution environment. Type checking will be done using the type stub.",
       "default": "warning"
     },
     "reportMissingTypeStubs": {
       "$id": "#/properties/reportMissingTypeStubs",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of imports that cannot be resolved to type stub files",
+      "description": "Generate or suppress diagnostics for imports that have no corresponding type stub file (either a typeshed file or a custom type stub). The type checker requires type stubs to do its best job at analysis.",
       "default": "warning"
     },
     "reportImportCycles": {
       "$id": "#/properties/reportImportCycles",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of module imports that create cycles in import graph",
+      "description": "Generate or suppress diagnostics for cyclical import chains. These are not errors in Python, but they do slow down type analysis and often hint at architectural layering issues. Generally, they should be avoided. Note that there are import cycles in the typeshed stdlib typestub files that are ignored by this setting.",
       "default": "none"
     },
     "reportUnusedImport": {
       "$id": "#/properties/reportUnusedImport",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of imported symbols that are not referenced within the source file",
+      "description": "Generate or suppress diagnostics for an imported symbol that is not referenced within that file.",
       "default": "none"
     },
     "reportUnusedClass": {
       "$id": "#/properties/reportUnusedClass",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of private classes that are not accessed",
+      "description": "Generate or suppress diagnostics for a class with a private name (starting with an underscore) that is not accessed.",
       "default": "none"
     },
     "reportUnusedFunction": {
       "$id": "#/properties/reportUnusedFunction",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of private functions or methods that are not accessed",
+      "description": "Generate or suppress diagnostics for a function or method with a private name (starting with an underscore) that is not accessed.",
       "default": "none"
     },
     "reportUnusedVariable": {
       "$id": "#/properties/reportUnusedVariable",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of local variables that are not accessed",
+      "description": "Generate or suppress diagnostics for a variable that is not accessed. Variables whose names begin with an underscore are exempt from this check.",
       "default": "none"
     },
     "reportDuplicateImport": {
       "$id": "#/properties/reportDuplicateImport",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of symbols or modules that are imported more than once",
+      "description": "Generate or suppress diagnostics for an imported symbol or module that is imported more than once.",
       "default": "none"
     },
     "reportWildcardImportFromLibrary": {
       "$id": "#/properties/reportWildcardImportFromLibrary",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of wildcard import from external library",
+      "description": "Generate or suppress diagnostics for a wildcard import from an external library. The use of this language feature is highly discouraged and can result in bugs when the library is updated.",
       "default": "warning"
     },
     "reportOptionalSubscript": {
       "$id": "#/properties/reportOptionalSubscript",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of attempts to subscript (index) a variable with Optional type",
+      "title": "Controls reporting of attempts to subscript (index) a variable with `Optional` type",
+      "description": "Generate or suppress diagnostics for an attempt to subscript (index) a variable with an `Optional` type.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for an attempt to subscript (index) a variable with an <code>Optional</code> type.",
       "default": "error"
     },
     "reportOptionalMemberAccess": {
       "$id": "#/properties/reportOptionalMemberAccess",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of attempts to access a member of a variable with Optional type",
+      "title": "Controls reporting of attempts to access a member of a variable with `Optional` type",
+      "description": "Generate or suppress diagnostics for an attempt to access a member of a variable with an `Optional` type.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for an attempt to access a member of a variable with an <code>Optional</code> type.",
       "default": "error"
     },
     "reportOptionalCall": {
       "$id": "#/properties/reportOptionalCall",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of attempts to call a variable with Optional type",
+      "title": "Controls reporting of attempts to call a variable with `Optional` type",
+      "description": "Generate or suppress diagnostics for an attempt to call a variable with an `Optional` type.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for an attempt to call a variable with an <code>Optional</code> type.",
       "default": "error"
     },
     "reportOptionalIterable": {
       "$id": "#/properties/reportOptionalIterable",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of attempts to use an Optional type as an iterable value",
+      "title": "Controls reporting of attempts to use an `Optional` type as an iterable value",
+      "description": "Generate or suppress diagnostics for an attempt to use an `Optional` type as an iterable value (e.g. within a `for` statement).",
+      "x-intellij-html-description": "Generate or suppress diagnostics for an attempt to use an <code>Optional</code> type as an iterable value (e.g. within a <code>for</code> statement).",
       "default": "error"
     },
     "reportOptionalContextManager": {
       "$id": "#/properties/reportOptionalContextManager",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of attempts to use an Optional type as a parameter to a with statement",
+      "title": "Controls reporting of attempts to use an `Optional` type as a parameter to a `with` statement",
+      "description": "Generate or suppress diagnostics for an attempt to use an `Optional` type as a context manager (as a parameter to a `with` statement).",
+      "x-intellij-html-description": "Generate or suppress diagnostics for an attempt to use an <code>Optional</code> type as a context manager (as a parameter to a <code>with</code> statement).",
       "default": "error"
     },
     "reportOptionalOperand": {
       "$id": "#/properties/reportOptionalOperand",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of attempts to use an Optional type as an operand for a binary or unary operator",
+      "title": "Controls reporting of attempts to use an `Optional` type as an operand for a binary or unary operator",
+      "description": "Generate or suppress diagnostics for an attempt to use an `Optional` type as an operand to a unary operator (like `~` or `not`) or the left-hand operator of a binary operator (like `*`, `==`, `or`).",
+      "x-intellij-html-description": "Generate or suppress diagnostics for an attempt to use an <code>Optional</code> type as an operand to a unary operator (like <code>~</code> or <code>not</code>) or the left-hand operator of a binary operator (like <code>*</code>, <code>==</code>, <code>or</code>).",
       "default": "error"
     },
     "reportTypedDictNotRequiredAccess": {
       "$id": "#/properties/reportTypedDictNotRequiredAccess",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of attempts to access a non-required key in a TypedDict without a check for its presence",
+      "title": "Controls reporting of attempts to access a non-required key in a `TypedDict` without a check for its presence",
+      "description": "Generate or suppress diagnostics for an attempt to access a non-required field within a `TypedDict` without first checking whether it is present.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for an attempt to access a non-required field within a <code>TypedDict</code> without first checking whether it is present.",
       "default": "error"
     },
     "reportUntypedFunctionDecorator": {
       "$id": "#/properties/reportUntypedFunctionDecorator",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of function decorators without type annotations, which obscure function types",
+      "description": "Generate or suppress diagnostics for function decorators that have no type annotations. These obscure the function type, defeating many type analysis features.",
       "default": "none"
     },
     "reportUntypedClassDecorator": {
       "$id": "#/properties/reportUntypedClassDecorator",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of class decorators without type annotations, which obscure class types",
+      "description": "Generate or suppress diagnostics for class decorators that have no type annotations. These obscure the class type, defeating many type analysis features.",
       "default": "none"
     },
     "reportUntypedBaseClass": {
       "$id": "#/properties/reportUntypedBaseClass",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of a base class of an unknown type, which obscures most type checking for the class",
+      "description": "Generate or suppress diagnostics for base classes whose type cannot be determined statically. These obscure the class type, defeating many type analysis features.",
       "default": "none"
     },
     "reportUntypedNamedTuple": {
       "$id": "#/properties/reportUntypedNamedTuple",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of a named tuple definition that does not contain type information",
+      "description": "Generate or suppress diagnostics when `namedtuple` is used rather than `NamedTuple`. The former contains no type information, whereas the latter does.",
+      "x-intellij-html-description": "Generate or suppress diagnostics when <code>namedtuple</code> is used rather than <code>NamedTuple</code>. The former contains no type information, whereas the latter does.",
       "default": "none"
     },
     "reportPrivateUsage": {
       "$id": "#/properties/reportPrivateUsage",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of private variables and functions used outside of the owning class or module and usage of protected members outside of subclasses",
+      "description": "Generate or suppress diagnostics for incorrect usage of private or protected variables or functions. Protected class members begin with a single underscore (`_`) and can be accessed only by subclasses. Private class members begin with a double underscore but do not end in a double underscore and can be accessed only within the declaring class. Variables and functions declared outside of a class are considered private if their names start with either a single or double underscore, and they cannot be accessed outside of the declaring module.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for incorrect usage of private or protected variables or functions. Protected class members begin with a single underscore (<code>_</code>) and can be accessed only by subclasses. Private class members begin with a double underscore but do not end in a double underscore and can be accessed only within the declaring class. Variables and functions declared outside of a class are considered private if their names start with either a single or double underscore, and they cannot be accessed outside of the declaring module.",
       "default": "none"
     },
     "reportTypeCommentUsage": {
       "$id": "#/properties/reportTypeCommentUsage",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of deprecated type comment usage",
+      "description": "Prior to Python 3.5, the grammar did not support type annotations, so types needed to be specified using type comments. Python 3.5 eliminated the need for function type comments, and Python 3.6 eliminated the need for variable type comments. Future versions of Python will likely deprecate all support for type comments. If enabled, this check will flag any type comment usage unless it is required for compatibility with the specified language version.",
       "default": "none"
     },
     "reportPrivateImportUsage": {
       "$id": "#/properties/reportPrivateImportUsage",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of improper usage of symbol imported from a \"py.typed\" module that is not re-exported from that module",
+      "title": "Controls reporting of improper usage of symbol imported from a `py.typed` module that is not re-exported from that module",
+      "description": "Generate or suppress diagnostics for use of a symbol from a `py.typed` module that is not meant to be exported from that module.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for use of a symbol from a <code>py.typed</code> module that is not meant to be exported from that module.",
       "default": "error"
     },
     "reportConstantRedefinition": {
       "$id": "#/properties/reportConstantRedefinition",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of attempts to redefine variables that are in all-caps",
+      "description": "Generate or suppress diagnostics for attempts to redefine variables whose names are all-caps with underscores and numerals.",
       "default": "none"
     },
     "reportDeprecated": {
       "$id": "#/properties/reportDeprecated",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of use of deprecated class or function",
+      "description": "Generate or suppress diagnostics for use of a class or function that has been marked as deprecated.",
       "default": "none"
     },
     "reportIncompatibleMethodOverride": {
       "$id": "#/properties/reportIncompatibleMethodOverride",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of method overrides in subclasses that redefine the method in an incompatible way",
+      "description": "Generate or suppress diagnostics for methods that override a method of the same name in a base class in an incompatible manner (wrong number of parameters, incompatible parameter types, or incompatible return type).",
       "default": "error"
     },
     "reportIncompatibleVariableOverride": {
       "$id": "#/properties/reportIncompatibleVariableOverride",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of overrides in subclasses that redefine a variable in an incompatible way",
+      "description": "Generate or suppress diagnostics for class variable declarations that override a symbol of the same name in a base class with a type that is incompatible with the base class symbol type.",
       "default": "error"
     },
     "reportInconsistentConstructor": {
       "$id": "#/properties/reportInconsistentConstructor",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of __init__ and __new__ methods whose signatures are inconsistent",
+      "title": "Controls reporting of `__init__` and `__new__` methods whose signatures are inconsistent",
+      "description": "Generate or suppress diagnostics when an `__init__` method signature is inconsistent with a `__new__` signature.",
+      "x-intellij-html-description": "Generate or suppress diagnostics when an <code>__init__</code> method signature is inconsistent with a <code>__new__</code> signature.",
       "default": "none"
     },
     "reportOverlappingOverload": {
       "$id": "#/properties/reportOverlappingOverload",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of function overloads that overlap in signature and obscure each other or do not agree on return type",
+      "description": "Generate or suppress diagnostics for function overloads that overlap in signature and obscure each other or have incompatible return types.",
       "default": "error"
     },
     "reportMissingSuperCall": {
       "$id": "#/properties/reportMissingSuperCall",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of missing call to parent class for inherited `__init__` methods",
+      "description": "Generate or suppress diagnostics for `__init__`, `__init_subclass__`, `__enter__` and `__exit__` methods in a subclass that fail to call through to the same-named method on a base class.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for <code>__init__</code>, <code>__init_subclass__</code>, <code>__enter__</code> and <code>__exit__</code> methods in a subclass that fail to call through to the same-named method on a base class.",
       "default": "none"
     },
     "reportUninitializedInstanceVariable": {
       "$id": "#/properties/reportUninitializedInstanceVariable",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of instance variables that are not initialized in the constructor",
+      "description": "Generate or suppress diagnostics for instance variables within a class that are not initialized or declared within the class body or the `__init__` method.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for instance variables within a class that are not initialized or declared within the class body or the <code>__init__</code> method.",
       "default": "none"
     },
     "reportInvalidStringEscapeSequence": {
       "$id": "#/properties/reportInvalidStringEscapeSequence",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of invalid escape sequences used within string literals",
+      "description": "Generate or suppress diagnostics for invalid escape sequences used within string literals. The Python specification indicates that such sequences will generate a syntax error in future versions.",
       "default": "warning"
     },
     "reportUnknownParameterType": {
       "$id": "#/properties/reportUnknownParameterType",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting input and return parameters whose types are unknown",
+      "description": "Generate or suppress diagnostics for input or return parameters for functions or methods that have an unknown type.",
       "default": "none"
     },
     "reportUnknownArgumentType": {
       "$id": "#/properties/reportUnknownArgumentType",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting argument expressions whose types are unknown",
+      "description": "Generate or suppress diagnostics for call arguments for functions or methods that have an unknown type.",
       "default": "none"
     },
     "reportUnknownLambdaType": {
       "$id": "#/properties/reportUnknownLambdaType",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting input and return parameters for lambdas whose types are unknown",
+      "description": "Generate or suppress diagnostics for input or return parameters for lambdas that have an unknown type.",
       "default": "none"
     },
     "reportUnknownVariableType": {
       "$id": "#/properties/reportUnknownVariableType",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting local variables whose types are unknown",
+      "description": "Generate or suppress diagnostics for variables that have an unknown type.",
       "default": "none"
     },
     "reportUnknownMemberType": {
       "$id": "#/properties/reportUnknownMemberType",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting class and instance variables whose types are unknown",
+      "description": "Generate or suppress diagnostics for class or instance variables that have an unknown type.",
       "default": "none"
     },
     "reportMissingParameterType": {
       "$id": "#/properties/reportMissingParameterType",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting input parameters that are missing a type annotation",
+      "description": "Generate or suppress diagnostics for input parameters for functions or methods that are missing a type annotation. The `self` and `cls` parameters used within methods are exempt from this check.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for input parameters for functions or methods that are missing a type annotation. The <code>self</code> and <code>cls</code> parameters used within methods are exempt from this check.",
       "default": "none"
     },
     "reportMissingTypeArgument": {
       "$id": "#/properties/reportMissingTypeArgument",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting generic class reference with missing type arguments",
+      "description": "Generate or suppress diagnostics when a generic class is used without providing explicit or implicit type arguments.",
       "default": "none"
     },
     "reportInvalidTypeVarUse": {
       "$id": "#/properties/reportInvalidTypeVarUse",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting improper use of type variables within function signatures",
+      "description": "Generate or suppress diagnostics when a `TypeVar` is used inappropriately (e.g. if a `TypeVar` appears only once) within a generic function signature.",
+      "x-intellij-html-description": "Generate or suppress diagnostics when a <code>TypeVar</code> is used inappropriately (e.g. if a <code>TypeVar</code> appears only once) within a generic function signature.",
       "default": "warning"
     },
     "reportCallInDefaultInitializer": {
       "$id": "#/properties/reportCallInDefaultInitializer",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting usage of function calls within a default value initializer expression",
+      "description": "Generate or suppress diagnostics for function calls, list expressions, set expressions, or dictionary expressions within a default value initialization expression. Such calls can mask expensive operations that are performed at module initialization time.",
       "default": "none"
     },
     "reportUnnecessaryIsInstance": {
       "$id": "#/properties/reportUnnecessaryIsInstance",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting calls to 'isinstance' or 'issubclass' where the result is statically determined to be always true",
+      "title": "Controls reporting calls to `isinstance` or `issubclass` where the result is statically determined to be always true",
+      "description": "Generate or suppress diagnostics for `isinstance` or `issubclass` calls where the result is statically determined to be always true. Such calls are often indicative of a programming error.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for <code>isinstance</code> or <code>issubclass</code> calls where the result is statically determined to be always true. Such calls are often indicative of a programming error.",
       "default": "none"
     },
     "reportUnnecessaryCast": {
       "$id": "#/properties/reportUnnecessaryCast",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting calls to 'cast' that are unnecessary",
+      "title": "Controls reporting calls to `cast` that are unnecessary",
+      "description": "Generate or suppress diagnostics for `cast` calls that are statically determined to be unnecessary. Such calls are sometimes indicative of a programming error.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for <code>cast</code> calls that are statically determined to be unnecessary. Such calls are sometimes indicative of a programming error.",
       "default": "none"
     },
     "reportUnnecessaryComparison": {
       "$id": "#/properties/reportUnnecessaryComparison",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting the use of '==' or '!=' comparisons that are unnecessary",
+      "title": "Controls reporting the use of `==` or `!=` comparisons that are unnecessary",
+      "description": "Generate or suppress diagnostics for `==` or `!=` comparisons or other conditional expressions that are statically determined to always evaluate to `False` or `True`. Such comparisons are sometimes indicative of a programming error.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for <code>==</code> or <code>!=</code> comparisons or other conditional expressions that are statically determined to always evaluate to <code>False</code> or <code>True</code>. Such comparisons are sometimes indicative of a programming error.",
       "default": "none"
     },
     "reportUnnecessaryContains": {
       "$id": "#/properties/reportUnnecessaryContains",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting the use of 'in' operations that are unnecessary",
+      "title": "Controls reporting the use of `in` operations that are unnecessary",
+      "description": "Generate or suppress diagnostics for `in` operations that are statically determined to always evaluate to `False` or `True`. Such operations are sometimes indicative of a programming error.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for <code>in</code> operations that are statically determined to always evaluate to <code>False</code> or <code>True</code>. Such operations are sometimes indicative of a programming error.",
       "default": "none"
     },
     "reportAssertAlwaysTrue": {
       "$id": "#/properties/reportAssertAlwaysTrue",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting assert expressions that will always evaluate to true",
+      "title": "Controls reporting `assert` expressions that will always evaluate to `True`",
+      "description": "Generate or suppress diagnostics for `assert` statement that will provably always assert. This can be indicative of a programming error.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for <code>assert</code> statement that will provably always assert. This can be indicative of a programming error.",
       "default": "warning"
     },
     "reportSelfClsParameterName": {
       "$id": "#/properties/reportSelfClsParameterName",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting missing or misnamed self parameters",
+      "title": "Controls reporting missing or misnamed `self` parameters",
+      "description": "Generate or suppress diagnostics for a missing or misnamed `self` parameter in instance methods and `cls` parameter in class methods. Instance methods in metaclasses (classes that derive from `type`) are allowed to use `cls` for instance methods.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for a missing or misnamed <code>self</code> parameter in instance methods and <code>cls</code> parameter in class methods. Instance methods in metaclasses (classes that derive from <code>type</code>) are allowed to use <code>cls</code> for instance methods.",
       "default": "warning"
     },
     "reportImplicitStringConcatenation": {
       "$id": "#/properties/reportImplicitStringConcatenation",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting usage of implicit concatenation of string literals",
+      "description": "Generate or suppress diagnostics for two or more string literals that follow each other, indicating an implicit concatenation. This is considered a bad practice and often masks bugs such as missing commas.",
       "default": "warning"
     },
     "reportUnboundVariable": {
       "$id": "#/properties/reportUnboundVariable",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of attempts to use an unbound or possibly unbound variable",
+      "description": "Generate or suppress diagnostics for unbound and possibly unbound variables.",
       "default": "error"
     },
     "reportUndefinedVariable": {
       "$id": "#/properties/reportUndefinedVariable",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of attempts to use an undefined variable",
+      "description": "Generate or suppress diagnostics for undefined variables.",
       "default": "error"
     },
     "reportInvalidStubStatement": {
       "$id": "#/properties/reportInvalidStubStatement",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of type stub statements that do not conform to PEP 484",
+      "description": "Generate or suppress diagnostics for statements that are syntactically correct but have no purpose within a type stub file.",
       "default": "none"
     },
     "reportIncompleteStub": {
       "$id": "#/properties/reportIncompleteStub",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of incomplete type stubs that declare a module-level __getattr__ function",
+      "title": "Controls reporting of incomplete type stubs that declare a module-level `__getattr__` function",
+      "description": "Generate or suppress diagnostics for a module-level `__getattr__` call in a type stub file, indicating that it is incomplete.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for a module-level <code>__getattr__</code> call in a type stub file, indicating that it is incomplete.",
       "default": "none"
     },
     "reportUnsupportedDunderAll": {
       "$id": "#/properties/reportUnsupportedDunderAll",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of unsupported operations performed on __all__",
+      "title": "Controls reporting of unsupported operations performed on `__all__`",
+      "description": "Generate or suppress diagnostics for statements that define or manipulate `__all__` in a way that is not allowed by a static type checker, thus rendering the contents of `__all__` to be unknown or incorrect. Also reports names within the `__all__` list that are not present in the module namespace.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for statements that define or manipulate <code>__all__</code> in a way that is not allowed by a static type checker, thus rendering the contents of <code>__all__</code> to be unknown or incorrect. Also reports names within the <code>__all__</code> list that are not present in the module namespace.",
       "default": "warning"
     },
     "reportUnusedCallResult": {
       "$id": "#/properties/reportUnusedCallResult",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of call expressions whose results are not consumed",
+      "description": "Generate or suppress diagnostics for call statements whose return value is not used in any way and is not `None`.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for call statements whose return value is not used in any way and is not <code>None</code>.",
       "default": "none"
     },
     "reportUnusedCoroutine": {
       "$id": "#/properties/reportUnusedCoroutine",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of call expressions that returns Coroutine whose results are not consumed",
+      "title": "Controls reporting of call expressions that returns `Coroutine` whose results are not consumed",
+      "description": "Generate or suppress diagnostics for call statements whose return value is not used in any way and is a `Coroutine`. This identifies a common error where an `await` keyword is mistakenly omitted.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for call statements whose return value is not used in any way and is a <code>Coroutine</code>. This identifies a common error where an <code>await</code> keyword is mistakenly omitted.",
       "default": "error"
     },
     "reportUnusedExpression": {
       "$id": "#/properties/reportUnusedExpression",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of simple expressions whose value is not used in any way",
+      "description": "Generate or suppress diagnostics for simple expressions whose results are not used in any way.",
       "default": "warning"
     },
     "reportUnnecessaryTypeIgnoreComment": {
       "$id": "#/properties/reportUnnecessaryTypeIgnoreComment",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of '# type: ignore' comments that have no effect'",
+      "title": "Controls reporting of `# type: ignore` comments that have no effect",
+      "description": "Generate or suppress diagnostics for a `# type: ignore` or `# pyright: ignore` comment that would have no effect if removed.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for a <code># type: ignore</code> or <code># pyright: ignore</code> comment that would have no effect if removed.",
       "default": "none"
     },
     "reportMatchNotExhaustive": {
       "$id": "#/properties/reportMatchNotExhaustive",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of 'match' statements that do not exhaustively match all possible values",
+      "title": "Controls reporting of `match` statements that do not exhaustively match all possible values",
+      "description": "Generate or suppress diagnostics for a `match` statement that does not provide cases that exhaustively match against all potential types of the target expression.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for a <code>match</code> statement that does not provide cases that exhaustively match against all potential types of the target expression.",
       "default": "none"
     },
     "reportShadowedImports": {
       "$id": "#/properties/reportShadowedImports",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of shadowed imports of stdlib modules",
+      "description": "Generate or suppress diagnostics for files that are overriding a module in the stdlib.",
       "default": "none"
     },
     "reportImplicitOverride": {
       "$id": "#/properties/reportImplicitOverride",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting overridden methods that are missing an `@override` decorator",
+      "description": "Generate or suppress diagnostics for overridden methods in a class that are missing an explicit `@override` decorator.",
+      "x-intellij-html-description": "Generate or suppress diagnostics for overridden methods in a class that are missing an explicit <code>@override</code> decorator.",
       "default": "none"
     },
     "extraPaths": {
       "$id": "#/properties/extraPaths",
       "type": "array",
       "title": "Additional import search resolution paths",
+      "description": "Additional search paths that will be used when searching for modules imported by files.",
       "items": {
         "$id": "#/properties/extraPaths/items",
         "type": "string",
@@ -567,6 +696,8 @@
       "$id": "#/properties/pythonVersion",
       "type": "string",
       "title": "Python version to assume during type analysis",
+      "description": "Specifies the version of Python that will be used to execute the source code. The version should be specified as a string in the format `M.m` where `M` is the major version and `m` is the minor (e.g. `3.0` or `3.6`). If a version is provided, pyright will generate errors if the source code makes use of language features that are not supported in that version. It will also tailor its use of type stub files, which conditionalizes type definitions based on the version. If no version is specified, pyright will use the version of the current python interpreter, if one is present.",
+      "x-intellij-html-description": "Specifies the version of Python that will be used to execute the source code. The version should be specified as a string in the format <code>M.m</code> where <code>M</code> is the major version and <code>m</code> is the minor (e.g. <code>3.0</code> or <code>3.6</code>). If a version is provided, pyright will generate errors if the source code makes use of language features that are not supported in that version. It will also tailor its use of type stub files, which conditionalizes type definitions based on the version. If no version is specified, pyright will use the version of the current python interpreter, if one is present.",
       "default": "",
       "examples": [
         "3.7"
@@ -577,6 +708,8 @@
       "$id": "#/properties/pythonPlatform",
       "type": "string",
       "title": "Python platform to assume during type analysis",
+      "description": "Specifies the target platform that will be used to execute the source code. Should be one of `Windows`, `Darwin`, `Linux`, or `All`. If specified, pyright will tailor its use of type stub files, which conditionalize type definitions based on the platform. If no platform is specified, pyright will use the current platform.",
+      "x-intellij-html-description": "Specifies the target platform that will be used to execute the source code. Should be one of <code>Windows</code>, <code>Darwin</code>, <code>Linux</code>, or <code>All</code>. If specified, pyright will tailor its use of type stub files, which conditionalize type definitions based on the platform. If no platform is specified, pyright will use the current platform.",
       "default": "",
       "examples": [
         "Linux"
@@ -587,13 +720,17 @@
       "$id": "#/properties/venvPath",
       "type": "string",
       "title": "Path to directory containing a folder of virtual environments",
+      "description": "Path to a directory containing one or more subdirectories, each of which contains a virtual environment. When used in conjunction with a `venv` setting, pyright will search for imports in the virtual environment's site-packages directory rather than the paths specified by the default Python interpreter. If you are working on a project with other developers, it is best not to specify this setting in the config file, since this path will typically differ for each developer. Instead, it can be specified on the command line or in a per-user setting.",
+      "x-intellij-html-description": "Path to a directory containing one or more subdirectories, each of which contains a virtual environment. When used in conjunction with a <code>venv</code> setting, pyright will search for imports in the virtual environment&#39;s site-packages directory rather than the paths specified by the default Python interpreter. If you are working on a project with other developers, it is best not to specify this setting in the config file, since this path will typically differ for each developer. Instead, it can be specified on the command line or in a per-user setting.",
       "default": "",
       "pattern": "^(.*)$"
     },
     "venv": {
       "$id": "#/properties/venv",
       "type": "string",
-      "title": "Name of virtual environment subdirectory within venvPath",
+      "title": "Name of virtual environment subdirectory within `venvPath`",
+      "description": "Used in conjunction with the `venvPath`, specifies the virtual environment to use.",
+      "x-intellij-html-description": "Used in conjunction with the <code>venvPath</code>, specifies the virtual environment to use.",
       "default": "",
       "examples": [
         "python37"
@@ -604,12 +741,14 @@
       "$id": "#/properties/verboseOutput",
       "type": "boolean",
       "title": "Output verbose logging",
+      "description": "Specifies whether output logs should be verbose. This is useful when diagnosing certain problems like import resolution issues.",
       "default": false
     },
     "executionEnvironments": {
       "$id": "#/properties/executionEnvironments",
       "type": "array",
       "title": "Analysis settings to use for specified subdirectories of code",
+      "description": "Specifies a list of execution environments. Execution environments are searched from start to finish by comparing the path of a source file with the root path specified in the execution environment.",
       "items": {
         "$id": "#/properties/executionEnvironments/items",
         "type": "object",
@@ -622,6 +761,7 @@
             "$id": "#/properties/executionEnvironments/items/properties/root",
             "type": "string",
             "title": "Path to code subdirectory to which these settings apply",
+            "description": "Root path for the code that will execute within this execution environment.",
             "default": "",
             "pattern": "^(.*)$"
           },
@@ -629,6 +769,8 @@
             "$id": "#/properties/executionEnvironments/items/properties/extraPaths",
             "type": "array",
             "title": "Additional import search resolution paths",
+            "description": "Additional search paths (in addition to the root path) that will be used when searching for modules imported by files within this execution environment. If specified, this overrides the default `extraPaths` setting when resolving imports for files within this execution environment. Note that each file's execution environment mapping is independent, so if file A is in one execution environment and imports a second file B within a second execution environment, any imports from B will use the `extraPaths` in the second execution environment.",
+            "x-intellij-html-description": "Additional search paths (in addition to the root path) that will be used when searching for modules imported by files within this execution environment. If specified, this overrides the default <code>extraPaths</code> setting when resolving imports for files within this execution environment. Note that each file&#39;s execution environment mapping is independent, so if file A is in one execution environment and imports a second file B within a second execution environment, any imports from B will use the <code>extraPaths</code> in the second execution environment.",
             "items": {
               "$id": "#/properties/executionEnvironments/items/properties/extraPaths/items",
               "type": "string",
@@ -641,6 +783,8 @@
             "$id": "#/properties/executionEnvironments/items/properties/pythonVersion",
             "type": "string",
             "title": "Python version to assume during type analysis",
+            "description": "The version of Python used for this execution environment. If not specified, the global `pythonVersion` setting is used instead.",
+            "x-intellij-html-description": "The version of Python used for this execution environment. If not specified, the global <code>pythonVersion</code> setting is used instead.",
             "default": "",
             "examples": [
               "3.7"
@@ -651,6 +795,8 @@
             "$id": "#/properties/executionEnvironments/items/properties/pythonPlatform",
             "type": "string",
             "title": "Python platform to assume during type analysis",
+            "description": "Specifies the target platform that will be used for this execution environment. If not specified, the global `pythonPlatform` setting is used instead.",
+            "x-intellij-html-description": "Specifies the target platform that will be used for this execution environment. If not specified, the global <code>pythonPlatform</code> setting is used instead.",
             "default": "",
             "examples": [
               "Linux"
