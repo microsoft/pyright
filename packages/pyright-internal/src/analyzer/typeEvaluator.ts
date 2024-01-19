@@ -130,7 +130,8 @@ import {
     getEnumAutoValueType,
     getTypeOfEnumMember,
     isDeclInEnumClass,
-    isKnownEnumType,
+    isEnumClassWithMembers,
+    isEnumMetaclass,
     transformTypeForPossibleEnumClass,
 } from './enums';
 import { applyFunctionTransform } from './functionTransform';
@@ -2336,7 +2337,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             evaluatorInterface,
                             callNode,
                             ClassType.cloneAsInstance(subtype),
-                            /* skipObjectBase */ false
+                            /* additionalFlags */ MemberAccessFlags.Default
                         );
 
                         if (initMethodResult && !initMethodResult.typeErrors) {
@@ -2362,7 +2363,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 evaluatorInterface,
                                 callNode,
                                 subtype,
-                                /* skipObjectBase */ false
+                                /* additionalFlags */ MemberAccessFlags.Default
                             );
 
                             if (newMethodResult && !newMethodResult.typeErrors && isFunction(newMethodResult.type)) {
@@ -5259,9 +5260,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case TypeCategory.Class: {
-                const typeResult =
-                    getTypeOfEnumMember(evaluatorInterface, node, baseType, memberName, isIncomplete) ??
-                    getTypeOfBoundMember(
+                let typeResult: TypeResult | undefined;
+                if (usage.method === 'get') {
+                    typeResult = getTypeOfEnumMember(evaluatorInterface, node, baseType, memberName, isIncomplete);
+                }
+
+                if (!typeResult) {
+                    typeResult = getTypeOfBoundMember(
                         node.memberName,
                         baseType,
                         memberName,
@@ -5270,6 +5275,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* memberAccessFlags */ undefined,
                         baseTypeResult.bindToSelfType
                     );
+                }
 
                 if (typeResult) {
                     type = addConditionToType(
@@ -9638,7 +9644,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     evaluatorInterface,
                     errorNode,
                     ClassType.cloneAsInstance(expandedCallType),
-                    /* skipObjectBase */ false
+                    /* additionalFlags */ MemberAccessFlags.Default
                 );
 
                 if (initTypeResult && isOverloadedFunction(initTypeResult.type)) {
@@ -9669,14 +9675,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return { returnType: UnknownType.create(), argumentErrors: true };
             }
 
-            if (isClass(unexpandedCallType) && isKnownEnumType(className)) {
-                return {
-                    returnType:
-                        createEnumType(evaluatorInterface, errorNode, expandedCallType, argList) ??
-                        UnknownType.create(),
-                };
-            }
-
             if (className === 'TypedDict') {
                 return { returnType: createTypedDictType(evaluatorInterface, errorNode, expandedCallType, argList) };
             }
@@ -9684,6 +9682,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (className === 'auto' && argList.length === 0) {
                 return { returnType: getEnumAutoValueType(evaluatorInterface, errorNode) };
             }
+        }
+
+        // Is it a call to an Enum class factory?
+        if (
+            isClass(expandedCallType) &&
+            expandedCallType.details.effectiveMetaclass &&
+            isClass(expandedCallType.details.effectiveMetaclass) &&
+            isEnumMetaclass(expandedCallType.details.effectiveMetaclass) &&
+            !isEnumClassWithMembers(evaluatorInterface, expandedCallType)
+        ) {
+            return {
+                returnType:
+                    createEnumType(evaluatorInterface, errorNode, expandedCallType, argList) ??
+                    convertToInstance(unexpandedCallType),
+            };
         }
 
         if (ClassType.supportsAbstractMethods(expandedCallType)) {
@@ -14062,13 +14075,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let typeErrors = false;
 
         // If any of the "for" clauses are marked async or any of the "if" clauses
-        // or the final expression contain an "await" operator anywhere within
-        // the expression, it is treated as an async generator.
-        let isAsync = node.forIfNodes.some((comp) => {
+        // or any clause other than the leftmost "for" contain an "await" operator,
+        // it is treated as an async generator.
+        let isAsync = node.forIfNodes.some((comp, index) => {
             if (comp.nodeType === ParseNodeType.ListComprehensionFor && comp.isAsync) {
                 return true;
             }
-            return ParseTreeUtils.containsAwaitNode(comp);
+            return index > 0 && ParseTreeUtils.containsAwaitNode(comp);
         });
         let type: Type = UnknownType.create();
 
@@ -14662,8 +14675,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // We'll abuse our internal types a bit by specializing it with
     // a type argument anyway.
     function createTypeGuardType(
-        errorNode: ParseNode,
         classType: ClassType,
+        errorNode: ParseNode,
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvaluatorFlags
     ): Type {
@@ -14926,8 +14939,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function createConcatenateType(
-        errorNode: ParseNode,
         classType: ClassType,
+        errorNode: ParseNode,
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvaluatorFlags
     ): Type {
@@ -14959,7 +14972,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return createSpecialType(classType, typeArgs, /* paramLimit */ undefined, /* allowParamSpec */ true);
     }
 
-    function createAnnotatedType(errorNode: ParseNode, typeArgs: TypeResultWithNode[] | undefined): TypeResult {
+    function createAnnotatedType(
+        classType: ClassType,
+        errorNode: ParseNode,
+        typeArgs: TypeResultWithNode[] | undefined
+    ): TypeResult {
         if (typeArgs && typeArgs.length < 2) {
             addError(LocMessage.annotatedTypeArgMissing(), errorNode);
         }
@@ -14973,7 +14990,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return {
-            type: TypeBase.cloneForAnnotated(typeArgs[0].type),
+            type: TypeBase.cloneAsSpecialForm(typeArgs[0].type, classType),
             isReadOnly: typeArgs[0].isReadOnly,
             isRequired: typeArgs[0].isRequired,
             isNotRequired: typeArgs[0].isNotRequired,
@@ -16403,9 +16420,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     classType.details.declaredMetaclass = metaclassType;
                     if (isInstantiableClass(metaclassType)) {
-                        if (ClassType.isBuiltIn(metaclassType, 'EnumMeta')) {
+                        if (isEnumMetaclass(metaclassType)) {
                             classType.details.flags |= ClassTypeFlags.EnumClass;
-                        } else if (ClassType.isBuiltIn(metaclassType, 'ABCMeta')) {
+                        }
+
+                        if (ClassType.isBuiltIn(metaclassType, 'ABCMeta')) {
                             classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
                         }
                     }
@@ -16803,10 +16822,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else {
                         effectiveMetaclass = baseClassMeta ? UnknownType.create() : undefined;
                         break;
-                    }
-
-                    if (ClassType.isEnumClass(baseClass)) {
-                        classType.details.flags |= ClassTypeFlags.EnumClass;
                     }
                 } else {
                     // If one of the base classes is unknown, then the effective
@@ -17992,6 +18007,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                         let returnType = returnTypeResult.type;
 
+                                        // If the type is a special form, use the special form instead.
+                                        if (returnType.specialForm) {
+                                            returnType = returnType.specialForm;
+                                        }
+
                                         // If the return type includes an instance of a class with isEmptyContainer
                                         // set, clear that because we don't want this flag to "leak" into the
                                         // inferred return type.
@@ -18817,11 +18837,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // See if the expression is part of a pattern used in a case statement.
-        const possibleCaseNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.Case);
+        const possibleCaseNode = ParseTreeUtils.getParentNodeOfType<CaseNode>(node, ParseNodeType.Case);
         if (possibleCaseNode) {
-            const caseNode = possibleCaseNode as CaseNode;
-            if (ParseTreeUtils.isNodeContainedWithin(node, caseNode.pattern)) {
-                evaluateTypesForCaseStatement(caseNode);
+            if (ParseTreeUtils.isNodeContainedWithin(node, possibleCaseNode.pattern)) {
+                evaluateTypesForCaseStatement(possibleCaseNode);
                 return;
             }
         }
@@ -19432,15 +19451,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Annotated': {
-                    return createAnnotatedType(errorNode, typeArgs);
+                    return createAnnotatedType(classType, errorNode, typeArgs);
                 }
 
                 case 'Concatenate': {
-                    return { type: createConcatenateType(errorNode, classType, typeArgs, flags) };
+                    return { type: createConcatenateType(classType, errorNode, typeArgs, flags) };
                 }
 
                 case 'TypeGuard': {
-                    return { type: createTypeGuardType(errorNode, classType, typeArgs, flags) };
+                    return { type: createTypeGuardType(classType, errorNode, typeArgs, flags) };
                 }
 
                 case 'Unpack': {

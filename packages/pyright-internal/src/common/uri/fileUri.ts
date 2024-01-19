@@ -7,6 +7,7 @@
  */
 
 import { URI } from 'vscode-uri';
+import { isArray } from '../core';
 import {
     ensureTrailingDirectorySeparator,
     getDirectoryPath,
@@ -24,14 +25,13 @@ import {
 import { BaseUri, JsonObjType } from './baseUri';
 import { cacheMethodWithNoArgs, cacheProperty, cacheStaticFunc } from './memoization';
 import { Uri } from './uri';
-import { isArray } from '../core';
 
 type SerializedType = [0, string, string, string, string | undefined, 1 | 0];
 
 export class FileUri extends BaseUri {
     private _formattedString: string | undefined;
     private static _separator = getPathSeparator('');
-    private constructor(
+    protected constructor(
         key: string,
         private readonly _filePath: string,
         private readonly _query: string,

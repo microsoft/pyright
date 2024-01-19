@@ -6,15 +6,16 @@
  * URI class that represents an empty URI.
  */
 
-import { BaseUri, JsonObjType } from './baseUri';
+import { JsonObjType } from './baseUri';
+import { FileUri } from './fileUri';
 import { Uri } from './uri';
 
 const EmptyKey = '<empty>';
 
-export class EmptyUri extends BaseUri {
+export class EmptyUri extends FileUri {
     private static _instance = new EmptyUri();
     private constructor() {
-        super(EmptyKey);
+        super(EmptyKey, '', '', '', undefined, /* isCaseSensitive */ true);
     }
 
     static get instance() {
@@ -37,11 +38,7 @@ export class EmptyUri extends BaseUri {
         return this;
     }
 
-    get isCaseSensitive(): boolean {
-        return true;
-    }
-
-    get fragment(): string {
+    override get fragment(): string {
         return '';
     }
 
@@ -110,18 +107,6 @@ export class EmptyUri extends BaseUri {
         return 0;
     }
 
-    override resolvePaths(...paths: string[]): Uri {
-        return this;
-    }
-
-    override combinePaths(...paths: string[]): Uri {
-        return this;
-    }
-
-    override combinePathsUnsafe(...paths: string[]): Uri {
-        return this;
-    }
-
     override getShortenedFileName(maxDirLength: number): string {
         return '';
     }
@@ -130,7 +115,7 @@ export class EmptyUri extends BaseUri {
         return this;
     }
 
-    withFragment(fragment: string): Uri {
+    override withFragment(fragment: string): Uri {
         return this;
     }
 

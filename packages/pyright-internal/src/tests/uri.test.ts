@@ -177,6 +177,8 @@ test('empty', () => {
     assert.equal(empty4.isEmpty(), true);
     assert.ok(empty4.equals(empty3));
     assert.ok(empty3.equals(empty));
+    const combined = empty.combinePaths(normalizeSlashes('/d/e/f'));
+    assert.equal(combined.getFilePath(), normalizeSlashes('/d/e/f'));
 });
 
 test('file', () => {
@@ -184,6 +186,8 @@ test('file', () => {
     assert.equal(file1, normalizeSlashes('/a/b/c'));
     const file2 = Uri.file('file:///a/b/c').getFilePath();
     assert.equal(file2, normalizeSlashes('/a/b/c'));
+    const resolved = Uri.file(normalizeSlashes('/a/b/c')).combinePaths(normalizeSlashes('/d/e/f'));
+    assert.equal(resolved.getFilePath(), normalizeSlashes('/d/e/f'));
 });
 
 test('isUri', () => {
@@ -388,7 +392,7 @@ test('combinePaths', () => {
     const uri10 = uri9.combinePaths('d', 'e');
     assert.equal(uri10.toString(), 'foo:///d/e');
     const uri11 = Uri.empty().combinePaths('d', 'e');
-    assert.equal(uri11.toString(), Uri.empty().toString());
+    assert.equal(uri11.toString(), Uri.file(normalizeSlashes('/d/e')).toString());
     const uri12 = uri1.combinePaths('d', 'e', 'f/');
     assert.equal(uri12.toString(), 'file:///a/b/c.pyi/d/e/f');
 });
@@ -412,7 +416,7 @@ test('combinePathsUnsafe', () => {
     const uri10 = uri9.combinePathsUnsafe('d', 'e');
     assert.equal(uri10.toString(), 'foo:///d/e');
     const uri11 = Uri.empty().combinePathsUnsafe('d', 'e');
-    assert.equal(uri11.toString(), Uri.empty().toString());
+    assert.equal(uri11.toString(), Uri.file(normalizeSlashes('/d/e')).toString());
     const uri12 = uri1.combinePathsUnsafe('d', 'e', 'f/');
     assert.equal(uri12.toString(), 'file:///a/b/c.pyi/d/e/f/');
 });
@@ -438,7 +442,7 @@ test('resolvePaths', () => {
     const uri10 = uri9.resolvePaths('d', 'e');
     assert.equal(uri10.toString(), 'foo:///d/e');
     const uri11 = Uri.empty().resolvePaths('d', 'e');
-    assert.equal(uri11.toString(), Uri.empty().toString());
+    assert.equal(uri11.toString(), Uri.file(normalizeSlashes('/d/e')).toString());
 });
 
 test('combinePaths non file', () => {

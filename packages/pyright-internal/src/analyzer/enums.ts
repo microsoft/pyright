@@ -8,6 +8,8 @@
  */
 
 import { assert } from '../common/debug';
+import { DiagnosticRule } from '../common/diagnosticRules';
+import { LocMessage } from '../localization/localize';
 import { ArgumentCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { VariableDeclaration } from './declaration';
@@ -40,9 +42,31 @@ import {
     isOverloadedFunction,
 } from './types';
 
-export function isKnownEnumType(className: string) {
-    const knownEnumTypes = ['Enum', 'IntEnum', 'StrEnum', 'Flag', 'IntFlag'];
-    return knownEnumTypes.some((c) => c === className);
+// Determines whether the class is an Enum metaclass or a subclass thereof.
+export function isEnumMetaclass(classType: ClassType) {
+    return classType.details.mro.some(
+        (mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, ['EnumMeta', 'EnumType'])
+    );
+}
+
+// Determines whether this is an enum class that has at least one enum
+// member defined.
+export function isEnumClassWithMembers(evaluator: TypeEvaluator, classType: ClassType) {
+    if (!isClass(classType) || !ClassType.isEnumClass(classType)) {
+        return false;
+    }
+
+    // Determine whether the enum class defines a member.
+    let definesValue = false;
+
+    classType.details.fields.forEach((symbol) => {
+        const symbolType = evaluator.getEffectiveTypeOfSymbol(symbol);
+        if (isClassInstance(symbolType) && ClassType.isSameGenericClass(symbolType, classType)) {
+            definesValue = true;
+        }
+    });
+
+    return definesValue;
 }
 
 // Creates a new custom enum class with named values.
@@ -104,6 +128,20 @@ export function createEnumType(
     }
     const classInstanceType = ClassType.cloneAsInstance(classType);
 
+    // Check for name consistency if the enum class is assigned to a variable.
+    if (
+        errorNode.parent?.nodeType === ParseNodeType.Assignment &&
+        errorNode.parent.leftExpression.nodeType === ParseNodeType.Name &&
+        errorNode.parent.leftExpression.value !== className
+    ) {
+        evaluator.addDiagnostic(
+            DiagnosticRule.reportGeneralTypeIssues,
+            LocMessage.enumNameMismatch(),
+            errorNode.parent.leftExpression
+        );
+        return undefined;
+    }
+
     // The Enum functional form supports various forms of arguments:
     //   Enum('name', 'a b c')
     //   Enum('name', 'a,b,c')
@@ -111,7 +149,7 @@ export function createEnumType(
     //   Enum('name', ('a', 'b', 'c'))
     //   Enum('name', (('a', 1), ('b', 2), ('c', 3)))
     //   Enum('name', [('a', 1), ('b', 2), ('c', 3))]
-    //   Enum('name', {'a': 1, 'b': 2, 'c': 3}
+    //   Enum('name', {'a': 1, 'b': 2, 'c': 3})
     if (initArg.valueExpression.nodeType === ParseNodeType.StringList) {
         // Don't allow format strings in the init arg.
         if (!initArg.valueExpression.strings.every((str) => str.nodeType === ParseNodeType.String)) {
@@ -323,30 +361,18 @@ export function transformTypeForPossibleEnumClass(
 
     let valueType: Type;
 
-    // If the class includes a __new__ method, we cannot assume that
-    // the value of each enum element is simply the value assigned to it.
-    // The __new__ method can transform the value in ways that we cannot
-    // determine statically.
-    const newMember = lookUpClassMember(enumClassInfo.classType, '__new__', MemberAccessFlags.SkipBaseClasses);
-    if (newMember) {
-        // We may want to change this to UnknownType in the future, but
-        // for now, we'll leave it as Any which is consistent with the
-        // type specified in the Enum class definition in enum.pyi.
-        valueType = AnyType.create();
-    } else {
-        valueType = getValueType();
+    valueType = getValueType();
 
-        // If the LHS is an unpacked tuple, we need to handle this as
-        // a special case.
-        if (isUnpackedTuple) {
-            valueType =
-                evaluator.getTypeOfIterator(
-                    { type: valueType },
-                    /* isAsync */ false,
-                    nameNode,
-                    /* emitNotIterableError */ false
-                )?.type ?? UnknownType.create();
-        }
+    // If the LHS is an unpacked tuple, we need to handle this as
+    // a special case.
+    if (isUnpackedTuple) {
+        valueType =
+            evaluator.getTypeOfIterator(
+                { type: valueType },
+                /* isAsync */ false,
+                nameNode,
+                /* emitNotIterableError */ false
+            )?.type ?? UnknownType.create();
     }
 
     // The spec excludes descriptors.
@@ -387,6 +413,7 @@ export function transformTypeForPossibleEnumClass(
         nameNode.value,
         valueType
     );
+
     return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(enumClassInfo.classType, enumLiteral));
 }
 
@@ -402,6 +429,34 @@ export function isDeclInEnumClass(evaluator: TypeEvaluator, decl: VariableDeclar
     }
 
     return ClassType.isEnumClass(classInfo.classType);
+}
+
+export function getEnumDeclaredValueType(
+    evaluator: TypeEvaluator,
+    classType: ClassType,
+    declaredTypesOnly = false
+): Type | undefined {
+    // See if there is a declared type for "_value_".
+    let valueType: Type | undefined;
+
+    const declaredValueMember = lookUpClassMember(
+        classType,
+        '_value_',
+        declaredTypesOnly ? MemberAccessFlags.DeclaredTypesOnly : MemberAccessFlags.Default
+    );
+
+    // If the declared type comes from the 'Enum' base class, ignore it
+    // because it will be "Any", which isn't useful to us here.
+    if (
+        declaredValueMember &&
+        declaredValueMember.classType &&
+        isClass(declaredValueMember.classType) &&
+        !ClassType.isBuiltIn(declaredValueMember.classType, 'Enum')
+    ) {
+        valueType = evaluator.getTypeOfMember(declaredValueMember);
+    }
+
+    return valueType;
 }
 
 export function getTypeOfEnumMember(
@@ -450,25 +505,42 @@ export function getTypeOfEnumMember(
         }
     }
 
+    // See if there is a declared type for "_value_".
+    const valueType = getEnumDeclaredValueType(evaluator, classType);
+
     if (memberName === 'value' || memberName === '_value_') {
         // If the enum class has a custom metaclass, it may implement some
-        // "magic" that computes different values for the "value" attribute.
+        // "magic" that computes different values for the "_value_" attribute.
         // This occurs, for example, in the django TextChoices class. If we
-        // detect a custom metaclass, we'll assume the value is Any.
+        // detect a custom metaclass, we'll use the declared type of _value_
+        // if it is declared.
         const metaclass = classType.details.effectiveMetaclass;
         if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass)) {
-            return { type: AnyType.create(), isIncomplete };
+            return { type: valueType ?? AnyType.create(), isIncomplete };
         }
 
+        // If the enum class has a custom __new__ or __init__ method,
+        // it may implement some magic that computes different values for
+        // the "_value_" attribute. If we see a customer __new__ or __init__,
+        // we'll assume the value type is what we computed above, or Any.
+        const newMember = lookUpClassMember(classType, '__new__', MemberAccessFlags.SkipBaseClasses);
+        const initMember = lookUpClassMember(classType, '__init__', MemberAccessFlags.SkipBaseClasses);
+        if (newMember || initMember) {
+            return { type: valueType ?? AnyType.create(), isIncomplete };
+        }
+
+        // There were no explicit assignments to the "_value_" attribute, so we can
+        // assume that the values are assigned directly to the "_value_" by
+        // the EnumMeta metaclass.
         if (literalValue) {
             assert(literalValue instanceof EnumLiteral);
 
             // If there is no known value type for this literal value,
             // return undefined. This will cause the caller to fall back
-            // on the definition of `value` within the class definition
+            // on the definition of "_value_" within the class definition
             // (if present).
             if (isAny(literalValue.itemType)) {
-                return undefined;
+                return valueType ? { type: valueType, isIncomplete } : undefined;
             }
 
             return { type: literalValue.itemType, isIncomplete };

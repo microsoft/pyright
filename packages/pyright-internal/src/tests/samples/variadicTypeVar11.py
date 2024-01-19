@@ -44,11 +44,11 @@ def func2(a: tuple[int, *_Xs], b: tuple[int, *_Xs]) -> Union[*_Xs]:
     ...
 
 
-def func3(p1: tuple[int], p2: tuple[int, str]):
-    # This should generate an error
+def func3(p1: tuple[int], p2: tuple[int, str], p3: tuple[int, int]):
+    # This should generate an error.
     v1 = func1(p1, p2)
 
-    # This should generate an error
+    # This should generate an error.
     v2 = func2(p1, p2)
 
     v3 = func2(p2, p2)
@@ -57,8 +57,11 @@ def func3(p1: tuple[int], p2: tuple[int, str]):
     v4 = func2((3, "hi"), p2)
     reveal_type(v4, expected_text="str")
 
-    v5 = func2((3, 3), p2)
-    reveal_type(v5, expected_text="str | int")
+    # This should generate an error.
+    func2((3, 3), p2)
+
+    v5 = func2((3, 3), p3)
+    reveal_type(v5, expected_text="int")
 
 
 def func4(a: int, *args: *_Xs, **kwargs: str) -> tuple[int, *_Xs]:
