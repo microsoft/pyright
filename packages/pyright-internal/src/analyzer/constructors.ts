@@ -61,15 +61,13 @@ export function getBoundNewMethod(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     type: ClassType,
-    skipObjectBase = true
+    additionalFlags = MemberAccessFlags.SkipObjectBaseClass
 ) {
-    let flags =
+    const flags =
         MemberAccessFlags.SkipClassMembers |
         MemberAccessFlags.SkipAttributeAccessOverride |
-        MemberAccessFlags.TreatConstructorAsClassMethod;
-    if (skipObjectBase) {
-        flags |= MemberAccessFlags.SkipObjectBaseClass;
-    }
+        MemberAccessFlags.TreatConstructorAsClassMethod |
+        additionalFlags;
 
     return evaluator.getTypeOfBoundMember(errorNode, type, '__new__', { method: 'get' }, /* diag */ undefined, flags);
 }
@@ -79,12 +77,10 @@ export function getBoundInitMethod(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     type: ClassType,
-    skipObjectBase = true
+    additionalFlags = MemberAccessFlags.SkipObjectBaseClass
 ) {
-    let flags = MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride;
-    if (skipObjectBase) {
-        flags |= MemberAccessFlags.SkipObjectBaseClass;
-    }
+    const flags =
+        MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride | additionalFlags;
 
     return evaluator.getTypeOfBoundMember(errorNode, type, '__init__', { method: 'get' }, /* diag */ undefined, flags);
 }

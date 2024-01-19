@@ -1086,12 +1086,12 @@ export function isNodeContainedWithin(node: ParseNode, potentialContainer: Parse
     return false;
 }
 
-export function getParentNodeOfType(node: ParseNode, containerType: ParseNodeType): ParseNode | undefined {
+export function getParentNodeOfType<T extends ParseNode>(node: ParseNode, containerType: ParseNodeType): T | undefined {
     let curNode: ParseNode | undefined = node;
 
     while (curNode) {
         if (curNode.nodeType === containerType) {
-            return curNode;
+            return curNode as T;
         }
 
         curNode = curNode.parent;

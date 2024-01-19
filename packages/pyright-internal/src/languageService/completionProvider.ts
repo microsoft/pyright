@@ -1081,9 +1081,12 @@ export class CompletionProvider {
                 ? stringToken
                 : undefined;
         } else if (node) {
-            const fStringContainer = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.FormatString);
+            const fStringContainer = ParseTreeUtils.getParentNodeOfType<FormatStringNode>(
+                node,
+                ParseNodeType.FormatString
+            );
             if (fStringContainer) {
-                this._stringLiteralContainer = (fStringContainer as FormatStringNode).token;
+                this._stringLiteralContainer = fStringContainer.token;
             }
         }
 
