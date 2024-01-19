@@ -59,10 +59,6 @@ export const enum TypeFlags {
 
     // This type refers to something that has been instantiated.
     Instance = 1 << 1,
-
-    // This type refers to a type that is wrapped an "Annotated"
-    // (PEP 593) annotation.
-    Annotated = 1 << 2,
 }
 
 export type UnionableType =
@@ -113,7 +109,6 @@ export interface TypeSameOptions {
     ignorePseudoGeneric?: boolean;
     ignoreTypeFlags?: boolean;
     ignoreConditions?: boolean;
-    typeFlagsToHonor?: TypeFlags;
     ignoreTypedDictNarrowEntries?: boolean;
     treatAnySameAsUnknown?: boolean;
 }
@@ -192,10 +187,6 @@ export namespace TypeBase {
 
     export function isInstance(type: TypeBase) {
         return (type.flags & TypeFlags.Instance) !== 0;
-    }
-
-    export function isAnnotated(type: TypeBase) {
-        return (type.flags & TypeFlags.Annotated) !== 0;
     }
 
     export function isAmbiguous(type: TypeBase) {
@@ -291,12 +282,6 @@ export namespace TypeBase {
             isPep695Syntax,
         };
 
-        return typeClone;
-    }
-
-    export function cloneForAnnotated(type: Type) {
-        const typeClone = cloneType(type);
-        typeClone.flags |= TypeFlags.Annotated;
         return typeClone;
     }
 
@@ -2868,20 +2853,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
     }
 
     if (!options.ignoreTypeFlags) {
-        let type1Flags = type1.flags;
-        let type2Flags = type2.flags;
-
-        // Mask out the flags that we don't care about.
-        if (options.typeFlagsToHonor !== undefined) {
-            type1Flags &= options.typeFlagsToHonor;
-            type2Flags &= options.typeFlagsToHonor;
-        } else {
-            // By default, we don't care about the Annotated flag.
-            type1Flags &= ~TypeFlags.Annotated;
-            type2Flags &= ~TypeFlags.Annotated;
-        }
-
-        if (type1Flags !== type2Flags) {
+        if (type1.flags !== type2.flags) {
             return false;
         }
     }
