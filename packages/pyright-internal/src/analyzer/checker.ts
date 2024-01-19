@@ -98,7 +98,7 @@ import { getBoundCallMethod, getBoundInitMethod, getBoundNewMethod } from './con
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
 import { getNameNodeForDeclaration } from './declarationUtils';
 import { deprecatedAliases, deprecatedSpecialForms } from './deprecatedSymbols';
-import { isEnumClassWithMembers } from './enums';
+import { getEnumDeclaredValueType, isEnumClassWithMembers } from './enums';
 import { ImportResolver, ImportedModuleDescriptor, createImportedModuleDescriptor } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
@@ -117,7 +117,13 @@ import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { maxCodeComplexity } from './typeEvaluator';
-import { FunctionTypeResult, MemberAccessDeprecationInfo, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import {
+    FunctionArgument,
+    FunctionTypeResult,
+    MemberAccessDeprecationInfo,
+    TypeEvaluator,
+    TypeResult,
+} from './typeEvaluatorTypes';
 import {
     getElementTypeForContainerNarrowing,
     isIsinstanceFilterSubclass,
@@ -158,6 +164,7 @@ import {
     AnyType,
     ClassType,
     ClassTypeFlags,
+    EnumLiteral,
     FunctionType,
     FunctionTypeFlags,
     OverloadedFunctionType,
@@ -364,7 +371,7 @@ export class Checker extends ParseTreeWalker {
 
             this._validateDataClassPostInit(classTypeResult.classType, node);
 
-            this._reportDuplicateEnumMembers(classTypeResult.classType);
+            this._validateEnumMembers(classTypeResult.classType, node);
 
             if (ClassType.isTypedDictClass(classTypeResult.classType)) {
                 this._validateTypedDictClassSuite(node.suite);
@@ -4743,10 +4750,30 @@ export class Checker extends ParseTreeWalker {
         });
     }
 
-    private _reportDuplicateEnumMembers(classType: ClassType) {
+    // Validates that the values associated with enum members are type compatible.
+    // Also looks for duplicate values.
+    private _validateEnumMembers(classType: ClassType, node: ClassNode) {
         if (!ClassType.isEnumClass(classType) || ClassType.isBuiltIn(classType)) {
             return;
         }
+
+        // Does the "_value_" field have a declared type? If so, we'll enforce it.
+        const declaredValueType = getEnumDeclaredValueType(this._evaluator, classType, /* declaredTypesOnly */ true);
+
+        // Is there a custom "__new__" and/or "__init__" method? If so, we'll
+        // verify that the signature of these calls is compatible with the values.
+        const newMemberTypeResult = getBoundNewMethod(
+            this._evaluator,
+            node.name,
+            classType,
+            MemberAccessFlags.SkipBaseClasses
+        );
+        const initMemberTypeResult = getBoundInitMethod(
+            this._evaluator,
+            node.name,
+            ClassType.cloneAsInstance(classType),
+            MemberAccessFlags.SkipBaseClasses
+        );
 
         classType.details.fields.forEach((symbol, name) => {
             // Enum members don't have type annotations.
@@ -4754,21 +4781,80 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
+            const symbolType = this._evaluator.getEffectiveTypeOfSymbol(symbol);
+            // Is this symbol a literal instance of the enum class?
+            if (
+                !isClassInstance(symbolType) ||
+                !ClassType.isSameGenericClass(symbolType, classType) ||
+                !(symbolType.literalValue instanceof EnumLiteral)
+            ) {
+                return;
+            }
+
+            // Look for a duplicate assignment.
             const decls = symbol.getDeclarations();
             if (decls.length >= 2 && decls[0].type === DeclarationType.Variable) {
-                const symbolType = this._evaluator.getEffectiveTypeOfSymbol(symbol);
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.duplicateEnumMember().format({ name }),
+                    decls[1].node
+                );
 
-                // Is this symbol a literal instance of the enum class?
+                return;
+            }
+
+            if (decls[0].type !== DeclarationType.Variable) {
+                return;
+            }
+
+            const declNode = decls[0].node;
+            const assignedValueType = symbolType.literalValue.itemType;
+            const assignmentNode = ParseTreeUtils.getParentNodeOfType<AssignmentNode>(
+                declNode,
+                ParseNodeType.Assignment
+            );
+            const errorNode = assignmentNode?.rightExpression ?? declNode;
+
+            // Validate the __new__ and __init__ methods if present.
+            if (newMemberTypeResult || initMemberTypeResult) {
+                if (!isAnyOrUnknown(assignedValueType)) {
+                    // Construct an argument list. If the assigned type is a tuple, we'll
+                    // unpack it. Otherwise, only one argument is passed.
+                    const argList: FunctionArgument[] = [
+                        {
+                            argumentCategory:
+                                isClassInstance(assignedValueType) && isTupleClass(assignedValueType)
+                                    ? ArgumentCategory.UnpackedList
+                                    : ArgumentCategory.Simple,
+                            typeResult: { type: assignedValueType },
+                        },
+                    ];
+
+                    if (newMemberTypeResult) {
+                        this._evaluator.validateCallArguments(errorNode, argList, newMemberTypeResult);
+                    }
+
+                    if (initMemberTypeResult) {
+                        this._evaluator.validateCallArguments(errorNode, argList, initMemberTypeResult);
+                    }
+                }
+            } else if (declaredValueType) {
+                const diag = new DiagnosticAddendum();
+
+                // If the assigned value is already an instance of this enum class, skip this check.
                 if (
-                    isClassInstance(symbolType) &&
-                    ClassType.isSameGenericClass(symbolType, classType) &&
-                    symbolType.literalValue !== undefined
+                    !isClassInstance(assignedValueType) ||
+                    !ClassType.isSameGenericClass(assignedValueType, classType)
                 ) {
-                    this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.duplicateEnumMember().format({ name }),
-                        decls[1].node
-                    );
+                    if (!this._evaluator.assignType(declaredValueType, assignedValueType, diag)) {
+                        this._evaluator.addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.typeAssignmentMismatch().format(
+                                this._evaluator.printSrcDestTypes(assignedValueType, declaredValueType)
+                            ) + diag.getString(),
+                            errorNode
+                        );
+                    }
                 }
             }
         });

@@ -2337,7 +2337,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             evaluatorInterface,
                             callNode,
                             ClassType.cloneAsInstance(subtype),
-                            /* skipObjectBase */ false
+                            /* additionalFlags */ MemberAccessFlags.Default
                         );
 
                         if (initMethodResult && !initMethodResult.typeErrors) {
@@ -2363,7 +2363,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 evaluatorInterface,
                                 callNode,
                                 subtype,
-                                /* skipObjectBase */ false
+                                /* additionalFlags */ MemberAccessFlags.Default
                             );
 
                             if (newMethodResult && !newMethodResult.typeErrors && isFunction(newMethodResult.type)) {
@@ -5260,9 +5260,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case TypeCategory.Class: {
-                const typeResult =
-                    getTypeOfEnumMember(evaluatorInterface, node, baseType, memberName, isIncomplete) ??
-                    getTypeOfBoundMember(
+                let typeResult: TypeResult | undefined;
+                if (usage.method === 'get') {
+                    typeResult = getTypeOfEnumMember(evaluatorInterface, node, baseType, memberName, isIncomplete);
+                }
+
+                if (!typeResult) {
+                    typeResult = getTypeOfBoundMember(
                         node.memberName,
                         baseType,
                         memberName,
@@ -5271,6 +5275,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* memberAccessFlags */ undefined,
                         baseTypeResult.bindToSelfType
                     );
+                }
 
                 if (typeResult) {
                     type = addConditionToType(
@@ -9639,7 +9644,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     evaluatorInterface,
                     errorNode,
                     ClassType.cloneAsInstance(expandedCallType),
-                    /* skipObjectBase */ false
+                    /* additionalFlags */ MemberAccessFlags.Default
                 );
 
                 if (initTypeResult && isOverloadedFunction(initTypeResult.type)) {
@@ -18823,11 +18828,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // See if the expression is part of a pattern used in a case statement.
-        const possibleCaseNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.Case);
+        const possibleCaseNode = ParseTreeUtils.getParentNodeOfType<CaseNode>(node, ParseNodeType.Case);
         if (possibleCaseNode) {
-            const caseNode = possibleCaseNode as CaseNode;
-            if (ParseTreeUtils.isNodeContainedWithin(node, caseNode.pattern)) {
-                evaluateTypesForCaseStatement(caseNode);
+            if (ParseTreeUtils.isNodeContainedWithin(node, possibleCaseNode.pattern)) {
+                evaluateTypesForCaseStatement(possibleCaseNode);
                 return;
             }
         }
