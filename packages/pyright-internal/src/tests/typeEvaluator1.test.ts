@@ -1270,7 +1270,7 @@ test('Optional2', () => {
 test('Tuple1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple1.py']);
 
-    TestUtils.validateResults(analysisResults, 15);
+    TestUtils.validateResults(analysisResults, 17);
 });
 
 test('Tuple2', () => {
