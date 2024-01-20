@@ -685,7 +685,7 @@ test('Lambda3', () => {
 test('Lambda4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda4.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Lambda5', () => {
