@@ -136,6 +136,10 @@ export const enum MemberAccessFlags {
     // (__getattr__, etc.) may provide the missing attribute type.
     // This disables this check.
     SkipAttributeAccessOverride = 1 << 9,
+
+    // Report an error if a symbol is an instance variable whose
+    // type is parameterized by a class TypeVar.
+    DisallowGenericInstanceVariableAccess = 1 << 10,
 }
 
 export const enum ClassIteratorFlags {

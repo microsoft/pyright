@@ -218,6 +218,7 @@
         "genericBaseClassNotAllowed": "\"Generic\" base class cannot be used with type parameter syntax",
         "genericClassAssigned": "Generic class type cannot be assigned",
         "genericClassDeleted": "Generic class type cannot be deleted",
+        "genericInstanceVariableAccess": "Access to generic instance variable through class is ambiguous",
         "genericNotAllowed": "\"Generic\" is not valid in this context",
         "genericTypeAliasBoundTypeVar": "Generic type alias within class cannot use bound type variables {names}",
         "genericTypeArgMissing": "\"Generic\" requires at least one type argument",
