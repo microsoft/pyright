@@ -70,7 +70,7 @@ class _BaseEntry:
     msgid: str
     msgstr: str
     msgid_plural: str
-    msgstr_plural: list[str]
+    msgstr_plural: dict[int, str]
     msgctxt: str
     obsolete: bool
     encoding: str

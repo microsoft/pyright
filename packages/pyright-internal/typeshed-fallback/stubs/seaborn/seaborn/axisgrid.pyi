@@ -8,7 +8,7 @@ import numpy as np
 from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.backend_bases import MouseEvent, RendererBase
-from matplotlib.colors import Colormap, Normalize
+from matplotlib.colors import Colormap
 from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 from matplotlib.gridspec import SubplotSpec
@@ -23,7 +23,7 @@ from matplotlib.typing import ColorType, LineStyleType, MarkerType
 from numpy.typing import ArrayLike, NDArray
 from pandas import DataFrame, Series
 
-from ._core.typing import ColumnName, DataSource, _SupportsDataFrame
+from ._core.typing import ColumnName, DataSource, NormSpec, SupportsDataFrame
 from .palettes import _RGBColorPalette
 from .utils import _DataSourceWideForm, _Palette, _Vector
 
@@ -155,7 +155,7 @@ class Grid(_BaseGrid):
         ncols: int = 1,
         mode: Literal["expand"] | None = None,
         fancybox: bool | None = None,
-        shadow: bool | dict[str, float] | None = None,
+        shadow: bool | dict[str, int] | dict[str, float] | None = None,
         title_fontsize: int | _LiteralFont | None = None,
         framealpha: float | None = None,
         edgecolor: ColorType | None = None,
@@ -212,7 +212,7 @@ class FacetGrid(Grid):
     hue_kws: dict[str, Any]
     def __init__(
         self,
-        data: DataFrame | _SupportsDataFrame,
+        data: DataFrame | SupportsDataFrame,
         *,
         row: str | None = None,
         col: str | None = None,
@@ -293,7 +293,7 @@ class PairGrid(Grid):
     palette: _RGBColorPalette
     def __init__(
         self,
-        data: DataFrame | _SupportsDataFrame,
+        data: DataFrame | SupportsDataFrame,
         *,
         hue: str | None = None,
         vars: Iterable[str] | None = None,
@@ -335,7 +335,7 @@ class JointGrid(_BaseGrid):
         space: float = 0.2,
         palette: _Palette | Colormap | None = None,
         hue_order: Iterable[ColumnName] | None = None,
-        hue_norm: tuple[float, float] | Normalize | None = None,
+        hue_norm: NormSpec = None,
         dropna: bool = False,
         xlim: float | tuple[float, float] | None = None,
         ylim: float | tuple[float, float] | None = None,
@@ -394,7 +394,7 @@ def jointplot(
     color: ColorType | None = None,
     palette: _Palette | Colormap | None = None,
     hue_order: Iterable[ColumnName] | None = None,
-    hue_norm: tuple[float, float] | Normalize | None = None,
+    hue_norm: NormSpec = None,
     marginal_ticks: bool = False,
     joint_kws: dict[str, Any] | None = None,
     marginal_kws: dict[str, Any] | None = None,

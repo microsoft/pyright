@@ -1,4 +1,4 @@
-version = "10.1.*"
+version = "10.2.*"
 upstream_repository = "https://github.com/python-pillow/Pillow"
 
 [tool.stubtest]
