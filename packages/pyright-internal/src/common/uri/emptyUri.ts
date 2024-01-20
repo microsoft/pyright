@@ -6,6 +6,7 @@
  * URI class that represents an empty URI.
  */
 
+import { JsonObjType } from './baseUri';
 import { FileUri } from './fileUri';
 import { Uri } from './uri';
 
@@ -39,6 +40,12 @@ export class EmptyUri extends FileUri {
 
     override get fragment(): string {
         return '';
+    }
+
+    override toJsonObj(): JsonObjType {
+        return {
+            _key: EmptyKey,
+        };
     }
 
     static isEmptyUri(uri: any): boolean {
@@ -112,8 +119,16 @@ export class EmptyUri extends FileUri {
         return this;
     }
 
+    override stripAllExtensions(): Uri {
+        return this;
+    }
+
     protected override getPathComponentsImpl(): string[] {
         return [];
+    }
+
+    protected override normalizeSlashes(path: string): string {
+        return '';
     }
 
     protected override getRootPath(): string {

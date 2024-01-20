@@ -95,8 +95,8 @@ export class BackgroundThreadBase {
 // Function used to serialize specific types that can't automatically be serialized.
 // Exposed here so it can be reused by a caller that wants to add more cases.
 export function serializeReplacer(key: string, value: any) {
-    if (Uri.isUri(value)) {
-        return { __serialized_uri_str: value.toString(), __serialized_case_sensitive: value.isCaseSensitive };
+    if (Uri.isUri(value) && value.toJsonObj !== undefined) {
+        return { __serialized_uri_val: value.toJsonObj() };
     }
     if (value instanceof Map) {
         return { __serialized_map_val: [...value] };
@@ -122,8 +122,8 @@ export function serialize(obj: any): string {
 
 export function deserializeReviver(key: string, value: any) {
     if (value && typeof value === 'object') {
-        if (value.__serialized_uri_str !== undefined) {
-            return Uri.parse(value.__serialized_uri_str, value.__serialized_case_sensitive);
+        if (value.__serialized_uri_val !== undefined) {
+            return Uri.fromJsonObj(value.__serialized_uri_val);
         }
         if (value.__serialized_map_val) {
             return new Map(value.__serialized_map_val);
