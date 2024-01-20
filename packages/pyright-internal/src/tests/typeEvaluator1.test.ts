@@ -1504,7 +1504,7 @@ test('Self8', () => {
 test('Self9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['self9.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Self10', () => {

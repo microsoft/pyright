@@ -13,8 +13,16 @@ class ChildA(ParentA):
 
     @classmethod
     def method1(cls) -> None:
+        # This should generate an error because accessing a generic
+        # instance variable through a class is ambiguous.
         reveal_type(cls.a, expected_text="list[Self@ChildA]")
+
+        # This should generate an error because accessing a generic
+        # instance variable through a class is ambiguous.
         reveal_type(cls.a[0], expected_text="Self@ChildA")
+
+        # This should generate an error because accessing a generic
+        # instance variable through a class is ambiguous.
         print(cls.a[0].b)
 
     def method2(self) -> None:
