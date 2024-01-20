@@ -199,10 +199,16 @@ export namespace TypeBase {
         return clone;
     }
 
-    export function cloneAsSpecialForm<T extends TypeBase>(type: T, specialForm: ClassType): T {
+    export function cloneAsSpecialForm<T extends TypeBase>(type: T, specialForm: ClassType | undefined): T {
         const clone = { ...type };
         delete clone.cached;
-        clone.specialForm = specialForm;
+
+        if (specialForm) {
+            clone.specialForm = specialForm;
+        } else {
+            delete clone.specialForm;
+        }
+
         return clone;
     }
 
@@ -2448,7 +2454,6 @@ export interface TypeVarDetails {
     constraints: Type[];
     boundType?: Type | undefined;
     defaultType?: Type | undefined;
-    runtimeClass?: ClassType | undefined;
 
     isParamSpec: boolean;
     isVariadic: boolean;
@@ -2525,8 +2530,8 @@ export namespace TypeVarType {
         return create(name, /* isParamSpec */ false, TypeFlags.Instance);
     }
 
-    export function createInstantiable(name: string, isParamSpec = false, runtimeClass?: ClassType) {
-        return create(name, isParamSpec, TypeFlags.Instantiable, runtimeClass);
+    export function createInstantiable(name: string, isParamSpec = false) {
+        return create(name, isParamSpec, TypeFlags.Instantiable);
     }
 
     export function cloneAsInstance(type: TypeVarType): TypeVarType {
@@ -2657,7 +2662,7 @@ export namespace TypeVarType {
         return `${name}.${scopeId}`;
     }
 
-    function create(name: string, isParamSpec: boolean, typeFlags: TypeFlags, runtimeClass?: ClassType): TypeVarType {
+    function create(name: string, isParamSpec: boolean, typeFlags: TypeFlags): TypeVarType {
         const newTypeVarType: TypeVarType = {
             category: TypeCategory.TypeVar,
             details: {
@@ -2667,7 +2672,6 @@ export namespace TypeVarType {
                 isParamSpec,
                 isVariadic: false,
                 isSynthesized: false,
-                runtimeClass,
             },
             flags: typeFlags,
         };

@@ -4532,39 +4532,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // If the type is a TypeVar and we're not expecting a type, convert
-    // a TypeVar or TypeVarTuple into a runtime type. We don't currently
-    // do this for ParamSpec (although we arguably should) because it's
-    // problematic for handling P.args and P.kwargs.
+    // a TypeVar, TypeVarTuple or ParamSpec into a runtime type.
     function convertTypeVarToRuntimeInstance(node: ExpressionNode, type: Type, flags: EvaluatorFlags) {
-        if (
-            node.nodeType === ParseNodeType.Name &&
-            isTypeVar(type) &&
-            node.value === type.details.name &&
-            !type.isVariadicInUnion &&
-            (flags & EvaluatorFlags.ExpectingInstantiableType) === 0
-        ) {
-            if ((flags & EvaluatorFlags.SkipConvertParamSpecToRuntimeObject) !== 0 && type.details.isParamSpec) {
-                return type;
-            }
-
-            // Handle the special case of a PEP 604 union. These can appear within
-            // an implied type alias where we are not expecting a type.
-            const isPep604Union =
-                node.parent?.nodeType === ParseNodeType.BinaryOperation &&
-                node.parent.operator === OperatorType.BitwiseOr;
-
-            if (!isPep604Union) {
-                // A TypeVar in contexts where we're not expecting a type is
-                // simply a runtime object.
-                if (type.details.runtimeClass) {
-                    type = ClassType.cloneAsInstance(type.details.runtimeClass);
-                } else {
-                    type = UnknownType.create();
-                }
-            }
+        if (!type.specialForm || type.typeAliasInfo) {
+            return type;
         }
 
-        return type;
+        if (!isTypeVar(type) || type.isVariadicInUnion || (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0) {
+            return type;
+        }
+
+        if ((flags & EvaluatorFlags.SkipConvertParamSpecToRuntimeObject) !== 0 && type.details.isParamSpec) {
+            return TypeBase.cloneAsSpecialForm(type, undefined);
+        }
+
+        // Handle the special case of a PEP 604 union. These can appear within
+        // an implied type alias where we are not expecting a type.
+        const isPep604Union =
+            node.parent?.nodeType === ParseNodeType.BinaryOperation && node.parent.operator === OperatorType.BitwiseOr;
+
+        if (isPep604Union) {
+            return TypeBase.cloneAsSpecialForm(type, undefined);
+        }
+
+        return ClassType.cloneAsInstance(type.specialForm);
     }
 
     // Handles the case where a variable or parameter is defined in an outer
@@ -12145,7 +12136,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addError(LocMessage.typeVarFirstArg(), firstArg.valueExpression || errorNode);
         }
 
-        const typeVar = TypeVarType.createInstantiable(typeVarName, /* isParamSpec */ false, classType);
+        const typeVar = TypeBase.cloneAsSpecialForm(
+            TypeVarType.createInstantiable(typeVarName, /* isParamSpec */ false),
+            ClassType.cloneAsInstance(classType)
+        );
 
         // Parse the remaining parameters.
         const paramNameMap = new Map<string, string>();
@@ -12313,7 +12307,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addError(LocMessage.typeVarFirstArg(), firstArg.valueExpression || errorNode);
         }
 
-        const typeVar = TypeVarType.createInstantiable(typeVarName, /* isParamSpec */ false, classType);
+        const typeVar = TypeBase.cloneAsSpecialForm(
+            TypeVarType.createInstantiable(typeVarName, /* isParamSpec */ false),
+            ClassType.cloneAsInstance(classType)
+        );
         typeVar.details.isVariadic = true;
 
         // Parse the remaining parameters.
@@ -12384,7 +12381,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addError(LocMessage.paramSpecFirstArg(), firstArg.valueExpression || errorNode);
         }
 
-        const paramSpec = TypeVarType.createInstantiable(paramSpecName, /* isParamSpec */ true, classType);
+        const paramSpec = TypeBase.cloneAsSpecialForm(
+            TypeVarType.createInstantiable(paramSpecName, /* isParamSpec */ true),
+            ClassType.cloneAsInstance(classType)
+        );
 
         // Parse the remaining parameters.
         for (let i = 1; i < argList.length; i++) {
@@ -16002,9 +16002,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         getTypeOfExpression(arg.valueExpression);
                         argType = UnknownType.create();
                     } else {
-                        argType = makeTopLevelTypeVarsConcrete(
-                            getTypeOfExpression(arg.valueExpression, exprFlags).type
-                        );
+                        argType = getTypeOfExpression(arg.valueExpression, exprFlags).type;
+
+                        if (isTypeVar(argType) && argType.specialForm && TypeBase.isInstance(argType.specialForm)) {
+                            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.baseClassInvalid(), arg);
+                            argType = UnknownType.create();
+                        }
+
+                        argType = makeTopLevelTypeVarsConcrete(argType);
                     }
 
                     // In some stub files, classes are conditionally defined (e.g. based
@@ -20566,9 +20571,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let typeVar = TypeVarType.createInstantiable(
             node.name.value,
-            node.typeParamCategory === TypeParameterCategory.ParamSpec,
-            runtimeClass
+            node.typeParamCategory === TypeParameterCategory.ParamSpec
         );
+        if (runtimeClass) {
+            typeVar = TypeBase.cloneAsSpecialForm(typeVar, ClassType.cloneAsInstance(runtimeClass));
+        }
         typeVar.details.isTypeParamSyntax = true;
 
         if (node.typeParamCategory === TypeParameterCategory.TypeVarTuple) {
