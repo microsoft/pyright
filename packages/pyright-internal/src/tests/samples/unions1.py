@@ -37,7 +37,7 @@ def func4(a: str):
         qux: T | None
 
     reveal_type(helper(a), expected_text="str | None")
-    reveal_type(Baz[str].qux, expected_text="str | None")
+    reveal_type(Baz[str]().qux, expected_text="str | None")
 
 
 T = TypeVar("T")
