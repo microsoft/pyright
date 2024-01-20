@@ -22089,10 +22089,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const destUnboundedOrVariadicIndex = destTypeArgs.findIndex((t) => t.isUnbounded || isVariadicTypeVar(t.type));
         const srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
         const srcVariadicIndex = srcTypeArgs.findIndex((t) => isVariadicTypeVar(t.type));
+        let isSrcVariadicAny = false;
 
         // If the src contains an unbounded type but the dest does not, it's incompatible.
         if (srcUnboundedIndex >= 0 && destUnboundedOrVariadicIndex < 0) {
-            return false;
+            // Unless the source contains an [Any, ...].
+            if (isAnyOrUnknown(srcTypeArgs[srcUnboundedIndex].type)) {
+                isSrcVariadicAny = true;
+            } else {
+                return false;
+            }
         }
 
         if (srcUnboundedIndex >= 0) {
@@ -22102,6 +22108,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             while (srcTypeArgs.length < destTypeArgs.length) {
                 srcTypeArgs.splice(srcUnboundedIndex, 0, { type: typeToReplicate, isUnbounded: true });
+            }
+
+            if (isSrcVariadicAny && srcTypeArgs.length > destTypeArgs.length) {
+                srcTypeArgs.splice(srcUnboundedIndex, 1);
             }
         }
 
