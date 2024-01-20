@@ -2104,7 +2104,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let effectiveFlags = flags;
 
             if (objectTypeIsInstantiable) {
-                effectiveFlags |= MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride;
+                effectiveFlags |=
+                    MemberAccessFlags.SkipInstanceMembers |
+                    MemberAccessFlags.SkipAttributeAccessOverride |
+                    MemberAccessFlags.DisallowGenericInstanceVariableAccess;
                 effectiveFlags &= ~MemberAccessFlags.SkipClassMembers;
             } else {
                 effectiveFlags |= MemberAccessFlags.DisallowClassVarWrites;
@@ -5593,7 +5596,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // clear the flag that causes an error to be generated.
                     if (usage.method === 'set' && memberInfo.symbol.isClassVar() && isAccessedThroughObject) {
                         const selfClass = selfType ?? memberName === '__new__' ? undefined : classType;
-                        const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
+                        const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, selfClass, flags);
 
                         if (typeResult) {
                             if (isDescriptorInstance(typeResult.type, /* requireSetter */ true)) {
@@ -5623,7 +5626,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
+            const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, selfClass, flags);
 
             type = typeResult?.type ?? UnknownType.create();
             if (typeResult?.isIncomplete) {
@@ -21717,8 +21720,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfMemberInternal(
+        errorNode: ExpressionNode | undefined,
         member: ClassMember,
-        selfClass: ClassType | TypeVarType | undefined
+        selfClass: ClassType | TypeVarType | undefined,
+        flags: MemberAccessFlags
     ): TypeResult | undefined {
         if (isInstantiableClass(member.classType)) {
             const typeResult = getEffectiveTypeOfSymbolForUsage(member.symbol);
@@ -21728,6 +21733,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // and cache the return type if necessary. This needs to be done
                 // prior to specializing.
                 inferReturnTypeIfNecessary(typeResult.type);
+
+                if (
+                    member.isInstanceMember &&
+                    (flags & MemberAccessFlags.DisallowGenericInstanceVariableAccess) !== 0
+                ) {
+                    let isGenericNonCallable = false;
+
+                    doForEachSubtype(typeResult.type, (subtype) => {
+                        if (!isAnyOrUnknown(subtype) && !isFunction(subtype) && !isOverloadedFunction(subtype)) {
+                            if (
+                                requiresSpecialization(typeResult.type, {
+                                    ignoreSelf: true,
+                                    ignoreImplicitTypeArgs: true,
+                                })
+                            ) {
+                                isGenericNonCallable = true;
+                            }
+                        }
+                    });
+
+                    if (isGenericNonCallable && errorNode) {
+                        addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.genericInstanceVariableAccess(),
+                            errorNode
+                        );
+                    }
+                }
 
                 return {
                     type: partiallySpecializeType(typeResult.type, member.classType, selfClass),
