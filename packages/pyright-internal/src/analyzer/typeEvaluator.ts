@@ -1051,6 +1051,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let typeResult: TypeResult | undefined;
         let expectingInstantiable = (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0;
+        let allowSpeculativeCaching = true;
 
         switch (node.nodeType) {
             case ParseNodeType.Name: {
@@ -1192,6 +1193,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node.rightExpression,
                     /* ignoreEmptyContainers */ true
                 );
+
+                // Don't allow speculative caching for assignment expressions because
+                // the target name node won't have a corresponding type cached speculatively.
+                allowSpeculativeCaching = false;
                 break;
             }
 
@@ -1270,7 +1275,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        writeTypeCache(node, typeResult, flags, inferenceContext, /* allowSpeculativeCaching */ true);
+        writeTypeCache(node, typeResult, flags, inferenceContext, allowSpeculativeCaching);
 
         // If there was an expected type, make sure that the result type is compatible.
         if (
