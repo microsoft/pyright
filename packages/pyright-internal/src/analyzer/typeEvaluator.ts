@@ -21742,7 +21742,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     doForEachSubtype(typeResult.type, (subtype) => {
                         if (!isAnyOrUnknown(subtype) && !isFunction(subtype) && !isOverloadedFunction(subtype)) {
-                            if (requiresSpecialization(typeResult.type, { ignoreSelf: true, ignoreImplicitTypeArgs: true })) {
+                            if (
+                                requiresSpecialization(typeResult.type, {
+                                    ignoreSelf: true,
+                                    ignoreImplicitTypeArgs: true,
+                                })
+                            ) {
                                 isGenericNonCallable = true;
                             }
                         }
