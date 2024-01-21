@@ -165,6 +165,9 @@ export interface DiagnosticRuleSet {
     // Report inconsistencies with function overload signatures?
     reportInconsistentOverload: DiagnosticLevel;
 
+    // Report invalid type argument usage?
+    reportInvalidTypeArguments: DiagnosticLevel;
+
     // Report missing overloaded function implementation?
     reportNoOverloadImplementation: DiagnosticLevel;
 
@@ -185,6 +188,9 @@ export interface DiagnosticRuleSet {
 
     // Report attempts to use an Optional type in a binary or unary operation?
     reportOptionalOperand: DiagnosticLevel;
+
+    // Report attempts to redeclare the type of a symbol?
+    reportRedeclaration: DiagnosticLevel;
 
     // Report accesses to non-required TypedDict fields?
     reportTypedDictNotRequiredAccess: DiagnosticLevel;
@@ -392,6 +398,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportWildcardImportFromLibrary,
         DiagnosticRule.reportAssertTypeFailure,
         DiagnosticRule.reportInconsistentOverload,
+        DiagnosticRule.reportInvalidTypeArguments,
         DiagnosticRule.reportNoOverloadImplementation,
         DiagnosticRule.reportOptionalSubscript,
         DiagnosticRule.reportOptionalMemberAccess,
@@ -399,6 +406,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportOptionalIterable,
         DiagnosticRule.reportOptionalContextManager,
         DiagnosticRule.reportOptionalOperand,
+        DiagnosticRule.reportRedeclaration,
         DiagnosticRule.reportTypedDictNotRequiredAccess,
         DiagnosticRule.reportUntypedFunctionDecorator,
         DiagnosticRule.reportUntypedClassDecorator,
@@ -487,6 +495,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportWildcardImportFromLibrary: 'none',
         reportAssertTypeFailure: 'none',
         reportInconsistentOverload: 'none',
+        reportInvalidTypeArguments: 'none',
         reportNoOverloadImplementation: 'none',
         reportOptionalSubscript: 'none',
         reportOptionalMemberAccess: 'none',
@@ -494,6 +503,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportOptionalIterable: 'none',
         reportOptionalContextManager: 'none',
         reportOptionalOperand: 'none',
+        reportRedeclaration: 'none',
         reportTypedDictNotRequiredAccess: 'none',
         reportUntypedFunctionDecorator: 'none',
         reportUntypedClassDecorator: 'none',
@@ -578,6 +588,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportWildcardImportFromLibrary: 'warning',
         reportAssertTypeFailure: 'error',
         reportInconsistentOverload: 'error',
+        reportInvalidTypeArguments: 'error',
         reportNoOverloadImplementation: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
@@ -585,6 +596,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportOptionalIterable: 'error',
         reportOptionalContextManager: 'error',
         reportOptionalOperand: 'error',
+        reportRedeclaration: 'error',
         reportTypedDictNotRequiredAccess: 'error',
         reportUntypedFunctionDecorator: 'none',
         reportUntypedClassDecorator: 'none',
@@ -669,6 +681,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportWildcardImportFromLibrary: 'warning',
         reportAssertTypeFailure: 'error',
         reportInconsistentOverload: 'error',
+        reportInvalidTypeArguments: 'error',
         reportNoOverloadImplementation: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
@@ -676,6 +689,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportOptionalIterable: 'error',
         reportOptionalContextManager: 'error',
         reportOptionalOperand: 'error',
+        reportRedeclaration: 'error',
         reportTypedDictNotRequiredAccess: 'error',
         reportUntypedFunctionDecorator: 'none',
         reportUntypedClassDecorator: 'none',
@@ -760,6 +774,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportWildcardImportFromLibrary: 'error',
         reportAssertTypeFailure: 'error',
         reportInconsistentOverload: 'error',
+        reportInvalidTypeArguments: 'error',
         reportNoOverloadImplementation: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
@@ -767,6 +782,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportOptionalIterable: 'error',
         reportOptionalContextManager: 'error',
         reportOptionalOperand: 'error',
+        reportRedeclaration: 'error',
         reportTypedDictNotRequiredAccess: 'error',
         reportUntypedFunctionDecorator: 'error',
         reportUntypedClassDecorator: 'error',

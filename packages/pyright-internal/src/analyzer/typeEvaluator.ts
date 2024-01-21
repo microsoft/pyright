@@ -6879,7 +6879,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
                             // If the class doesn't derive from Generic, a type argument should not be allowed.
                             addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportInvalidTypeArguments,
                                 LocMessage.typeArgsExpectingNone().format({
                                     name: printType(ClassType.cloneAsInstance(concreteSubtype)),
                                 }),
@@ -6981,7 +6981,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (concreteSubtype.typeArguments) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportInvalidTypeArguments,
                             LocMessage.classAlreadySpecialized().format({
                                 type: printType(convertToInstance(concreteSubtype), { expandTypeAlias: true }),
                             }),
@@ -14712,7 +14712,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Self doesn't support any type arguments.
         if (typeArgs) {
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportInvalidTypeArguments,
                 LocMessage.typeArgsExpectingNone().format({
                     name: classType.details.name,
                 }),
@@ -15193,7 +15193,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // is allowed if it's an unpacked variadic type var or tuple. None is also allowed
         // since it is used to define NoReturn in typeshed stubs).
         if (types.length === 1 && !allowSingleTypeArg && !isNoneInstance(types[0])) {
-            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.unionTypeArgCount(), errorNode);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeArguments, LocMessage.unionTypeArgCount(), errorNode);
         }
 
         let unionType = combineTypes(types);
@@ -19577,7 +19577,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (typeArgs[0].inlinedTypeDict) {
                 if (typeArgs.length > 1) {
                     addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportInvalidTypeArguments,
                         LocMessage.typeArgsTooMany().format({
                             name: classType.aliasName || classType.details.name,
                             expected: 1,
@@ -19592,7 +19592,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (!ClassType.isPartiallyEvaluated(classType) && !ClassType.isTupleClass(classType)) {
                     if (typeParameters.length === 0) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportInvalidTypeArguments,
                             LocMessage.typeArgsExpectingNone().format({
                                 name: classType.aliasName || classType.details.name,
                             }),
@@ -19600,7 +19600,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                     } else if (typeParameters.length !== 1 || !isParamSpec(typeParameters[0])) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportInvalidTypeArguments,
                             LocMessage.typeArgsTooMany().format({
                                 name: classType.aliasName || classType.details.name,
                                 expected: typeParameters.length,
@@ -19614,7 +19614,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             } else if (typeArgCount < minTypeArgCount) {
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportInvalidTypeArguments,
                     LocMessage.typeArgsTooFew().format({
                         name: classType.aliasName || classType.details.name,
                         expected: minTypeArgCount,
@@ -19797,7 +19797,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (!isClassInstance(typeArgType) || !ClassType.isPartiallyEvaluated(typeArgType)) {
                         assert(typeArgs !== undefined);
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportInvalidTypeArguments,
                             LocMessage.typeVarAssignmentMismatch().format({
                                 type: printType(typeArgType),
                                 name: TypeVarType.getReadableName(typeParameters[index]),

@@ -3193,7 +3193,7 @@ export class Checker extends ParseTreeWalker {
             decls.forEach((decl) => {
                 if (decl !== typeAliasDecl) {
                     this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportRedeclaration,
                         LocMessage.typeAliasRedeclared().format({ name }),
                         decl.node
                     );
@@ -3317,7 +3317,7 @@ export class Checker extends ParseTreeWalker {
 
                 if (!duplicateIsOk) {
                     const diag = this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportRedeclaration,
                         LocMessage.obscuredClassDeclaration().format({ name }),
                         otherDecl.node.name
                     );
@@ -3361,7 +3361,7 @@ export class Checker extends ParseTreeWalker {
 
                 if (!duplicateIsOk) {
                     const diag = this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportRedeclaration,
                         otherDecl.isMethod
                             ? LocMessage.obscuredMethodDeclaration().format({ name })
                             : LocMessage.obscuredFunctionDeclaration().format({ name }),
@@ -3382,7 +3382,7 @@ export class Checker extends ParseTreeWalker {
                     if (!duplicateIsOk) {
                         const message = LocMessage.obscuredParameterDeclaration();
                         const diag = this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportRedeclaration,
                             message.format({ name }),
                             otherDecl.node.name
                         );
@@ -3410,7 +3410,7 @@ export class Checker extends ParseTreeWalker {
 
                         if (!duplicateIsOk) {
                             const diag = this._evaluator.addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportRedeclaration,
                                 LocMessage.obscuredVariableDeclaration().format({ name }),
                                 otherDecl.node
                             );
@@ -3420,7 +3420,7 @@ export class Checker extends ParseTreeWalker {
                 }
             } else if (otherDecl.type === DeclarationType.TypeAlias) {
                 const diag = this._evaluator.addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportRedeclaration,
                     LocMessage.obscuredTypeAliasDeclaration().format({ name }),
                     otherDecl.node.name
                 );
