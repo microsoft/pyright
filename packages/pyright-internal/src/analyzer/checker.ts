@@ -6902,7 +6902,7 @@ export class Checker extends ParseTreeWalker {
                 // Were all of the exception types overridden?
                 if (typesOfThisExcept.length > 0 && typesOfThisExcept.length === overriddenExceptionCount) {
                     this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportUnusedExcept,
                         LocMessage.unreachableExcept() + diagAddendum.getString(),
                         except.typeExpression
                     );

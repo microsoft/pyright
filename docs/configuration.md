@@ -90,6 +90,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 <a name="reportWildcardImportFromLibrary"></a> **reportWildcardImportFromLibrary** [boolean or string, optional]: Generate or suppress diagnostics for a wildcard import from an external library. The use of this language feature is highly discouraged and can result in bugs when the library is updated. The default value for this setting is `"warning"`.
 
+<a name="reportAssertTypeFailure"></a> **reportAssertTypeFailure** [boolean or string, optional]: Generate or suppress diagnostics for a type mismatch detected by the `typing.assert_type` call. The default value for this setting is `"error"`.
+
 <a name="reportOptionalSubscript"></a> **reportOptionalSubscript** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to subscript (index) a variable with an Optional type. The default value for this setting is `"error"`.
 
 <a name="reportOptionalMemberAccess"></a> **reportOptionalMemberAccess** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to access a member of a variable with an Optional type. The default value for this setting is `"error"`.
@@ -181,6 +183,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 <a name="reportUnusedCallResult"></a> **reportUnusedCallResult** [boolean or string, optional]: Generate or suppress diagnostics for call statements whose return value is not used in any way and is not None. The default value for this setting is `"none"`.
 
 <a name="reportUnusedCoroutine"></a> **reportUnusedCoroutine** [boolean or string, optional]: Generate or suppress diagnostics for call statements whose return value is not used in any way and is a Coroutine. This identifies a common error where an `await` keyword is mistakenly omitted. The default value for this setting is `"error"`.
+
+<a name="reportUnusedExcept"></a> **reportUnusedExcept** [boolean or string, optional]: Generate or suppress diagnostics for an `except` clause that will never be reached. The default value for this setting is `"error"`.
 
 <a name="reportUnusedExpression"></a> **reportUnusedExpression** [boolean or string, optional]: Generate or suppress diagnostics for simple expressions whose results are not used in any way. The default value for this setting is `"none"`.
 
@@ -323,6 +327,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUnsupportedDunderAll                | "none"     | "warning"  | "warning"  | "error"    |
 | reportUnusedExpression                    | "none"     | "warning"  | "warning"  | "error"    |
 | reportWildcardImportFromLibrary           | "none"     | "warning"  | "warning"  | "error"    |
+| reportAssertTypeFailure                   | "none"     | "error"    | "error"    | "error"    |
 | reportGeneralTypeIssues                   | "none"     | "error"    | "error"    | "error"    |
 | reportOptionalSubscript                   | "none"     | "error"    | "error"    | "error"    |
 | reportOptionalMemberAccess                | "none"     | "error"    | "error"    | "error"    |
@@ -334,6 +339,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportPrivateImportUsage                  | "none"     | "error"    | "error"    | "error"    |
 | reportUnboundVariable                     | "none"     | "error"    | "error"    | "error"    |
 | reportUnusedCoroutine                     | "none"     | "error"    | "error"    | "error"    |
+| reportUnusedExcept                        | "none"     | "error"    | "error"    | "error"    |
 | reportFunctionMemberAccess                | "none"     | "none"     | "error"    | "error"    |
 | reportIncompatibleMethodOverride          | "none"     | "none"     | "error"    | "error"    |
 | reportIncompatibleVariableOverride        | "none"     | "none"     | "error"    | "error"    |

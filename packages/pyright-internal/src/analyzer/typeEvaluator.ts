@@ -8113,7 +8113,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const srcDestTypes = printSrcDestTypes(arg0TypeResult.type, assertedType, { expandTypeAlias: true });
 
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportAssertTypeFailure,
                 LocMessage.assertTypeTypeMismatch().format({
                     expected: srcDestTypes.destType,
                     received: srcDestTypes.sourceType,
