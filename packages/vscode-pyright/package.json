@@ -751,6 +751,22 @@
                                 false
                             ]
                         },
+                        "reportPossiblyUnboundVariable": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for the use of variables that may be unbound on some code paths.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
                         "reportMissingSuperCall": {
                             "type": [
                                 "string",
@@ -1108,7 +1124,7 @@
                                 "string",
                                 "boolean"
                             ],
-                            "description": "Diagnostics for unbound and possibly unbound variables.",
+                            "description": "Diagnostics for the use of unbound variables.",
                             "default": "error",
                             "enum": [
                                 "none",

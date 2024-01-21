@@ -4266,7 +4266,7 @@ export class Checker extends ParseTreeWalker {
                     );
                 } else if (isPossiblyUnbound(type)) {
                     this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportUnboundVariable,
+                        DiagnosticRule.reportPossiblyUnboundVariable,
                         LocMessage.symbolIsPossiblyUnbound().format({ name: node.value }),
                         node
                     );

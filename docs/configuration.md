@@ -132,6 +132,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 <a name="reportOverlappingOverload"></a> **reportOverlappingOverload** [boolean or string, optional]: Generate or suppress diagnostics for function overloads that overlap in signature and obscure each other or have incompatible return types. The default value for this setting is `"error"`.
 
+<a name="reportPossiblyUnboundVariable"></a> **reportPossiblyUnboundVariable** [boolean or string, optional]: Generate or suppress diagnostics for variables that are possibly unbound on some code paths. The default value for this setting is `"error"`. The default value for this setting is `"error"`.
+
 <a name="reportMissingSuperCall"></a> **reportMissingSuperCall** [boolean or string, optional]: Generate or suppress diagnostics for `__init__`, `__init_subclass__`, `__enter__` and `__exit__` methods in a subclass that fail to call through to the same-named method on a base class. The default value for this setting is `"none"`.
 
 <a name="reportUninitializedInstanceVariable"></a> **reportUninitializedInstanceVariable** [boolean or string, optional]: Generate or suppress diagnostics for instance variables within a class that are not initialized or declared within the class body or the `__init__` method. The default value for this setting is `"none"`.
@@ -172,7 +174,7 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 <a name="reportUndefinedVariable"></a> **reportUndefinedVariable** [boolean or string, optional]: Generate or suppress diagnostics for undefined variables. The default value for this setting is `"error"`.
 
-<a name="reportUnboundVariable"></a> **reportUnboundVariable** [boolean or string, optional]: Generate or suppress diagnostics for unbound and possibly unbound variables. The default value for this setting is `"error"`.
+<a name="reportUnboundVariable"></a> **reportUnboundVariable** [boolean or string, optional]: Generate or suppress diagnostics for unbound variables. The default value for this setting is `"error"`.
 
 <a name="reportInvalidStubStatement"></a> **reportInvalidStubStatement** [boolean or string, optional]: Generate or suppress diagnostics for statements that are syntactically correct but have no purpose within a type stub file. The default value for this setting is `"none"`.
 
@@ -344,6 +346,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportIncompatibleMethodOverride          | "none"     | "none"     | "error"    | "error"    |
 | reportIncompatibleVariableOverride        | "none"     | "none"     | "error"    | "error"    |
 | reportOverlappingOverload                 | "none"     | "none"     | "error"    | "error"    |
+| reportPossiblyUnboundVariable             | "none"     | "none"     | "error"    | "error"    |
 | reportConstantRedefinition                | "none"     | "none"     | "none"     | "error"    |
 | reportDeprecated                          | "none"     | "none"     | "none"     | "error"    |
 | reportDuplicateImport                     | "none"     | "none"     | "none"     | "error"    |
