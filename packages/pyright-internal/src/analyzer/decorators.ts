@@ -573,7 +573,7 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
 
             if (isPrevOverloadAbstract !== isCurrentOverloadAbstract) {
                 evaluator.addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportInconsistentOverload,
                     LocMessage.overloadAbstractMismatch().format({ name: node.name.value }),
                     node.name
                 );

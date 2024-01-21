@@ -162,6 +162,12 @@ export interface DiagnosticRuleSet {
     // Report failure of assert_type call?
     reportAssertTypeFailure: DiagnosticLevel;
 
+    // Report inconsistencies with function overload signatures?
+    reportInconsistentOverload: DiagnosticLevel;
+
+    // Report missing overloaded function implementation?
+    reportNoOverloadImplementation: DiagnosticLevel;
+
     // Report attempts to subscript (index) an Optional type?
     reportOptionalSubscript: DiagnosticLevel;
 
@@ -385,6 +391,8 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportDuplicateImport,
         DiagnosticRule.reportWildcardImportFromLibrary,
         DiagnosticRule.reportAssertTypeFailure,
+        DiagnosticRule.reportInconsistentOverload,
+        DiagnosticRule.reportNoOverloadImplementation,
         DiagnosticRule.reportOptionalSubscript,
         DiagnosticRule.reportOptionalMemberAccess,
         DiagnosticRule.reportOptionalCall,
@@ -478,6 +486,8 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportDuplicateImport: 'none',
         reportWildcardImportFromLibrary: 'none',
         reportAssertTypeFailure: 'none',
+        reportInconsistentOverload: 'none',
+        reportNoOverloadImplementation: 'none',
         reportOptionalSubscript: 'none',
         reportOptionalMemberAccess: 'none',
         reportOptionalCall: 'none',
@@ -567,6 +577,8 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportDuplicateImport: 'none',
         reportWildcardImportFromLibrary: 'warning',
         reportAssertTypeFailure: 'error',
+        reportInconsistentOverload: 'error',
+        reportNoOverloadImplementation: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
@@ -656,6 +668,8 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportDuplicateImport: 'none',
         reportWildcardImportFromLibrary: 'warning',
         reportAssertTypeFailure: 'error',
+        reportInconsistentOverload: 'error',
+        reportNoOverloadImplementation: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
@@ -745,6 +759,8 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportDuplicateImport: 'error',
         reportWildcardImportFromLibrary: 'error',
         reportAssertTypeFailure: 'error',
+        reportInconsistentOverload: 'error',
+        reportNoOverloadImplementation: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
