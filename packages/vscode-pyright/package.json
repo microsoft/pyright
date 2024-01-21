@@ -415,6 +415,22 @@
                                 false
                             ]
                         },
+                        "reportAbstractUsage": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for an attempt to instantiate an abstract or protocol class or use an abstract method.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
                         "reportAssertTypeFailure": {
                             "type": [
                                 "string",
@@ -469,6 +485,22 @@
                                 "boolean"
                             ],
                             "description": "Diagnostics for an overloaded function or method with a missing implementation.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
+                        "reportOperatorIssue": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for related to unary or binary operators.",
                             "default": "error",
                             "enum": [
                                 "none",

@@ -251,6 +251,12 @@
       "title": "Controls reporting of wildcard import from external library",
       "default": "warning"
     },
+    "reportAbstractUsage": {
+      "$id": "#/properties/reportAbstractUsage",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempted instantiation of abstract class",
+      "default": "error"
+    },
     "reportAssertTypeFailure": {
       "$id": "#/properties/reportAssertTypeFailure",
       "$ref": "#/definitions/diagnostic",
@@ -273,6 +279,12 @@
       "$id": "#/properties/reportNoOverloadImplementation",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of an overloaded function or method with a missing implementation",
+      "default": "error"
+    },
+    "reportOperatorIssue": {
+      "$id": "#/properties/reportOperatorIssue",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of diagnostics related to unary and binary operators",
       "default": "error"
     },
     "reportOptionalSubscript": {
