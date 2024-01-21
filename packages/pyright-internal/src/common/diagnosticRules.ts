@@ -36,6 +36,8 @@ export enum DiagnosticRule {
     reportDuplicateImport = 'reportDuplicateImport',
     reportWildcardImportFromLibrary = 'reportWildcardImportFromLibrary',
     reportAssertTypeFailure = 'reportAssertTypeFailure',
+    reportInconsistentOverload = 'reportInconsistentOverload',
+    reportNoOverloadImplementation = 'reportNoOverloadImplementation',
     reportOptionalSubscript = 'reportOptionalSubscript',
     reportOptionalMemberAccess = 'reportOptionalMemberAccess',
     reportOptionalCall = 'reportOptionalCall',

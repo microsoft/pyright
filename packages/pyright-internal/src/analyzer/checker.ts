@@ -2575,7 +2575,7 @@ export class Checker extends ParseTreeWalker {
 
         if (staticMethodCount > 0 && staticMethodCount < functionType.overloads.length) {
             this._evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportInconsistentOverload,
                 LocMessage.overloadStaticMethodInconsistent().format({
                     name: node.name.value,
                 }),
@@ -2585,7 +2585,7 @@ export class Checker extends ParseTreeWalker {
 
         if (classMethodCount > 0 && classMethodCount < functionType.overloads.length) {
             this._evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportInconsistentOverload,
                 LocMessage.overloadClassMethodInconsistent().format({
                     name: node.name.value,
                 }),
@@ -3023,7 +3023,7 @@ export class Checker extends ParseTreeWalker {
                 if (overloadedFunctions.length === 1) {
                     // There should never be a single overload.
                     this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportInconsistentOverload,
                         LocMessage.singleOverload().format({ name }),
                         primaryDecl.node.name
                     );
@@ -3066,7 +3066,7 @@ export class Checker extends ParseTreeWalker {
                         // there is an implementation.
                         if (!exemptMissingImplementation) {
                             this._evaluator.addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportNoOverloadImplementation,
                                 LocMessage.overloadWithoutImplementation().format({
                                     name: primaryDecl.node.name.value,
                                 }),
@@ -3080,7 +3080,7 @@ export class Checker extends ParseTreeWalker {
                             if (!this._isLegalOverloadImplementation(overload, implementationFunction!, diag)) {
                                 if (implementationFunction!.details.declaration) {
                                     const diagnostic = this._evaluator.addDiagnostic(
-                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportInconsistentOverload,
                                         LocMessage.overloadImplementationMismatch().format({
                                             name,
                                             index: index + 1,
@@ -5869,7 +5869,7 @@ export class Checker extends ParseTreeWalker {
                     overloads.forEach((overload) => {
                         if (FunctionType.isFinal(overload) && overload.details.declaration?.node) {
                             this._evaluator.addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportInconsistentOverload,
                                 LocMessage.overloadFinalInconsistencyImpl().format({
                                     name: overload.details.name,
                                 }),
@@ -5886,7 +5886,7 @@ export class Checker extends ParseTreeWalker {
                 overloads.slice(1).forEach((overload, index) => {
                     if (FunctionType.isFinal(overload) && overload.details.declaration?.node) {
                         this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportInconsistentOverload,
                             LocMessage.overloadFinalInconsistencyNoImpl().format({
                                 name: overload.details.name,
                                 index: index + 2,

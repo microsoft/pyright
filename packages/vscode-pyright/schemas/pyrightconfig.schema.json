@@ -257,6 +257,18 @@
       "title": "Controls reporting of type mismatch detected by typing.assert_type call",
       "default": "error"
     },
+    "reportInconsistentOverload": {
+      "$id": "#/properties/reportInconsistentOverload",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of inconsistencies between function overload signatures",
+      "default": "error"
+    },
+    "reportNoOverloadImplementation": {
+      "$id": "#/properties/reportNoOverloadImplementation",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of an overloaded function or method with a missing implementation",
+      "default": "error"
+    },
     "reportOptionalSubscript": {
       "$id": "#/properties/reportOptionalSubscript",
       "$ref": "#/definitions/diagnostic",

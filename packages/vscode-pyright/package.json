@@ -431,6 +431,38 @@
                                 false
                             ]
                         },
+                        "reportInconsistentOverload": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for inconsistencies between function overload signatures and implementation.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
+                        "reportNoOverloadImplementation": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for an overloaded function or method with a missing implementation.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
                         "reportOptionalSubscript": {
                             "type": [
                                 "string",
