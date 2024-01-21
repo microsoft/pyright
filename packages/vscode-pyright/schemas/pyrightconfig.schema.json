@@ -263,10 +263,22 @@
       "title": "Controls reporting of type mismatch detected by typing.assert_type call",
       "default": "error"
     },
+    "reportAttributeAccessIssue": {
+      "$id": "#/properties/reportAttributeAccessIssue",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of issues related to attribute accesses",
+      "default": "error"
+    },
     "reportInconsistentOverload": {
       "$id": "#/properties/reportInconsistentOverload",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of inconsistencies between function overload signatures",
+      "default": "error"
+    },
+    "reportIndexIssue": {
+      "$id": "#/properties/reportIndexIssue",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of issues related to index operations and expressions",
       "default": "error"
     },
     "reportInvalidTypeArguments": {
