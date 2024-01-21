@@ -82,7 +82,7 @@ export function createNamedTupleType(
     }
 
     if (argList.length === 0) {
-        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.namedTupleFirstArg(), errorNode);
+        evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleFirstArg(), errorNode);
     } else {
         const nameArg = argList[0];
         if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
@@ -162,7 +162,7 @@ export function createNamedTupleType(
     const entryTypes: Type[] = [];
 
     if (argList.length < 2) {
-        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.namedTupleSecondArg(), errorNode);
+        evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleSecondArg(), errorNode);
         addGenericGetAttribute = true;
     } else {
         const entriesArg = argList[1];

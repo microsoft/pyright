@@ -8898,7 +8898,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 diagAddendum.addMessage(LocAddendum.argumentTypes().format({ types: argTypes.join(', ') }));
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportCallIssue,
                     LocMessage.noOverload().format({ name: functionName }) + diagAddendum.getString(),
                     errorNode
                 );
@@ -8925,7 +8925,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (emitNoOverloadFoundError) {
                 const functionName = bestMatch.overload.details.name || '<anonymous function>';
                 const diagnostic = addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportCallIssue,
                     LocMessage.noOverload().format({ name: functionName }),
                     errorNode
                 );
@@ -9116,7 +9116,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (callTypeResult.type.specialForm) {
             const exprNode = errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode;
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportCallIssue,
                 LocMessage.objectNotCallable().format({
                     type: printType(callTypeResult.type, { expandTypeAlias: true }),
                 }),
@@ -9284,7 +9284,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case TypeCategory.Module: {
-                addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.moduleNotCallable(), errorNode);
+                addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.moduleNotCallable(), errorNode);
 
                 return { argumentErrors: true };
             }
@@ -9304,7 +9304,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): CallResult {
         if (TypeBase.isInstantiable(expandedCallType)) {
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportCallIssue,
                 LocMessage.callableNotInstantiable().format({
                     type: printType(expandedCallType),
                 }),
@@ -9544,7 +9544,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         inferenceContext: InferenceContext | undefined
     ): CallResult {
         if (expandedCallType.literalValue !== undefined) {
-            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.literalNotCallable(), errorNode);
+            addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.literalNotCallable(), errorNode);
 
             return { returnType: UnknownType.create(), argumentErrors: true };
         }
@@ -9556,7 +9556,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isInstantiableMetaclass(expandedCallType)) {
                 if (expandedCallType.typeArguments && expandedCallType.isTypeArgumentExplicit) {
                     addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportCallIssue,
                         LocMessage.objectNotCallable().format({
                             type: printType(expandedCallType),
                         }),
@@ -9666,7 +9666,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (ClassType.isSpecialFormClass(expandedCallType)) {
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportCallIssue,
                     LocMessage.typeNotIntantiable().format({ type: className }),
                     errorNode
                 );
@@ -9837,7 +9837,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!callMethodType) {
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportCallIssue,
                 LocMessage.objectNotCallable().format({
                     type: printType(expandedCallType),
                 }),
@@ -10102,7 +10102,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (argIndex < positionalOnlyLimitIndex && argList[argIndex].name) {
                 const nameNode = argList[argIndex].name;
                 if (nameNode) {
-                    addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.argPositional(), nameNode);
+                    addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.argPositional(), nameNode);
                     reportedArgError = true;
                 }
             }
@@ -10142,7 +10142,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (tooManyPositionals) {
                         if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                             addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportCallIssue,
                                 positionParamLimitIndex === 1
                                     ? LocMessage.argPositionalExpectedOne()
                                     : LocMessage.argPositionalExpectedCount().format({
@@ -10187,7 +10187,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ) {
                         if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                             addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportCallIssue,
                                 positionParamLimitIndex === 1
                                     ? LocMessage.argPositionalExpectedOne()
                                     : LocMessage.argPositionalExpectedCount().format({
@@ -10266,7 +10266,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isParamVariadic && !isArgCompatibleWithVariadic) {
                     if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportCallIssue,
                             LocMessage.unpackedArgWithVariadicParam(),
                             argList[argIndex].valueExpression || errorNode
                         );
@@ -10340,7 +10340,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                 // Have we run out of arguments and still have parameters left to fill?
                                 addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportCallIssue,
                                     remainingArgCount === 1
                                         ? LocMessage.argMorePositionalExpectedOne()
                                         : LocMessage.argMorePositionalExpectedCount().format({
@@ -10441,7 +10441,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (argsRemainingCount > 0) {
                 if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                     addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportCallIssue,
                         argsRemainingCount === 1
                             ? LocMessage.argMorePositionalExpectedOne()
                             : LocMessage.argMorePositionalExpectedCount().format({
@@ -10536,7 +10536,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (!diag.isEmpty()) {
                             if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                 addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportCallIssue,
                                     LocMessage.unpackedTypedDictArgument() + diag.getString(),
                                     argList[argIndex].valueExpression || errorNode
                                 );
@@ -10615,7 +10615,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (!isValidMappingType) {
                                 if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                     addDiagnostic(
-                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportCallIssue,
                                         LocMessage.unpackedDictArgumentNotMapping(),
                                         argList[argIndex].valueExpression || errorNode
                                     );
@@ -10640,7 +10640,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (paramEntry.argsReceived > 0) {
                                 if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                     addDiagnostic(
-                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportCallIssue,
                                         LocMessage.paramAlreadyAssigned().format({ name: paramNameValue }),
                                         paramName
                                     );
@@ -10692,7 +10692,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         } else {
                             if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                 addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportCallIssue,
                                     LocMessage.paramNameMissing().format({ name: paramName.value }),
                                     paramName
                                 );
@@ -10705,7 +10705,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         } else {
                             if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                 addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportCallIssue,
                                     positionParamLimitIndex === 1
                                         ? LocMessage.argPositionalExpectedOne()
                                         : LocMessage.argPositionalExpectedCount().format({
@@ -10795,7 +10795,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
                         if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                             addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportCallIssue,
                                 unassignedParams.length === 1
                                     ? LocMessage.argMissingForParam().format({ name: missingParamNames })
                                     : LocMessage.argMissingForParams().format({ names: missingParamNames }),
@@ -10882,7 +10882,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             ) {
                                 if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                     addDiagnostic(
-                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportCallIssue,
                                         LocMessage.typeVarTupleMustBeUnpacked(),
                                         argParam.argument.valueExpression ?? errorNode
                                     );
@@ -11365,7 +11365,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!sawParamSpecArgs || !sawParamSpecKwargs) {
                 if (!isTypeIncomplete) {
                     addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportCallIssue,
                         LocMessage.paramSpecArgsMissing().format({ type: printType(type.details.paramSpec) }),
                         errorNode
                     );
@@ -11760,7 +11760,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (argumentErrors) {
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportCallIssue,
                     LocMessage.paramSpecArgsMissing().format({
                         type: printType(functionType.details.paramSpec),
                     }),
@@ -12646,7 +12646,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let className = '';
 
         if (argList.length !== 2) {
-            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.newTypeParamCount(), errorNode);
+            addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.newTypeParamCount(), errorNode);
             return undefined;
         }
 

@@ -38,6 +38,7 @@ export enum DiagnosticRule {
     reportAbstractUsage = 'reportAbstractUsage',
     reportAssertTypeFailure = 'reportAssertTypeFailure',
     reportAttributeAccessIssue = 'reportAttributeAccessIssue',
+    reportCallIssue = 'reportCallIssue',
     reportInconsistentOverload = 'reportInconsistentOverload',
     reportIndexIssue = 'reportIndexIssue',
     reportInvalidTypeArguments = 'reportInvalidTypeArguments',

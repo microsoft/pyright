@@ -269,6 +269,12 @@
       "title": "Controls reporting of issues related to attribute accesses",
       "default": "error"
     },
+    "reportCallIssue": {
+      "$id": "#/properties/reportCallIssue",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of issues related to call expressions and arguments",
+      "default": "error"
+    },
     "reportInconsistentOverload": {
       "$id": "#/properties/reportInconsistentOverload",
       "$ref": "#/definitions/diagnostic",

@@ -463,6 +463,22 @@
                                 false
                             ]
                         },
+                        "reportCallIssue": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for issues involving call expressions and arguments.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
                         "reportInconsistentOverload": {
                             "type": [
                                 "string",
