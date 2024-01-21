@@ -132,6 +132,9 @@ export interface DiagnosticRuleSet {
     // Report missing imported module source files?
     reportMissingModuleSource: DiagnosticLevel;
 
+    // Report invalid type annotation forms?
+    reportInvalidAnnotation: DiagnosticLevel;
+
     // Report missing type stub files?
     reportMissingTypeStubs: DiagnosticLevel;
 
@@ -363,6 +366,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportFunctionMemberAccess,
         DiagnosticRule.reportMissingImports,
         DiagnosticRule.reportMissingModuleSource,
+        DiagnosticRule.reportInvalidAnnotation,
         DiagnosticRule.reportMissingTypeStubs,
         DiagnosticRule.reportImportCycles,
         DiagnosticRule.reportUnusedImport,
@@ -452,6 +456,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportFunctionMemberAccess: 'none',
         reportMissingImports: 'warning',
         reportMissingModuleSource: 'warning',
+        reportInvalidAnnotation: 'warning',
         reportMissingTypeStubs: 'none',
         reportImportCycles: 'none',
         reportUnusedImport: 'none',
@@ -537,6 +542,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportFunctionMemberAccess: 'none',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning',
+        reportInvalidAnnotation: 'error',
         reportMissingTypeStubs: 'none',
         reportImportCycles: 'none',
         reportUnusedImport: 'none',
@@ -622,6 +628,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportFunctionMemberAccess: 'error',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning',
+        reportInvalidAnnotation: 'error',
         reportMissingTypeStubs: 'none',
         reportImportCycles: 'none',
         reportUnusedImport: 'none',
@@ -707,6 +714,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportFunctionMemberAccess: 'error',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning', // Not overridden by strict mode
+        reportInvalidAnnotation: 'error',
         reportMissingTypeStubs: 'error',
         reportImportCycles: 'none',
         reportUnusedImport: 'error',

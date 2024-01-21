@@ -72,6 +72,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 <a name="reportMissingModuleSource"></a> **reportMissingModuleSource** [boolean or string, optional]: Generate or suppress diagnostics for imports that have no corresponding source file. This happens when a type stub is found, but the module source file was not found, indicating that the code may fail at runtime when using this execution environment. Type checking will be done using the type stub. The default value for this setting is `"warning"`.
 
+<a name="reportInvalidAnnotation"></a> **reportInvalidAnnotation** [boolean or string, optional]: Generate or suppress diagnostics for type annotations that use invalid type expression forms or are semantically invalid. The default value for this setting is `"error"`.
+
 <a name="reportMissingTypeStubs"></a> **reportMissingTypeStubs** [boolean or string, optional]: Generate or suppress diagnostics for imports that have no corresponding type stub file (either a typeshed file or a custom type stub). The type checker requires type stubs to do its best job at analysis. The default value for this setting is `"none"`. Note that there is a corresponding quick fix for this diagnostics that let you generate custom type stub to improve editing experiences.
 
 <a name="reportImportCycles"></a> **reportImportCycles** [boolean or string, optional]: Generate or suppress diagnostics for cyclical import chains. These are not errors in Python, but they do slow down type analysis and often hint at architectural layering issues. Generally, they should be avoided. The default value for this setting is `"none"`. Note that there are import cycles in the typeshed stdlib typestub files that are ignored by this setting.
@@ -310,6 +312,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | deprecateTypingAliases                    | false      | false      | false      | false      |
 | enableExperimentalFeatures                | false      | false      | false      | false      |
 | reportMissingModuleSource                 | "warning"  | "warning"  | "warning"  | "warning"  |
+| reportInvalidAnnotation                   | "warning"  | "error"    | "error"    | "error"    |
 | reportMissingImports                      | "warning"  | "error"    | "error"    | "error"    |
 | reportUndefinedVariable                   | "warning"  | "error"    | "error"    | "error"    |
 | reportAssertAlwaysTrue                    | "none"     | "warning"  | "warning"  | "error"    |

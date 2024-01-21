@@ -26,6 +26,7 @@ export enum DiagnosticRule {
     reportFunctionMemberAccess = 'reportFunctionMemberAccess',
     reportMissingImports = 'reportMissingImports',
     reportMissingModuleSource = 'reportMissingModuleSource',
+    reportInvalidAnnotation = 'reportInvalidAnnotation',
     reportMissingTypeStubs = 'reportMissingTypeStubs',
     reportImportCycles = 'reportImportCycles',
     reportUnusedImport = 'reportUnusedImport',

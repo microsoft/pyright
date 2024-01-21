@@ -271,6 +271,22 @@
                                 false
                             ]
                         },
+                        "reportInvalidAnnotation": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for type expression that uses an invalid form.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
                         "reportMissingTypeStubs": {
                             "type": [
                                 "string",

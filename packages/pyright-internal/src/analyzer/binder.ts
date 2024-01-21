@@ -854,8 +854,8 @@ export class Binder extends ParseTreeWalker {
 
         if (node.chainedTypeAnnotationComment) {
             this._addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
+                this._fileInfo.diagnosticRuleSet.reportInvalidAnnotation,
+                DiagnosticRule.reportInvalidAnnotation,
                 LocMessage.annotationNotSupported(),
                 node.chainedTypeAnnotationComment
             );
@@ -3810,8 +3810,8 @@ export class Binder extends ParseTreeWalker {
 
         if (!declarationHandled) {
             this._addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
+                this._fileInfo.diagnosticRuleSet.reportInvalidAnnotation,
+                DiagnosticRule.reportInvalidAnnotation,
                 LocMessage.annotationNotSupported(),
                 typeAnnotation
             );
