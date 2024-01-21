@@ -3267,7 +3267,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportAssignmentType,
                     LocMessage.typeAssignmentMismatch().format(printSrcDestTypes(type, declaredType)) +
                         diagAddendum.getString(),
                     srcExpression ?? nameNode,
@@ -3645,7 +3645,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!diagAddendum.isEmpty()) {
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportAssignmentType,
                 (target.nodeType === ParseNodeType.List
                     ? LocMessage.listAssignmentMismatch()
                     : LocMessage.tupleAssignmentMismatch()
@@ -8259,7 +8259,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (!isAnyOrUnknown(concreteTargetClassType) && !isInstantiableClass(concreteTargetClassType)) {
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportArgumentType,
                     LocMessage.superCallFirstArg().format({ type: printType(targetClassType) }),
                     node.arguments[0].valueExpression
                 );
@@ -8328,7 +8328,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (reportError) {
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportArgumentType,
                     LocMessage.superCallSecondArg().format({ type: printType(targetClassType) }),
                     node.arguments[1].valueExpression
                 );
@@ -12006,7 +12006,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // printing types if the diagnostic is disabled.
             const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
             if (
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues !== 'none' &&
+                fileInfo.diagnosticRuleSet.reportArgumentType !== 'none' &&
                 !isDiagnosticSuppressedForNode(argParam.errorNode) &&
                 !isTypeIncomplete
             ) {
@@ -12052,7 +12052,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportArgumentType,
                     message + diag.getString(),
                     argParam.errorNode,
                     diag.getEffectiveTextRange() ?? argParam.errorNode
@@ -12660,11 +12660,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!className) {
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.newTypeBadName(),
-                argList[0].node ?? errorNode
-            );
+            addDiagnostic(DiagnosticRule.reportArgumentType, LocMessage.newTypeBadName(), argList[0].node ?? errorNode);
             return undefined;
         }
 
@@ -17423,7 +17419,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (!assignType(annotatedType, defaultValueType, diagAddendum, typeVarContext)) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportArgumentType,
                             LocMessage.paramAssignmentMismatch().format({
                                 sourceType: printType(defaultValueType),
                                 paramType: printType(annotatedType),
@@ -18608,7 +18604,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (!assignType(declaredType, importedSymbolType, diagAddendum)) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportAssignmentType,
                             LocMessage.typeAssignmentMismatchWildcard().format({
                                 ...printSrcDestTypes(importedSymbolType, declaredType),
                                 name,

@@ -431,12 +431,44 @@
                                 false
                             ]
                         },
+                        "reportArgumentType": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for a type incompatibility for an argument to a call.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
                         "reportAssertTypeFailure": {
                             "type": [
                                 "string",
                                 "boolean"
                             ],
-                            "description": "Diagnostics for a type mismatch detected by a typing.assert_type call.",
+                            "description": "Diagnostics for a type incompatibility detected by a typing.assert_type call.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
+                        "reportAssignmentType": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for type incompatibilities for assignments.",
                             "default": "error",
                             "enum": [
                                 "none",
@@ -661,6 +693,22 @@
                                 "boolean"
                             ],
                             "description": "Diagnostics for an attempt to declare the type of a symbol multiple times.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
+                        "reportReturnType": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics related to function return type compatibility.",
                             "default": "error",
                             "enum": [
                                 "none",

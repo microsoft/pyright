@@ -1016,7 +1016,7 @@ export class Checker extends ParseTreeWalker {
                         }
 
                         this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportReturnType,
                             LocMessage.returnTypeMismatch().format({
                                 exprType: this._evaluator.printType(returnType),
                                 returnType: this._evaluator.printType(declaredReturnType),
@@ -3673,7 +3673,7 @@ export class Checker extends ParseTreeWalker {
 
         if (!isValidType) {
             this._evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportArgumentType,
                 isInstanceCheck
                     ? LocMessage.isInstanceInvalidType().format({
                           type: this._evaluator.printType(arg1Type),
@@ -4660,7 +4660,7 @@ export class Checker extends ParseTreeWalker {
                         !FunctionType.isAsync(functionType)
                     ) {
                         this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportReturnType,
                             LocMessage.noReturnReturnsNone(),
                             returnAnnotation
                         );
@@ -4677,7 +4677,7 @@ export class Checker extends ParseTreeWalker {
                         // the return type matches. This check can also be skipped for an overload.
                         if (!ParseTreeUtils.isSuiteEmpty(node.suite) && !FunctionType.isOverloaded(functionType)) {
                             this._evaluator.addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportReturnType,
                                 LocMessage.returnMissing().format({
                                     returnType: this._evaluator.printType(declaredReturnType),
                                 }) + diagAddendum.getString(),
@@ -4856,7 +4856,7 @@ export class Checker extends ParseTreeWalker {
                 ) {
                     if (!this._evaluator.assignType(declaredValueType, assignedValueType, diag)) {
                         this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportAssignmentType,
                             LocMessage.typeAssignmentMismatch().format(
                                 this._evaluator.printSrcDestTypes(assignedValueType, declaredValueType)
                             ) + diag.getString(),
@@ -6816,7 +6816,7 @@ export class Checker extends ParseTreeWalker {
                 : LocMessage.generatorSyncReturnType();
 
             this._evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportReturnType,
                 errorMessage.format({ yieldType: this._evaluator.printType(yieldType) }) +
                     (expectedDiagAddendum?.getString() ?? diagAddendum.getString()),
                 node.expression ?? node,

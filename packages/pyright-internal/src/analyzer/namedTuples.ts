@@ -87,7 +87,7 @@ export function createNamedTupleType(
         const nameArg = argList[0];
         if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
             evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportArgumentType,
                 LocMessage.namedTupleFirstArg(),
                 argList[0].valueExpression || errorNode
             );
@@ -257,7 +257,7 @@ export function createNamedTupleType(
                             );
                         } else {
                             evaluator.addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportArgumentType,
                                 LocMessage.namedTupleNameType(),
                                 entry
                             );

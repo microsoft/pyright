@@ -629,7 +629,7 @@ function validateFallbackConstructorCall(
     if (argList.length > 0 && argList.some((arg) => arg.argumentCategory === ArgumentCategory.Simple)) {
         if (!type.includeSubclasses) {
             evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportCallIssue,
                 LocMessage.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
                 errorNode
             );
