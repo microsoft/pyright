@@ -14465,7 +14465,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
                 functionType.details.declaredReturnType = convertToInstance(typeArg1Type);
             } else {
-                addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.callableSecondArg(), errorNode);
+                addDiagnostic(DiagnosticRule.reportMissingTypeArgument, LocMessage.callableSecondArg(), errorNode);
 
                 functionType.details.declaredReturnType = UnknownType.create();
             }
