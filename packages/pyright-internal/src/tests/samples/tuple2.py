@@ -13,8 +13,14 @@ all_ints3 = all_ints2
 # This should generate an error.
 bad_ellipsis1: tuple[...]
 
-# This should generate an error
+# This should generate an error.
 bad_ellipsis2: tuple[int, int, ...]
 
-# This should generate an error
+# This should generate an error.
 bad_ellipsis3: tuple[int, ..., int]
+
+# This should generate an error.
+bad_ellipsis4: tuple[*tuple[int], ...]
+
+# This should generate an error.
+bad_ellipsis5: tuple[*tuple[int, ...], ...]

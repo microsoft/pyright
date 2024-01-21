@@ -15052,12 +15052,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 !typeArgs[0].type.isVariadicInUnion
                             ) {
                                 addError(LocMessage.typeVarTupleContext(), typeArgs[0].node);
+                            } else if (sawUnpacked) {
+                                addError(LocMessage.ellipsisAfterUnpacked(), typeArg.node);
                             }
                         }
                     } else if (isParamSpec(typeArg.type) && allowParamSpec) {
                         // Nothing to do - this is allowed.
                     } else if (isVariadicTypeVar(typeArg.type) && paramLimit === undefined) {
-                        noteSawUnpacked(typeArg);
+                        if (!typeArg.type.isVariadicInUnion) {
+                            noteSawUnpacked(typeArg);
+                        }
                         validateVariadicTypeVarIsUnpacked(typeArg.type, typeArg.node);
                     } else if (paramLimit === undefined && isUnpacked(typeArg.type)) {
                         noteSawUnpacked(typeArg);
@@ -15104,8 +15108,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (index === 1 && isEllipsisType(typeArgTypes[index])) {
                         if (tupleTypeArgTypes.length === 1 && !tupleTypeArgTypes[0].isUnbounded) {
                             tupleTypeArgTypes[0] = { type: tupleTypeArgTypes[0].type, isUnbounded: true };
-                        } else {
-                            addError(LocMessage.ellipsisSecondArg(), typeArg.node);
                         }
                     } else if (isUnpackedClass(typeArg.type) && typeArg.type.tupleTypeArguments) {
                         appendArray(tupleTypeArgTypes, typeArg.type.tupleTypeArguments);
