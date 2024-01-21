@@ -4483,7 +4483,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 (flags & EvaluatorFlags.DoNotSpecialize) !== 0
                             ) {
                                 addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportInvalidTypeForm,
                                     LocMessage.typeAnnotationVariable(),
                                     node
                                 );
@@ -7643,7 +7643,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const diag = new DiagnosticAddendum();
             diag.addMessage(LocAddendum.useTupleInstead());
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.tupleInAnnotation() + diag.getString(),
                 node
             );
@@ -7890,7 +7890,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const diag = new DiagnosticAddendum();
             diag.addMessage(LocAddendum.useTypeInstead());
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.typeCallNotAllowed() + diag.getString(),
                 node
             );
@@ -8015,7 +8015,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
-            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.typeAnnotationCall(), node);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeAnnotationCall(), node);
 
             typeResult = { type: UnknownType.create() };
         }
@@ -12956,7 +12956,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const diag = new DiagnosticAddendum();
             diag.addMessage(LocAddendum.useDictInstead());
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.dictInAnnotation() + diag.getString(),
                 node
             );
@@ -13465,7 +13465,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const diag = new DiagnosticAddendum();
             diag.addMessage(LocAddendum.useListInstead());
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.listInAnnotation() + diag.getString(),
                 node
             );
@@ -15600,7 +15600,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (!isLegalTypeAliasExpressionForm(node.rightExpression)) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportInvalidTypeForm,
                             LocMessage.typeAliasIllegalExpressionForm(),
                             node.rightExpression
                         );
@@ -19519,7 +19519,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Treat type[function] as illegal.
                     if (isFunction(typeArgs[0].type) || isOverloadedFunction(typeArgs[0].type)) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportInvalidTypeForm,
                             LocMessage.typeAnnotationWithCallable(),
                             typeArgs[0].node
                         );
