@@ -843,8 +843,8 @@ export class Checker extends ParseTreeWalker {
         if (node.typeComment) {
             this._evaluator.addDiagnosticForTextRange(
                 this._fileInfo,
-                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
+                this._fileInfo.diagnosticRuleSet.reportInvalidTypeForm,
+                DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.annotationNotSupported(),
                 node.typeComment
             );
@@ -898,8 +898,8 @@ export class Checker extends ParseTreeWalker {
         if (node.typeComment) {
             this._evaluator.addDiagnosticForTextRange(
                 this._fileInfo,
-                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
+                this._fileInfo.diagnosticRuleSet.reportInvalidTypeForm,
+                DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.annotationNotSupported(),
                 node.typeComment
             );
@@ -2310,7 +2310,7 @@ export class Checker extends ParseTreeWalker {
                 : LocMessage.generatorSyncReturnType();
 
             this._evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportInvalidTypeForm,
                 errorMessage.format({ yieldType: this._evaluator.printType(AnyType.create()) }) +
                     diagAddendum.getString(),
                 node.returnTypeAnnotation ?? node.name
