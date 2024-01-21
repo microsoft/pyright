@@ -251,6 +251,12 @@
       "title": "Controls reporting of wildcard import from external library",
       "default": "warning"
     },
+    "reportAssertTypeFailure": {
+      "$id": "#/properties/reportAssertTypeFailure",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of type mismatch detected by typing.assert_type call",
+      "default": "error"
+    },
     "reportOptionalSubscript": {
       "$id": "#/properties/reportOptionalSubscript",
       "$ref": "#/definitions/diagnostic",
@@ -525,6 +531,12 @@
       "$id": "#/properties/reportUnusedCoroutine",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of call expressions that returns Coroutine whose results are not consumed",
+      "default": "error"
+    },
+    "reportUnusedExcept": {
+      "$id": "#/properties/reportUnusedExcept",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of unreachable except clauses",
       "default": "error"
     },
     "reportUnusedExpression": {

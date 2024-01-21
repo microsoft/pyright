@@ -415,6 +415,22 @@
                                 false
                             ]
                         },
+                        "reportAssertTypeFailure": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for a type mismatch detected by a typing.assert_type call.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
                         "reportOptionalSubscript": {
                             "type": [
                                 "string",
@@ -1141,6 +1157,22 @@
                                 "boolean"
                             ],
                             "description": "Diagnostics for call expressions that return a Coroutine and whose results are not consumed.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
+                        "reportUnusedExcept": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for unreachable except clause.",
                             "default": "error",
                             "enum": [
                                 "none",

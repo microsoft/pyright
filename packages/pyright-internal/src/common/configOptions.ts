@@ -159,6 +159,9 @@ export interface DiagnosticRuleSet {
     // Report use of wildcard import for non-local imports?
     reportWildcardImportFromLibrary: DiagnosticLevel;
 
+    // Report failure of assert_type call?
+    reportAssertTypeFailure: DiagnosticLevel;
+
     // Report attempts to subscript (index) an Optional type?
     reportOptionalSubscript: DiagnosticLevel;
 
@@ -310,6 +313,9 @@ export interface DiagnosticRuleSet {
     // and is not used in any way.
     reportUnusedCoroutine: DiagnosticLevel;
 
+    // Report except clause that is unreachable.
+    reportUnusedExcept: DiagnosticLevel;
+
     // Report cases where a simple expression result is not used in any way.
     reportUnusedExpression: DiagnosticLevel;
 
@@ -375,6 +381,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnusedVariable,
         DiagnosticRule.reportDuplicateImport,
         DiagnosticRule.reportWildcardImportFromLibrary,
+        DiagnosticRule.reportAssertTypeFailure,
         DiagnosticRule.reportOptionalSubscript,
         DiagnosticRule.reportOptionalMemberAccess,
         DiagnosticRule.reportOptionalCall,
@@ -421,6 +428,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnsupportedDunderAll,
         DiagnosticRule.reportUnusedCallResult,
         DiagnosticRule.reportUnusedCoroutine,
+        DiagnosticRule.reportUnusedExcept,
         DiagnosticRule.reportUnusedExpression,
         DiagnosticRule.reportUnnecessaryTypeIgnoreComment,
         DiagnosticRule.reportMatchNotExhaustive,
@@ -465,6 +473,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedVariable: 'none',
         reportDuplicateImport: 'none',
         reportWildcardImportFromLibrary: 'none',
+        reportAssertTypeFailure: 'none',
         reportOptionalSubscript: 'none',
         reportOptionalMemberAccess: 'none',
         reportOptionalCall: 'none',
@@ -511,6 +520,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'none',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'none',
+        reportUnusedExcept: 'none',
         reportUnusedExpression: 'none',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
@@ -551,6 +561,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedVariable: 'none',
         reportDuplicateImport: 'none',
         reportWildcardImportFromLibrary: 'warning',
+        reportAssertTypeFailure: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
@@ -597,6 +608,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'warning',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
+        reportUnusedExcept: 'error',
         reportUnusedExpression: 'warning',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
@@ -637,6 +649,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedVariable: 'none',
         reportDuplicateImport: 'none',
         reportWildcardImportFromLibrary: 'warning',
+        reportAssertTypeFailure: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
@@ -683,6 +696,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'warning',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
+        reportUnusedExcept: 'error',
         reportUnusedExpression: 'warning',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
@@ -723,6 +737,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedVariable: 'error',
         reportDuplicateImport: 'error',
         reportWildcardImportFromLibrary: 'error',
+        reportAssertTypeFailure: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
@@ -769,6 +784,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'error',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
+        reportUnusedExcept: 'error',
         reportUnusedExpression: 'error',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'error',
