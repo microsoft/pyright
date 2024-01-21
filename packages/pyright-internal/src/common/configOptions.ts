@@ -165,8 +165,14 @@ export interface DiagnosticRuleSet {
     // Report failure of assert_type call?
     reportAssertTypeFailure: DiagnosticLevel;
 
+    // Report issues related to attribute access expressions?
+    reportAttributeAccessIssue: DiagnosticLevel;
+
     // Report inconsistencies with function overload signatures?
     reportInconsistentOverload: DiagnosticLevel;
+
+    // Report issues with index operations and expressions?
+    reportIndexIssue: DiagnosticLevel;
 
     // Report invalid type argument usage?
     reportInvalidTypeArguments: DiagnosticLevel;
@@ -404,7 +410,9 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportWildcardImportFromLibrary,
         DiagnosticRule.reportAbstractUsage,
         DiagnosticRule.reportAssertTypeFailure,
+        DiagnosticRule.reportAttributeAccessIssue,
         DiagnosticRule.reportInconsistentOverload,
+        DiagnosticRule.reportIndexIssue,
         DiagnosticRule.reportInvalidTypeArguments,
         DiagnosticRule.reportNoOverloadImplementation,
         DiagnosticRule.reportOperatorIssue,
@@ -503,7 +511,9 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportWildcardImportFromLibrary: 'none',
         reportAbstractUsage: 'none',
         reportAssertTypeFailure: 'none',
+        reportAttributeAccessIssue: 'none',
         reportInconsistentOverload: 'none',
+        reportIndexIssue: 'none',
         reportInvalidTypeArguments: 'none',
         reportNoOverloadImplementation: 'none',
         reportOperatorIssue: 'none',
@@ -598,7 +608,9 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportWildcardImportFromLibrary: 'warning',
         reportAbstractUsage: 'error',
         reportAssertTypeFailure: 'error',
+        reportAttributeAccessIssue: 'error',
         reportInconsistentOverload: 'error',
+        reportIndexIssue: 'error',
         reportInvalidTypeArguments: 'error',
         reportNoOverloadImplementation: 'error',
         reportOperatorIssue: 'error',
@@ -693,7 +705,9 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportWildcardImportFromLibrary: 'warning',
         reportAbstractUsage: 'error',
         reportAssertTypeFailure: 'error',
+        reportAttributeAccessIssue: 'error',
         reportInconsistentOverload: 'error',
+        reportIndexIssue: 'error',
         reportInvalidTypeArguments: 'error',
         reportNoOverloadImplementation: 'error',
         reportOperatorIssue: 'error',
@@ -788,7 +802,9 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportWildcardImportFromLibrary: 'error',
         reportAbstractUsage: 'error',
         reportAssertTypeFailure: 'error',
+        reportAttributeAccessIssue: 'error',
         reportInconsistentOverload: 'error',
+        reportIndexIssue: 'error',
         reportInvalidTypeArguments: 'error',
         reportNoOverloadImplementation: 'error',
         reportOperatorIssue: 'error',

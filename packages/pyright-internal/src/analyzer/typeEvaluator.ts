@@ -5373,7 +5373,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (!type) {
                         if (!isIncomplete) {
                             addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportAttributeAccessIssue,
                                 LocMessage.moduleUnknownMember().format({
                                     memberName,
                                     moduleName: baseType.moduleName,
@@ -5493,7 +5493,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 const rule = isFunctionRule
                     ? DiagnosticRule.reportFunctionMemberAccess
-                    : DiagnosticRule.reportGeneralTypeIssues;
+                    : DiagnosticRule.reportAttributeAccessIssue;
 
                 addDiagnostic(
                     rule,
@@ -7034,7 +7034,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (!isIncomplete) {
                     addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportIndexIssue,
                         LocMessage.typeNotSubscriptable().format({ type: printType(concreteSubtype) }),
                         node.baseExpression
                     );
@@ -7202,7 +7202,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!itemMethodType) {
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportIndexIssue,
                 LocMessage.methodNotDefinedOnType().format({
                     name: magicMethodName,
                     type: printType(baseType),
@@ -18482,7 +18482,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (reportError) {
                     addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportAttributeAccessIssue,
                         LocMessage.importSymbolUnknown().format({ name: node.name.value }),
                         node.name
                     );
