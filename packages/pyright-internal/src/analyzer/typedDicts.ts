@@ -88,7 +88,7 @@ export function createTypedDictType(
             nameArg.valueExpression.nodeType !== ParseNodeType.StringList
         ) {
             evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportArgumentType,
                 LocMessage.typedDictFirstArg(),
                 argList[0].valueExpression || errorNode
             );
@@ -171,11 +171,7 @@ export function createTypedDictType(
                 classFields.set(entry.name.value, newSymbol);
             }
         } else {
-            evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.typedDictSecondArgDict(),
-                errorNode
-            );
+            evaluator.addDiagnostic(DiagnosticRule.reportArgumentType, LocMessage.typedDictSecondArgDict(), errorNode);
         }
     }
 

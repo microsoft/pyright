@@ -92,7 +92,11 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 <a name="reportAbstractUsage"></a> **reportAbstractUsage** [boolean or string, optional]: Generate or suppress diagnostics for the attempted instantiate an abstract or protocol class or use of an abstract method. The default value for this setting is `"error"`.
 
+<a name="reportArgumentType"></a> **reportArgumentType** [boolean or string, optional]: Generate or suppress diagnostics for argument type incompatibilities when evaluating a call expression. The default value for this setting is `"error"`.
+
 <a name="reportAssertTypeFailure"></a> **reportAssertTypeFailure** [boolean or string, optional]: Generate or suppress diagnostics for a type mismatch detected by the `typing.assert_type` call. The default value for this setting is `"error"`.
+
+<a name="reportAssignmentType"></a> **reportAssignmentType** [boolean or string, optional]: Generate or suppress diagnostics for assignment type incompatibility. The default value for this setting is `"error"`.
 
 <a name="reportAttributeAccessIssue"></a> **reportAttributeAccessIssue** [boolean or string, optional]: Generate or suppress diagnostics related to attribute accesses. The default value for this setting is `"error"`.
 
@@ -121,6 +125,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 <a name="reportOptionalOperand"></a> **reportOptionalOperand** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to use an Optional type as an operand to a unary operator (like `~` or `not`) or the left-hand operator of a binary operator (like `*`, `==`, `or`). The default value for this setting is `"error"`.
 
 <a name="reportRedeclaration"></a> **reportRedeclaration** [boolean or string, optional]: Generate or suppress diagnostics for a symbol that has more than one type declaration. The default value for this setting is `"error"`.
+
+<a name="reportReturnType"></a> **reportReturnType** [boolean or string, optional]: Generate or suppress diagnostics related to function return type compatibility. The default value for this setting is `"error"`.
 
 <a name="reportTypedDictNotRequiredAccess"></a> **reportTypedDictNotRequiredAccess** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to access a non-required field within a TypedDict without first checking whether it is present. The default value for this setting is `"error"`.
 
@@ -348,7 +354,9 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUnusedExpression                    | "none"     | "warning"  | "warning"  | "error"    |
 | reportWildcardImportFromLibrary           | "none"     | "warning"  | "warning"  | "error"    |
 | reportAbstractUsage                       | "none"     | "error"    | "error"    | "error"    |
+| reportArgumentType                        | "none"     | "error"    | "error"    | "error"    |
 | reportAssertTypeFailure                   | "none"     | "error"    | "error"    | "error"    |
+| reportAssignmentType                      | "none"     | "error"    | "error"    | "error"    |
 | reportAttributeAccessIssue                | "none"     | "error"    | "error"    | "error"    |
 | reportCallIssue                           | "none"     | "error"    | "error"    | "error"    |
 | reportGeneralTypeIssues                   | "none"     | "error"    | "error"    | "error"    |
@@ -364,6 +372,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportOptionalContextManager              | "none"     | "error"    | "error"    | "error"    |
 | reportOptionalOperand                     | "none"     | "error"    | "error"    | "error"    |
 | reportRedeclaration                       | "none"     | "error"    | "error"    | "error"    |
+| reportReturnType                          | "none"     | "error"    | "error"    | "error"    |
 | reportTypedDictNotRequiredAccess          | "none"     | "error"    | "error"    | "error"    |
 | reportPrivateImportUsage                  | "none"     | "error"    | "error"    | "error"    |
 | reportUnboundVariable                     | "none"     | "error"    | "error"    | "error"    |

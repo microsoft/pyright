@@ -257,10 +257,22 @@
       "title": "Controls reporting of attempted instantiation of abstract class",
       "default": "error"
     },
+    "reportArgumentType": {
+      "$id": "#/properties/reportArgumentType",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of incompatible argument type",
+      "default": "error"
+    },
     "reportAssertTypeFailure": {
       "$id": "#/properties/reportAssertTypeFailure",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of type mismatch detected by typing.assert_type call",
+      "default": "error"
+    },
+    "reportAssignmentType": {
+      "$id": "#/properties/reportAssignmentType",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of type incompatibilities for assignments",
       "default": "error"
     },
     "reportAttributeAccessIssue": {
@@ -345,6 +357,12 @@
       "$id": "#/properties/reportRedeclaration",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of attempts to declare the type of a symbol multiple times",
+      "default": "error"
+    },
+    "reportReturnType": {
+      "$id": "#/properties/reportReturnType",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of function return type incompatibility",
       "default": "error"
     },
     "reportTypedDictNotRequiredAccess": {

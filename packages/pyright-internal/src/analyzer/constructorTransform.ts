@@ -257,7 +257,7 @@ function applyPartialTransformToFunction(
                     if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                         if (errorNode) {
                             evaluator.addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportArgumentType,
                                 LocMessage.argAssignmentParamFunction().format({
                                     argType: evaluator.printType(argTypeResult.type),
                                     paramType: evaluator.printType(paramType),
@@ -303,7 +303,7 @@ function applyPartialTransformToFunction(
                 if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                     if (errorNode) {
                         evaluator.addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportArgumentType,
                             LocMessage.argAssignmentParamFunction().format({
                                 argType: evaluator.printType(argTypeResult.type),
                                 paramType: evaluator.printType(paramType),
@@ -353,7 +353,7 @@ function applyPartialTransformToFunction(
                     if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                         if (errorNode) {
                             evaluator.addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportArgumentType,
                                 LocMessage.argAssignmentParamFunction().format({
                                     argType: evaluator.printType(argTypeResult.type),
                                     paramType: evaluator.printType(paramType),
@@ -393,7 +393,7 @@ function applyPartialTransformToFunction(
                     if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
                         if (errorNode) {
                             evaluator.addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportArgumentType,
                                 LocMessage.argAssignmentParamFunction().format({
                                     argType: evaluator.printType(argTypeResult.type),
                                     paramType: evaluator.printType(paramType),
