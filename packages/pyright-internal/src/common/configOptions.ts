@@ -227,6 +227,9 @@ export interface DiagnosticRuleSet {
     // incompatible return types.
     reportOverlappingOverload: DiagnosticLevel;
 
+    // Report usage of possibly unbound variables.
+    reportPossiblyUnboundVariable: DiagnosticLevel;
+
     // Report failure to call super().__init__() in __init__ method.
     reportMissingSuperCall: DiagnosticLevel;
 
@@ -291,7 +294,7 @@ export interface DiagnosticRuleSet {
     // Report usage of undefined variables.
     reportUndefinedVariable: DiagnosticLevel;
 
-    // Report usage of unbound or possibly unbound variables.
+    // Report usage of unbound variables.
     reportUnboundVariable: DiagnosticLevel;
 
     // Report statements that are syntactically correct but
@@ -402,6 +405,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportIncompatibleVariableOverride,
         DiagnosticRule.reportInconsistentConstructor,
         DiagnosticRule.reportOverlappingOverload,
+        DiagnosticRule.reportPossiblyUnboundVariable,
         DiagnosticRule.reportMissingSuperCall,
         DiagnosticRule.reportUninitializedInstanceVariable,
         DiagnosticRule.reportInvalidStringEscapeSequence,
@@ -494,6 +498,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleVariableOverride: 'none',
         reportInconsistentConstructor: 'none',
         reportOverlappingOverload: 'none',
+        reportPossiblyUnboundVariable: 'none',
         reportMissingSuperCall: 'none',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'none',
@@ -582,6 +587,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleVariableOverride: 'none',
         reportInconsistentConstructor: 'none',
         reportOverlappingOverload: 'none',
+        reportPossiblyUnboundVariable: 'none',
         reportMissingSuperCall: 'none',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'warning',
@@ -670,6 +676,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleVariableOverride: 'error',
         reportInconsistentConstructor: 'none',
         reportOverlappingOverload: 'error',
+        reportPossiblyUnboundVariable: 'error',
         reportMissingSuperCall: 'none',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'warning',
@@ -758,6 +765,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleVariableOverride: 'error',
         reportInconsistentConstructor: 'error',
         reportOverlappingOverload: 'error',
+        reportPossiblyUnboundVariable: 'error',
         reportMissingSuperCall: 'none',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'error',
