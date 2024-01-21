@@ -1020,7 +1020,7 @@ export function validateDataClassTransformDecorator(
     node.arguments.forEach((arg) => {
         if (!arg.name || arg.argumentCategory !== ArgumentCategory.Simple) {
             evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportCallIssue,
                 LocMessage.dataClassTransformPositionalParam(),
                 arg
             );

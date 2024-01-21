@@ -168,6 +168,9 @@ export interface DiagnosticRuleSet {
     // Report issues related to attribute access expressions?
     reportAttributeAccessIssue: DiagnosticLevel;
 
+    // Report issues related to call expressions?
+    reportCallIssue: DiagnosticLevel;
+
     // Report inconsistencies with function overload signatures?
     reportInconsistentOverload: DiagnosticLevel;
 
@@ -411,6 +414,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportAbstractUsage,
         DiagnosticRule.reportAssertTypeFailure,
         DiagnosticRule.reportAttributeAccessIssue,
+        DiagnosticRule.reportCallIssue,
         DiagnosticRule.reportInconsistentOverload,
         DiagnosticRule.reportIndexIssue,
         DiagnosticRule.reportInvalidTypeArguments,
@@ -512,6 +516,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportAbstractUsage: 'none',
         reportAssertTypeFailure: 'none',
         reportAttributeAccessIssue: 'none',
+        reportCallIssue: 'none',
         reportInconsistentOverload: 'none',
         reportIndexIssue: 'none',
         reportInvalidTypeArguments: 'none',
@@ -609,6 +614,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportAbstractUsage: 'error',
         reportAssertTypeFailure: 'error',
         reportAttributeAccessIssue: 'error',
+        reportCallIssue: 'error',
         reportInconsistentOverload: 'error',
         reportIndexIssue: 'error',
         reportInvalidTypeArguments: 'error',
@@ -706,6 +712,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportAbstractUsage: 'error',
         reportAssertTypeFailure: 'error',
         reportAttributeAccessIssue: 'error',
+        reportCallIssue: 'error',
         reportInconsistentOverload: 'error',
         reportIndexIssue: 'error',
         reportInvalidTypeArguments: 'error',
@@ -803,6 +810,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportAbstractUsage: 'error',
         reportAssertTypeFailure: 'error',
         reportAttributeAccessIssue: 'error',
+        reportCallIssue: 'error',
         reportInconsistentOverload: 'error',
         reportIndexIssue: 'error',
         reportInvalidTypeArguments: 'error',

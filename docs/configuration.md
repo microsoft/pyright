@@ -96,6 +96,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 <a name="reportAttributeAccessIssue"></a> **reportAttributeAccessIssue** [boolean or string, optional]: Generate or suppress diagnostics related to attribute accesses. The default value for this setting is `"error"`.
 
+<a name="reportCallIssue"></a> **reportCallIssue** [boolean or string, optional]: Generate or suppress diagnostics related to call expressions and arguments passed to a call target. The default value for this setting is `"error"`.
+
 <a name="reportInconsistentOverload"></a> **reportInconsistentOverload** [boolean or string, optional]: Generate or suppress diagnostics for an overloaded function that has overload signatures that are inconsistent with each other or with the implementation. The default value for this setting is `"error"`.
 
 <a name="reportIndexIssue"></a> **reportIndexIssue** [boolean or string, optional]: Generate or suppress diagnostics related to index operations and expressions. The default value for this setting is `"error"`.
@@ -348,6 +350,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportAbstractUsage                       | "none"     | "error"    | "error"    | "error"    |
 | reportAssertTypeFailure                   | "none"     | "error"    | "error"    | "error"    |
 | reportAttributeAccessIssue                | "none"     | "error"    | "error"    | "error"    |
+| reportCallIssue                           | "none"     | "error"    | "error"    | "error"    |
 | reportGeneralTypeIssues                   | "none"     | "error"    | "error"    | "error"    |
 | reportInconsistentOverload                | "none"     | "error"    | "error"    | "error"    |
 | reportIndexIssue                          | "none"     | "error"    | "error"    | "error"    |
