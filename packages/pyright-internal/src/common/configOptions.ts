@@ -159,6 +159,9 @@ export interface DiagnosticRuleSet {
     // Report use of wildcard import for non-local imports?
     reportWildcardImportFromLibrary: DiagnosticLevel;
 
+    // Report use of abstract method or variable?
+    reportAbstractUsage: DiagnosticLevel;
+
     // Report failure of assert_type call?
     reportAssertTypeFailure: DiagnosticLevel;
 
@@ -170,6 +173,9 @@ export interface DiagnosticRuleSet {
 
     // Report missing overloaded function implementation?
     reportNoOverloadImplementation: DiagnosticLevel;
+
+    // Report issues related to the use of unary or binary operators?
+    reportOperatorIssue: DiagnosticLevel;
 
     // Report attempts to subscript (index) an Optional type?
     reportOptionalSubscript: DiagnosticLevel;
@@ -396,10 +402,12 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnusedVariable,
         DiagnosticRule.reportDuplicateImport,
         DiagnosticRule.reportWildcardImportFromLibrary,
+        DiagnosticRule.reportAbstractUsage,
         DiagnosticRule.reportAssertTypeFailure,
         DiagnosticRule.reportInconsistentOverload,
         DiagnosticRule.reportInvalidTypeArguments,
         DiagnosticRule.reportNoOverloadImplementation,
+        DiagnosticRule.reportOperatorIssue,
         DiagnosticRule.reportOptionalSubscript,
         DiagnosticRule.reportOptionalMemberAccess,
         DiagnosticRule.reportOptionalCall,
@@ -493,10 +501,12 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedVariable: 'none',
         reportDuplicateImport: 'none',
         reportWildcardImportFromLibrary: 'none',
+        reportAbstractUsage: 'none',
         reportAssertTypeFailure: 'none',
         reportInconsistentOverload: 'none',
         reportInvalidTypeArguments: 'none',
         reportNoOverloadImplementation: 'none',
+        reportOperatorIssue: 'none',
         reportOptionalSubscript: 'none',
         reportOptionalMemberAccess: 'none',
         reportOptionalCall: 'none',
@@ -586,10 +596,12 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedVariable: 'none',
         reportDuplicateImport: 'none',
         reportWildcardImportFromLibrary: 'warning',
+        reportAbstractUsage: 'error',
         reportAssertTypeFailure: 'error',
         reportInconsistentOverload: 'error',
         reportInvalidTypeArguments: 'error',
         reportNoOverloadImplementation: 'error',
+        reportOperatorIssue: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
@@ -679,10 +691,12 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedVariable: 'none',
         reportDuplicateImport: 'none',
         reportWildcardImportFromLibrary: 'warning',
+        reportAbstractUsage: 'error',
         reportAssertTypeFailure: 'error',
         reportInconsistentOverload: 'error',
         reportInvalidTypeArguments: 'error',
         reportNoOverloadImplementation: 'error',
+        reportOperatorIssue: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
@@ -772,10 +786,12 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedVariable: 'error',
         reportDuplicateImport: 'error',
         reportWildcardImportFromLibrary: 'error',
+        reportAbstractUsage: 'error',
         reportAssertTypeFailure: 'error',
         reportInconsistentOverload: 'error',
         reportInvalidTypeArguments: 'error',
         reportNoOverloadImplementation: 'error',
+        reportOperatorIssue: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',

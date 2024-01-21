@@ -9727,7 +9727,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
 
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportAbstractUsage,
                     LocMessage.instantiateAbstract().format({
                         type: expandedCallType.details.name,
                     }) + diagAddendum.getString(),
@@ -9739,7 +9739,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (ClassType.isProtocolClass(expandedCallType) && !expandedCallType.includeSubclasses) {
             // If the class is a protocol, it can't be instantiated.
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportAbstractUsage,
                 LocMessage.instantiateProtocol().format({
                     type: expandedCallType.details.name,
                 }),
@@ -11162,7 +11162,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (abstractSymbolInfo && !abstractSymbolInfo.hasImplementation) {
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportAbstractUsage,
                     LocMessage.abstractMethodInvocation().format({
                         method: type.details.name,
                     }),

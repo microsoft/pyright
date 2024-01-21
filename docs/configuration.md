@@ -90,6 +90,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 <a name="reportWildcardImportFromLibrary"></a> **reportWildcardImportFromLibrary** [boolean or string, optional]: Generate or suppress diagnostics for a wildcard import from an external library. The use of this language feature is highly discouraged and can result in bugs when the library is updated. The default value for this setting is `"warning"`.
 
+<a name="reportAbstractUsage"></a> **reportAbstractUsage** [boolean or string, optional]: Generate or suppress diagnostics for the attempted instantiate an abstract or protocol class or use of an abstract method. The default value for this setting is `"error"`.
+
 <a name="reportAssertTypeFailure"></a> **reportAssertTypeFailure** [boolean or string, optional]: Generate or suppress diagnostics for a type mismatch detected by the `typing.assert_type` call. The default value for this setting is `"error"`.
 
 <a name="reportInconsistentOverload"></a> **reportInconsistentOverload** [boolean or string, optional]: Generate or suppress diagnostics for an overloaded function that has overload signatures that are inconsistent with each other or with the implementation. The default value for this setting is `"error"`.
@@ -97,6 +99,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 <a name="reportInvalidTypeArguments"></a> **reportInvalidTypeArguments** [boolean or string, optional]: Generate or suppress diagnostics for invalid type argument usage. The default value for this setting is `"error"`.
 
 <a name="reportNoOverloadImplementation"></a> **reportNoOverloadImplementation** [boolean or string, optional]: Generate or suppress diagnostics for an overloaded function or method if the implementation is not provided. The default value for this setting is `"error"`.
+
+<a name="reportOperatorIssue"></a> **reportOperatorIssue** [boolean or string, optional]: Generate or suppress diagnostics related to the use of unary or binary operators (like `*` or `not`). The default value for this setting is `"error"`.
 
 <a name="reportOptionalSubscript"></a> **reportOptionalSubscript** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to subscript (index) a variable with an Optional type. The default value for this setting is `"error"`.
 
@@ -337,11 +341,13 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUnsupportedDunderAll                | "none"     | "warning"  | "warning"  | "error"    |
 | reportUnusedExpression                    | "none"     | "warning"  | "warning"  | "error"    |
 | reportWildcardImportFromLibrary           | "none"     | "warning"  | "warning"  | "error"    |
+| reportAbstractUsage                       | "none"     | "error"    | "error"    | "error"    |
 | reportAssertTypeFailure                   | "none"     | "error"    | "error"    | "error"    |
 | reportGeneralTypeIssues                   | "none"     | "error"    | "error"    | "error"    |
 | reportInconsistentOverload                | "none"     | "error"    | "error"    | "error"    |
 | reportInvalidTypeArguments                | "none"     | "error"    | "error"    | "error"    |
 | reportNoOverloadImplementation            | "none"     | "error"    | "error"    | "error"    |
+| reportOperatorIssue                       | "none"     | "error"    | "error"    | "error"    |
 | reportOptionalSubscript                   | "none"     | "error"    | "error"    | "error"    |
 | reportOptionalMemberAccess                | "none"     | "error"    | "error"    | "error"    |
 | reportOptionalCall                        | "none"     | "error"    | "error"    | "error"    |
