@@ -94,6 +94,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 <a name="reportInconsistentOverload"></a> **reportInconsistentOverload** [boolean or string, optional]: Generate or suppress diagnostics for an overloaded function that has overload signatures that are inconsistent with each other or with the implementation. The default value for this setting is `"error"`.
 
+<a name="reportInvalidTypeArguments"></a> **reportInvalidTypeArguments** [boolean or string, optional]: Generate or suppress diagnostics for invalid type argument usage. The default value for this setting is `"error"`.
+
 <a name="reportNoOverloadImplementation"></a> **reportNoOverloadImplementation** [boolean or string, optional]: Generate or suppress diagnostics for an overloaded function or method if the implementation is not provided. The default value for this setting is `"error"`.
 
 <a name="reportOptionalSubscript"></a> **reportOptionalSubscript** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to subscript (index) a variable with an Optional type. The default value for this setting is `"error"`.
@@ -107,6 +109,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 <a name="reportOptionalContextManager"></a> **reportOptionalContextManager** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to use an Optional type as a context manager (as a parameter to a `with` statement). The default value for this setting is `"error"`.
 
 <a name="reportOptionalOperand"></a> **reportOptionalOperand** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to use an Optional type as an operand to a unary operator (like `~` or `not`) or the left-hand operator of a binary operator (like `*`, `==`, `or`). The default value for this setting is `"error"`.
+
+<a name="reportRedeclaration"></a> **reportRedeclaration** [boolean or string, optional]: Generate or suppress diagnostics for a symbol that has more than one type declaration. The default value for this setting is `"error"`.
 
 <a name="reportTypedDictNotRequiredAccess"></a> **reportTypedDictNotRequiredAccess** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to access a non-required field within a TypedDict without first checking whether it is present. The default value for this setting is `"error"`.
 
@@ -336,6 +340,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportAssertTypeFailure                   | "none"     | "error"    | "error"    | "error"    |
 | reportGeneralTypeIssues                   | "none"     | "error"    | "error"    | "error"    |
 | reportInconsistentOverload                | "none"     | "error"    | "error"    | "error"    |
+| reportInvalidTypeArguments                | "none"     | "error"    | "error"    | "error"    |
 | reportNoOverloadImplementation            | "none"     | "error"    | "error"    | "error"    |
 | reportOptionalSubscript                   | "none"     | "error"    | "error"    | "error"    |
 | reportOptionalMemberAccess                | "none"     | "error"    | "error"    | "error"    |
@@ -343,6 +348,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportOptionalIterable                    | "none"     | "error"    | "error"    | "error"    |
 | reportOptionalContextManager              | "none"     | "error"    | "error"    | "error"    |
 | reportOptionalOperand                     | "none"     | "error"    | "error"    | "error"    |
+| reportRedeclaration                       | "none"     | "error"    | "error"    | "error"    |
 | reportTypedDictNotRequiredAccess          | "none"     | "error"    | "error"    | "error"    |
 | reportPrivateImportUsage                  | "none"     | "error"    | "error"    | "error"    |
 | reportUnboundVariable                     | "none"     | "error"    | "error"    | "error"    |

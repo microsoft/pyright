@@ -447,6 +447,22 @@
                                 false
                             ]
                         },
+                        "reportInvalidTypeArguments": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for invalid type argument usage.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
                         "reportNoOverloadImplementation": {
                             "type": [
                                 "string",
@@ -549,6 +565,22 @@
                                 "boolean"
                             ],
                             "description": "Diagnostics for an attempt to use an Optional type as an operand to a binary or unary operator (like '+', '==', 'or', 'not').",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
+                        "reportRedeclaration": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for an attempt to declare the type of a symbol multiple times.",
                             "default": "error",
                             "enum": [
                                 "none",
