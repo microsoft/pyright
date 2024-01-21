@@ -1276,7 +1276,7 @@ test('Tuple1', () => {
 test('Tuple2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple2.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Tuple3', () => {

@@ -133,6 +133,7 @@
         "duplicateStarStarPattern": "Only one \"**\" entry allowed",
         "duplicatePositionOnly": "Only one \"/\" parameter allowed",
         "duplicateUnpack": "Only one unpack operation allowed in list",
+        "ellipsisAfterUnpacked": "\"...\" cannot be used with an unpacked TypeVarTuple or tuple",
         "ellipsisContext": "\"...\" is not allowed in this context",
         "ellipsisSecondArg": "\"...\" is allowed only as the second of two arguments",
         "enumClassOverride": "Enum class \"{name}\" is final and cannot be subclassed",

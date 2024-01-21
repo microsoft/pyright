@@ -29,8 +29,8 @@ def func5(v5: tuple[*tuple[*tuple[bool, ...]], ...]):
     pass
 
 
-def func6(v6: tuple[*tuple[bool], ...]):
-    reveal_type(v6, expected_text="tuple[bool, ...]")
+def func6(v6: tuple[*tuple[bool]]):
+    reveal_type(v6, expected_text="tuple[bool]")
 
 
 def func7(v7: tuple[*tuple[bool, *tuple[int, float]]]):

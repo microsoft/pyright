@@ -28,8 +28,8 @@ def func5(v5: tuple[Unpack[tuple[Unpack[tuple[bool, ...]]]], ...]):
     pass
 
 
-def func6(v6: tuple[Unpack[tuple[bool]], ...]):
-    reveal_type(v6, expected_text="tuple[bool, ...]")
+def func6(v6: tuple[Unpack[tuple[bool]]]):
+    reveal_type(v6, expected_text="tuple[bool]")
 
 
 def func7(v7: tuple[Unpack[tuple[bool, Unpack[tuple[int, float]]]]]):
