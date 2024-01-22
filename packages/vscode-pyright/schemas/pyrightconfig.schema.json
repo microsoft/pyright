@@ -567,7 +567,7 @@
       "$id": "#/properties/reportImplicitStringConcatenation",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting usage of implicit concatenation of string literals",
-      "default": "warning"
+      "default": "none"
     },
     "reportUnboundVariable": {
       "$id": "#/properties/reportUnboundVariable",
