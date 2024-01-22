@@ -1,6 +1,7 @@
 ## Static Typing: The Basics
 
-Getting started with static type checking in Python is easy, but it’s important to understand a few simple concepts.
+Getting started with static type checking in Python is easy, but it’s important to understand a few simple concepts. In addition to the documentation below, you may also find the community-maintained [Static Typing Documentation](https://typing.readthedocs.io/en/latest/) to be of use. That site also includes the official [Specification for the Python Type System](https://typing.readthedocs.io/en/latest/spec/index.html).
+
 
 ### Type Declarations
 When you add a type annotation to a variable or a parameter in Python, you are _declaring_ that the symbol will be assigned values that are compatible with that type. You can think of type annotations as a powerful way to comment your code. Unlike text-based comments, these comments are readable by both humans and enforceable by type checkers.
