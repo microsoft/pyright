@@ -31,13 +31,13 @@ test('Unreachable1 reportUnreachable', () => {
     TestUtils.validateResults(analysisResults, 4, 0, 2, 1, 0);
 });
 
-// test('Unreachable2 reportUnreachable (TYPE_CHECKING)', () => {
-//     const configOptions = new ConfigOptions(Uri.empty());
-//     configOptions.diagnosticRuleSet.reportUnreachable = 'error';
-//     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unreachable2.py'], configOptions);
+test('Unreachable2 reportUnreachable TYPE_CHECKING', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportUnreachable = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unreachable2.py'], configOptions);
 
-//     TestUtils.validateResults(analysisResults, 0, 0, 0, 0, 0);
-// });
+    TestUtils.validateResults(analysisResults, 0, 0, 0, 0, 2);
+});
 
 test('Builtins1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['builtins1.py']);

@@ -1325,6 +1325,14 @@ export class Binder extends ParseTreeWalker {
         const elseLabel = this._createBranchLabel();
         const postIfLabel = this._createBranchLabel(preIfFlowNode);
 
+        const notTypeCheckingNode: FlowNode = {
+            flags: FlowFlags.NotTypeChecking | FlowFlags.Unreachable,
+            id: getUniqueFlowNodeId(),
+        };
+
+        const isTypeCheckingNode = (node: ExpressionNode): node is NameNode =>
+            node.nodeType === ParseNodeType.Name && node.value === 'TYPE_CHECKING';
+
         postIfLabel.affectedExpressions = this._trackCodeFlowExpressions(() => {
             // Determine if the test condition is always true or always false. If so,
             // we can treat either the then or the else clause as unconditional.
@@ -1339,16 +1347,30 @@ export class Binder extends ParseTreeWalker {
             this._bindConditional(node.testExpression, thenLabel, elseLabel);
 
             // Handle the if clause.
-            this._currentFlowNode =
-                constExprValue === false ? Binder._unreachableFlowNode : this._finishFlowLabel(thenLabel);
+            if (constExprValue === false) {
+                this._currentFlowNode =
+                    node.testExpression.nodeType === ParseNodeType.UnaryOperation &&
+                    node.testExpression.operator === OperatorType.Not &&
+                    isTypeCheckingNode(node.testExpression.expression) &&
+                    constExprValue === false
+                        ? notTypeCheckingNode
+                        : Binder._unreachableFlowNode;
+            } else {
+                this._currentFlowNode = this._finishFlowLabel(thenLabel);
+            }
             this.walk(node.ifSuite);
             this._addAntecedent(postIfLabel, this._currentFlowNode);
 
             // Now handle the else clause if it's present. If there
             // are chained "else if" statements, they'll be handled
             // recursively here.
-            this._currentFlowNode =
-                constExprValue === true ? Binder._unreachableFlowNode : this._finishFlowLabel(elseLabel);
+            if (constExprValue === true) {
+                this._currentFlowNode = isTypeCheckingNode(node.testExpression)
+                    ? notTypeCheckingNode
+                    : Binder._unreachableFlowNode;
+            } else {
+                this._currentFlowNode = this._finishFlowLabel(elseLabel);
+            }
             if (node.elseSuite) {
                 this.walk(node.elseSuite);
             } else {

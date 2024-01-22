@@ -50,6 +50,7 @@ export enum FlowFlags {
     FalseNeverCondition = 1 << 17, // Condition whose type evaluates to never when narrowed in negative test
     NarrowForPattern = 1 << 18, // Narrow the type of the subject expression within a case statement
     ExhaustedMatch = 1 << 19, // Control flow gate that is closed when match is provably exhaustive
+    NotTypeChecking = 1 << 20, // not TYPE_CHECKING block (ie. unreachable, but should not reportUnreachable)
 }
 
 let _nextFlowNodeId = 1;

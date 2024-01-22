@@ -262,6 +262,7 @@ export function formatControlFlowGraph(flowNode: FlowNode) {
         if (flags & FlowFlags.FalseNeverCondition) return 'FalseNever';
         if (flags & FlowFlags.NarrowForPattern) return 'Pattern';
         if (flags & FlowFlags.ExhaustedMatch) return 'Exhaust';
+        if (flags & FlowFlags.NotTypeChecking) return 'NotTypeChecking';
         throw new Error();
     }
 

@@ -2997,6 +2997,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return codeFlowEngine.isFlowNodeReachable(flowNode, sourceFlowNode);
     }
 
+    function isNotTypeCheckingBlock(node: ParseNode): boolean {
+        //TODO: abstract this logic, its used in isNodeReachable as well
+        const flowNode = AnalyzerNodeInfo.getFlowNode(node);
+        if (!flowNode) {
+            if (node.parent) {
+                return isNotTypeCheckingBlock(node.parent);
+            }
+            return false;
+        }
+        return !!(flowNode.flags & FlowFlags.NotTypeChecking);
+    }
+
     function isAfterNodeReachable(node: ParseNode): boolean {
         const returnFlowNode = AnalyzerNodeInfo.getAfterFlowNode(node);
         if (!returnFlowNode) {
@@ -3090,7 +3102,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!isDiagnosticSuppressedForNode(node)) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             const message = LocMessage.unreachableCode();
-            if (fileInfo.diagnosticRuleSet.reportUnreachable === 'none') {
+            if (fileInfo.diagnosticRuleSet.reportUnreachable === 'none' || isNotTypeCheckingBlock(node)) {
                 fileInfo.diagnosticSink.addUnreachableCodeWithTextRange(message, textRange);
             } else {
                 addDiagnostic(DiagnosticRule.reportUnreachable, message, node, textRange);
