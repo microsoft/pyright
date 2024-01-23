@@ -551,6 +551,12 @@
       "title": "Controls reporting overridden methods that are missing an `@override` decorator",
       "default": "none"
     },
+    "reportUnreachable": {
+      "$id": "#/properties/reportUnreachable",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of unreachable code",
+      "default": "none"
+    },
     "extraPaths": {
       "$id": "#/properties/extraPaths",
       "type": "array",

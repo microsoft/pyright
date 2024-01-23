@@ -1214,6 +1214,22 @@
                                 true,
                                 false
                             ]
+                        },
+                        "reportUnreachable": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for unreachable code.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
                         }
                     }
                 },
