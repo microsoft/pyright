@@ -14,6 +14,21 @@ pyright currently has no way to pin the version used by vscode, which means if t
 
 python developers should not be expected to have to install nodejs in order to typecheck their python code. it should just be a regular pypi package, just mypy, ruff, and pretty much every other python command line tool
 
+### issues with unreachable code
+
+pyright often incorrectly marks code as unreachable. in most cases, unreachable code is a mistake and therefore should be an error, but pyright does not have an option to report unreachable code. in fact, unreachable code is not even type-checked at all:
+
+```py
+if sys.platform == "win32": 
+  1 + "" # no error
+```
+
+by default, pyright will treat the body in the code above as unreachable if pyright itself was run on an operating system other than windows. this is bad of course, because chances are if you write such a check, you intend for your code to be executed on multiple platforms.
+
+to make things worse, unreachable code is not even type-checked, so the obviously invalid `1 + ""` above will go completely unnoticed by the type checker.
+
+basedpyright solves this issue with a `reportUnreachable` option, which will report an error on any code that it thinks cannot be reached. from there, you can either [update your pyright config to specify more platforms using the `pythonPlatform` option](https://github.com/detachhead/basedpyright/blob/main/docs/configuration.md#main-configuration-options) if you intend for the code to be reachable.
+
 ### basedmypy feature parity
 
 [basedmypy](https://github.com/kotlinisland/basedmypy) is a fork of mypy with a similar goal in mind: to fix some of the serious problems in mypy that do not seem to be a priority for the maintainers. it also adds many new features which may not be standardized but greatly improve the developer experience when working with python's far-from-perfect type system.
