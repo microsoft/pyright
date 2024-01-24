@@ -491,6 +491,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportMatchNotExhaustive,
         DiagnosticRule.reportShadowedImports,
         DiagnosticRule.reportImplicitOverride,
+        DiagnosticRule.reportUnreachable,
     ];
 }
 
