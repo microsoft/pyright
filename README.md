@@ -79,9 +79,9 @@ the basedpyright vscode extension will automatically look for the pypi package i
 
 # recommended setup
 
-it's recommended to use both the basedpyright cli and the vscode extension in your project. the vscode extension for local development and the cli tool for your CI.
+it's recommended to use both the basedpyright cli and vscode extension in your project. the vscode extension is for local development and the cli is for your CI.
 
-below are the changes i recommend making to your project when adding basedpyright
+below are the changes i recommend making to your project when adopting basedpyright
 
 ## `.vscode/extensions.json`
 
@@ -106,6 +106,16 @@ below are the changes i recommend making to your project when adding basedpyrigh
       "python.languageServer": "None"
   }
   ```
+
+## `.github/workflows/check.yaml`
+
+```yaml
+jobs:
+  check:
+    steps:
+      - run: ...  # checkout repo, install dependencies, etc
+      - run: basedpyright  # add this line
+```
 
 ## `pyproject.toml`
 
