@@ -943,8 +943,15 @@ export class AnalyzerService {
         return this._attemptParseFile(pyprojectPath, (fileContents, attemptCount) => {
             try {
                 const configObj = TOML.parse(fileContents);
-                if (configObj && configObj.tool && (configObj.tool as TOML.JsonMap).basedpyright) {
-                    return (configObj.tool as TOML.JsonMap).basedpyright as object;
+                if (configObj && configObj.tool) {
+                    const toml = configObj.tool as TOML.JsonMap;
+                    if (toml.basedpyright && toml.pyright) {
+                        this._console.error(
+                            'Pyproject file cannot have both `pyright` and `basedpyright` sections. pick one'
+                        );
+                        return undefined;
+                    }
+                    return (toml.basedpyright || toml.pyright) as object;
                 }
             } catch (e: any) {
                 this._console.error(`Pyproject file parse attempt ${attemptCount} error: ${JSON.stringify(e)}`);

@@ -300,17 +300,33 @@ test('AutoSearchPathsOnAndExtraPaths', () => {
     assert.deepStrictEqual(configOptions.defaultExtraPaths, expectedExtraPaths);
 });
 
-test('BasicPyprojectTomlParsing', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_with_pyproject_toml'));
+const setupPyprojectToml = (projectPath: string) => {
+    const cwd = normalizePath(combinePaths(process.cwd(), projectPath));
     const service = createAnalyzer();
     const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ true);
 
     service.setOptions(commandLineOptions);
 
-    const configOptions = service.test_getConfigOptions(commandLineOptions);
+    return service.test_getConfigOptions(commandLineOptions);
+};
+
+test('BasicPyprojectTomlParsing', () => {
+    const configOptions = setupPyprojectToml('src/tests/samples/project_with_pyproject_toml');
     assert.strictEqual(configOptions.defaultPythonVersion!, PythonVersion.V3_9);
     assert.strictEqual(configOptions.diagnosticRuleSet.reportMissingImports, 'error');
     assert.strictEqual(configOptions.diagnosticRuleSet.reportUnusedClass, 'warning');
+});
+
+test('basedPyprojectTomlParsing', () => {
+    const configOptions = setupPyprojectToml('src/tests/samples/based_project_with_pyproject_toml');
+    assert.strictEqual(configOptions.defaultPythonVersion!, PythonVersion.V3_9);
+    assert.strictEqual(configOptions.diagnosticRuleSet.reportMissingImports, 'error');
+    assert.strictEqual(configOptions.diagnosticRuleSet.reportUnusedClass, 'warning');
+});
+
+test('both pyright and basedpyright in pyproject.toml', () => {
+    const configOptions = setupPyprojectToml('src/tests/samples/project_with_both_config_sections_in_pyproject_toml');
+    assert.strictEqual(configOptions.defaultPythonVersion!, undefined);
 });
 
 test('FindFilesInMemoryOnly', () => {
