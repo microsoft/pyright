@@ -774,7 +774,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportMatchNotExhaustive: 'error',
         reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
-        reportUnreachable: 'error',
+        reportUnreachable: 'none',
     };
 
     return diagSettings;
