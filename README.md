@@ -8,7 +8,7 @@ pyright has several serious issues which prevent it from being a valid competito
 
 ### pyright has no way to pin the version used by vscode
 
-pyright currently has no way to pin the version used by vscode, which means if the extension gets updated, you may see errors in your project that don't appear in the CI, or vice-versa. see [this issue](https://github.com/microsoft/pylance-release/issues/5207)
+this means if the extension gets updated, you may see errors in your project that don't appear in the CI, or vice-versa. see [this issue](https://github.com/microsoft/pylance-release/issues/5207)
 
 ### no way to run the pyright CLI without nodejs
 
