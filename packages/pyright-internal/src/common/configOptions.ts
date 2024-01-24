@@ -132,6 +132,9 @@ export interface DiagnosticRuleSet {
     // Report missing imported module source files?
     reportMissingModuleSource: DiagnosticLevel;
 
+    // Report invalid type annotation forms?
+    reportInvalidTypeForm: DiagnosticLevel;
+
     // Report missing type stub files?
     reportMissingTypeStubs: DiagnosticLevel;
 
@@ -156,6 +159,39 @@ export interface DiagnosticRuleSet {
     // Report use of wildcard import for non-local imports?
     reportWildcardImportFromLibrary: DiagnosticLevel;
 
+    // Report use of abstract method or variable?
+    reportAbstractUsage: DiagnosticLevel;
+
+    // Report argument type incompatibilities?
+    reportArgumentType: DiagnosticLevel;
+
+    // Report failure of assert_type call?
+    reportAssertTypeFailure: DiagnosticLevel;
+
+    // Report type incompatibility for assignments?
+    reportAssignmentType: DiagnosticLevel;
+
+    // Report issues related to attribute access expressions?
+    reportAttributeAccessIssue: DiagnosticLevel;
+
+    // Report issues related to call expressions?
+    reportCallIssue: DiagnosticLevel;
+
+    // Report inconsistencies with function overload signatures?
+    reportInconsistentOverload: DiagnosticLevel;
+
+    // Report issues with index operations and expressions?
+    reportIndexIssue: DiagnosticLevel;
+
+    // Report invalid type argument usage?
+    reportInvalidTypeArguments: DiagnosticLevel;
+
+    // Report missing overloaded function implementation?
+    reportNoOverloadImplementation: DiagnosticLevel;
+
+    // Report issues related to the use of unary or binary operators?
+    reportOperatorIssue: DiagnosticLevel;
+
     // Report attempts to subscript (index) an Optional type?
     reportOptionalSubscript: DiagnosticLevel;
 
@@ -173,6 +209,12 @@ export interface DiagnosticRuleSet {
 
     // Report attempts to use an Optional type in a binary or unary operation?
     reportOptionalOperand: DiagnosticLevel;
+
+    // Report attempts to redeclare the type of a symbol?
+    reportRedeclaration: DiagnosticLevel;
+
+    // Report return type mismatches?
+    reportReturnType: DiagnosticLevel;
 
     // Report accesses to non-required TypedDict fields?
     reportTypedDictNotRequiredAccess: DiagnosticLevel;
@@ -220,6 +262,9 @@ export interface DiagnosticRuleSet {
     // Report function overloads that overlap in signature but have
     // incompatible return types.
     reportOverlappingOverload: DiagnosticLevel;
+
+    // Report usage of possibly unbound variables.
+    reportPossiblyUnboundVariable: DiagnosticLevel;
 
     // Report failure to call super().__init__() in __init__ method.
     reportMissingSuperCall: DiagnosticLevel;
@@ -285,7 +330,7 @@ export interface DiagnosticRuleSet {
     // Report usage of undefined variables.
     reportUndefinedVariable: DiagnosticLevel;
 
-    // Report usage of unbound or possibly unbound variables.
+    // Report usage of unbound variables.
     reportUnboundVariable: DiagnosticLevel;
 
     // Report statements that are syntactically correct but
@@ -306,6 +351,9 @@ export interface DiagnosticRuleSet {
     // Report cases where a call expression's return result is Coroutine
     // and is not used in any way.
     reportUnusedCoroutine: DiagnosticLevel;
+
+    // Report except clause that is unreachable.
+    reportUnusedExcept: DiagnosticLevel;
 
     // Report cases where a simple expression result is not used in any way.
     reportUnusedExpression: DiagnosticLevel;
@@ -368,6 +416,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportFunctionMemberAccess,
         DiagnosticRule.reportMissingImports,
         DiagnosticRule.reportMissingModuleSource,
+        DiagnosticRule.reportInvalidTypeForm,
         DiagnosticRule.reportMissingTypeStubs,
         DiagnosticRule.reportImportCycles,
         DiagnosticRule.reportUnusedImport,
@@ -376,12 +425,25 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnusedVariable,
         DiagnosticRule.reportDuplicateImport,
         DiagnosticRule.reportWildcardImportFromLibrary,
+        DiagnosticRule.reportAbstractUsage,
+        DiagnosticRule.reportArgumentType,
+        DiagnosticRule.reportAssertTypeFailure,
+        DiagnosticRule.reportAssignmentType,
+        DiagnosticRule.reportAttributeAccessIssue,
+        DiagnosticRule.reportCallIssue,
+        DiagnosticRule.reportInconsistentOverload,
+        DiagnosticRule.reportIndexIssue,
+        DiagnosticRule.reportInvalidTypeArguments,
+        DiagnosticRule.reportNoOverloadImplementation,
+        DiagnosticRule.reportOperatorIssue,
         DiagnosticRule.reportOptionalSubscript,
         DiagnosticRule.reportOptionalMemberAccess,
         DiagnosticRule.reportOptionalCall,
         DiagnosticRule.reportOptionalIterable,
         DiagnosticRule.reportOptionalContextManager,
         DiagnosticRule.reportOptionalOperand,
+        DiagnosticRule.reportRedeclaration,
+        DiagnosticRule.reportReturnType,
         DiagnosticRule.reportTypedDictNotRequiredAccess,
         DiagnosticRule.reportUntypedFunctionDecorator,
         DiagnosticRule.reportUntypedClassDecorator,
@@ -396,6 +458,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportIncompatibleVariableOverride,
         DiagnosticRule.reportInconsistentConstructor,
         DiagnosticRule.reportOverlappingOverload,
+        DiagnosticRule.reportPossiblyUnboundVariable,
         DiagnosticRule.reportMissingSuperCall,
         DiagnosticRule.reportUninitializedInstanceVariable,
         DiagnosticRule.reportInvalidStringEscapeSequence,
@@ -422,6 +485,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnsupportedDunderAll,
         DiagnosticRule.reportUnusedCallResult,
         DiagnosticRule.reportUnusedCoroutine,
+        DiagnosticRule.reportUnusedExcept,
         DiagnosticRule.reportUnusedExpression,
         DiagnosticRule.reportUnnecessaryTypeIgnoreComment,
         DiagnosticRule.reportMatchNotExhaustive,
@@ -457,6 +521,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportFunctionMemberAccess: 'none',
         reportMissingImports: 'warning',
         reportMissingModuleSource: 'warning',
+        reportInvalidTypeForm: 'warning',
         reportMissingTypeStubs: 'none',
         reportImportCycles: 'none',
         reportUnusedImport: 'none',
@@ -465,12 +530,25 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedVariable: 'none',
         reportDuplicateImport: 'none',
         reportWildcardImportFromLibrary: 'none',
+        reportAbstractUsage: 'none',
+        reportArgumentType: 'none',
+        reportAssertTypeFailure: 'none',
+        reportAssignmentType: 'none',
+        reportAttributeAccessIssue: 'none',
+        reportCallIssue: 'none',
+        reportInconsistentOverload: 'none',
+        reportIndexIssue: 'none',
+        reportInvalidTypeArguments: 'none',
+        reportNoOverloadImplementation: 'none',
+        reportOperatorIssue: 'none',
         reportOptionalSubscript: 'none',
         reportOptionalMemberAccess: 'none',
         reportOptionalCall: 'none',
         reportOptionalIterable: 'none',
         reportOptionalContextManager: 'none',
         reportOptionalOperand: 'none',
+        reportRedeclaration: 'none',
+        reportReturnType: 'none',
         reportTypedDictNotRequiredAccess: 'none',
         reportUntypedFunctionDecorator: 'none',
         reportUntypedClassDecorator: 'none',
@@ -485,6 +563,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleVariableOverride: 'none',
         reportInconsistentConstructor: 'none',
         reportOverlappingOverload: 'none',
+        reportPossiblyUnboundVariable: 'none',
         reportMissingSuperCall: 'none',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'none',
@@ -511,6 +590,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'none',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'none',
+        reportUnusedExcept: 'none',
         reportUnusedExpression: 'none',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
@@ -543,6 +623,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportFunctionMemberAccess: 'none',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning',
+        reportInvalidTypeForm: 'error',
         reportMissingTypeStubs: 'none',
         reportImportCycles: 'none',
         reportUnusedImport: 'none',
@@ -551,12 +632,25 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedVariable: 'none',
         reportDuplicateImport: 'none',
         reportWildcardImportFromLibrary: 'warning',
+        reportAbstractUsage: 'error',
+        reportArgumentType: 'error',
+        reportAssertTypeFailure: 'error',
+        reportAssignmentType: 'error',
+        reportAttributeAccessIssue: 'error',
+        reportCallIssue: 'error',
+        reportInconsistentOverload: 'error',
+        reportIndexIssue: 'error',
+        reportInvalidTypeArguments: 'error',
+        reportNoOverloadImplementation: 'error',
+        reportOperatorIssue: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
         reportOptionalIterable: 'error',
         reportOptionalContextManager: 'error',
         reportOptionalOperand: 'error',
+        reportRedeclaration: 'error',
+        reportReturnType: 'error',
         reportTypedDictNotRequiredAccess: 'error',
         reportUntypedFunctionDecorator: 'none',
         reportUntypedClassDecorator: 'none',
@@ -571,6 +665,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleVariableOverride: 'none',
         reportInconsistentConstructor: 'none',
         reportOverlappingOverload: 'none',
+        reportPossiblyUnboundVariable: 'none',
         reportMissingSuperCall: 'none',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'warning',
@@ -597,6 +692,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'warning',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
+        reportUnusedExcept: 'error',
         reportUnusedExpression: 'warning',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
@@ -629,6 +725,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportFunctionMemberAccess: 'error',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning',
+        reportInvalidTypeForm: 'error',
         reportMissingTypeStubs: 'none',
         reportImportCycles: 'none',
         reportUnusedImport: 'none',
@@ -637,12 +734,25 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedVariable: 'none',
         reportDuplicateImport: 'none',
         reportWildcardImportFromLibrary: 'warning',
+        reportAbstractUsage: 'error',
+        reportArgumentType: 'error',
+        reportAssertTypeFailure: 'error',
+        reportAssignmentType: 'error',
+        reportAttributeAccessIssue: 'error',
+        reportCallIssue: 'error',
+        reportInconsistentOverload: 'error',
+        reportIndexIssue: 'error',
+        reportInvalidTypeArguments: 'error',
+        reportNoOverloadImplementation: 'error',
+        reportOperatorIssue: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
         reportOptionalIterable: 'error',
         reportOptionalContextManager: 'error',
         reportOptionalOperand: 'error',
+        reportRedeclaration: 'error',
+        reportReturnType: 'error',
         reportTypedDictNotRequiredAccess: 'error',
         reportUntypedFunctionDecorator: 'none',
         reportUntypedClassDecorator: 'none',
@@ -657,6 +767,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleVariableOverride: 'error',
         reportInconsistentConstructor: 'none',
         reportOverlappingOverload: 'error',
+        reportPossiblyUnboundVariable: 'error',
         reportMissingSuperCall: 'none',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'warning',
@@ -683,6 +794,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'warning',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
+        reportUnusedExcept: 'error',
         reportUnusedExpression: 'warning',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
@@ -715,6 +827,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportFunctionMemberAccess: 'error',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning', // Not overridden by strict mode
+        reportInvalidTypeForm: 'error',
         reportMissingTypeStubs: 'error',
         reportImportCycles: 'none',
         reportUnusedImport: 'error',
@@ -723,12 +836,25 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedVariable: 'error',
         reportDuplicateImport: 'error',
         reportWildcardImportFromLibrary: 'error',
+        reportAbstractUsage: 'error',
+        reportArgumentType: 'error',
+        reportAssertTypeFailure: 'error',
+        reportAssignmentType: 'error',
+        reportAttributeAccessIssue: 'error',
+        reportCallIssue: 'error',
+        reportInconsistentOverload: 'error',
+        reportIndexIssue: 'error',
+        reportInvalidTypeArguments: 'error',
+        reportNoOverloadImplementation: 'error',
+        reportOperatorIssue: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
         reportOptionalIterable: 'error',
         reportOptionalContextManager: 'error',
         reportOptionalOperand: 'error',
+        reportRedeclaration: 'error',
+        reportReturnType: 'error',
         reportTypedDictNotRequiredAccess: 'error',
         reportUntypedFunctionDecorator: 'error',
         reportUntypedClassDecorator: 'error',
@@ -743,6 +869,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleVariableOverride: 'error',
         reportInconsistentConstructor: 'error',
         reportOverlappingOverload: 'error',
+        reportPossiblyUnboundVariable: 'error',
         reportMissingSuperCall: 'none',
         reportUninitializedInstanceVariable: 'none',
         reportInvalidStringEscapeSequence: 'error',
@@ -769,6 +896,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnsupportedDunderAll: 'error',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
+        reportUnusedExcept: 'error',
         reportUnusedExpression: 'error',
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'error',
@@ -960,7 +1088,7 @@ export class ConfigOptions {
     findExecEnvironment(file: Uri): ExecutionEnvironment {
         return (
             this.executionEnvironments.find((env) => {
-                const envRoot = Uri.isUri(env.root) ? env.root : this.projectRoot.combinePaths(env.root || '');
+                const envRoot = Uri.isUri(env.root) ? env.root : this.projectRoot.resolvePaths(env.root || '');
                 return file.startsWith(envRoot);
             }) ?? this.getDefaultExecEnvironment()
         );
@@ -1117,7 +1245,7 @@ export class ConfigOptions {
             if (typeof configObj.venvPath !== 'string') {
                 console.error(`Config "venvPath" field must contain a string.`);
             } else {
-                this.venvPath = this.projectRoot.combinePaths(configObj.venvPath);
+                this.venvPath = this.projectRoot.resolvePaths(configObj.venvPath);
             }
         }
 
@@ -1142,7 +1270,7 @@ export class ConfigOptions {
                     if (typeof path !== 'string') {
                         console.error(`Config "extraPaths" field ${pathIndex} must be a string.`);
                     } else {
-                        this.defaultExtraPaths!.push(this.projectRoot.combinePaths(path));
+                        this.defaultExtraPaths!.push(this.projectRoot.resolvePaths(path));
                     }
                 });
             }
@@ -1182,7 +1310,7 @@ export class ConfigOptions {
                 console.error(`Config "typeshedPath" field must contain a string.`);
             } else {
                 this.typeshedPath = configObj.typeshedPath
-                    ? this.projectRoot.combinePaths(configObj.typeshedPath)
+                    ? this.projectRoot.resolvePaths(configObj.typeshedPath)
                     : undefined;
             }
         }
@@ -1196,7 +1324,7 @@ export class ConfigOptions {
                 console.error(`Config "typingsPath" field must contain a string.`);
             } else {
                 console.error(`Config "typingsPath" is now deprecated. Please, use stubPath instead.`);
-                this.stubPath = this.projectRoot.combinePaths(configObj.typingsPath);
+                this.stubPath = this.projectRoot.resolvePaths(configObj.typingsPath);
             }
         }
 
@@ -1204,7 +1332,7 @@ export class ConfigOptions {
             if (typeof configObj.stubPath !== 'string') {
                 console.error(`Config "stubPath" field must contain a string.`);
             } else {
-                this.stubPath = this.projectRoot.combinePaths(configObj.stubPath);
+                this.stubPath = this.projectRoot.resolvePaths(configObj.stubPath);
             }
         }
 
@@ -1350,15 +1478,15 @@ export class ConfigOptions {
 
         if (autoSearchPaths) {
             // Auto-detect the common scenario where the sources are under the src folder
-            const srcPath = this.projectRoot.combinePaths(pathConsts.src);
-            if (fs.existsSync(srcPath) && !fs.existsSync(srcPath.combinePaths('__init__.py'))) {
+            const srcPath = this.projectRoot.resolvePaths(pathConsts.src);
+            if (fs.existsSync(srcPath) && !fs.existsSync(srcPath.resolvePaths('__init__.py'))) {
                 paths.push(fs.realCasePath(srcPath));
             }
         }
 
         if (extraPaths && extraPaths.length > 0) {
             for (const p of extraPaths) {
-                const path = this.projectRoot.combinePaths(p);
+                const path = this.projectRoot.resolvePaths(p);
                 paths.push(fs.realCasePath(path));
                 if (isDirectory(fs, path)) {
                     appendArray(paths, getPathsFromPthFiles(fs, path));
@@ -1430,7 +1558,7 @@ export class ConfigOptions {
 
             // Validate the root.
             if (envObj.root && typeof envObj.root === 'string') {
-                newExecEnv.root = this.projectRoot.combinePaths(envObj.root);
+                newExecEnv.root = this.projectRoot.resolvePaths(envObj.root);
             } else {
                 console.error(`Config executionEnvironments index ${index}: missing root value.`);
             }
@@ -1450,7 +1578,7 @@ export class ConfigOptions {
                                     ` extraPaths field ${pathIndex} must be a string.`
                             );
                         } else {
-                            newExecEnv.extraPaths.push(this.projectRoot.combinePaths(path));
+                            newExecEnv.extraPaths.push(this.projectRoot.resolvePaths(path));
                         }
                     });
                 }

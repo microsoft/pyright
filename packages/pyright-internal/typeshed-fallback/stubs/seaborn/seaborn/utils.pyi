@@ -14,7 +14,8 @@ from matplotlib.ticker import Locator
 from matplotlib.typing import ColorType
 from numpy.typing import ArrayLike, NDArray
 from pandas import DataFrame
-from seaborn.axisgrid import Grid
+
+from .axisgrid import Grid
 
 __all__ = [
     "desaturate",
@@ -34,7 +35,8 @@ _ErrorBar: TypeAlias = str | tuple[str, float] | Callable[[Iterable[float]], tup
 _Estimator: TypeAlias = str | Callable[..., Incomplete]  # noqa: Y047
 _Legend: TypeAlias = Literal["auto", "brief", "full"] | bool  # noqa: Y047
 _LogScale: TypeAlias = bool | float | tuple[bool | float, bool | float]  # noqa: Y047
-_Palette: TypeAlias = str | Sequence[ColorType] | dict[Incomplete, ColorType]  # noqa: Y047
+# `palette` requires dict but we use mapping to avoid a very long union because dict is invariant in its value type
+_Palette: TypeAlias = str | Sequence[ColorType] | Mapping[Any, ColorType]  # noqa: Y047
 _Seed: TypeAlias = int | np.random.Generator | np.random.RandomState  # noqa: Y047
 _Scalar: TypeAlias = (
     # numeric
@@ -60,7 +62,7 @@ _DataSourceWideForm: TypeAlias = (  # noqa: Y047
     # Sequence of "convertible to pd.Series" vectors
     | Sequence[_Vector]
     # A "convertible to pd.DataFrame" table
-    | Mapping[Any, Mapping[_Scalar, _Scalar]]
+    | Mapping[Any, Mapping[Any, _Scalar]]
     | NDArray[Any]
     # Flat "convertible to pd.Series" vector of scalars
     | Sequence[_Scalar]

@@ -17,6 +17,6 @@ def func1(self, x: int | None) -> str:
     v4 = x + x  # pyright: ignore []
 
     # One of these is unnecessary
-    v5 = x + "hi"  # test # pyright: ignore [reportGeneralTypeIssues, foo]
+    v5 = x + "hi"  # test # pyright: ignore [reportOperatorIssue, foo]
 
-    return 3  # pyright: ignore [reportGeneralTypeIssues]
+    return 3  # pyright: ignore [reportReturnType]

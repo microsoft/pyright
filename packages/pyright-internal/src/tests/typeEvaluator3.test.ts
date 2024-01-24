@@ -766,7 +766,7 @@ test('RecursiveTypeAlias14', () => {
 test('Classes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes1.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Classes3', () => {
@@ -899,7 +899,7 @@ test('MethodOverride6', () => {
 test('Enum1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum1.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('Enum2', () => {
@@ -935,7 +935,7 @@ test('Enum6', () => {
 test('Enum7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum7.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Enum8', () => {
@@ -948,6 +948,18 @@ test('Enum9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum9.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Enum10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum10.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Enum11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum11.py']);
+
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('EnumAuto1', () => {
@@ -1055,7 +1067,7 @@ test('VariadicTypeVar4', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar4.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('VariadicTypeVar5', () => {
@@ -1103,7 +1115,7 @@ test('VariadicTypeVar10', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar10.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('VariadicTypeVar11', () => {
@@ -1111,7 +1123,7 @@ test('VariadicTypeVar11', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar11.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('VariadicTypeVar12', () => {

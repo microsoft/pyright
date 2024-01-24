@@ -3,11 +3,11 @@ from typing import Any, Literal, Protocol, TypeVar
 from typing_extensions import TypeAlias, deprecated
 
 from matplotlib.axes import Axes
-from matplotlib.colors import Colormap, Normalize
+from matplotlib.colors import Colormap
 from matplotlib.typing import ColorType
 from numpy.typing import ArrayLike
 
-from ._core.typing import ColumnName, DataSource
+from ._core.typing import ColumnName, DataSource, NormSpec
 from .axisgrid import FacetGrid
 from .external.kde import _BwMethodType
 from .utils import _DataSourceWideForm, _LogScale, _Palette, _Vector
@@ -51,7 +51,7 @@ def histplot(
     cbar_kws: dict[str, Any] | None = None,
     palette: _Palette | Colormap | None = None,
     hue_order: Iterable[ColumnName] | None = None,
-    hue_norm: tuple[float, float] | Normalize | None = None,
+    hue_norm: NormSpec = None,
     color: ColorType | None = None,
     log_scale: _LogScale | None = None,
     legend: bool = True,
@@ -67,7 +67,7 @@ def kdeplot(
     weights: ColumnName | _Vector | None = None,
     palette: _Palette | Colormap | None = None,
     hue_order: Iterable[ColumnName] | None = None,
-    hue_norm: tuple[float, float] | Normalize | None = None,
+    hue_norm: NormSpec = None,
     color: ColorType | None = None,
     fill: bool | None = None,
     multiple: Literal["layer", "stack", "fill"] = "layer",
@@ -101,7 +101,7 @@ def ecdfplot(
     complementary: bool = False,
     palette: _Palette | Colormap | None = None,
     hue_order: Iterable[ColumnName] | None = None,
-    hue_norm: tuple[float, float] | Normalize | None = None,
+    hue_norm: NormSpec = None,
     log_scale: _LogScale | None = None,
     legend: bool = True,
     ax: Axes | None = None,
@@ -117,7 +117,7 @@ def rugplot(
     expand_margins: bool = True,
     palette: _Palette | Colormap | None = None,
     hue_order: Iterable[ColumnName] | None = None,
-    hue_norm: tuple[float, float] | Normalize | None = None,
+    hue_norm: NormSpec = None,
     legend: bool = True,
     ax: Axes | None = None,
     **kwargs: Any,
@@ -138,7 +138,7 @@ def displot(
     legend: bool = True,
     palette: _Palette | Colormap | None = None,
     hue_order: Iterable[ColumnName] | None = None,
-    hue_norm: tuple[float, float] | Normalize | None = None,
+    hue_norm: NormSpec = None,
     color: ColorType | None = None,
     col_wrap: int | None = None,
     row_order: Iterable[ColumnName] | None = None,

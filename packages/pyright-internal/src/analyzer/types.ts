@@ -59,10 +59,6 @@ export const enum TypeFlags {
 
     // This type refers to something that has been instantiated.
     Instance = 1 << 1,
-
-    // This type refers to a type that is wrapped an "Annotated"
-    // (PEP 593) annotation.
-    Annotated = 1 << 2,
 }
 
 export type UnionableType =
@@ -113,7 +109,6 @@ export interface TypeSameOptions {
     ignorePseudoGeneric?: boolean;
     ignoreTypeFlags?: boolean;
     ignoreConditions?: boolean;
-    typeFlagsToHonor?: TypeFlags;
     ignoreTypedDictNarrowEntries?: boolean;
     treatAnySameAsUnknown?: boolean;
 }
@@ -194,10 +189,6 @@ export namespace TypeBase {
         return (type.flags & TypeFlags.Instance) !== 0;
     }
 
-    export function isAnnotated(type: TypeBase) {
-        return (type.flags & TypeFlags.Annotated) !== 0;
-    }
-
     export function isAmbiguous(type: TypeBase) {
         return !!type.isAmbiguous;
     }
@@ -208,10 +199,16 @@ export namespace TypeBase {
         return clone;
     }
 
-    export function cloneAsSpecialForm<T extends TypeBase>(type: T, specialForm: ClassType): T {
+    export function cloneAsSpecialForm<T extends TypeBase>(type: T, specialForm: ClassType | undefined): T {
         const clone = { ...type };
         delete clone.cached;
-        clone.specialForm = specialForm;
+
+        if (specialForm) {
+            clone.specialForm = specialForm;
+        } else {
+            delete clone.specialForm;
+        }
+
         return clone;
     }
 
@@ -291,12 +288,6 @@ export namespace TypeBase {
             isPep695Syntax,
         };
 
-        return typeClone;
-    }
-
-    export function cloneForAnnotated(type: Type) {
-        const typeClone = cloneType(type);
-        typeClone.flags |= TypeFlags.Annotated;
         return typeClone;
     }
 
@@ -2463,7 +2454,6 @@ export interface TypeVarDetails {
     constraints: Type[];
     boundType?: Type | undefined;
     defaultType?: Type | undefined;
-    runtimeClass?: ClassType | undefined;
 
     isParamSpec: boolean;
     isVariadic: boolean;
@@ -2540,8 +2530,8 @@ export namespace TypeVarType {
         return create(name, /* isParamSpec */ false, TypeFlags.Instance);
     }
 
-    export function createInstantiable(name: string, isParamSpec = false, runtimeClass?: ClassType) {
-        return create(name, isParamSpec, TypeFlags.Instantiable, runtimeClass);
+    export function createInstantiable(name: string, isParamSpec = false) {
+        return create(name, isParamSpec, TypeFlags.Instantiable);
     }
 
     export function cloneAsInstance(type: TypeVarType): TypeVarType {
@@ -2672,7 +2662,7 @@ export namespace TypeVarType {
         return `${name}.${scopeId}`;
     }
 
-    function create(name: string, isParamSpec: boolean, typeFlags: TypeFlags, runtimeClass?: ClassType): TypeVarType {
+    function create(name: string, isParamSpec: boolean, typeFlags: TypeFlags): TypeVarType {
         const newTypeVarType: TypeVarType = {
             category: TypeCategory.TypeVar,
             details: {
@@ -2682,7 +2672,6 @@ export namespace TypeVarType {
                 isParamSpec,
                 isVariadic: false,
                 isSynthesized: false,
-                runtimeClass,
             },
             flags: typeFlags,
         };
@@ -2868,20 +2857,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
     }
 
     if (!options.ignoreTypeFlags) {
-        let type1Flags = type1.flags;
-        let type2Flags = type2.flags;
-
-        // Mask out the flags that we don't care about.
-        if (options.typeFlagsToHonor !== undefined) {
-            type1Flags &= options.typeFlagsToHonor;
-            type2Flags &= options.typeFlagsToHonor;
-        } else {
-            // By default, we don't care about the Annotated flag.
-            type1Flags &= ~TypeFlags.Annotated;
-            type2Flags &= ~TypeFlags.Annotated;
-        }
-
-        if (type1Flags !== type2Flags) {
+        if (type1.flags !== type2.flags) {
             return false;
         }
     }

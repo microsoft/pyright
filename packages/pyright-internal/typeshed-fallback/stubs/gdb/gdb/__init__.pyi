@@ -5,7 +5,7 @@
 import _typeshed
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import AbstractContextManager
-from typing import Protocol, overload
+from typing import Protocol, final, overload
 from typing_extensions import TypeAlias
 
 import gdb.types
@@ -40,7 +40,7 @@ def flush(stream: int = ...) -> None: ...
 def target_charset() -> str: ...
 def target_wide_charset() -> str: ...
 def host_charset() -> str: ...
-def solib_name(address: int) -> str | None: ...
+def solib_name(addr: int) -> str | None: ...
 def decode_line(__expression: str = ...) -> tuple[str | None, tuple[Symtab_and_line, ...] | None]: ...
 def prompt_hook(current_prompt: str) -> str: ...
 def architecture_names() -> list[str]: ...
@@ -117,7 +117,7 @@ class Value:
 # Types
 
 def lookup_type(name: str, block: Block = ...) -> Type: ...
-
+@final
 class Type:
     alignof: int
     code: int
@@ -141,6 +141,7 @@ class Type:
     def template_argument(self, n: int, block: Block = ...) -> Type: ...
     def optimized_out(self) -> Value: ...
 
+@final
 class Field:
     bitpos: int
     enumval: int
@@ -225,6 +226,7 @@ class _FrameDecorator(Protocol):
 
 # Unwinding Frames
 
+@final
 class PendingFrame:
     def read_register(self, __reg: str | RegisterDescriptor | int) -> Value: ...
     def create_unwind_info(self, __frame_id: object) -> UnwindInfo: ...
@@ -249,6 +251,7 @@ def selected_inferior() -> Inferior: ...
 
 _BufferType: TypeAlias = _typeshed.ReadableBuffer
 
+@final
 class Inferior:
     num: int
     connection_num: int
@@ -267,7 +270,7 @@ class Inferior:
 # Threads
 
 def selected_thread() -> InferiorThread: ...
-
+@final
 class InferiorThread:
     name: str | None
     num: int
@@ -398,7 +401,7 @@ class Function:
 
 def current_progspace() -> Progspace | None: ...
 def progspaces() -> Sequence[Progspace]: ...
-
+@final
 class Progspace:
     filename: str
     pretty_printers: list[_PrettyPrinterLookupFunction]
@@ -416,7 +419,7 @@ class Progspace:
 def current_objfile() -> Objfile | None: ...
 def objfiles() -> list[Objfile]: ...
 def lookup_objfile(name: str, by_build_id: bool = ...) -> Objfile | None: ...
-
+@final
 class Objfile:
     filename: str | None
     username: str | None
@@ -456,6 +459,7 @@ FRAME_UNWIND_NO_SAVED_PC: int
 FRAME_UNWIND_MEMORY_ERROR: int
 FRAME_UNWIND_FIRST_ERROR: int
 
+@final
 class Frame:
     def is_valid(self) -> bool: ...
     def name(self) -> str | None: ...
@@ -476,7 +480,7 @@ class Frame:
 # Blocks
 
 def block_for_pc(pc: int) -> Block | None: ...
-
+@final
 class Block:
     start: int
     end: int
@@ -490,6 +494,7 @@ class Block:
     def is_valid(self) -> bool: ...
     def __iter__(self) -> BlockIterator: ...
 
+@final
 class BlockIterator:
     def is_valid(self) -> bool: ...
     def __iter__(self: _typeshed.Self) -> _typeshed.Self: ...
@@ -501,7 +506,7 @@ def lookup_symbol(name: str, block: Block | None = ..., domain: int = ...) -> tu
 def lookup_global_symbol(name: str, domain: int = ...) -> Symbol | None: ...
 def lookup_static_symbol(name: str, domain: int = ...) -> Symbol | None: ...
 def lookup_static_symbols(name: str, domain: int = ...) -> list[Symbol]: ...
-
+@final
 class Symbol:
     type: Type | None
     symtab: Symtab
@@ -545,6 +550,7 @@ SYMBOL_LOC_COMMON_BLOCK: int
 
 # Symbol tables
 
+@final
 class Symtab_and_line:
     symtab: Symtab
     pc: int
@@ -553,6 +559,7 @@ class Symtab_and_line:
 
     def is_valid(self) -> bool: ...
 
+@final
 class Symtab:
     filename: str
     objfile: Objfile
@@ -566,10 +573,12 @@ class Symtab:
 
 # Line Tables
 
+@final
 class LineTableEntry:
     line: int
     pc: int
 
+@final
 class LineTable(Iterator[LineTableEntry]):
     def __iter__(self: _typeshed.Self) -> _typeshed.Self: ...
     def __next__(self) -> LineTableEntry: ...
@@ -647,6 +656,7 @@ class LazyString:
 
 # Architectures
 
+@final
 class Architecture:
     def name(self) -> str: ...
     def disassemble(self, start_pc: int, end_pc: int = ..., count: int = ...) -> list[dict[str, object]]: ...

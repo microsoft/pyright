@@ -270,7 +270,7 @@ export class ImportResolver {
 
             for (const relativeStubPath of relativeStubPaths) {
                 for (const importRootUri of importRoots) {
-                    const absoluteStubPath = importRootUri.combinePaths(relativeStubPath);
+                    const absoluteStubPath = importRootUri.resolvePaths(relativeStubPath);
                     let absoluteSourcePath = absoluteStubPath.replaceExtension('.py');
                     if (this.fileExistsCached(absoluteSourcePath)) {
                         sourceFileUris.push(absoluteSourcePath);
@@ -375,7 +375,7 @@ export class ImportResolver {
             // is where the third party folder is in the roots.
             const thirdPartyRoot = this._getThirdPartyTypeshedPath(this._configOptions.typeshedPath, importFailureInfo);
             if (thirdPartyRoot) {
-                roots.push(thirdPartyRoot.combinePaths('...'));
+                roots.push(thirdPartyRoot.resolvePaths('...'));
             }
         } else {
             const thirdPartyPaths = this._getThirdPartyTypeshedPackageRoots(importFailureInfo);
@@ -2751,7 +2751,7 @@ export class ImportResolver {
         }
 
         // Ensure we don't go around forever even if isRoot returns false.
-        const next = current.combinePaths('..');
+        const next = current.resolvePaths('..');
         if (next.equals(current)) {
             return undefined;
         }

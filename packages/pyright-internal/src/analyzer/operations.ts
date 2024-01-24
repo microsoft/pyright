@@ -695,11 +695,7 @@ export function getTypeOfBinaryOperation(
     if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
         // Exempt "|" because it might be a union operation involving unknowns.
         if (node.operator !== OperatorType.BitwiseOr) {
-            evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.binaryOperationNotAllowed(),
-                node
-            );
+            evaluator.addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.binaryOperationNotAllowed(), node);
             return { type: UnknownType.create() };
         }
     }
@@ -773,7 +769,7 @@ export function getTypeOfBinaryOperation(
                 }
 
                 evaluator.addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportOperatorIssue,
                     LocMessage.typeNotSupportBinaryOperator().format({
                         operator: printOperator(node.operator),
                         leftType: evaluator.printType(leftType),
@@ -919,7 +915,7 @@ export function getTypeOfAugmentedAssignment(
         if (!diag.isEmpty() || !type || isNever(type)) {
             if (!isIncomplete) {
                 evaluator.addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportOperatorIssue,
                     LocMessage.typeNotSupportBinaryOperator().format({
                         operator: printOperator(node.operator),
                         leftType: evaluator.printType(leftType),
@@ -952,7 +948,7 @@ export function getTypeOfUnaryOperation(
     inferenceContext: InferenceContext | undefined
 ): TypeResult {
     if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
-        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.unaryOperationNotAllowed(), node);
+        evaluator.addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unaryOperationNotAllowed(), node);
         return { type: UnknownType.create() };
     }
 
@@ -1032,7 +1028,7 @@ export function getTypeOfUnaryOperation(
                 if (!isIncomplete) {
                     if (inferenceContext) {
                         evaluator.addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportOperatorIssue,
                             LocMessage.typeNotSupportUnaryOperatorBidirectional().format({
                                 operator: printOperator(node.operator),
                                 type: evaluator.printType(exprType),
@@ -1042,7 +1038,7 @@ export function getTypeOfUnaryOperation(
                         );
                     } else {
                         evaluator.addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportOperatorIssue,
                             LocMessage.typeNotSupportUnaryOperator().format({
                                 operator: printOperator(node.operator),
                                 type: evaluator.printType(exprType),
@@ -1069,7 +1065,7 @@ export function getTypeOfTernaryOperation(
     const fileInfo = getFileInfo(node);
 
     if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
-        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.ternaryNotAllowed(), node);
+        evaluator.addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.ternaryNotAllowed(), node);
         return { type: UnknownType.create() };
     }
 

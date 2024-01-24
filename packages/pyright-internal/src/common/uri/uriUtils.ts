@@ -213,7 +213,7 @@ export function setTestingMode(underTest: boolean) {
 // escape characters **, * or ?) and returns a regular expression
 // that can be used for matching against.
 export function getWildcardRegexPattern(root: Uri, fileSpec: string): string {
-    const absolutePath = root.combinePaths(fileSpec);
+    const absolutePath = root.resolvePaths(fileSpec);
     const pathComponents = Array.from(absolutePath.getPathComponents());
     const escapedSeparator = getRegexEscapedSeparator('/');
     const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}][^${escapedSeparator}]*)*?`;
@@ -255,7 +255,7 @@ export function getWildcardRegexPattern(root: Uri, fileSpec: string): string {
 
 // Returns the topmost path that contains no wildcard characters.
 export function getWildcardRoot(root: Uri, fileSpec: string): Uri {
-    const absolutePath = root.combinePaths(fileSpec);
+    const absolutePath = root.resolvePaths(fileSpec);
     // make a copy of the path components so we can modify them.
     const pathComponents = Array.from(absolutePath.getPathComponents());
     let wildcardRoot = absolutePath.root;
@@ -273,7 +273,7 @@ export function getWildcardRoot(root: Uri, fileSpec: string): Uri {
                 break;
             }
 
-            wildcardRoot = wildcardRoot.combinePaths(component);
+            wildcardRoot = wildcardRoot.resolvePaths(component);
         }
     }
 

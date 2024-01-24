@@ -208,4 +208,4 @@ def func12(x: TA2) -> None:
     if isinstance(x, dict):
         reveal_type(x, expected_text="dict[str, str | list[TA2] | dict[str, TA2]]")
     else:
-        reveal_type(x, expected_text="str | list[str | ... | dict[str, TA2]]")
+        reveal_type(x, expected_text="str | list[str | list[TA2] | dict[str, TA2]]")

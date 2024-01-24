@@ -16,8 +16,23 @@ class PlistFormat(Enum):
 
 FMT_XML = PlistFormat.FMT_XML
 FMT_BINARY = PlistFormat.FMT_BINARY
+if sys.version_info >= (3, 13):
+    def load(
+        fp: IO[bytes],
+        *,
+        fmt: PlistFormat | None = None,
+        dict_type: type[MutableMapping[str, Any]] = ...,
+        aware_datetime: bool = False,
+    ) -> Any: ...
+    def loads(
+        value: ReadableBuffer | str,
+        *,
+        fmt: PlistFormat | None = None,
+        dict_type: type[MutableMapping[str, Any]] = ...,
+        aware_datetime: bool = False,
+    ) -> Any: ...
 
-if sys.version_info >= (3, 9):
+elif sys.version_info >= (3, 9):
     def load(fp: IO[bytes], *, fmt: PlistFormat | None = None, dict_type: type[MutableMapping[str, Any]] = ...) -> Any: ...
     def loads(
         value: ReadableBuffer, *, fmt: PlistFormat | None = None, dict_type: type[MutableMapping[str, Any]] = ...
@@ -39,21 +54,41 @@ else:
         dict_type: type[MutableMapping[str, Any]] = ...,
     ) -> Any: ...
 
-def dump(
-    value: Mapping[str, Any] | list[Any] | tuple[Any, ...] | str | bool | float | bytes | bytearray | datetime,
-    fp: IO[bytes],
-    *,
-    fmt: PlistFormat = ...,
-    sort_keys: bool = True,
-    skipkeys: bool = False,
-) -> None: ...
-def dumps(
-    value: Mapping[str, Any] | list[Any] | tuple[Any, ...] | str | bool | float | bytes | bytearray | datetime,
-    *,
-    fmt: PlistFormat = ...,
-    skipkeys: bool = False,
-    sort_keys: bool = True,
-) -> bytes: ...
+if sys.version_info >= (3, 13):
+    def dump(
+        value: Mapping[str, Any] | list[Any] | tuple[Any, ...] | str | bool | float | bytes | bytearray | datetime,
+        fp: IO[bytes],
+        *,
+        fmt: PlistFormat = ...,
+        sort_keys: bool = True,
+        skipkeys: bool = False,
+        aware_datetime: bool = False,
+    ) -> None: ...
+    def dumps(
+        value: Mapping[str, Any] | list[Any] | tuple[Any, ...] | str | bool | float | bytes | bytearray | datetime,
+        *,
+        fmt: PlistFormat = ...,
+        skipkeys: bool = False,
+        sort_keys: bool = True,
+        aware_datetime: bool = False,
+    ) -> bytes: ...
+
+else:
+    def dump(
+        value: Mapping[str, Any] | list[Any] | tuple[Any, ...] | str | bool | float | bytes | bytearray | datetime,
+        fp: IO[bytes],
+        *,
+        fmt: PlistFormat = ...,
+        sort_keys: bool = True,
+        skipkeys: bool = False,
+    ) -> None: ...
+    def dumps(
+        value: Mapping[str, Any] | list[Any] | tuple[Any, ...] | str | bool | float | bytes | bytearray | datetime,
+        *,
+        fmt: PlistFormat = ...,
+        skipkeys: bool = False,
+        sort_keys: bool = True,
+    ) -> bytes: ...
 
 if sys.version_info < (3, 9):
     def readPlist(pathOrFile: str | IO[bytes]) -> Any: ...

@@ -1,7 +1,7 @@
 # This sample file tests various aspects of type analysis for tuples.
 
 import os
-from typing import Callable
+from typing import Any, Callable
 from typing_extensions import TypeVarTuple, Unpack
 
 Ts = TypeVarTuple("Ts")
@@ -226,3 +226,20 @@ f1 = func15
 f1 = func16
 
 f1 = func17
+
+
+def func18(a: tuple[int, *tuple[Any, ...], str], b: tuple[Any, ...]):
+    a1: tuple[int, str] = a
+    a2: tuple[int, int, str] = a
+    a3: tuple[int, int, str, str] = a
+    a4: tuple[int, *tuple[int, ...], str] = a
+
+    # This should generate an error.
+    a5: tuple[str, int, str, str] = a
+
+    # This should generate an error.
+    a6: tuple[int, int, str, int] = a
+
+    b1: tuple[()] = b
+    b2: tuple[int, int, str] = b
+    b3: tuple[int, *tuple[int, ...], str] = b

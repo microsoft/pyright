@@ -12,9 +12,9 @@ import { CompletionItemKind, MarkupKind } from 'vscode-languageserver-types';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
-import { Localizer } from '../localization/localize';
 import { Comment, CommentType, Token } from '../parser/tokenizerTypes';
 import { parseAndGetTestState } from './harness/fourslash/testState';
+import { LocMessage } from '../localization/localize';
 
 test('regular mode', () => {
     const code = `
@@ -266,7 +266,7 @@ test('top level await raises errors in regular mode', () => {
     const source = state.program.getBoundSourceFile(range.fileUri)!;
     const diagnostics = source.getDiagnostics(state.configOptions);
 
-    assert(diagnostics?.some((d) => d.message === Localizer.Diagnostic.awaitNotInAsync()));
+    assert(diagnostics?.some((d) => d.message === LocMessage.awaitNotInAsync()));
 });
 
 test('top level await raises no errors in ipython mode', () => {
@@ -284,7 +284,7 @@ test('top level await raises no errors in ipython mode', () => {
     const source = state.program.getBoundSourceFile(range.fileUri)!;
     const diagnostics = source.getDiagnostics(state.configOptions);
 
-    assert(!diagnostics?.some((d) => d.message === Localizer.Diagnostic.awaitNotInAsync()));
+    assert(!diagnostics?.some((d) => d.message === LocMessage.awaitNotInAsync()));
 });
 
 test('await still raises errors when used in wrong context in ipython mode', () => {
@@ -303,7 +303,7 @@ test('await still raises errors when used in wrong context in ipython mode', () 
     const source = state.program.getBoundSourceFile(range.fileUri)!;
     const diagnostics = source.getDiagnostics(state.configOptions);
 
-    assert(diagnostics?.some((d) => d.message === Localizer.Diagnostic.awaitNotInAsync()));
+    assert(diagnostics?.some((d) => d.message === LocMessage.awaitNotInAsync()));
 });
 
 test('top level async for raises errors in regular mode', () => {
@@ -322,7 +322,7 @@ test('top level async for raises errors in regular mode', () => {
     const source = state.program.getBoundSourceFile(range.fileUri)!;
     const diagnostics = source.getDiagnostics(state.configOptions);
 
-    assert(diagnostics?.some((d) => d.message === Localizer.Diagnostic.asyncNotInAsyncFunction()));
+    assert(diagnostics?.some((d) => d.message === LocMessage.asyncNotInAsyncFunction()));
 });
 
 test('top level async for raises no errors in ipython mode', () => {
@@ -342,7 +342,7 @@ test('top level async for raises no errors in ipython mode', () => {
     const source = state.program.getBoundSourceFile(range.fileUri)!;
     const diagnostics = source.getDiagnostics(state.configOptions);
 
-    assert(!diagnostics?.some((d) => d.message === Localizer.Diagnostic.asyncNotInAsyncFunction()));
+    assert(!diagnostics?.some((d) => d.message === LocMessage.asyncNotInAsyncFunction()));
 });
 
 test('top level async for in list comprehension raises errors in regular mode', () => {
@@ -360,7 +360,7 @@ test('top level async for in list comprehension raises errors in regular mode', 
     const source = state.program.getBoundSourceFile(range.fileUri)!;
     const diagnostics = source.getDiagnostics(state.configOptions);
 
-    assert(diagnostics?.some((d) => d.message === Localizer.Diagnostic.asyncNotInAsyncFunction()));
+    assert(diagnostics?.some((d) => d.message === LocMessage.asyncNotInAsyncFunction()));
 });
 
 test('top level async for in list comprehension raises no errors in ipython mode', () => {
@@ -379,7 +379,7 @@ test('top level async for in list comprehension raises no errors in ipython mode
     const source = state.program.getBoundSourceFile(range.fileUri)!;
     const diagnostics = source.getDiagnostics(state.configOptions);
 
-    assert(!diagnostics?.some((d) => d.message === Localizer.Diagnostic.asyncNotInAsyncFunction()));
+    assert(!diagnostics?.some((d) => d.message === LocMessage.asyncNotInAsyncFunction()));
 });
 
 test('top level async with raises errors in regular mode', () => {
@@ -398,7 +398,7 @@ test('top level async with raises errors in regular mode', () => {
     const source = state.program.getBoundSourceFile(range.fileUri)!;
     const diagnostics = source.getDiagnostics(state.configOptions);
 
-    assert(diagnostics?.some((d) => d.message === Localizer.Diagnostic.asyncNotInAsyncFunction()));
+    assert(diagnostics?.some((d) => d.message === LocMessage.asyncNotInAsyncFunction()));
 });
 
 test('top level async with raises no errors in ipython mode', () => {
@@ -418,7 +418,7 @@ test('top level async with raises no errors in ipython mode', () => {
     const source = state.program.getBoundSourceFile(range.fileUri)!;
     const diagnostics = source.getDiagnostics(state.configOptions);
 
-    assert(!diagnostics?.some((d) => d.message === Localizer.Diagnostic.asyncNotInAsyncFunction()));
+    assert(!diagnostics?.some((d) => d.message === LocMessage.asyncNotInAsyncFunction()));
 });
 
 test('try implicitly load ipython display module but fail', async () => {

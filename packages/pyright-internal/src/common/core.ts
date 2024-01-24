@@ -76,7 +76,7 @@ export function compareValues(a: number | undefined, b: number | undefined): Com
 /**
  * Tests whether a value is an array.
  */
-export function isArray(value: any): value is readonly {}[] {
+export function isArray<T extends any[]>(value: any): value is T {
     return Array.isArray ? Array.isArray(value) : value instanceof Array;
 }
 

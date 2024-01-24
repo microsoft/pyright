@@ -79,7 +79,7 @@ export function createTypedDictType(
     // Point2D = TypedDict('Point2D', x=int, y=int, label=str)
     let className: string | undefined;
     if (argList.length === 0) {
-        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.typedDictFirstArg(), errorNode);
+        evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.typedDictFirstArg(), errorNode);
     } else {
         const nameArg = argList[0];
         if (
@@ -88,7 +88,7 @@ export function createTypedDictType(
             nameArg.valueExpression.nodeType !== ParseNodeType.StringList
         ) {
             evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportArgumentType,
                 LocMessage.typedDictFirstArg(),
                 argList[0].valueExpression || errorNode
             );
@@ -119,7 +119,7 @@ export function createTypedDictType(
 
     let usingDictSyntax = false;
     if (argList.length < 2) {
-        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.typedDictSecondArgDict(), errorNode);
+        evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.typedDictSecondArgDict(), errorNode);
     } else {
         const entriesArg = argList[1];
 
@@ -171,11 +171,7 @@ export function createTypedDictType(
                 classFields.set(entry.name.value, newSymbol);
             }
         } else {
-            evaluator.addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.typedDictSecondArgDict(),
-                errorNode
-            );
+            evaluator.addDiagnostic(DiagnosticRule.reportArgumentType, LocMessage.typedDictSecondArgDict(), errorNode);
         }
     }
 
@@ -200,7 +196,7 @@ export function createTypedDictType(
                 }
             } else {
                 evaluator.addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportCallIssue,
                     LocMessage.typedDictExtraArgs(),
                     arg.valueExpression || errorNode
                 );

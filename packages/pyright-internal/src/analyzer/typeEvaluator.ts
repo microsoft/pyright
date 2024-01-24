@@ -130,7 +130,8 @@ import {
     getEnumAutoValueType,
     getTypeOfEnumMember,
     isDeclInEnumClass,
-    isKnownEnumType,
+    isEnumClassWithMembers,
+    isEnumMetaclass,
     transformTypeForPossibleEnumClass,
 } from './enums';
 import { applyFunctionTransform } from './functionTransform';
@@ -533,7 +534,7 @@ const maxRecursiveTypeAliasRecursionCount = 10;
 // This switch enables a special debug mode that attempts to catch
 // bugs due to inconsistent evaluation flags used when reading types
 // from the type cache.
-const verifyTypeCacheEvaluatorFlags = true;
+const verifyTypeCacheEvaluatorFlags = false;
 
 // This debugging option prints each expression and its evaluated type.
 const printExpressionTypes = false;
@@ -1050,6 +1051,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let typeResult: TypeResult | undefined;
         let expectingInstantiable = (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0;
+        let allowSpeculativeCaching = true;
 
         switch (node.nodeType) {
             case ParseNodeType.Name: {
@@ -1191,6 +1193,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node.rightExpression,
                     /* ignoreEmptyContainers */ true
                 );
+
+                // Don't allow speculative caching for assignment expressions because
+                // the target name node won't have a corresponding type cached speculatively.
+                allowSpeculativeCaching = false;
                 break;
             }
 
@@ -1269,7 +1275,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        writeTypeCache(node, typeResult, flags, inferenceContext, /* allowSpeculativeCaching */ true);
+        writeTypeCache(node, typeResult, flags, inferenceContext, allowSpeculativeCaching);
 
         // If there was an expected type, make sure that the result type is compatible.
         if (
@@ -2103,7 +2109,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let effectiveFlags = flags;
 
             if (objectTypeIsInstantiable) {
-                effectiveFlags |= MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride;
+                effectiveFlags |=
+                    MemberAccessFlags.SkipInstanceMembers |
+                    MemberAccessFlags.SkipAttributeAccessOverride |
+                    MemberAccessFlags.DisallowGenericInstanceVariableAccess;
                 effectiveFlags &= ~MemberAccessFlags.SkipClassMembers;
             } else {
                 effectiveFlags |= MemberAccessFlags.DisallowClassVarWrites;
@@ -2336,7 +2345,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             evaluatorInterface,
                             callNode,
                             ClassType.cloneAsInstance(subtype),
-                            /* skipObjectBase */ false
+                            /* additionalFlags */ MemberAccessFlags.Default
                         );
 
                         if (initMethodResult && !initMethodResult.typeErrors) {
@@ -2362,7 +2371,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 evaluatorInterface,
                                 callNode,
                                 subtype,
-                                /* skipObjectBase */ false
+                                /* additionalFlags */ MemberAccessFlags.Default
                             );
 
                             if (newMethodResult && !newMethodResult.typeErrors && isFunction(newMethodResult.type)) {
@@ -3275,7 +3284,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportAssignmentType,
                     LocMessage.typeAssignmentMismatch().format(printSrcDestTypes(type, declaredType)) +
                         diagAddendum.getString(),
                     srcExpression ?? nameNode,
@@ -3653,7 +3662,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!diagAddendum.isEmpty()) {
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportAssignmentType,
                 (target.nodeType === ParseNodeType.List
                     ? LocMessage.listAssignmentMismatch()
                     : LocMessage.tupleAssignmentMismatch()
@@ -4491,7 +4500,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 (flags & EvaluatorFlags.DoNotSpecialize) !== 0
                             ) {
                                 addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportInvalidTypeForm,
                                     LocMessage.typeAnnotationVariable(),
                                     node
                                 );
@@ -4545,39 +4554,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // If the type is a TypeVar and we're not expecting a type, convert
-    // a TypeVar or TypeVarTuple into a runtime type. We don't currently
-    // do this for ParamSpec (although we arguably should) because it's
-    // problematic for handling P.args and P.kwargs.
+    // a TypeVar, TypeVarTuple or ParamSpec into a runtime type.
     function convertTypeVarToRuntimeInstance(node: ExpressionNode, type: Type, flags: EvaluatorFlags) {
-        if (
-            node.nodeType === ParseNodeType.Name &&
-            isTypeVar(type) &&
-            node.value === type.details.name &&
-            !type.isVariadicInUnion &&
-            (flags & EvaluatorFlags.ExpectingInstantiableType) === 0
-        ) {
-            if ((flags & EvaluatorFlags.SkipConvertParamSpecToRuntimeObject) !== 0 && type.details.isParamSpec) {
-                return type;
-            }
-
-            // Handle the special case of a PEP 604 union. These can appear within
-            // an implied type alias where we are not expecting a type.
-            const isPep604Union =
-                node.parent?.nodeType === ParseNodeType.BinaryOperation &&
-                node.parent.operator === OperatorType.BitwiseOr;
-
-            if (!isPep604Union) {
-                // A TypeVar in contexts where we're not expecting a type is
-                // simply a runtime object.
-                if (type.details.runtimeClass) {
-                    type = ClassType.cloneAsInstance(type.details.runtimeClass);
-                } else {
-                    type = UnknownType.create();
-                }
-            }
+        if (!type.specialForm || type.typeAliasInfo) {
+            return type;
         }
 
-        return type;
+        if (!isTypeVar(type) || type.isVariadicInUnion || (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0) {
+            return type;
+        }
+
+        if ((flags & EvaluatorFlags.SkipConvertParamSpecToRuntimeObject) !== 0 && type.details.isParamSpec) {
+            return TypeBase.cloneAsSpecialForm(type, undefined);
+        }
+
+        // Handle the special case of a PEP 604 union. These can appear within
+        // an implied type alias where we are not expecting a type.
+        const isPep604Union =
+            node.parent?.nodeType === ParseNodeType.BinaryOperation && node.parent.operator === OperatorType.BitwiseOr;
+
+        if (isPep604Union) {
+            return TypeBase.cloneAsSpecialForm(type, undefined);
+        }
+
+        return ClassType.cloneAsInstance(type.specialForm);
     }
 
     // Handles the case where a variable or parameter is defined in an outer
@@ -5276,9 +5276,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case TypeCategory.Class: {
-                const typeResult =
-                    getTypeOfEnumMember(evaluatorInterface, node, baseType, memberName, isIncomplete) ??
-                    getTypeOfBoundMember(
+                let typeResult: TypeResult | undefined;
+                if (usage.method === 'get') {
+                    typeResult = getTypeOfEnumMember(evaluatorInterface, node, baseType, memberName, isIncomplete);
+                }
+
+                if (!typeResult) {
+                    typeResult = getTypeOfBoundMember(
                         node.memberName,
                         baseType,
                         memberName,
@@ -5287,6 +5291,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* memberAccessFlags */ undefined,
                         baseTypeResult.bindToSelfType
                     );
+                }
 
                 if (typeResult) {
                     type = addConditionToType(
@@ -5385,7 +5390,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (!type) {
                         if (!isIncomplete) {
                             addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportAttributeAccessIssue,
                                 LocMessage.moduleUnknownMember().format({
                                     memberName,
                                     moduleName: baseType.moduleName,
@@ -5505,7 +5510,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 const rule = isFunctionRule
                     ? DiagnosticRule.reportFunctionMemberAccess
-                    : DiagnosticRule.reportGeneralTypeIssues;
+                    : DiagnosticRule.reportAttributeAccessIssue;
 
                 addDiagnostic(
                     rule,
@@ -5604,7 +5609,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // clear the flag that causes an error to be generated.
                     if (usage.method === 'set' && memberInfo.symbol.isClassVar() && isAccessedThroughObject) {
                         const selfClass = selfType ?? memberName === '__new__' ? undefined : classType;
-                        const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
+                        const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, selfClass, flags);
 
                         if (typeResult) {
                             if (isDescriptorInstance(typeResult.type, /* requireSetter */ true)) {
@@ -5634,7 +5639,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            const typeResult = getTypeOfMemberInternal(memberInfo, selfClass);
+            const typeResult = getTypeOfMemberInternal(errorNode, memberInfo, selfClass, flags);
 
             type = typeResult?.type ?? UnknownType.create();
             if (typeResult?.isIncomplete) {
@@ -6891,7 +6896,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
                             // If the class doesn't derive from Generic, a type argument should not be allowed.
                             addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportInvalidTypeArguments,
                                 LocMessage.typeArgsExpectingNone().format({
                                     name: printType(ClassType.cloneAsInstance(concreteSubtype)),
                                 }),
@@ -6993,7 +6998,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (concreteSubtype.typeArguments) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportInvalidTypeArguments,
                             LocMessage.classAlreadySpecialized().format({
                                 type: printType(convertToInstance(concreteSubtype), { expandTypeAlias: true }),
                             }),
@@ -7046,7 +7051,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (!isIncomplete) {
                     addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportIndexIssue,
                         LocMessage.typeNotSubscriptable().format({ type: printType(concreteSubtype) }),
                         node.baseExpression
                     );
@@ -7214,7 +7219,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!itemMethodType) {
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportIndexIssue,
                 LocMessage.methodNotDefinedOnType().format({
                     name: magicMethodName,
                     type: printType(baseType),
@@ -7655,7 +7660,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const diag = new DiagnosticAddendum();
             diag.addMessage(LocAddendum.useTupleInstead());
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.tupleInAnnotation() + diag.getString(),
                 node
             );
@@ -7902,7 +7907,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const diag = new DiagnosticAddendum();
             diag.addMessage(LocAddendum.useTypeInstead());
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.typeCallNotAllowed() + diag.getString(),
                 node
             );
@@ -8027,7 +8032,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
-            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.typeAnnotationCall(), node);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeAnnotationCall(), node);
 
             typeResult = { type: UnknownType.create() };
         }
@@ -8125,7 +8130,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const srcDestTypes = printSrcDestTypes(arg0TypeResult.type, assertedType, { expandTypeAlias: true });
 
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportAssertTypeFailure,
                 LocMessage.assertTypeTypeMismatch().format({
                     expected: srcDestTypes.destType,
                     received: srcDestTypes.sourceType,
@@ -8271,7 +8276,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (!isAnyOrUnknown(concreteTargetClassType) && !isInstantiableClass(concreteTargetClassType)) {
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportArgumentType,
                     LocMessage.superCallFirstArg().format({ type: printType(targetClassType) }),
                     node.arguments[0].valueExpression
                 );
@@ -8340,7 +8345,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (reportError) {
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportArgumentType,
                     LocMessage.superCallSecondArg().format({ type: printType(targetClassType) }),
                     node.arguments[1].valueExpression
                 );
@@ -8910,7 +8915,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 diagAddendum.addMessage(LocAddendum.argumentTypes().format({ types: argTypes.join(', ') }));
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportCallIssue,
                     LocMessage.noOverload().format({ name: functionName }) + diagAddendum.getString(),
                     errorNode
                 );
@@ -8937,7 +8942,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (emitNoOverloadFoundError) {
                 const functionName = bestMatch.overload.details.name || '<anonymous function>';
                 const diagnostic = addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportCallIssue,
                     LocMessage.noOverload().format({ name: functionName }),
                     errorNode
                 );
@@ -9128,7 +9133,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (callTypeResult.type.specialForm) {
             const exprNode = errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode;
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportCallIssue,
                 LocMessage.objectNotCallable().format({
                     type: printType(callTypeResult.type, { expandTypeAlias: true }),
                 }),
@@ -9296,7 +9301,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case TypeCategory.Module: {
-                addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.moduleNotCallable(), errorNode);
+                addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.moduleNotCallable(), errorNode);
 
                 return { argumentErrors: true };
             }
@@ -9316,7 +9321,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): CallResult {
         if (TypeBase.isInstantiable(expandedCallType)) {
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportCallIssue,
                 LocMessage.callableNotInstantiable().format({
                     type: printType(expandedCallType),
                 }),
@@ -9556,7 +9561,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         inferenceContext: InferenceContext | undefined
     ): CallResult {
         if (expandedCallType.literalValue !== undefined) {
-            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.literalNotCallable(), errorNode);
+            addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.literalNotCallable(), errorNode);
 
             return { returnType: UnknownType.create(), argumentErrors: true };
         }
@@ -9568,7 +9573,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isInstantiableMetaclass(expandedCallType)) {
                 if (expandedCallType.typeArguments && expandedCallType.isTypeArgumentExplicit) {
                     addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportCallIssue,
                         LocMessage.objectNotCallable().format({
                             type: printType(expandedCallType),
                         }),
@@ -9655,7 +9660,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     evaluatorInterface,
                     errorNode,
                     ClassType.cloneAsInstance(expandedCallType),
-                    /* skipObjectBase */ false
+                    /* additionalFlags */ MemberAccessFlags.Default
                 );
 
                 if (initTypeResult && isOverloadedFunction(initTypeResult.type)) {
@@ -9678,20 +9683,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (ClassType.isSpecialFormClass(expandedCallType)) {
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportCallIssue,
                     LocMessage.typeNotIntantiable().format({ type: className }),
                     errorNode
                 );
 
                 return { returnType: UnknownType.create(), argumentErrors: true };
-            }
-
-            if (isClass(unexpandedCallType) && isKnownEnumType(className)) {
-                return {
-                    returnType:
-                        createEnumType(evaluatorInterface, errorNode, expandedCallType, argList) ??
-                        UnknownType.create(),
-                };
             }
 
             if (className === 'TypedDict') {
@@ -9701,6 +9698,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (className === 'auto' && argList.length === 0) {
                 return { returnType: getEnumAutoValueType(evaluatorInterface, errorNode) };
             }
+        }
+
+        // Is it a call to an Enum class factory?
+        if (
+            isClass(expandedCallType) &&
+            expandedCallType.details.effectiveMetaclass &&
+            isClass(expandedCallType.details.effectiveMetaclass) &&
+            isEnumMetaclass(expandedCallType.details.effectiveMetaclass) &&
+            !isEnumClassWithMembers(evaluatorInterface, expandedCallType)
+        ) {
+            return {
+                returnType:
+                    createEnumType(evaluatorInterface, errorNode, expandedCallType, argList) ??
+                    convertToInstance(unexpandedCallType),
+            };
         }
 
         if (ClassType.supportsAbstractMethods(expandedCallType)) {
@@ -9732,7 +9744,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
 
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportAbstractUsage,
                     LocMessage.instantiateAbstract().format({
                         type: expandedCallType.details.name,
                     }) + diagAddendum.getString(),
@@ -9744,7 +9756,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (ClassType.isProtocolClass(expandedCallType) && !expandedCallType.includeSubclasses) {
             // If the class is a protocol, it can't be instantiated.
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportAbstractUsage,
                 LocMessage.instantiateProtocol().format({
                     type: expandedCallType.details.name,
                 }),
@@ -9842,7 +9854,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!callMethodType) {
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportCallIssue,
                 LocMessage.objectNotCallable().format({
                     type: printType(expandedCallType),
                 }),
@@ -10107,7 +10119,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (argIndex < positionalOnlyLimitIndex && argList[argIndex].name) {
                 const nameNode = argList[argIndex].name;
                 if (nameNode) {
-                    addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.argPositional(), nameNode);
+                    addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.argPositional(), nameNode);
                     reportedArgError = true;
                 }
             }
@@ -10147,7 +10159,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (tooManyPositionals) {
                         if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                             addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportCallIssue,
                                 positionParamLimitIndex === 1
                                     ? LocMessage.argPositionalExpectedOne()
                                     : LocMessage.argPositionalExpectedCount().format({
@@ -10192,7 +10204,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ) {
                         if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                             addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportCallIssue,
                                 positionParamLimitIndex === 1
                                     ? LocMessage.argPositionalExpectedOne()
                                     : LocMessage.argPositionalExpectedCount().format({
@@ -10271,7 +10283,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isParamVariadic && !isArgCompatibleWithVariadic) {
                     if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportCallIssue,
                             LocMessage.unpackedArgWithVariadicParam(),
                             argList[argIndex].valueExpression || errorNode
                         );
@@ -10345,7 +10357,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                 // Have we run out of arguments and still have parameters left to fill?
                                 addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportCallIssue,
                                     remainingArgCount === 1
                                         ? LocMessage.argMorePositionalExpectedOne()
                                         : LocMessage.argMorePositionalExpectedCount().format({
@@ -10446,7 +10458,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (argsRemainingCount > 0) {
                 if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                     addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportCallIssue,
                         argsRemainingCount === 1
                             ? LocMessage.argMorePositionalExpectedOne()
                             : LocMessage.argMorePositionalExpectedCount().format({
@@ -10541,7 +10553,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (!diag.isEmpty()) {
                             if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                 addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportCallIssue,
                                     LocMessage.unpackedTypedDictArgument() + diag.getString(),
                                     argList[argIndex].valueExpression || errorNode
                                 );
@@ -10620,7 +10632,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (!isValidMappingType) {
                                 if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                     addDiagnostic(
-                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportCallIssue,
                                         LocMessage.unpackedDictArgumentNotMapping(),
                                         argList[argIndex].valueExpression || errorNode
                                     );
@@ -10645,7 +10657,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (paramEntry.argsReceived > 0) {
                                 if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                     addDiagnostic(
-                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportCallIssue,
                                         LocMessage.paramAlreadyAssigned().format({ name: paramNameValue }),
                                         paramName
                                     );
@@ -10697,7 +10709,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         } else {
                             if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                 addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportCallIssue,
                                     LocMessage.paramNameMissing().format({ name: paramName.value }),
                                     paramName
                                 );
@@ -10710,7 +10722,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         } else {
                             if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                 addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportCallIssue,
                                     positionParamLimitIndex === 1
                                         ? LocMessage.argPositionalExpectedOne()
                                         : LocMessage.argPositionalExpectedCount().format({
@@ -10800,7 +10812,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
                         if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                             addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportCallIssue,
                                 unassignedParams.length === 1
                                     ? LocMessage.argMissingForParam().format({ name: missingParamNames })
                                     : LocMessage.argMissingForParams().format({ names: missingParamNames }),
@@ -10887,7 +10899,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             ) {
                                 if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
                                     addDiagnostic(
-                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportCallIssue,
                                         LocMessage.typeVarTupleMustBeUnpacked(),
                                         argParam.argument.valueExpression ?? errorNode
                                     );
@@ -11167,7 +11179,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (abstractSymbolInfo && !abstractSymbolInfo.hasImplementation) {
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportAbstractUsage,
                     LocMessage.abstractMethodInvocation().format({
                         method: type.details.name,
                     }),
@@ -11370,7 +11382,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!sawParamSpecArgs || !sawParamSpecKwargs) {
                 if (!isTypeIncomplete) {
                     addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportCallIssue,
                         LocMessage.paramSpecArgsMissing().format({ type: printType(type.details.paramSpec) }),
                         errorNode
                     );
@@ -11765,7 +11777,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (argumentErrors) {
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportCallIssue,
                     LocMessage.paramSpecArgsMissing().format({
                         type: printType(functionType.details.paramSpec),
                     }),
@@ -12011,7 +12023,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // printing types if the diagnostic is disabled.
             const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
             if (
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues !== 'none' &&
+                fileInfo.diagnosticRuleSet.reportArgumentType !== 'none' &&
                 !isDiagnosticSuppressedForNode(argParam.errorNode) &&
                 !isTypeIncomplete
             ) {
@@ -12057,7 +12069,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportArgumentType,
                     message + diag.getString(),
                     argParam.errorNode,
                     diag.getEffectiveTextRange() ?? argParam.errorNode
@@ -12146,7 +12158,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addError(LocMessage.typeVarFirstArg(), firstArg.valueExpression || errorNode);
         }
 
-        const typeVar = TypeVarType.createInstantiable(typeVarName, /* isParamSpec */ false, classType);
+        const typeVar = TypeBase.cloneAsSpecialForm(
+            TypeVarType.createInstantiable(typeVarName, /* isParamSpec */ false),
+            ClassType.cloneAsInstance(classType)
+        );
 
         // Parse the remaining parameters.
         const paramNameMap = new Map<string, string>();
@@ -12314,7 +12329,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addError(LocMessage.typeVarFirstArg(), firstArg.valueExpression || errorNode);
         }
 
-        const typeVar = TypeVarType.createInstantiable(typeVarName, /* isParamSpec */ false, classType);
+        const typeVar = TypeBase.cloneAsSpecialForm(
+            TypeVarType.createInstantiable(typeVarName, /* isParamSpec */ false),
+            ClassType.cloneAsInstance(classType)
+        );
         typeVar.details.isVariadic = true;
 
         // Parse the remaining parameters.
@@ -12385,7 +12403,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addError(LocMessage.paramSpecFirstArg(), firstArg.valueExpression || errorNode);
         }
 
-        const paramSpec = TypeVarType.createInstantiable(paramSpecName, /* isParamSpec */ true, classType);
+        const paramSpec = TypeBase.cloneAsSpecialForm(
+            TypeVarType.createInstantiable(paramSpecName, /* isParamSpec */ true),
+            ClassType.cloneAsInstance(classType)
+        );
 
         // Parse the remaining parameters.
         for (let i = 1; i < argList.length; i++) {
@@ -12642,7 +12663,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let className = '';
 
         if (argList.length !== 2) {
-            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.newTypeParamCount(), errorNode);
+            addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.newTypeParamCount(), errorNode);
             return undefined;
         }
 
@@ -12656,11 +12677,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!className) {
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.newTypeBadName(),
-                argList[0].node ?? errorNode
-            );
+            addDiagnostic(DiagnosticRule.reportArgumentType, LocMessage.newTypeBadName(), argList[0].node ?? errorNode);
             return undefined;
         }
 
@@ -12951,11 +12968,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         ) {
             const diag = new DiagnosticAddendum();
             diag.addMessage(LocAddendum.useDictInstead());
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.dictInAnnotation() + diag.getString(),
-                node
-            );
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.dictInAnnotation() + diag.getString(), node);
         }
 
         // If the expected type is a union, analyze for each of the subtypes
@@ -13460,11 +13473,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         ) {
             const diag = new DiagnosticAddendum();
             diag.addMessage(LocAddendum.useListInstead());
-            addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
-                LocMessage.listInAnnotation() + diag.getString(),
-                node
-            );
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.listInAnnotation() + diag.getString(), node);
         }
 
         // If the expected type is a union, recursively call for each of the subtypes
@@ -14060,6 +14069,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             },
             {
                 dependentType: expectedType,
+                allowDiagnostics:
+                    !forceSpeculative && !isDiagnosticSuppressedForNode(node) && !inferenceContext?.isTypeIncomplete,
             }
         );
 
@@ -14079,13 +14090,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let typeErrors = false;
 
         // If any of the "for" clauses are marked async or any of the "if" clauses
-        // or the final expression contain an "await" operator anywhere within
-        // the expression, it is treated as an async generator.
-        let isAsync = node.forIfNodes.some((comp) => {
+        // or any clause other than the leftmost "for" contain an "await" operator,
+        // it is treated as an async generator.
+        let isAsync = node.forIfNodes.some((comp, index) => {
             if (comp.nodeType === ParseNodeType.ListComprehensionFor && comp.isAsync) {
                 return true;
             }
-            return ParseTreeUtils.containsAwaitNode(comp);
+            return index > 0 && ParseTreeUtils.containsAwaitNode(comp);
         });
         let type: Type = UnknownType.create();
 
@@ -14459,7 +14470,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
                 functionType.details.declaredReturnType = convertToInstance(typeArg1Type);
             } else {
-                addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.callableSecondArg(), errorNode);
+                addDiagnostic(DiagnosticRule.reportMissingTypeArgument, LocMessage.callableSecondArg(), errorNode);
 
                 functionType.details.declaredReturnType = UnknownType.create();
             }
@@ -14679,8 +14690,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // We'll abuse our internal types a bit by specializing it with
     // a type argument anyway.
     function createTypeGuardType(
-        errorNode: ParseNode,
         classType: ClassType,
+        errorNode: ParseNode,
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvaluatorFlags
     ): Type {
@@ -14714,7 +14725,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Self doesn't support any type arguments.
         if (typeArgs) {
             addDiagnostic(
-                DiagnosticRule.reportGeneralTypeIssues,
+                DiagnosticRule.reportInvalidTypeArguments,
                 LocMessage.typeArgsExpectingNone().format({
                     name: classType.details.name,
                 }),
@@ -14943,8 +14954,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function createConcatenateType(
-        errorNode: ParseNode,
         classType: ClassType,
+        errorNode: ParseNode,
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvaluatorFlags
     ): Type {
@@ -14976,7 +14987,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return createSpecialType(classType, typeArgs, /* paramLimit */ undefined, /* allowParamSpec */ true);
     }
 
-    function createAnnotatedType(errorNode: ParseNode, typeArgs: TypeResultWithNode[] | undefined): TypeResult {
+    function createAnnotatedType(
+        classType: ClassType,
+        errorNode: ParseNode,
+        typeArgs: TypeResultWithNode[] | undefined
+    ): TypeResult {
         if (typeArgs && typeArgs.length < 2) {
             addError(LocMessage.annotatedTypeArgMissing(), errorNode);
         }
@@ -14990,7 +15005,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return {
-            type: TypeBase.cloneForAnnotated(typeArgs[0].type),
+            type: TypeBase.cloneAsSpecialForm(typeArgs[0].type, classType),
             isReadOnly: typeArgs[0].isReadOnly,
             isRequired: typeArgs[0].isRequired,
             isNotRequired: typeArgs[0].isNotRequired,
@@ -15042,12 +15057,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 !typeArgs[0].type.isVariadicInUnion
                             ) {
                                 addError(LocMessage.typeVarTupleContext(), typeArgs[0].node);
+                            } else if (sawUnpacked) {
+                                addError(LocMessage.ellipsisAfterUnpacked(), typeArg.node);
                             }
                         }
                     } else if (isParamSpec(typeArg.type) && allowParamSpec) {
                         // Nothing to do - this is allowed.
                     } else if (isVariadicTypeVar(typeArg.type) && paramLimit === undefined) {
-                        noteSawUnpacked(typeArg);
+                        if (!typeArg.type.isVariadicInUnion) {
+                            noteSawUnpacked(typeArg);
+                        }
                         validateVariadicTypeVarIsUnpacked(typeArg.type, typeArg.node);
                     } else if (paramLimit === undefined && isUnpacked(typeArg.type)) {
                         noteSawUnpacked(typeArg);
@@ -15094,8 +15113,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (index === 1 && isEllipsisType(typeArgTypes[index])) {
                         if (tupleTypeArgTypes.length === 1 && !tupleTypeArgTypes[0].isUnbounded) {
                             tupleTypeArgTypes[0] = { type: tupleTypeArgTypes[0].type, isUnbounded: true };
-                        } else {
-                            addError(LocMessage.ellipsisSecondArg(), typeArg.node);
                         }
                     } else if (isUnpackedClass(typeArg.type) && typeArg.type.tupleTypeArguments) {
                         appendArray(tupleTypeArgTypes, typeArg.type.tupleTypeArguments);
@@ -15189,7 +15206,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // is allowed if it's an unpacked variadic type var or tuple. None is also allowed
         // since it is used to define NoReturn in typeshed stubs).
         if (types.length === 1 && !allowSingleTypeArg && !isNoneInstance(types[0])) {
-            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.unionTypeArgCount(), errorNode);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeArguments, LocMessage.unionTypeArgCount(), errorNode);
         }
 
         let unionType = combineTypes(types);
@@ -15588,7 +15605,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (!isLegalTypeAliasExpressionForm(node.rightExpression)) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportInvalidTypeForm,
                             LocMessage.typeAliasIllegalExpressionForm(),
                             node.rightExpression
                         );
@@ -15999,9 +16016,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         getTypeOfExpression(arg.valueExpression);
                         argType = UnknownType.create();
                     } else {
-                        argType = makeTopLevelTypeVarsConcrete(
-                            getTypeOfExpression(arg.valueExpression, exprFlags).type
-                        );
+                        argType = getTypeOfExpression(arg.valueExpression, exprFlags).type;
+
+                        if (isTypeVar(argType) && argType.specialForm && TypeBase.isInstance(argType.specialForm)) {
+                            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.baseClassInvalid(), arg);
+                            argType = UnknownType.create();
+                        }
+
+                        argType = makeTopLevelTypeVarsConcrete(argType);
                     }
 
                     // In some stub files, classes are conditionally defined (e.g. based
@@ -16420,9 +16442,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     classType.details.declaredMetaclass = metaclassType;
                     if (isInstantiableClass(metaclassType)) {
-                        if (ClassType.isBuiltIn(metaclassType, 'EnumMeta')) {
+                        if (isEnumMetaclass(metaclassType)) {
                             classType.details.flags |= ClassTypeFlags.EnumClass;
-                        } else if (ClassType.isBuiltIn(metaclassType, 'ABCMeta')) {
+                        }
+
+                        if (ClassType.isBuiltIn(metaclassType, 'ABCMeta')) {
                             classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
                         }
                     }
@@ -16820,10 +16844,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else {
                         effectiveMetaclass = baseClassMeta ? UnknownType.create() : undefined;
                         break;
-                    }
-
-                    if (ClassType.isEnumClass(baseClass)) {
-                        classType.details.flags |= ClassTypeFlags.EnumClass;
                     }
                 } else {
                     // If one of the base classes is unknown, then the effective
@@ -17416,7 +17436,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (!assignType(annotatedType, defaultValueType, diagAddendum, typeVarContext)) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportArgumentType,
                             LocMessage.paramAssignmentMismatch().format({
                                 sourceType: printType(defaultValueType),
                                 paramType: printType(annotatedType),
@@ -18009,6 +18029,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                         let returnType = returnTypeResult.type;
 
+                                        // If the type is a special form, use the special form instead.
+                                        if (returnType.specialForm) {
+                                            returnType = returnType.specialForm;
+                                        }
+
                                         // If the return type includes an instance of a class with isEmptyContainer
                                         // set, clear that because we don't want this flag to "leak" into the
                                         // inferred return type.
@@ -18470,7 +18495,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (reportError) {
                     addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportAttributeAccessIssue,
                         LocMessage.importSymbolUnknown().format({ name: node.name.value }),
                         node.name
                     );
@@ -18596,7 +18621,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (!assignType(declaredType, importedSymbolType, diagAddendum)) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportAssignmentType,
                             LocMessage.typeAssignmentMismatchWildcard().format({
                                 ...printSrcDestTypes(importedSymbolType, declaredType),
                                 name,
@@ -18834,11 +18859,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // See if the expression is part of a pattern used in a case statement.
-        const possibleCaseNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.Case);
+        const possibleCaseNode = ParseTreeUtils.getParentNodeOfType<CaseNode>(node, ParseNodeType.Case);
         if (possibleCaseNode) {
-            const caseNode = possibleCaseNode as CaseNode;
-            if (ParseTreeUtils.isNodeContainedWithin(node, caseNode.pattern)) {
-                evaluateTypesForCaseStatement(caseNode);
+            if (ParseTreeUtils.isNodeContainedWithin(node, possibleCaseNode.pattern)) {
+                evaluateTypesForCaseStatement(possibleCaseNode);
                 return;
             }
         }
@@ -19449,15 +19473,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'Annotated': {
-                    return createAnnotatedType(errorNode, typeArgs);
+                    return createAnnotatedType(classType, errorNode, typeArgs);
                 }
 
                 case 'Concatenate': {
-                    return { type: createConcatenateType(errorNode, classType, typeArgs, flags) };
+                    return { type: createConcatenateType(classType, errorNode, typeArgs, flags) };
                 }
 
                 case 'TypeGuard': {
-                    return { type: createTypeGuardType(errorNode, classType, typeArgs, flags) };
+                    return { type: createTypeGuardType(classType, errorNode, typeArgs, flags) };
                 }
 
                 case 'Unpack': {
@@ -19500,7 +19524,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Treat type[function] as illegal.
                     if (isFunction(typeArgs[0].type) || isOverloadedFunction(typeArgs[0].type)) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportInvalidTypeForm,
                             LocMessage.typeAnnotationWithCallable(),
                             typeArgs[0].node
                         );
@@ -19566,7 +19590,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (typeArgs[0].inlinedTypeDict) {
                 if (typeArgs.length > 1) {
                     addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportInvalidTypeArguments,
                         LocMessage.typeArgsTooMany().format({
                             name: classType.aliasName || classType.details.name,
                             expected: 1,
@@ -19581,7 +19605,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (!ClassType.isPartiallyEvaluated(classType) && !ClassType.isTupleClass(classType)) {
                     if (typeParameters.length === 0) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportInvalidTypeArguments,
                             LocMessage.typeArgsExpectingNone().format({
                                 name: classType.aliasName || classType.details.name,
                             }),
@@ -19589,7 +19613,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                     } else if (typeParameters.length !== 1 || !isParamSpec(typeParameters[0])) {
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportInvalidTypeArguments,
                             LocMessage.typeArgsTooMany().format({
                                 name: classType.aliasName || classType.details.name,
                                 expected: typeParameters.length,
@@ -19603,7 +19627,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             } else if (typeArgCount < minTypeArgCount) {
                 addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportInvalidTypeArguments,
                     LocMessage.typeArgsTooFew().format({
                         name: classType.aliasName || classType.details.name,
                         expected: minTypeArgCount,
@@ -19786,7 +19810,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (!isClassInstance(typeArgType) || !ClassType.isPartiallyEvaluated(typeArgType)) {
                         assert(typeArgs !== undefined);
                         addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
+                            DiagnosticRule.reportInvalidTypeArguments,
                             LocMessage.typeVarAssignmentMismatch().format({
                                 type: printType(typeArgType),
                                 name: TypeVarType.getReadableName(typeParameters[index]),
@@ -20561,9 +20585,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let typeVar = TypeVarType.createInstantiable(
             node.name.value,
-            node.typeParamCategory === TypeParameterCategory.ParamSpec,
-            runtimeClass
+            node.typeParamCategory === TypeParameterCategory.ParamSpec
         );
+        if (runtimeClass) {
+            typeVar = TypeBase.cloneAsSpecialForm(typeVar, ClassType.cloneAsInstance(runtimeClass));
+        }
         typeVar.details.isTypeParamSyntax = true;
 
         if (node.typeParamCategory === TypeParameterCategory.TypeVarTuple) {
@@ -21715,8 +21741,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeOfMemberInternal(
+        errorNode: ExpressionNode | undefined,
         member: ClassMember,
-        selfClass: ClassType | TypeVarType | undefined
+        selfClass: ClassType | TypeVarType | undefined,
+        flags: MemberAccessFlags
     ): TypeResult | undefined {
         if (isInstantiableClass(member.classType)) {
             const typeResult = getEffectiveTypeOfSymbolForUsage(member.symbol);
@@ -21726,6 +21754,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // and cache the return type if necessary. This needs to be done
                 // prior to specializing.
                 inferReturnTypeIfNecessary(typeResult.type);
+
+                if (
+                    member.isInstanceMember &&
+                    (flags & MemberAccessFlags.DisallowGenericInstanceVariableAccess) !== 0
+                ) {
+                    let isGenericNonCallable = false;
+
+                    doForEachSubtype(typeResult.type, (subtype) => {
+                        if (!isAnyOrUnknown(subtype) && !isFunction(subtype) && !isOverloadedFunction(subtype)) {
+                            if (
+                                requiresSpecialization(typeResult.type, {
+                                    ignoreSelf: true,
+                                    ignoreImplicitTypeArgs: true,
+                                })
+                            ) {
+                                isGenericNonCallable = true;
+                            }
+                        }
+                    });
+
+                    if (isGenericNonCallable && errorNode) {
+                        addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.genericInstanceVariableAccess(),
+                            errorNode
+                        );
+                    }
+                }
 
                 return {
                     type: partiallySpecializeType(typeResult.type, member.classType, selfClass),
@@ -22087,10 +22143,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const destUnboundedOrVariadicIndex = destTypeArgs.findIndex((t) => t.isUnbounded || isVariadicTypeVar(t.type));
         const srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
         const srcVariadicIndex = srcTypeArgs.findIndex((t) => isVariadicTypeVar(t.type));
+        let isSrcVariadicAny = false;
 
         // If the src contains an unbounded type but the dest does not, it's incompatible.
         if (srcUnboundedIndex >= 0 && destUnboundedOrVariadicIndex < 0) {
-            return false;
+            // Unless the source contains an [Any, ...].
+            if (isAnyOrUnknown(srcTypeArgs[srcUnboundedIndex].type)) {
+                isSrcVariadicAny = true;
+            } else {
+                return false;
+            }
         }
 
         if (srcUnboundedIndex >= 0) {
@@ -22100,6 +22162,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             while (srcTypeArgs.length < destTypeArgs.length) {
                 srcTypeArgs.splice(srcUnboundedIndex, 0, { type: typeToReplicate, isUnbounded: true });
+            }
+
+            if (isSrcVariadicAny && srcTypeArgs.length > destTypeArgs.length) {
+                srcTypeArgs.splice(srcUnboundedIndex, 1);
             }
         }
 
