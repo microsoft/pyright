@@ -2,7 +2,7 @@
     "name": "vscode-pyright",
     "displayName": "BasedPyright",
     "description": "VS Code static type checking for Python (but based)",
-    "version": "0.2.6",
+    "version": "0.2.7",
     "private": true,
     "license": "MIT",
     "author": {

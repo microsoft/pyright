@@ -3,7 +3,7 @@
     "private": true,
     "displayName": "Pyright",
     "description": "Type checker for the Python language",
-    "version": "0.2.6",
+    "version": "0.2.7",
     "license": "MIT",
     "author": {
         "name": "Microsoft Corporation"
