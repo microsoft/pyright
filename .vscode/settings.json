@@ -28,6 +28,7 @@
     "git.suggestSmartCommit": false,
     "git.supportCancellation": true,
     "git.useEditorAsCommitInput": false,
+    "git.pullBeforeCheckout": true,
     "diffEditor.ignoreTrimWhitespace": false,
     "terminal.integrated.persistentSessionReviveProcess": "never",
     "files.autoSave": "onFocusChange",
@@ -60,5 +61,6 @@
         "pw": true
     },
     "python.terminal.activateEnvInCurrentTerminal": true,
+    "editor.acceptSuggestionOnCommitCharacter": false,
     "jest.autoRun": {},
 }
