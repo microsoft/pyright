@@ -23,6 +23,7 @@ import { ServiceProvider } from './serviceProvider';
 import { ServiceKeys } from './serviceProviderExtensions';
 import { Uri } from './uri/uri';
 import { FileSpec, getFileSpec, isDirectory } from './uri/uriUtils';
+import { userFacingOptionsList } from './stringUtils';
 
 export enum PythonPlatform {
     Darwin = 'Darwin',
@@ -807,6 +808,104 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
     return diagSettings;
 }
 
+export const getAllDiagnosticRuleSet = (): DiagnosticRuleSet => ({
+    printUnknownAsAny: false,
+    omitTypeArgsIfUnknown: false,
+    omitUnannotatedParamType: false,
+    omitConditionalConstraint: false,
+    pep604Printing: true,
+    strictListInference: true,
+    strictSetInference: true,
+    strictDictionaryInference: true,
+    analyzeUnannotatedFunctions: true,
+    strictParameterNoneValue: true,
+    enableExperimentalFeatures: true,
+    enableTypeIgnoreComments: true,
+    deprecateTypingAliases: true,
+    disableBytesTypePromotions: true,
+    reportGeneralTypeIssues: 'error',
+    reportPropertyTypeMismatch: 'error',
+    reportFunctionMemberAccess: 'error',
+    reportMissingImports: 'error',
+    reportMissingModuleSource: 'error',
+    reportInvalidTypeForm: 'error',
+    reportMissingTypeStubs: 'error',
+    reportImportCycles: 'error',
+    reportUnusedImport: 'error',
+    reportUnusedClass: 'error',
+    reportUnusedFunction: 'error',
+    reportUnusedVariable: 'error',
+    reportDuplicateImport: 'error',
+    reportWildcardImportFromLibrary: 'error',
+    reportAbstractUsage: 'error',
+    reportArgumentType: 'error',
+    reportAssertTypeFailure: 'error',
+    reportAssignmentType: 'error',
+    reportAttributeAccessIssue: 'error',
+    reportCallIssue: 'error',
+    reportInconsistentOverload: 'error',
+    reportIndexIssue: 'error',
+    reportInvalidTypeArguments: 'error',
+    reportNoOverloadImplementation: 'error',
+    reportOperatorIssue: 'error',
+    reportOptionalSubscript: 'error',
+    reportOptionalMemberAccess: 'error',
+    reportOptionalCall: 'error',
+    reportOptionalIterable: 'error',
+    reportOptionalContextManager: 'error',
+    reportOptionalOperand: 'error',
+    reportRedeclaration: 'error',
+    reportReturnType: 'error',
+    reportTypedDictNotRequiredAccess: 'error',
+    reportUntypedFunctionDecorator: 'error',
+    reportUntypedClassDecorator: 'error',
+    reportUntypedBaseClass: 'error',
+    reportUntypedNamedTuple: 'error',
+    reportPrivateUsage: 'error',
+    reportTypeCommentUsage: 'error',
+    reportPrivateImportUsage: 'error',
+    reportConstantRedefinition: 'error',
+    reportDeprecated: 'error',
+    reportIncompatibleMethodOverride: 'error',
+    reportIncompatibleVariableOverride: 'error',
+    reportInconsistentConstructor: 'error',
+    reportOverlappingOverload: 'error',
+    reportPossiblyUnboundVariable: 'error',
+    reportMissingSuperCall: 'error',
+    reportUninitializedInstanceVariable: 'error',
+    reportInvalidStringEscapeSequence: 'error',
+    reportUnknownParameterType: 'error',
+    reportUnknownArgumentType: 'error',
+    reportUnknownLambdaType: 'error',
+    reportUnknownVariableType: 'error',
+    reportUnknownMemberType: 'error',
+    reportMissingParameterType: 'error',
+    reportMissingTypeArgument: 'error',
+    reportInvalidTypeVarUse: 'error',
+    reportCallInDefaultInitializer: 'error',
+    reportUnnecessaryIsInstance: 'error',
+    reportUnnecessaryCast: 'error',
+    reportUnnecessaryComparison: 'error',
+    reportUnnecessaryContains: 'error',
+    reportAssertAlwaysTrue: 'error',
+    reportSelfClsParameterName: 'error',
+    reportImplicitStringConcatenation: 'error',
+    reportUnboundVariable: 'error',
+    reportUndefinedVariable: 'error',
+    reportInvalidStubStatement: 'error',
+    reportIncompleteStub: 'error',
+    reportUnsupportedDunderAll: 'error',
+    reportUnusedCallResult: 'error',
+    reportUnusedCoroutine: 'error',
+    reportUnusedExcept: 'error',
+    reportUnusedExpression: 'error',
+    reportUnnecessaryTypeIgnoreComment: 'error',
+    reportMatchNotExhaustive: 'error',
+    reportShadowedImports: 'error',
+    reportImplicitOverride: 'error',
+    reportUnreachable: 'error',
+});
+
 export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         printUnknownAsAny: false,
@@ -1057,6 +1156,10 @@ export class ConfigOptions {
     }
 
     static getDiagnosticRuleSet(typeCheckingMode?: string): DiagnosticRuleSet {
+        if (typeCheckingMode === 'all') {
+            return getAllDiagnosticRuleSet();
+        }
+
         if (typeCheckingMode === 'strict') {
             return getStrictDiagnosticRuleSet();
         }
@@ -1193,15 +1296,13 @@ export class ConfigOptions {
         // If there is a "typeCheckingMode", it can override the provided setting.
         let configTypeCheckingMode: string | undefined;
         if (configObj.typeCheckingMode !== undefined) {
-            if (
-                configObj.typeCheckingMode === 'off' ||
-                configObj.typeCheckingMode === 'basic' ||
-                configObj.typeCheckingMode === 'standard' ||
-                configObj.typeCheckingMode === 'strict'
-            ) {
+            const validTypeCheckingModes = ['off', 'basic', 'standard', 'strict', 'all'];
+            if (validTypeCheckingModes.includes(configObj.typeCheckingMode)) {
                 configTypeCheckingMode = configObj.typeCheckingMode;
             } else {
-                console.error(`Config "typeCheckingMode" entry must contain "off", "basic", "standard", or "strict".`);
+                console.error(
+                    `Config "typeCheckingMode" entry must contain ${userFacingOptionsList(validTypeCheckingModes)}.`
+                );
             }
         }
 

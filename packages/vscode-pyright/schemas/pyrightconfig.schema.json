@@ -85,7 +85,8 @@
         "off",
         "basic",
         "standard",
-        "strict"
+        "strict",
+        "all"
       ],
       "title": "Specifies the default rule set to use for type checking",
       "default": "standard"

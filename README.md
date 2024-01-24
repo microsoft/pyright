@@ -118,7 +118,9 @@ dev = [
 ]
 
 [tool.basedpyright]
-typeCheckingMode = "strict"  # many settings are not enabled even in strict mode, which is why basedpyright will soon support an "all" option
+# many settings are not enabled even in strict mode, which is why basedpyright includes an "all" option
+# you can then decide which rules you want to disable
+typeCheckingMode = "all"
 ```
 
 pinning your dependencies is important because it allows your CI builds to be reproducible (ie. two runs on the same commit will always produce the same result). basedpyright ensures that the version of pyright used by vscode always matches this pinned version

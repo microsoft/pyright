@@ -61,3 +61,6 @@ test('CoreCompareStringsCaseInsensitive4', () => {
 test('CoreCompareStringsCaseSensitive', () => {
     assert.equal(utils.compareStringsCaseSensitive('Hello', 'hello'), core.Comparison.LessThan);
 });
+
+test('userFacingOptionsList', () =>
+    assert.equal(utils.userFacingOptionsList(['foo', 'bar', 'baz']), '"foo", "bar", or "baz"'));
