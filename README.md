@@ -1,10 +1,10 @@
 # basedpyright
 
-basedpyright is a work-in-progress fork of pyright.
+Basedpyright is a static type checker for Python that is built on top of the work done by the [pyright project](https://github.com/Microsoft/pyright).
 
 ## why?
 
-pyright has several serious issues which prevent it from being a valid competitor to mypy, which i aim to fix in basedpyright
+pyright has several serious limitations which were the main motivation behind this fork.
 
 ### pyright has no way to pin the version used by vscode
 
@@ -43,7 +43,7 @@ basedpyright differs from pyright by publishing the command line tool as a pypi 
 
 ```shell
 > basedpyright --help
-Usage: pyright [options] files...
+Usage: basedpyright [options] files...
   Options:
   --createstub <IMPORT>              Create type stub file(s) for import
   --dependencies                     Emit import dependency information
@@ -98,7 +98,7 @@ below are the changes i recommend making to your project when adding basedpyrigh
 
 ## `.vscode/settings.json`
 
-remove any settings starting with `python.analysis`, as they can interfere with the vscode extension and cause it to behave differently to the CLI. these settings can be specified using the `tool.pyright` section in `pyroject.toml` instead (see below)
+remove any settings starting with `python.analysis`, as they can interfere with the vscode extension and cause it to behave differently to the CLI. these settings can be specified using the `tool.basedpyright` (or `tool.pyright`) section in `pyroject.toml` instead (see below)
 
 ## `pyproject.toml`
 
@@ -110,7 +110,7 @@ dev = [
     "basedpyright", # you can pin the version here if you want, or just rely on the lockfile
 ]
 
-[tool.pyright]
+[tool.basedpyright]
 typeCheckingMode = "strict"  # many settings are not enabled even in strict mode, which is why basedpyright will soon support an "all" option
 ```
 

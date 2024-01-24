@@ -128,6 +128,7 @@ import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvid
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { ParseResults } from './parser/parser';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
+import { githubRepo } from './constants';
 
 export interface ServerSettings {
     venvPath?: Uri | undefined;
@@ -1399,7 +1400,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         const rule = diag.getRule();
         if (rule) {
             // Configuration.md is configured to have a link for every rule name.
-            return `https://github.com/microsoft/pyright/blob/main/docs/configuration.md#${rule}`;
+            return `${githubRepo}/blob/main/docs/configuration.md#${rule}`;
         }
         return undefined;
     }

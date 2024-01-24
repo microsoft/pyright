@@ -37,8 +37,7 @@ import { Range, isEmptyRange } from './common/textRange';
 import { Uri } from './common/uri/uri';
 import { getFileSpec, tryStat } from './common/uri/uriUtils';
 import { PyrightFileSystem } from './pyrightFileSystem';
-
-const toolName = 'pyright';
+import { toolName } from './constants';
 
 type SeverityLevel = 'error' | 'warning' | 'information';
 

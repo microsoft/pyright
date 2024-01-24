@@ -6,12 +6,12 @@
     "private": true,
     "license": "MIT",
     "author": {
-        "name": "Microsoft Corporation"
+        "name": "detachhead"
     },
     "publisher": "detachhead",
     "repository": {
         "type": "git",
-        "url": "https://github.com/Microsoft/pyright"
+        "url": "https://github.com/detachhead/basedpyright"
     },
     "engines": {
         "vscode": "^1.78.0"
@@ -188,7 +188,7 @@
                 },
                 "python.analysis.diagnosticSeverityOverrides": {
                     "type": "object",
-                    "description": "Allows a user to override the severity levels for individual diagnostics. Use the rule name as a key and one of \"error\", \"warning\", \"information\", \"none\", `true` (alias for \"error\") or `false` (alias for \"none\") as value. The default value shown for each diagnostic is the default when \"python.analysis.typeCheckingMode\" is set to \"standard\". See [here](https://github.com/microsoft/pyright/blob/main/docs/configuration.md#diagnostic-rule-defaults) for defaults for each type checking mode (\"off\", \"basic\", \"standard\", and \"strict\").",
+                    "description": "Allows a user to override the severity levels for individual diagnostics. Use the rule name as a key and one of \"error\", \"warning\", \"information\", \"none\", `true` (alias for \"error\") or `false` (alias for \"none\") as value. The default value shown for each diagnostic is the default when \"python.analysis.typeCheckingMode\" is set to \"standard\". See [here](https://github.com/detachhead/basedpyright/blob/main/docs/configuration.md#diagnostic-rule-defaults) for defaults for each type checking mode (\"off\", \"basic\", \"standard\", and \"strict\").",
                     "scope": "resource",
                     "properties": {
                         "reportGeneralTypeIssues": {

@@ -1,8 +1,8 @@
 # Pyright Command-Line Options
 
-Usage: pyright [options] [files...] (1)
+Usage: basedpyright [options] [files...] (1)
 
-Pyright can be run as either a VS Code extension or as a node-based command-line tool. The command-line version allows for the following options:
+Pyright can be run as either a VS Code extension or as a command-line tool. The command-line version allows for the following options:
 
 | Flag                               | Description                                           |
 | :--------------------------------- | :---------------------------------------------------  |

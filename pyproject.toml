@@ -243,7 +243,7 @@ score = "no"
 [tool.pylint.FORMAT]
 max-line-length = 200
 
-[tool.pyright]
+[tool.basedpyright]
 ignore = ["pw", "basedpyright/dist", "packages"]
 pythonVersion = "3.8"
 pythonPlatform = "All"

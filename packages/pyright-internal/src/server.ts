@@ -40,6 +40,7 @@ import { LanguageServerBase, ServerSettings } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 import { PyrightFileSystem } from './pyrightFileSystem';
 import { Workspace } from './workspaceFactory';
+import { toolName } from './constants';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
 
@@ -68,7 +69,7 @@ export class PyrightServer extends LanguageServerBase {
 
         super(
             {
-                productName: 'Pyright',
+                productName: toolName,
                 rootDirectory: realPathRoot,
                 version,
                 serviceProvider,

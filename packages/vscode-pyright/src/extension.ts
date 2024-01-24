@@ -43,6 +43,7 @@ import {
     TransportKind,
 } from 'vscode-languageclient/node';
 import { FileBasedCancellationStrategy } from './cancellationUtils';
+import { toolName } from 'pyright-internal/constants';
 
 let cancellationStrategy: FileBasedCancellationStrategy | undefined;
 
@@ -200,7 +201,7 @@ export async function activate(context: ExtensionContext) {
     };
 
     // Create the language client and start the client.
-    const client = new LanguageClient('python', 'Pyright', serverOptions, clientOptions);
+    const client = new LanguageClient('python', toolName, serverOptions, clientOptions);
     languageClient = client;
 
     // Register our custom commands.

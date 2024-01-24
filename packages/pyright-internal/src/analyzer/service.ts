@@ -53,6 +53,7 @@ import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import { IPythonMode } from './sourceFile';
 import { TypeEvaluator } from './typeEvaluatorTypes';
+import { githubRepo } from '../constants';
 
 export const configFileNames = ['pyrightconfig.json'];
 export const pyprojectTomlName = 'pyproject.toml';
@@ -942,8 +943,8 @@ export class AnalyzerService {
         return this._attemptParseFile(pyprojectPath, (fileContents, attemptCount) => {
             try {
                 const configObj = TOML.parse(fileContents);
-                if (configObj && configObj.tool && (configObj.tool as TOML.JsonMap).pyright) {
-                    return (configObj.tool as TOML.JsonMap).pyright as object;
+                if (configObj && configObj.tool && (configObj.tool as TOML.JsonMap).basedpyright) {
+                    return (configObj.tool as TOML.JsonMap).basedpyright as object;
                 }
             } catch (e: any) {
                 this._console.error(`Pyproject file parse attempt ${attemptCount} error: ${JSON.stringify(e)}`);
@@ -951,7 +952,7 @@ export class AnalyzerService {
             }
 
             this._console.info(
-                `Pyproject file "${pyprojectPath.toUserVisibleString()}" has no "[tool.pyright]" section.`
+                `Pyproject file "${pyprojectPath.toUserVisibleString()}" has no "[tool.basedpyright]" section.`
             );
             return undefined;
         });
@@ -1140,7 +1141,7 @@ export class AnalyzerService {
                             'To reduce this time, open a workspace directory with fewer files ' +
                             'or add a pyrightconfig.json configuration file with an "exclude" section to exclude ' +
                             'subdirectories from your workspace. For more details, refer to ' +
-                            'https://github.com/microsoft/pyright/blob/main/docs/configuration.md.'
+                            `${githubRepo}/blob/main/docs/configuration.md.`
                     );
                     loggedLongOperationError = true;
                 }
