@@ -98,7 +98,14 @@ below are the changes i recommend making to your project when adding basedpyrigh
 
 ## `.vscode/settings.json`
 
-remove any settings starting with `python.analysis`, as they can interfere with the vscode extension and cause it to behave differently to the CLI. these settings can be specified using the `tool.basedpyright` (or `tool.pyright`) section in `pyroject.toml` instead (see below)
+- remove any settings starting with `python.analysis`, as they can interfere with the vscode extension and cause it to behave differently to the CLI. these settings can be specified using the `tool.basedpyright` (or `tool.pyright`) section in `pyroject.toml` instead (see below)
+
+- disable the built in language server support from the python extension, as it seems to conflict with basedpyright's language server:
+  ```json
+  {
+      "python.languageServer": "None"
+  }
+  ```
 
 ## `pyproject.toml`
 
