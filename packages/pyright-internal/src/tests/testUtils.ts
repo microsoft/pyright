@@ -25,6 +25,10 @@ import { createFromRealFileSystem } from '../common/realFileSystem';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
 import { ParseOptions, ParseResults, Parser } from '../parser/parser';
+import { throwIfUndefined } from 'throw-expression';
+import { entries } from '@detachhead/ts-helpers/dist/functions/misc';
+import { zip } from 'lodash';
+import { DiagnosticRule } from '../common/diagnosticRules';
 
 // This is a bit gross, but it's necessary to allow the fallback typeshed
 // directory to be located when running within the jest environment. This
@@ -188,6 +192,7 @@ export function printDiagnostics(fileResults: FileAnalysisResult) {
     }
 }
 
+/** @deprecated use {@link validateResultsButBased} instead */
 export function validateResults(
     results: FileAnalysisResult[],
     errorCount: number,
@@ -217,3 +222,34 @@ export function validateResults(
         assert.strictEqual(results[0].deprecateds.length, deprecated);
     }
 }
+
+export type ExpectedResults = {
+    [key in Exclude<keyof FileAnalysisResult, 'fileUri' | 'parseResults'>]?: {
+        message?: string;
+        line: number;
+        code?: DiagnosticRule;
+    }[];
+};
+
+export const validateResultsButBased = (allResults: FileAnalysisResult[], expectedResults: ExpectedResults) => {
+    assert.strictEqual(allResults.length, 1);
+    const result = allResults[0];
+    for (const [diagnosticType] of entries(result)) {
+        if (diagnosticType === 'fileUri' || diagnosticType === 'parseResults') {
+            continue;
+        }
+        const actualResult = result[diagnosticType];
+        const expectedResult = expectedResults[diagnosticType] ?? [];
+        assert.equal(actualResult.length, expectedResult.length);
+        zip(expectedResult, actualResult).forEach(([expectedDiagnostic, actualDiagnostic]) => {
+            // length checked above so these should never be undefined
+            expectedDiagnostic = throwIfUndefined(expectedDiagnostic);
+            actualDiagnostic = throwIfUndefined(actualDiagnostic);
+            assert.deepStrictEqual(actualDiagnostic.getRule(), expectedDiagnostic.code);
+            assert.deepStrictEqual(actualDiagnostic.range.start.line, expectedDiagnostic.line);
+            if (expectedDiagnostic.message) {
+                assert.deepStrictEqual(actualDiagnostic.message, expectedDiagnostic.message);
+            }
+        });
+    }
+};

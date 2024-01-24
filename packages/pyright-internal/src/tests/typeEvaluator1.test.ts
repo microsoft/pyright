@@ -16,6 +16,7 @@ import { ConfigOptions } from '../common/configOptions';
 import { PythonVersion } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
+import { DiagnosticRule } from '../common/diagnosticRules';
 
 test('Unreachable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unreachable1.py']);
@@ -27,8 +28,11 @@ test('Unreachable1 reportUnreachable', () => {
     const configOptions = new ConfigOptions(Uri.empty());
     configOptions.diagnosticRuleSet.reportUnreachable = 'error';
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unreachable1.py'], configOptions);
-
-    TestUtils.validateResults(analysisResults, 4, 0, 2, 1, 0);
+    TestUtils.validateResultsButBased(analysisResults, {
+        errors: [78, 89, 106, 110].map((line) => ({ code: DiagnosticRule.reportUnreachable, line })),
+        infos: [{ line: 95 }, { line: 98 }],
+        unusedCodes: [{ line: 102 }],
+    });
 });
 
 test('Unreachable2 reportUnreachable TYPE_CHECKING', () => {
@@ -36,7 +40,9 @@ test('Unreachable2 reportUnreachable TYPE_CHECKING', () => {
     configOptions.diagnosticRuleSet.reportUnreachable = 'error';
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unreachable2.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 0, 0, 0, 0, 2);
+    TestUtils.validateResultsButBased(analysisResults, {
+        unreachableCodes: [{ line: 3 }, { line: 8 }],
+    });
 });
 
 test('Builtins1', () => {
