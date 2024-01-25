@@ -14510,7 +14510,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let optionalType = combineTypes([typeArg0Type, noneClassType ?? UnknownType.create()]);
         if (unionClassType && isInstantiableClass(unionClassType)) {
-            optionalType = TypeBase.cloneAsSpecialForm(optionalType, unionClassType);
+            optionalType = TypeBase.cloneAsSpecialForm(optionalType, ClassType.cloneAsInstance(unionClassType));
         }
 
         return optionalType;
@@ -15203,7 +15203,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let unionType = combineTypes(types);
         if (unionClassType && isInstantiableClass(unionClassType)) {
-            unionType = TypeBase.cloneAsSpecialForm(unionType, unionClassType);
+            unionType = TypeBase.cloneAsSpecialForm(unionType, ClassType.cloneAsInstance(unionClassType));
         }
 
         return unionType;

@@ -649,7 +649,7 @@ export function getTypeOfBinaryOperation(
 
             const unionClass = evaluator.getUnionClassType();
             if (unionClass && isInstantiableClass(unionClass)) {
-                newUnion = TypeBase.cloneAsSpecialForm(newUnion, unionClass);
+                newUnion = TypeBase.cloneAsSpecialForm(newUnion, ClassType.cloneAsInstance(unionClass));
             }
 
             // Check for "stringified" forward reference type expressions. The "|" operator
