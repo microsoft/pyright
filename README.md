@@ -12,7 +12,7 @@ this means if the extension gets updated, you may see errors in your project tha
 
 ### no way to run the pyright CLI without nodejs
 
-python developers should not be expected to have to install nodejs in order to typecheck their python code. it should just be a regular pypi package, just mypy, ruff, and pretty much every other python command line tool
+python developers should not be expected to have to install nodejs in order to typecheck their python code. it should just be a regular pypi package, just like mypy, ruff, and pretty much every other python command line tool
 
 ### issues with unreachable code
 
