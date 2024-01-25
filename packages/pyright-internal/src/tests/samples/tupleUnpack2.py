@@ -10,9 +10,8 @@ def func1(v1: tuple[int, *tuple[bool, bool], str]):
     reveal_type(v1, expected_text="tuple[int, bool, bool, str]")
 
 
-# This should generate an error because multiple unpacks.
 def func2(v2: tuple[int, *tuple[bool, bool], str, *tuple[bool, bool]]):
-    pass
+    reveal_type(v2, expected_text="tuple[int, bool, bool, str, bool, bool]")
 
 
 def func3(v3: tuple[int, *tuple[bool, ...], str]):
