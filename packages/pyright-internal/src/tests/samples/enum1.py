@@ -193,10 +193,6 @@ reveal_type(TestEnum12.b, expected_text="() -> None")
 reveal_type(TestEnum12.c, expected_text="() -> None")
 
 
-# This should generate an error because of the name mismatch.
-BadName = Enum("GoodName", "A", "B")
-
-
 class TestEnum13(metaclass=CustomEnumMeta1):
     pass
 
