@@ -2795,7 +2795,7 @@ export function specializeTupleClass(
     isTypeArgumentExplicit = true,
     isUnpackedTuple = false
 ): ClassType {
-    let combinedTupleType = combineTypes(
+    const combinedTupleType = combineTypes(
         typeArgs.map((t) => {
             if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type)) {
                 // Treat the unpacked TypeVarTuple as a union.
@@ -2805,11 +2805,6 @@ export function specializeTupleClass(
             return t.type;
         })
     );
-
-    // An empty tuple has an effective type of Any.
-    if (isNever(combinedTupleType)) {
-        combinedTupleType = AnyType.create();
-    }
 
     const clonedClassType = ClassType.cloneForSpecialization(
         classType,
