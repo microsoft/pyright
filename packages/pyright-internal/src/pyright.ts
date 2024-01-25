@@ -930,7 +930,7 @@ function reportDiagnosticsAsText(
     console.info(
         `${errorCount.toString()} ${errorCount === 1 ? 'error' : 'errors'}, ` +
             `${warningCount.toString()} ${warningCount === 1 ? 'warning' : 'warnings'}, ` +
-            `${informationCount.toString()} ${informationCount === 1 ? 'information' : 'informations'} `
+            `${informationCount.toString()} ${informationCount === 1 ? 'note' : 'notes'} `
     );
 
     return {
