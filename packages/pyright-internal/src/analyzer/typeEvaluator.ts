@@ -14393,7 +14393,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else if (validateTypeArg(entry, { allowUnpackedTuples: true })) {
                         if (isUnpackedClass(entryType)) {
                             paramCategory = ParameterCategory.ArgsList;
-                            noteSawUnpacked(entry);
+
+                            if (
+                                entryType.tupleTypeArguments?.some(
+                                    (typeArg) => isVariadicTypeVar(typeArg.type) || typeArg.isUnbounded
+                                )
+                            ) {
+                                noteSawUnpacked(entry);
+                            }
                         }
                     } else {
                         entryType = UnknownType.create();
@@ -15034,25 +15041,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         } else if (typeArgs.length !== 2 || index !== 1) {
                             addError(LocMessage.ellipsisSecondArg(), typeArg.node);
                         } else {
-                            if (
-                                isTypeVar(typeArgs[0].type) &&
-                                isVariadicTypeVar(typeArgs[0].type) &&
-                                !typeArgs[0].type.isVariadicInUnion
-                            ) {
+                            if (isVariadicTypeVar(typeArgs[0].type) && !typeArgs[0].type.isVariadicInUnion) {
                                 addError(LocMessage.typeVarTupleContext(), typeArgs[0].node);
-                            } else if (sawUnpacked) {
+                            } else if (isUnpackedClass(typeArgs[0].type)) {
                                 addError(LocMessage.ellipsisAfterUnpacked(), typeArg.node);
                             }
                         }
                     } else if (isParamSpec(typeArg.type) && allowParamSpec) {
                         // Nothing to do - this is allowed.
-                    } else if (isVariadicTypeVar(typeArg.type) && paramLimit === undefined) {
+                    } else if (paramLimit === undefined && isVariadicTypeVar(typeArg.type)) {
                         if (!typeArg.type.isVariadicInUnion) {
                             noteSawUnpacked(typeArg);
                         }
                         validateVariadicTypeVarIsUnpacked(typeArg.type, typeArg.node);
-                    } else if (paramLimit === undefined && isUnpacked(typeArg.type)) {
-                        noteSawUnpacked(typeArg);
+                    } else if (paramLimit === undefined && isUnpackedClass(typeArg.type)) {
+                        if (
+                            typeArg.type.tupleTypeArguments?.some(
+                                (typeArg) => isVariadicTypeVar(typeArg.type) || typeArg.isUnbounded
+                            )
+                        ) {
+                            noteSawUnpacked(typeArg);
+                        }
                         validateTypeArg(typeArg, { allowUnpackedTuples: true });
                     } else {
                         validateTypeArg(typeArg);
