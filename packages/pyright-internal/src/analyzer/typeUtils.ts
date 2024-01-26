@@ -4170,7 +4170,13 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                     // now with default type arguments.
                     if (this._options.unknownIfNotFound) {
                         replacement = mapSubtypes(replacement, (subtype) => {
-                            if (isClassInstance(subtype) && !subtype.includeSubclasses) {
+                            if (isClassInstance(subtype)) {
+                                // If the includeSubclasses wasn't set, force it to be set by
+                                // converting to/from an instantiable.
+                                if (!subtype.includeSubclasses) {
+                                    subtype = ClassType.cloneAsInstance(ClassType.cloneAsInstantiable(subtype));
+                                }
+
                                 return specializeWithDefaultTypeArgs(subtype);
                             }
 
