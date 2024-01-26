@@ -3,23 +3,35 @@
 # emit an error when the variable is instantiated.
 
 from abc import ABC, abstractmethod
-from typing import Type
+from typing import Type, TypeVar
 
 
 class Base(ABC):
     @abstractmethod
-    def foo(self, x: int) -> int:
+    def method1(self, x: int) -> int:
         pass
 
 
-def foo1(base_cls: Type[Base]):
+def func1(base_cls: Type[Base]):
     base_cls()
 
 
-def foo2():
+def func2():
     # This should generate an error.
     Base()
 
 
-def foo3(base_cls: type[Base]):
+def func3(base_cls: type[Base]):
     base_cls()
+
+
+T = TypeVar("T")
+
+
+def create_instance(cls: Type[T]) -> T:
+    return cls()
+
+
+def func4():
+    base = create_instance(Base)
+    base.method1(1)
