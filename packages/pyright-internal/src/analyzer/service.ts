@@ -655,13 +655,19 @@ export class AnalyzerService {
         }
 
         if (configJsonObj) {
-            configOptions.initializeFromJson(
+            const errors = configOptions.initializeFromJson(
                 configJsonObj,
                 this._typeCheckingMode,
                 this.serviceProvider,
                 host,
                 commandLineOptions.diagnosticSeverityOverrides
             );
+            if (errors.length > 0) {
+                for (const error of errors) {
+                    this._console.error(error);
+                }
+                this._reportConfigParseError();
+            }
 
             const configFileDir = this._configFileUri!.getDirectory();
 
@@ -946,15 +952,18 @@ export class AnalyzerService {
                 if (configObj && configObj.tool) {
                     const toml = configObj.tool as TOML.JsonMap;
                     if (toml.basedpyright && toml.pyright) {
-                        this._console.error(
+                        throw new Error(
                             'Pyproject file cannot have both `pyright` and `basedpyright` sections. pick one'
                         );
-                        return undefined;
                     }
                     return (toml.basedpyright || toml.pyright) as object;
                 }
-            } catch (e: any) {
-                this._console.error(`Pyproject file parse attempt ${attemptCount} error: ${JSON.stringify(e)}`);
+            } catch (e) {
+                this._console.error(
+                    `Pyproject file parse attempt ${attemptCount} ${
+                        e instanceof Error ? e : `error: ${JSON.stringify(e)}`
+                    }`
+                );
                 throw e;
             }
 
