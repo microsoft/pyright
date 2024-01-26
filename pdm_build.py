@@ -8,9 +8,7 @@ from typing import TYPE_CHECKING
 # https://github.com/samwillis/nodejs-pypi/pull/23
 if TYPE_CHECKING:
     # https://github.com/astral-sh/ruff/issues/9528
-    from subprocess import run as run_  # noqa: S404
-
-    run = run_
+    from subprocess import run  # noqa: S404
 else:
     from nodejs.npm import run
 
