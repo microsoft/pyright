@@ -11843,8 +11843,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ? EvaluatorFlags.AllowMissingTypeArgs |
                       EvaluatorFlags.EvaluateStringLiteralAsType |
                       EvaluatorFlags.DisallowParamSpec |
-                      EvaluatorFlags.DisallowTypeVarTuple
-                    : EvaluatorFlags.DoNotSpecialize;
+                      EvaluatorFlags.DisallowTypeVarTuple |
+                      EvaluatorFlags.DisallowFinal
+                    : EvaluatorFlags.DoNotSpecialize | EvaluatorFlags.DisallowFinal;
                 const exprTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
                     flags,
@@ -14929,7 +14930,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): Type {
         if (flags & EvaluatorFlags.DisallowFinal) {
             addError(LocMessage.finalContext(), errorNode);
-            return AnyType.create();
+            return classType;
         }
 
         if (!typeArgs || typeArgs.length === 0) {
@@ -14940,7 +14941,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addError(LocMessage.finalTooManyArgs(), errorNode);
         }
 
-        return typeArgs[0].type;
+        return TypeBase.cloneAsSpecialForm(typeArgs[0].type, classType);
     }
 
     function createConcatenateType(
