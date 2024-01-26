@@ -2,21 +2,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Pyright CLI",
-            "type": "node",
-            "request": "launch",
-            "program": "${workspaceRoot}/packages/pyright/index.js",
-            "preLaunchTask": "npm: build:cli:dev",
-            "args": [
-                "--verifytypes",
-                "pandas.core.reshape.concat",
-            ],
-            "internalConsoleOptions": "openOnSessionStart",
-            "outFiles": [
-                "${workspaceRoot}/packages/pyright/dist/**/*.js"
-            ]
-        },
-        {
             "name": "Pyright tests",
             "type": "node",
             "request": "launch",

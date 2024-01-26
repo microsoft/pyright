@@ -17,7 +17,9 @@
         "fix:eslint": "eslint --fix .",
         "check:prettier": "prettier -c .",
         "fix:prettier": "prettier --write .",
-        "typecheck": "npx lerna exec --stream --no-bail --ignore=pyright -- tsc --noEmit"
+        "typecheck": "npx lerna exec --stream --no-bail --ignore=pyright -- tsc --noEmit",
+        "run:cli:windows": "npm run build:cli:dev && node packages/pyright/index.js --pythonpath .venv/Scripts/python.exe",
+        "run:cli:unix": "npm run build:cli:dev && node packages/pyright/index.js --pythonpath .venv/bin/python"
     },
     "devDependencies": {
         "@detachhead/ts-helpers": "^16.2.0",
