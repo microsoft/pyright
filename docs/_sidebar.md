@@ -10,6 +10,7 @@
   - [Configuration](configuration.md)
     - [Configuration Options](configuration.md#main-configuration-options)
     - [Diagnostic Rules](configuration.md#type-check-diagnostics-settings)
+    - [Based options](configuration.md#based-options)
     - [Execution Environments](configuration.md#execution-environment-options)
     - [Sample pyrightconfig.json](configuration.md#sample-config-file)
     - [Sample pyproject.toml](configuration.md#sample-pyprojecttoml-file)
