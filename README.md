@@ -29,6 +29,19 @@ to make things worse, unreachable code is not even type-checked, so the obviousl
 
 basedpyright solves this issue with a `reportUnreachable` option, which will report an error on any code that it thinks cannot be reached. from there, you can either [update your pyright config to specify more platforms using the `pythonPlatform` option](https://github.com/detachhead/basedpyright/blob/main/docs/configuration.md#main-configuration-options) if you intend for the code to be reachable.
 
+### no errors on invalid configuration
+
+in pyright, if you have any invalid config, it may or may not print a warning to the console, then it will continue type checking and the exit code will be 0 as long as there were no type errors:
+
+```toml
+[tool.pyright]
+mode = "strict"  # wrong! the setting you're looking for is called `typeCheckingMode`
+```
+
+this makes it very easy for errors to go undetected because you think you're on strict mode, but in reality pyright just ignored the setting and silently continued type checking on "basic" mode.
+
+to solve this problem, basedpyright will exit with code 3 on any invalid config.
+
 ### basedmypy feature parity
 
 [basedmypy](https://github.com/kotlinisland/basedmypy) is a fork of mypy with a similar goal in mind: to fix some of the serious problems in mypy that do not seem to be a priority for the maintainers. it also adds many new features which may not be standardized but greatly improve the developer experience when working with python's far-from-perfect type system.
