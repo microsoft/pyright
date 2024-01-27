@@ -1222,6 +1222,20 @@ export class ConfigOptions {
         const console = serviceProvider.tryGet(ServiceKeys.console) ?? new NullConsole();
         const errors = [];
 
+        // keep track of which options have been parsed so we can raise an error on unknown options later
+        // this is pretty cringe and we should just replace all this with some sort of schema validator thingy
+        // https://github.com/DetachHead/basedpyright/issues/64
+        const readOptions: (string | symbol)[] = [];
+        configObj = new Proxy(configObj, {
+            get: (target, name) => {
+                const result = target[name];
+                if (!readOptions.includes(name)) {
+                    readOptions.push(name);
+                }
+                return result;
+            },
+        });
+
         // Read the entries that should be an array of relative file paths
         for (const key of ['include', 'exclude', 'ignore', 'strict'] as const) {
             const configValue = configObj[key];
@@ -1477,6 +1491,11 @@ export class ConfigOptions {
                 ) {
                     this.functionSignatureDisplay = configObj.functionSignatureDisplay as SignatureDisplayType;
                 }
+            }
+        }
+        for (const key of Object.keys(configObj)) {
+            if (!readOptions.includes(key)) {
+                errors.push(`unknown config option: ${key}`);
             }
         }
         return errors;

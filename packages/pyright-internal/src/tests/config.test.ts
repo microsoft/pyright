@@ -24,6 +24,7 @@ import { TestFileSystem } from './harness/vfs/filesystem';
 import { cloneDeep } from 'lodash';
 import { deserialize, serialize } from '../backgroundThreadBase';
 import { AnalysisResults } from '../analyzer/analysis';
+import { existsSync } from 'fs';
 
 function createAnalyzer(console?: ConsoleInterface) {
     const cons = console ?? new NullConsole();
@@ -305,6 +306,7 @@ const setupPyprojectToml = (
     projectPath: string
 ): { configOptions: ConfigOptions; analysisResult: AnalysisResults | undefined } => {
     const cwd = normalizePath(combinePaths(process.cwd(), projectPath));
+    assert(existsSync(cwd));
     const service = createAnalyzer();
     let analysisResult = undefined as AnalysisResults | undefined;
     service.setCompletionCallback((result) => (analysisResult = result));
@@ -343,11 +345,20 @@ test('both pyright and basedpyright in pyproject.toml', () => {
     assert(!analysisResult.fatalErrorOccurred);
 });
 
-test('invalid setting in pyproject.toml', () => {
+test('invalid option value in pyproject.toml', () => {
     const { configOptions, analysisResult } = setupPyprojectToml(
-        'src/tests/samples/project_with_invalid_setting_in_pyproject_toml'
+        'src/tests/samples/project_with_invalid_option_value_in_pyproject_toml'
     );
     assert.strictEqual(configOptions.typeCheckingMode, undefined);
+    assert(analysisResult?.configParseErrorOccurred);
+    assert(!analysisResult.fatalErrorOccurred);
+});
+
+test('unknown option name in pyproject.toml', () => {
+    const { configOptions, analysisResult } = setupPyprojectToml(
+        'src/tests/samples/project_with_invalid_option_name_in_pyproject_toml'
+    );
+    assert(!('asdf' in configOptions));
     assert(analysisResult?.configParseErrorOccurred);
     assert(!analysisResult.fatalErrorOccurred);
 });
