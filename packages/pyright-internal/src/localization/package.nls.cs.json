@@ -738,7 +738,7 @@
         "seeVariableDeclaration": "Zobrazit deklaraci proměnné",
         "tupleAssignmentMismatch": "Typ „{type}“ není kompatibilní s cílovou řazenou kolekcí členů",
         "tupleEntryTypeMismatch": "Položka řazené kolekce členů {entry} je nesprávného typu",
-        "tupleSizeIndeterminate": "Neshoda velikosti řazené kolekce členů; Očekávalo se {expected}, ale přijalo se neurčité.",
+        "tupleSizeIndeterminateSrc": "Neshoda velikosti řazené kolekce členů; Očekávalo se {expected}, ale přijalo se neurčité.",
         "tupleSizeMismatch": "Neshoda velikosti řazené kolekce členů; Očekávalo se {expected}, ale přijalo se {received}.",
         "typeAliasInstanceCheck": "Type alias created with \"type\" statement cannot be used with instance and class checks",
         "typeAssignmentMismatch": "Typ {sourceType} se nedá přiřadit k typu {destType}",

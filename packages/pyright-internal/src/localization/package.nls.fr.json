@@ -738,7 +738,7 @@
         "seeVariableDeclaration": "Voir déclaration de variable",
         "tupleAssignmentMismatch": "Le type \"{type}\" est incompatible avec le tuple cible",
         "tupleEntryTypeMismatch": "Le type de l’entrée de tuple {entry} est incorrect",
-        "tupleSizeIndeterminate": "Incompatibilité de taille de tuple ; attendu {expected} mais reçu pour une durée indéterminée",
+        "tupleSizeIndeterminateSrc": "Incompatibilité de taille de tuple ; attendu {expected} mais reçu pour une durée indéterminée",
         "tupleSizeMismatch": "Incompatibilité de taille de tuple ; attendu {expected} mais reçu {received}",
         "typeAliasInstanceCheck": "Type alias created with \"type\" statement cannot be used with instance and class checks",
         "typeAssignmentMismatch": "Impossible d’affecter le type « {sourceType} » au type « {destType} »",
