@@ -2141,7 +2141,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // an instance of a class. Limit access to metaclass instance members
             // in this case.
             if (!objectTypeIsInstantiable) {
-                effectiveFlags |= MemberAccessFlags.SkipClassMembers | MemberAccessFlags.SkipAttributeAccessOverride;
+                effectiveFlags |=
+                    MemberAccessFlags.SkipClassMembers |
+                    MemberAccessFlags.SkipAttributeAccessOverride |
+                    MemberAccessFlags.SkipTypeBaseClass;
                 effectiveFlags &= ~MemberAccessFlags.SkipInstanceMembers;
             }
 
