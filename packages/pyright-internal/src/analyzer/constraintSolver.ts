@@ -1056,7 +1056,11 @@ export function populateTypeVarContextBasedOnExpectedType(
                                     tupleType = transformExpectedType(tupleEntry.type, liveTypeVarScopes, usageOffset);
                                 }
 
-                                return { type: tupleType, isUnbounded: tupleEntry.isUnbounded };
+                                return {
+                                    type: tupleType,
+                                    isUnbounded: tupleEntry.isUnbounded,
+                                    isOptional: tupleEntry.isOptional,
+                                };
                             })
                         );
                     }
@@ -1246,6 +1250,7 @@ function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type)
 
         return {
             isUnbounded: arg.isUnbounded,
+            isOptional: arg.isOptional,
             type: strippedType,
         };
     });
