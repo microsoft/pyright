@@ -1726,5 +1726,5 @@ test('SpecialForm3', () => {
 test('SpecialForm4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialForm4.py']);
 
-    TestUtils.validateResults(analysisResults, 69);
+    TestUtils.validateResults(analysisResults, 72);
 });

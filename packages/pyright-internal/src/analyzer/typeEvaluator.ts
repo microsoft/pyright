@@ -971,7 +971,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     'typing.Any',
                     'typing',
                     Uri.empty(),
-                    ClassTypeFlags.BuiltInClass,
+                    ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialFormClass,
                     /* typeSourceId */ -1,
                     /* declaredMetaclass */ undefined,
                     /* effectiveMetaclass */ typeClassType
