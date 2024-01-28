@@ -814,7 +814,9 @@ export namespace ClassType {
 
         newClassType.tupleTypeArguments = tupleTypeArguments
             ? tupleTypeArguments.map((t) =>
-                  isNever(t.type) ? { type: UnknownType.create(), isUnbounded: t.isUnbounded } : t
+                  isNever(t.type)
+                      ? { type: UnknownType.create(), isUnbounded: t.isUnbounded, isOptional: t.isOptional }
+                      : t
               )
             : undefined;
 

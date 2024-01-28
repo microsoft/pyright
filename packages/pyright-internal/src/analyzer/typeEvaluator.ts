@@ -22194,7 +22194,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         specializeTupleClass(
                             tupleClassType,
                             removedArgs.map((typeArg) => {
-                                return { type: typeArg.type, isUnbounded: typeArg.isUnbounded };
+                                return {
+                                    type: typeArg.type,
+                                    isUnbounded: typeArg.isUnbounded,
+                                    isOptional: typeArg.isOptional,
+                                };
                             }),
                             /* isTypeArgumentExplicit */ true,
                             /* isUnpackedTuple */ true
@@ -22222,7 +22226,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             specializeTupleClass(
                                 tupleClassType,
                                 removedArgs.map((typeArg) => {
-                                    return { type: typeArg.type, isUnbounded: typeArg.isUnbounded };
+                                    return {
+                                        type: typeArg.type,
+                                        isUnbounded: typeArg.isUnbounded,
+                                        isOptional: typeArg.isOptional,
+                                    };
                                 }),
                                 /* isTypeArgumentExplicit */ true,
                                 /* isUnpackedTuple */ true

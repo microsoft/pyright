@@ -549,12 +549,16 @@ export function cleanIncompleteUnknown(type: Type, recursionCount = 0): Type {
             let typeChanged = false;
 
             if (subtype.tupleTypeArguments) {
-                const updatedTupleTypeArgs = subtype.tupleTypeArguments.map((tupleTypeArg) => {
+                const updatedTupleTypeArgs: TupleTypeArgument[] = subtype.tupleTypeArguments.map((tupleTypeArg) => {
                     const newTypeArg = cleanIncompleteUnknown(tupleTypeArg.type, recursionCount);
                     if (newTypeArg !== tupleTypeArg.type) {
                         typeChanged = true;
                     }
-                    return { type: newTypeArg, isUnbounded: tupleTypeArg.isUnbounded };
+                    return {
+                        type: newTypeArg,
+                        isUnbounded: tupleTypeArg.isUnbounded,
+                        isOptional: tupleTypeArg.isOptional,
+                    };
                 });
 
                 if (typeChanged) {
@@ -1454,7 +1458,11 @@ export function applySourceContextTypeVarsToSignature(
             destSignature.setTupleTypeVar(
                 entry.typeVar,
                 entry.tupleTypes.map((arg) => {
-                    return { isUnbounded: arg.isUnbounded, type: applySolvedTypeVars(arg.type, srcContext) };
+                    return {
+                        type: applySolvedTypeVars(arg.type, srcContext),
+                        isUnbounded: arg.isUnbounded,
+                        isOptional: arg.isOptional,
+                    };
                 })
             );
         }
@@ -1491,8 +1499,9 @@ export function applyInScopePlaceholders(typeVarContext: TypeVarContext) {
                         entry.typeVar,
                         entry.tupleTypes.map((arg) => {
                             return {
-                                isUnbounded: arg.isUnbounded,
                                 type: applyInScopePlaceholdersToType(arg.type, signature),
+                                isUnbounded: arg.isUnbounded,
+                                isOptional: arg.isOptional,
                             };
                         })
                     );
@@ -3700,7 +3709,11 @@ class TypeVarTransformer {
                     ) {
                         appendArray(newTupleTypeArgs!, newTypeArgType.tupleTypeArguments);
                     } else {
-                        newTupleTypeArgs!.push({ type: newTypeArgType, isUnbounded: oldTypeArgType.isUnbounded });
+                        newTupleTypeArgs!.push({
+                            type: newTypeArgType,
+                            isUnbounded: oldTypeArgType.isUnbounded,
+                            isOptional: oldTypeArgType.isOptional,
+                        });
                     }
                 });
             } else if (typeParams.length > 0) {
