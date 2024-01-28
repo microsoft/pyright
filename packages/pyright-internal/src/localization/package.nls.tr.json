@@ -738,7 +738,7 @@
         "seeVariableDeclaration": "Değişken bildirimine bakın",
         "tupleAssignmentMismatch": "\"{type}\" türü hedef demet ile uyumsuz",
         "tupleEntryTypeMismatch": "{entry} demet girdisi doğru türde değil",
-        "tupleSizeIndeterminate": "Demet boyutu uyuşmuyor; {expected} bekleniyordu ancak indeterminate alındı",
+        "tupleSizeIndeterminateSrc": "Demet boyutu uyuşmuyor; {expected} bekleniyordu ancak indeterminate alındı",
         "tupleSizeMismatch": "Demet boyutu uyuşmuyor; {expected} bekleniyordu ancak {received} alındı",
         "typeAliasInstanceCheck": "Type alias created with \"type\" statement cannot be used with instance and class checks",
         "typeAssignmentMismatch": "\"{sourceType}\" türü \"{destType}\" türüne atanamaz",

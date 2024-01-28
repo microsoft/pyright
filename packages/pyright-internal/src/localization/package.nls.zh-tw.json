@@ -738,7 +738,7 @@
         "seeVariableDeclaration": "請參閱變數宣告",
         "tupleAssignmentMismatch": "型別 \"{type}\" 與目標元組不相容",
         "tupleEntryTypeMismatch": "Tuple 項目 {entry} 的類型不正確",
-        "tupleSizeIndeterminate": "元組大小不符; 預期為 {expected}，但收到不確定的大小",
+        "tupleSizeIndeterminateSrc": "元組大小不符; 預期為 {expected}，但收到不確定的大小",
         "tupleSizeMismatch": "元組大小不符; 預期為 {expected}，但收到 {received}",
         "typeAliasInstanceCheck": "Type alias created with \"type\" statement cannot be used with instance and class checks",
         "typeAssignmentMismatch": "類型 \"{sourceType}\" 不能指派至類型 \"{destType}\"",
