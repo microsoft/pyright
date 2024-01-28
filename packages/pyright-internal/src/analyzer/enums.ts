@@ -387,6 +387,15 @@ export function transformTypeForPossibleEnumClass(
         }
     }
 
+    // Handle aliases to other enum members within the same enum.
+    if (
+        isClassInstance(valueType) &&
+        ClassType.isSameGenericClass(valueType, ClassType.cloneAsInstance(enumClassInfo.classType)) &&
+        valueType.literalValue !== undefined
+    ) {
+        return undefined;
+    }
+
     if (!isMemberOfEnumeration) {
         return undefined;
     }
