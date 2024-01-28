@@ -1159,6 +1159,7 @@ export namespace Localizer {
     }
 
     export namespace DiagnosticAddendum {
+        export const annotatedNotAllowed = () => getRawString('DiagnosticAddendum.annotatedNotAllowed');
         export const argParam = () =>
             new ParameterizedString<{ paramName: string }>(getRawString('DiagnosticAddendum.argParam'));
         export const argParamFunction = () =>

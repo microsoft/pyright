@@ -4001,6 +4001,13 @@ export class Checker extends ParseTreeWalker {
                     } else if (ClassType.isNewTypeClass(subtype)) {
                         diag.addMessage(LocAddendum.newTypeClassNotAllowed());
                         isSupported = false;
+                    } else if (
+                        subtype.specialForm &&
+                        isInstantiableClass(subtype.specialForm) &&
+                        ClassType.isBuiltIn(subtype.specialForm, 'Annotated')
+                    ) {
+                        diag.addMessage(LocAddendum.annotatedNotAllowed());
+                        isSupported = false;
                     }
                     break;
 

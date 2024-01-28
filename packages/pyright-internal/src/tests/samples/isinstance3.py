@@ -6,6 +6,7 @@
 import sys
 from abc import abstractmethod
 from typing import (
+    Annotated,
     Any,
     Callable,
     Generic,
@@ -97,4 +98,12 @@ class TD1(TypedDict):
 # This should generate an error because TypedDict classes can't
 # be used in an isinstance call.
 if isinstance(a, TD1):
+    pass
+
+
+TA1 = Annotated[int, ""]
+
+# This should generate an error because Annotated can't be used
+# in an isinstance call.
+if isinstance(1, TA1):
     pass

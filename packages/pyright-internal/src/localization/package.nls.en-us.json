@@ -605,6 +605,7 @@
         "zeroLengthTupleNotAllowed": "Zero-length tuple is not allowed in this context"
     },
     "DiagnosticAddendum": {
+        "annotatedNotAllowed": "\"Annotated\" special form cannot be used with instance and class checks",
         "argParam": "Argument corresponds to parameter \"{paramName}\"",
         "argParamFunction": "Argument corresponds to parameter \"{paramName}\" in function \"{functionName}\"",
         "argsParamMissing": "Parameter \"*{paramName}\" has no corresponding parameter",
