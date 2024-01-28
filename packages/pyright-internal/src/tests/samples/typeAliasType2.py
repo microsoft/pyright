@@ -53,3 +53,10 @@ class A(Generic[T]):
 
 # This should generate an error because S is not in scope.
 TA8 = TypeAliasType("TA8", list[S])
+
+
+def identity[T](t: T) -> T:
+    return t
+
+
+reveal_type(identity(TA1), expected_text="TypeAliasType")

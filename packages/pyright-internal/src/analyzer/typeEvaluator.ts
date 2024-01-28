@@ -15302,7 +15302,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isPep695Syntax || isPep695TypeVarType) {
             const typeAliasTypeClass = getTypingType(errorNode, 'TypeAliasType');
             if (typeAliasTypeClass && isInstantiableClass(typeAliasTypeClass)) {
-                typeAlias = TypeBase.cloneAsSpecialForm(typeAlias, typeAliasTypeClass);
+                typeAlias = TypeBase.cloneAsSpecialForm(typeAlias, ClassType.cloneAsInstance(typeAliasTypeClass));
             }
         }
 
