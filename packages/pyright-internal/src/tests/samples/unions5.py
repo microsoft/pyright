@@ -1,7 +1,8 @@
 # This sample tests the handling of runtime union expressions that
 # are used in contexts other than a type annotation.
 
-from typing import Union
+from types import UnionType
+from typing import Optional, Union
 
 
 class Class1:
@@ -35,3 +36,9 @@ print(b2.a)
 
 # This should generate an error
 b2()
+
+
+c1: UnionType
+c1 = int | str
+c1 = Union[int, str]
+c1 = Optional[int]

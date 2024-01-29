@@ -137,7 +137,6 @@
         "ellipsisContext": "\"...\" is not allowed in this context",
         "ellipsisSecondArg": "\"...\" is allowed only as the second of two arguments",
         "enumClassOverride": "Enum class \"{name}\" is final and cannot be subclassed",
-        "enumNameMismatch": "Enum class must be assigned to a variable with the same name",
         "exceptionGroupIncompatible": "Exception group syntax (\"except*\") requires Python 3.11 or newer",
         "exceptionTypeIncorrect": "\"{type}\" does not derive from BaseException",
         "exceptionTypeNotClass": "\"{type}\" is not a valid exception class",
@@ -606,6 +605,7 @@
         "zeroLengthTupleNotAllowed": "Zero-length tuple is not allowed in this context"
     },
     "DiagnosticAddendum": {
+        "annotatedNotAllowed": "\"Annotated\" special form cannot be used with instance and class checks",
         "argParam": "Argument corresponds to parameter \"{paramName}\"",
         "argParamFunction": "Argument corresponds to parameter \"{paramName}\" in function \"{functionName}\"",
         "argsParamMissing": "Parameter \"*{paramName}\" has no corresponding parameter",
@@ -727,8 +727,10 @@
         "seeVariableDeclaration": "See variable declaration",
         "tupleEntryTypeMismatch": "Tuple entry {entry} is incorrect type",
         "tupleAssignmentMismatch": "Type \"{type}\" is incompatible with target tuple",
-        "tupleSizeIndeterminate": "Tuple size mismatch; expected {expected} but received indeterminate",
+        "tupleSizeIndeterminateSrc": "Tuple size mismatch; expected {expected} but received indeterminate",
+        "tupleSizeIndeterminateSrcDest": "Tuple size mismatch; expected {expected} or more but received indeterminate",
         "tupleSizeMismatch": "Tuple size mismatch; expected {expected} but received {received}",
+        "tupleSizeMismatchIndeterminateDest": "Tuple size mismatch; expected {expected} or more but received {received}",
         "typeAliasInstanceCheck": "Type alias created with \"type\" statement cannot be used with instance and class checks",
         "typeAssignmentMismatch": "Type \"{sourceType}\" cannot be assigned to type \"{destType}\"",
         "typeBound": "Type \"{sourceType}\" is incompatible with bound type \"{destType}\" for type variable \"{name}\"",

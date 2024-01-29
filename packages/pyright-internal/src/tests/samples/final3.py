@@ -2,7 +2,9 @@
 # introduced in Python 3.8.
 
 import typing
-from typing import Any, Final, Protocol
+from typing import Any, Final, Protocol, TypeVar
+
+T = TypeVar("T")
 
 foo1: typing.Final = 3
 
@@ -181,3 +183,11 @@ class ClassB:
 
 class ClassC(Protocol):
     x: Final[int]
+
+
+def func3(x: type[T]) -> T:
+    return x()
+
+
+# This should generate two errors because Final isn't compatible with type.
+func3(Final[int])

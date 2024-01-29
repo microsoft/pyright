@@ -8,8 +8,6 @@
  */
 
 import { assert } from '../common/debug';
-import { DiagnosticRule } from '../common/diagnosticRules';
-import { LocMessage } from '../localization/localize';
 import { ArgumentCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { VariableDeclaration } from './declaration';
@@ -127,20 +125,6 @@ export function createEnumType(
         return undefined;
     }
     const classInstanceType = ClassType.cloneAsInstance(classType);
-
-    // Check for name consistency if the enum class is assigned to a variable.
-    if (
-        errorNode.parent?.nodeType === ParseNodeType.Assignment &&
-        errorNode.parent.leftExpression.nodeType === ParseNodeType.Name &&
-        errorNode.parent.leftExpression.value !== className
-    ) {
-        evaluator.addDiagnostic(
-            DiagnosticRule.reportGeneralTypeIssues,
-            LocMessage.enumNameMismatch(),
-            errorNode.parent.leftExpression
-        );
-        return undefined;
-    }
 
     // The Enum functional form supports various forms of arguments:
     //   Enum('name', 'a b c')
@@ -401,6 +385,15 @@ export function transformTypeForPossibleEnumClass(
                     : UnknownType.create();
             isMemberOfEnumeration = true;
         }
+    }
+
+    // Handle aliases to other enum members within the same enum.
+    if (
+        isClassInstance(valueType) &&
+        ClassType.isSameGenericClass(valueType, ClassType.cloneAsInstance(enumClassInfo.classType)) &&
+        valueType.literalValue !== undefined
+    ) {
+        return undefined;
     }
 
     if (!isMemberOfEnumeration) {

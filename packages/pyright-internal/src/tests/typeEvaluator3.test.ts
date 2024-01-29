@@ -772,7 +772,7 @@ test('Classes1', () => {
 test('Classes3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes3.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Classes4', () => {
@@ -899,7 +899,7 @@ test('MethodOverride6', () => {
 test('Enum1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum1.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Enum2', () => {

@@ -243,3 +243,26 @@ def func18(a: tuple[int, *tuple[Any, ...], str], b: tuple[Any, ...]):
     b1: tuple[()] = b
     b2: tuple[int, int, str] = b
     b3: tuple[int, *tuple[int, ...], str] = b
+
+
+def func19(a: tuple[int, ...], b: tuple[int, *tuple[int, ...]]):
+    a1: tuple[*tuple[int, ...]] = a
+
+    # This should generate an error.
+    a2: tuple[int, *tuple[int, ...]] = a
+
+    # This should generate an error.
+    a3: tuple[int, *tuple[int, ...], int] = a
+
+    # This should generate an error.
+    a4: tuple[*tuple[int, ...], int] = a
+
+    b1: tuple[int, ...] = b
+    b2: tuple[int, *tuple[int, ...]] = b
+    b3: tuple[*tuple[int, ...], int] = b
+
+    # This should generate an error.
+    b4: tuple[str, *tuple[int, ...]] = b
+
+    # This should generate an error.
+    b5: tuple[int, int, *tuple[int, ...]] = b

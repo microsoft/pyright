@@ -8,8 +8,10 @@ T1 = 0
 
 type TA1[T1] = int
 
+
 class ClassA[T2]:
-    type TA2 = int; type TA3 = str
+    type TA2 = int
+    type TA3 = str
 
     type TA4 = int
 
@@ -38,6 +40,7 @@ else:
 def func1() -> type[int]:
     ...
 
+
 # This should generate an error because a call expression is not
 # allowed in a type alias definition.
 type TA8 = func1()
@@ -57,18 +60,24 @@ TA10(0)
 
 list[TA10]()
 
+
 # This should generate an error.
-class DerivedInt(TA10): pass
+class DerivedInt(TA10):
+    pass
+
 
 def func2(x: object):
-    # This should generate an error.
+    # This should generate two errors.
     if isinstance(x, TA10):
         reveal_type(x)
 
+
 type TA11 = Callable[..., Any]
+
 
 def func3(cb: TA11):
     cb()
+
 
 def func4():
     # This should generate an error.
