@@ -738,7 +738,7 @@
         "seeVariableDeclaration": "查看变量声明",
         "tupleAssignmentMismatch": "类型\"{type}\"与目标元组不兼容",
         "tupleEntryTypeMismatch": "元组条目 {entry} 的类型不正确",
-        "tupleSizeIndeterminate": "元组大小不匹配；应为 {expected}，但收到不确定的",
+        "tupleSizeIndeterminateSrc": "元组大小不匹配；应为 {expected}，但收到不确定的",
         "tupleSizeMismatch": "元组大小不匹配；应为 {expected}，但收到 {received}",
         "typeAliasInstanceCheck": "Type alias created with \"type\" statement cannot be used with instance and class checks",
         "typeAssignmentMismatch": "无法将类型“{sourceType}”分配给类型“{destType}”",

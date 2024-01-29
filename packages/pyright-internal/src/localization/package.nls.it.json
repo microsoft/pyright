@@ -738,7 +738,7 @@
         "seeVariableDeclaration": "Vedere la dichiarazione di variabile",
         "tupleAssignmentMismatch": "Il tipo \"{type}\" non è compatibile con la tupla di destinazione",
         "tupleEntryTypeMismatch": "Il tipo della voce di tupla {entry} non è corretto",
-        "tupleSizeIndeterminate": "Dimensioni tupla non corrispondenti; previsto {expected} ma ricevuto indeterminato",
+        "tupleSizeIndeterminateSrc": "Dimensioni tupla non corrispondenti; previsto {expected} ma ricevuto indeterminato",
         "tupleSizeMismatch": "Dimensioni tupla non corrispondenti; previsto {expected} ma ricevuto {received}",
         "typeAliasInstanceCheck": "Type alias created with \"type\" statement cannot be used with instance and class checks",
         "typeAssignmentMismatch": "impossibile assegnare il tipo \"{sourceType}\" al tipo \"{destType}\"",

@@ -1270,7 +1270,7 @@ test('Optional2', () => {
 test('Tuple1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple1.py']);
 
-    TestUtils.validateResults(analysisResults, 17);
+    TestUtils.validateResults(analysisResults, 22);
 });
 
 test('Tuple2', () => {
@@ -1726,5 +1726,5 @@ test('SpecialForm3', () => {
 test('SpecialForm4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialForm4.py']);
 
-    TestUtils.validateResults(analysisResults, 69);
+    TestUtils.validateResults(analysisResults, 72);
 });

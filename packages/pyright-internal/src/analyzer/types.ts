@@ -814,7 +814,9 @@ export namespace ClassType {
 
         newClassType.tupleTypeArguments = tupleTypeArguments
             ? tupleTypeArguments.map((t) =>
-                  isNever(t.type) ? { type: UnknownType.create(), isUnbounded: t.isUnbounded } : t
+                  isNever(t.type)
+                      ? { type: UnknownType.create(), isUnbounded: t.isUnbounded, isOptional: t.isOptional }
+                      : t
               )
             : undefined;
 
@@ -2331,12 +2333,17 @@ export namespace TypeCondition {
     }
 }
 
-export interface UnionType extends TypeBase {
-    category: TypeCategory.Union;
-    subtypes: UnionableType[];
+export interface LiteralTypes {
     literalStrMap?: Map<string, UnionableType> | undefined;
     literalIntMap?: Map<bigint | number, UnionableType> | undefined;
     literalEnumMap?: Map<string, UnionableType> | undefined;
+}
+
+export interface UnionType extends TypeBase {
+    category: TypeCategory.Union;
+    subtypes: UnionableType[];
+    literalInstances: LiteralTypes;
+    literalClasses: LiteralTypes;
     typeAliasSources?: Set<UnionType>;
     includesRecursiveTypeAlias?: boolean;
 }
@@ -2346,6 +2353,8 @@ export namespace UnionType {
         const newUnionType: UnionType = {
             category: TypeCategory.Union,
             subtypes: [],
+            literalInstances: {},
+            literalClasses: {},
             flags: TypeFlags.Instance | TypeFlags.Instantiable,
         };
 
@@ -2356,23 +2365,25 @@ export namespace UnionType {
         // If we're adding a string, integer or enum literal, add it to the
         // corresponding literal map to speed up some operations. It's not
         // uncommon for unions to contain hundreds of literals.
-        if (isClassInstance(newType) && newType.literalValue !== undefined && newType.condition === undefined) {
+        if (isClass(newType) && newType.literalValue !== undefined && newType.condition === undefined) {
+            const literalMaps = isClassInstance(newType) ? unionType.literalInstances : unionType.literalClasses;
+
             if (ClassType.isBuiltIn(newType, 'str')) {
-                if (unionType.literalStrMap === undefined) {
-                    unionType.literalStrMap = new Map<string, UnionableType>();
+                if (literalMaps.literalStrMap === undefined) {
+                    literalMaps.literalStrMap = new Map<string, UnionableType>();
                 }
-                unionType.literalStrMap.set(newType.literalValue as string, newType);
+                literalMaps.literalStrMap.set(newType.literalValue as string, newType);
             } else if (ClassType.isBuiltIn(newType, 'int')) {
-                if (unionType.literalIntMap === undefined) {
-                    unionType.literalIntMap = new Map<bigint | number, UnionableType>();
+                if (literalMaps.literalIntMap === undefined) {
+                    literalMaps.literalIntMap = new Map<bigint | number, UnionableType>();
                 }
-                unionType.literalIntMap.set(newType.literalValue as number | bigint, newType);
+                literalMaps.literalIntMap.set(newType.literalValue as number | bigint, newType);
             } else if (ClassType.isEnumClass(newType)) {
-                if (unionType.literalEnumMap === undefined) {
-                    unionType.literalEnumMap = new Map<string, UnionableType>();
+                if (literalMaps.literalEnumMap === undefined) {
+                    literalMaps.literalEnumMap = new Map<string, UnionableType>();
                 }
                 const enumLiteral = newType.literalValue as EnumLiteral;
-                unionType.literalEnumMap.set(enumLiteral.getName(), newType);
+                literalMaps.literalEnumMap.set(enumLiteral.getName(), newType);
             }
         }
 
@@ -2397,14 +2408,16 @@ export namespace UnionType {
     ): boolean {
         // Handle string literals as a special case because unions can sometimes
         // contain hundreds of string literal types.
-        if (isClassInstance(subtype) && subtype.condition === undefined && subtype.literalValue !== undefined) {
-            if (ClassType.isBuiltIn(subtype, 'str') && unionType.literalStrMap !== undefined) {
-                return unionType.literalStrMap.has(subtype.literalValue as string);
-            } else if (ClassType.isBuiltIn(subtype, 'int') && unionType.literalIntMap !== undefined) {
-                return unionType.literalIntMap.has(subtype.literalValue as number | bigint);
-            } else if (ClassType.isEnumClass(subtype) && unionType.literalEnumMap !== undefined) {
+        if (isClass(subtype) && subtype.condition === undefined && subtype.literalValue !== undefined) {
+            const literalMaps = isClassInstance(subtype) ? unionType.literalInstances : unionType.literalClasses;
+
+            if (ClassType.isBuiltIn(subtype, 'str') && literalMaps.literalStrMap !== undefined) {
+                return literalMaps.literalStrMap.has(subtype.literalValue as string);
+            } else if (ClassType.isBuiltIn(subtype, 'int') && literalMaps.literalIntMap !== undefined) {
+                return literalMaps.literalIntMap.has(subtype.literalValue as number | bigint);
+            } else if (ClassType.isEnumClass(subtype) && literalMaps.literalEnumMap !== undefined) {
                 const enumLiteral = subtype.literalValue as EnumLiteral;
-                return unionType.literalEnumMap.has(enumLiteral.getName());
+                return literalMaps.literalEnumMap.has(enumLiteral.getName());
             }
         }
 
@@ -3260,11 +3273,15 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
     }
 
     // Expand all union types.
-    let expandedTypes: Type[] = [];
+    let expandedTypes: Type[] | undefined;
     const typeAliasSources = new Set<UnionType>();
 
-    for (const subtype of subtypes) {
+    for (let i = 0; i < subtypes.length; i++) {
+        const subtype = subtypes[i];
         if (isUnion(subtype)) {
+            if (!expandedTypes) {
+                expandedTypes = subtypes.slice(0, i);
+            }
             expandedTypes = expandedTypes.concat(subtype.subtypes);
 
             if (subtype.typeAliasInfo) {
@@ -3274,10 +3291,12 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
                     typeAliasSources.add(subtype);
                 });
             }
-        } else {
+        } else if (expandedTypes) {
             expandedTypes.push(subtype);
         }
     }
+
+    expandedTypes = expandedTypes ?? subtypes;
 
     // Sort all of the literal and empty types to the end.
     expandedTypes = expandedTypes.sort((type1, type2) => {
@@ -3363,32 +3382,34 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
     // Handle the addition of a string literal in a special manner to
     // avoid n^2 behavior in unions that contain hundreds of string
     // literal types. Skip this for constrained types.
-    if (isClassInstance(typeToAdd) && typeToAdd.condition === undefined) {
+    if (isClass(typeToAdd) && typeToAdd.condition === undefined) {
+        const literalMaps = isClassInstance(typeToAdd) ? unionType.literalInstances : unionType.literalClasses;
+
         if (
             ClassType.isBuiltIn(typeToAdd, 'str') &&
             typeToAdd.literalValue !== undefined &&
-            unionType.literalStrMap !== undefined
+            literalMaps.literalStrMap !== undefined
         ) {
-            if (!unionType.literalStrMap.has(typeToAdd.literalValue as string)) {
+            if (!literalMaps.literalStrMap.has(typeToAdd.literalValue as string)) {
                 UnionType.addType(unionType, typeToAdd);
             }
             return;
         } else if (
             ClassType.isBuiltIn(typeToAdd, 'int') &&
             typeToAdd.literalValue !== undefined &&
-            unionType.literalIntMap !== undefined
+            literalMaps.literalIntMap !== undefined
         ) {
-            if (!unionType.literalIntMap.has(typeToAdd.literalValue as number | bigint)) {
+            if (!literalMaps.literalIntMap.has(typeToAdd.literalValue as number | bigint)) {
                 UnionType.addType(unionType, typeToAdd);
             }
             return;
         } else if (
             ClassType.isEnumClass(typeToAdd) &&
             typeToAdd.literalValue !== undefined &&
-            unionType.literalEnumMap !== undefined
+            literalMaps.literalEnumMap !== undefined
         ) {
             const enumLiteral = typeToAdd.literalValue as EnumLiteral;
-            if (!unionType.literalEnumMap.has(enumLiteral.getName())) {
+            if (!literalMaps.literalEnumMap.has(enumLiteral.getName())) {
                 UnionType.addType(unionType, typeToAdd);
             }
             return;

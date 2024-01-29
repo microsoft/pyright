@@ -738,7 +738,7 @@
         "seeVariableDeclaration": "Просмотреть объявление переменной",
         "tupleAssignmentMismatch": "Тип \"{type}\" несовместим с целевым кортежем",
         "tupleEntryTypeMismatch": "Запись кортежа {entry} имеет неверный тип",
-        "tupleSizeIndeterminate": "Несоответствие размеров кортежа: ожидается \"{expected}\", но получено неопределенное значение",
+        "tupleSizeIndeterminateSrc": "Несоответствие размеров кортежа: ожидается \"{expected}\", но получено неопределенное значение",
         "tupleSizeMismatch": "Несоответствие размеров кортежа: ожидается \"{expected}\", но получено \"{received}\"",
         "typeAliasInstanceCheck": "Type alias created with \"type\" statement cannot be used with instance and class checks",
         "typeAssignmentMismatch": "Тип \"{sourceType}\" нельзя присвоить типу \"{destType}\"",

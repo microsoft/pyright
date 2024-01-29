@@ -162,10 +162,17 @@ export class TypeVarSignatureContext {
         reference: TypeVarType,
         narrowBound: Type | undefined,
         narrowBoundNoLiterals?: Type,
-        wideBound?: Type
+        wideBound?: Type,
+        tupleTypes?: TupleTypeArgument[]
     ) {
         const key = TypeVarType.getNameWithScope(reference);
-        this._typeVarMap.set(key, { typeVar: reference, narrowBound, narrowBoundNoLiterals, wideBound });
+        this._typeVarMap.set(key, {
+            typeVar: reference,
+            narrowBound,
+            narrowBoundNoLiterals,
+            wideBound,
+            tupleTypes,
+        });
     }
 
     getTupleTypeVar(reference: TypeVarType): TupleTypeArgument[] | undefined {
@@ -450,12 +457,13 @@ export class TypeVarContext {
         reference: TypeVarType,
         narrowBound: Type | undefined,
         narrowBoundNoLiterals?: Type,
-        wideBound?: Type
+        wideBound?: Type,
+        tupleTypes?: TupleTypeArgument[]
     ) {
         assert(!this._isLocked);
 
         return this._signatureContexts.forEach((context) => {
-            context.setTypeVarType(reference, narrowBound, narrowBoundNoLiterals, wideBound);
+            context.setTypeVarType(reference, narrowBound, narrowBoundNoLiterals, wideBound, tupleTypes);
         });
     }
 

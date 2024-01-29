@@ -384,7 +384,12 @@ export function assignTypeToTypeVar(
             // There was previously no narrow bound. We've now established one.
             newNarrowTypeBound = adjSrcType;
         } else if (!isTypeSame(curNarrowTypeBound, adjSrcType, {}, recursionCount)) {
-            if (
+            if (isAnyOrUnknown(adjSrcType) && curEntry.tupleTypes) {
+                // Handle the tuple case specially. If Any or Unknown is assigned
+                // during the construction of a tuple, the resulting tuple type must
+                // be tuple[Any, ...], which is compatible with any tuple.
+                newNarrowTypeBound = adjSrcType;
+            } else if (
                 evaluator.assignType(
                     curNarrowTypeBound,
                     adjSrcType,
@@ -587,6 +592,17 @@ export function assignTypeToTypeVar(
         }
     }
 
+    // Update the tuple types based on the new type bounds. We need to
+    // switch to an unbounded tuple type since the length of the resulting
+    // tuple is indeterminate.
+    let newTupleTypes = curEntry?.tupleTypes;
+    if (newTupleTypes) {
+        const updatedType = newNarrowTypeBound ?? newWideTypeBound;
+        if (updatedType) {
+            newTupleTypes = [{ type: updatedType, isUnbounded: true }];
+        }
+    }
+
     if (!typeVarContext.isLocked() && isTypeVarInScope) {
         updateTypeVarType(
             evaluator,
@@ -594,6 +610,7 @@ export function assignTypeToTypeVar(
             destType,
             newNarrowTypeBound,
             newWideTypeBound,
+            newTupleTypes,
             (flags & (AssignTypeFlags.PopulatingExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) !== 0
         );
     }
@@ -619,6 +636,7 @@ export function updateTypeVarType(
     destType: TypeVarType,
     narrowTypeBound: Type | undefined,
     wideTypeBound: Type | undefined,
+    tupleTypes: TupleTypeArgument[] | undefined = undefined,
     forceRetainLiterals = false
 ) {
     let narrowTypeBoundNoLiterals: Type | undefined;
@@ -637,7 +655,7 @@ export function updateTypeVarType(
         }
     }
 
-    typeVarContext.setTypeVarType(destType, narrowTypeBound, narrowTypeBoundNoLiterals, wideTypeBound);
+    typeVarContext.setTypeVarType(destType, narrowTypeBound, narrowTypeBoundNoLiterals, wideTypeBound, tupleTypes);
 }
 
 function assignTypeToConstrainedTypeVar(
@@ -842,6 +860,7 @@ function assignTypeToConstrainedTypeVar(
                 destType,
                 constrainedType,
                 curWideTypeBound,
+                /* tupleTypes */ undefined,
                 forceRetainLiterals
             );
         }
@@ -1056,7 +1075,11 @@ export function populateTypeVarContextBasedOnExpectedType(
                                     tupleType = transformExpectedType(tupleEntry.type, liveTypeVarScopes, usageOffset);
                                 }
 
-                                return { type: tupleType, isUnbounded: tupleEntry.isUnbounded };
+                                return {
+                                    type: tupleType,
+                                    isUnbounded: tupleEntry.isUnbounded,
+                                    isOptional: tupleEntry.isOptional,
+                                };
                             })
                         );
                     }
@@ -1246,6 +1269,7 @@ function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type)
 
         return {
             isUnbounded: arg.isUnbounded,
+            isOptional: arg.isOptional,
             type: strippedType,
         };
     });

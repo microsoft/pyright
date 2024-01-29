@@ -738,7 +738,7 @@
         "seeVariableDeclaration": "変数宣言を参照してください",
         "tupleAssignmentMismatch": "型 \"{type}\" はターゲット タプルと互換性がありません",
         "tupleEntryTypeMismatch": "タプル エントリ {entry} の型が正しくありません",
-        "tupleSizeIndeterminate": "タプル サイズが一致しません。{expected} が必要ですが、受け取りは不確定です",
+        "tupleSizeIndeterminateSrc": "タプル サイズが一致しません。{expected} が必要ですが、受け取りは不確定です",
         "tupleSizeMismatch": "タプルのサイズが一致しません。{expected} が必要ですが、{received} を受信しました",
         "typeAliasInstanceCheck": "Type alias created with \"type\" statement cannot be used with instance and class checks",
         "typeAssignmentMismatch": "型 \"{sourceType}\" を型 \"{destType}\" に割り当てることはできません",

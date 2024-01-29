@@ -738,7 +738,7 @@
         "seeVariableDeclaration": "변수 선언 보기",
         "tupleAssignmentMismatch": "‘{type}’ 형식이 대상 튜플과 호환되지 않습니다.",
         "tupleEntryTypeMismatch": "튜플 항목 {entry}이(가) 잘못된 형식입니다.",
-        "tupleSizeIndeterminate": "튜플 크기 불일치: {expected}이(가) 필요하지만 미정을 받았습니다.",
+        "tupleSizeIndeterminateSrc": "튜플 크기 불일치: {expected}이(가) 필요하지만 미정을 받았습니다.",
         "tupleSizeMismatch": "튜플 크기 불일치: {expected}이(가) 필요하지만 {received}을(를) 받았습니다.",
         "typeAliasInstanceCheck": "Type alias created with \"type\" statement cannot be used with instance and class checks",
         "typeAssignmentMismatch": "\"{sourceType}\" 형식은 \"{destType}\" 형식에 할당할 수 없습니다.",
