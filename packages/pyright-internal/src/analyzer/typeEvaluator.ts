@@ -22419,6 +22419,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeParam,
                     variance !== Variance.Contravariant ? typeArgType : undefined,
                     variance !== Variance.Covariant ? typeArgType : undefined,
+                    /* tupleTypes */ curSrcType.tupleTypeArguments,
                     /* forceRetainLiterals */ true
                 );
             }
