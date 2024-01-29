@@ -1635,12 +1635,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function stripLiteralValue(type: Type): Type {
         // Handle the not-uncommon case where the type is a union that consists
-        // only of literal str or literal int values.
+        // only of literal values.
         if (isUnion(type) && type.subtypes.length > 0) {
             if (
-                type.literalStrMap?.size === type.subtypes.length ||
-                type.literalIntMap?.size === type.subtypes.length ||
-                type.literalEnumMap?.size === type.subtypes.length
+                type.literalInstances.literalStrMap?.size === type.subtypes.length ||
+                type.literalInstances.literalIntMap?.size === type.subtypes.length ||
+                type.literalInstances.literalEnumMap?.size === type.subtypes.length
             ) {
                 return stripLiteralValue(type.subtypes[0]);
             }
@@ -25168,6 +25168,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // we may be able to narrow the type based on the assignment.
     function narrowTypeBasedOnAssignment(node: ExpressionNode, declaredType: Type, assignedType: Type): Type {
         const narrowedType = mapSubtypes(assignedType, (assignedSubtype) => {
+            // Handle the special case where the assigned type is a literal type.
+            // Some types include very large unions of literal types, and we don't
+            // want to use an n^2 loop to compare them.
+            if (isClass(assignedSubtype) && isLiteralType(assignedSubtype)) {
+                if (isUnion(declaredType) && UnionType.containsType(declaredType, assignedSubtype)) {
+                    return assignedSubtype;
+                }
+            }
+
             const narrowedSubtype = mapSubtypes(declaredType, (declaredSubtype) => {
                 // We can't narrow "Any".
                 if (isAnyOrUnknown(declaredSubtype)) {
