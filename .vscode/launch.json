@@ -84,6 +84,9 @@
             "args": [
                 "${fileBasenameNoExtension}",
                 "--runInBand",
+                "--detectOpenHandles",
+                "--forceExit",
+                "--testTimeout=180000"
             ],
             "cwd": "${workspaceRoot}/packages/pyright-internal",
             "console": "integratedTerminal",
