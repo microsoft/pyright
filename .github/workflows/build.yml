@@ -55,6 +55,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Create release
     needs: [build]
+    permissions:
+      contents: write
 
     steps:
       - name: Download artifacts
