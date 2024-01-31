@@ -3,8 +3,6 @@ import {
     CancellationToken,
     CompletionRequest,
     ConfigurationItem,
-    DidOpenTextDocumentNotification,
-    HoverRequest,
     InitializedNotification,
     InitializeRequest,
     MarkupContent,
@@ -19,7 +17,9 @@ import {
     cleanupAfterAll,
     DEFAULT_WORKSPACE_ROOT,
     getParseResults,
+    hover,
     initializeLanguageServer,
+    openFile,
     PyrightServerInfo,
     runPyrightServer,
     waitForDiagnostics,
@@ -91,29 +91,8 @@ describe(`Basic language server tests`, () => {
 
         // Do simple hover request to verify our server works with a client that doesn't support
         // workspace folder/configuration capabilities.
-        const marker = info.testData.markerPositions.get('marker')!;
-        const fileUri = marker.fileUri;
-        const text = info.testData.files.find((d) => d.fileName === marker.fileName)!.content;
-
-        await info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
-            textDocument: {
-                uri: fileUri.toString(),
-                languageId: 'python',
-                version: 1,
-                text,
-            },
-        });
-
-        const parseResult = getParseResults(text);
-        const hoverResult = await info.connection.sendRequest(
-            HoverRequest.type,
-            {
-                textDocument: { uri: fileUri.toString() },
-                position: convertOffsetToPosition(marker.position, parseResult.tokenizerOutput.lines),
-            },
-            CancellationToken.None
-        );
-
+        openFile(info, 'marker');
+        const hoverResult = await hover(info, 'marker');
         assert(hoverResult);
         assert(MarkupContent.is(hoverResult.contents));
         assert.strictEqual(hoverResult.contents.value, '```python\n(module) os\n```');
@@ -126,29 +105,8 @@ describe(`Basic language server tests`, () => {
         const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code, /* callInitialize */ true);
 
         // Do simple hover request
-        const marker = info.testData.markerPositions.get('marker')!;
-        const fileUri = marker.fileUri;
-        const text = info.testData.files.find((d) => d.fileName === marker.fileName)!.content;
-
-        await info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
-            textDocument: {
-                uri: fileUri.toString(),
-                languageId: 'python',
-                version: 1,
-                text,
-            },
-        });
-
-        const parseResult = getParseResults(text);
-        const hoverResult = await info.connection.sendRequest(
-            HoverRequest.type,
-            {
-                textDocument: { uri: fileUri.toString() },
-                position: convertOffsetToPosition(marker.position, parseResult.tokenizerOutput.lines),
-            },
-            CancellationToken.None
-        );
-
+        openFile(info, 'marker');
+        const hoverResult = await hover(info, 'marker');
         assert(hoverResult);
         assert(MarkupContent.is(hoverResult.contents));
         assert.strictEqual(hoverResult.contents.value, '```python\n(module) os\n```');
@@ -162,19 +120,10 @@ describe(`Basic language server tests`, () => {
         const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code, /* callInitialize */ true);
 
         // Do simple completion request
+        openFile(info, 'marker');
         const marker = info.testData.markerPositions.get('marker')!;
         const fileUri = marker.fileUri;
         const text = info.testData.files.find((d) => d.fileName === marker.fileName)!.content;
-
-        await info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
-            textDocument: {
-                uri: fileUri.toString(),
-                languageId: 'python',
-                version: 1,
-                text,
-            },
-        });
-
         const parseResult = getParseResults(text);
         const completionResult = await info.connection.sendRequest(
             CompletionRequest.type,
@@ -222,18 +171,7 @@ describe(`Basic language server tests`, () => {
         );
 
         // get the file containing the marker that also contains our task list comments
-        const marker = info.testData.markerPositions.get('marker')!;
-        const text = info.testData.files.find((d) => d.fileName === marker.fileName)!.content;
-        const fileUri = marker.fileUri;
-
-        await info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
-            textDocument: {
-                uri: fileUri.toString(),
-                languageId: 'python',
-                version: 1,
-                text,
-            },
-        });
+        await openFile(info, 'marker');
 
         // Wait for the diagnostics to publish
         const diagnostics = await waitForDiagnostics(info);

@@ -2,7 +2,6 @@ import assert from 'assert';
 import * as fs from 'fs-extra';
 import { isMainThread, threadId, Worker } from 'node:worker_threads';
 import path from 'path';
-import { Duplex } from 'stream';
 import {
     ApplyWorkspaceEditParams,
     ApplyWorkspaceEditRequest,
@@ -32,6 +31,7 @@ import {
     createConnection,
     Emitter,
     Event,
+    HoverRequest,
     NotificationHandler,
     PortMessageReader,
     PortMessageWriter,
@@ -44,28 +44,25 @@ import {
 } from 'vscode-languageserver/node';
 import { PythonPathResult } from '../../analyzer/pythonPathUtils';
 import { IPythonMode } from '../../analyzer/sourceFile';
-import { deserialize } from '../../backgroundThreadBase';
-import { ConfigOptions, PythonPlatform } from '../../common/configOptions';
+import { PythonPlatform } from '../../common/configOptions';
 import { createDeferred, Deferred } from '../../common/deferred';
-import { Diagnostic } from '../../common/diagnostic';
 import { DiagnosticSink } from '../../common/diagnosticSink';
 import { FileSystem } from '../../common/fileSystem';
 import { LimitedAccessHost } from '../../common/fullAccessHost';
 import { HostKind, ScriptOutput } from '../../common/host';
-import { combinePaths, getRegexEscapedSeparator, resolvePaths } from '../../common/pathUtils';
+import { combinePaths, resolvePaths } from '../../common/pathUtils';
+import { convertOffsetToPosition } from '../../common/positionUtils';
 import { PythonVersion } from '../../common/pythonVersion';
 import { FileUri } from '../../common/uri/fileUri';
 import { Uri } from '../../common/uri/uri';
-import { FileSpec, getWildcardRegexPattern, getWildcardRoot } from '../../common/uri/uriUtils';
-import { ServerSettings } from '../../languageServerBase';
-import { ParseOptions, Parser, ParseResults } from '../../parser/parser';
+import { ParseOptions, Parser } from '../../parser/parser';
 import { parseTestData } from '../harness/fourslash/fourSlashParser';
-import { FourSlashData, Marker } from '../harness/fourslash/fourSlashTypes';
+import { FourSlashData } from '../harness/fourslash/fourSlashTypes';
 import { createVfsInfoFromFourSlashData, getMarkerByName } from '../harness/fourslash/testStateUtils';
 import * as host from '../harness/testHost';
 import { createFromFileSystem, distlibFolder, libFolder } from '../harness/vfs/factory';
 import * as vfs from '../harness/vfs/filesystem';
-import { CustomLSP, WorkspaceInfo } from './customLsp';
+import { CustomLSP } from './customLsp';
 
 // bundled root on test virtual file system.
 const bundledStubsFolder = combinePaths(vfs.MODULE_PATH, 'bundled', 'stubs');
@@ -102,11 +99,6 @@ export interface PyrightServerInfo {
     convertPathToUri(path: string): Uri;
 }
 
-export const enum VscodeFileType {
-    Unknown,
-    File,
-    Directory,
-}
 export class TestHostOptions {
     version: PythonVersion;
     platform: PythonPlatform;
@@ -232,10 +224,6 @@ export function updateSettingsMap(info: PyrightServerInfo, settings: { item: Con
     settingsMap.set(info, [...settings, ...current]);
 }
 
-export function defaultRunScript() {
-    return Promise.resolve({ stdout: '', stderr: '' });
-}
-
 export function getParseResults(fileContents: string, isStubFile = false, ipythonMode: IPythonMode = 0) {
     const diagSink = new DiagnosticSink();
     const parseOptions = new ParseOptions();
@@ -247,136 +235,6 @@ export function getParseResults(fileContents: string, isStubFile = false, ipytho
     // Parse the token stream, building the abstract syntax tree.
     const parser = new Parser();
     return parser.parseSourceFile(fileContents, parseOptions, diagSink);
-}
-
-export function addFile(info: PyrightServerInfo, code: string, fireFileChange = false) {
-    CustomLSP.sendNotification(info.connection, CustomLSP.Notifications.TestAddFile, { code, fireFileChange });
-}
-
-export async function getConfigOptions(info: PyrightServerInfo, projectRoot?: Uri): Promise<ConfigOptions> {
-    const uri = projectRoot ? projectRoot.toString() : info.projectRoots[0].toString();
-    const result = await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.GetWorkspaceConfig, { uri });
-    return deserialize<ConfigOptions>(result.config);
-}
-
-export async function getSettings(info: PyrightServerInfo, projectRoot?: Uri): Promise<ServerSettings> {
-    const uri = projectRoot ? projectRoot.toString() : info.projectRoots[0].toString();
-    const result = await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.GetWorkspaceSettings, { uri });
-    return deserialize<ServerSettings>(result.settings);
-}
-
-export async function getWorkspaceKinds(info: PyrightServerInfo, file: Uri) {
-    const uri = file.toString();
-    const result = await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.GetWorkspaceKinds, { uri });
-    return result.kinds;
-}
-
-export async function getWorkspaceCount(info: PyrightServerInfo) {
-    const result = await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.GetWorkspaceInfos, undefined);
-    return deserialize(result.infos).length;
-}
-
-export async function getWorkspaceInfos(info: PyrightServerInfo): Promise<WorkspaceInfo[]> {
-    const result = await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.GetWorkspaceInfos, undefined);
-    return deserialize(result.infos);
-}
-
-export async function getUserFiles(info: PyrightServerInfo, projectRoot?: Uri): Promise<Uri[]> {
-    const uri = projectRoot ? projectRoot.toString() : info.projectRoots[0].toString();
-    const result = await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.GetUserFiles, { uri });
-    return deserialize(result.files);
-}
-
-export async function getOpenFiles(info: PyrightServerInfo, projectRoot?: Uri): Promise<Uri[]> {
-    const uri = projectRoot ? projectRoot.toString() : info.projectRoots[0].toString();
-    const result = await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.GetOpenFiles, { uri });
-    return deserialize(result.files);
-}
-
-export async function getWorkspaceInfo(info: PyrightServerInfo, filePath: Uri): Promise<WorkspaceInfo | undefined> {
-    const uri = filePath.toString();
-    const result = await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.GetWorkspaceInfo, { uri });
-    return deserialize(result.info);
-}
-
-export async function getFileContents(info: PyrightServerInfo, filePath: Uri) {
-    const uri = filePath.toString();
-    const result = await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.GetFileContent, { uri });
-    return result.contents;
-}
-
-export async function getWorkspaceFileContents(info: PyrightServerInfo, workspacePath: Uri, filePath: Uri) {
-    const workspaceUri = workspacePath.toString();
-    const fileUri = filePath.toString();
-    const result = await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.GetWorkspaceFileContent, {
-        workspaceUri,
-        fileUri,
-    });
-    return result.contents;
-}
-
-export async function analyzeFile(info: PyrightServerInfo, file: Uri) {
-    await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.AnalyzeFile, { uri: file.toString() });
-}
-
-export async function analyzeWorkspace(info: PyrightServerInfo, projectRoot?: Uri) {
-    const uri = projectRoot ? projectRoot.toString() : info.projectRoots[0].toString();
-    await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.AnalyzeWorkspace, { uri });
-}
-
-export async function getDiagnostics(info: PyrightServerInfo, filePath: Uri): Promise<Diagnostic[]> {
-    const result = await CustomLSP.sendRequest(info.connection, CustomLSP.Requests.GetDiagnostics, {
-        uri: filePath.toString(),
-    });
-    return deserialize(result.diagnostics);
-}
-
-export function assertFileSpec(projectRoot: Uri, actual: FileSpec[], expect: string) {
-    assert.strictEqual(actual.length, 1);
-
-    let regExPattern = getWildcardRegexPattern(projectRoot, expect);
-    const escapedSeparator = getRegexEscapedSeparator('/');
-    regExPattern = `^(${regExPattern})($|${escapedSeparator})`;
-
-    const wildcardRoot = getWildcardRoot(projectRoot, expect);
-    const regex = new RegExp(regExPattern);
-    assert.strictEqual(actual[0].wildcardRoot.getFilePath(), wildcardRoot.getFilePath());
-    assert.strictEqual(`${actual[0].regExp}`, regex.toString());
-}
-
-export async function runAndOpenMarker(
-    sync: boolean,
-    code: string,
-    markerName: string,
-    settings?: { item: ConfigurationItem; value: any }[]
-): Promise<{ marker: Marker; fileUri: Uri; parseResult: ParseResults; serverInfo: PyrightServerInfo }> {
-    const serverInfo = await runPyrightServer(
-        DEFAULT_WORKSPACE_ROOT,
-        code,
-        /* callInitialize */ true,
-        settings,
-        PythonVersion.V3_10
-    );
-
-    // Do simple hover request to verify our server works with a client that doesn't support
-    // workspace folder/configuration capabilities.
-    const marker = serverInfo.testData.markerPositions.get(markerName)!;
-    const fileUri = marker.fileUri;
-    const text = serverInfo.testData.files.find((d) => d.fileName === marker.fileName)!.content;
-
-    serverInfo.connection.sendNotification(DidOpenTextDocumentNotification.type, {
-        textDocument: {
-            uri: fileUri.toString(),
-            languageId: 'python',
-            version: 1,
-            text,
-        },
-    });
-
-    // Parse on this side so we can use the parse results to create positions and such.
-    const parseResult = getParseResults(text);
-
-    return { marker, fileUri, parseResult, serverInfo };
 }
 
 function createServerConnection(testServerData: CustomLSP.TestServerStartOptions, disposables: Disposable[]) {
@@ -414,23 +272,6 @@ export async function waitForDiagnostics(info: PyrightServerInfo, timeout = 1000
         disposable.dispose();
     }
     return info.diagnostics;
-}
-
-export async function waitForWorkspaceEdits(info: PyrightServerInfo, timeout = 10000) {
-    const deferred = createDeferred<void>();
-    const disposable = info.workspaceEditsEvent((params) => {
-        if (params.edit.changes) {
-            deferred.resolve();
-        }
-    });
-    const timer = setTimeout(() => deferred.reject('Timed out waiting for workspace edits'), timeout);
-    try {
-        await deferred.promise;
-    } finally {
-        clearTimeout(timer);
-        disposable.dispose();
-    }
-    return info.workspaceEdits;
 }
 
 interface ProgressPart {}
@@ -684,14 +525,6 @@ export async function initializeLanguageServer(info: PyrightServerInfo) {
     return result;
 }
 
-export async function InitializeLanguageServerWithoutWorkspace(info: PyrightServerInfo) {
-    const params = getInitializeParams([]);
-    const result = await info.connection.sendRequest(InitializeRequest.type, params, CancellationToken.None);
-
-    await info.connection.sendNotification(InitializedNotification.type, {});
-    return result;
-}
-
 export async function sleep(timeout: number): Promise<number> {
     return new Promise<number>((resolve) => {
         setTimeout(() => resolve(timeout), timeout);
@@ -707,6 +540,23 @@ export function openFile(info: PyrightServerInfo, markerName: string, text?: str
     info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
         textDocument: { uri, languageId: 'python', version: 1, text },
     });
+}
+
+export async function hover(info: PyrightServerInfo, markerName: string) {
+    const marker = info.testData.markerPositions.get('marker')!;
+    const fileUri = marker.fileUri;
+    const text = info.testData.files.find((d) => d.fileName === marker.fileName)!.content;
+    const parseResult = getParseResults(text);
+    const hoverResult = await info.connection.sendRequest(
+        HoverRequest.type,
+        {
+            textDocument: { uri: fileUri.toString() },
+            position: convertOffsetToPosition(marker.position, parseResult.tokenizerOutput.lines),
+        },
+        CancellationToken.None
+    );
+
+    return hoverResult;
 }
 
 export function getInitializeParams(projectRoots: Uri[]) {
@@ -1067,19 +917,6 @@ export function getInitializeParams(projectRoots: Uri[]) {
     };
 
     return params;
-}
-
-export class TestStream extends Duplex {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    override _write(chunk: string, _encoding: string, done: () => void) {
-        this.emit('data', chunk);
-        done();
-    }
-
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    override _read(_size: number) {
-        return;
-    }
 }
 
 export class TestHost extends LimitedAccessHost {
