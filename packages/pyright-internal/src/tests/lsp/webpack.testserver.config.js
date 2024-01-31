@@ -5,7 +5,7 @@
 
 const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
-const { cacheConfig, tsconfigResolveAliases } = require('../../../../../build/lib/webpack');
+const { tsconfigResolveAliases } = require('../../../../../build/lib/webpack');
 
 const outPath = path.resolve(__dirname, '..', '..', '..', 'out');
 const typeshedFallback = path.resolve(__dirname, '..', '..', '..', 'typeshed-fallback');
@@ -22,9 +22,9 @@ module.exports = (_, { mode }) => {
             filename: '[name].bundle.js',
             path: outPath,
             libraryTarget: 'commonjs2',
+            devtoolModuleFilenameTemplate: '[absolute-resource-path]',
         },
         devtool: 'source-map',
-        cache: cacheConfig(__dirname, __filename),
         stats: {
             all: false,
             errors: true,

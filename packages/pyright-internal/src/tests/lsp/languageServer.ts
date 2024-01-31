@@ -25,12 +25,15 @@ import * as PyrightTestHost from '../harness/testHost';
 import { clearCache } from '../harness/vfs/factory';
 import { TestFileSystem } from '../harness/vfs/filesystem';
 
-import { BackgroundAnalysisRunner } from '../../backgroundAnalysis';
+import { BackgroundAnalysis, BackgroundAnalysisRunner } from '../../backgroundAnalysis';
+import { BackgroundAnalysisBase } from '../../backgroundAnalysisBase';
 import { serialize } from '../../backgroundThreadBase';
 import { FileSystem } from '../../common/fileSystem';
 import { ServiceKeys } from '../../common/serviceProviderExtensions';
+import { ServerSettings } from '../../languageServerBase';
 import { PyrightFileSystem } from '../../pyrightFileSystem';
 import { PyrightServer } from '../../server';
+import { InitStatus, Workspace } from '../../workspaceFactory';
 import { CustomLSP } from './customLsp';
 import {
     DEFAULT_WORKSPACE_ROOT,
@@ -126,12 +129,40 @@ function createTestHost(testServerData: CustomLSP.TestServerStartOptions) {
 }
 
 class TestServer extends PyrightServer {
-    constructor(connection: Connection, fs: FileSystem) {
+    constructor(
+        connection: Connection,
+        fs: FileSystem,
+        private readonly _supportsBackgroundAnalysis: boolean | undefined
+    ) {
         super(connection, fs);
     }
 
     test_onDidChangeWatchedFiles(params: any) {
         this.onDidChangeWatchedFiles(params);
+    }
+    override async updateSettingsForWorkspace(
+        workspace: Workspace,
+        status: InitStatus | undefined,
+        serverSettings?: ServerSettings | undefined
+    ): Promise<void> {
+        const result = await super.updateSettingsForWorkspace(workspace, status, serverSettings);
+
+        // LSP notification only allows synchronous callback. because of that, the one that sent the notification can't know
+        // when the work caused by the notification actually ended. To workaround that issue, we will send custom lsp to indicate
+        // something has been done.
+        CustomLSP.sendNotification(this.connection, CustomLSP.Notifications.TestSignal, {
+            uri: workspace.rootUri.toString(),
+            kind: CustomLSP.TestSignalKinds.Initialization,
+        });
+
+        return result;
+    }
+
+    override createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined {
+        if (this._supportsBackgroundAnalysis) {
+            return new BackgroundAnalysis(this.serverOptions.serviceProvider);
+        }
+        return undefined;
     }
 }
 
@@ -155,7 +186,7 @@ async function runServer(
         // Create a host so we can control the file system for the PyrightServer.
         const disposables: Disposable[] = [];
         const host = createTestHost(testServerData);
-        const server = new TestServer(connection, host.fs);
+        const server = new TestServer(connection, host.fs, testServerData.backgroundAnalysis);
 
         // Listen for the test messages from the client. These messages
         // are how the test code queries the state of the server.

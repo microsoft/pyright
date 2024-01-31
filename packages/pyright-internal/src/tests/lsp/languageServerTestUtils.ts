@@ -32,8 +32,15 @@ import {
     createConnection,
     Emitter,
     Event,
+    NotificationHandler,
     PortMessageReader,
     PortMessageWriter,
+    ProgressToken,
+    ProgressType,
+    ProtocolNotificationType,
+    WorkDoneProgress,
+    WorkDoneProgressCancelNotification,
+    WorkDoneProgressCreateRequest,
 } from 'vscode-languageserver/node';
 import { PythonPathResult } from '../../analyzer/pythonPathUtils';
 import { IPythonMode } from '../../analyzer/sourceFile';
@@ -82,6 +89,9 @@ export interface PyrightServerInfo {
     testName: string; // Used for debugging
     testData: FourSlashData;
     projectRoots: Uri[];
+    progressReporters: string[];
+    progressReporterStatus: Map<string, number>;
+    progressParts: Map<string, TestProgressPart>;
     telemetry: any[];
     diagnostics: PublishDiagnosticsParams[];
     diagnosticsEvent: Event<PublishDiagnosticsParams>;
@@ -171,6 +181,12 @@ function createServerWorker(file: string, testServerData: CustomLSP.TestServerSt
         `Removed all worker listeners. Test ${testServerData.testName} is starting.\n  Last test was ${lastServerFinished.name} and finished: ${lastServerFinished.finished}`,
         testServerData.logFile
     );
+    serverWorker.on('error', (e) => {
+        logToDisk(`Worker error: ${e}`, testServerData.logFile);
+    });
+    serverWorker.on('exit', (code) => {
+        logToDisk(`Worker exit: ${code}`, testServerData.logFile);
+    });
     return serverWorker;
 }
 
@@ -417,6 +433,44 @@ export async function waitForWorkspaceEdits(info: PyrightServerInfo, timeout = 1
     return info.workspaceEdits;
 }
 
+interface ProgressPart {}
+
+interface ProgressContext {
+    onProgress<P>(type: ProgressType<P>, token: string | number, handler: NotificationHandler<P>): Disposable;
+    sendNotification<P, RO>(type: ProtocolNotificationType<P, RO>, params?: P): void;
+}
+
+class TestProgressPart implements ProgressPart {
+    constructor(
+        private readonly _context: ProgressContext,
+        private readonly _token: ProgressToken,
+        info: PyrightServerInfo,
+        done: () => void
+    ) {
+        info.disposables.push(
+            info.connection.onProgress(WorkDoneProgress.type, _token, (params) => {
+                switch (params.kind) {
+                    case 'begin':
+                        info.progressReporterStatus.set(_token.toString(), 0);
+                        break;
+                    case 'report':
+                        info.progressReporterStatus.set(_token.toString(), params.percentage ?? 0);
+                        break;
+                    case 'end':
+                        done();
+                        break;
+                }
+            })
+        );
+        info.progressReporters.push(this._token.toString());
+        info.progressParts.set(this._token.toString(), this);
+    }
+
+    sendCancel() {
+        this._context.sendNotification(WorkDoneProgressCancelNotification.type, { token: this._token });
+    }
+}
+
 export async function runPyrightServer(
     projectRoots: string[] | string,
     code: string,
@@ -469,6 +523,9 @@ export async function runPyrightServer(
         registrations: [],
         connection,
         logs: [],
+        progressReporters: [],
+        progressReporterStatus: new Map<string, number>(),
+        progressParts: new Map<string, TestProgressPart>(),
         signals: new Map(Object.values(CustomLSP.TestSignalKinds).map((v) => [v, createDeferred<boolean>()])),
         testData,
         testName: testServerData.testName,
@@ -517,6 +574,24 @@ export async function runPyrightServer(
         info.connection.onRequest(UnregistrationRequest.type, (p) => {
             const unregisterIds = p.unregisterations.map((u) => u.id);
             info.registrations = info.registrations.filter((r) => !unregisterIds.includes(r.id));
+        }),
+        info.connection.onRequest(WorkDoneProgressCreateRequest.type, (p) => {
+            // Save the progress reporter so we can send progress updates.
+            info.progressReporters.push(p.token.toString());
+            info.disposables.push(
+                info.connection.onProgress(WorkDoneProgress.type, p.token, (params) => {
+                    switch (params.kind) {
+                        case 'begin':
+                            info.progressReporterStatus.set(p.token.toString(), 0);
+                            break;
+                        case 'report':
+                            info.progressReporterStatus.set(p.token.toString(), params.percentage ?? 0);
+                            break;
+                        case 'end':
+                            break;
+                    }
+                })
+            );
         }),
         info.connection.onNotification(PublishDiagnosticsNotification.type, (p) => {
             info.diagnostics.push(p);

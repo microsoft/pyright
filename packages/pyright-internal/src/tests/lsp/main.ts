@@ -8,6 +8,4 @@
 
 import { run } from './languageServer';
 
-export function main() {
-    run();
-}
+run();

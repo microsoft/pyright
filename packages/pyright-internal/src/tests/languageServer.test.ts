@@ -1,6 +1,10 @@
 import assert from 'assert';
 import {
     CancellationToken,
+    CodeActionKind,
+    CodeActionRequest,
+    Command,
+    CompletionRequest,
     ConfigurationItem,
     DidOpenTextDocumentNotification,
     HoverRequest,
@@ -12,6 +16,8 @@ import {
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 
+import { isArray } from '../common/core';
+import { normalizeSlashes } from '../common/pathUtils';
 import {
     cleanupAfterAll,
     DEFAULT_WORKSPACE_ROOT,
@@ -19,6 +25,7 @@ import {
     initializeLanguageServer,
     PyrightServerInfo,
     runPyrightServer,
+    waitForDiagnostics,
 } from './lsp/languageServerTestUtils';
 
 describe(`Basic language server tests`, () => {
@@ -64,7 +71,7 @@ describe(`Basic language server tests`, () => {
         const initializeResult = await initializeLanguageServer(serverInfo);
 
         assert(initializeResult);
-        assert(initializeResult.capabilities.inlayHintProvider);
+        assert(initializeResult.capabilities.completionProvider?.resolveProvider);
     });
 
     test('Initialize without workspace folder support', async () => {
@@ -114,10 +121,142 @@ describe(`Basic language server tests`, () => {
         assert(MarkupContent.is(hoverResult.contents));
         assert.strictEqual(hoverResult.contents.value, '```python\n(module) os\n```');
     });
-});
+    test('Hover', async () => {
+        const code = `
+// @filename: test.py
+//// import [|/*marker*/os|]
+        `;
+        const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code, /* callInitialize */ true);
 
-// Probably only want these tests
-// Initialization
-// Completions
-// Hover
-// Background thread works (diagnostics)
+        // Do simple hover request
+        const marker = info.testData.markerPositions.get('marker')!;
+        const fileUri = info.convertPathToUri(marker.fileName);
+        const text = info.testData.files.find((d) => d.fileName === marker.fileName)!.content;
+
+        await info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
+            textDocument: {
+                uri: fileUri.toString(),
+                languageId: 'python',
+                version: 1,
+                text,
+            },
+        });
+
+        const parseResult = getParseResults(text);
+        const hoverResult = await info.connection.sendRequest(
+            HoverRequest.type,
+            {
+                textDocument: { uri: fileUri.toString() },
+                position: convertOffsetToPosition(marker.position, parseResult.tokenizerOutput.lines),
+            },
+            CancellationToken.None
+        );
+
+        assert(hoverResult);
+        assert(MarkupContent.is(hoverResult.contents));
+        assert.strictEqual(hoverResult.contents.value, '```python\n(module) os\n```');
+    });
+    test('Completions', async () => {
+        const code = `
+// @filename: test.py
+//// import os
+//// os.[|/*marker*/|]
+        `;
+        const info = await runLanguageServer(DEFAULT_WORKSPACE_ROOT, code, /* callInitialize */ true);
+
+        // Do simple completion request
+        const marker = info.testData.markerPositions.get('marker')!;
+        const fileUri = info.convertPathToUri(marker.fileName);
+        const text = info.testData.files.find((d) => d.fileName === marker.fileName)!.content;
+
+        await info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
+            textDocument: {
+                uri: fileUri.toString(),
+                languageId: 'python',
+                version: 1,
+                text,
+            },
+        });
+
+        const parseResult = getParseResults(text);
+        const completionResult = await info.connection.sendRequest(
+            CompletionRequest.type,
+            {
+                textDocument: { uri: fileUri.toString() },
+                position: convertOffsetToPosition(marker.position, parseResult.tokenizerOutput.lines),
+            },
+            CancellationToken.None
+        );
+
+        assert(completionResult);
+        assert(!isArray(completionResult));
+
+        const completionItem = completionResult.items.find((i) => i.label === 'path')!;
+        assert(completionItem);
+    });
+
+    test('background thread diagnostics', async () => {
+        const code = `
+// @filename: root/test.py
+//// from math import cos, sin
+//// import sys
+//// [|/*marker*/|]
+`;
+        const settings = [
+            {
+                item: {
+                    scopeUri: `file://${normalizeSlashes(DEFAULT_WORKSPACE_ROOT, '/')}`,
+                    section: 'python.analysis',
+                },
+                value: {
+                    typeCheckingMode: 'strict',
+                    diagnosticMode: 'workspace',
+                },
+            },
+        ];
+
+        const info = await runLanguageServer(
+            DEFAULT_WORKSPACE_ROOT,
+            code,
+            /* callInitialize */ true,
+            settings,
+            undefined,
+            /* supportsBackgroundThread */ true
+        );
+
+        // get the file containing the marker that also contains our task list comments
+        const marker = info.testData.markerPositions.get('marker')!;
+
+        // Wait for the diagnostics to publish
+        const diagnostics = await waitForDiagnostics(info);
+        assert.equal(diagnostics[0]!.diagnostics.length, 6);
+
+        // Make sure the error has a special rule
+        assert.equal(diagnostics[0].diagnostics[1].code, 'reportUnusedImport');
+        assert.equal(diagnostics[0].diagnostics[3].code, 'reportUnusedImport');
+        assert.equal(diagnostics[0].diagnostics[5].code, 'reportUnusedImport');
+
+        const fileUri = info.convertPathToUri(marker.fileName);
+
+        let removeAllUnusedImports;
+        // Make sure the code actions for each are correct.
+        for (const diagnostic of diagnostics[0].diagnostics) {
+            const codeActions = await info.connection.sendRequest(
+                CodeActionRequest.type,
+                {
+                    textDocument: { uri: fileUri.toString() },
+                    range: diagnostic.range,
+                    context: { only: [CodeActionKind.QuickFix], diagnostics: [diagnostic] },
+                },
+                CancellationToken.None
+            );
+            assert.ok(codeActions);
+            assert.equal(codeActions.length, 2);
+
+            removeAllUnusedImports = codeActions.find((c) => c.title === 'Remove all unused imports');
+        }
+
+        assert(removeAllUnusedImports);
+        assert(Command.is(removeAllUnusedImports.command));
+    });
+});
