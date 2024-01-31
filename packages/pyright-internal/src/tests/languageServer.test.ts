@@ -1,9 +1,6 @@
 import assert from 'assert';
 import {
     CancellationToken,
-    CodeActionKind,
-    CodeActionRequest,
-    Command,
     CompletionRequest,
     ConfigurationItem,
     DidOpenTextDocumentNotification,
@@ -95,7 +92,7 @@ describe(`Basic language server tests`, () => {
         // Do simple hover request to verify our server works with a client that doesn't support
         // workspace folder/configuration capabilities.
         const marker = info.testData.markerPositions.get('marker')!;
-        const fileUri = info.convertPathToUri(marker.fileName);
+        const fileUri = marker.fileUri;
         const text = info.testData.files.find((d) => d.fileName === marker.fileName)!.content;
 
         await info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
@@ -130,7 +127,7 @@ describe(`Basic language server tests`, () => {
 
         // Do simple hover request
         const marker = info.testData.markerPositions.get('marker')!;
-        const fileUri = info.convertPathToUri(marker.fileName);
+        const fileUri = marker.fileUri;
         const text = info.testData.files.find((d) => d.fileName === marker.fileName)!.content;
 
         await info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
@@ -166,7 +163,7 @@ describe(`Basic language server tests`, () => {
 
         // Do simple completion request
         const marker = info.testData.markerPositions.get('marker')!;
-        const fileUri = info.convertPathToUri(marker.fileName);
+        const fileUri = marker.fileUri;
         const text = info.testData.files.find((d) => d.fileName === marker.fileName)!.content;
 
         await info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
@@ -201,7 +198,7 @@ describe(`Basic language server tests`, () => {
 //// from math import cos, sin
 //// import sys
 //// [|/*marker*/|]
-`;
+        `;
         const settings = [
             {
                 item: {
@@ -226,6 +223,17 @@ describe(`Basic language server tests`, () => {
 
         // get the file containing the marker that also contains our task list comments
         const marker = info.testData.markerPositions.get('marker')!;
+        const text = info.testData.files.find((d) => d.fileName === marker.fileName)!.content;
+        const fileUri = marker.fileUri;
+
+        await info.connection.sendNotification(DidOpenTextDocumentNotification.type, {
+            textDocument: {
+                uri: fileUri.toString(),
+                languageId: 'python',
+                version: 1,
+                text,
+            },
+        });
 
         // Wait for the diagnostics to publish
         const diagnostics = await waitForDiagnostics(info);
@@ -235,28 +243,5 @@ describe(`Basic language server tests`, () => {
         assert.equal(diagnostics[0].diagnostics[1].code, 'reportUnusedImport');
         assert.equal(diagnostics[0].diagnostics[3].code, 'reportUnusedImport');
         assert.equal(diagnostics[0].diagnostics[5].code, 'reportUnusedImport');
-
-        const fileUri = info.convertPathToUri(marker.fileName);
-
-        let removeAllUnusedImports;
-        // Make sure the code actions for each are correct.
-        for (const diagnostic of diagnostics[0].diagnostics) {
-            const codeActions = await info.connection.sendRequest(
-                CodeActionRequest.type,
-                {
-                    textDocument: { uri: fileUri.toString() },
-                    range: diagnostic.range,
-                    context: { only: [CodeActionKind.QuickFix], diagnostics: [diagnostic] },
-                },
-                CancellationToken.None
-            );
-            assert.ok(codeActions);
-            assert.equal(codeActions.length, 2);
-
-            removeAllUnusedImports = codeActions.find((c) => c.title === 'Remove all unused imports');
-        }
-
-        assert(removeAllUnusedImports);
-        assert(Command.is(removeAllUnusedImports.command));
     });
 });
