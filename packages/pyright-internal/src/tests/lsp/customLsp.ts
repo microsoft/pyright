@@ -38,9 +38,6 @@ export namespace CustomLSP {
         Initialization = 'initialization',
         DidOpenDocument = 'didopendocument',
         DidChangeDocument = 'didchangedocument',
-        DidOpenNotebookDocument = 'didopennotebookdocument',
-        DidChangeNotebookDocument = 'didchangenotebookdocument',
-        IndexingDone = 'indexingdone',
     }
 
     export interface TestSignal {
@@ -49,17 +46,6 @@ export namespace CustomLSP {
     }
 
     export enum Requests {
-        AnalyzeFile = 'test/analyzeFile',
-        GetWorkspaceConfig = 'test/getWorkspaceConfig',
-        GetWorkspaceSettings = 'test/getWorkspaceSettings',
-        GetWorkspaceKinds = 'test/getWorkspaceKinds',
-        GetWorkspaceInfos = 'test/getWorkspaceInfos',
-        GetUserFiles = 'test/getUserFiles',
-        GetOpenFiles = 'test/getOpenFiles',
-        GetWorkspaceInfo = 'test/getWorkspaceInfo',
-        GetFileContent = 'test/getFileContent',
-        GetWorkspaceFileContent = 'test/getWorkspaceFileContent',
-        AnalyzeWorkspace = 'test/analyzeWorkspace',
         GetDiagnostics = 'test/getDiagnostics',
     }
 
@@ -84,7 +70,6 @@ export namespace CustomLSP {
         DidChangeNotebookDocument = 'notebookDocument/didChange',
         CacheDirCreate = 'python/cacheDirCreate',
         CacheFileWrite = 'python/cacheFileWrite',
-        TestAddFile = 'test/addFile',
         // Starting/stopping the server are all notifications so they pass
         // through without any interference.
         TestStartServer = 'test/startServer',
@@ -92,17 +77,6 @@ export namespace CustomLSP {
     }
 
     interface Params {
-        [Requests.AnalyzeFile]: { uri: string };
-        [Requests.GetWorkspaceConfig]: { uri: string };
-        [Requests.GetWorkspaceSettings]: { uri: string };
-        [Requests.GetWorkspaceKinds]: { uri: string };
-        [Requests.GetWorkspaceInfos]: undefined;
-        [Requests.AnalyzeWorkspace]: { uri: string };
-        [Requests.GetUserFiles]: { uri: string };
-        [Requests.GetOpenFiles]: { uri: string };
-        [Requests.GetWorkspaceInfo]: { uri: string };
-        [Requests.GetFileContent]: { uri: string };
-        [Requests.GetWorkspaceFileContent]: { workspaceUri: string; fileUri: string };
         [Requests.GetDiagnostics]: { uri: string };
         [Notifications.CacheDirCreate]: { uri: string };
         [Notifications.CacheFileWrite]: { uri: string; contents: string; overwrite: boolean };
@@ -112,7 +86,6 @@ export namespace CustomLSP {
         [Notifications.EndProgress]: undefined;
         [Notifications.WorkspaceTrusted]: { isTrusted: boolean };
         [Notifications.TestSignal]: TestSignal;
-        [Notifications.TestAddFile]: { code: string; fireFileChange: boolean };
         [Notifications.DidChangeConfiguration]: DidChangeConfigurationParams;
         [Notifications.DidChangeNotebookDocument]: DidChangeNotebookDocumentParams;
         [Notifications.TestStartServer]: TestServerStartOptions;
@@ -120,17 +93,6 @@ export namespace CustomLSP {
     }
 
     interface Response {
-        [Requests.AnalyzeFile]: void;
-        [Requests.GetWorkspaceConfig]: { config: string };
-        [Requests.GetWorkspaceSettings]: { settings: string };
-        [Requests.GetWorkspaceKinds]: { kinds: string[] };
-        [Requests.GetWorkspaceInfos]: { infos: string };
-        [Requests.GetWorkspaceInfo]: { info: string };
-        [Requests.GetFileContent]: { contents: string };
-        [Requests.GetWorkspaceFileContent]: { contents: string };
-        [Requests.AnalyzeWorkspace]: void;
-        [Requests.GetUserFiles]: { files: string };
-        [Requests.GetOpenFiles]: { files: string };
         [Requests.GetDiagnostics]: { diagnostics: string };
     }
 

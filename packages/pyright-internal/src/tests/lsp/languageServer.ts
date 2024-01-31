@@ -20,10 +20,8 @@ import { FileSystemEntries, resolvePaths } from '../../common/pathUtils';
 import { ServiceProvider } from '../../common/serviceProvider';
 import { Uri } from '../../common/uri/uri';
 import { parseTestData } from '../harness/fourslash/fourSlashParser';
-import { createVfsInfoFromFourSlashData } from '../harness/fourslash/testStateUtils';
 import * as PyrightTestHost from '../harness/testHost';
 import { clearCache } from '../harness/vfs/factory';
-import { TestFileSystem } from '../harness/vfs/filesystem';
 
 import { BackgroundAnalysis, BackgroundAnalysisRunner } from '../../backgroundAnalysis';
 import { BackgroundAnalysisBase } from '../../backgroundAnalysisBase';
@@ -190,128 +188,6 @@ async function runServer(
 
         // Listen for the test messages from the client. These messages
         // are how the test code queries the state of the server.
-        disposables.push(
-            CustomLSP.onNotification(connection, CustomLSP.Notifications.TestAddFile, (params) => {
-                const testFs = host.testFs as TestFileSystem;
-                const data = parseTestData(DEFAULT_WORKSPACE_ROOT, params.code, 'nonname.py');
-                const vfsInfo = createVfsInfoFromFourSlashData(DEFAULT_WORKSPACE_ROOT, data);
-                testFs.apply(vfsInfo.files);
-
-                if (params.fireFileChange && data.files) {
-                    data.files.forEach((file) => {
-                        server.test_onDidChangeWatchedFiles({
-                            changes: [{ uri: Uri.file(file.fileName).toString(), type: 1 }],
-                        });
-                        host.testFs.fireFileWatcherEvent(file.fileName, 'add');
-                    });
-                }
-            })
-        );
-        disposables.push(
-            CustomLSP.onRequest(connection, CustomLSP.Requests.GetWorkspaceConfig, async (params, token) => {
-                const path = Uri.parse(params.uri, true);
-                const workspace = await server.getWorkspaceForFile(path);
-                const configOptions = workspace.service.getConfigOptions();
-                return { config: serialize(configOptions) };
-            })
-        );
-        disposables.push(
-            CustomLSP.onRequest(connection, CustomLSP.Requests.GetWorkspaceSettings, async (params, token) => {
-                const path = Uri.parse(params.uri, true);
-                const workspace = await server.getWorkspaceForFile(path);
-                const settings = await server.getSettings(workspace);
-                return { settings: serialize(settings) };
-            })
-        );
-        disposables.push(
-            CustomLSP.onRequest(connection, CustomLSP.Requests.GetWorkspaceKinds, async (params, token) => {
-                const path = Uri.parse(params.uri, true);
-                const workspace = await server.getWorkspaceForFile(path);
-                return { kinds: workspace.kinds };
-            })
-        );
-        disposables.push(
-            CustomLSP.onRequest(connection, CustomLSP.Requests.GetWorkspaceInfos, async (params, token) => {
-                const workspaces = await server.getWorkspaces();
-                return {
-                    infos: serialize(
-                        workspaces.map((w) => {
-                            return {
-                                rootUri: w.rootUri,
-                                kinds: w.kinds,
-                                pythonPath: w.pythonPath,
-                                pythonPathKind: w.pythonPathKind,
-                            };
-                        })
-                    ),
-                };
-            })
-        );
-        disposables.push(
-            CustomLSP.onRequest(connection, CustomLSP.Requests.AnalyzeFile, async (params, token) => {
-                const path = Uri.parse(params.uri, true);
-                const workspace = await server.getWorkspaceForFile(path);
-                workspace.service.run((p) => {
-                    p.analyzeFile(path, token);
-                }, token);
-            })
-        );
-        disposables.push(
-            CustomLSP.onRequest(connection, CustomLSP.Requests.AnalyzeWorkspace, async (params, token) => {
-                const path = Uri.parse(params.uri, true);
-                const workspace = await server.getWorkspaceForFile(path);
-                while (workspace.service.test_program.analyze());
-            })
-        );
-        disposables.push(
-            CustomLSP.onRequest(connection, CustomLSP.Requests.GetUserFiles, async (params, token) => {
-                const path = Uri.parse(params.uri, true);
-                const workspace = await server.getWorkspaceForFile(path);
-                return {
-                    files: serialize(workspace.service.test_program.getUserFiles().map((f) => f.sourceFile.getUri())),
-                };
-            })
-        );
-        disposables.push(
-            CustomLSP.onRequest(connection, CustomLSP.Requests.GetOpenFiles, async (params, token) => {
-                const path = Uri.parse(params.uri, true);
-                const workspace = await server.getWorkspaceForFile(path);
-                return {
-                    files: serialize(workspace.service.test_program.getOpened().map((f) => f.sourceFile.getUri())),
-                };
-            })
-        );
-        disposables.push(
-            CustomLSP.onRequest(connection, CustomLSP.Requests.GetWorkspaceInfo, async (params, token) => {
-                const path = Uri.parse(params.uri, true);
-                const workspace = await server.getWorkspaceForFile(path);
-                return {
-                    info: serialize({
-                        rootUri: workspace.rootUri,
-                        kinds: workspace.kinds,
-                        pythonPath: workspace.pythonPath,
-                        pythonPathKind: workspace.pythonPathKind,
-                    }),
-                };
-            })
-        );
-        disposables.push(
-            CustomLSP.onRequest(connection, CustomLSP.Requests.GetFileContent, async (params, token) => {
-                const path = Uri.parse(params.uri, true);
-                const workspace = await server.getWorkspaceForFile(path);
-                const fileContents = workspace.service.test_program.getBoundSourceFile(path)?.getFileContent();
-                return { contents: fileContents || '' };
-            })
-        );
-        disposables.push(
-            CustomLSP.onRequest(connection, CustomLSP.Requests.GetWorkspaceFileContent, async (params, token) => {
-                const workspacePath = Uri.parse(params.workspaceUri, true);
-                const path = Uri.parse(params.fileUri, true);
-                const workspace = await server.getWorkspaceForFile(workspacePath);
-                const fileContents = workspace.service.test_program.getBoundSourceFile(path)?.getFileContent();
-                return { contents: fileContents || '' };
-            })
-        );
         disposables.push(
             CustomLSP.onRequest(connection, CustomLSP.Requests.GetDiagnostics, async (params, token) => {
                 const filePath = Uri.parse(params.uri, true);
