@@ -84,6 +84,9 @@
             "args": [
                 "${fileBasenameNoExtension}",
                 "--runInBand",
+                "--detectOpenHandles",
+                "--forceExit",
+                "--testTimeout=180000"
             ],
             "cwd": "${workspaceRoot}/packages/pyright-internal",
             "console": "integratedTerminal",
@@ -94,7 +97,7 @@
             "name": "Pyright jest selected test",
             "type": "node",
             "request": "launch",
-            "args": ["${fileBasenameNoExtension}", "--runInBand", "-t", "${selectedText}"],
+            "args": ["${fileBasenameNoExtension}", "--runInBand", "-t", "${selectedText}", "--forceExit", "--testTimeout=180000"],
             "cwd": "${workspaceRoot}/packages/pyright-internal",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
