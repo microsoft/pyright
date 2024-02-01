@@ -11385,7 +11385,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
             unknownIfNotFound,
             unknownExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
-            useUnknownOverDefault: skipUnknownArgCheck,
             eliminateUnsolvedInUnions,
             applyInScopePlaceholders: true,
         });
