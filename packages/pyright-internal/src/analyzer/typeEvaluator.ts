@@ -2694,6 +2694,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let type = transformPossibleRecursiveTypeAlias(typeResult.type);
         type = makeTopLevelTypeVarsConcrete(type);
+        type = removeUnbound(type);
 
         if (isOptionalType(type) && emitNotIterableError) {
             if (!typeResult.isIncomplete) {
