@@ -1,3 +1,11 @@
+/*
+ * languageServerTestUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * Utilities for running tests against the LSP server.
+ */
+
 import assert from 'assert';
 import * as fs from 'fs-extra';
 import { isMainThread, threadId, Worker } from 'node:worker_threads';

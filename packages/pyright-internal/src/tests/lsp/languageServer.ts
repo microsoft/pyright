@@ -1,5 +1,9 @@
-/**
- * Common code for running a language server in a worker thread during a test.
+/*
+ * languageServer.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * Test language server wrapper that lets us run the language server during a test.
  */
 import {
     CancellationToken,

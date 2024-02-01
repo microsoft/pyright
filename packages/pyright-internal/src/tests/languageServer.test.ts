@@ -1,3 +1,11 @@
+/*
+ * languageServer.test.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * Tests to verify Pyright works as the backend for a language server.
+ */
+
 import assert from 'assert';
 import {
     CancellationToken,

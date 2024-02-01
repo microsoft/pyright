@@ -1,3 +1,11 @@
+/*
+ * customLsp.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * Custom messages and notifications on top of the LSP used for testing.
+ */
+
 import {
     CancellationToken,
     DidChangeConfigurationParams,
