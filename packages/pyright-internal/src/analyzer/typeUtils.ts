@@ -244,7 +244,6 @@ export const enum AssignTypeFlags {
 export interface ApplyTypeVarOptions {
     unknownIfNotFound?: boolean;
     unknownExemptTypeVars?: TypeVarType[];
-    useUnknownOverDefault?: boolean;
     useNarrowBoundOnly?: boolean;
     eliminateUnsolvedInUnions?: boolean;
     typeClassType?: Type;
@@ -4226,7 +4225,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
             if (useDefaultOrUnknown) {
                 // Use the default value if there is one.
-                if (typeVar.details.defaultType && !this._options.useUnknownOverDefault) {
+                if (typeVar.details.defaultType) {
                     return this._solveDefaultType(typeVar.details.defaultType, recursionCount);
                 }
 
