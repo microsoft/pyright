@@ -789,7 +789,7 @@ test('Call5', () => {
 test('Call6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call6.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('Call7', () => {

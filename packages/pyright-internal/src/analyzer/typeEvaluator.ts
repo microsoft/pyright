@@ -2695,8 +2695,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let type = transformPossibleRecursiveTypeAlias(typeResult.type);
         type = makeTopLevelTypeVarsConcrete(type);
 
-        if (isOptionalType(type)) {
-            if (!typeResult.isIncomplete && emitNotIterableError) {
+        if (isOptionalType(type) && emitNotIterableError) {
+            if (!typeResult.isIncomplete) {
                 addDiagnostic(DiagnosticRule.reportOptionalIterable, LocMessage.noneNotIterable(), errorNode);
             }
             type = removeNoneFromUnion(type);
@@ -10205,13 +10205,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else if (isParamSpec(argType) && argType.paramSpecAccess === 'args') {
                     listElementType = undefined;
                 } else {
-                    listElementType =
-                        getTypeOfIterator(
-                            { type: argType, isIncomplete: argTypeResult.isIncomplete },
-                            /* isAsync */ false,
-                            errorNode,
-                            /* emitNotIterableError */ false
-                        )?.type ?? UnknownType.create();
+                    listElementType = getTypeOfIterator(
+                        { type: argType, isIncomplete: argTypeResult.isIncomplete },
+                        /* isAsync */ false,
+                        errorNode,
+                        /* emitNotIterableError */ false
+                    )?.type;
 
                     if (paramDetails.params[paramIndex].param.category !== ParameterCategory.ArgsList) {
                         matchedUnpackedListOfUnknownLength = true;
@@ -10223,8 +10222,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                           argumentCategory: ArgumentCategory.Simple,
                           typeResult: { type: listElementType, isIncomplete: argTypeResult.isIncomplete },
                       }
-                    : undefined;
-                if (funcArg && argTypeResult.isIncomplete) {
+                    : { ...argList[argIndex] };
+
+                if (argTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
                 }
 
