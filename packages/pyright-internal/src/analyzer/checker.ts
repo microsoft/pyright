@@ -4266,11 +4266,13 @@ export class Checker extends ParseTreeWalker {
 
             if (type) {
                 if (isUnbound(type)) {
-                    this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportUnboundVariable,
-                        LocMessage.symbolIsUnbound().format({ name: node.value }),
-                        node
-                    );
+                    if (this._evaluator.isNodeReachable(node)) {
+                        this._evaluator.addDiagnostic(
+                            DiagnosticRule.reportUnboundVariable,
+                            LocMessage.symbolIsUnbound().format({ name: node.value }),
+                            node
+                        );
+                    }
                 } else if (isPossiblyUnbound(type)) {
                     this._evaluator.addDiagnostic(
                         DiagnosticRule.reportPossiblyUnboundVariable,
