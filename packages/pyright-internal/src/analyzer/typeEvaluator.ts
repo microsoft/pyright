@@ -23641,7 +23641,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         assignType(
                             remainingDestSubtypes[destTypeIndex],
                             srcSubtype,
-                            diag?.createAddendum(),
+                            /* diag */ undefined,
                             destTypeVarContext,
                             srcTypeVarContext,
                             flags,
