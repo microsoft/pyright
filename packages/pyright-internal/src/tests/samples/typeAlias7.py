@@ -1,7 +1,7 @@
 # This sample tests the handling of generic type aliases that are
 # defined in terms of other generic type aliases in a nested manner.
 
-from typing import Awaitable, Callable, Generic, TypeVar
+from typing import Awaitable, Callable, Generic, Literal, TypeAlias, TypeVar
 
 TSource = TypeVar("TSource")
 TError = TypeVar("TError")
@@ -47,3 +47,10 @@ async def run_async(
         return x.Response
 
     return result.map(mapper)
+
+
+T1 = TypeVar("T1", bound=Literal["a", "b", "c"])
+T2 = TypeVar("T2", bound=Literal["b", "c"])
+
+TA2: TypeAlias = list[T1]
+TA3: TypeAlias = TA2[T2]
