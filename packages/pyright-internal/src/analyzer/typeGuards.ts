@@ -1402,6 +1402,12 @@ function narrowTypeForIsInstance(
                     isClassRelationshipIndeterminate = true;
                 }
 
+                // If both the variable type and the filter type ar generics, we can't
+                // determine the relationship between the two.
+                if (isTypeVar(varType) && isTypeVar(filterType)) {
+                    isClassRelationshipIndeterminate = true;
+                }
+
                 if (isPositiveTest) {
                     if (filterIsSuperclass) {
                         // If the variable type is a subclass of the isinstance filter,

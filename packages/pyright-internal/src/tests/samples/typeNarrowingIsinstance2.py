@@ -26,7 +26,7 @@ class ClassC:
         if isinstance(id, cls):
             reveal_type(id, expected_text="object*")
         else:
-            reveal_type(id, expected_text="int")
+            reveal_type(id, expected_text="int | object*")
 
 
 TD = TypeVar("TD", bound="ClassD")
@@ -38,7 +38,7 @@ class ClassD:
         if isinstance(id, cls):
             reveal_type(id, expected_text="ClassD*")
         else:
-            reveal_type(id, expected_text="int")
+            reveal_type(id, expected_text="int | ClassD*")
 
 
 class ClassE:
@@ -47,4 +47,4 @@ class ClassE:
         if isinstance(id, cls):
             reveal_type(id, expected_text="Self@ClassE")
         else:
-            reveal_type(id, expected_text="int")
+            reveal_type(id, expected_text="int | ClassE*")
