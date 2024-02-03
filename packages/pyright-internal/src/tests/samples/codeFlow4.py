@@ -131,3 +131,12 @@ def func12(val: A | B):
 
 
 reveal_type(func12(A()), expected_text="NoReturn")
+
+
+def func13(val: int | float):
+    err_msg = "error!"
+    if isinstance(val, int):
+        return 1
+    elif isinstance(val, float):
+        return 1.0
+    raise ValueError(err_msg)
