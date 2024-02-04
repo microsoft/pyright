@@ -29,6 +29,7 @@ import {
     window,
     workspace,
     WorkspaceConfiguration,
+    env,
 } from 'vscode';
 import {
     CancellationToken,
@@ -55,17 +56,38 @@ const pythonPathChangedListenerMap = new Map<string, string>();
 const defaultHeapSize = 3072;
 
 export async function activate(context: ExtensionContext) {
-    // See if Pylance is installed. If so, don't activate the Pyright extension.
-    // Doing so will generate "command already registered" errors and redundant
-    // hover text, etc.because the two extensions overlap in functionality.
+    // See if Pylance is installed. If so, make sure its config doesn't conflict with basedpyright's
     if (extensions.getExtension('ms-python.vscode-pylance')) {
-        const errorTemplate = (message: string) =>
-            `BasedPyright has detected that the Pylance extension is installed but ${message}. see ${githubRepo}/#if-using-pylance for more information.`;
-        if (workspace.getConfiguration('python.analysis').get('typeCheckingMode') !== 'off') {
-            window.showWarningMessage(errorTemplate('type checking is still enabled'));
-        }
-        if (!workspace.getConfiguration('basedpyright').get('disableLanguageServices')) {
-            window.showWarningMessage(errorTemplate('the basedpyright language server is still enabled'));
+        const pylanceTypeCheckingEnabled =
+            workspace.getConfiguration('python.analysis').get('typeCheckingMode') !== 'off';
+        const pyrightLanguageServerEnabled = !workspace.getConfiguration('basedpyright').get('disableLanguageServices');
+        if (pylanceTypeCheckingEnabled || pyrightLanguageServerEnabled) {
+            const problems: { name: string; action: () => void }[] = [];
+            if (pylanceTypeCheckingEnabled) {
+                problems.push({
+                    name: 'pylance typechecking',
+                    action: () => workspace.getConfiguration('python.analysis').update('typeCheckingMode', 'off'),
+                });
+            }
+            if (pyrightLanguageServerEnabled) {
+                problems.push({
+                    name: 'basedpyright LSP',
+                    action: () => workspace.getConfiguration('basedpyright').update('disableLanguageServices', true),
+                });
+            }
+            if (problems.length > 0) {
+                const moreInfo = 'More info';
+                const result = await window.showWarningMessage(
+                    'BasedPyright has detected that the Pylance extension is installed and overlapping functionality is enabled.',
+                    `Disable ${problems.map((problem) => problem.name).join(' & ')}`,
+                    moreInfo
+                );
+                if (result === moreInfo) {
+                    env.openExternal(Uri.parse(`${githubRepo}/#if-using-pylance`));
+                } else if (result !== undefined) {
+                    problems.forEach((problem) => problem.action());
+                }
+            }
         }
     }
 
