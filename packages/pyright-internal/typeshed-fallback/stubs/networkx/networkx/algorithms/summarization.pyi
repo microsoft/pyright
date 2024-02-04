@@ -1,6 +1,10 @@
 from _typeshed import Incomplete
 
+from networkx.utils.backends import _dispatch
+
+@_dispatch
 def dedensify(G, threshold, prefix: Incomplete | None = None, copy: bool = True): ...
+@_dispatch
 def snap_aggregation(
     G,
     node_attributes,

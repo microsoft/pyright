@@ -1,5 +1,8 @@
 from _typeshed import Incomplete
 
+from networkx.utils.backends import _dispatch
+
+@_dispatch
 def attr_matrix(
     G,
     edge_attr: Incomplete | None = None,
@@ -9,6 +12,7 @@ def attr_matrix(
     dtype: Incomplete | None = None,
     order: Incomplete | None = None,
 ): ...
+@_dispatch
 def attr_sparse_matrix(
     G,
     edge_attr: Incomplete | None = None,

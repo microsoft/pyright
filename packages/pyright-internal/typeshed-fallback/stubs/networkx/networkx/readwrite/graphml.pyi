@@ -2,6 +2,8 @@ from _typeshed import Incomplete
 from collections.abc import Generator
 from typing import Final
 
+from networkx.utils.backends import _dispatch
+
 __all__ = [
     "write_graphml",
     "read_graphml",
@@ -38,7 +40,9 @@ def generate_graphml(
     named_key_ids: bool = False,
     edge_id_from_attribute: Incomplete | None = None,
 ) -> Generator[Incomplete, Incomplete, None]: ...
+@_dispatch
 def read_graphml(path, node_type=..., edge_key_type=..., force_multigraph: bool = False): ...
+@_dispatch
 def parse_graphml(graphml_string, node_type=..., edge_key_type=..., force_multigraph: bool = False): ...
 
 class GraphML:

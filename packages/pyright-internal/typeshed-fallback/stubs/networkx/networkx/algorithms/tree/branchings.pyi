@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from networkx.classes.graph import _Node
 from networkx.classes.multidigraph import MultiDiGraph
+from networkx.utils.backends import _dispatch
 
 __all__ = [
     "branching_weight",
@@ -16,7 +17,9 @@ __all__ = [
     "Edmonds",
 ]
 
+@_dispatch
 def branching_weight(G, attr: str = "weight", default: float = 1): ...
+@_dispatch
 def greedy_branching(G, attr: str = "weight", default: float = 1, kind: str = "max", seed: Incomplete | None = None): ...
 
 class MultiDiGraph_EdgeKey(MultiDiGraph[_Node]):
@@ -46,15 +49,19 @@ class Edmonds:
         seed: Incomplete | None = None,
     ): ...
 
+@_dispatch
 def maximum_branching(
     G, attr: str = "weight", default: float = 1, preserve_attrs: bool = False, partition: Incomplete | None = None
 ): ...
+@_dispatch
 def minimum_branching(
     G, attr: str = "weight", default: float = 1, preserve_attrs: bool = False, partition: Incomplete | None = None
 ): ...
+@_dispatch
 def maximum_spanning_arborescence(
     G, attr: str = "weight", default: float = 1, preserve_attrs: bool = False, partition: Incomplete | None = None
 ): ...
+@_dispatch
 def minimum_spanning_arborescence(
     G, attr: str = "weight", default: float = 1, preserve_attrs: bool = False, partition: Incomplete | None = None
 ): ...
