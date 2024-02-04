@@ -144,6 +144,7 @@ import {
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
     getProtocolSymbolsRecursive,
+    getSpecializedTupleType,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
     isLiteralType,
@@ -1242,13 +1243,15 @@ export class Checker extends ParseTreeWalker {
         const baseType = this._evaluator.getType(node.baseExpression);
         if (baseType) {
             doForEachSubtype(baseType, (subtype) => {
+                const tupleType = getSpecializedTupleType(subtype);
+
                 if (
                     isClassInstance(subtype) &&
-                    subtype.tupleTypeArguments &&
-                    !isUnboundedTupleClass(subtype) &&
-                    !this._evaluator.isTypeSubsumedByOtherType(subtype, baseType, /* allowAnyToSubsume */ false)
+                    tupleType?.tupleTypeArguments &&
+                    !isUnboundedTupleClass(tupleType) &&
+                    !this._evaluator.isTypeSubsumedByOtherType(tupleType, baseType, /* allowAnyToSubsume */ false)
                 ) {
-                    const tupleLength = subtype.tupleTypeArguments.length;
+                    const tupleLength = tupleType.tupleTypeArguments.length;
 
                     if (
                         node.items.length === 1 &&
