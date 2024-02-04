@@ -15,6 +15,14 @@ nt1 = NT1("x", 0)
 # This should generate an error.
 nt1.val1 = ""
 
+# This should generate an error.
+nt1[0] = ""
+
+# This should generate an error.
+del nt1.val1
+
+# This should generate an error.
+del nt1[0]
 
 NT2 = NamedTuple("NT2", [("val1", str), ("val2", int)])
 
