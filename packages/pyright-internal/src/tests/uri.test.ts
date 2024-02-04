@@ -643,14 +643,14 @@ function getHomeDirUri() {
 
 test('resolvePath3 ~ escape', () => {
     assert.equal(
-        resolvePaths(expandPathVariables(Uri.empty(), '~/path'), 'to', '..', 'from', 'file.ext/'),
+        resolvePaths(expandPathVariables('~/path', Uri.empty(), []), 'to', '..', 'from', 'file.ext/'),
         `${getHomeDirUri().toString()}/path/from/file.ext`
     );
 });
 
 test('resolvePath4 ~ escape in middle', () => {
     assert.equal(
-        resolvePaths('/path', expandPathVariables(Uri.empty(), '~/file.ext/')),
+        resolvePaths('/path', expandPathVariables('~/file.ext/', Uri.empty(), [])),
         `${getHomeDirUri().toString()}/file.ext`
     );
 });
@@ -661,12 +661,12 @@ function combinePaths(uri: string, ...paths: string[]) {
 
 test('invalid ~ without root', () => {
     const path = combinePaths('Library', 'Mobile Documents', 'com~apple~CloudDocs', 'Development', 'mysuperproject');
-    assert.equal(resolvePaths(expandPathVariables(Uri.parse('foo:///src', true), path)), path);
+    assert.equal(resolvePaths(expandPathVariables(path, Uri.parse('foo:///src', true), [])), path);
 });
 
 test('invalid ~ with root', () => {
     const path = combinePaths('/', 'Library', 'com~apple~CloudDocs', 'Development', 'mysuperproject');
-    assert.equal(resolvePaths(expandPathVariables(Uri.parse('foo:///src', true), path)), path);
+    assert.equal(resolvePaths(expandPathVariables(path, Uri.parse('foo:///src', true), [])), path);
 });
 
 function containsPath(uri: string, child: string) {

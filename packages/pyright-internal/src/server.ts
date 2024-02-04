@@ -39,7 +39,7 @@ import { getRootUri } from './common/uri/uriUtils';
 import { LanguageServerBase, ServerSettings } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 import { PyrightFileSystem } from './pyrightFileSystem';
-import { Workspace } from './workspaceFactory';
+import { WellKnownWorkspaceKinds, Workspace } from './workspaceFactory';
 import { toolName } from './constants';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
@@ -102,12 +102,14 @@ export class PyrightServer extends LanguageServerBase {
         };
 
         try {
+            const workspaces = this.workspaceFactory.getNonDefaultWorkspaces(WellKnownWorkspaceKinds.Regular);
+
             const pythonSection = await this.getConfiguration(workspace.rootUri, 'python');
             if (pythonSection) {
                 const pythonPath = pythonSection.pythonPath;
                 if (pythonPath && isString(pythonPath) && !isPythonBinary(pythonPath)) {
                     serverSettings.pythonPath = workspace.rootUri.resolvePaths(
-                        expandPathVariables(workspace.rootUri, pythonPath)
+                        expandPathVariables(pythonPath, workspace.rootUri, workspaces)
                     );
                 }
 
@@ -115,7 +117,7 @@ export class PyrightServer extends LanguageServerBase {
 
                 if (venvPath && isString(venvPath)) {
                     serverSettings.venvPath = workspace.rootUri.resolvePaths(
-                        expandPathVariables(workspace.rootUri, venvPath)
+                        expandPathVariables(venvPath, workspace.rootUri, workspaces)
                     );
                 }
             }
@@ -127,7 +129,7 @@ export class PyrightServer extends LanguageServerBase {
                     const typeshedPath = typeshedPaths[0];
                     if (typeshedPath && isString(typeshedPath)) {
                         serverSettings.typeshedPath = workspace.rootUri.resolvePaths(
-                            expandPathVariables(workspace.rootUri, typeshedPath)
+                            expandPathVariables(typeshedPath, workspace.rootUri, workspaces)
                         );
                     }
                 }
@@ -135,7 +137,7 @@ export class PyrightServer extends LanguageServerBase {
                 const stubPath = pythonAnalysisSection.stubPath;
                 if (stubPath && isString(stubPath)) {
                     serverSettings.stubPath = workspace.rootUri.resolvePaths(
-                        expandPathVariables(workspace.rootUri, stubPath)
+                        expandPathVariables(stubPath, workspace.rootUri, workspaces)
                     );
                 }
 
@@ -167,7 +169,9 @@ export class PyrightServer extends LanguageServerBase {
                 if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
                     serverSettings.extraPaths = extraPaths
                         .filter((p) => p && isString(p))
-                        .map((p) => workspace.rootUri.resolvePaths(expandPathVariables(workspace.rootUri, p)));
+                        .map((p) =>
+                            workspace.rootUri.resolvePaths(expandPathVariables(p, workspace.rootUri, workspaces))
+                        );
                 }
 
                 serverSettings.includeFileSpecs = this._getStringValues(pythonAnalysisSection.include);
