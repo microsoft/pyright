@@ -53,9 +53,6 @@
             "source.organizeImports": "always"
         }
     },
-    "yaml.schemas": {
-        "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/github-workflow.json": ".github/workflows/*.yaml"
-    },
     "explorer.compactFolders": false,
     "search.exclude": {
         "pw": true

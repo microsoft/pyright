@@ -10,6 +10,7 @@
         "shd101wyy.markdown-preview-enhanced",
         "mhutchie.git-graph",
         "tamasfe.even-better-toml",
-        "redhat.vscode-yaml"
+        "redhat.vscode-yaml",
+        "github.vscode-github-actions"
     ]
 }
