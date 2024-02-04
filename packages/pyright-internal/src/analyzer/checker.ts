@@ -3977,7 +3977,13 @@ export class Checker extends ParseTreeWalker {
                     break;
 
                 case TypeCategory.Class:
-                    if (isNoneInstance(subtype)) {
+                    if (ClassType.isBuiltIn(subtype, 'TypedDict')) {
+                        diag.addMessage(LocAddendum.typedDictNotAllowed());
+                        isSupported = false;
+                    } else if (ClassType.isBuiltIn(subtype, 'NamedTuple')) {
+                        diag.addMessage(LocAddendum.namedTupleNotAllowed());
+                        isSupported = false;
+                    } else if (isNoneInstance(subtype)) {
                         diag.addMessage(LocAddendum.noneNotAllowed());
                         isSupported = false;
                     } else if (ClassType.isTypedDictClass(subtype)) {
