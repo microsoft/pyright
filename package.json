@@ -8,6 +8,7 @@
         "install:others": "cross-env SKIP_LERNA_BOOTSTRAP=yes lerna exec --no-bail npm install",
         "update:all": "node ./build/updateDeps.js",
         "build:extension:dev": "cd packages/vscode-pyright && npm run webpack",
+        "build:extension": "cd packages/vscode-pyright && npm run package",
         "build:cli:dev": "cd packages/pyright && npm run webpack",
         "watch:extension": "cd packages/vscode-pyright && npm run webpack-dev",
         "watch:testserver": "cd packages/pyright-internal && npm run webpack:testserver:watch",
