@@ -643,6 +643,10 @@ export namespace Localizer {
         export const namedParamAfterParamSpecArgs = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.namedParamAfterParamSpecArgs'));
         export const namedTupleEmptyName = () => getRawString('Diagnostic.namedTupleEmptyName');
+        export const namedTupleEntryRedeclared = () =>
+            new ParameterizedString<{ name: string; className: string }>(
+                getRawString('Diagnostic.namedTupleEntryRedeclared')
+            );
         export const namedTupleFirstArg = () => getRawString('Diagnostic.namedTupleFirstArg');
         export const namedTupleMultipleInheritance = () => getRawString('Diagnostic.namedTupleMultipleInheritance');
         export const namedTupleNameKeyword = () => getRawString('Diagnostic.namedTupleNameKeyword');

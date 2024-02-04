@@ -4748,21 +4748,34 @@ export class Checker extends ParseTreeWalker {
     private _validateFinalMemberOverrides(classType: ClassType) {
         classType.details.fields.forEach((localSymbol, name) => {
             const parentSymbol = lookUpClassMember(classType, name, MemberAccessFlags.SkipOriginalClass);
-            if (
-                parentSymbol &&
-                isInstantiableClass(parentSymbol.classType) &&
-                this._evaluator.isFinalVariable(parentSymbol.symbol) &&
-                !SymbolNameUtils.isPrivateName(name)
-            ) {
-                const decl = localSymbol.getDeclarations()[0];
-                this._evaluator.addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    LocMessage.finalRedeclarationBySubclass().format({
-                        name,
-                        className: parentSymbol.classType.details.name,
-                    }),
-                    decl.node
-                );
+            if (parentSymbol && isInstantiableClass(parentSymbol.classType) && !SymbolNameUtils.isPrivateName(name)) {
+                // Did the parent class explicitly declare the variable as final?
+                if (this._evaluator.isFinalVariable(parentSymbol.symbol)) {
+                    const decl = localSymbol.getDeclarations()[0];
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.finalRedeclarationBySubclass().format({
+                            name,
+                            className: parentSymbol.classType.details.name,
+                        }),
+                        decl.node
+                    );
+                } else if (
+                    ClassType.isReadOnlyInstanceVariables(parentSymbol.classType) &&
+                    !SymbolNameUtils.isDunderName(name)
+                ) {
+                    // If the parent class is a named tuple, all instance variables
+                    // (other than dundered ones) are implicitly final.
+                    const decl = localSymbol.getDeclarations()[0];
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportIncompatibleVariableOverride,
+                        LocMessage.namedTupleEntryRedeclared().format({
+                            name,
+                            className: parentSymbol.classType.details.name,
+                        }),
+                        decl.node
+                    );
+                }
             }
         });
     }
@@ -5736,93 +5749,85 @@ export class Checker extends ParseTreeWalker {
             // This check can be expensive, so don't perform it if the corresponding
             // rule is disabled.
             if (this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride !== 'none') {
-                if (!isAnyOrUnknown(overriddenType) && !isAnyOrUnknown(overrideType)) {
-                    // If the child class overrides this symbol with its own type, make sure
-                    // the override is compatible with the overridden symbol. Otherwise use the
-                    // override type.
+                const primaryDecl = getLastTypedDeclaredForSymbol(overriddenClassAndSymbol.symbol);
+                let isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
 
-                    // Verify that the override type is assignable to (same or narrower than)
-                    // the declared type of the base symbol.
-                    const primaryDecl = getLastTypedDeclaredForSymbol(overriddenClassAndSymbol.symbol);
-                    let isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
+                // If the entry is a member of a frozen dataclass, it is immutable,
+                // so it does not need to be invariant.
+                if (
+                    ClassType.isFrozenDataClass(overriddenClassAndSymbol.classType) &&
+                    overriddenClassAndSymbol.classType.details.dataClassEntries
+                ) {
+                    const dataclassEntry = overriddenClassAndSymbol.classType.details.dataClassEntries.find(
+                        (entry) => entry.name === memberName
+                    );
+                    if (dataclassEntry) {
+                        isInvariant = false;
+                    }
+                }
 
-                    // If the entry is a member of a frozen dataclass, it is immutable,
-                    // so it does not need to be invariant.
-                    if (
-                        ClassType.isFrozenDataClass(overriddenClassAndSymbol.classType) &&
-                        overriddenClassAndSymbol.classType.details.dataClassEntries
-                    ) {
-                        const dataclassEntry = overriddenClassAndSymbol.classType.details.dataClassEntries.find(
-                            (entry) => entry.name === memberName
-                        );
-                        if (dataclassEntry) {
-                            isInvariant = false;
-                        }
+                let overriddenTDEntry: TypedDictEntry | undefined;
+                if (overriddenClassAndSymbol.classType.details.typedDictEntries) {
+                    overriddenTDEntry = overriddenClassAndSymbol.classType.details.typedDictEntries.get(memberName);
+
+                    if (overriddenTDEntry?.isReadOnly) {
+                        isInvariant = false;
+                    }
+                }
+
+                let overrideTDEntry: TypedDictEntry | undefined;
+                if (overrideClassAndSymbol.classType.details.typedDictEntries) {
+                    overrideTDEntry = overrideClassAndSymbol.classType.details.typedDictEntries.get(memberName);
+                }
+
+                if (
+                    !this._evaluator.assignType(
+                        overriddenType,
+                        childOverrideType ?? overrideType,
+                        /* diag */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        isInvariant ? AssignTypeFlags.EnforceInvariance : AssignTypeFlags.Default
+                    )
+                ) {
+                    diag = this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportIncompatibleVariableOverride,
+                        LocMessage.baseClassVariableTypeIncompatible().format({
+                            classType: childClassType.details.name,
+                            name: memberName,
+                        }),
+                        errorNode
+                    );
+                } else if (overriddenTDEntry && overrideTDEntry) {
+                    let isRequiredCompatible: boolean;
+                    let isReadOnlyCompatible = true;
+
+                    // If both classes are TypedDicts and they both define this field,
+                    // make sure the attributes are compatible.
+                    if (overriddenTDEntry.isReadOnly) {
+                        isRequiredCompatible = overrideTDEntry.isRequired || !overriddenTDEntry.isRequired;
+                    } else {
+                        isReadOnlyCompatible = !overrideTDEntry.isReadOnly;
+                        isRequiredCompatible = overrideTDEntry.isRequired === overriddenTDEntry.isRequired;
                     }
 
-                    let overriddenTDEntry: TypedDictEntry | undefined;
-                    if (overriddenClassAndSymbol.classType.details.typedDictEntries) {
-                        overriddenTDEntry = overriddenClassAndSymbol.classType.details.typedDictEntries.get(memberName);
-
-                        if (overriddenTDEntry?.isReadOnly) {
-                            isInvariant = false;
-                        }
-                    }
-
-                    let overrideTDEntry: TypedDictEntry | undefined;
-                    if (overrideClassAndSymbol.classType.details.typedDictEntries) {
-                        overrideTDEntry = overrideClassAndSymbol.classType.details.typedDictEntries.get(memberName);
-                    }
-
-                    if (
-                        !this._evaluator.assignType(
-                            overriddenType,
-                            childOverrideType ?? overrideType,
-                            /* diag */ undefined,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
-                            isInvariant ? AssignTypeFlags.EnforceInvariance : AssignTypeFlags.Default
-                        )
-                    ) {
+                    if (!isRequiredCompatible) {
+                        const message = overrideTDEntry.isRequired
+                            ? LocMessage.typedDictFieldRequiredRedefinition
+                            : LocMessage.typedDictFieldNotRequiredRedefinition;
                         diag = this._evaluator.addDiagnostic(
                             DiagnosticRule.reportIncompatibleVariableOverride,
-                            LocMessage.baseClassVariableTypeIncompatible().format({
-                                classType: childClassType.details.name,
+                            message().format({ name: memberName }),
+                            errorNode
+                        );
+                    } else if (!isReadOnlyCompatible) {
+                        diag = this._evaluator.addDiagnostic(
+                            DiagnosticRule.reportIncompatibleVariableOverride,
+                            LocMessage.typedDictFieldReadOnlyRedefinition().format({
                                 name: memberName,
                             }),
                             errorNode
                         );
-                    } else if (overriddenTDEntry && overrideTDEntry) {
-                        let isRequiredCompatible: boolean;
-                        let isReadOnlyCompatible = true;
-
-                        // If both classes are TypedDicts and they both define this field,
-                        // make sure the attributes are compatible.
-                        if (overriddenTDEntry.isReadOnly) {
-                            isRequiredCompatible = overrideTDEntry.isRequired || !overriddenTDEntry.isRequired;
-                        } else {
-                            isReadOnlyCompatible = !overrideTDEntry.isReadOnly;
-                            isRequiredCompatible = overrideTDEntry.isRequired === overriddenTDEntry.isRequired;
-                        }
-
-                        if (!isRequiredCompatible) {
-                            const message = overrideTDEntry.isRequired
-                                ? LocMessage.typedDictFieldRequiredRedefinition
-                                : LocMessage.typedDictFieldNotRequiredRedefinition;
-                            diag = this._evaluator.addDiagnostic(
-                                DiagnosticRule.reportIncompatibleVariableOverride,
-                                message().format({ name: memberName }),
-                                errorNode
-                            );
-                        } else if (!isReadOnlyCompatible) {
-                            diag = this._evaluator.addDiagnostic(
-                                DiagnosticRule.reportIncompatibleVariableOverride,
-                                LocMessage.typedDictFieldReadOnlyRedefinition().format({
-                                    name: memberName,
-                                }),
-                                errorNode
-                            );
-                        }
                     }
                 }
             }
