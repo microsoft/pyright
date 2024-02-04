@@ -678,7 +678,7 @@ export function getCodeFlowEngine(
                                     /* honorCodeFlow */ false
                                 );
 
-                                if (symbolWithScope && symbolWithScope.symbol.getTypedDeclarations().length > 0) {
+                                if (symbolWithScope && symbolWithScope.symbol.hasTypedDeclarations()) {
                                     const result = preventRecursion(curFlowNode, () => {
                                         const typeNarrowingCallback = getTypeNarrowingCallback(
                                             evaluator,
@@ -1170,8 +1170,6 @@ export function getCodeFlowEngine(
                         FlowFlags.TrueCondition |
                         FlowFlags.FalseCondition |
                         FlowFlags.WildcardImport |
-                        FlowFlags.TrueNeverCondition |
-                        FlowFlags.FalseNeverCondition |
                         FlowFlags.NarrowForPattern |
                         FlowFlags.ExhaustedMatch)
                 ) {
@@ -1183,6 +1181,49 @@ export function getCodeFlowEngine(
                         | FlowCondition
                         | FlowExhaustedMatch;
                     curFlowNode = typedFlowNode.antecedent;
+                    continue;
+                }
+
+                if (curFlowNode.flags & (FlowFlags.TrueNeverCondition | FlowFlags.FalseNeverCondition)) {
+                    const conditionalFlowNode = curFlowNode as FlowCondition;
+                    if (conditionalFlowNode.reference) {
+                        // Make sure the reference type has a declared type. If not,
+                        // don't bother trying to infer its type because that would be
+                        // too expensive.
+                        const symbolWithScope = evaluator.lookUpSymbolRecursive(
+                            conditionalFlowNode.reference,
+                            conditionalFlowNode.reference.value,
+                            /* honorCodeFlow */ false
+                        );
+
+                        if (symbolWithScope && symbolWithScope.symbol.hasTypedDeclarations()) {
+                            let isUnreachable = false;
+
+                            const typeNarrowingCallback = getTypeNarrowingCallback(
+                                evaluator,
+                                conditionalFlowNode.reference!,
+                                conditionalFlowNode.expression,
+                                !!(conditionalFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition))
+                            );
+
+                            if (typeNarrowingCallback) {
+                                const refTypeInfo = evaluator.getTypeOfExpression(conditionalFlowNode.reference!);
+
+                                const narrowedTypeResult = typeNarrowingCallback(refTypeInfo.type);
+                                const narrowedType = narrowedTypeResult?.type ?? refTypeInfo.type;
+
+                                if (isNever(narrowedType)) {
+                                    isUnreachable = true;
+                                }
+                            }
+
+                            if (isUnreachable) {
+                                return false;
+                            }
+                        }
+                    }
+
+                    curFlowNode = conditionalFlowNode.antecedent;
                     continue;
                 }
 

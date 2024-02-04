@@ -28,6 +28,7 @@ import { ConsoleWithLogLevel, LogLevel, convertLogLevel } from './common/console
 import { isDebugMode, isString } from './common/core';
 import { expandPathVariables } from './common/envVarUtils';
 import { FileBasedCancellationProvider } from './common/fileBasedCancellationUtils';
+import { FileSystem } from './common/fileSystem';
 import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
 import { ProgressReporter } from './common/progressReporter';
@@ -47,13 +48,13 @@ const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs
 export class PyrightServer extends LanguageServerBase {
     private _controller: CommandController;
 
-    constructor(connection: Connection) {
+    constructor(connection: Connection, realFileSystem?: FileSystem) {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const version = require('../package.json').version || '';
 
         const console = new ConsoleWithLogLevel(connection.console);
         const fileWatcherProvider = new WorkspaceFileWatcherProvider();
-        const fileSystem = createFromRealFileSystem(console, fileWatcherProvider);
+        const fileSystem = realFileSystem ?? createFromRealFileSystem(console, fileWatcherProvider);
         const pyrightFs = new PyrightFileSystem(fileSystem);
         const tempFile = new RealTempFile(pyrightFs.isCaseSensitive);
         const cacheManager = new CacheManager();

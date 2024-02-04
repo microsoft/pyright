@@ -225,7 +225,13 @@ test('Super10', () => {
 test('Super11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super11.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Super12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super12.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('MissingSuper1', () => {

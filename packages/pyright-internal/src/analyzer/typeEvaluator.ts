@@ -2694,9 +2694,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let type = transformPossibleRecursiveTypeAlias(typeResult.type);
         type = makeTopLevelTypeVarsConcrete(type);
+        type = removeUnbound(type);
 
-        if (isOptionalType(type)) {
-            if (!typeResult.isIncomplete && emitNotIterableError) {
+        if (isOptionalType(type) && emitNotIterableError) {
+            if (!typeResult.isIncomplete) {
                 addDiagnostic(DiagnosticRule.reportOptionalIterable, LocMessage.noneNotIterable(), errorNode);
             }
             type = removeNoneFromUnion(type);
@@ -8378,12 +8379,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If the bind-to type is a protocol, don't use the effective target class.
             // This pattern is used for mixins, where the mixin type is a protocol class
             // that is used to decorate the "self" or "cls" parameter.
+            let isProtocolClass = false;
             if (
                 bindToType &&
                 ClassType.isProtocolClass(bindToType) &&
                 effectiveTargetClass &&
                 !ClassType.isSameGenericClass(bindToType, effectiveTargetClass)
             ) {
+                isProtocolClass = true;
                 effectiveTargetClass = undefined;
             }
 
@@ -8394,6 +8397,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let resultType: Type;
             if (lookupResults && isInstantiableClass(lookupResults.classType)) {
                 resultType = lookupResults.classType;
+
+                if (isProtocolClass) {
+                    // If the bindToType is a protocol class, set the "include subclasses" flag
+                    // so we don't enforce that called methods are implemented within the protocol.
+                    resultType = ClassType.cloneIncludeSubclasses(resultType);
+                }
             } else if (
                 effectiveTargetClass &&
                 !isAnyOrUnknown(effectiveTargetClass) &&
@@ -10214,13 +10223,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else if (isParamSpec(argType) && argType.paramSpecAccess === 'args') {
                     listElementType = undefined;
                 } else {
-                    listElementType =
-                        getTypeOfIterator(
-                            { type: argType, isIncomplete: argTypeResult.isIncomplete },
-                            /* isAsync */ false,
-                            errorNode,
-                            /* emitNotIterableError */ false
-                        )?.type ?? UnknownType.create();
+                    listElementType = getTypeOfIterator(
+                        { type: argType, isIncomplete: argTypeResult.isIncomplete },
+                        /* isAsync */ false,
+                        errorNode,
+                        /* emitNotIterableError */ false
+                    )?.type;
 
                     if (paramDetails.params[paramIndex].param.category !== ParameterCategory.ArgsList) {
                         matchedUnpackedListOfUnknownLength = true;
@@ -10232,8 +10240,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                           argumentCategory: ArgumentCategory.Simple,
                           typeResult: { type: listElementType, isIncomplete: argTypeResult.isIncomplete },
                       }
-                    : undefined;
-                if (funcArg && argTypeResult.isIncomplete) {
+                    : { ...argList[argIndex] };
+
+                if (argTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
                 }
 
@@ -11394,7 +11403,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
             unknownIfNotFound,
             unknownExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
-            useUnknownOverDefault: skipUnknownArgCheck,
             eliminateUnsolvedInUnions,
             applyInScopePlaceholders: true,
         });
@@ -23650,7 +23658,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         assignType(
                             remainingDestSubtypes[destTypeIndex],
                             srcSubtype,
-                            diag?.createAddendum(),
+                            /* diag */ undefined,
                             destTypeVarContext,
                             srcTypeVarContext,
                             flags,
