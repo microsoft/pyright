@@ -201,7 +201,7 @@ export class PyrightServer extends LanguageServerBase {
                 serverSettings.autoSearchPaths = true;
             }
 
-            const pyrightSection = await this.getConfiguration(workspace.rootUri, 'pyright');
+            const pyrightSection = await this.getConfiguration(workspace.rootUri, 'basedpyright');
             if (pyrightSection) {
                 if (pyrightSection.openFilesOnly !== undefined) {
                     serverSettings.openFilesOnly = !!pyrightSection.openFilesOnly;

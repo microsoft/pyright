@@ -8,14 +8,14 @@
  */
 
 export const enum Commands {
-    createTypeStub = 'pyright.createtypestub',
-    restartServer = 'pyright.restartserver',
-    orderImports = 'pyright.organizeimports',
-    unusedImport = 'pyright.unusedImport',
-    dumpFileDebugInfo = 'pyright.dumpFileDebugInfo',
-    dumpTokens = 'pyright.dumpTokens',
-    dumpNodes = 'pyright.dumpNodes',
-    dumpTypes = 'pyright.dumpTypes',
-    dumpCachedTypes = 'pyright.dumpCachedTypes',
-    dumpCodeFlowGraph = 'pyright.dumpCodeFlowGraph',
+    createTypeStub = 'basedpyright.createtypestub',
+    restartServer = 'basedpyright.restartserver',
+    orderImports = 'basedpyright.organizeimports',
+    unusedImport = 'basedpyright.unusedImport',
+    dumpFileDebugInfo = 'basedpyright.dumpFileDebugInfo',
+    dumpTokens = 'basedpyright.dumpTokens',
+    dumpNodes = 'basedpyright.dumpNodes',
+    dumpTypes = 'basedpyright.dumpTypes',
+    dumpCachedTypes = 'basedpyright.dumpCachedTypes',
+    dumpCodeFlowGraph = 'basedpyright.dumpCodeFlowGraph',
 }

@@ -160,7 +160,7 @@ describe(`Basic language server tests`, () => {
             {
                 item: {
                     scopeUri: `file://${normalizeSlashes(DEFAULT_WORKSPACE_ROOT, '/')}`,
-                    section: 'python.analysis',
+                    section: 'basedpyright.analysis',
                 },
                 value: {
                     typeCheckingMode: 'strict',

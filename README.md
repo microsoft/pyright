@@ -90,6 +90,16 @@ install the extension from [the vscode extension marketplace](https://marketplac
 
 the basedpyright vscode extension will automatically look for the pypi package in your python environment. see the recommended setup section below for more information
 
+## pylance vs basedpyright
+
+the pylance extension is an optional wrapper on top of the pyright language server with some additional functionality ([see the pylance FAQ for more information](https://github.com/microsoft/pylance-release/blob/main/FAQ.md#what-features-are-in-pylance-but-not-in-pyright-what-is-the-difference-exactly)). normally when the pylance extension is enabled, the pyright extension will disable itself to avoid conflicting with it. unfortunately since it's closed-source, there's no way for us to update it to use basedpyright instead.
+
+if you don't depend on any pylance features, the recommended solution is to disable/uninstall the pylance extension.
+
+if you do want to continue using pylance, basedpyright renames all of its config options and commands to avoid any conflicts with the pylance extension, and disables the restriction that prevents both extensions from being enabled at the same time. for an optimal experience you should disable pylance's type checking and disable basedpyright's language server features. see [the recommended setup section below](#if-using-pylance) for details. this will prevent pylance from displaying errors from its bundled pyright version alongside the errors already displayed by the basedpyright extension.
+
+be mindful that when using both extensions, basedpyright language server features (except for type errors) will be disabled in favor of pylance's. this may result in some inconsistent behavior due to the fact that pylance uses its own pyright version, but it should not be much of an issue as basedpyright does not change any language server features.
+
 # recommended setup
 
 it's recommended to use both the basedpyright cli and vscode extension in your project. the vscode extension is for local development and the cli is for your CI.
@@ -111,14 +121,25 @@ below are the changes i recommend making to your project when adopting basedpyri
 
 ## `.vscode/settings.json`
 
-- remove any settings starting with `python.analysis`, as they can interfere with the vscode extension and cause it to behave differently to the CLI. these settings can be specified using the `tool.basedpyright` (or `tool.pyright`) section in `pyroject.toml` instead (see below)
-
+### if not using pylance
+- remove any settings starting with `python.analysis`, as they are not used by basedpyright. you should instead set these settings using the `tool.basedpyright` (or `tool.pyright`) section in `pyroject.toml` ([see below](#pyprojecttoml))
 - disable the built in language server support from the python extension, as it seems to conflict with basedpyright's language server:
   ```json
   {
       "python.languageServer": "None"
   }
   ```
+
+### if using pylance
+- disable pylance's type-checking by setting `"python.analysis.typeCheckingMode"` to `"off"`. this will prevent pylance from displaying duplicated errors from its bundled pyright version alongside the errors already displayed by the basedpyright extension.
+- disable basedpyright's LSP features by setting `"basedpyright.disableLanguageServices"` to `true`. this will prevent duplicated hover text and other potential issues with pylance's LSP. keep in mind that this may result in some inconsistent behavior since pylance uses its own version of the pyright LSP.
+
+```json
+{
+    "python.analysis.typeCheckingMode": "off",
+    "basedpyright.disableLanguageServices": true
+}
+```
 
 ## `.github/workflows/check.yaml`
 

@@ -43,7 +43,7 @@ import {
     TransportKind,
 } from 'vscode-languageclient/node';
 import { FileBasedCancellationStrategy } from './cancellationUtils';
-import { toolName } from 'pyright-internal/constants';
+import { githubRepo, toolName } from 'pyright-internal/constants';
 
 let cancellationStrategy: FileBasedCancellationStrategy | undefined;
 
@@ -58,20 +58,20 @@ export async function activate(context: ExtensionContext) {
     // See if Pylance is installed. If so, don't activate the Pyright extension.
     // Doing so will generate "command already registered" errors and redundant
     // hover text, etc.because the two extensions overlap in functionality.
-    const pylanceExtension = extensions.getExtension('ms-python.vscode-pylance');
-    if (pylanceExtension) {
-        window.showErrorMessage(
-            'Pyright has detected that the Pylance extension is installed. ' +
-                'Pylance includes the functionality of Pyright, and running both of ' +
-                'these extensions can lead to problems. Pyright will disable itself. ' +
-                'Uninstall or disable Pyright to avoid this message.'
-        );
-        return;
+    if (extensions.getExtension('ms-python.vscode-pylance')) {
+        const errorTemplate = (message: string) =>
+            `BasedPyright has detected that the Pylance extension is installed but ${message}. see ${githubRepo}/#if-using-pylance for more information.`;
+        if (workspace.getConfiguration('python.analysis').get('typeCheckingMode') !== 'off') {
+            window.showWarningMessage(errorTemplate('type checking is still enabled'));
+        }
+        if (!workspace.getConfiguration('basedpyright').get('disableLanguageServices')) {
+            window.showWarningMessage(errorTemplate('the basedpyright language server is still enabled'));
+        }
     }
 
     cancellationStrategy = new FileBasedCancellationStrategy();
     let serverOptions: ServerOptions | undefined = undefined;
-    if (workspace.getConfiguration('pyright').get('importStrategy') === 'fromEnvironment') {
+    if (workspace.getConfiguration('basedpyright').get('importStrategy') === 'fromEnvironment') {
         const pythonApi = await PythonExtension.api();
         const scriptName = 'basedpyright-langserver';
         const executablePath = path.join(
@@ -127,7 +127,7 @@ export async function activate(context: ExtensionContext) {
         ],
         synchronize: {
             // Synchronize the setting section to the server.
-            configurationSection: ['python', 'pyright'],
+            configurationSection: ['python', 'basedpyright'],
         },
         connectionOptions: { cancellationStrategy: cancellationStrategy },
         middleware: {
@@ -149,7 +149,7 @@ export async function activate(context: ExtensionContext) {
                     }
 
                     for (const [i, item] of params.items.entries()) {
-                        if (item.section === 'python.analysis') {
+                        if (item.section === 'basedpyright.analysis') {
                             const analysisConfig = workspace.getConfiguration(
                                 item.section,
                                 item.scopeUri ? Uri.parse(item.scopeUri) : undefined
