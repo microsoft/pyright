@@ -27,18 +27,18 @@ by default, pyright will treat the body in the code above as unreachable if pyri
 
 to make things worse, unreachable code is not even type-checked, so the obviously invalid `1 + ""` above will go completely unnoticed by the type checker.
 
-basedpyright solves this issue with a `reportUnreachable` option, which will report an error on any code that it thinks cannot be reached. from there, you can either [update your pyright config to specify more platforms using the `pythonPlatform` option](https://github.com/detachhead/basedpyright/blob/main/docs/configuration.md#main-configuration-options) if you intend for the code to be reachable.
+basedpyright solves this issue with a `reportUnreachable` option, which will report an error on such unchecked code. in this example, you can [update your pyright config to specify more platforms using the `pythonPlatform` option](https://github.com/detachhead/basedpyright/blob/main/docs/configuration.md#main-configuration-options) if you intend for the code to be reachable.
 
 ### no errors on invalid configuration
 
-in pyright, if you have any invalid config, it may or may not print a warning to the console, then it will continue type checking and the exit code will be 0 as long as there were no type errors:
+in pyright, if you have any invalid config, it may or may not print a warning to the console, then it will continue type-checking and the exit code will be 0 as long as there were no type errors:
 
 ```toml
 [tool.pyright]
 mode = "strict"  # wrong! the setting you're looking for is called `typeCheckingMode`
 ```
 
-this makes it very easy for errors to go undetected because you think you're on strict mode, but in reality pyright just ignored the setting and silently continued type checking on "basic" mode.
+in this example, it's very easy for errors to go undetected because you thought you were on strict mode, but in reality pyright just ignored the setting and silently continued type-checking on "basic" mode.
 
 to solve this problem, basedpyright will exit with code 3 on any invalid config.
 
@@ -96,9 +96,7 @@ the pylance extension is an optional wrapper on top of the pyright language serv
 
 if you don't depend on any pylance features, the recommended solution is to disable/uninstall the pylance extension.
 
-if you do want to continue using pylance, basedpyright renames all of its config options and commands to avoid any conflicts with the pylance extension, and disables the restriction that prevents both extensions from being enabled at the same time. for an optimal experience you should disable pylance's type checking and disable basedpyright's language server features. see [the recommended setup section below](#if-using-pylance) for details. this will prevent pylance from displaying errors from its bundled pyright version alongside the errors already displayed by the basedpyright extension.
-
-be mindful that when using both extensions, basedpyright language server features (except for type errors) will be disabled in favor of pylance's. this may result in some inconsistent behavior due to the fact that pylance uses its own pyright version, but it should not be much of an issue as basedpyright does not change any language server features.
+if you do want to continue using pylance, all of the options and commands in basedpyright have been renamed to avoid any conflicts with the pylance extension, and the restriction that prevents both extensions from being enabled at the same time has been removed. for an optimal experience you should disable pylance's type checking and disable basedpyright's language server features. see [the recommended setup section below](#if-using-pylance) for details.
 
 # recommended setup
 
@@ -114,7 +112,7 @@ below are the changes i recommend making to your project when adopting basedpyri
     "detachhead.basedpyright" // this will prompt developers working on your project to install the extension
   ],
   "unwantedRecommendations": [
-    "ms-python.vscode-pylance" // the pylance extension must be disabled when using pyright on its own
+    "ms-python.vscode-pylance" // if not using pylance (see below)
   ]
 }
 ```
