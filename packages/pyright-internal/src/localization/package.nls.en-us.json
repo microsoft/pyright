@@ -285,6 +285,7 @@
         "namedParamAfterParamSpecArgs": "Keyword parameter \"{name}\" cannot appear in signature after ParamSpec args parameter",
         "namedTupleEmptyName": "Names within a named tuple cannot be empty",
         "namedTupleMultipleInheritance": "Multiple inheritance with NamedTuple is not supported",
+        "namedTupleEntryRedeclared": "Cannot override \"{name}\" because parent class \"{className}\" is a named tuple",
         "namedTupleFirstArg": "Expected named tuple class name as first argument",
         "namedTupleNameKeyword": "Field names cannot be a keyword",
         "namedTupleNameType": "Expected two-entry tuple specifying entry name and type",
