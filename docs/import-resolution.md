@@ -5,13 +5,13 @@ If the import is relative (the module name starts with one or more dots), it res
 
 For absolute (non-relative) imports, Pyright employs the following resolution order:
 
-1. Try to resolve using the **stubPath** as defined in the `stubPath` config entry or the `python.analysis.stubPath` setting.
+1. Try to resolve using the **stubPath** as defined in the `stubPath` config entry or the `basedpyright.analysis.stubPath` setting.
 
 2. Try to resolve using **code within the workspace**.
     
     * Try to resolve relative to the **root directory** of the execution environment. If no execution environments are specified in the config file, use the root of the workspace. For more information about execution environments, refer to the [configuration documentation](configuration.md#execution-environment-options).
 
-    * Try to resolve using any of the **extra paths** defined for the execution environment in the config file. If no execution environment applies, use the `python.analysis.extraPaths` setting. Extra paths are searched in the order in which they are provided in the config file or setting.
+    * Try to resolve using any of the **extra paths** defined for the execution environment in the config file. If no execution environment applies, use the `basedpyright.analysis.extraPaths` setting. Extra paths are searched in the order in which they are provided in the config file or setting.
 
     * If no execution environment is configured, try to resolve using the **local directory `src`**. It is common for Python projects to place local source files within a directory of this name.
 
@@ -20,7 +20,7 @@ For absolute (non-relative) imports, Pyright employs the following resolution or
     * For a given package, try to resolve first using a **stub package**. Stub packages, as defined in [PEP 561](https://www.python.org/dev/peps/pep-0561/#type-checker-module-resolution-order), are named the same as the original package but with “-stubs” appended.
     * Try to resolve using an **inline stub**, a “.pyi” file that ships within the package.
     * If the package contains a “py.typed” file as described in [PEP 561](https://www.python.org/dev/peps/pep-0561/), use inlined type annotations provided in “.py” files within the package.
-    * If the `python.analysis.useLibraryCodeForTypes` setting is set to true, try to resolve using the **library implementation** (“.py” file). Some “.py” files may contain partial or complete type annotations. Pyright will use type annotations that are provided and do its best to infer any missing type information.
+    * If the `basedpyright.analysis.useLibraryCodeForTypes` setting is set to true, try to resolve using the **library implementation** (“.py” file). Some “.py” files may contain partial or complete type annotations. Pyright will use type annotations that are provided and do its best to infer any missing type information.
 
 4. Try to resolve using a **stdlib typeshed stub**. If the `typeshedPath` is configured, use this instead of the typeshed stubs that are packaged with Pyright. This allows for the use of a newer or a patched version of the typeshed stdlib stubs.
 

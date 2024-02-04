@@ -958,7 +958,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected async onHover(params: HoverParams, token: CancellationToken) {
         const uri = this.decodeUri(params.textDocument.uri);
         const workspace = await this.getWorkspaceForFile(uri);
-
+        if (workspace.disableLanguageServices) {
+            return;
+        }
         return workspace.service.run((program) => {
             return new HoverProvider(program, uri, params.position, this.client.hoverContentFormat, token).getHover();
         }, token);

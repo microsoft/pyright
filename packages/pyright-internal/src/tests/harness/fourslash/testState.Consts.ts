@@ -20,9 +20,9 @@ export namespace Consts {
     // is marked as const enum and we can't import "const enum" which get removed
     // once compiled
     export enum Commands {
-        createTypeStub = 'pyright.createtypestub',
-        restartServer = 'pyright.restartserver',
-        orderImports = 'pyright.organizeimports',
+        createTypeStub = 'basedpyright.createtypestub',
+        restartServer = 'basedpyright.restartserver',
+        orderImports = 'basedpyright.organizeimports',
     }
 
     export import CompletionItemKind = lsp.CompletionItemKind;

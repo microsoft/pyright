@@ -43,41 +43,41 @@
         ],
         "commands": [
             {
-                "command": "pyright.organizeimports",
+                "command": "basedpyright.organizeimports",
                 "title": "Organize Imports",
                 "category": "Pyright"
             },
             {
-                "command": "pyright.restartserver",
+                "command": "basedpyright.restartserver",
                 "title": "Restart Server",
                 "category": "Pyright"
             },
             {
-                "command": "pyright.dumpTokens",
+                "command": "basedpyright.dumpTokens",
                 "title": "Dump token streams ...",
                 "category": "Pyright",
                 "enablement": "editorLangId == python && pyright.development"
             },
             {
-                "command": "pyright.dumpNodes",
+                "command": "basedpyright.dumpNodes",
                 "title": "Dump parse tree ...",
                 "category": "Pyright",
                 "enablement": "editorLangId == python && pyright.development"
             },
             {
-                "command": "pyright.dumpTypes",
+                "command": "basedpyright.dumpTypes",
                 "title": "Dump type info ...",
                 "category": "Pyright",
                 "enablement": "editorLangId == python && pyright.development"
             },
             {
-                "command": "pyright.dumpCachedTypes",
+                "command": "basedpyright.dumpCachedTypes",
                 "title": "Dump cached type info ...",
                 "category": "Pyright",
                 "enablement": "editorLangId == python && pyright.development"
             },
             {
-                "command": "pyright.dumpCodeFlowGraph",
+                "command": "basedpyright.dumpCodeFlowGraph",
                 "title": "Dump code flow graph for node ...",
                 "category": "Pyright",
                 "enablement": "editorLangId == python && pyright.development"
@@ -86,7 +86,7 @@
         "menus": {
             "editor/context": [
                 {
-                    "command": "pyright.organizeimports",
+                    "command": "basedpyright.organizeimports",
                     "title": "Pyright: Organize Imports",
                     "group": "Pyright",
                     "when": "editorLangId == python"
@@ -94,23 +94,23 @@
             ],
             "commandPalette": [
                 {
-                    "command": "pyright.dumpTokens",
+                    "command": "basedpyright.dumpTokens",
                     "when": "editorLangId == python && pyright.development"
                 },
                 {
-                    "command": "pyright.dumpNodes",
+                    "command": "basedpyright.dumpNodes",
                     "when": "editorLangId == python && pyright.development"
                 },
                 {
-                    "command": "pyright.dumpTypes",
+                    "command": "basedpyright.dumpTypes",
                     "when": "editorLangId == python && pyright.development"
                 },
                 {
-                    "command": "pyright.dumpCachedTypes",
+                    "command": "basedpyright.dumpCachedTypes",
                     "when": "editorLangId == python && pyright.development"
                 },
                 {
-                    "command": "pyright.dumpCodeFlowGraph",
+                    "command": "basedpyright.dumpCodeFlowGraph",
                     "when": "editorLangId == python && pyright.development"
                 }
             ]
@@ -119,19 +119,19 @@
             "type": "object",
             "title": "Pyright",
             "properties": {
-                "python.analysis.autoImportCompletions": {
+                "basedpyright.analysis.autoImportCompletions": {
                     "type": "boolean",
                     "default": true,
                     "description": "Offer auto-import completions.",
                     "scope": "resource"
                 },
-                "python.analysis.autoSearchPaths": {
+                "basedpyright.analysis.autoSearchPaths": {
                     "type": "boolean",
                     "default": true,
                     "description": "Automatically add common search paths like 'src'?",
                     "scope": "resource"
                 },
-                "python.analysis.extraPaths": {
+                "basedpyright.analysis.extraPaths": {
                     "type": "array",
                     "default": [],
                     "items": {
@@ -140,13 +140,13 @@
                     "description": "Additional import search resolution paths",
                     "scope": "resource"
                 },
-                "python.analysis.stubPath": {
+                "basedpyright.analysis.stubPath": {
                     "type": "string",
                     "default": "typings",
                     "description": "Path to directory containing custom type stub files.",
                     "scope": "resource"
                 },
-                "python.analysis.diagnosticMode": {
+                "basedpyright.analysis.diagnosticMode": {
                     "type": "string",
                     "default": "openFilesOnly",
                     "enum": [
@@ -159,7 +159,7 @@
                     ],
                     "scope": "resource"
                 },
-                "python.analysis.include": {
+                "basedpyright.analysis.include": {
                     "type": "array",
                     "default": [],
                     "items": {
@@ -168,7 +168,7 @@
                     "description": "Paths of directories or files that should be included. If no paths are specified, pyright defaults to the workspace root directory. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).",
                     "scope": "resource"
                 },
-                "python.analysis.exclude": {
+                "basedpyright.analysis.exclude": {
                     "type": "array",
                     "default": [],
                     "items": {
@@ -177,7 +177,7 @@
                     "description": "Paths of directories or files that should not be included. These override the include directories, allowing specific subdirectories to be excluded. Note that files in the exclude paths may still be included in the analysis if they are referenced (imported) by source files that are not excluded. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character). If no exclude paths are specified, pyright automatically excludes the following: `**/node_modules`, `**/__pycache__`, `.git` and any virtual environment directories.",
                     "scope": "resource"
                 },
-                "python.analysis.ignore": {
+                "basedpyright.analysis.ignore": {
                     "type": "array",
                     "default": [],
                     "items": {
@@ -186,9 +186,9 @@
                     "description": "Paths of directories or files whose diagnostic output (errors and warnings) should be suppressed even if they are an included file or within the transitive closure of an included file. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character). If no value is provided, the value of python.linting.ignorePatterns (if set) will be used.",
                     "scope": "resource"
                 },
-                "python.analysis.diagnosticSeverityOverrides": {
+                "basedpyright.analysis.diagnosticSeverityOverrides": {
                     "type": "object",
-                    "description": "Allows a user to override the severity levels for individual diagnostics. Use the rule name as a key and one of \"error\", \"warning\", \"information\", \"none\", `true` (alias for \"error\") or `false` (alias for \"none\") as value. The default value shown for each diagnostic is the default when \"python.analysis.typeCheckingMode\" is set to \"standard\". See [here](https://github.com/detachhead/basedpyright/blob/main/docs/configuration.md#diagnostic-rule-defaults) for defaults for each type checking mode (\"off\", \"basic\", \"standard\", \"strict\", and \"all\").",
+                    "description": "Allows a user to override the severity levels for individual diagnostics. Use the rule name as a key and one of \"error\", \"warning\", \"information\", \"none\", `true` (alias for \"error\") or `false` (alias for \"none\") as value. The default value shown for each diagnostic is the default when \"basedpyright.analysis.typeCheckingMode\" is set to \"standard\". See [here](https://github.com/detachhead/basedpyright/blob/main/docs/configuration.md#diagnostic-rule-defaults) for defaults for each type checking mode (\"off\", \"basic\", \"standard\", \"strict\", and \"all\").",
                     "scope": "resource",
                     "properties": {
                         "reportGeneralTypeIssues": {
@@ -1489,7 +1489,7 @@
                         }
                     }
                 },
-                "python.analysis.logLevel": {
+                "basedpyright.analysis.logLevel": {
                     "type": "string",
                     "default": "Information",
                     "description": "Specifies the level of logging for the Output panel",
@@ -1500,7 +1500,7 @@
                         "Trace"
                     ]
                 },
-                "python.analysis.typeCheckingMode": {
+                "basedpyright.analysis.typeCheckingMode": {
                     "type": "string",
                     "default": "standard",
                     "enum": [
@@ -1513,7 +1513,7 @@
                     "description": "Defines the default rule set for type checking.",
                     "scope": "resource"
                 },
-                "python.analysis.typeshedPaths": {
+                "basedpyright.analysis.typeshedPaths": {
                     "type": "array",
                     "default": [],
                     "items": {
@@ -1522,25 +1522,25 @@
                     "description": "Paths to look for typeshed modules.",
                     "scope": "resource"
                 },
-                "python.analysis.useLibraryCodeForTypes": {
+                "basedpyright.analysis.useLibraryCodeForTypes": {
                     "type": "boolean",
                     "default": true,
                     "description": "Use library implementations to extract type information when type stub is not present.",
                     "scope": "resource"
                 },
-                "pyright.disableLanguageServices": {
+                "basedpyright.disableLanguageServices": {
                     "type": "boolean",
                     "default": false,
                     "description": "Disables type completion, definitions, and references.",
                     "scope": "resource"
                 },
-                "pyright.disableTaggedHints": {
+                "basedpyright.disableTaggedHints": {
                     "type": "boolean",
                     "default": false,
                     "description": "Disable hint diagnostics with special hints for grayed-out or strike-through text.",
                     "scope": "resource"
                 },
-                "pyright.disableOrganizeImports": {
+                "basedpyright.disableOrganizeImports": {
                     "type": "boolean",
                     "default": false,
                     "description": "Disables the “Organize Imports” command.",
@@ -1558,7 +1558,7 @@
                     "description": "Path to folder with a list of Virtual Environments.",
                     "scope": "resource"
                 },
-                "pyright.importStrategy": {
+                "basedpyright.importStrategy": {
                     "type": "string",
                     "default": "fromEnvironment",
                     "enum": [

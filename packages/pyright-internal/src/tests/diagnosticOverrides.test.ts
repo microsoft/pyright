@@ -66,7 +66,8 @@ describe('Diagnostic overrides', () => {
         const json = JSON.parse(jsonString);
 
         expect(json.contributes?.configuration?.properties).toBeDefined();
-        const overrides = json.contributes?.configuration?.properties['python.analysis.diagnosticSeverityOverrides'];
+        const overrides =
+            json.contributes?.configuration?.properties['basedpyright.analysis.diagnosticSeverityOverrides'];
         expect(overrides).toBeDefined();
         const props = overrides.properties;
         expect(props).toBeDefined();
