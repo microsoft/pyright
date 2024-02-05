@@ -9086,7 +9086,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addDiagnostic(
                 DiagnosticRule.reportCallIssue,
                 LocMessage.objectNotCallable().format({
-                    type: printType(callTypeResult.type, { expandTypeAlias: true }),
+                    type: printType(callTypeResult.type.specialForm, { expandTypeAlias: true }),
                 }),
                 exprNode
             );
