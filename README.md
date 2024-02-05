@@ -42,6 +42,18 @@ in this example, it's very easy for errors to go undetected because you thought 
 
 to solve this problem, basedpyright will exit with code 3 on any invalid config.
 
+### no way to fully ban the `Any` type
+
+pyright has a few options to ban "Unknown" types such as `reportUnknownVariableType`, `reportUnknownParameterType`, etc. but "Unknown" is not a real type, rather a distinction pyright uses used to represent `Any`s that come from untyped code or unfollowed imports. if you want to ban all kinds of `Any`, pyright has no way to do that:
+
+```py
+def foo(bar, baz: Any) -> Any:
+    print(bar) # error: unknown type
+    print(baz) # no error
+```
+
+basedpyright introduces the `reportAny` option, which will report an error on usages of anything typed as `Any`.
+
 ### basedmypy feature parity
 
 [basedmypy](https://github.com/kotlinisland/basedmypy) is a fork of mypy with a similar goal in mind: to fix some of the serious problems in mypy that do not seem to be a priority for the maintainers. it also adds many new features which may not be standardized but greatly improve the developer experience when working with python's far-from-perfect type system.

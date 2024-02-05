@@ -381,6 +381,9 @@ export interface DiagnosticRuleSet {
 
     // Report unreachable code
     reportUnreachable: DiagnosticLevel;
+
+    // Report usages of Any-typed values
+    reportAny: DiagnosticLevel;
 }
 
 export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
@@ -497,6 +500,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportShadowedImports,
         DiagnosticRule.reportImplicitOverride,
         DiagnosticRule.reportUnreachable,
+        DiagnosticRule.reportAny,
     ];
 }
 
@@ -603,6 +607,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
         reportUnreachable: 'none',
+        reportAny: 'none',
     };
 
     return diagSettings;
@@ -705,6 +710,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
         reportUnreachable: 'none',
+        reportAny: 'none',
     };
 
     return diagSettings;
@@ -807,6 +813,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
         reportUnreachable: 'none',
+        reportAny: 'none',
     };
 
     return diagSettings;
@@ -908,6 +915,7 @@ export const getAllDiagnosticRuleSet = (): DiagnosticRuleSet => ({
     reportShadowedImports: 'error',
     reportImplicitOverride: 'error',
     reportUnreachable: 'error',
+    reportAny: 'error',
 });
 
 export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
@@ -1007,6 +1015,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
         reportUnreachable: 'none',
+        reportAny: 'none',
     };
 
     return diagSettings;

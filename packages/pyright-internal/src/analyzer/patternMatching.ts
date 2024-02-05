@@ -43,6 +43,7 @@ import {
     AnyType,
     ClassType,
     combineTypes,
+    isAny,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -1602,6 +1603,12 @@ export function assignTypeToPatternTargets(
                         evaluator.addDiagnostic(
                             DiagnosticRule.reportUnknownVariableType,
                             LocMessage.wildcardPatternTypePartiallyUnknown() + diagAddendum.getString(),
+                            pattern.target
+                        );
+                    } else if (isAny(narrowedType)) {
+                        evaluator.addDiagnostic(
+                            DiagnosticRule.reportAny,
+                            LocMessage.wildcardPatternTypeAny(),
                             pattern.target
                         );
                     }

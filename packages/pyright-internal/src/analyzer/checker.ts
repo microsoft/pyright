@@ -178,6 +178,7 @@ import {
     UnknownType,
     Variance,
     combineTypes,
+    isAny,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -483,6 +484,12 @@ export class Checker extends ParseTreeWalker {
                                     }) + diagAddendum.getString(),
                                     param.name
                                 );
+                            } else if (isAny(paramType)) {
+                                this._evaluator.addDiagnostic(
+                                    DiagnosticRule.reportAny,
+                                    LocMessage.paramTypeAny().format({ paramName: param.name.value }),
+                                    param.name
+                                );
                             }
                         }
 
@@ -747,6 +754,12 @@ export class Checker extends ParseTreeWalker {
                             LocMessage.paramTypePartiallyUnknown().format({ paramName: param.name.value }),
                             param.name
                         );
+                    } else if (isAny(paramType)) {
+                        this._evaluator.addDiagnostic(
+                            DiagnosticRule.reportAny,
+                            LocMessage.paramTypeAny().format({ paramName: param.name.value }),
+                            param.name
+                        );
                     }
                 }
             }
@@ -766,6 +779,12 @@ export class Checker extends ParseTreeWalker {
                     LocMessage.lambdaReturnTypePartiallyUnknown().format({
                         returnType: this._evaluator.printType(returnType, { expandTypeAlias: true }),
                     }),
+                    node.expression
+                );
+            } else if (isAny(returnType)) {
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportAny,
+                    LocMessage.lambdaReturnTypeAny(),
                     node.expression
                 );
             }
@@ -1041,6 +1060,12 @@ export class Checker extends ParseTreeWalker {
                     LocMessage.returnTypePartiallyUnknown().format({
                         returnType: this._evaluator.printType(returnType, { expandTypeAlias: true }),
                     }),
+                    node.returnExpression ?? node
+                );
+            } else if (isAny(returnType)) {
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportAny,
+                    LocMessage.returnTypeAny(),
                     node.returnExpression ?? node
                 );
             }
@@ -4749,6 +4774,8 @@ export class Checker extends ParseTreeWalker {
                 }),
                 node.name
             );
+        } else if (isAny(returnType)) {
+            this._evaluator.addDiagnostic(DiagnosticRule.reportAny, LocMessage.returnTypeAny(), node.name);
         }
     }
 

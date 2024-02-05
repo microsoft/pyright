@@ -12089,6 +12089,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             argParam.errorNode
                         );
                     }
+                } else if (isAny(simplifiedType)) {
+                    const diagAddendum = getDiagAddendum();
+                    addDiagnostic(
+                        DiagnosticRule.reportAny,
+                        LocMessage.argTypeAny() + diagAddendum.getString(),
+                        argParam.errorNode
+                    );
                 }
             }
         }
@@ -14132,6 +14139,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     errorNode
                 );
             }
+        } else if (isAny(simplifiedType)) {
+            addDiagnostic(DiagnosticRule.reportAny, LocMessage.typeAny().format({ name: nameValue }), errorNode);
         }
     }
 
@@ -16081,6 +16090,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (isUnknown(argType)) {
                         addDiagnostic(DiagnosticRule.reportUntypedBaseClass, LocMessage.baseClassUnknown(), arg);
+                    } else if (isAny(argType)) {
+                        addDiagnostic(DiagnosticRule.reportAny, LocMessage.baseClassAny(), arg);
                     }
 
                     // Check for a duplicate class.
@@ -16439,15 +16450,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const newDecoratedType = applyClassDecorator(evaluatorInterface, decoratedType, classType, decorator);
                 const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
 
-                if (unknownOrAny && isUnknown(unknownOrAny)) {
-                    // Report this error only on the first unknown type.
+                if (unknownOrAny) {
+                    const unknown = isUnknown(unknownOrAny);
                     if (!foundUnknown) {
                         addDiagnostic(
-                            DiagnosticRule.reportUntypedClassDecorator,
+                            unknown ? DiagnosticRule.reportUntypedClassDecorator : DiagnosticRule.reportAny,
                             LocMessage.classDecoratorTypeUnknown(),
                             node.decorators[i].expression
                         );
-
+                    }
+                    if (unknown) {
                         foundUnknown = true;
                     }
                 } else {
@@ -17134,16 +17146,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
 
-            if (unknownOrAny && isUnknown(unknownOrAny)) {
+            if (unknownOrAny) {
+                const unknown = isUnknown(unknownOrAny);
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
                     addDiagnostic(
-                        DiagnosticRule.reportUntypedFunctionDecorator,
+                        unknown ? DiagnosticRule.reportUntypedFunctionDecorator : DiagnosticRule.reportAny,
                         LocMessage.functionDecoratorTypeUnknown(),
                         node.decorators[i].expression
                     );
-
-                    foundUnknown = true;
+                    if (unknown) {
+                        foundUnknown = true;
+                    }
                 }
             } else {
                 // Apply the decorator only if the type is known.
