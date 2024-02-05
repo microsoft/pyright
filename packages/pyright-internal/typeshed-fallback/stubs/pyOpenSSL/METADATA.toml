@@ -1,4 +1,4 @@
-version = "23.3.*"
+version = "24.0.*"
 upstream_repository = "https://github.com/pyca/pyopenssl"
 # Requires a version of cryptography with a `py.typed` file
 requires = ["cryptography>=35.0.0"]

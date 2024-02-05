@@ -3,6 +3,7 @@ from collections.abc import Generator, Iterable
 from typing import Literal, TypeVar, overload
 
 from networkx.classes.graph import Graph, _Node
+from networkx.utils.backends import _dispatch
 
 _U = TypeVar("_U")
 
@@ -110,4 +111,5 @@ def edge_boundary(
     keys: Literal[True],
     default: _U | None = None,
 ) -> Generator[tuple[_Node, _Node, int, dict[str, _U]], None, None]: ...
+@_dispatch
 def node_boundary(G: Graph[_Node], nbunch1: Iterable[_Node], nbunch2: Iterable[_Node] | None = None) -> set[_Node]: ...

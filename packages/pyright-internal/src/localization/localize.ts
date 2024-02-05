@@ -643,6 +643,10 @@ export namespace Localizer {
         export const namedParamAfterParamSpecArgs = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.namedParamAfterParamSpecArgs'));
         export const namedTupleEmptyName = () => getRawString('Diagnostic.namedTupleEmptyName');
+        export const namedTupleEntryRedeclared = () =>
+            new ParameterizedString<{ name: string; className: string }>(
+                getRawString('Diagnostic.namedTupleEntryRedeclared')
+            );
         export const namedTupleFirstArg = () => getRawString('Diagnostic.namedTupleFirstArg');
         export const namedTupleMultipleInheritance = () => getRawString('Diagnostic.namedTupleMultipleInheritance');
         export const namedTupleNameKeyword = () => getRawString('Diagnostic.namedTupleNameKeyword');
@@ -1312,6 +1316,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.namedParamTypeMismatch')
             );
+        export const namedTupleNotAllowed = () => getRawString('DiagnosticAddendum.namedTupleNotAllowed');
         export const newMethodLocation = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.newMethodLocation'));
         export const newMethodSignature = () =>
@@ -1481,6 +1486,7 @@ export namespace Localizer {
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.typedDictFinalMismatch')
             );
+        export const typedDictNotAllowed = () => getRawString('DiagnosticAddendum.typedDictNotAllowed');
         export const typeIncompatible = () =>
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.typeIncompatible')

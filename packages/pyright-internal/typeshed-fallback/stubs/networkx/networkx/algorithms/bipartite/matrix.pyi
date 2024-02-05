@@ -1,5 +1,8 @@
 from _typeshed import Incomplete
 
+from networkx.utils.backends import _dispatch
+
+@_dispatch
 def biadjacency_matrix(
     G,
     row_order,
@@ -8,4 +11,5 @@ def biadjacency_matrix(
     weight: str = "weight",
     format: str = "csr",
 ): ...
+@_dispatch
 def from_biadjacency_matrix(A, create_using: Incomplete | None = None, edge_attribute: str = "weight"): ...

@@ -5,6 +5,7 @@ from types import TracebackType
 from typing import Any, Literal, NoReturn, Protocol, TypeVar, overload, type_check_only
 from typing_extensions import Self, TypeAlias
 
+from psycopg2.extras import ReplicationCursor as extras_ReplicationCursor
 from psycopg2.sql import Composable
 
 _Vars: TypeAlias = Sequence[Any] | Mapping[str, Any] | None
@@ -516,6 +517,30 @@ class ReplicationConnection(connection):
     set_isolation_level: Any
     set_session: Any
     def __init__(self, *args, **kwargs) -> None: ...
+    # https://github.com/python/typeshed/issues/11282
+    # The return type should be exactly extras.ReplicationCursor (not _psycopg.ReplicationCursor)
+    # See the C code: replicationConnection_init(), psyco_conn_cursor()
+    @overload
+    def cursor(
+        self, name: str | bytes | None = None, cursor_factory: None = None, withhold: bool = False, scrollable: bool | None = None
+    ) -> extras_ReplicationCursor: ...
+    @overload
+    def cursor(
+        self,
+        name: str | bytes | None = None,
+        *,
+        cursor_factory: Callable[[connection, str | bytes | None], _T_cur],
+        withhold: bool = False,
+        scrollable: bool | None = None,
+    ) -> _T_cur: ...
+    @overload
+    def cursor(
+        self,
+        name: str | bytes | None,
+        cursor_factory: Callable[[connection, str | bytes | None], _T_cur],
+        withhold: bool = False,
+        scrollable: bool | None = None,
+    ) -> _T_cur: ...
 
 class lobject:
     closed: Any

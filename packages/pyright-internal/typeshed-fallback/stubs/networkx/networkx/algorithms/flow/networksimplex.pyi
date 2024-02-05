@@ -1,6 +1,8 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
 
+from networkx.utils.backends import _dispatch
+
 class _DataEssentialsAndFunctions:
     node_list: Incomplete
     node_indices: Incomplete
@@ -36,4 +38,5 @@ class _DataEssentialsAndFunctions:
     def residual_capacity(self, i, p): ...
     def find_leaving_edge(self, Wn, We): ...
 
+@_dispatch
 def network_simplex(G, demand: str = "demand", capacity: str = "capacity", weight: str = "weight"): ...

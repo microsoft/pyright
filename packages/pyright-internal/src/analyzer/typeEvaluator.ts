@@ -5739,12 +5739,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 resultType = subtype;
             }
 
-            // If this is a "set" operation, we have a bit more work to do.
-            if (usage.method !== 'set') {
+            // If this is a "set" or "delete" operation, we have a bit more work to do.
+            if (usage.method === 'get') {
                 return resultType;
             }
 
-            // Check for an attempt to overwrite a ClassVar member from an instance.
+            // Check for an attempt to overwrite or delete a ClassVar member from an instance.
             if (
                 !isDescriptorApplied &&
                 memberInfo?.symbol.isClassVar() &&
@@ -5754,7 +5754,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isDescriptorError = true;
             }
 
-            // Check for an attempt to overwrite a final member variable.
+            // Check for an attempt to overwrite or delete a final member variable.
             const finalVarTypeDecl = memberInfo?.symbol
                 .getDeclarations()
                 .find((decl) => isFinalVariableDeclaration(decl));
@@ -5773,7 +5773,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            // Check for an attempt to overwrite an instance variable that is
+            // Check for an attempt to overwrite or delete an instance variable that is
             // read-only (e.g. in a named tuple).
             if (
                 memberInfo?.isInstanceMember &&
@@ -9103,7 +9103,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             addDiagnostic(
                 DiagnosticRule.reportCallIssue,
                 LocMessage.objectNotCallable().format({
-                    type: printType(callTypeResult.type, { expandTypeAlias: true }),
+                    type: printType(callTypeResult.type.specialForm, { expandTypeAlias: true }),
                 }),
                 exprNode
             );

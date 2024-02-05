@@ -1,9 +1,14 @@
 from _typeshed import Incomplete
 
+from networkx.utils.backends import _dispatch
+
+@_dispatch
 def geometric_edges(G, radius, p: float = 2): ...
+@_dispatch
 def random_geometric_graph(
     n, radius, dim: int = 2, pos: Incomplete | None = None, p: float = 2, seed: Incomplete | None = None
 ): ...
+@_dispatch
 def soft_random_geometric_graph(
     n,
     radius,
@@ -13,6 +18,7 @@ def soft_random_geometric_graph(
     p_dist: Incomplete | None = None,
     seed: Incomplete | None = None,
 ): ...
+@_dispatch
 def geographical_threshold_graph(
     n,
     theta,
@@ -23,6 +29,7 @@ def geographical_threshold_graph(
     p_dist: Incomplete | None = None,
     seed: Incomplete | None = None,
 ): ...
+@_dispatch
 def waxman_graph(
     n,
     beta: float = 0.4,
@@ -34,7 +41,9 @@ def waxman_graph(
 ): ...
 
 # docstring marks p as int, but it still works with floats. So I think it's better for consistency
+@_dispatch
 def navigable_small_world_graph(n, p: float = 1, q: int = 1, r: float = 2, dim: int = 2, seed: Incomplete | None = None): ...
+@_dispatch
 def thresholded_random_geometric_graph(
     n,
     radius,

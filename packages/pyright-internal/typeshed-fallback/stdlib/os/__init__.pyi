@@ -47,9 +47,6 @@ from . import path as _path
 if sys.version_info >= (3, 9):
     from types import GenericAlias
 
-if sys.platform != "win32":
-    from resource import struct_rusage
-
 # This unnecessary alias is to work around various errors
 path = _path
 
@@ -977,6 +974,8 @@ else:
             def si_code(self) -> int: ...
 
         def waitid(__idtype: int, __ident: int, __options: int) -> waitid_result | None: ...
+
+    from resource import struct_rusage
 
     def wait3(options: int) -> tuple[int, int, struct_rusage]: ...
     def wait4(pid: int, options: int) -> tuple[int, int, struct_rusage]: ...

@@ -1,5 +1,8 @@
 from _typeshed import Incomplete
 
+from networkx.utils.backends import _dispatch
+
+@_dispatch
 def pagerank(
     G,
     alpha: float = 0.85,
@@ -10,6 +13,7 @@ def pagerank(
     weight: str = "weight",
     dangling: Incomplete | None = None,
 ): ...
+@_dispatch
 def google_matrix(
     G,
     alpha: float = 0.85,

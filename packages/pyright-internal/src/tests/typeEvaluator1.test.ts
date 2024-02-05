@@ -1292,7 +1292,7 @@ test('Optional2', () => {
 test('Tuple1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuple1.py']);
 
-    TestUtils.validateResults(analysisResults, 22);
+    TestUtils.validateResults(analysisResults, 24);
 });
 
 test('Tuple2', () => {
@@ -1394,7 +1394,7 @@ test('Tuple18', () => {
 test('NamedTuple1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple1.py']);
 
-    TestUtils.validateResults(analysisResults, 12);
+    TestUtils.validateResults(analysisResults, 13);
 });
 
 test('NamedTuple2', () => {
@@ -1424,7 +1424,7 @@ test('NamedTuple5', () => {
 test('NamedTuple6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple6.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('NamedTuple7', () => {
@@ -1443,6 +1443,12 @@ test('NamedTuple9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple9.py']);
 
     TestUtils.validateResults(analysisResults, 3);
+});
+
+test('NamedTuple10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuple10.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Slots1', () => {

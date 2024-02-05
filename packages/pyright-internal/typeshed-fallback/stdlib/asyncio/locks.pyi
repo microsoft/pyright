@@ -47,6 +47,7 @@ else:
         ) -> None: ...
 
 class Lock(_ContextManagerMixin, _LoopBoundMixin):
+    _waiters: deque[Future[Any]] | None
     if sys.version_info >= (3, 10):
         def __init__(self) -> None: ...
     else:
@@ -57,6 +58,7 @@ class Lock(_ContextManagerMixin, _LoopBoundMixin):
     def release(self) -> None: ...
 
 class Event(_LoopBoundMixin):
+    _waiters: deque[Future[Any]]
     if sys.version_info >= (3, 10):
         def __init__(self) -> None: ...
     else:
@@ -68,6 +70,7 @@ class Event(_LoopBoundMixin):
     async def wait(self) -> Literal[True]: ...
 
 class Condition(_ContextManagerMixin, _LoopBoundMixin):
+    _waiters: deque[Future[Any]]
     if sys.version_info >= (3, 10):
         def __init__(self, lock: Lock | None = None) -> None: ...
     else:
@@ -83,7 +86,7 @@ class Condition(_ContextManagerMixin, _LoopBoundMixin):
 
 class Semaphore(_ContextManagerMixin, _LoopBoundMixin):
     _value: int
-    _waiters: deque[Future[Any]]
+    _waiters: deque[Future[Any]] | None
     if sys.version_info >= (3, 10):
         def __init__(self, value: int = 1) -> None: ...
     else:
