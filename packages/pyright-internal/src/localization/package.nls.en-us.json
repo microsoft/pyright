@@ -674,7 +674,6 @@
         "memberIsWritableInProtocol": "\"{name}\" is writable in protocol",
         "memberTypeMismatch": "\"{name}\" is an incompatible type",
         "memberUnknown": "Member \"{name}\" is unknown",
-        "memberAny": "Member \"{name}\" is Any",
         "metaclassConflict": "Metaclass \"{metaclass1}\" conflicts with \"{metaclass2}\"",
         "missingGetter": "Property getter method is missing",
         "missingSetter": "Property setter method is missing",
