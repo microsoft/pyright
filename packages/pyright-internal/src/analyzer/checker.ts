@@ -458,7 +458,10 @@ export class Checker extends ParseTreeWalker {
                     if (functionTypeParam) {
                         const paramType = functionTypeParam.type;
 
-                        if (this._fileInfo.diagnosticRuleSet.reportUnknownParameterType !== 'none') {
+                        if (
+                            this._fileInfo.diagnosticRuleSet.reportUnknownParameterType !== 'none' ||
+                            this._fileInfo.diagnosticRuleSet.reportAny !== 'none'
+                        ) {
                             if (
                                 isUnknown(paramType) ||
                                 (isTypeVar(paramType) &&

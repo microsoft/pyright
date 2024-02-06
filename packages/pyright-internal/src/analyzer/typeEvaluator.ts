@@ -14107,11 +14107,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         errorNode: ExpressionNode,
         ignoreEmptyContainers: boolean
     ) {
-        // Don't bother if the feature is disabled.
-        if (diagLevel === 'none') {
-            return;
-        }
-
         const nameValue = target.value;
 
         // Sometimes variables contain an "unbound" type if they're
