@@ -70,6 +70,10 @@ export interface ParameterListDetails {
     paramSpec?: TypeVarType;
 }
 
+export function firstParametersExcludingSelf(type: FunctionType): FunctionParameter | undefined {
+    return type.details.parameters.find((p) => !(isTypeVar(p.type) && p.type.details.isSynthesizedSelf));
+}
+
 // Examines the input parameters within a function signature and creates a
 // "virtual list" of parameters, stripping out any markers and expanding
 // any *args with unpacked tuples.
