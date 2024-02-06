@@ -12061,7 +12061,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Do not check for unknown types if the expected type is "Any".
             // Don't print types if reportUnknownArgumentType is disabled for performance.
             if (
-                fileInfo.diagnosticRuleSet.reportUnknownArgumentType !== 'none' &&
+                (fileInfo.diagnosticRuleSet.reportUnknownArgumentType !== 'none' ||
+                    fileInfo.diagnosticRuleSet.reportAny !== 'none') &&
                 !isAny(argParam.paramType) &&
                 !isTypeIncomplete
             ) {
@@ -16437,7 +16438,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Now determine the decorated type of the class.
             let decoratedType: Type = classType;
-            let foundUnknown = false;
+            let foundUnknownOrAny = false;
 
             for (let i = node.decorators.length - 1; i >= 0; i--) {
                 const decorator = node.decorators[i];
@@ -16447,15 +16448,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (unknownOrAny) {
                     const unknown = isUnknown(unknownOrAny);
-                    if (!foundUnknown) {
-                        addDiagnostic(
-                            unknown ? DiagnosticRule.reportUntypedClassDecorator : DiagnosticRule.reportAny,
-                            LocMessage.classDecoratorTypeUnknown(),
-                            node.decorators[i].expression
-                        );
+                    if (!foundUnknownOrAny) {
+                        if (unknown) {
+                            addDiagnostic(
+                                DiagnosticRule.reportUntypedClassDecorator ,
+                                LocMessage.classDecoratorTypeUnknown(),
+                                node.decorators[i].expression
+                            );
+                        } else {
+                            addDiagnostic(
+                                DiagnosticRule.reportAny ,
+                                LocMessage.classDecoratorTypeAny(),
+                                node.decorators[i].expression
+                            );
+                        }
                     }
                     if (unknown) {
-                        foundUnknown = true;
+                        foundUnknownOrAny = true;
                     }
                 } else {
                     // Apply the decorator only if the type is known.

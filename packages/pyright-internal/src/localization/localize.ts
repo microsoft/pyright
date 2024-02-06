@@ -281,6 +281,7 @@ export namespace Localizer {
         export const classAlreadySpecialized = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.classAlreadySpecialized'));
         export const classDecoratorTypeUnknown = () => getRawString('Diagnostic.classDecoratorTypeUnknown');
+        export const classDecoratorTypeAny = () => getRawString('Diagnostic.classDecoratorTypeAny');
         export const classDefinitionCycle = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.classDefinitionCycle'));
         export const classGetItemClsParam = () => getRawString('Diagnostic.classGetItemClsParam');
