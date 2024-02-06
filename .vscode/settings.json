@@ -62,4 +62,7 @@
     "jest.autoRun": {},
     "python.analysis.typeCheckingMode": "off",
     "basedpyright.disableLanguageServices": true,
+    "pylint.ignorePatterns": [
+        "**/pyright-internal/src/tests/samples/*"
+    ],
 }
