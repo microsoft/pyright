@@ -1486,6 +1486,22 @@
                                 true,
                                 false
                             ]
+                        },
+                        "reportAny": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for anything with the `Any` type",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
                         }
                     }
                 },
