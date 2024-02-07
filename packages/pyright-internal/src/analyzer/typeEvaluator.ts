@@ -16451,13 +16451,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (!foundUnknownOrAny) {
                         if (unknown) {
                             addDiagnostic(
-                                DiagnosticRule.reportUntypedClassDecorator ,
+                                DiagnosticRule.reportUntypedClassDecorator,
                                 LocMessage.classDecoratorTypeUnknown(),
                                 node.decorators[i].expression
                             );
                         } else {
                             addDiagnostic(
-                                DiagnosticRule.reportAny ,
+                                DiagnosticRule.reportAny,
                                 LocMessage.classDecoratorTypeAny(),
                                 node.decorators[i].expression
                             );
@@ -17154,11 +17154,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const unknown = isUnknown(unknownOrAny);
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
-                    addDiagnostic(
-                        unknown ? DiagnosticRule.reportUntypedFunctionDecorator : DiagnosticRule.reportAny,
-                        LocMessage.functionDecoratorTypeUnknown(),
-                        node.decorators[i].expression
-                    );
+                    if (unknown) {
+                        addDiagnostic(
+                            DiagnosticRule.reportUntypedFunctionDecorator,
+                            LocMessage.functionDecoratorTypeUnknown(),
+                            node.decorators[i].expression
+                        );
+                    } else {
+                        addDiagnostic(
+                            DiagnosticRule.reportAny,
+                            LocMessage.functionDecoratorTypeAny(),
+                            node.decorators[i].expression
+                        );
+                    }
                     if (unknown) {
                         foundUnknown = true;
                     }

@@ -10,7 +10,10 @@ bar: Any = object()
 @bar
 class Bar(bar): ...
 
-baz: Callable[[], Any] = lambda: bar
+@bar
+def baz() -> None: ...
+
+qux: Callable[[], Any] = lambda: bar
 
 match(bar):
     case _:

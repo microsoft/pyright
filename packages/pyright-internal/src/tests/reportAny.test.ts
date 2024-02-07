@@ -34,10 +34,15 @@ test('reportAny', () => {
             {
                 line: 12,
                 code: DiagnosticRule.reportAny,
-                message: LocMessage.lambdaReturnTypeAny(),
+                message: LocMessage.functionDecoratorTypeAny(),
             },
             {
                 line: 15,
+                code: DiagnosticRule.reportAny,
+                message: LocMessage.lambdaReturnTypeAny(),
+            },
+            {
+                line: 18,
                 code: DiagnosticRule.reportAny,
                 message: LocMessage.wildcardPatternTypeAny(),
             },

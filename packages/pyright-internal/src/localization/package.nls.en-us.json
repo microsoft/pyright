@@ -212,6 +212,7 @@
         "formatStringIllegal": "Format string literals (f-strings) require Python 3.6 or newer",
         "formatStringUnterminated": "Unterminated expression in f-string; expecting \"}\"",
         "functionDecoratorTypeUnknown": "Untyped function decorator obscures type of function; ignoring decorator",
+        "functionDecoratorTypeAny": "Function decorator obscures type of function because its type is Any",
         "functionInConditionalExpression": "Conditional expression references function which always evaluates to True",
         "functionTypeParametersIllegal": "Function type parameter syntax requires Python 3.12 or newer",
         "futureImportLocationNotAllowed": "Imports from __future__ must be at the beginning of the file",

@@ -524,6 +524,7 @@ export namespace Localizer {
         export const formatStringUnicode = () => getRawString('Diagnostic.formatStringUnicode');
         export const formatStringUnterminated = () => getRawString('Diagnostic.formatStringUnterminated');
         export const functionDecoratorTypeUnknown = () => getRawString('Diagnostic.functionDecoratorTypeUnknown');
+        export const functionDecoratorTypeAny = () => getRawString('Diagnostic.functionDecoratorTypeAny');
         export const functionInConditionalExpression = () => getRawString('Diagnostic.functionInConditionalExpression');
         export const functionTypeParametersIllegal = () => getRawString('Diagnostic.functionTypeParametersIllegal');
         export const futureImportLocationNotAllowed = () => getRawString('Diagnostic.futureImportLocationNotAllowed');
