@@ -1502,7 +1502,7 @@
                 },
                 "basedpyright.analysis.typeCheckingMode": {
                     "type": "string",
-                    "default": "standard",
+                    "default": "all",
                     "enum": [
                         "off",
                         "basic",
