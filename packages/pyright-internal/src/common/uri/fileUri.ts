@@ -18,7 +18,6 @@ import {
     getRootLength,
     hasTrailingDirectorySeparator,
     isDiskPathRoot,
-    normalizeSlashes,
     resolvePaths,
     stripFileExtension,
 } from '../pathUtils';
@@ -30,6 +29,7 @@ type SerializedType = [0, string, string, string, string | undefined, 1 | 0];
 
 export class FileUri extends BaseUri {
     private _formattedString: string | undefined;
+    private _normalizedPath: string | undefined;
     private static _separator = getPathSeparator('');
     protected constructor(
         key: string,
@@ -122,8 +122,7 @@ export class FileUri extends BaseUri {
     override matchesRegex(regex: RegExp): boolean {
         // Compare the regex to our path but normalize it for comparison.
         // The regex assumes it's comparing itself to a URI path.
-        const path = this.normalizeSlashes(this._filePath);
-        return regex.test(path);
+        return regex.test(this._getNormalizedPath());
     }
 
     override toString(): string {
@@ -184,7 +183,7 @@ export class FileUri extends BaseUri {
         return this._filePath.length;
     }
     override getPath(): string {
-        return this.normalizeSlashes(this._filePath);
+        return this._getNormalizedPath();
     }
     override getFilePath(): string {
         return this._filePath;
@@ -274,10 +273,17 @@ export class FileUri extends BaseUri {
     }
 
     protected override getComparablePath(): string {
-        return normalizeSlashes(this._filePath);
+        return this._getNormalizedPath();
     }
 
     private static _createKey(filePath: string, query: string, fragment: string) {
         return `${filePath}${query ? '?' + query : ''}${fragment ? '#' + fragment : ''}`;
+    }
+
+    private _getNormalizedPath(): string {
+        if (this._normalizedPath === undefined) {
+            this._normalizedPath = this.normalizeSlashes(this._filePath);
+        }
+        return this._normalizedPath;
     }
 }
