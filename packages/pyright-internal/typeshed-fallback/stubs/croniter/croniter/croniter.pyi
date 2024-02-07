@@ -3,8 +3,8 @@ from _typeshed import Unused
 from collections import OrderedDict
 from collections.abc import Iterator
 from re import Match, Pattern
-from typing import Any, overload
-from typing_extensions import Final, Literal, Never, Self, TypeAlias
+from typing import Any, Final, Literal, overload
+from typing_extensions import Never, Self, TypeAlias
 
 _RetType: TypeAlias = type[float | datetime.datetime]
 _Expressions: TypeAlias = list[str]  # fixed-length list of 5 or 6 strings

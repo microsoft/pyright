@@ -297,6 +297,39 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
             return exprString;
         }
 
+        case ParseNodeType.FormatString: {
+            let exprString = 'f';
+
+            let escapedString = '';
+            const itemsToPrint = [...node.middleTokens, ...node.fieldExpressions].sort((a, b) => a.start - b.start);
+
+            while (itemsToPrint.length > 0) {
+                const itemToPrint = itemsToPrint.shift()!;
+
+                if ('nodeType' in itemToPrint) {
+                    escapedString += `{${printExpression(itemToPrint)}}`;
+                } else {
+                    escapedString += itemToPrint.escapedValue;
+                }
+            }
+
+            if (node.token.flags & StringTokenFlags.Triplicate) {
+                if (node.token.flags & StringTokenFlags.SingleQuote) {
+                    exprString += `'''${escapedString}'''`;
+                } else {
+                    exprString += `"""${escapedString}"""`;
+                }
+            } else {
+                if (node.token.flags & StringTokenFlags.SingleQuote) {
+                    exprString += `'${escapedString}'`;
+                } else {
+                    exprString += `"${escapedString}"`;
+                }
+            }
+
+            return exprString;
+        }
+
         case ParseNodeType.Assignment: {
             return printExpression(node.leftExpression, flags) + ' = ' + printExpression(node.rightExpression, flags);
         }
@@ -488,6 +521,14 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
 
         case ParseNodeType.Set: {
             return node.entries.map((entry) => printExpression(entry, flags)).join(', ');
+        }
+
+        case ParseNodeType.Error: {
+            return '<Parse Error>';
+        }
+
+        default: {
+            assertNever(node);
         }
     }
 
@@ -1045,12 +1086,12 @@ export function isNodeContainedWithin(node: ParseNode, potentialContainer: Parse
     return false;
 }
 
-export function getParentNodeOfType(node: ParseNode, containerType: ParseNodeType): ParseNode | undefined {
+export function getParentNodeOfType<T extends ParseNode>(node: ParseNode, containerType: ParseNodeType): T | undefined {
     let curNode: ParseNode | undefined = node;
 
     while (curNode) {
         if (curNode.nodeType === containerType) {
-            return curNode;
+            return curNode as T;
         }
 
         curNode = curNode.parent;

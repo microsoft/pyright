@@ -1,5 +1,5 @@
 import sys
-from typing_extensions import Final
+from typing import Final
 
 VER: Final[sys._version_info]
 

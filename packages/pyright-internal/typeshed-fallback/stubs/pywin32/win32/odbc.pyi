@@ -1,10 +1,11 @@
 from _typeshed import Incomplete
-from typing_extensions import Literal, TypeAlias
+from typing import Literal
+from typing_extensions import TypeAlias
 
 import _win32typing
 
-def odbc(connectionString: str) -> _win32typing.connection: ...
-def SQLDataSources(direction) -> tuple[Incomplete, Incomplete]: ...
+def odbc(connectionString: str, /) -> _win32typing.connection: ...
+def SQLDataSources(direction, /) -> tuple[Incomplete, Incomplete]: ...
 
 _odbcError: TypeAlias = type  # noqa: Y042  # Does not exist at runtime, but odbc.odbcError is a valid type.
 DATE: str

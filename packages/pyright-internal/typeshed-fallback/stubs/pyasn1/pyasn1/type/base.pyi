@@ -1,6 +1,5 @@
 from _typeshed import Incomplete, Unused
-from typing import NoReturn, type_check_only
-from typing_extensions import final
+from typing import NoReturn, final, type_check_only
 
 from pyasn1.type import constraint, namedtype
 from pyasn1.type.tag import TagSet

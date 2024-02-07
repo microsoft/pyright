@@ -3,8 +3,8 @@ from _typeshed import Incomplete, ReadableBuffer
 from collections.abc import Sequence
 from datetime import date, datetime, time
 from types import TracebackType
-from typing import Any, overload
-from typing_extensions import Literal, Self, TypeAlias
+from typing import Any, Literal, overload
+from typing_extensions import Self, TypeAlias
 
 from .resultrow import ResultRow
 

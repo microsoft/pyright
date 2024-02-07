@@ -2,8 +2,7 @@ from _typeshed import Incomplete, Unused
 from collections.abc import Callable
 from logging import Logger
 from re import Pattern
-from typing import NamedTuple, overload
-from typing_extensions import Literal
+from typing import Literal, NamedTuple, overload
 
 from ._fonttools_shims import BasePen, _TTGlyphSet
 from .drawing import ClippingPath, PaintedPath

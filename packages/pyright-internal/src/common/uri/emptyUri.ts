@@ -6,15 +6,16 @@
  * URI class that represents an empty URI.
  */
 
-import { BaseUri } from './baseUri';
+import { JsonObjType } from './baseUri';
+import { FileUri } from './fileUri';
 import { Uri } from './uri';
 
 const EmptyKey = '<empty>';
 
-export class EmptyUri extends BaseUri {
+export class EmptyUri extends FileUri {
     private static _instance = new EmptyUri();
     private constructor() {
-        super(EmptyKey);
+        super(EmptyKey, '', '', '', undefined, /* isCaseSensitive */ true);
     }
 
     static get instance() {
@@ -37,8 +38,18 @@ export class EmptyUri extends BaseUri {
         return this;
     }
 
-    get isCaseSensitive(): boolean {
-        return true;
+    override get fragment(): string {
+        return '';
+    }
+
+    override toJsonObj(): JsonObjType {
+        return {
+            _key: EmptyKey,
+        };
+    }
+
+    static isEmptyUri(uri: any): boolean {
+        return uri?._key === EmptyKey;
     }
 
     override isEmpty(): boolean {
@@ -96,10 +107,6 @@ export class EmptyUri extends BaseUri {
         return 0;
     }
 
-    override combinePaths(...paths: string[]): Uri {
-        return this;
-    }
-
     override getShortenedFileName(maxDirLength: number): string {
         return '';
     }
@@ -108,8 +115,20 @@ export class EmptyUri extends BaseUri {
         return this;
     }
 
+    override withFragment(fragment: string): Uri {
+        return this;
+    }
+
+    override stripAllExtensions(): Uri {
+        return this;
+    }
+
     protected override getPathComponentsImpl(): string[] {
         return [];
+    }
+
+    protected override normalizeSlashes(path: string): string {
+        return '';
     }
 
     protected override getRootPath(): string {

@@ -1,5 +1,5 @@
-from typing import Any, overload
-from typing_extensions import Self, final
+from typing import Any, final, overload
+from typing_extensions import Self
 
 ATTR_CASE: int
 CASE_LOWER: int

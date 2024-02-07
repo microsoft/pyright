@@ -1,8 +1,8 @@
 from _typeshed import SupportsRead
 from pathlib import Path
 from types import ModuleType
-from typing import Any
-from typing_extensions import Literal, TypeAlias
+from typing import Any, Literal
+from typing_extensions import TypeAlias
 
 # Is actually PIL.Image.Image
 _PILImageImage: TypeAlias = Any

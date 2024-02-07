@@ -3,13 +3,14 @@
 # invariant type parameter. Literal types need to be handled
 # carefully in this case.
 
-from typing import Awaitable, Literal, TypeVar
+from typing import Any, Awaitable, Generator, Literal, TypeVar
 
 _T = TypeVar("_T")
 
 
 class Future(Awaitable[_T]):
-    ...
+    def __await__(self) -> Generator[Any, None, _T]:
+        ...
 
 
 def func1(future: Future[_T]) -> Future[_T]:

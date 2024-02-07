@@ -1,7 +1,6 @@
 from _typeshed import Incomplete, Unused
 from collections.abc import Generator
-from typing import ClassVar, TypeVar, overload
-from typing_extensions import Literal
+from typing import ClassVar, Literal, TypeVar, overload
 from zipfile import ZipFile
 
 from openpyxl.descriptors.base import Alias, String

@@ -2,7 +2,7 @@ import sys
 from collections.abc import Callable, Mapping
 from socket import socket
 from threading import Lock
-from typing_extensions import Literal
+from typing import Literal
 
 from waitress import wasyncore as wasyncore
 

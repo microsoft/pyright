@@ -147,6 +147,9 @@ export class CommandLineOptions {
     // Analyze functions and methods that have no type annotations?
     analyzeUnannotatedFunctions?: boolean;
 
+    // Disable reporting of hint diagnostics with tags?
+    disableTaggedHints?: boolean;
+
     constructor(executionRoot: string, fromVsCodeExtension: boolean) {
         this.executionRoot = executionRoot;
         this.fromVsCodeExtension = fromVsCodeExtension;

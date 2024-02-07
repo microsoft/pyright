@@ -1,7 +1,7 @@
 # This sample tests the case where a lambda is assigned to
 # a union type that contains multiple callables.
 
-from typing import Callable, Protocol
+from typing import Callable, Protocol, TypeVar
 
 
 U1 = Callable[[int, str], bool] | Callable[[str], bool]
@@ -68,3 +68,15 @@ accepts_u2(lambda p0, p1, *p2: True)
 accepts_u2(callback_1)
 accepts_u2(callback_2)
 accepts_u2(callback_3)
+
+
+T = TypeVar("T")
+
+Takes = Callable[[T], object]
+
+U3 = Takes[Takes[int]] | Takes[Takes[str]]
+
+
+def accepts_u3(u: U3):
+    # This should generate an error.
+    u(lambda v: v.lower())

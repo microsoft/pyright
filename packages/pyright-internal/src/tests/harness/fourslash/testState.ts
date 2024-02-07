@@ -197,6 +197,7 @@ export class TestState {
             kinds: [WellKnownWorkspaceKinds.Test],
             service: service,
             disableLanguageServices: false,
+            disableTaggedHints: false,
             disableOrganizeImports: false,
             disableWorkspaceSymbol: false,
             isInitialized: createInitStatus(),
@@ -380,7 +381,12 @@ export class TestState {
     selectLine(index: number) {
         const lineStart = this.convertPositionToOffset(this.activeFile.fileName, { line: index, character: 0 });
         const lineEnd = lineStart + this._getLineContent(index).length;
-        this.selectRange({ fileName: this.activeFile.fileName, pos: lineStart, end: lineEnd });
+        this.selectRange({
+            fileName: this.activeFile.fileName,
+            fileUri: Uri.file(this.activeFile.fileName),
+            pos: lineStart,
+            end: lineEnd,
+        });
     }
 
     goToEachRange(action: (range: Range) => void) {
@@ -876,7 +882,7 @@ export class TestState {
             const rangePos = this.convertOffsetsToRange(range.fileName, range.pos, range.end);
             const provider = new HoverProvider(
                 this.program,
-                Uri.file(range.fileName),
+                range.fileUri,
                 rangePos.start,
                 kind,
                 CancellationToken.None
@@ -1450,13 +1456,13 @@ export class TestState {
             const position = this.convertOffsetToPosition(fileName, marker.position);
             const actual = new RenameProvider(
                 this.program,
-                Uri.file(fileName),
+                isUntitled ? Uri.parse(`untitled:${fileName.replace(/\\/g, '/')}`, true) : Uri.file(fileName),
                 position,
                 CancellationToken.None
             ).renameSymbol(expected.newName, /* isDefaultWorkspace */ false, isUntitled);
 
             verifyWorkspaceEdit(
-                convertToWorkspaceEdit({ edits: expected.changes, fileOperations: [] }),
+                convertToWorkspaceEdit(this.program.fileSystem, { edits: expected.changes, fileOperations: [] }),
                 actual ?? { documentChanges: [] }
             );
         }
@@ -1562,7 +1568,6 @@ export class TestState {
 
         const provider = new CompletionProvider(
             this.program,
-            this.workspace.rootUri,
             Uri.file(filePath),
             completionPosition,
             options,
@@ -1682,7 +1687,7 @@ export class TestState {
         }
 
         configOptions.include.push(getFileSpec(configOptions.projectRoot, '.'));
-        configOptions.exclude.push(getFileSpec(configOptions.projectRoot, typeshedFolder));
+        configOptions.exclude.push(getFileSpec(configOptions.projectRoot, typeshedFolder.getFilePath()));
         configOptions.exclude.push(getFileSpec(configOptions.projectRoot, distlibFolder.getFilePath()));
         configOptions.exclude.push(getFileSpec(configOptions.projectRoot, libFolder.getFilePath()));
 
@@ -1974,7 +1979,7 @@ export class TestState {
 
         return this._hostSpecificFeatures.getCodeActionsForPosition(
             this.workspace,
-            Uri.file(file),
+            range.fileUri,
             textRange,
             CancellationToken.None
         );
@@ -2078,7 +2083,7 @@ export function getNodeAtMarker(codeOrState: string | TestState, markerName = 'm
     const state = isString(codeOrState) ? parseAndGetTestState(codeOrState).state : codeOrState;
     const marker = state.getMarkerByName(markerName);
 
-    const sourceFile = state.program.getBoundSourceFile(Uri.file(marker.fileName));
+    const sourceFile = state.program.getBoundSourceFile(marker.fileUri);
     assert(sourceFile);
 
     const parserResults = sourceFile.getParseResults();

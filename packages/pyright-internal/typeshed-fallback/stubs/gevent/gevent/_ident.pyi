@@ -1,5 +1,4 @@
-from typing import Any
-from typing_extensions import final
+from typing import Any, final
 from weakref import ref
 
 @final

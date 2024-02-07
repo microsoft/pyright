@@ -11,10 +11,11 @@
  * - vscode-vfs://github.com/microsoft/debugpy/debugpy/launcher/debugAdapter.py
  */
 
-import { getRootLength, hasTrailingDirectorySeparator, normalizeSlashes, resolvePaths } from '../pathUtils';
-import { BaseUri } from './baseUri';
+import { getRootLength, hasTrailingDirectorySeparator, resolvePaths } from '../pathUtils';
+import { BaseUri, JsonObjType } from './baseUri';
 import { cacheMethodWithNoArgs, cacheProperty, cacheStaticFunc } from './memoization';
 import { Uri } from './uri';
+import { URI } from 'vscode-uri';
 
 export class WebUri extends BaseUri {
     private constructor(
@@ -24,7 +25,7 @@ export class WebUri extends BaseUri {
         private readonly _path: string,
         private readonly _query: string,
         private readonly _fragment: string,
-        private readonly _originalString: string | undefined
+        private _originalString: string | undefined
     ) {
         super(key);
     }
@@ -36,6 +37,10 @@ export class WebUri extends BaseUri {
     get isCaseSensitive(): boolean {
         // Web URIs are always case sensitive
         return true;
+    }
+
+    get fragment(): string {
+        return this._fragment;
     }
 
     @cacheProperty()
@@ -79,9 +84,14 @@ export class WebUri extends BaseUri {
 
     override toString(): string {
         if (!this._originalString) {
-            return `${this._scheme}://${this._authority}${this._path}${this._query ? '?' + this._query : ''}${
-                this._fragment ? '#' + this._fragment : ''
-            }`;
+            const vscodeUri = URI.revive({
+                scheme: this._scheme,
+                authority: this._authority,
+                path: this._path,
+                query: this._query,
+                fragment: this._fragment,
+            });
+            this._originalString = vscodeUri.toString();
         }
         return this._originalString;
     }
@@ -102,6 +112,18 @@ export class WebUri extends BaseUri {
             obj._fragment,
             obj._originalString
         );
+    }
+
+    toJsonObj(): JsonObjType {
+        return {
+            _scheme: this._scheme,
+            _authority: this._authority,
+            _path: this._path,
+            _query: this._query,
+            _fragment: this._fragment,
+            _originalString: this._originalString,
+            _key: this.key,
+        };
     }
 
     override matchesRegex(regex: RegExp): boolean {
@@ -130,22 +152,17 @@ export class WebUri extends BaseUri {
     }
 
     override startsWith(other: Uri | undefined): boolean {
-        if (!other || !WebUri.isWebUri(other)) {
+        if (other?.scheme !== this.scheme) {
             return false;
         }
-        if (other.isEmpty() !== this.isEmpty()) {
-            return false;
-        }
-        if (this.scheme !== other.scheme) {
-            return false;
-        }
-        if (this._path.length >= other._path.length) {
+        const otherWebUri = other as WebUri;
+        if (this._path.length >= otherWebUri._path.length) {
             // Make sure the other ends with a / when comparing longer paths, otherwise we might
             // say that /a/food is a child of /a/foo.
             const otherPath =
-                this._path.length > other._path.length && !hasTrailingDirectorySeparator(other._path)
-                    ? `${other._path}/`
-                    : other._path;
+                this._path.length > otherWebUri._path.length && !hasTrailingDirectorySeparator(otherWebUri._path)
+                    ? `${otherWebUri._path}/`
+                    : otherWebUri._path;
 
             return this._path.startsWith(otherPath);
         }
@@ -160,10 +177,10 @@ export class WebUri extends BaseUri {
     }
 
     override getFilePath(): string {
-        return '';
+        return ''; // Web URIs don't have file paths so this is always empty.
     }
 
-    override combinePaths(...paths: string[]): Uri {
+    override resolvePaths(...paths: string[]): Uri {
         // Resolve and combine paths, never want URIs with '..' in the middle.
         let combined = this.normalizeSlashes(resolvePaths(this._path, ...paths));
 
@@ -171,6 +188,25 @@ export class WebUri extends BaseUri {
         if (hasTrailingDirectorySeparator(combined) && combined.length > 1) {
             combined = combined.slice(0, combined.length - 1);
         }
+        if (combined !== this._path) {
+            return WebUri.createWebUri(this._scheme, this._authority, combined, '', '', undefined);
+        }
+        return this;
+    }
+    override combinePaths(...paths: string[]): Uri {
+        if (paths.some((p) => p.includes('..') || p.includes('/') || p === '.')) {
+            // This is a slow path that handles paths that contain '..' or '.'.
+            return this.resolvePaths(...paths);
+        }
+
+        // Paths don't have any thing special that needs to be combined differently, so just
+        // use the quick method.
+        return this.combinePathsUnsafe(...paths);
+    }
+
+    override combinePathsUnsafe(...paths: string[]): Uri {
+        // Combine paths using the quick path implementation.
+        const combined = BaseUri.combinePathElements(this._path, '/', ...paths);
         if (combined !== this._path) {
             return WebUri.createWebUri(this._scheme, this._authority, combined, '', '', undefined);
         }
@@ -194,6 +230,43 @@ export class WebUri extends BaseUri {
         }
     }
 
+    withFragment(fragment: string): Uri {
+        return WebUri.createWebUri(this._scheme, this._authority, this._path, this._query, fragment, undefined);
+    }
+
+    override stripExtension(): Uri {
+        const path = this._path;
+        const index = path.lastIndexOf('.');
+        if (index > 0) {
+            return WebUri.createWebUri(
+                this._scheme,
+                this._authority,
+                path.slice(0, index),
+                this._query,
+                this._fragment,
+                undefined
+            );
+        }
+        return this;
+    }
+
+    override stripAllExtensions(): Uri {
+        const path = this._path;
+        const sepIndex = path.lastIndexOf('/');
+        const index = path.indexOf('.', sepIndex > 0 ? sepIndex : 0);
+        if (index > 0) {
+            return WebUri.createWebUri(
+                this._scheme,
+                this._authority,
+                path.slice(0, index),
+                this._query,
+                this._fragment,
+                undefined
+            );
+        }
+        return this;
+    }
+
     protected override getPathComponentsImpl(): string[] {
         // Get the root path and the rest of the path components.
         const rootPath = this.getRootPath();
@@ -209,10 +282,10 @@ export class WebUri extends BaseUri {
     }
 
     protected override getComparablePath(): string {
-        return normalizeSlashes(this._path);
+        return this._path; // Should already have the correct '/'
     }
 
     private static _createKey(scheme: string, authority: string, path: string, query: string, fragment: string) {
-        return `${scheme}://${authority}${path}${query ? '?' + query : ''}${fragment ? '#' + fragment : ''}`;
+        return `${scheme}:${authority}${path}${query ? '?' + query : ''}${fragment ? '#' + fragment : ''}`;
     }
 }

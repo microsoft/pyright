@@ -8,13 +8,13 @@
 import assert from 'assert';
 import { CancellationToken, CancellationTokenSource } from 'vscode-jsonrpc';
 
-import { VariableDeclaration, isVariableDeclaration } from '../analyzer/declaration';
 import { buildImportTree as buildImportTreeImpl } from '../analyzer/sourceMapperUtils';
-import { TypeCategory } from '../analyzer/types';
-import { TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
-import { ParseNodeType } from '../parser/parseNodes';
 import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
+import { ParseNodeType } from '../parser/parseNodes';
+import { TypeCategory } from '../analyzer/types';
+import { VariableDeclaration, isVariableDeclaration } from '../analyzer/declaration';
+import { TextRange } from '../common/textRange';
 
 function buildImportTree(
     sourceFile: string,

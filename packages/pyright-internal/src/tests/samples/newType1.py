@@ -60,8 +60,7 @@ class TD1(TypedDict):
 # This should generate an error because type cannot be a TypedDict.
 NewTypeBad7 = NewType("NewTypeBad7", TD1)
 
-# This should generate an error because type cannot be another NewType.
-NewTypeBad8 = NewType("NewTypeBad8", MyString)
+NewTypeGood8 = NewType("NewTypeGood8", MyString)
 
 # This should generate an error because the name doesn't match.
 NewTypeBad9 = NewType("NewTypeBad9Not", int)

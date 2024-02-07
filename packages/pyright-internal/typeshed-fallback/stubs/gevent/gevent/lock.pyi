@@ -1,7 +1,6 @@
 from collections.abc import Callable
 from types import TracebackType
-from typing import Any
-from typing_extensions import Literal
+from typing import Any, Literal
 
 from gevent._abstract_linkable import AbstractLinkable
 from gevent.hub import Hub

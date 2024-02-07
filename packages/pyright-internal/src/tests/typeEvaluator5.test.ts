@@ -115,7 +115,7 @@ test('TypeAliasStatement1', () => {
     configOptions.defaultPythonVersion = PythonVersion.V3_12;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAliasStatement1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 8);
+    TestUtils.validateResults(analysisResults, 9);
 });
 
 test('TypeAliasStatement2', () => {
@@ -368,4 +368,9 @@ test('Async1', () => {
 test('TypeCheckOnly1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeCheckOnly1.py']);
     TestUtils.validateResults(analysisResults, 4);
+});
+
+test('NoTypeCheck1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['noTypeCheck1.py']);
+    TestUtils.validateResults(analysisResults, 2);
 });

@@ -3,8 +3,8 @@ import threading
 from collections.abc import Callable
 from queue import Queue
 from types import ModuleType, TracebackType
-from typing import Any, ClassVar, Generic, TypeVar
-from typing_extensions import ParamSpec, Self, TypedDict
+from typing import Any, ClassVar, Generic, TypedDict, TypeVar
+from typing_extensions import ParamSpec, Self
 
 _T = TypeVar("_T")
 _AbstractListener_T = TypeVar("_AbstractListener_T", bound=AbstractListener)

@@ -213,7 +213,7 @@ export function setTestingMode(underTest: boolean) {
 // escape characters **, * or ?) and returns a regular expression
 // that can be used for matching against.
 export function getWildcardRegexPattern(root: Uri, fileSpec: string): string {
-    const absolutePath = root.combinePaths(fileSpec);
+    const absolutePath = root.resolvePaths(fileSpec);
     const pathComponents = Array.from(absolutePath.getPathComponents());
     const escapedSeparator = getRegexEscapedSeparator('/');
     const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}][^${escapedSeparator}]*)*?`;
@@ -255,7 +255,7 @@ export function getWildcardRegexPattern(root: Uri, fileSpec: string): string {
 
 // Returns the topmost path that contains no wildcard characters.
 export function getWildcardRoot(root: Uri, fileSpec: string): Uri {
-    const absolutePath = root.combinePaths(fileSpec);
+    const absolutePath = root.resolvePaths(fileSpec);
     // make a copy of the path components so we can modify them.
     const pathComponents = Array.from(absolutePath.getPathComponents());
     let wildcardRoot = absolutePath.root;
@@ -273,7 +273,7 @@ export function getWildcardRoot(root: Uri, fileSpec: string): Uri {
                 break;
             }
 
-            wildcardRoot = wildcardRoot.combinePaths(component);
+            wildcardRoot = wildcardRoot.resolvePaths(component);
         }
     }
 
@@ -365,6 +365,25 @@ export function isFileSystemCaseSensitiveInternal(fs: FileSystem, tmp: TempFile)
     }
 }
 
+export function getDirectoryChangeKind(
+    fs: ReadOnlyFileSystem,
+    oldDirectory: Uri,
+    newDirectory: Uri
+): 'Same' | 'Renamed' | 'Moved' {
+    if (oldDirectory.equals(newDirectory)) {
+        return 'Same';
+    }
+
+    const relativePaths = oldDirectory.getRelativePathComponents(newDirectory);
+
+    // 2 means only last folder name has changed.
+    if (relativePaths.length === 2 && relativePaths[0] === '..' && relativePaths[1] !== '..') {
+        return 'Renamed';
+    }
+
+    return 'Moved';
+}
+
 export function deduplicateFolders(listOfFolders: Uri[][]): Uri[] {
     const foldersToWatch = new Map<string, Uri>();
 
@@ -403,4 +422,9 @@ export function getRootUri(isCaseSensitive: boolean): Uri | undefined {
         return Uri.file((global as any).__rootDirectory, isCaseSensitive);
     }
     return undefined;
+}
+
+export function encodeUri(fs: ReadOnlyFileSystem, uri: Uri): string {
+    // Convert to a URI string that the LSP client understands (mapped files are only local to the server).
+    return fs.getOriginalUri(uri).toString();
 }

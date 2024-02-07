@@ -1,4 +1,4 @@
-from typing_extensions import Literal
+from typing import Literal
 from zipfile import ZipFile
 
 from openpyxl import _ZipFileFileProtocol

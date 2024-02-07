@@ -1,7 +1,7 @@
 from _typeshed import FileDescriptorOrPath, Incomplete, SupportsRead
 from enum import IntEnum
-from typing import Protocol
-from typing_extensions import Final, Literal
+from pathlib import Path
+from typing import Final, Literal, Protocol
 
 from PIL.Image import Transpose
 
@@ -20,7 +20,7 @@ class ImageFont:
     def getlength(self, text, *args, **kwargs): ...
 
 class FreeTypeFont:
-    path: str | bytes | SupportsRead[bytes] | None
+    path: str | bytes | Path | SupportsRead[bytes] | None
     size: int
     index: int
     encoding: str
@@ -29,7 +29,7 @@ class FreeTypeFont:
     font: Incomplete
     def __init__(
         self,
-        font: str | bytes | SupportsRead[bytes] | None = None,
+        font: str | bytes | Path | SupportsRead[bytes] | None = None,
         size: int = 10,
         index: int = 0,
         encoding: str = "",
@@ -83,7 +83,7 @@ class FreeTypeFont:
     ): ...
     def font_variant(
         self,
-        font: str | bytes | SupportsRead[bytes] | None = None,
+        font: str | bytes | Path | SupportsRead[bytes] | None = None,
         size: int | None = None,
         index: int | None = None,
         encoding: str | None = None,

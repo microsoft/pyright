@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from typing_extensions import Final
+from typing import Final
 
 from .. import Command, SetuptoolsDeprecationWarning
 from .._distutils.filelist import FileList as _FileList

@@ -1,6 +1,5 @@
 from _typeshed import Incomplete, Unused
-from typing import ClassVar
-from typing_extensions import Literal
+from typing import ClassVar, Literal
 
 from openpyxl.chart.data_source import StrRef
 from openpyxl.descriptors.base import Alias, Typed

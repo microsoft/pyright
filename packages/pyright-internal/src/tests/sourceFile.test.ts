@@ -40,13 +40,10 @@ test('Empty Open file', () => {
     const marker = state.getMarkerByName('marker');
 
     assert.strictEqual(
-        state.workspace.service.test_program.getSourceFile(Uri.file(marker.fileName))?.getFileContent(),
+        state.workspace.service.test_program.getSourceFile(marker.fileUri)?.getFileContent(),
         '# Content'
     );
 
-    state.workspace.service.updateOpenFileContents(Uri.file(marker.fileName), 1, '');
-    assert.strictEqual(
-        state.workspace.service.test_program.getSourceFile(Uri.file(marker.fileName))?.getFileContent(),
-        ''
-    );
+    state.workspace.service.updateOpenFileContents(marker.fileUri, 1, '');
+    assert.strictEqual(state.workspace.service.test_program.getSourceFile(marker.fileUri)?.getFileContent(), '');
 });

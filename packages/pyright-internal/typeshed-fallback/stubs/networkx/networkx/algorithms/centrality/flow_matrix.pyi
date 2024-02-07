@@ -1,6 +1,9 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
 
+from networkx.utils.backends import _dispatch
+
+@_dispatch
 def flow_matrix_row(G, weight: Incomplete | None = None, dtype=..., solver: str = "lu") -> Generator[Incomplete, None, None]: ...
 
 class InverseLaplacian:

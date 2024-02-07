@@ -10,5 +10,7 @@ class Foo(Enum):
 
 Foo(1)
 
-# This should generate an error.
+# This would have previously generated an error prior to Python 3.12,
+# but it now does not because of an additional overload on the EnumMeta
+# __call__ method.
 Foo(1, 2, 3, 4)

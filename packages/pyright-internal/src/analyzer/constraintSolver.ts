@@ -10,7 +10,7 @@
  */
 
 import { DiagnosticAddendum } from '../common/diagnostic';
-import { Localizer } from '../localization/localize';
+import { LocAddendum } from '../localization/localize';
 import { maxSubtypesForInferredType, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
@@ -110,6 +110,15 @@ export function assignTypeToTypeVar(
         return true;
     }
 
+    // Handle type[T] as a dest and a special form as a source.
+    if (
+        TypeBase.isInstantiable(destType) &&
+        isInstantiableClass(srcType) &&
+        evaluator.isSpecialFormClass(srcType, flags)
+    ) {
+        return false;
+    }
+
     // Verify that we are solving for the scope associated with this
     // type variable.
     if (!typeVarContext.hasSolveForScope(destType.scopeId)) {
@@ -159,9 +168,7 @@ export function assignTypeToTypeVar(
         // for pseudo-generic classes.
         if (!destType.details.isSynthesized || destType.details.isSynthesizedSelf) {
             diag?.addMessage(
-                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
-                    evaluator.printSrcDestTypes(srcType, destType)
-                )
+                LocAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(srcType, destType))
             );
             return false;
         }
@@ -270,9 +277,7 @@ export function assignTypeToTypeVar(
                 adjSrcType = convertToInstance(concreteAdjSrcType);
             } else {
                 diag?.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
-                        evaluator.printSrcDestTypes(srcType, destType)
-                    )
+                    LocAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(srcType, destType))
                 );
                 return false;
             }
@@ -283,9 +288,7 @@ export function assignTypeToTypeVar(
         isTypeSame(convertToInstance(srcType), destType)
     ) {
         diag?.addMessage(
-            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
-                evaluator.printSrcDestTypes(adjSrcType, destType)
-            )
+            LocAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(adjSrcType, destType))
         );
         return false;
     }
@@ -342,7 +345,7 @@ export function assignTypeToTypeVar(
             ) {
                 if (diag && diagAddendum) {
                     diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                        LocAddendum.typeAssignmentMismatch().format(
                             evaluator.printSrcDestTypes(curWideTypeBound, adjSrcType)
                         )
                     );
@@ -367,7 +370,7 @@ export function assignTypeToTypeVar(
             ) {
                 if (diag && diagAddendum) {
                     diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                        LocAddendum.typeAssignmentMismatch().format(
                             evaluator.printSrcDestTypes(curNarrowTypeBound, newWideTypeBound!)
                         )
                     );
@@ -381,7 +384,12 @@ export function assignTypeToTypeVar(
             // There was previously no narrow bound. We've now established one.
             newNarrowTypeBound = adjSrcType;
         } else if (!isTypeSame(curNarrowTypeBound, adjSrcType, {}, recursionCount)) {
-            if (
+            if (isAnyOrUnknown(adjSrcType) && curEntry.tupleTypes) {
+                // Handle the tuple case specially. If Any or Unknown is assigned
+                // during the construction of a tuple, the resulting tuple type must
+                // be tuple[Any, ...], which is compatible with any tuple.
+                newNarrowTypeBound = adjSrcType;
+            } else if (
                 evaluator.assignType(
                     curNarrowTypeBound,
                     adjSrcType,
@@ -433,7 +441,7 @@ export function assignTypeToTypeVar(
                 // We need to widen the type.
                 if (typeVarContext.isLocked()) {
                     diag?.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                        LocAddendum.typeAssignmentMismatch().format(
                             evaluator.printSrcDestTypes(adjSrcType, curNarrowTypeBound)
                         )
                     );
@@ -453,10 +461,10 @@ export function assignTypeToTypeVar(
                 ) {
                     newNarrowTypeBound = adjSrcType;
                 } else if (isVariadicTypeVar(destType)) {
-                    const widenedType = widenTypeForVariadicTypeVar(curNarrowTypeBound, adjSrcType);
+                    const widenedType = widenTypeForVariadicTypeVar(evaluator, curNarrowTypeBound, adjSrcType);
                     if (!widenedType) {
                         diag?.addMessage(
-                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                            LocAddendum.typeAssignmentMismatch().format(
                                 evaluator.printSrcDestTypes(curNarrowTypeBound, adjSrcType)
                             )
                         );
@@ -529,7 +537,7 @@ export function assignTypeToTypeVar(
                 ) {
                     if (diag && diagAddendum) {
                         diag.addMessage(
-                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format(
+                            LocAddendum.typeAssignmentMismatch().format(
                                 evaluator.printSrcDestTypes(newNarrowTypeBound, adjWideTypeBound)
                             )
                         );
@@ -573,7 +581,7 @@ export function assignTypeToTypeVar(
             // synthesized for internal purposes.
             if (!destType.details.isSynthesized) {
                 diag?.addMessage(
-                    Localizer.DiagnosticAddendum.typeBound().format({
+                    LocAddendum.typeBound().format({
                         sourceType: evaluator.printType(updatedType),
                         destType: evaluator.printType(destType.details.boundType),
                         name: TypeVarType.getReadableName(destType),
@@ -584,6 +592,17 @@ export function assignTypeToTypeVar(
         }
     }
 
+    // Update the tuple types based on the new type bounds. We need to
+    // switch to an unbounded tuple type since the length of the resulting
+    // tuple is indeterminate.
+    let newTupleTypes = curEntry?.tupleTypes;
+    if (newTupleTypes) {
+        const updatedType = newNarrowTypeBound ?? newWideTypeBound;
+        if (updatedType) {
+            newTupleTypes = [{ type: updatedType, isUnbounded: true }];
+        }
+    }
+
     if (!typeVarContext.isLocked() && isTypeVarInScope) {
         updateTypeVarType(
             evaluator,
@@ -591,6 +610,7 @@ export function assignTypeToTypeVar(
             destType,
             newNarrowTypeBound,
             newWideTypeBound,
+            newTupleTypes,
             (flags & (AssignTypeFlags.PopulatingExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) !== 0
         );
     }
@@ -616,6 +636,7 @@ export function updateTypeVarType(
     destType: TypeVarType,
     narrowTypeBound: Type | undefined,
     wideTypeBound: Type | undefined,
+    tupleTypes: TupleTypeArgument[] | undefined = undefined,
     forceRetainLiterals = false
 ) {
     let narrowTypeBoundNoLiterals: Type | undefined;
@@ -634,7 +655,7 @@ export function updateTypeVarType(
         }
     }
 
-    typeVarContext.setTypeVarType(destType, narrowTypeBound, narrowTypeBoundNoLiterals, wideTypeBound);
+    typeVarContext.setTypeVarType(destType, narrowTypeBound, narrowTypeBoundNoLiterals, wideTypeBound, tupleTypes);
 }
 
 function assignTypeToConstrainedTypeVar(
@@ -781,7 +802,7 @@ function assignTypeToConstrainedTypeVar(
     // are not conditional, it's an error.
     if (!constrainedType) {
         diag?.addMessage(
-            Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
+            LocAddendum.typeConstrainedTypeVar().format({
                 type: evaluator.printType(srcType),
                 name: destType.details.name,
             })
@@ -822,7 +843,7 @@ function assignTypeToConstrainedTypeVar(
                 }
             } else {
                 diag?.addMessage(
-                    Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
+                    LocAddendum.typeConstrainedTypeVar().format({
                         type: evaluator.printType(constrainedType),
                         name: evaluator.printType(curNarrowTypeBound),
                     })
@@ -839,6 +860,7 @@ function assignTypeToConstrainedTypeVar(
                 destType,
                 constrainedType,
                 curWideTypeBound,
+                /* tupleTypes */ undefined,
                 forceRetainLiterals
             );
         }
@@ -955,7 +977,7 @@ function assignTypeToParamSpec(
         }
 
         diag?.addMessage(
-            Localizer.DiagnosticAddendum.typeParamSpec().format({
+            LocAddendum.typeParamSpec().format({
                 type: evaluator.printType(srcType),
                 name: destType.details.name,
             })
@@ -1053,7 +1075,11 @@ export function populateTypeVarContextBasedOnExpectedType(
                                     tupleType = transformExpectedType(tupleEntry.type, liveTypeVarScopes, usageOffset);
                                 }
 
-                                return { type: tupleType, isUnbounded: tupleEntry.isUnbounded };
+                                return {
+                                    type: tupleType,
+                                    isUnbounded: tupleEntry.isUnbounded,
+                                    isOptional: tupleEntry.isOptional,
+                                };
                             })
                         );
                     }
@@ -1196,7 +1222,12 @@ export function populateTypeVarContextBasedOnExpectedType(
 // For normal TypeVars, the constraint solver can widen a type by combining
 // two otherwise incompatible types into a union. For TypeVarTuples, we need
 // to do the equivalent operation for unpacked tuples.
-function widenTypeForVariadicTypeVar(type1: Type, type2: Type): Type | undefined {
+function widenTypeForVariadicTypeVar(evaluator: TypeEvaluator, type1: Type, type2: Type): Type | undefined {
+    // The typing spec indicates that the type should always be "exactly
+    // the same type" if a TypeVarTuple is used in multiple locations.
+    // This is problematic for a number of reasons, but in the interest
+    // of sticking to the spec, we'll enforce that here.
+
     // If the two types are not unpacked tuples, we can't combine them.
     if (!isUnpackedClass(type1) || !isUnpackedClass(type2)) {
         return undefined;
@@ -1211,28 +1242,14 @@ function widenTypeForVariadicTypeVar(type1: Type, type2: Type): Type | undefined
         return undefined;
     }
 
-    let canCombine = true;
+    const strippedType1 = stripLiteralValueForUnpackedTuple(evaluator, type1);
+    const strippedType2 = stripLiteralValueForUnpackedTuple(evaluator, type2);
 
-    const tupleTypeArgs: TupleTypeArgument[] = type1.tupleTypeArguments.map((arg1, index) => {
-        const arg2 = type2.tupleTypeArguments![index];
-
-        // If an entry is unbound in length and the corresponding entry in the
-        // other tuple is not (or vice versa), we can't combine them.
-        if (arg1.isUnbounded !== arg2.isUnbounded) {
-            canCombine = false;
-        }
-
-        return {
-            isUnbounded: arg1.isUnbounded,
-            type: combineTypes([arg1.type, arg2.type]),
-        };
-    });
-
-    if (!canCombine) {
-        return undefined;
+    if (isTypeSame(strippedType1, strippedType2)) {
+        return strippedType1;
     }
 
-    return specializeTupleClass(type1, tupleTypeArgs, /* isTypeArgumentExplicit */ true, /* isUnpackedTuple */ true);
+    return undefined;
 }
 
 // If the provided type is an unpacked tuple, this function strips the
@@ -1252,6 +1269,7 @@ function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type)
 
         return {
             isUnbounded: arg.isUnbounded,
+            isOptional: arg.isOptional,
             type: strippedType,
         };
     });

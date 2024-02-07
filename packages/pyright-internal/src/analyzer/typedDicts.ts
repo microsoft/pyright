@@ -14,7 +14,7 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { Localizer } from '../localization/localize';
+import { LocAddendum, LocMessage } from '../localization/localize';
 import {
     ArgumentCategory,
     ClassNode,
@@ -79,7 +79,7 @@ export function createTypedDictType(
     // Point2D = TypedDict('Point2D', x=int, y=int, label=str)
     let className: string | undefined;
     if (argList.length === 0) {
-        evaluator.addError(Localizer.Diagnostic.typedDictFirstArg(), errorNode);
+        evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.typedDictFirstArg(), errorNode);
     } else {
         const nameArg = argList[0];
         if (
@@ -87,7 +87,11 @@ export function createTypedDictType(
             !nameArg.valueExpression ||
             nameArg.valueExpression.nodeType !== ParseNodeType.StringList
         ) {
-            evaluator.addError(Localizer.Diagnostic.typedDictFirstArg(), argList[0].valueExpression || errorNode);
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportArgumentType,
+                LocMessage.typedDictFirstArg(),
+                argList[0].valueExpression || errorNode
+            );
         } else {
             className = nameArg.valueExpression.strings.map((s) => s.value).join('');
         }
@@ -115,7 +119,7 @@ export function createTypedDictType(
 
     let usingDictSyntax = false;
     if (argList.length < 2) {
-        evaluator.addError(Localizer.Diagnostic.typedDictSecondArgDict(), errorNode);
+        evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.typedDictSecondArgDict(), errorNode);
     } else {
         const entriesArg = argList[1];
 
@@ -136,7 +140,11 @@ export function createTypedDictType(
                 }
 
                 if (entrySet.has(entry.name.value)) {
-                    evaluator.addError(Localizer.Diagnostic.typedDictEntryUnique(), entry.valueExpression);
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typedDictEntryUnique(),
+                        entry.valueExpression
+                    );
                     continue;
                 }
 
@@ -144,7 +152,6 @@ export function createTypedDictType(
                 entrySet.add(entry.name.value);
 
                 const newSymbol = new Symbol(SymbolFlags.InstanceMember);
-                const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                 const declaration: VariableDeclaration = {
                     type: DeclarationType.Variable,
                     node: entry.name,
@@ -164,7 +171,7 @@ export function createTypedDictType(
                 classFields.set(entry.name.value, newSymbol);
             }
         } else {
-            evaluator.addError(Localizer.Diagnostic.typedDictSecondArgDict(), errorNode);
+            evaluator.addDiagnostic(DiagnosticRule.reportArgumentType, LocMessage.typedDictSecondArgDict(), errorNode);
         }
     }
 
@@ -179,15 +186,20 @@ export function createTypedDictType(
                         arg.valueExpression.constType === KeywordType.True
                     )
                 ) {
-                    evaluator.addError(
-                        Localizer.Diagnostic.typedDictBoolParam().format({ name: arg.name.value }),
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typedDictBoolParam().format({ name: arg.name.value }),
                         arg.valueExpression || errorNode
                     );
                 } else if (arg.name.value === 'total' && arg.valueExpression.constType === KeywordType.False) {
                     classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
                 }
             } else {
-                evaluator.addError(Localizer.Diagnostic.typedDictExtraArgs(), arg.valueExpression || errorNode);
+                evaluator.addDiagnostic(
+                    DiagnosticRule.reportCallIssue,
+                    LocMessage.typedDictExtraArgs(),
+                    arg.valueExpression || errorNode
+                );
             }
         }
     }
@@ -201,8 +213,9 @@ export function createTypedDictType(
 
         if (typedDictTarget.nodeType === ParseNodeType.Name) {
             if (typedDictTarget.value !== className) {
-                evaluator.addError(
-                    Localizer.Diagnostic.typedDictAssignedName().format({
+                evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typedDictAssignedName().format({
                         name: className,
                     }),
                     typedDictTarget
@@ -737,23 +750,39 @@ function getTypedDictFieldsFromDictSyntax(
 
     entryDict.entries.forEach((entry) => {
         if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
-            evaluator.addError(Localizer.Diagnostic.typedDictSecondArgDictEntry(), entry);
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.typedDictSecondArgDictEntry(),
+                entry
+            );
             return;
         }
 
         if (entry.keyExpression.nodeType !== ParseNodeType.StringList) {
-            evaluator.addError(Localizer.Diagnostic.typedDictEntryName(), entry.keyExpression);
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.typedDictEntryName(),
+                entry.keyExpression
+            );
             return;
         }
 
         const entryName = entry.keyExpression.strings.map((s) => s.value).join('');
         if (!entryName) {
-            evaluator.addError(Localizer.Diagnostic.typedDictEmptyName(), entry.keyExpression);
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.typedDictEmptyName(),
+                entry.keyExpression
+            );
             return;
         }
 
         if (entrySet.has(entryName)) {
-            evaluator.addError(Localizer.Diagnostic.typedDictEntryUnique(), entry.keyExpression);
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.typedDictEntryUnique(),
+                entry.keyExpression
+            );
             return;
         }
 
@@ -861,7 +890,7 @@ export function assignTypedDictToTypedDict(
         if (!srcEntry) {
             if (destEntry.isRequired || !destEntry.isReadOnly) {
                 diag?.createAddendum().addMessage(
-                    Localizer.DiagnosticAddendum.typedDictFieldMissing().format({
+                    LocAddendum.typedDictFieldMissing().format({
                         name,
                         type: evaluator.printType(srcType),
                     })
@@ -885,7 +914,7 @@ export function assignTypedDictToTypedDict(
                             recursionCount
                         )
                     ) {
-                        subDiag?.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                        subDiag?.addMessage(LocAddendum.memberTypeMismatch().format({ name }));
                         typesAreConsistent = false;
                     }
                 }
@@ -893,8 +922,8 @@ export function assignTypedDictToTypedDict(
         } else {
             if (destEntry.isRequired !== srcEntry.isRequired && !destEntry.isReadOnly) {
                 const message = destEntry.isRequired
-                    ? Localizer.DiagnosticAddendum.typedDictFieldRequired()
-                    : Localizer.DiagnosticAddendum.typedDictFieldNotRequired();
+                    ? LocAddendum.typedDictFieldRequired()
+                    : LocAddendum.typedDictFieldNotRequired();
                 diag?.createAddendum().addMessage(
                     message.format({
                         name,
@@ -906,7 +935,7 @@ export function assignTypedDictToTypedDict(
 
             if (!destEntry.isReadOnly && srcEntry.isReadOnly) {
                 diag?.createAddendum().addMessage(
-                    Localizer.DiagnosticAddendum.typedDictFieldNotReadOnly().format({
+                    LocAddendum.typedDictFieldNotReadOnly().format({
                         name,
                         type: evaluator.printType(destType),
                     })
@@ -933,7 +962,7 @@ export function assignTypedDictToTypedDict(
                     recursionCount
                 )
             ) {
-                subDiag?.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                subDiag?.addMessage(LocAddendum.memberTypeMismatch().format({ name }));
                 typesAreConsistent = false;
             }
         }
@@ -994,7 +1023,7 @@ export function assignToTypedDict(
                 if (diagAddendum) {
                     const subDiag = diagAddendum?.createAddendum();
                     subDiag.addMessage(
-                        Localizer.DiagnosticAddendum.typedDictFieldUndefined().format({
+                        LocAddendum.typedDictFieldUndefined().format({
                             name: keyType.literalValue as string,
                             type: evaluator.printType(ClassType.cloneAsInstance(classType)),
                         })
@@ -1017,7 +1046,7 @@ export function assignToTypedDict(
                 ) {
                     if (subDiag) {
                         subDiag.addMessage(
-                            Localizer.DiagnosticAddendum.typedDictFieldTypeMismatch().format({
+                            LocAddendum.typedDictFieldTypeMismatch().format({
                                 name: keyType.literalValue as string,
                                 type: evaluator.printType(valueTypes[index].type),
                             })
@@ -1051,7 +1080,7 @@ export function assignToTypedDict(
         if (entry.isRequired && !entry.isProvided) {
             if (diagAddendum) {
                 diagAddendum.addMessage(
-                    Localizer.DiagnosticAddendum.typedDictFieldRequired().format({
+                    LocAddendum.typedDictFieldRequired().format({
                         name,
                         type: evaluator.printType(classType),
                     })
@@ -1081,7 +1110,11 @@ export function getTypeOfIndexedTypedDict(
     usage: EvaluatorUsage
 ): TypeResult | undefined {
     if (node.items.length !== 1) {
-        evaluator.addError(Localizer.Diagnostic.typeArgsMismatchOne().format({ received: node.items.length }), node);
+        evaluator.addDiagnostic(
+            DiagnosticRule.reportGeneralTypeIssues,
+            LocMessage.typeArgsMismatchOne().format({ received: node.items.length }),
+            node
+        );
         return { type: UnknownType.create() };
     }
 
@@ -1114,7 +1147,7 @@ export function getTypeOfIndexedTypedDict(
             const entry = entries.get(entryName);
             if (!entry) {
                 diag.addMessage(
-                    Localizer.DiagnosticAddendum.keyUndefined().format({
+                    LocAddendum.keyUndefined().format({
                         name: entryName,
                         type: evaluator.printType(baseType),
                     })
@@ -1124,7 +1157,7 @@ export function getTypeOfIndexedTypedDict(
             } else if (!(entry.isRequired || entry.isProvided) && usage.method === 'get') {
                 if (!ParseTreeUtils.isWithinTryBlock(node, /* treatWithAsTryBlock */ true)) {
                     diag.addMessage(
-                        Localizer.DiagnosticAddendum.keyNotRequired().format({
+                        LocAddendum.keyNotRequired().format({
                             name: entryName,
                             type: evaluator.printType(baseType),
                         })
@@ -1132,7 +1165,7 @@ export function getTypeOfIndexedTypedDict(
                 }
             } else if (entry.isReadOnly && usage.method !== 'get') {
                 diag.addMessage(
-                    Localizer.DiagnosticAddendum.keyReadOnly().format({
+                    LocAddendum.keyReadOnly().format({
                         name: entryName,
                         type: evaluator.printType(baseType),
                     })
@@ -1145,7 +1178,7 @@ export function getTypeOfIndexedTypedDict(
                 }
             } else if (usage.method === 'del' && entry.isRequired) {
                 diag.addMessage(
-                    Localizer.DiagnosticAddendum.keyRequiredDeleted().format({
+                    LocAddendum.keyRequiredDeleted().format({
                         name: entryName,
                     })
                 );
@@ -1155,9 +1188,7 @@ export function getTypeOfIndexedTypedDict(
             return entry.valueType;
         }
 
-        diag.addMessage(
-            Localizer.DiagnosticAddendum.typeNotStringLiteral().format({ type: evaluator.printType(subtype) })
-        );
+        diag.addMessage(LocAddendum.typeNotStringLiteral().format({ type: evaluator.printType(subtype) }));
         allDiagsInvolveNotRequiredKeys = false;
         return UnknownType.create();
     });
@@ -1172,18 +1203,14 @@ export function getTypeOfIndexedTypedDict(
     if (!diag.isEmpty()) {
         let typedDictDiag: string;
         if (usage.method === 'set') {
-            typedDictDiag = Localizer.Diagnostic.typedDictSet();
+            typedDictDiag = LocMessage.typedDictSet();
         } else if (usage.method === 'del') {
-            typedDictDiag = Localizer.Diagnostic.typedDictDelete();
+            typedDictDiag = LocMessage.typedDictDelete();
         } else {
-            typedDictDiag = Localizer.Diagnostic.typedDictAccess();
+            typedDictDiag = LocMessage.typedDictAccess();
         }
 
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         evaluator.addDiagnostic(
-            allDiagsInvolveNotRequiredKeys
-                ? fileInfo.diagnosticRuleSet.reportTypedDictNotRequiredAccess
-                : fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
             allDiagsInvolveNotRequiredKeys
                 ? DiagnosticRule.reportTypedDictNotRequiredAccess
                 : DiagnosticRule.reportGeneralTypeIssues,

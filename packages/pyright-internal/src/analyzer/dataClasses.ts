@@ -11,7 +11,7 @@
 import { assert } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { Localizer } from '../localization/localize';
+import { LocMessage } from '../localization/localize';
 import {
     ArgumentCategory,
     ArgumentNode,
@@ -402,9 +402,8 @@ export function synthesizeDataClassMethods(
                         );
                         if (firstDefaultValueIndex >= 0 && firstDefaultValueIndex < insertIndex) {
                             evaluator.addDiagnostic(
-                                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.dataClassFieldWithDefault(),
+                                LocMessage.dataClassFieldWithDefault(),
                                 variableNameNode
                             );
                         }
@@ -444,9 +443,8 @@ export function synthesizeDataClassMethods(
                     )
                 ) {
                     evaluator.addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.dataClassFieldWithoutAnnotation(),
+                        LocMessage.dataClassFieldWithoutAnnotation(),
                         statement.rightExpression
                     );
                 }
@@ -504,7 +502,11 @@ export function synthesizeDataClassMethods(
                     const effectiveName = entry.alias || entry.name;
 
                     if (!entry.alias && entry.nameNode && isPrivateName(entry.nameNode.value)) {
-                        evaluator.addError(Localizer.Diagnostic.dataClassFieldWithPrivateName(), entry.nameNode);
+                        evaluator.addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.dataClassFieldWithPrivateName(),
+                            entry.nameNode
+                        );
                     }
 
                     const functionParam: FunctionParameter = {
@@ -778,9 +780,8 @@ function getConverterInputType(
         }
 
         evaluator.addDiagnostic(
-            AnalyzerNodeInfo.getFileInfo(converterNode).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.dataClassConverterFunction().format({
+            LocMessage.dataClassConverterFunction().format({
                 argType: evaluator.printType(converterType),
                 fieldType: evaluator.printType(fieldType),
                 fieldName: fieldName,
@@ -806,9 +807,8 @@ function getConverterInputType(
         }
 
         evaluator.addDiagnostic(
-            AnalyzerNodeInfo.getFileInfo(converterNode).diagnosticRuleSet.reportGeneralTypeIssues,
             DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.dataClassConverterOverloads().format({
+            LocMessage.dataClassConverterOverloads().format({
                 funcName: converterType.overloads[0].details.name || '<anonymous function>',
                 fieldType: evaluator.printType(fieldType),
                 fieldName: fieldName,
@@ -1019,7 +1019,11 @@ export function validateDataClassTransformDecorator(
     // Parse the arguments to the call.
     node.arguments.forEach((arg) => {
         if (!arg.name || arg.argumentCategory !== ArgumentCategory.Simple) {
-            evaluator.addError(Localizer.Diagnostic.dataClassTransformPositionalParam(), arg);
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportCallIssue,
+                LocMessage.dataClassTransformPositionalParam(),
+                arg
+            );
             return;
         }
 
@@ -1031,8 +1035,9 @@ export function validateDataClassTransformDecorator(
                     fileInfo.definedConstants
                 );
                 if (value === undefined) {
-                    evaluator.addError(
-                        Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.dataClassTransformExpectedBoolLiteral(),
                         arg.valueExpression
                     );
                     return;
@@ -1049,8 +1054,9 @@ export function validateDataClassTransformDecorator(
                     fileInfo.definedConstants
                 );
                 if (value === undefined) {
-                    evaluator.addError(
-                        Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.dataClassTransformExpectedBoolLiteral(),
                         arg.valueExpression
                     );
                     return;
@@ -1067,8 +1073,9 @@ export function validateDataClassTransformDecorator(
                     fileInfo.definedConstants
                 );
                 if (value === undefined) {
-                    evaluator.addError(
-                        Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.dataClassTransformExpectedBoolLiteral(),
                         arg.valueExpression
                     );
                     return;
@@ -1085,8 +1092,9 @@ export function validateDataClassTransformDecorator(
                     fileInfo.definedConstants
                 );
                 if (value === undefined) {
-                    evaluator.addError(
-                        Localizer.Diagnostic.dataClassTransformExpectedBoolLiteral(),
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.dataClassTransformExpectedBoolLiteral(),
                         arg.valueExpression
                     );
                     return;
@@ -1114,8 +1122,9 @@ export function validateDataClassTransformDecorator(
                             !isOverloadedFunction(entry.type)
                     )
                 ) {
-                    evaluator.addError(
-                        Localizer.Diagnostic.dataClassTransformFieldSpecifier().format({
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.dataClassTransformFieldSpecifier().format({
                             type: evaluator.printType(valueType),
                         }),
                         arg.valueExpression
@@ -1137,8 +1146,9 @@ export function validateDataClassTransformDecorator(
             }
 
             default:
-                evaluator.addError(
-                    Localizer.Diagnostic.dataClassTransformUnknownArgument().format({ name: arg.name.value }),
+                evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.dataClassTransformUnknownArgument().format({ name: arg.name.value }),
                     arg.valueExpression
                 );
                 break;
@@ -1253,9 +1263,8 @@ function applyDataClassBehaviorOverrideValue(
                 // A frozen dataclass cannot derive from a non-frozen dataclass.
                 if (hasUnfrozenBaseClass) {
                     evaluator.addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.dataClassBaseClassNotFrozen(),
+                        LocMessage.dataClassBaseClassNotFrozen(),
                         errorNode
                     );
                 }
@@ -1263,9 +1272,8 @@ function applyDataClassBehaviorOverrideValue(
                 // A non-frozen dataclass cannot derive from a frozen dataclass.
                 if (hasFrozenBaseClass) {
                     evaluator.addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.dataClassBaseClassFrozen(),
+                        LocMessage.dataClassBaseClassFrozen(),
                         errorNode
                     );
                 }
@@ -1295,9 +1303,8 @@ function applyDataClassBehaviorOverrideValue(
 
                 if (classType.details.localSlotsNames) {
                     evaluator.addDiagnostic(
-                        AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.dataClassSlotsOverwrite(),
+                        LocMessage.dataClassSlotsOverwrite(),
                         errorNode
                     );
                 }

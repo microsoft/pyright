@@ -14,8 +14,7 @@ if sys.platform != "win32":
         OpenBinaryModeWriting,
         OpenTextMode,
     )
-    from typing import IO, AnyStr, overload
-    from typing_extensions import Literal
+    from typing import IO, AnyStr, Literal, overload
 
     from gevent._fileobjectcommon import _IOT, FileObjectBase
 

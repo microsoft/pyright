@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 
-import { Localizer, ParameterizedString, setGetRawString } from '../localization/localize';
+import { LocMessage, Localizer, ParameterizedString, setGetRawString } from '../localization/localize';
 
 const namespaces = [Localizer.Diagnostic, Localizer.DiagnosticAddendum, Localizer.CodeAction];
 
@@ -57,11 +57,11 @@ test('Override a specific string', () => {
     }
     originalRawString = setGetRawString(overrideImportResolve);
 
-    const value = Localizer.Diagnostic.importResolveFailure().format({ importName: 'foo', venv: 'python' });
+    const value = LocMessage.importResolveFailure().format({ importName: 'foo', venv: 'python' });
 
     try {
         assert.equal(value, 'Import is foo');
-        const nonMovedValue = Localizer.Diagnostic.abstractMethodInvocation().format({ method: 'foo' });
+        const nonMovedValue = LocMessage.abstractMethodInvocation().format({ method: 'foo' });
         assert.equal(nonMovedValue, 'Method "foo" cannot be called because it is abstract and unimplemented');
     } finally {
         setGetRawString(originalRawString);

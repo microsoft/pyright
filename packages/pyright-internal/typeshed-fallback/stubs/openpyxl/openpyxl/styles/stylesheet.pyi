@@ -1,6 +1,6 @@
 from _typeshed import Incomplete, Unused
-from typing import ClassVar, TypeVar
-from typing_extensions import Literal, Self
+from typing import ClassVar, Literal, TypeVar
+from typing_extensions import Self
 from zipfile import ZipFile
 
 from openpyxl.descriptors.base import Typed

@@ -1,6 +1,6 @@
 from types import TracebackType
-from typing import Generic, TypeVar, overload
-from typing_extensions import TypeAlias, final
+from typing import Generic, TypeVar, final, overload
+from typing_extensions import TypeAlias
 
 from gevent.event import _ValueSource
 from gevent.hub import Hub

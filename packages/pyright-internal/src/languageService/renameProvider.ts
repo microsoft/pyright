@@ -127,7 +127,7 @@ export class RenameProvider {
             });
         });
 
-        return convertToWorkspaceEdit({ edits, fileOperations: [] });
+        return convertToWorkspaceEdit(this._program.fileSystem, { edits, fileOperations: [] });
     }
 
     static getRenameSymbolMode(
@@ -158,7 +158,7 @@ export class RenameProvider {
             return 'singleFileMode';
         }
 
-        if (!isUntitled && referencesResult.declarations.every((d) => isUserCode(program.getSourceFileInfo(d.uri)))) {
+        if (referencesResult.declarations.every((d) => isUserCode(program.getSourceFileInfo(d.uri)))) {
             return 'multiFileMode';
         }
 

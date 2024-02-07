@@ -1,8 +1,13 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
 
+from networkx.utils.backends import _dispatch
+
+@_dispatch
 def k_edge_components(G, k): ...
+@_dispatch
 def k_edge_subgraphs(G, k): ...
+@_dispatch
 def bridge_components(G) -> Generator[Incomplete, Incomplete, None]: ...
 
 class EdgeComponentAuxGraph:

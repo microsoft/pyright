@@ -1,11 +1,13 @@
 from _typeshed import Incomplete
 from collections.abc import Callable, Generator
-from typing import overload
-from typing_extensions import Literal
+from typing import Literal, overload
 
 from networkx.classes.graph import Graph, _Node
+from networkx.utils.backends import _dispatch
 
+@_dispatch
 def bridges(G: Graph[_Node], root: _Node | None = None) -> Generator[_Node, None, None]: ...
+@_dispatch
 def has_bridges(G: Graph[_Node], root: Incomplete | None = None) -> bool: ...
 @overload
 def local_bridges(

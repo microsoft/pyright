@@ -1,7 +1,7 @@
 from _typeshed import Unused
 from collections.abc import Callable, Sequence
-from typing import Any, TypeVar
-from typing_extensions import Literal, deprecated
+from typing import Any, Literal, TypeVar
+from typing_extensions import deprecated
 
 from matplotlib.typing import ColorType
 

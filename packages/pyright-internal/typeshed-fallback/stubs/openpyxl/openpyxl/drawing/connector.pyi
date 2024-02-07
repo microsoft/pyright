@@ -1,6 +1,5 @@
 from _typeshed import ConvertibleToInt
-from typing import ClassVar, overload
-from typing_extensions import Literal
+from typing import ClassVar, Literal, overload
 
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText

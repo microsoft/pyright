@@ -33,6 +33,7 @@ def setup(
     version: str = ...,
     description: str = ...,
     long_description: str = ...,
+    long_description_content_type: str = ...,
     author: str = ...,
     author_email: str = ...,
     maintainer: str = ...,

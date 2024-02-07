@@ -225,7 +225,13 @@ test('Super10', () => {
 test('Super11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super11.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Super12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super12.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('MissingSuper1', () => {
@@ -242,7 +248,7 @@ test('MissingSuper1', () => {
 test('NewType1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType1.py']);
 
-    TestUtils.validateResults(analysisResults, 12);
+    TestUtils.validateResults(analysisResults, 11);
 });
 
 test('NewType2', () => {
@@ -292,11 +298,11 @@ test('isInstance3', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 3);
+    TestUtils.validateResults(analysisResults1, 4);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 3);
+    TestUtils.validateResults(analysisResults2, 4);
 });
 
 test('isInstance4', () => {
@@ -309,6 +315,12 @@ test('isInstance5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance5.py']);
 
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('isInstance6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance6.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Unbound1', () => {
@@ -1258,7 +1270,7 @@ test('Protocol23', () => {
 test('Protocol24', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol24.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('Protocol25', () => {
@@ -1271,12 +1283,6 @@ test('Protocol26', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol26.py']);
 
     TestUtils.validateResults(analysisResults, 0);
-});
-
-test('Protocol27', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol27.py']);
-
-    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('Protocol28', () => {
@@ -1405,8 +1411,14 @@ test('Protocol48', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('Protocol49', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol49.py']);
+test('ProtocolExplicit1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit1.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('ProtocolExplicit3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit3.py']);
 
     TestUtils.validateResults(analysisResults, 3);
 });

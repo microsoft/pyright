@@ -8,9 +8,10 @@
  * classes with defined entry names and types.
  */
 
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { Localizer } from '../localization/localize';
+import { LocMessage } from '../localization/localize';
 import {
     ArgumentCategory,
     ExpressionNode,
@@ -81,11 +82,15 @@ export function createNamedTupleType(
     }
 
     if (argList.length === 0) {
-        evaluator.addError(Localizer.Diagnostic.namedTupleFirstArg(), errorNode);
+        evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleFirstArg(), errorNode);
     } else {
         const nameArg = argList[0];
         if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
-            evaluator.addError(Localizer.Diagnostic.namedTupleFirstArg(), argList[0].valueExpression || errorNode);
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportArgumentType,
+                LocMessage.namedTupleFirstArg(),
+                argList[0].valueExpression || errorNode
+            );
         } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
             className = nameArg.valueExpression.strings.map((s) => s.value).join('');
         }
@@ -157,7 +162,7 @@ export function createNamedTupleType(
     const entryTypes: Type[] = [];
 
     if (argList.length < 2) {
-        evaluator.addError(Localizer.Diagnostic.namedTupleSecondArg(), errorNode);
+        evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleSecondArg(), errorNode);
         addGenericGetAttribute = true;
     } else {
         const entriesArg = argList[1];
@@ -251,7 +256,11 @@ export function createNamedTupleType(
                                 evaluator.getTypeOfExpressionExpectingType(entryTypeNode).type
                             );
                         } else {
-                            evaluator.addError(Localizer.Diagnostic.namedTupleNameType(), entry);
+                            evaluator.addDiagnostic(
+                                DiagnosticRule.reportArgumentType,
+                                LocMessage.namedTupleNameType(),
+                                entry
+                            );
                         }
                     } else {
                         entryNameNode = entry;
@@ -268,7 +277,11 @@ export function createNamedTupleType(
                             entryName = nameTypeResult.type.literalValue as string;
 
                             if (!entryName) {
-                                evaluator.addError(Localizer.Diagnostic.namedTupleEmptyName(), entryNameNode);
+                                evaluator.addDiagnostic(
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    LocMessage.namedTupleEmptyName(),
+                                    entryNameNode
+                                );
                             } else {
                                 entryName = renameKeyword(evaluator, entryName, allowRename, entryNameNode, index);
                             }
@@ -284,7 +297,11 @@ export function createNamedTupleType(
                     }
 
                     if (entryMap.has(entryName)) {
-                        evaluator.addError(Localizer.Diagnostic.namedTupleNameUnique(), entryNameNode || entry);
+                        evaluator.addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.namedTupleNameUnique(),
+                            entryNameNode || entry
+                        );
                     }
 
                     // Record names in a map to detect duplicates.
@@ -486,6 +503,6 @@ function renameKeyword(
         return `_${index}`;
     }
 
-    evaluator.addError(Localizer.Diagnostic.namedTupleNameKeyword(), errorNode);
+    evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.namedTupleNameKeyword(), errorNode);
     return name;
 }

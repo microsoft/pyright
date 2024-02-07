@@ -59,13 +59,6 @@ export const enum TypeFlags {
 
     // This type refers to something that has been instantiated.
     Instance = 1 << 1,
-
-    // This type refers to a type that is wrapped an "Annotated"
-    // (PEP 593) annotation.
-    Annotated = 1 << 2,
-
-    // This type is a special form like "UnionType".
-    SpecialForm = 1 << 3,
 }
 
 export type UnionableType =
@@ -116,7 +109,6 @@ export interface TypeSameOptions {
     ignorePseudoGeneric?: boolean;
     ignoreTypeFlags?: boolean;
     ignoreConditions?: boolean;
-    typeFlagsToHonor?: TypeFlags;
     ignoreTypedDictNarrowEntries?: boolean;
     treatAnySameAsUnknown?: boolean;
 }
@@ -153,6 +145,12 @@ interface TypeBase {
     // (e.g. type[type[type[T]]]). If the field isn't present,
     // it is assumed to be zero.
     instantiableNestingLevel?: number;
+
+    // Used in cases where the type is an instantiable special form such as
+    // UnionType, Literal, or Required. These are not directly instantiable
+    // and are simple classes when used in value (runtime) expressions but
+    // have special meaning when used in a type expression.
+    specialForm?: ClassType;
 
     // Used only for type aliases
     typeAliasInfo?: TypeAliasInfo | undefined;
@@ -191,18 +189,6 @@ export namespace TypeBase {
         return (type.flags & TypeFlags.Instance) !== 0;
     }
 
-    export function isAnnotated(type: TypeBase) {
-        return (type.flags & TypeFlags.Annotated) !== 0;
-    }
-
-    export function isSpecialForm(type: TypeBase) {
-        return (type.flags & TypeFlags.SpecialForm) !== 0;
-    }
-
-    export function setSpecialForm(type: TypeBase) {
-        return (type.flags |= TypeFlags.SpecialForm);
-    }
-
     export function isAmbiguous(type: TypeBase) {
         return !!type.isAmbiguous;
     }
@@ -210,6 +196,19 @@ export namespace TypeBase {
     export function cloneType<T extends TypeBase>(type: T): T {
         const clone = { ...type };
         delete clone.cached;
+        return clone;
+    }
+
+    export function cloneAsSpecialForm<T extends TypeBase>(type: T, specialForm: ClassType | undefined): T {
+        const clone = { ...type };
+        delete clone.cached;
+
+        if (specialForm) {
+            clone.specialForm = specialForm;
+        } else {
+            delete clone.specialForm;
+        }
+
         return clone;
     }
 
@@ -292,12 +291,6 @@ export namespace TypeBase {
         return typeClone;
     }
 
-    export function cloneForAnnotated(type: Type) {
-        const typeClone = cloneType(type);
-        typeClone.flags |= TypeFlags.Annotated;
-        return typeClone;
-    }
-
     export function cloneForCondition<T extends Type>(type: T, condition: TypeCondition[] | undefined): T {
         // Handle the common case where there are no conditions. In this case,
         // cloning isn't necessary.
@@ -334,6 +327,11 @@ export namespace UnboundType {
     export function create() {
         // All Unbound objects are the same, so use a shared instance.
         return _instance;
+    }
+
+    export function convertToInstance(type: UnboundType): UnboundType {
+        // Remove the "special form" if present. Otherwise return the existing type.
+        return type.specialForm ? UnboundType.create() : type;
     }
 }
 
@@ -373,6 +371,11 @@ export namespace UnknownType {
         };
 
         return unknownWithPossibleType;
+    }
+
+    export function convertToInstance(type: UnknownType): UnknownType {
+        // Remove the "special form" if present. Otherwise return the existing type.
+        return type.specialForm ? UnknownType.create(type.isIncomplete) : type;
     }
 }
 
@@ -564,6 +567,10 @@ export const enum ClassTypeFlags {
     // Class is allowed to be used as an implicit type alias even
     // though it is not defined using a `class` statement.
     ValidTypeAliasClass = 1 << 29,
+
+    // A special form is not compatible with type[T] and cannot
+    // be directly instantiated.
+    SpecialFormClass = 1 << 30,
 }
 
 export interface DataClassBehaviors {
@@ -767,7 +774,7 @@ export namespace ClassType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstance(type, /* cache */ includeSubclasses);
-        newInstance.flags &= ~TypeFlags.SpecialForm;
+        delete newInstance.specialForm;
         if (includeSubclasses) {
             newInstance.includeSubclasses = true;
         }
@@ -781,7 +788,6 @@ export namespace ClassType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstantiable(type, includeSubclasses);
-        newInstance.flags &= ~TypeFlags.SpecialForm;
         if (includeSubclasses) {
             newInstance.includeSubclasses = true;
         }
@@ -808,7 +814,9 @@ export namespace ClassType {
 
         newClassType.tupleTypeArguments = tupleTypeArguments
             ? tupleTypeArguments.map((t) =>
-                  isNever(t.type) ? { type: UnknownType.create(), isUnbounded: t.isUnbounded } : t
+                  isNever(t.type)
+                      ? { type: UnknownType.create(), isUnbounded: t.isUnbounded, isOptional: t.isOptional }
+                      : t
               )
             : undefined;
 
@@ -853,14 +861,6 @@ export namespace ClassType {
     export function cloneForPartialTypedDict(classType: ClassType): ClassType {
         const newClassType = TypeBase.cloneType(classType);
         newClassType.isTypedDictPartial = true;
-        return newClassType;
-    }
-
-    export function cloneWithNewTypeParameters(classType: ClassType, typeParams: TypeVarType[]): ClassType {
-        const newClassType = TypeBase.cloneType(classType);
-        newClassType.details = { ...newClassType.details };
-        newClassType.details.typeParameters = typeParams;
-        newClassType.details.requiresVarianceInference = false;
         return newClassType;
     }
 
@@ -1066,6 +1066,10 @@ export namespace ClassType {
 
     export function isValidTypeAliasClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.ValidTypeAliasClass);
+    }
+
+    export function isSpecialFormClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.SpecialFormClass);
     }
 
     export function isTypedDictClass(classType: ClassType) {
@@ -1388,6 +1392,9 @@ export const enum FunctionTypeFlags {
 
     // Decorated with @override as defined in PEP 698.
     Overridden = 1 << 18,
+
+    // Decorated with @no_type_check.
+    NoTypeCheck = 1 << 19,
 }
 
 interface FunctionDetails {
@@ -1614,7 +1621,7 @@ export namespace FunctionType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstance(type, /* cache */ true);
-        newInstance.flags &= ~TypeFlags.SpecialForm;
+        delete newInstance.specialForm;
         return newInstance;
     }
 
@@ -1624,7 +1631,6 @@ export namespace FunctionType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstantiable(type, /* cache */ true);
-        newInstance.flags &= ~TypeFlags.SpecialForm;
         return newInstance;
     }
 
@@ -2179,6 +2185,15 @@ export namespace NeverType {
     export function createNoReturn() {
         return _noReturnInstance;
     }
+
+    export function convertToInstance(type: NeverType): NeverType {
+        // Remove the "special form" if present. Otherwise return the existing type.
+        if (!type.specialForm) {
+            return type;
+        }
+
+        return type.isNoReturn ? NeverType.createNoReturn() : NeverType.createNever();
+    }
 }
 
 export interface AnyType extends TypeBase {
@@ -2190,7 +2205,7 @@ export namespace AnyType {
     const _anyInstanceSpecialForm: AnyType = {
         category: TypeCategory.Any,
         isEllipsis: false,
-        flags: TypeFlags.Instance | TypeFlags.Instantiable | TypeFlags.SpecialForm,
+        flags: TypeFlags.Instance | TypeFlags.Instantiable,
     };
 
     const _anyInstance: AnyType = {
@@ -2216,13 +2231,8 @@ export namespace AnyType {
 
 export namespace AnyType {
     export function convertToInstance(type: AnyType): AnyType {
-        // Remove the "special form" flag if it's set. Otherwise
-        // simply return the existing type.
-        if (TypeBase.isSpecialForm(type)) {
-            return AnyType.create();
-        }
-
-        return type;
+        // Remove the "special form" if present. Otherwise return the existing type.
+        return type.specialForm ? AnyType.create() : type;
     }
 }
 
@@ -2323,12 +2333,17 @@ export namespace TypeCondition {
     }
 }
 
-export interface UnionType extends TypeBase {
-    category: TypeCategory.Union;
-    subtypes: UnionableType[];
+export interface LiteralTypes {
     literalStrMap?: Map<string, UnionableType> | undefined;
     literalIntMap?: Map<bigint | number, UnionableType> | undefined;
     literalEnumMap?: Map<string, UnionableType> | undefined;
+}
+
+export interface UnionType extends TypeBase {
+    category: TypeCategory.Union;
+    subtypes: UnionableType[];
+    literalInstances: LiteralTypes;
+    literalClasses: LiteralTypes;
     typeAliasSources?: Set<UnionType>;
     includesRecursiveTypeAlias?: boolean;
 }
@@ -2338,6 +2353,8 @@ export namespace UnionType {
         const newUnionType: UnionType = {
             category: TypeCategory.Union,
             subtypes: [],
+            literalInstances: {},
+            literalClasses: {},
             flags: TypeFlags.Instance | TypeFlags.Instantiable,
         };
 
@@ -2348,23 +2365,25 @@ export namespace UnionType {
         // If we're adding a string, integer or enum literal, add it to the
         // corresponding literal map to speed up some operations. It's not
         // uncommon for unions to contain hundreds of literals.
-        if (isClassInstance(newType) && newType.literalValue !== undefined && newType.condition === undefined) {
+        if (isClass(newType) && newType.literalValue !== undefined && newType.condition === undefined) {
+            const literalMaps = isClassInstance(newType) ? unionType.literalInstances : unionType.literalClasses;
+
             if (ClassType.isBuiltIn(newType, 'str')) {
-                if (unionType.literalStrMap === undefined) {
-                    unionType.literalStrMap = new Map<string, UnionableType>();
+                if (literalMaps.literalStrMap === undefined) {
+                    literalMaps.literalStrMap = new Map<string, UnionableType>();
                 }
-                unionType.literalStrMap.set(newType.literalValue as string, newType);
+                literalMaps.literalStrMap.set(newType.literalValue as string, newType);
             } else if (ClassType.isBuiltIn(newType, 'int')) {
-                if (unionType.literalIntMap === undefined) {
-                    unionType.literalIntMap = new Map<bigint | number, UnionableType>();
+                if (literalMaps.literalIntMap === undefined) {
+                    literalMaps.literalIntMap = new Map<bigint | number, UnionableType>();
                 }
-                unionType.literalIntMap.set(newType.literalValue as number | bigint, newType);
+                literalMaps.literalIntMap.set(newType.literalValue as number | bigint, newType);
             } else if (ClassType.isEnumClass(newType)) {
-                if (unionType.literalEnumMap === undefined) {
-                    unionType.literalEnumMap = new Map<string, UnionableType>();
+                if (literalMaps.literalEnumMap === undefined) {
+                    literalMaps.literalEnumMap = new Map<string, UnionableType>();
                 }
                 const enumLiteral = newType.literalValue as EnumLiteral;
-                unionType.literalEnumMap.set(enumLiteral.getName(), newType);
+                literalMaps.literalEnumMap.set(enumLiteral.getName(), newType);
             }
         }
 
@@ -2389,14 +2408,16 @@ export namespace UnionType {
     ): boolean {
         // Handle string literals as a special case because unions can sometimes
         // contain hundreds of string literal types.
-        if (isClassInstance(subtype) && subtype.condition === undefined && subtype.literalValue !== undefined) {
-            if (ClassType.isBuiltIn(subtype, 'str') && unionType.literalStrMap !== undefined) {
-                return unionType.literalStrMap.has(subtype.literalValue as string);
-            } else if (ClassType.isBuiltIn(subtype, 'int') && unionType.literalIntMap !== undefined) {
-                return unionType.literalIntMap.has(subtype.literalValue as number | bigint);
-            } else if (ClassType.isEnumClass(subtype) && unionType.literalEnumMap !== undefined) {
+        if (isClass(subtype) && subtype.condition === undefined && subtype.literalValue !== undefined) {
+            const literalMaps = isClassInstance(subtype) ? unionType.literalInstances : unionType.literalClasses;
+
+            if (ClassType.isBuiltIn(subtype, 'str') && literalMaps.literalStrMap !== undefined) {
+                return literalMaps.literalStrMap.has(subtype.literalValue as string);
+            } else if (ClassType.isBuiltIn(subtype, 'int') && literalMaps.literalIntMap !== undefined) {
+                return literalMaps.literalIntMap.has(subtype.literalValue as number | bigint);
+            } else if (ClassType.isEnumClass(subtype) && literalMaps.literalEnumMap !== undefined) {
                 const enumLiteral = subtype.literalValue as EnumLiteral;
-                return unionType.literalEnumMap.has(enumLiteral.getName());
+                return literalMaps.literalEnumMap.has(enumLiteral.getName());
             }
         }
 
@@ -2446,7 +2467,6 @@ export interface TypeVarDetails {
     constraints: Type[];
     boundType?: Type | undefined;
     defaultType?: Type | undefined;
-    runtimeClass?: ClassType | undefined;
 
     isParamSpec: boolean;
     isVariadic: boolean;
@@ -2523,8 +2543,8 @@ export namespace TypeVarType {
         return create(name, /* isParamSpec */ false, TypeFlags.Instance);
     }
 
-    export function createInstantiable(name: string, isParamSpec = false, runtimeClass?: ClassType) {
-        return create(name, isParamSpec, TypeFlags.Instantiable, runtimeClass);
+    export function createInstantiable(name: string, isParamSpec = false) {
+        return create(name, isParamSpec, TypeFlags.Instantiable);
     }
 
     export function cloneAsInstance(type: TypeVarType): TypeVarType {
@@ -2535,7 +2555,7 @@ export namespace TypeVarType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstance(type, /* cache */ true);
-        newInstance.flags &= ~TypeFlags.SpecialForm;
+        delete newInstance.specialForm;
         return newInstance;
     }
 
@@ -2545,7 +2565,6 @@ export namespace TypeVarType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstantiable(type, /* cache */ true);
-        newInstance.flags &= ~TypeFlags.SpecialForm;
         return newInstance;
     }
 
@@ -2656,7 +2675,7 @@ export namespace TypeVarType {
         return `${name}.${scopeId}`;
     }
 
-    function create(name: string, isParamSpec: boolean, typeFlags: TypeFlags, runtimeClass?: ClassType): TypeVarType {
+    function create(name: string, isParamSpec: boolean, typeFlags: TypeFlags): TypeVarType {
         const newTypeVarType: TypeVarType = {
             category: TypeCategory.TypeVar,
             details: {
@@ -2666,7 +2685,6 @@ export namespace TypeVarType {
                 isParamSpec,
                 isVariadic: false,
                 isSynthesized: false,
-                runtimeClass,
             },
             flags: typeFlags,
         };
@@ -2852,20 +2870,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
     }
 
     if (!options.ignoreTypeFlags) {
-        let type1Flags = type1.flags;
-        let type2Flags = type2.flags;
-
-        // Mask out the flags that we don't care about.
-        if (options.typeFlagsToHonor !== undefined) {
-            type1Flags &= options.typeFlagsToHonor;
-            type2Flags &= options.typeFlagsToHonor;
-        } else {
-            // By default, we don't care about the Annotated flag.
-            type1Flags &= ~TypeFlags.Annotated;
-            type2Flags &= ~TypeFlags.Annotated;
-        }
-
-        if (type1Flags !== type2Flags) {
+        if (type1.flags !== type2.flags) {
             return false;
         }
     }
@@ -3268,11 +3273,15 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
     }
 
     // Expand all union types.
-    let expandedTypes: Type[] = [];
+    let expandedTypes: Type[] | undefined;
     const typeAliasSources = new Set<UnionType>();
 
-    for (const subtype of subtypes) {
+    for (let i = 0; i < subtypes.length; i++) {
+        const subtype = subtypes[i];
         if (isUnion(subtype)) {
+            if (!expandedTypes) {
+                expandedTypes = subtypes.slice(0, i);
+            }
             expandedTypes = expandedTypes.concat(subtype.subtypes);
 
             if (subtype.typeAliasInfo) {
@@ -3282,10 +3291,12 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
                     typeAliasSources.add(subtype);
                 });
             }
-        } else {
+        } else if (expandedTypes) {
             expandedTypes.push(subtype);
         }
     }
+
+    expandedTypes = expandedTypes ?? subtypes;
 
     // Sort all of the literal and empty types to the end.
     expandedTypes = expandedTypes.sort((type1, type2) => {
@@ -3371,32 +3382,34 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
     // Handle the addition of a string literal in a special manner to
     // avoid n^2 behavior in unions that contain hundreds of string
     // literal types. Skip this for constrained types.
-    if (isClassInstance(typeToAdd) && typeToAdd.condition === undefined) {
+    if (isClass(typeToAdd) && typeToAdd.condition === undefined) {
+        const literalMaps = isClassInstance(typeToAdd) ? unionType.literalInstances : unionType.literalClasses;
+
         if (
             ClassType.isBuiltIn(typeToAdd, 'str') &&
             typeToAdd.literalValue !== undefined &&
-            unionType.literalStrMap !== undefined
+            literalMaps.literalStrMap !== undefined
         ) {
-            if (!unionType.literalStrMap.has(typeToAdd.literalValue as string)) {
+            if (!literalMaps.literalStrMap.has(typeToAdd.literalValue as string)) {
                 UnionType.addType(unionType, typeToAdd);
             }
             return;
         } else if (
             ClassType.isBuiltIn(typeToAdd, 'int') &&
             typeToAdd.literalValue !== undefined &&
-            unionType.literalIntMap !== undefined
+            literalMaps.literalIntMap !== undefined
         ) {
-            if (!unionType.literalIntMap.has(typeToAdd.literalValue as number | bigint)) {
+            if (!literalMaps.literalIntMap.has(typeToAdd.literalValue as number | bigint)) {
                 UnionType.addType(unionType, typeToAdd);
             }
             return;
         } else if (
             ClassType.isEnumClass(typeToAdd) &&
             typeToAdd.literalValue !== undefined &&
-            unionType.literalEnumMap !== undefined
+            literalMaps.literalEnumMap !== undefined
         ) {
             const enumLiteral = typeToAdd.literalValue as EnumLiteral;
-            if (!unionType.literalEnumMap.has(enumLiteral.getName())) {
+            if (!literalMaps.literalEnumMap.has(enumLiteral.getName())) {
                 UnionType.addType(unionType, typeToAdd);
             }
             return;

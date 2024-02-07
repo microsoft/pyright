@@ -133,7 +133,7 @@ export class FullAccessHost extends LimitedAccessHost {
         pythonPath: Uri | undefined,
         script: Uri,
         args: string[],
-        cwd: string,
+        cwd: Uri,
         token: CancellationToken
     ): Promise<ScriptOutput> {
         // If it is already cancelled, don't bother to run script.
@@ -146,7 +146,7 @@ export class FullAccessHost extends LimitedAccessHost {
             const commandLineArgs = [script.getFilePath(), ...args];
 
             const child = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
-                child_process.spawn(p, commandLineArgs, { cwd })
+                child_process.spawn(p, commandLineArgs, { cwd: cwd.getFilePath() })
             );
             const tokenWatch = token.onCancellationRequested(() => {
                 if (child) {
@@ -154,7 +154,7 @@ export class FullAccessHost extends LimitedAccessHost {
                         if (child.pid && child.exitCode === null) {
                             if (process.platform === 'win32') {
                                 // Windows doesn't support SIGTERM, so execute taskkill to kill the process
-                                child_process.execSync(`taskkill /pid ${child.pid} /T /F`);
+                                child_process.execSync(`taskkill /pid ${child.pid} /T /F > NUL 2>&1`);
                             } else {
                                 process.kill(child.pid);
                             }

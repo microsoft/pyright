@@ -1,15 +1,17 @@
 # This sample tests the use of unpacked tuples in a Callable, as described
 # in PEP 646.
 
-from typing import Callable, TypeVar, Union
+from typing import Callable, TypeVar
 from typing_extensions import TypeVarTuple, Unpack
 
 _T = TypeVar("_T", bound=int)
 
 TA1 = Callable[[_T, Unpack[tuple[int, ...]], tuple[int, int, str], str], _T]
 
-# This should generate an error
-TA2 = Callable[[int, Unpack[tuple[int, ...]], Unpack[tuple[int, int, str]], str], int]
+# This should generate an error.
+TA2 = Callable[
+    [int, Unpack[tuple[int, ...]], Unpack[tuple[int, int, str, ...]], str], int
+]
 
 TA3 = Callable[[int, Unpack[tuple[int, int]], str], int]
 

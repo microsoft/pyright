@@ -28,9 +28,9 @@ import { Range, TextRange, getEmptyRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
-import { Localizer } from '../localization/localize';
+import { LocMessage } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
-import { IParser, ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
+import { ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
 import { IgnoreComment } from '../parser/tokenizer';
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
@@ -303,6 +303,10 @@ export class SourceFile {
 
     isStubFile() {
         return this._isStubFile;
+    }
+
+    isTypingStubFile() {
+        return this._isTypingStubFile;
     }
 
     isThirdPartyPyTypedPresent() {
@@ -670,7 +674,7 @@ export class SourceFile {
                     (typeof e.message === 'string' ? e.message : undefined) ||
                     JSON.stringify(e);
                 this._console.error(
-                    Localizer.Diagnostic.internalParseError().format({
+                    LocMessage.internalParseError().format({
                         file: this.getUri().toUserVisibleString(),
                         message,
                     })
@@ -701,7 +705,7 @@ export class SourceFile {
 
                 const diagSink = this.createDiagnosticSink();
                 diagSink.addError(
-                    Localizer.Diagnostic.internalParseError().format({
+                    LocMessage.internalParseError().format({
                         file: this.getUri().toUserVisibleString(),
                         message,
                     }),
@@ -773,7 +777,7 @@ export class SourceFile {
                     (typeof e.message === 'string' ? e.message : undefined) ||
                     JSON.stringify(e);
                 this._console.error(
-                    Localizer.Diagnostic.internalBindError().format({
+                    LocMessage.internalBindError().format({
                         file: this.getUri().toUserVisibleString(),
                         message,
                     })
@@ -781,7 +785,7 @@ export class SourceFile {
 
                 const diagSink = this.createDiagnosticSink();
                 diagSink.addError(
-                    Localizer.Diagnostic.internalBindError().format({
+                    LocMessage.internalBindError().format({
                         file: this.getUri().toUserVisibleString(),
                         message,
                     }),
@@ -842,14 +846,14 @@ export class SourceFile {
                         (typeof e.message === 'string' ? e.message : undefined) ||
                         JSON.stringify(e);
                     this._console.error(
-                        Localizer.Diagnostic.internalTypeCheckingError().format({
+                        LocMessage.internalTypeCheckingError().format({
                             file: this.getUri().toUserVisibleString(),
                             message,
                         })
                     );
                     const diagSink = this.createDiagnosticSink();
                     diagSink.addError(
-                        Localizer.Diagnostic.internalTypeCheckingError().format({
+                        LocMessage.internalTypeCheckingError().format({
                             file: this.getUri().toUserVisibleString(),
                             message,
                         }),
@@ -876,10 +880,6 @@ export class SourceFile {
 
     test_enableIPythonMode(enable: boolean) {
         this._ipythonMode = enable ? IPythonMode.CellDocs : IPythonMode.None;
-    }
-
-    protected createParser(): IParser {
-        return new Parser();
     }
 
     protected createDiagnosticSink(): DiagnosticSink {
@@ -1026,7 +1026,7 @@ export class SourceFile {
 
                 if (!isUnreachableCodeRange(range) && this._diagnosticRuleSet.enableTypeIgnoreComments) {
                     unnecessaryTypeIgnoreDiags.push(
-                        new Diagnostic(diagCategory, Localizer.Diagnostic.unnecessaryTypeIgnore(), range)
+                        new Diagnostic(diagCategory, LocMessage.unnecessaryTypeIgnore(), range)
                     );
                 }
             }
@@ -1043,7 +1043,7 @@ export class SourceFile {
 
                     if (!isUnreachableCodeRange(range) && this._diagnosticRuleSet.enableTypeIgnoreComments) {
                         unnecessaryTypeIgnoreDiags.push(
-                            new Diagnostic(diagCategory, Localizer.Diagnostic.unnecessaryTypeIgnore(), range)
+                            new Diagnostic(diagCategory, LocMessage.unnecessaryTypeIgnore(), range)
                         );
                     }
                 }
@@ -1062,7 +1062,7 @@ export class SourceFile {
 
                         if (!isUnreachableCodeRange(range)) {
                             unnecessaryTypeIgnoreDiags.push(
-                                new Diagnostic(diagCategory, Localizer.Diagnostic.unnecessaryPyrightIgnore(), range)
+                                new Diagnostic(diagCategory, LocMessage.unnecessaryPyrightIgnore(), range)
                             );
                         }
                     } else {
@@ -1079,7 +1079,7 @@ export class SourceFile {
                                 unnecessaryTypeIgnoreDiags.push(
                                     new Diagnostic(
                                         diagCategory,
-                                        Localizer.Diagnostic.unnecessaryPyrightIgnoreRule().format({
+                                        LocMessage.unnecessaryPyrightIgnoreRule().format({
                                             name: unusedRule.text,
                                         }),
                                         range
@@ -1101,7 +1101,7 @@ export class SourceFile {
             this._writableData.circularDependencies.forEach((cirDep) => {
                 const diag = new Diagnostic(
                     category,
-                    Localizer.Diagnostic.importCycleDetected() +
+                    LocMessage.importCycleDetected() +
                         '\n' +
                         cirDep
                             .getPaths()
@@ -1118,7 +1118,7 @@ export class SourceFile {
             diagList.push(
                 new Diagnostic(
                     DiagnosticCategory.Error,
-                    Localizer.Diagnostic.importDepthExceeded().format({ depth: this._writableData.hitMaxImportDepth }),
+                    LocMessage.importDepthExceeded().format({ depth: this._writableData.hitMaxImportDepth }),
                     getEmptyRange()
                 )
             );
@@ -1379,14 +1379,14 @@ export class SourceFile {
         parseOptions.skipFunctionAndClassBody = configOptions.indexGenerationMode ?? false;
 
         // Parse the token stream, building the abstract syntax tree.
-        const parser = this.createParser();
+        const parser = new Parser();
         return parser.parseSourceFile(fileContents, parseOptions, diagSink);
     }
 
     private _fireFileDirtyEvent() {
         this.serviceProvider.tryGet(ServiceKeys.stateMutationListeners)?.forEach((l) => {
             try {
-                l.fileDirty?.(this._uri);
+                l.onFileDirty?.(this._uri);
             } catch (ex: any) {
                 const console = this.serviceProvider.tryGet(ServiceKeys.console);
                 if (console) {

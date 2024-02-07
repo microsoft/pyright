@@ -55,7 +55,7 @@ export function cacheStaticFunc() {
     return function cacheStaticFunc_Fast(target: any, functionName: string, descriptor: PropertyDescriptor) {
         const originalMethod = descriptor.value;
         descriptor.value = function (...args: any) {
-            const key = `${functionName}+${args.map((a: any) => a?.toString()).join(',')}`;
+            const key = `${functionName}+${args?.map((a: any) => a?.toString()).join(',')}`;
             let cachedResult: any;
             if (!staticCache.has(key)) {
                 cachedResult = originalMethod.apply(this, args);

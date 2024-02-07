@@ -3,8 +3,8 @@ import os
 from _typeshed import Incomplete, SupportsKeysAndGetItem
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from typing import IO, Any, NoReturn, TypeVar
-from typing_extensions import Literal, Never, Self, TypedDict
+from typing import IO, Any, Literal, NoReturn, TypedDict, TypeVar
+from typing_extensions import Never, Self
 
 import matplotlib as mpl
 from matplotlib.artist import Artist
@@ -98,8 +98,14 @@ class Plot:
     def share(self, **shares: bool | str) -> Plot: ...
     def limit(self, **limits: tuple[Any, Any]) -> Plot: ...
     def label(self, *, title: str | None = None, legend: str | None = None, **variables: str | Callable[[str], str]) -> Plot: ...
-    def layout(self, *, size: tuple[float, float] | Default = ..., engine: str | None | Default = ...) -> Plot: ...
-    def theme(self, *args: dict[str, Any]) -> Plot: ...
+    def layout(
+        self,
+        *,
+        size: tuple[float, float] | Default = ...,
+        engine: str | None | Default = ...,
+        extent: tuple[float, float, float, float] | Default = ...,
+    ) -> Plot: ...
+    def theme(self, __config: dict[str, Any]) -> Plot: ...
     # Same signature as Plotter.save
     def save(
         self,

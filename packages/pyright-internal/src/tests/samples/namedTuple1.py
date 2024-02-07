@@ -103,3 +103,8 @@ def func2():
 
     # This should generate an error.
     n2 = NamedTuple8(a=1, b=2)
+
+
+# This should generate an error because NamedTuple isn't allowed in isinstance.
+if isinstance(1, NamedTuple):
+    pass

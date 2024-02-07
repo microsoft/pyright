@@ -79,6 +79,7 @@ export interface Workspace {
     kinds: string[];
     service: AnalyzerService;
     disableLanguageServices: boolean;
+    disableTaggedHints: boolean;
     disableOrganizeImports: boolean;
     disableWorkspaceSymbol: boolean;
     isInitialized: InitStatus;
@@ -383,6 +384,7 @@ export class WorkspaceFactory {
             pythonPathKind,
             service: this._createService(name, rootUri, kinds),
             disableLanguageServices: false,
+            disableTaggedHints: false,
             disableOrganizeImports: false,
             disableWorkspaceSymbol: false,
             isInitialized: createInitStatus(),
@@ -526,9 +528,7 @@ export class WorkspaceFactory {
         // length root path
         if (
             bestInstance === undefined &&
-            regularWorkspaces.every(
-                (w) => w.rootUri.getRootPathLength() === regularWorkspaces[0].rootUri.getRootPathLength()
-            )
+            regularWorkspaces.every((w) => w.rootUri.getPathLength() === regularWorkspaces[0].rootUri.getPathLength())
         ) {
             bestInstance = this._getBestRegularWorkspace(regularWorkspaces, pythonPath);
         }

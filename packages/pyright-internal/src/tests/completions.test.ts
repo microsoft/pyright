@@ -811,7 +811,6 @@ test('completion quote trigger', async () => {
 
     const result = new CompletionProvider(
         state.program,
-        state.workspace.rootUri,
         uri,
         position,
         options,
@@ -850,7 +849,6 @@ test('completion quote trigger - middle', async () => {
 
     const result = new CompletionProvider(
         state.program,
-        state.workspace.rootUri,
         uri,
         position,
         options,
@@ -896,7 +894,6 @@ test('auto import sort text', async () => {
 
     const result = new CompletionProvider(
         state.program,
-        state.workspace.rootUri,
         uri,
         position,
         options,
@@ -1244,6 +1241,32 @@ test('TypeDict literal values', async () => {
                     label: '"b"',
                     kind: CompletionItemKind.Constant,
                     textEdit: { range: state.getPositionRange('marker'), newText: '"b"' },
+                },
+            ],
+        },
+    });
+});
+
+test('typed dict key constructor completion', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict
+//// 
+//// class Movie(TypedDict):
+////    key1: str
+//// 
+//// a = Movie(k[|"/*marker*/"|])
+//// 
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Variable,
+                    label: 'key1=',
                 },
             ],
         },

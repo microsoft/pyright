@@ -1,8 +1,8 @@
 from _typeshed.wsgi import StartResponse, WSGIApplication, WSGIEnvironment
 from abc import abstractmethod
 from collections.abc import Iterable
-from typing import Any
-from typing_extensions import Literal, TypedDict, Unpack
+from typing import Any, Literal, TypedDict
+from typing_extensions import Unpack
 
 from fanstatic.core import Dependable, NeededResources, Resource
 from fanstatic.inclusion import Inclusion

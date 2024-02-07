@@ -14,6 +14,7 @@ import { appendArray } from '../common/collectionUtils';
 import { ProgramView } from '../common/extensibility';
 import * as StringUtils from '../common/stringUtils';
 import { Uri } from '../common/uri/uri';
+import { encodeUri } from '../common/uri/uriUtils';
 import { Workspace } from '../workspaceFactory';
 import { IndexSymbolData, SymbolIndexer } from './symbolIndexer';
 
@@ -94,7 +95,7 @@ export class WorkspaceSymbolProvider {
 
             if (StringUtils.isPatternInSymbol(this._query, symbolData.name)) {
                 const location: Location = {
-                    uri: fileUri.toString(),
+                    uri: encodeUri(program.fileSystem, fileUri),
                     range: symbolData.selectionRange!,
                 };
 

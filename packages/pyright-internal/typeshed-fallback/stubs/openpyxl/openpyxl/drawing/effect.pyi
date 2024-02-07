@@ -1,6 +1,6 @@
 from _typeshed import ConvertibleToFloat, ConvertibleToInt
-from typing import ClassVar, overload
-from typing_extensions import Literal, TypeAlias
+from typing import ClassVar, Literal, overload
+from typing_extensions import TypeAlias
 
 from openpyxl.descriptors.base import Bool, Float, Integer, Set, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.serialisable import Serialisable

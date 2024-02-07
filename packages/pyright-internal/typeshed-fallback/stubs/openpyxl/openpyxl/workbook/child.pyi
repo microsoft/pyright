@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from re import Pattern
-from typing_extensions import Final
+from typing import Final
 
 from openpyxl import _Decodable
 from openpyxl.workbook.workbook import Workbook

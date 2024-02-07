@@ -26,6 +26,9 @@ class _KexEngine(Protocol):
 class Transport(Thread, ClosingContextManager):
     active: bool
     hostname: str | None
+    server_extensions: dict[str, bytes]
+    advertise_strict_kex: bool
+    agreed_on_strict_kex: bool
     sock: socket | Channel
     packetizer: Packetizer
     local_version: str
@@ -81,6 +84,8 @@ class Transport(Thread, ClosingContextManager):
         gss_deleg_creds: bool = True,
         disabled_algorithms: Mapping[str, Iterable[str]] | None = None,
         server_sig_algs: bool = True,
+        strict_kex: bool = True,
+        packetizer_class: type[Packetizer] | None = None,
     ) -> None: ...
     @property
     def preferred_ciphers(self) -> Sequence[str]: ...

@@ -1193,7 +1193,7 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
                     : adjustedSubtype;
             }
 
-            const isEllipsis = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'ellipsis');
+            const isEllipsis = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['EllipsisType', 'ellipsis']);
 
             // See if it's a match for "...".
             if (isEllipsis === isPositiveTest) {
@@ -1402,6 +1402,12 @@ function narrowTypeForIsInstance(
                     isClassRelationshipIndeterminate = true;
                 }
 
+                // If both the variable type and the filter type ar generics, we can't
+                // determine the relationship between the two.
+                if (isTypeVar(varType) && isTypeVar(filterType)) {
+                    isClassRelationshipIndeterminate = true;
+                }
+
                 if (isPositiveTest) {
                     if (filterIsSuperclass) {
                         // If the variable type is a subclass of the isinstance filter,
@@ -1421,7 +1427,9 @@ function narrowTypeForIsInstance(
                                 /* diag */ undefined,
                                 /* destTypeVarContext */ undefined,
                                 /* srcTypeVarContext */ undefined,
-                                AssignTypeFlags.IgnoreTypeVarScope | AssignTypeFlags.IgnoreProtocolAssignmentCheck
+                                AssignTypeFlags.IgnoreTypeVarScope |
+                                    AssignTypeFlags.IgnoreProtocolAssignmentCheck |
+                                    AssignTypeFlags.AllowIsinstanceSpecialForms
                             )
                         ) {
                             // If the variable type is a superclass of the isinstance
@@ -1593,7 +1601,16 @@ function narrowTypeForIsInstance(
                         } else {
                             foundSuperclass = true;
                         }
-                    } else if (evaluator.assignType(concreteVarType, filterType)) {
+                    } else if (
+                        evaluator.assignType(
+                            concreteVarType,
+                            filterType,
+                            /* diag */ undefined,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            AssignTypeFlags.AllowIsinstanceSpecialForms
+                        )
+                    ) {
                         if (isPositiveTest) {
                             filteredTypes.push(filterType);
                         }
@@ -1609,7 +1626,9 @@ function narrowTypeForIsInstance(
         // match, then the original variable type survives the filter.
         if (!isPositiveTest) {
             if (!foundSuperclass || isClassRelationshipIndeterminate) {
-                filteredTypes.push(negativeFallbackType);
+                filteredTypes.push(
+                    isInstanceCheck ? convertToInstantiable(negativeFallbackType) : negativeFallbackType
+                );
             }
         }
 
@@ -1800,7 +1819,7 @@ function narrowTypeForIsInstance(
                     }
                 }
 
-                if (isClassInstance(subtype) && !isSubtypeMetaclass) {
+                if (isClassInstance(subtype)) {
                     return combineTypes(
                         filterClassType(
                             convertToInstance(unexpandedSubtype),

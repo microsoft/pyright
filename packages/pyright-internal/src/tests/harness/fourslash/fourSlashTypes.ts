@@ -6,6 +6,7 @@
  * Various common types for fourslash test framework
  */
 import * as debug from '../../../common/debug';
+import { Uri } from '../../../common/uri/uri';
 
 /** well known global option names */
 export const enum GlobalMetadataOptionNames {
@@ -72,12 +73,14 @@ export interface FourSlashData {
 
 export interface Marker {
     fileName: string;
+    fileUri: Uri;
     position: number;
     data?: {};
 }
 
 export interface Range {
     fileName: string;
+    fileUri: Uri;
     marker?: Marker | undefined;
     pos: number;
     end: number;

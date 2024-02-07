@@ -40,6 +40,40 @@
                     }
                 }
             }
+        },
+        {
+            "label": "Watch test server",
+            "type": "npm",
+            "script": "watch:testserver",
+            "isBackground": true,
+            // From vscode-tsl-problem-matcher.
+            "problemMatcher": {
+                "owner": "custom",
+                "fileLocation": "absolute",
+                "pattern": [
+                    {
+                        "regexp": "\\[tsl\\] (ERROR|WARNING) in (.*)?\\((\\d+),(\\d+)\\)",
+                        "severity": 1,
+                        "file": 2,
+                        "line": 3,
+                        "column": 4
+                    },
+                    {
+                        "regexp": "\\s*TS(\\d+):\\s*(.*)$",
+                        "code": 1,
+                        "message": 2
+                    }
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": {
+                        "regexp": "PublicPath: .*?"
+                    },
+                    "endsPattern": {
+                        "regexp": "webpack compiled in .*? ms"
+                    }
+                }
+            }
         }
     ]
 }

@@ -9,7 +9,7 @@
 
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { Localizer } from '../localization/localize';
+import { LocAddendum, LocMessage } from '../localization/localize';
 import { DecoratorNode, FunctionNode, ParameterCategory, ParseNode } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { getClassFullName, getTypeAnnotationForParameter, getTypeSourceId } from './parseTreeUtils';
@@ -45,12 +45,7 @@ import { TypeVarContext } from './typeVarContext';
 
 export function validatePropertyMethod(evaluator: TypeEvaluator, method: FunctionType, errorNode: ParseNode) {
     if (FunctionType.isStaticMethod(method)) {
-        evaluator.addDiagnostic(
-            getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-            DiagnosticRule.reportGeneralTypeIssues,
-            Localizer.Diagnostic.propertyStaticMethod(),
-            errorNode
-        );
+        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.propertyStaticMethod(), errorNode);
     }
 }
 
@@ -153,9 +148,8 @@ export function clonePropertyWithSetter(
                     const diag = new DiagnosticAddendum();
                     if (!evaluator.assignType(fgetType, fsetType, diag)) {
                         evaluator.addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportPropertyTypeMismatch,
                             DiagnosticRule.reportPropertyTypeMismatch,
-                            Localizer.Diagnostic.setterGetterTypeMismatch() + diag.getString(),
+                            LocMessage.setterGetterTypeMismatch() + diag.getString(),
                             typeAnnotation
                         );
                     }
@@ -498,18 +492,18 @@ export function assignProperty(
     }[] = [
         {
             getFunction: (c: ClassType) => c.fgetInfo?.methodType,
-            missingDiagMsg: Localizer.DiagnosticAddendum.missingGetter,
-            incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleGetter,
+            missingDiagMsg: LocAddendum.missingGetter,
+            incompatibleDiagMsg: LocAddendum.incompatibleGetter,
         },
         {
             getFunction: (c: ClassType) => c.fsetInfo?.methodType,
-            missingDiagMsg: Localizer.DiagnosticAddendum.missingSetter,
-            incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleSetter,
+            missingDiagMsg: LocAddendum.missingSetter,
+            incompatibleDiagMsg: LocAddendum.incompatibleSetter,
         },
         {
             getFunction: (c: ClassType) => c.fdelInfo?.methodType,
-            missingDiagMsg: Localizer.DiagnosticAddendum.missingDeleter,
-            incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleDeleter,
+            missingDiagMsg: LocAddendum.missingDeleter,
+            incompatibleDiagMsg: LocAddendum.incompatibleDeleter,
         },
     ];
 

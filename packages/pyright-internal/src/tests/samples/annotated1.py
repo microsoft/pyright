@@ -88,3 +88,11 @@ async def func3():
 x5: Annotated[str, f""]
 x6: Annotated[str, "a" "b" "c"]
 x7: Annotated[str, "a\nb"]
+x8: Annotated[str, *(1, 2, 3)]
+
+
+def func4():
+    return Annotated[int, 2 + 2]
+
+
+reveal_type(func4(), expected_text="type[Annotated]")

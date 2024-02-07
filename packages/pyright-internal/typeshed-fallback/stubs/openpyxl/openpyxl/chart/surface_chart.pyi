@@ -1,6 +1,5 @@
 from _typeshed import ConvertibleToInt, Incomplete
-from typing import ClassVar
-from typing_extensions import Literal
+from typing import ClassVar, Literal
 
 from openpyxl.chart.axis import NumericAxis, SeriesAxis, TextAxis
 from openpyxl.chart.shapes import GraphicalProperties

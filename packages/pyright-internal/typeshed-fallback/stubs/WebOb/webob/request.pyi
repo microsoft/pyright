@@ -14,8 +14,8 @@ from cgi import FieldStorage
 from collections.abc import Iterable, Mapping
 from re import Pattern
 from tempfile import _TemporaryFileWrapper
-from typing import IO, Any, ClassVar, Protocol, TypeVar, overload
-from typing_extensions import Literal, Self, TypeAlias, TypedDict
+from typing import IO, Any, ClassVar, Literal, Protocol, TypedDict, TypeVar, overload
+from typing_extensions import Self, TypeAlias
 
 from webob.acceptparse import _AcceptCharsetProperty, _AcceptEncodingProperty, _AcceptLanguageProperty, _AcceptProperty
 from webob.byterange import Range

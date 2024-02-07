@@ -197,6 +197,12 @@
       "title": "Controls reporting of imports that cannot be resolved to source files",
       "default": "warning"
     },
+    "reportInvalidTypeForm": {
+      "$id": "#/properties/reportInvalidTypeForm",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of type expressions that use an invalid form",
+      "default": "warning"
+    },
     "reportMissingTypeStubs": {
       "$id": "#/properties/reportMissingTypeStubs",
       "$ref": "#/definitions/diagnostic",
@@ -242,8 +248,74 @@
     "reportWildcardImportFromLibrary": {
       "$id": "#/properties/reportWildcardImportFromLibrary",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of wlidcard import from external library",
+      "title": "Controls reporting of wildcard import from external library",
       "default": "warning"
+    },
+    "reportAbstractUsage": {
+      "$id": "#/properties/reportAbstractUsage",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempted instantiation of abstract class",
+      "default": "error"
+    },
+    "reportArgumentType": {
+      "$id": "#/properties/reportArgumentType",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of incompatible argument type",
+      "default": "error"
+    },
+    "reportAssertTypeFailure": {
+      "$id": "#/properties/reportAssertTypeFailure",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of type mismatch detected by typing.assert_type call",
+      "default": "error"
+    },
+    "reportAssignmentType": {
+      "$id": "#/properties/reportAssignmentType",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of type incompatibilities for assignments",
+      "default": "error"
+    },
+    "reportAttributeAccessIssue": {
+      "$id": "#/properties/reportAttributeAccessIssue",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of issues related to attribute accesses",
+      "default": "error"
+    },
+    "reportCallIssue": {
+      "$id": "#/properties/reportCallIssue",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of issues related to call expressions and arguments",
+      "default": "error"
+    },
+    "reportInconsistentOverload": {
+      "$id": "#/properties/reportInconsistentOverload",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of inconsistencies between function overload signatures",
+      "default": "error"
+    },
+    "reportIndexIssue": {
+      "$id": "#/properties/reportIndexIssue",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of issues related to index operations and expressions",
+      "default": "error"
+    },
+    "reportInvalidTypeArguments": {
+      "$id": "#/properties/reportInvalidTypeArguments",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of invalid type argument usage",
+      "default": "error"
+    },
+    "reportNoOverloadImplementation": {
+      "$id": "#/properties/reportNoOverloadImplementation",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of an overloaded function or method with a missing implementation",
+      "default": "error"
+    },
+    "reportOperatorIssue": {
+      "$id": "#/properties/reportOperatorIssue",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of diagnostics related to unary and binary operators",
+      "default": "error"
     },
     "reportOptionalSubscript": {
       "$id": "#/properties/reportOptionalSubscript",
@@ -279,6 +351,18 @@
       "$id": "#/properties/reportOptionalOperand",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of attempts to use an Optional type as an operand for a binary or unary operator",
+      "default": "error"
+    },
+    "reportRedeclaration": {
+      "$id": "#/properties/reportRedeclaration",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempts to declare the type of a symbol multiple times",
+      "default": "error"
+    },
+    "reportReturnType": {
+      "$id": "#/properties/reportReturnType",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of function return type incompatibility",
       "default": "error"
     },
     "reportTypedDictNotRequiredAccess": {
@@ -363,6 +447,12 @@
       "$id": "#/properties/reportOverlappingOverload",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of function overloads that overlap in signature and obscure each other or do not agree on return type",
+      "default": "error"
+    },
+    "reportPossiblyUnboundVariable": {
+      "$id": "#/properties/reportPossiblyUnboundVariable",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempts to use variable that is possibly unbound on some code paths",
       "default": "error"
     },
     "reportMissingSuperCall": {
@@ -470,19 +560,19 @@
     "reportSelfClsParameterName": {
       "$id": "#/properties/reportSelfClsParameterName",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting assert expressions that will always evaluate to true",
+      "title": "Controls reporting missing or misnamed self parameters",
       "default": "warning"
     },
     "reportImplicitStringConcatenation": {
       "$id": "#/properties/reportImplicitStringConcatenation",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting usage of implicit concatenation of string literals",
-      "default": "warning"
+      "default": "none"
     },
     "reportUnboundVariable": {
       "$id": "#/properties/reportUnboundVariable",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of attempts to use an unbound or possibly unbound variable",
+      "title": "Controls reporting of attempts to use an unbound variable",
       "default": "error"
     },
     "reportUndefinedVariable": {
@@ -519,6 +609,12 @@
       "$id": "#/properties/reportUnusedCoroutine",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of call expressions that returns Coroutine whose results are not consumed",
+      "default": "error"
+    },
+    "reportUnusedExcept": {
+      "$id": "#/properties/reportUnusedExcept",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of unreachable except clauses",
       "default": "error"
     },
     "reportUnusedExpression": {

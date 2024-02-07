@@ -1,6 +1,5 @@
 from _typeshed import ConvertibleToInt, Incomplete
-from typing import ClassVar, overload
-from typing_extensions import Literal
+from typing import ClassVar, Literal, overload
 
 from openpyxl import _VisibilityType
 from openpyxl.descriptors.base import Bool, Integer, Set, Typed, _ConvertibleToBool

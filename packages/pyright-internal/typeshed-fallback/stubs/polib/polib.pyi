@@ -1,6 +1,5 @@
 from collections.abc import Callable
-from typing import IO, Any, Generic, TypeVar, overload
-from typing_extensions import SupportsIndex
+from typing import IO, Any, Generic, SupportsIndex, TypeVar, overload
 
 _TB = TypeVar("_TB", bound=_BaseEntry)
 _TP = TypeVar("_TP", bound=POFile)
@@ -71,7 +70,7 @@ class _BaseEntry:
     msgid: str
     msgstr: str
     msgid_plural: str
-    msgstr_plural: list[str]
+    msgstr_plural: dict[int, str]
     msgctxt: str
     obsolete: bool
     encoding: str

@@ -3,7 +3,8 @@ from _socket import _Address
 from platform import uname_result
 from re import Pattern
 from socket import socket
-from typing_extensions import Final, Literal, TypeAlias
+from typing import Final, Literal
+from typing_extensions import TypeAlias
 
 from Xlib._typing import Unused
 

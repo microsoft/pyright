@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from typing_extensions import Final
+from typing import Final
 
 from openpyxl.cell import _CellValue
 from openpyxl.styles.alignment import Alignment

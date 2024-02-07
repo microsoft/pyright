@@ -10,7 +10,7 @@
 
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { Localizer } from '../localization/localize';
+import { LocMessage } from '../localization/localize';
 import {
     ArgumentCategory,
     CallNode,
@@ -50,7 +50,7 @@ import {
     isOverloadedFunction,
 } from './types';
 
-interface FunctionDecoratorInfo {
+export interface FunctionDecoratorInfo {
     flags: FunctionTypeFlags;
     deprecationMessage: string | undefined;
 }
@@ -113,6 +113,8 @@ export function getFunctionInfoFromDecorators(
                 flags |= FunctionTypeFlags.Overridden;
             } else if (decoratorType.details.builtInName === 'type_check_only') {
                 flags |= FunctionTypeFlags.TypeCheckOnly;
+            } else if (decoratorType.details.builtInName === 'no_type_check') {
+                flags |= FunctionTypeFlags.NoTypeCheck;
             } else if (decoratorType.details.builtInName === 'overload') {
                 flags |= FunctionTypeFlags.Overloaded;
             }
@@ -571,9 +573,8 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
 
             if (isPrevOverloadAbstract !== isCurrentOverloadAbstract) {
                 evaluator.addDiagnostic(
-                    getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.overloadAbstractMismatch().format({ name: node.name.value }),
+                    DiagnosticRule.reportInconsistentOverload,
+                    LocMessage.overloadAbstractMismatch().format({ name: node.name.value }),
                     node.name
                 );
             }

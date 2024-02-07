@@ -2,8 +2,8 @@ from _typeshed import SupportsItems, SupportsRead
 from _typeshed.wsgi import StartResponse, WSGIApplication, WSGIEnvironment
 from collections.abc import Iterable, Iterator, Sequence
 from datetime import timedelta
-from typing import IO, Any, Protocol
-from typing_extensions import Literal, TypeAlias, TypedDict
+from typing import IO, Any, Literal, Protocol, TypedDict
+from typing_extensions import TypeAlias
 
 from webob.byterange import ContentRange
 from webob.cachecontrol import _ResponseCacheControl

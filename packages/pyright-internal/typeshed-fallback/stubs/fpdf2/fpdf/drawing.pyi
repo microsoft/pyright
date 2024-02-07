@@ -4,8 +4,8 @@ from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator, Sequence
 from contextlib import contextmanager
 from re import Pattern
-from typing import Any, ClassVar, NamedTuple, TypeVar, overload
-from typing_extensions import Literal, Self, TypeAlias
+from typing import Any, ClassVar, Literal, NamedTuple, TypeVar, overload
+from typing_extensions import Self, TypeAlias
 
 from .syntax import Name, Raw
 

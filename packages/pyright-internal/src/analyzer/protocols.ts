@@ -10,7 +10,7 @@
 
 import { assert } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
-import { Localizer } from '../localization/localize';
+import { LocAddendum } from '../localization/localize';
 import { assignTypeToTypeVar } from './constraintSolver';
 import { DeclarationType } from './declaration';
 import { assignProperty } from './properties';
@@ -305,7 +305,7 @@ function assignClassToProtocolInternal(
         return isTypeSame(destType, srcType);
     }
 
-    const sourceIsInstantiable = TypeBase.isInstantiable(srcType);
+    const sourceIsClassObject = isClass(srcType) && TypeBase.isInstantiable(srcType);
     const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
     const selfTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
 
@@ -371,7 +371,7 @@ function assignClassToProtocolInternal(
 
             // Special-case the `__class_getitem__` for normal protocol comparison.
             // This is a convention agreed upon by typeshed maintainers.
-            if (!sourceIsInstantiable && name === '__class_getitem__') {
+            if (!sourceIsClassObject && name === '__class_getitem__') {
                 return;
             }
 
@@ -396,7 +396,7 @@ function assignClassToProtocolInternal(
             if (isClass(srcType)) {
                 // Look in the metaclass first if we're treating the source as an instantiable class.
                 if (
-                    sourceIsInstantiable &&
+                    sourceIsClassObject &&
                     srcType.details.effectiveMetaclass &&
                     isInstantiableClass(srcType.details.effectiveMetaclass)
                 ) {
@@ -411,21 +411,12 @@ function assignClassToProtocolInternal(
                 }
 
                 if (!srcMemberInfo) {
-                    diag?.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
+                    diag?.addMessage(LocAddendum.protocolMemberMissing().format({ name }));
                     typesAreConsistent = false;
                     return;
                 }
 
                 srcSymbol = srcMemberInfo.symbol;
-
-                if (
-                    destSymbol.isClassVar() &&
-                    !srcMemberInfo.symbol.isClassVar() &&
-                    !srcMemberInfo.symbol.isClassMember()
-                ) {
-                    diag?.addMessage(Localizer.DiagnosticAddendum.protocolMemberClassVar().format({ name }));
-                    typesAreConsistent = false;
-                }
 
                 // Partially specialize the type of the symbol based on the MRO class.
                 // We can skip this if it's the dest class because it is already
@@ -451,7 +442,7 @@ function assignClassToProtocolInternal(
                 if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
                     if (isMemberFromMetaclass || isInstantiableClass(srcMemberInfo.classType)) {
                         const boundSrcFunction = evaluator.bindFunctionToClassOrObject(
-                            sourceIsInstantiable && !isMemberFromMetaclass
+                            sourceIsClassObject && !isMemberFromMetaclass
                                 ? srcType
                                 : ClassType.cloneAsInstance(srcType),
                             srcMemberType,
@@ -479,7 +470,7 @@ function assignClassToProtocolInternal(
                 srcSymbol = srcType.fields.get(name);
 
                 if (!srcSymbol) {
-                    diag?.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
+                    diag?.addMessage(LocAddendum.protocolMemberMissing().format({ name }));
                     typesAreConsistent = false;
                     return;
                 }
@@ -535,7 +526,7 @@ function assignClassToProtocolInternal(
                 if (
                     isClassInstance(srcMemberType) &&
                     ClassType.isPropertyClass(srcMemberType) &&
-                    !sourceIsInstantiable
+                    !sourceIsClassObject
                 ) {
                     if (
                         !assignProperty(
@@ -551,7 +542,7 @@ function assignClassToProtocolInternal(
                         )
                     ) {
                         if (subDiag) {
-                            subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                            subDiag.addMessage(LocAddendum.memberTypeMismatch().format({ name }));
                         }
                         typesAreConsistent = false;
                     }
@@ -576,7 +567,7 @@ function assignClassToProtocolInternal(
                         )
                     ) {
                         if (subDiag) {
-                            subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                            subDiag.addMessage(LocAddendum.memberTypeMismatch().format({ name }));
                         }
                         typesAreConsistent = false;
                     }
@@ -586,9 +577,7 @@ function assignClassToProtocolInternal(
                         // is not defined in the dest property.
                         if (lookUpClassMember(destMemberType, '__set__', MemberAccessFlags.SkipInstanceMembers)) {
                             if (subDiag) {
-                                subDiag.addMessage(
-                                    Localizer.DiagnosticAddendum.memberIsWritableInProtocol().format({ name })
-                                );
+                                subDiag.addMessage(LocAddendum.memberIsWritableInProtocol().format({ name }));
                             }
                             typesAreConsistent = false;
                         }
@@ -616,9 +605,9 @@ function assignClassToProtocolInternal(
                 ) {
                     if (subDiag) {
                         if (isInvariant) {
-                            subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsInvariant().format({ name }));
+                            subDiag.addMessage(LocAddendum.memberIsInvariant().format({ name }));
                         }
-                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                        subDiag.addMessage(LocAddendum.memberTypeMismatch().format({ name }));
                     }
                     typesAreConsistent = false;
                 } else {
@@ -636,11 +625,11 @@ function assignClassToProtocolInternal(
             if (isDestFinal !== isSrcFinal) {
                 if (isDestFinal) {
                     if (subDiag) {
-                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsFinalInProtocol().format({ name }));
+                        subDiag.addMessage(LocAddendum.memberIsFinalInProtocol().format({ name }));
                     }
                 } else {
                     if (subDiag) {
-                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsNotFinalInProtocol().format({ name }));
+                        subDiag.addMessage(LocAddendum.memberIsNotFinalInProtocol().format({ name }));
                     }
                 }
                 typesAreConsistent = false;
@@ -648,22 +637,31 @@ function assignClassToProtocolInternal(
 
             const isDestClassVar = destSymbol.isClassVar();
             const isSrcClassVar = srcSymbol.isClassVar();
+            const isSrcVariable = srcSymbol.getDeclarations().some((decl) => decl.type === DeclarationType.Variable);
 
-            // If the source is marked as a ClassVar but the dest (the protocol) is not,
-            // or vice versa, the types are not consistent.
-            if (isDestClassVar !== isSrcClassVar) {
+            if (sourceIsClassObject) {
+                // If the source is not marked as a ClassVar or the dest (the protocol) is,
+                // the types are not consistent given that the source is a class object.
                 if (isDestClassVar) {
-                    if (subDiag) {
-                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsClassVarInProtocol().format({ name }));
-                    }
-                } else {
-                    if (subDiag) {
-                        subDiag.addMessage(
-                            Localizer.DiagnosticAddendum.memberIsNotClassVarInProtocol().format({ name })
-                        );
+                    subDiag?.addMessage(LocAddendum.memberIsClassVarInProtocol().format({ name }));
+                    typesAreConsistent = false;
+                } else if (isSrcVariable && !isSrcClassVar) {
+                    if (!isMemberFromMetaclass) {
+                        subDiag?.addMessage(LocAddendum.memberIsNotClassVarInClass().format({ name }));
+                        typesAreConsistent = false;
                     }
                 }
-                typesAreConsistent = false;
+            } else {
+                // If the source is marked as a ClassVar but the dest (the protocol) is not,
+                // or vice versa, the types are not consistent.
+                if (isDestClassVar !== isSrcClassVar) {
+                    if (isDestClassVar) {
+                        subDiag?.addMessage(LocAddendum.memberIsClassVarInProtocol().format({ name }));
+                    } else {
+                        subDiag?.addMessage(LocAddendum.memberIsNotClassVarInProtocol().format({ name }));
+                    }
+                    typesAreConsistent = false;
+                }
             }
 
             const destPrimaryDecl = getLastTypedDeclaredForSymbol(destSymbol);
@@ -686,7 +684,7 @@ function assignClassToProtocolInternal(
 
                 if (!isDestReadOnly && isSrcReadOnly) {
                     if (subDiag) {
-                        subDiag.addMessage(Localizer.DiagnosticAddendum.memberIsWritableInProtocol().format({ name }));
+                        subDiag.addMessage(LocAddendum.memberIsWritableInProtocol().format({ name }));
                     }
                     typesAreConsistent = false;
                 }

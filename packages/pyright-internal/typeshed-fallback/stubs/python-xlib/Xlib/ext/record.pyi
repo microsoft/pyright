@@ -1,6 +1,5 @@
 from collections.abc import Callable, Sequence, Sized
-from typing import Any, TypeVar
-from typing_extensions import Final, Literal
+from typing import Any, Final, Literal, TypeVar
 
 from Xlib._typing import Unused
 from Xlib.display import Display
