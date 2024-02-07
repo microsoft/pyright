@@ -138,22 +138,22 @@ test('root', () => {
     const root = Uri.parse('file://server/b/c', true).root;
     assert.equal(root.toString(), 'file://server/');
     assert.equal(root.getRootPathLength(), 9);
-    const root2 = Uri.parse('foo:///', true).root;
-    assert.equal(root2.toString(), 'foo:///');
-    const root3 = Uri.parse('foo:///a/b/c/', true).root;
-    assert.equal(root3.toString(), 'foo:///');
+    const root2 = Uri.parse('foo:/', true).root;
+    assert.equal(root2.toString(), 'foo:/');
+    const root3 = Uri.parse('foo://a/b/c/', true).root;
+    assert.equal(root3.toString(), 'foo://a/');
     assert.ok(root3.isRoot());
-    const root4 = Uri.parse('foo:///a/b/c.py', true).root;
-    assert.equal(root4.toString(), 'foo:///');
-    const root5 = Uri.parse('foo:///a/b/c.py?query#fragment', true).root;
-    assert.equal(root5.toString(), 'foo:///');
+    const root4 = Uri.parse('foo://a/b/c.py', true).root;
+    assert.equal(root4.toString(), 'foo://a/');
+    const root5 = Uri.parse('foo://a/b/c.py?query#fragment', true).root;
+    assert.equal(root5.toString(), 'foo://a/');
     const root6 = Uri.file('/a/b/c.py.foo').root;
     assert.equal(root6.toString(), 'file:///');
     const root7 = Uri.parse('file:///a/b/c.py.foo', true).root;
     assert.equal(root7.toString(), 'file:///');
     assert.equal(root7.getRootPathLength(), 1);
     const root8 = Uri.parse('untitled:Untitled-1', true).root;
-    assert.equal(root8.toString(), 'untitled://');
+    assert.equal(root8.toString(), 'untitled:');
     assert.equal(root8.getRootPathLength(), 0);
     assert.equal(root8.isRoot(), false);
     const root9 = Uri.parse('file://a/b/c/d.py', true).root;
@@ -164,6 +164,22 @@ test('root', () => {
     assert.equal(root10.toString(), 'file://c:/');
     assert.equal(root10.getRootPathLength(), 5);
     assert.ok(root10.isRoot());
+});
+
+test('untitled', () => {
+    const untitled = Uri.parse('untitled:Untitled-1', true);
+    assert.equal(untitled.scheme, 'untitled');
+    assert.equal(untitled.fileName, 'Untitled-1');
+    assert.equal(untitled.toString(), 'untitled:Untitled-1');
+    const untitled2 = Uri.parse('untitled:Untitled-1', true);
+    assert.ok(untitled.equals(untitled2));
+    const untitled3 = Uri.parse('untitled:Untitled-2', true);
+    assert.ok(!untitled.equals(untitled3));
+    const untitled4 = Uri.parse('untitled:Untitled-1.foo.bar', false);
+    assert.equal(untitled4.scheme, 'untitled');
+    assert.equal(untitled4.fileName, 'Untitled-1.foo.bar');
+    assert(untitled4.containsExtension('.foo'));
+    assert(untitled4.containsExtension('.bar'));
 });
 
 test('empty', () => {
@@ -387,10 +403,10 @@ test('combinePaths', () => {
     assert.equal(uri6.toString(), rootedResult);
     const uri7 = Uri.parse('foo:', true);
     const uri8 = uri7.combinePaths('d', 'e');
-    assert.equal(uri8.toString(), 'foo://d/e');
+    assert.equal(uri8.toString(), 'foo:d/e');
     const uri9 = Uri.parse('foo:/', true);
     const uri10 = uri9.combinePaths('d', 'e');
-    assert.equal(uri10.toString(), 'foo:///d/e');
+    assert.equal(uri10.toString(), 'foo:/d/e');
     const uri11 = Uri.empty().combinePaths('d', 'e');
     assert.equal(uri11.toString(), Uri.file(normalizeSlashes('/d/e')).toString());
     const uri12 = uri1.combinePaths('d', 'e', 'f/');
@@ -411,10 +427,10 @@ test('combinePathsUnsafe', () => {
     assert.equal(uri6.toString(), rootedResult);
     const uri7 = Uri.parse('foo:', true);
     const uri8 = uri7.combinePathsUnsafe('d', 'e');
-    assert.equal(uri8.toString(), 'foo://d/e');
+    assert.equal(uri8.toString(), 'foo:d/e');
     const uri9 = Uri.parse('foo:/', true);
     const uri10 = uri9.combinePathsUnsafe('d', 'e');
-    assert.equal(uri10.toString(), 'foo:///d/e');
+    assert.equal(uri10.toString(), 'foo:/d/e');
     const uri11 = Uri.empty().combinePathsUnsafe('d', 'e');
     assert.equal(uri11.toString(), Uri.file(normalizeSlashes('/d/e')).toString());
     const uri12 = uri1.combinePathsUnsafe('d', 'e', 'f/');
@@ -437,10 +453,10 @@ test('resolvePaths', () => {
     assert.equal(uri6.toString(), rootedResult);
     const uri7 = Uri.parse('foo:', true);
     const uri8 = uri7.resolvePaths('d', 'e');
-    assert.equal(uri8.toString(), 'foo://d/e');
+    assert.equal(uri8.toString(), 'foo:d/e');
     const uri9 = Uri.parse('foo:/', true);
     const uri10 = uri9.resolvePaths('d', 'e');
-    assert.equal(uri10.toString(), 'foo:///d/e');
+    assert.equal(uri10.toString(), 'foo:/d/e');
     const uri11 = Uri.empty().resolvePaths('d', 'e');
     assert.equal(uri11.toString(), Uri.file(normalizeSlashes('/d/e')).toString());
 });
@@ -604,18 +620,18 @@ test('getWildcardRegexPattern4', () => {
 });
 
 test('getWildcardRoot1', () => {
-    const p = getWildcardRoot(Uri.parse('foo:///users/me', true), './blah/');
-    assert.equal(p.toString(), 'foo:///users/me/blah');
+    const p = getWildcardRoot(Uri.parse('foo:/users/me', true), './blah/');
+    assert.equal(p.toString(), 'foo:/users/me/blah');
 });
 
 test('getWildcardRoot2', () => {
-    const p = getWildcardRoot(Uri.parse('foo:///users/me', true), './**/*.py?/');
-    assert.equal(p.toString(), 'foo:///users/me');
+    const p = getWildcardRoot(Uri.parse('foo:/users/me', true), './**/*.py?/');
+    assert.equal(p.toString(), 'foo:/users/me');
 });
 
 test('getWildcardRoot with root', () => {
-    const p = getWildcardRoot(Uri.parse('foo:///', true), '.');
-    assert.equal(p.toString(), 'foo:///');
+    const p = getWildcardRoot(Uri.parse('foo:/', true), '.');
+    assert.equal(p.toString(), 'foo:/');
 });
 
 test('getWildcardRoot with drive letter', () => {
