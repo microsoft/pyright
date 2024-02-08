@@ -18,7 +18,7 @@ import { CancellationToken } from 'vscode-languageserver';
 
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
-import { DiagnosticLevel } from '../common/configOptions';
+import { DiagnosticLevel, DiagnosticRuleSet } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { assert, assertNever, fail } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
@@ -3342,7 +3342,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!isTypeIncomplete) {
             reportPossibleUnknownAssignment(
-                fileInfo.diagnosticRuleSet.reportUnknownVariableType,
+                fileInfo.diagnosticRuleSet,
                 DiagnosticRule.reportUnknownVariableType,
                 nameNode,
                 destType,
@@ -3552,7 +3552,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (!memberInfo && srcExprNode && !isTypeIncomplete) {
                 reportPossibleUnknownAssignment(
-                    fileInfo.diagnosticRuleSet.reportUnknownMemberType,
+                    fileInfo.diagnosticRuleSet,
                     DiagnosticRule.reportUnknownMemberType,
                     node.memberName,
                     srcType,
@@ -5143,7 +5143,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!skipPartialUnknownCheck) {
             reportPossibleUnknownAssignment(
-                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.reportUnknownMemberType,
+                AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet,
                 DiagnosticRule.reportUnknownMemberType,
                 node.memberName,
                 typeResult.type,
@@ -14101,13 +14101,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function reportPossibleUnknownAssignment(
-        diagLevel: DiagnosticLevel,
+        ruleset: DiagnosticRuleSet,
         rule: DiagnosticRule,
         target: NameNode,
         type: Type,
         errorNode: ExpressionNode,
         ignoreEmptyContainers: boolean
     ) {
+        // Don't bother if the features are disabled.
+        if (ruleset[rule] === 'none' && ruleset.reportAny === 'none') {
+            return;
+        }
         const nameValue = target.value;
 
         // Sometimes variables contain an "unbound" type if they're
@@ -16438,36 +16442,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Now determine the decorated type of the class.
             let decoratedType: Type = classType;
-            let foundUnknownOrAny = false;
+            let foundUnknown = false;
 
             for (let i = node.decorators.length - 1; i >= 0; i--) {
                 const decorator = node.decorators[i];
 
                 const newDecoratedType = applyClassDecorator(evaluatorInterface, decoratedType, classType, decorator);
                 const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
+                const unknown = unknownOrAny && isUnknown(unknownOrAny);
 
-                if (unknownOrAny) {
-                    const unknown = isUnknown(unknownOrAny);
-                    if (!foundUnknownOrAny) {
-                        if (unknown) {
-                            addDiagnostic(
-                                DiagnosticRule.reportUntypedClassDecorator,
-                                LocMessage.classDecoratorTypeUnknown(),
-                                node.decorators[i].expression
-                            );
-                        } else {
-                            addDiagnostic(
-                                DiagnosticRule.reportAny,
-                                LocMessage.classDecoratorTypeAny(),
-                                node.decorators[i].expression
-                            );
-                        }
-                    }
+                if (unknownOrAny && !foundUnknown) {
                     if (unknown) {
-                        foundUnknownOrAny = true;
+                        addDiagnostic(
+                            DiagnosticRule.reportUntypedClassDecorator,
+                            LocMessage.classDecoratorTypeUnknown(),
+                            node.decorators[i].expression
+                        );
+                        foundUnknown = true;
+                    } else {
+                        addDiagnostic(
+                            DiagnosticRule.reportAny,
+                            LocMessage.classDecoratorTypeAny(),
+                            node.decorators[i].expression
+                        );
                     }
-                } else {
-                    // Apply the decorator only if the type is known.
+                }
+                if (!unknown) {
+                    // Apply the decorator only if the type is known (or Any).
                     decoratedType = newDecoratedType;
                 }
             }
@@ -17149,30 +17150,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
 
             const unknownOrAny = containsAnyOrUnknown(newDecoratedType, /* recurse */ false);
+            const unknown = unknownOrAny && isUnknown(unknownOrAny);
 
-            if (unknownOrAny) {
-                const unknown = isUnknown(unknownOrAny);
-                // Report this error only on the first unknown type.
-                if (!foundUnknown) {
-                    if (unknown) {
-                        addDiagnostic(
-                            DiagnosticRule.reportUntypedFunctionDecorator,
-                            LocMessage.functionDecoratorTypeUnknown(),
-                            node.decorators[i].expression
-                        );
-                    } else {
-                        addDiagnostic(
-                            DiagnosticRule.reportAny,
-                            LocMessage.functionDecoratorTypeAny(),
-                            node.decorators[i].expression
-                        );
-                    }
-                    if (unknown) {
-                        foundUnknown = true;
-                    }
+            if (unknownOrAny && !foundUnknown) {
+                if (unknown) {
+                    addDiagnostic(
+                        DiagnosticRule.reportUntypedFunctionDecorator,
+                        LocMessage.functionDecoratorTypeUnknown(),
+                        node.decorators[i].expression
+                    );
+                    foundUnknown = true;
+                } else {
+                    addDiagnostic(
+                        DiagnosticRule.reportAny,
+                        LocMessage.functionDecoratorTypeAny(),
+                        node.decorators[i].expression
+                    );
                 }
-            } else {
-                // Apply the decorator only if the type is known.
+            }
+            if (!unknown) {
+                // Apply the decorator only if the type is known (or Any).
                 decoratedType = newDecoratedType;
             }
         }
