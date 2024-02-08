@@ -89,7 +89,7 @@
         "all"
       ],
       "title": "Specifies the default rule set to use for type checking",
-      "default": "standard"
+      "default": "all"
     },
     "useLibraryCodeForTypes": {
       "$id": "#/properties/useLibraryCodeForTypes",
