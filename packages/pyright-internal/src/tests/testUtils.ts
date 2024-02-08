@@ -108,9 +108,6 @@ export function typeAnalyzeSampleFiles(
     // Always enable "test mode".
     configOptions.internalTestMode = true;
 
-    if (configOptions.typeCheckingMode === undefined) {
-        configOptions.typeCheckingMode = 'standard';
-    }
     const fs = createFromRealFileSystem();
     const serviceProvider = createServiceProvider(fs, console || new NullConsole());
     const importResolver = new ImportResolver(serviceProvider, configOptions, new FullAccessHost(serviceProvider));

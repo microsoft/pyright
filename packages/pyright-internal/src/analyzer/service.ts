@@ -15,7 +15,7 @@ import { AbstractCancellationTokenSource, CancellationToken } from 'vscode-langu
 import { BackgroundAnalysisBase, RefreshOptions } from '../backgroundAnalysisBase';
 import { CancellationProvider, DefaultCancellationProvider } from '../common/cancellationUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
-import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
+import { BasedConfigOptions, ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction } from '../common/editAction';
@@ -138,7 +138,7 @@ export class AnalyzerService {
 
         this._options.configOptions =
             options.configOptions ??
-            new ConfigOptions(Uri.file(process.cwd(), this._serviceProvider.fs().isCaseSensitive));
+            new BasedConfigOptions(Uri.file(process.cwd(), this._serviceProvider.fs().isCaseSensitive));
         const importResolver = this._options.importResolverFactory(
             this._serviceProvider,
             this._options.configOptions,
@@ -576,7 +576,7 @@ export class AnalyzerService {
             }
         }
 
-        const configOptions = new ConfigOptions(projectRoot, this._typeCheckingMode);
+        const configOptions = new BasedConfigOptions(projectRoot, this._typeCheckingMode);
         const defaultExcludes = ['**/node_modules', '**/__pycache__', '**/.*'];
 
         if (commandLineOptions.pythonPath) {

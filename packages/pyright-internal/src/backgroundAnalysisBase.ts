@@ -27,7 +27,7 @@ import {
     getCancellationTokenId,
     throwIfCancellationRequested,
 } from './common/cancellationUtils';
-import { ConfigOptions } from './common/configOptions';
+import { BasedConfigOptions, ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, LogLevel, log } from './common/console';
 import * as debug from './common/debug';
 import { Diagnostic } from './common/diagnostic';
@@ -298,7 +298,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         // Stash the base directory into a global variable.
         const data = workerData as InitializationData;
         this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootUri}`);
-        this._configOptions = new ConfigOptions(Uri.parse(data.rootUri, serviceProvider.fs().isCaseSensitive));
+        this._configOptions = new BasedConfigOptions(Uri.parse(data.rootUri, serviceProvider.fs().isCaseSensitive));
         this.importResolver = this.createImportResolver(serviceProvider, this._configOptions, this.createHost());
 
         const console = this.getConsole();

@@ -9,7 +9,7 @@
  */
 
 import { CommandLineOptions } from '../common/commandLineOptions';
-import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { BasedConfigOptions, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { NullConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum, DiagnosticCategory } from '../common/diagnostic';
@@ -81,7 +81,7 @@ export class PackageTypeVerifier {
         private _ignoreExternal = false
     ) {
         const host = new FullAccessHost(_serviceProvider);
-        this._configOptions = new ConfigOptions(Uri.empty());
+        this._configOptions = new BasedConfigOptions(Uri.empty());
 
         this._configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
         this._configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;

@@ -9,7 +9,7 @@
 import { MessagePort, parentPort, TransferListItem } from 'worker_threads';
 
 import { OperationCanceledException, setCancellationFolderName } from './common/cancellationUtils';
-import { ConfigOptions } from './common/configOptions';
+import { BasedConfigOptions, ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, LogLevel } from './common/console';
 import * as debug from './common/debug';
 import { createFromRealFileSystem, RealTempFile } from './common/realFileSystem';
@@ -135,7 +135,7 @@ export function deserializeReviver(key: string, value: any) {
             return new RegExp(value.__serialized_regexp_val.source, value.__serialized_regexp_val.flags);
         }
         if (value.__serialized_config_options) {
-            const configOptions = new ConfigOptions(value.__serialized_config_options.projectRoot);
+            const configOptions = new BasedConfigOptions(value.__serialized_config_options.projectRoot);
             Object.assign(configOptions, value.__serialized_config_options);
             return configOptions;
         }
