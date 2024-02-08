@@ -25,9 +25,7 @@ import { createFromRealFileSystem } from '../common/realFileSystem';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
 import { ParseOptions, ParseResults, Parser } from '../parser/parser';
-import { throwIfUndefined } from 'throw-expression';
 import { entries } from '@detachhead/ts-helpers/dist/functions/misc';
-import { zip } from 'lodash';
 import { DiagnosticRule } from '../common/diagnosticRules';
 
 // This is a bit gross, but it's necessary to allow the fallback typeshed
@@ -223,12 +221,14 @@ export function validateResults(
     }
 }
 
+interface ExpectedResult {
+    message?: string;
+    line: number;
+    code?: DiagnosticRule;
+}
+
 export type ExpectedResults = {
-    [key in Exclude<keyof FileAnalysisResult, 'fileUri' | 'parseResults'>]?: {
-        message?: string;
-        line: number;
-        code?: DiagnosticRule;
-    }[];
+    [key in Exclude<keyof FileAnalysisResult, 'fileUri' | 'parseResults'>]?: ExpectedResult[];
 };
 
 export const validateResultsButBased = (allResults: FileAnalysisResult[], expectedResults: ExpectedResults) => {
@@ -238,18 +238,14 @@ export const validateResultsButBased = (allResults: FileAnalysisResult[], expect
         if (diagnosticType === 'fileUri' || diagnosticType === 'parseResults') {
             continue;
         }
-        const actualResult = result[diagnosticType];
+        const actualResult = result[diagnosticType].map(
+            (result): ExpectedResult => ({
+                message: result.message,
+                line: result.range.start.line,
+                code: result.getRule() as DiagnosticRule | undefined,
+            })
+        );
         const expectedResult = expectedResults[diagnosticType] ?? [];
-        assert.equal(actualResult.length, expectedResult.length);
-        zip(expectedResult, actualResult).forEach(([expectedDiagnostic, actualDiagnostic]) => {
-            // length checked above so these should never be undefined
-            expectedDiagnostic = throwIfUndefined(expectedDiagnostic);
-            actualDiagnostic = throwIfUndefined(actualDiagnostic);
-            assert.deepStrictEqual(actualDiagnostic.getRule(), expectedDiagnostic.code);
-            assert.deepStrictEqual(actualDiagnostic.range.start.line, expectedDiagnostic.line);
-            if (expectedDiagnostic.message) {
-                assert.deepStrictEqual(actualDiagnostic.message, expectedDiagnostic.message);
-            }
-        });
+        expect(new Set(actualResult)).toEqual(new Set(expectedResult.map(expect.objectContaining)));
     }
 };

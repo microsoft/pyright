@@ -1,4 +1,3 @@
-import { AssertionError } from 'assert';
 import { Diagnostic } from '../common/diagnostic';
 import { Uri } from '../common/uri/uri';
 import { FileAnalysisResult, ExpectedResults, validateResultsButBased } from './testUtils';
@@ -41,7 +40,8 @@ test('validateResults wrong number of errors', () => {
             unreachableCodes: [],
         },
     ];
-    expect(() => validateResultsButBased(actualResults, expectedResults)).toThrow(AssertionError);
+    // ideally we would be checking for JestAssertionError but can't because of https://github.com/jestjs/jest/issues/14882
+    expect(() => validateResultsButBased(actualResults, expectedResults)).toThrow(Error);
 });
 
 test('validateResults wrong line number', () => {
@@ -59,7 +59,7 @@ test('validateResults wrong line number', () => {
             unreachableCodes: [],
         },
     ];
-    expect(() => validateResultsButBased(actualResults, expectedResults)).toThrow(AssertionError);
+    expect(() => validateResultsButBased(actualResults, expectedResults)).toThrow(Error);
 });
 
 test('validateResults wrong code', () => {
@@ -77,5 +77,5 @@ test('validateResults wrong code', () => {
             unreachableCodes: [],
         },
     ];
-    expect(() => validateResultsButBased(actualResults, expectedResults)).toThrow(AssertionError);
+    expect(() => validateResultsButBased(actualResults, expectedResults)).toThrow(Error);
 });
