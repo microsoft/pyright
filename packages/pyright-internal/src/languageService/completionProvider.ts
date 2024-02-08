@@ -2808,6 +2808,14 @@ export class CompletionProvider {
             this._addNamedParametersToMap(signature.type, argNameSet);
         });
 
+        //Add keys from typed dict outside signatures
+        signatureInfo.signatures.forEach((signature) => {
+            if (signature.type.boundToType) {
+                const keys = Array.from(signature.type.boundToType.details.typedDictEntries?.keys() || []);
+                keys.forEach((key: string) => argNameSet.add(key));
+            }
+        });
+
         // Remove any named parameters that are already provided.
         signatureInfo.callNode.arguments!.forEach((arg) => {
             if (arg.name) {
