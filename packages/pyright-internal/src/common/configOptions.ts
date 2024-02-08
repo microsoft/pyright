@@ -1152,10 +1152,13 @@ export class ConfigOptions {
     // Controls how hover and completion function signatures are displayed.
     functionSignatureDisplay: SignatureDisplayType;
 
+    // https://github.com/microsoft/TypeScript/issues/3841
+    declare ['constructor']: typeof ConfigOptions;
+
     constructor(projectRoot: Uri, typeCheckingMode?: string) {
         this.projectRoot = projectRoot;
         this.typeCheckingMode = typeCheckingMode;
-        this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
+        this.diagnosticRuleSet = this.constructor.getDiagnosticRuleSet(typeCheckingMode);
         this.functionSignatureDisplay = SignatureDisplayType.formatted;
     }
 
