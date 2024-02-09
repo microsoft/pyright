@@ -23,9 +23,9 @@ import {
 } from '../pathUtils';
 import { BaseUri, JsonObjType } from './baseUri';
 import { cacheMethodWithNoArgs, cacheProperty, cacheStaticFunc } from './memoization';
-import { Uri } from './uri';
+import { SerializedType, Uri, UriKinds } from './uri';
 
-type SerializedType = [0, string, string, string, string | undefined, 1 | 0];
+type FileUriSerializedType = [0, string, string, string, string | undefined, 1 | 0];
 
 export class FileUri extends BaseUri {
     private _formattedString: string | undefined;
@@ -48,6 +48,10 @@ export class FileUri extends BaseUri {
 
     get fragment(): string {
         return this._fragment;
+    }
+
+    get query(): string {
+        return this._query;
     }
 
     @cacheProperty()
@@ -85,17 +89,14 @@ export class FileUri extends BaseUri {
         return new FileUri(key, filePath, query, fragment, originalString, isCaseSensitive);
     }
 
-    static isFileUri(uri: any): uri is FileUri | SerializedType {
-        if (isArray<SerializedType>(uri) && uri[0] === 0 && uri.length === 6) {
-            return true;
-        }
-
+    static isFileUri(uri: any): uri is FileUri {
         return uri?._filePath !== undefined && uri?._key !== undefined;
     }
 
     static fromJsonObj(obj: FileUri | SerializedType) {
         if (isArray<SerializedType>(obj)) {
-            return FileUri.createFileUri(obj[1], obj[2], obj[3], obj[4], obj[5] === 1 ? true : false);
+            const so = obj as FileUriSerializedType;
+            return FileUri.createFileUri(so[1], so[2], so[3], so[4], so[5] === 1 ? true : false);
         }
 
         return FileUri.createFileUri(
@@ -109,7 +110,7 @@ export class FileUri extends BaseUri {
 
     toJsonObj(): JsonObjType {
         const jsonObj: SerializedType = [
-            0,
+            UriKinds.file,
             this._filePath,
             this._query,
             this._fragment,
@@ -240,6 +241,10 @@ export class FileUri extends BaseUri {
 
     withFragment(fragment: string): Uri {
         return FileUri.createFileUri(this._filePath, this._query, fragment, undefined, this._isCaseSensitive);
+    }
+
+    withQuery(query: string): Uri {
+        return FileUri.createFileUri(this._filePath, query, this._fragment, undefined, this._isCaseSensitive);
     }
 
     override stripExtension(): Uri {

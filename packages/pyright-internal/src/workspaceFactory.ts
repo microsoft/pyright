@@ -535,7 +535,7 @@ export class WorkspaceFactory {
 
         // If the regular workspaces don't all have the same length or they don't
         // actually match on the python path, then try the workspaces that already have the file open or scanned.
-        if (bestInstance === undefined || bestInstance.pythonPath !== pythonPath) {
+        if (bestInstance === undefined || !bestInstance.pythonPath?.equals(pythonPath)) {
             bestInstance =
                 this._getBestRegularWorkspace(
                     regularWorkspaces.filter((w) => w.service.hasSourceFile(uri)),

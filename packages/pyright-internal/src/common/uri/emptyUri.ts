@@ -42,6 +42,10 @@ export class EmptyUri extends FileUri {
         return '';
     }
 
+    override get query(): string {
+        return '';
+    }
+
     override toJsonObj(): JsonObjType {
         return {
             _key: EmptyKey,
@@ -116,6 +120,10 @@ export class EmptyUri extends FileUri {
     }
 
     override withFragment(fragment: string): Uri {
+        return this;
+    }
+
+    override withQuery(query: string): Uri {
         return this;
     }
 

@@ -69,7 +69,7 @@ export function runFourSlashTestContent(
             : new TestState(absoluteBasePath, testData, mountPaths, hostSpecificFeatures);
     const output = ts.transpileModule(content, {
         reportDiagnostics: true,
-        compilerOptions: { target: ts.ScriptTarget.ES2015 },
+        compilerOptions: { target: ts.ScriptTarget.ES2019 },
     });
     if (output.diagnostics!.length > 0) {
         throw new Error(`Syntax error in ${absoluteBasePath}: ${output.diagnostics![0].messageText}`);

@@ -10,7 +10,7 @@ import * as child_process from 'child_process';
 import { CancellationToken } from 'vscode-languageserver';
 
 import { PythonPathResult } from '../analyzer/pythonPathUtils';
-import { OperationCanceledException, throwIfCancellationRequested } from './cancellationUtils';
+import { OperationCanceledException, onCancellationRequested, throwIfCancellationRequested } from './cancellationUtils';
 import { PythonPlatform } from './configOptions';
 import { assertNever } from './debug';
 import { HostKind, NoAccessHost, ScriptOutput } from './host';
@@ -148,7 +148,7 @@ export class FullAccessHost extends LimitedAccessHost {
             const child = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
                 child_process.spawn(p, commandLineArgs, { cwd: cwd.getFilePath() })
             );
-            const tokenWatch = token.onCancellationRequested(() => {
+            const tokenWatch = onCancellationRequested(token, () => {
                 if (child) {
                     try {
                         if (child.pid && child.exitCode === null) {
