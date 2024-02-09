@@ -1570,12 +1570,12 @@
         "@types/vscode": "^1.78.0",
         "copy-webpack-plugin": "^11.0.0",
         "detect-indent": "^6.1.0",
-        "esbuild-loader": "^3.0.1",
+        "esbuild-loader": "^3.2.0",
         "shx": "^0.3.4",
-        "ts-loader": "^9.4.4",
+        "ts-loader": "^9.5.1",
         "typescript": "~5.2",
         "vsce": "^2.7.0",
-        "webpack": "^5.88.1",
+        "webpack": "^5.90.1",
         "webpack-cli": "^5.1.4"
     }
 }
