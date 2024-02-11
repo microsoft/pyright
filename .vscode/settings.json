@@ -18,7 +18,7 @@
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "typescript.enablePromptUseWorkspaceTsdk": true,
     "typescript.tsdk": "node_modules/typescript/lib",
-    "python.languageServer": "Pylance",
+    "python.languageServer": "None",
     "editor.formatOnSave": true,
     "git.allowForcePush": true,
     "git.autofetch": "all",
@@ -59,9 +59,7 @@
     },
     "python.terminal.activateEnvInCurrentTerminal": true,
     "editor.acceptSuggestionOnCommitCharacter": false,
-    "jest.autoRun": {},
-    "python.analysis.typeCheckingMode": "off",
-    "basedpyright.disableLanguageServices": true,
+    "jest.runMode": "on-demand",
     "pylint.ignorePatterns": [
         "**/pyright-internal/src/tests/samples/*"
     ],
