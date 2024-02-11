@@ -228,7 +228,7 @@ the following additional options are not available in regular pyright:
 
 <a name="reportUnreachable"></a> **reportUnreachable** [boolean or string, optional]: Generate or suppress diagnostics for unreachable code. The default value for this setting is `"none"`.
 
-<a name="reportAny"></a> **reportAny** [boolean or string, optional]: Ban all expressions of type `Any`. this accounts for all usages of the `Any` type not covered by the `reportUnknown*` rules ("Unknown" isn't a real type, but a distinction pyright makes to disallow `Any` types only in certain circumstances).
+<a name="reportAny"></a> **reportAny** [boolean or string, optional]: Ban all usages of the `Any` type. this accounts for all scenarios not covered by the `reportUnknown*` rules (since "Unknown" isn't a real type, but a distinction pyright makes to disallow the `Any` type only in certain circumstances).
 
 ## Execution Environment Options
 Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with different import search paths or a different version of the python interpreter than the rest of the source base.
