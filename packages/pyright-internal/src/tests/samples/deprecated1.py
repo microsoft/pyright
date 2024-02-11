@@ -26,7 +26,7 @@ from typing import (
     Reversible,
     Container,
     Collection as C1,
-    Callable,
+    Callable, # should not report an error because Callable is completely unrelated to collections
     AbstractSet,
     MutableSet,
     Mapping,

@@ -304,13 +304,4 @@ export const deprecatedAliases = new Map<string, DeprecatedForm>([
 export const deprecatedSpecialForms = new Map<string, DeprecatedForm>([
     ['Optional', { version: PythonVersion.V3_10, fullName: 'typing.Optional', replacementText: '| None' }],
     ['Union', { version: PythonVersion.V3_10, fullName: 'typing.Union', replacementText: '|' }],
-    [
-        'Callable',
-        {
-            version: PythonVersion.V3_9,
-            fullName: 'typing.Callable',
-            replacementText: 'collections.abc.Callable',
-            typingImportOnly: true,
-        },
-    ],
 ]);
