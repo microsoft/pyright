@@ -99,7 +99,7 @@
           "label": "pdm refresh lockfile (no update)",
           "type": "shell",
           "command": "./pw",
-          "args": ["pdm", "lock", "--refresh"],
+          "args": ["pdm", "lock", "--update-reuse"],
           "presentation": {
             "clear": true
           },
