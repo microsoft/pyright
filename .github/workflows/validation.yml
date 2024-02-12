@@ -45,7 +45,7 @@ jobs:
         run: ./pw pdm run ruff .
 
       - name: pylint
-        run: ./pw pdm run pylint basedpyright
+        run: ./pw pdm run pylint basedpyright pdm_build.py get_version.py
 
       - name: black
         run: ./pw pdm run black --check --diff .
