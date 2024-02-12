@@ -1247,6 +1247,32 @@ test('TypeDict literal values', async () => {
     });
 });
 
+test('typed dict key constructor completion', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import TypedDict
+//// 
+//// class Movie(TypedDict):
+////    key1: str
+//// 
+//// a = Movie(k[|"/*marker*/"|])
+//// 
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', MarkupKind.Markdown, {
+        marker: {
+            completions: [
+                {
+                    kind: CompletionItemKind.Variable,
+                    label: 'key1=',
+                },
+            ],
+        },
+    });
+});
+
 test('import from completion for namespace package', async () => {
     const code = `
 // @filename: test.py

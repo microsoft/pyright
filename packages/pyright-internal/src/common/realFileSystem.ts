@@ -483,7 +483,7 @@ export class WorkspaceFileWatcherProvider implements FileWatcherProvider, FileWa
         // to raise events both for source and library if .venv is inside of workspace root
         // for a file change. It is event handler's job to filter those out.
         this._fileWatchers.forEach((watcher) => {
-            if (watcher.workspacePaths.some((dirPath) => fileUri.pathStartsWith(dirPath))) {
+            if (watcher.workspacePaths.some((dirPath) => fileUri.getFilePath().startsWith(dirPath))) {
                 watcher.eventHandler(eventType, fileUri.getFilePath());
             }
         });

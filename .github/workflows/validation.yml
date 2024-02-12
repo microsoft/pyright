@@ -18,8 +18,9 @@ jobs:
 
       - name: Get npm cache directory
         id: npm-cache
+        shell: bash
         run: |
-          echo "::set-output name=dir::$(npm config get cache)"
+          echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
       - uses: actions/cache@v3
         with:
           path: ${{ steps.npm-cache.outputs.dir }}
@@ -70,8 +71,9 @@ jobs:
       - name: Get npm cache directory
         if: runner.os != 'Windows'
         id: npm-cache
+        shell: bash
         run: |
-          echo "::set-output name=dir::$(npm config get cache)"
+          echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
       - uses: actions/cache@v3
         if: runner.os != 'Windows'
         with:
@@ -142,8 +144,9 @@ jobs:
 
       - name: Get npm cache directory
         id: npm-cache
+        shell: bash
         run: |
-          echo "::set-output name=dir::$(npm config get cache)"
+          echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
       - uses: actions/cache@v3
         with:
           path: ${{ steps.npm-cache.outputs.dir }}

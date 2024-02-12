@@ -7,7 +7,7 @@
  */
 
 import { some } from '../collectionUtils';
-import { getRootLength, getShortenedFileName, normalizeSlashes } from '../pathUtils';
+import { getRootLength, getShortenedFileName } from '../pathUtils';
 import { Uri } from './uri';
 import { cacheProperty } from './memoization';
 
@@ -83,6 +83,7 @@ export abstract class BaseUri implements Uri {
     }
 
     abstract get fragment(): string;
+    abstract get query(): string;
 
     isEmpty(): boolean {
         return false;
@@ -121,6 +122,7 @@ export abstract class BaseUri implements Uri {
     }
 
     abstract withFragment(fragment: string): Uri;
+    abstract withQuery(query: string): Uri;
 
     abstract addPath(extra: string): Uri;
 
@@ -150,20 +152,17 @@ export abstract class BaseUri implements Uri {
     abstract startsWith(other: Uri | undefined, ignoreCase?: boolean): boolean;
 
     pathStartsWith(name: string): boolean {
-        // ignore path separators.
-        name = normalizeSlashes(name);
+        // We're making an assumption here that the name is already normalized.
         return this.getComparablePath().startsWith(name);
     }
 
     pathEndsWith(name: string): boolean {
-        // ignore path separators.
-        name = normalizeSlashes(name);
+        // We're making an assumption here that the name is already normalized.
         return this.getComparablePath().endsWith(name);
     }
 
     pathIncludes(include: string): boolean {
-        // ignore path separators.
-        include = normalizeSlashes(include);
+        // We're making an assumption here that the name is already normalized.
         return this.getComparablePath().includes(include);
     }
 
@@ -212,7 +211,12 @@ export abstract class BaseUri implements Uri {
         for (start = 0; start < fromComponents.length && start < toComponents.length; start++) {
             const fromComponent = fromComponents[start];
             const toComponent = toComponents[start];
-            if (fromComponent !== toComponent) {
+
+            const match = this.isCaseSensitive
+                ? fromComponent === toComponent
+                : fromComponent.toLowerCase() === toComponent.toLowerCase();
+
+            if (!match) {
                 break;
             }
         }

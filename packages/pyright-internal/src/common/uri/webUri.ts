@@ -11,10 +11,11 @@
  * - vscode-vfs://github.com/microsoft/debugpy/debugpy/launcher/debugAdapter.py
  */
 
-import { getRootLength, hasTrailingDirectorySeparator, normalizeSlashes, resolvePaths } from '../pathUtils';
+import { getRootLength, hasTrailingDirectorySeparator, resolvePaths } from '../pathUtils';
 import { BaseUri, JsonObjType } from './baseUri';
 import { cacheMethodWithNoArgs, cacheProperty, cacheStaticFunc } from './memoization';
 import { Uri } from './uri';
+import { URI } from 'vscode-uri';
 
 export class WebUri extends BaseUri {
     private constructor(
@@ -24,7 +25,7 @@ export class WebUri extends BaseUri {
         private readonly _path: string,
         private readonly _query: string,
         private readonly _fragment: string,
-        private readonly _originalString: string | undefined
+        private _originalString: string | undefined
     ) {
         super(key);
     }
@@ -40,6 +41,10 @@ export class WebUri extends BaseUri {
 
     get fragment(): string {
         return this._fragment;
+    }
+
+    get query(): string {
+        return this._query;
     }
 
     @cacheProperty()
@@ -83,9 +88,14 @@ export class WebUri extends BaseUri {
 
     override toString(): string {
         if (!this._originalString) {
-            return `${this._scheme}://${this._authority}${this._path}${this._query ? '?' + this._query : ''}${
-                this._fragment ? '#' + this._fragment : ''
-            }`;
+            const vscodeUri = URI.revive({
+                scheme: this._scheme,
+                authority: this._authority,
+                path: this._path,
+                query: this._query,
+                fragment: this._fragment,
+            });
+            this._originalString = vscodeUri.toString();
         }
         return this._originalString;
     }
@@ -209,23 +219,22 @@ export class WebUri extends BaseUri {
 
     @cacheMethodWithNoArgs()
     override getDirectory(): Uri {
-        const index = this._path.lastIndexOf('/');
-        if (index > 0) {
-            return WebUri.createWebUri(
-                this._scheme,
-                this._authority,
-                this._path.slice(0, index),
-                this._query,
-                this._fragment,
-                undefined
-            );
-        } else {
+        if (this._path.length === 0) {
             return this;
         }
+
+        const index = this._path.lastIndexOf('/');
+        const newPath = index > 0 ? this._path.slice(0, index) : index === 0 ? '/' : '';
+
+        return WebUri.createWebUri(this._scheme, this._authority, newPath, this._query, this._fragment, undefined);
     }
 
     withFragment(fragment: string): Uri {
         return WebUri.createWebUri(this._scheme, this._authority, this._path, this._query, fragment, undefined);
+    }
+
+    withQuery(query: string): Uri {
+        return WebUri.createWebUri(this._scheme, this._authority, this._path, query, this._fragment, undefined);
     }
 
     override stripExtension(): Uri {
@@ -276,10 +285,10 @@ export class WebUri extends BaseUri {
     }
 
     protected override getComparablePath(): string {
-        return normalizeSlashes(this._path);
+        return this._path; // Should already have the correct '/'
     }
 
     private static _createKey(scheme: string, authority: string, path: string, query: string, fragment: string) {
-        return `${scheme}://${authority}${path}${query ? '?' + query : ''}${fragment ? '#' + fragment : ''}`;
+        return `${scheme}:${authority}${path}${query ? '?' + query : ''}${fragment ? '#' + fragment : ''}`;
     }
 }

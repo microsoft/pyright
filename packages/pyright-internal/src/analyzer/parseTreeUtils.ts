@@ -2286,7 +2286,7 @@ export function isLastNameOfModuleName(node: NameNode): boolean {
     return module.nameParts[module.nameParts.length - 1] === node;
 }
 
-function* _getAncestorsIncludingSelf(node: ParseNode | undefined) {
+export function* getAncestorsIncludingSelf(node: ParseNode | undefined) {
     while (node !== undefined) {
         yield node;
         node = node.parent;
@@ -2306,7 +2306,7 @@ export function getFirstAncestorOrSelf(
     node: ParseNode | undefined,
     predicate: (node: ParseNode) => boolean
 ): ParseNode | undefined {
-    for (const current of _getAncestorsIncludingSelf(node)) {
+    for (const current of getAncestorsIncludingSelf(node)) {
         if (predicate(current)) {
             return current;
         }

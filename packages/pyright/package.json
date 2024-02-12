@@ -24,16 +24,16 @@
         "webpack": "webpack --mode development --progress"
     },
     "optionalDependencies": {
-        "fsevents": "~2.3.2"
+        "fsevents": "~2.3.3"
     },
     "devDependencies": {
         "@types/node": "^17.0.45",
         "copy-webpack-plugin": "^11.0.0",
-        "esbuild-loader": "^3.0.1",
+        "esbuild-loader": "^3.2.0",
         "shx": "^0.3.4",
-        "ts-loader": "^9.4.4",
+        "ts-loader": "^9.5.1",
         "typescript": "~5.2",
-        "webpack": "^5.88.1",
+        "webpack": "^5.90.1",
         "webpack-cli": "^5.1.4"
     },
     "files": [

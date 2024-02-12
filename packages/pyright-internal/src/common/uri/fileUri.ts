@@ -18,18 +18,18 @@ import {
     getRootLength,
     hasTrailingDirectorySeparator,
     isDiskPathRoot,
-    normalizeSlashes,
     resolvePaths,
     stripFileExtension,
 } from '../pathUtils';
 import { BaseUri, JsonObjType } from './baseUri';
 import { cacheMethodWithNoArgs, cacheProperty, cacheStaticFunc } from './memoization';
-import { Uri } from './uri';
+import { SerializedType, Uri, UriKinds } from './uri';
 
-type SerializedType = [0, string, string, string, string | undefined, 1 | 0];
+type FileUriSerializedType = [0, string, string, string, string | undefined, 1 | 0];
 
 export class FileUri extends BaseUri {
     private _formattedString: string | undefined;
+    private _normalizedPath: string | undefined;
     private static _separator = getPathSeparator('');
     protected constructor(
         key: string,
@@ -48,6 +48,10 @@ export class FileUri extends BaseUri {
 
     get fragment(): string {
         return this._fragment;
+    }
+
+    get query(): string {
+        return this._query;
     }
 
     @cacheProperty()
@@ -85,17 +89,14 @@ export class FileUri extends BaseUri {
         return new FileUri(key, filePath, query, fragment, originalString, isCaseSensitive);
     }
 
-    static isFileUri(uri: any): uri is FileUri | SerializedType {
-        if (isArray<SerializedType>(uri) && uri[0] === 0 && uri.length === 6) {
-            return true;
-        }
-
+    static isFileUri(uri: any): uri is FileUri {
         return uri?._filePath !== undefined && uri?._key !== undefined;
     }
 
     static fromJsonObj(obj: FileUri | SerializedType) {
         if (isArray<SerializedType>(obj)) {
-            return FileUri.createFileUri(obj[1], obj[2], obj[3], obj[4], obj[5] === 1 ? true : false);
+            const so = obj as FileUriSerializedType;
+            return FileUri.createFileUri(so[1], so[2], so[3], so[4], so[5] === 1 ? true : false);
         }
 
         return FileUri.createFileUri(
@@ -109,7 +110,7 @@ export class FileUri extends BaseUri {
 
     toJsonObj(): JsonObjType {
         const jsonObj: SerializedType = [
-            0,
+            UriKinds.file,
             this._filePath,
             this._query,
             this._fragment,
@@ -122,8 +123,7 @@ export class FileUri extends BaseUri {
     override matchesRegex(regex: RegExp): boolean {
         // Compare the regex to our path but normalize it for comparison.
         // The regex assumes it's comparing itself to a URI path.
-        const path = this.normalizeSlashes(this._filePath);
-        return regex.test(path);
+        return regex.test(this._getNormalizedPath());
     }
 
     override toString(): string {
@@ -184,7 +184,7 @@ export class FileUri extends BaseUri {
         return this._filePath.length;
     }
     override getPath(): string {
-        return this.normalizeSlashes(this._filePath);
+        return this._getNormalizedPath();
     }
     override getFilePath(): string {
         return this._filePath;
@@ -243,6 +243,10 @@ export class FileUri extends BaseUri {
         return FileUri.createFileUri(this._filePath, this._query, fragment, undefined, this._isCaseSensitive);
     }
 
+    withQuery(query: string): Uri {
+        return FileUri.createFileUri(this._filePath, query, this._fragment, undefined, this._isCaseSensitive);
+    }
+
     override stripExtension(): Uri {
         const stripped = stripFileExtension(this._filePath);
         if (stripped !== this._filePath) {
@@ -274,10 +278,17 @@ export class FileUri extends BaseUri {
     }
 
     protected override getComparablePath(): string {
-        return normalizeSlashes(this._filePath);
+        return this._getNormalizedPath();
     }
 
     private static _createKey(filePath: string, query: string, fragment: string) {
         return `${filePath}${query ? '?' + query : ''}${fragment ? '#' + fragment : ''}`;
+    }
+
+    private _getNormalizedPath(): string {
+        if (this._normalizedPath === undefined) {
+            this._normalizedPath = this.normalizeSlashes(this._filePath);
+        }
+        return this._normalizedPath;
     }
 }

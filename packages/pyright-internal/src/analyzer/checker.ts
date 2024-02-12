@@ -3064,16 +3064,23 @@ export class Checker extends ParseTreeWalker {
                 // verify that there is an implementation.
                 if (!this._fileInfo.isStubFile && overloadedFunctions.length > 0) {
                     let implementationFunction: FunctionType | undefined;
+                    let exemptMissingImplementation = false;
 
-                    if (isOverloadedFunction(type) && OverloadedFunctionType.getImplementation(type)) {
+                    if (isOverloadedFunction(type)) {
                         implementationFunction = OverloadedFunctionType.getImplementation(type);
+
+                        // If the implementation has no name, it was synthesized probably by a
+                        // decorator that used a callable with a ParamSpec that captured the
+                        // overloaded signature. We'll exempt it from this check.
+                        const overloads = OverloadedFunctionType.getOverloads(type);
+                        if (overloads.length > 0 && overloads[0].details.name === '') {
+                            exemptMissingImplementation = true;
+                        }
                     } else if (isFunction(type) && !FunctionType.isOverloaded(type)) {
                         implementationFunction = type;
                     }
 
                     if (!implementationFunction) {
-                        let exemptMissingImplementation = false;
-
                         const containingClassNode = ParseTreeUtils.getEnclosingClassOrFunction(primaryDecl.node);
                         if (containingClassNode && containingClassNode.nodeType === ParseNodeType.Class) {
                             const classType = this._evaluator.getTypeOfClass(containingClassNode);
