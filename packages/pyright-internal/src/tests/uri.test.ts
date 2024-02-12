@@ -117,6 +117,21 @@ test('fragment', () => {
     assert.equal(fragment6, '');
 });
 
+test('query', () => {
+    const query = Uri.parse('foo:///a/b/c?bar', true).query;
+    assert.equal(query, 'bar');
+    const query2 = Uri.parse('foo:///a/b/c?bar?baz', true).query;
+    assert.equal(query2, 'bar?baz');
+    const query3 = Uri.parse('foo:///a/b/c?bar?baz#fragment', true).query;
+    assert.equal(query3, 'bar?baz');
+    const query4 = Uri.parse('foo:///a/b/c#fragment', true).query;
+    assert.equal(query4, '');
+    const query5 = Uri.parse('foo:///a/b/c', true).withQuery('bar').query;
+    assert.equal(query5, 'bar');
+    const query6 = Uri.parse('foo:///a/b/c?bar', true).withQuery('').query;
+    assert.equal(query6, '');
+});
+
 test('containsExtension', () => {
     const uri1 = Uri.parse('foo:///a/b/c.py', true);
     assert.ok(uri1.containsExtension('.py'));
@@ -250,6 +265,12 @@ test('replaceExtension', () => {
     const uri5 = Uri.parse('file:///a/b/c.foo.py', true);
     const uri6 = uri5.replaceExtension('.pyi');
     assert.equal(uri6.toString(), 'file:///a/b/c.foo.pyi');
+    const uri7 = Uri.parse('memfs:/notebook.ipynb.py?query#fragment', true);
+    const uri8 = uri7.replaceExtension('');
+    assert.equal(uri8.toString(), 'memfs:/notebook.ipynb');
+    const uri9 = Uri.parse('untitled:Untitled-1.ipynb.py?query#fragment', true);
+    const uri10 = uri9.replaceExtension('');
+    assert.equal(uri10.toString(), 'untitled:Untitled-1.ipynb');
 });
 
 test('addExtension', () => {
@@ -267,7 +288,7 @@ test('addPath', () => {
     assert.equal(uri2.toString(), 'file:///a/b/c.pyid');
 });
 
-test('directory', () => {
+test('getDirectory', () => {
     const uri = Uri.parse('file:///a/b/c.pyi?query#fragment', true);
     const uri2 = uri.getDirectory();
     assert.equal(uri2.toString(), 'file:///a/b');
@@ -278,6 +299,14 @@ test('directory', () => {
     assert.equal(uri5.toString(), 'file:///a');
     const uri6 = uri4.getDirectory();
     assert.ok(uri6.equals(uri5));
+    const uri7 = uri5.getDirectory();
+    assert.equal(uri7.toString(), 'file:///');
+    const uri8 = Uri.parse('memfs:/a', true);
+    const uri9 = uri8.getDirectory();
+    assert.equal(uri9.toString(), 'memfs:/');
+    const uri10 = Uri.parse('untitled:a', true);
+    const uri11 = uri10.getDirectory();
+    assert.equal(uri11.toString(), 'untitled:');
 });
 
 test('init and pytyped', () => {
@@ -562,6 +591,14 @@ test('getRelativePathComponents6', () => {
     assert.equal(components.length, 2);
     assert.equal(components[0], '..');
     assert.equal(components[1], 'foo');
+});
+
+test('getRelativePathComponents7', () => {
+    const components = Uri.file('\\\\SERVER\\share\\users', false).getRelativePathComponents(
+        Uri.file('\\\\server\\ShArE\\users\\bar', false)
+    );
+    assert.equal(components.length, 1);
+    assert.equal(components[0], 'bar');
 });
 
 test('getFileExtension1', () => {
