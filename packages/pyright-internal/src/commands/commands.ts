@@ -18,4 +18,5 @@ export const enum Commands {
     dumpTypes = 'basedpyright.dumpTypes',
     dumpCachedTypes = 'basedpyright.dumpCachedTypes',
     dumpCodeFlowGraph = 'basedpyright.dumpCodeFlowGraph',
+    import = 'basedpyright.import',
 }

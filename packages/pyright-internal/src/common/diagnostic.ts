@@ -79,6 +79,10 @@ export interface RenameShadowedFileAction extends DiagnosticAction {
     newUri: Uri;
 }
 
+export interface ImportAction extends DiagnosticAction {
+    action: Commands.import;
+}
+
 export interface DiagnosticRelatedInfo {
     message: string;
     uri: Uri;

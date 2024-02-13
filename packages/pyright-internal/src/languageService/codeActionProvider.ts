@@ -15,9 +15,10 @@ import { ActionKind, CreateTypeStubFileAction, RenameShadowedFileAction } from '
 import { FileEditActions } from '../common/editAction';
 import { Range } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
-import { convertToWorkspaceEdit } from '../common/workspaceEditUtils';
+import { convertToFileTextEdits, convertToTextEditActions, convertToWorkspaceEdit } from '../common/workspaceEditUtils';
 import { Localizer } from '../localization/localize';
 import { Workspace } from '../workspaceFactory';
+import { CompletionProvider } from './completionProvider';
 
 export class CodeActionProvider {
     static mightSupport(kinds: CodeActionKind[] | undefined): boolean {
@@ -97,6 +98,37 @@ export class CodeActionProvider {
                     const workspaceEdit = convertToWorkspaceEdit(workspace.service.fs, editActions);
                     const renameAction = CodeAction.create(title, workspaceEdit, CodeActionKind.QuickFix);
                     codeActions.push(renameAction);
+                }
+            }
+            if (diags.find((d) => d.getActions()?.some((action) => action.action === Commands.import))?.getActions()) {
+                const completer = new CompletionProvider(
+                    workspace.service.backgroundAnalysisProgram.program,
+                    fileUri,
+                    range.start,
+                    {
+                        format: 'plaintext',
+                        lazyEdit: false,
+                        snippet: false,
+                    },
+                    token
+                );
+                for (const suggestedImport of completer.getCompletions()?.items ?? []) {
+                    completer.resolveCompletionItem(suggestedImport);
+                    const textEdit = completer.itemToResolve?.additionalTextEdits;
+                    if (textEdit === undefined) {
+                        continue;
+                    }
+                    const workspaceEdit = convertToWorkspaceEdit(
+                        completer.importResolver.fileSystem,
+                        convertToFileTextEdits(fileUri, convertToTextEditActions(textEdit))
+                    );
+                    codeActions.push(
+                        CodeAction.create(
+                            suggestedImport.data.autoImportText.trim(),
+                            workspaceEdit,
+                            CodeActionKind.QuickFix
+                        )
+                    );
                 }
             }
         }

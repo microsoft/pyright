@@ -337,6 +337,7 @@ import {
     removeFromUnion,
     removeUnbound,
 } from './types';
+import { Commands } from '../commands/commands';
 
 interface GetTypeArgsOptions {
     isAnnotatedClass?: boolean;
@@ -4517,8 +4518,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         DiagnosticRule.reportUndefinedVariable,
                         LocMessage.symbolIsUndefined().format({ name }),
                         node
-                    );
-
+                    )?.addAction({ action: Commands.import });
                     type = UnknownType.create();
                 }
             }

@@ -283,7 +283,7 @@ export class CompletionProvider {
 
     // If we're being asked to resolve a completion item, we run the
     // original completion algorithm and look for this symbol.
-    protected itemToResolve: CompletionItem | undefined;
+    itemToResolve: CompletionItem | undefined;
 
     constructor(
         protected readonly program: ProgramView,
@@ -296,6 +296,10 @@ export class CompletionProvider {
 
         this.parseResults = this.program.getParseResults(this.fileUri)!;
         this.sourceMapper = this.program.getSourceMapper(this.fileUri, this.cancellationToken, /* mapCompiled */ true);
+    }
+
+    get importResolver() {
+        return this.program.importResolver;
     }
 
     getCompletions(): CompletionList | null {
@@ -395,10 +399,6 @@ export class CompletionProvider {
 
     protected get evaluator() {
         return this.program.evaluator!;
-    }
-
-    protected get importResolver() {
-        return this.program.importResolver;
     }
 
     protected get configOptions() {

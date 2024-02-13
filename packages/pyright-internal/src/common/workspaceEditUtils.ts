@@ -37,6 +37,12 @@ export function convertToTextEdits(editActions: TextEditAction[]): TextEdit[] {
     }));
 }
 
+export const convertToTextEditActions = (textEdits: TextEdit[]): TextEditAction[] =>
+    textEdits.map((editAction) => ({
+        range: editAction.range,
+        replacementText: editAction.newText,
+    }));
+
 export function convertToFileTextEdits(fileUri: Uri, editActions: TextEditAction[]): FileEditAction[] {
     return editActions.map((a) => ({ fileUri, ...a }));
 }
