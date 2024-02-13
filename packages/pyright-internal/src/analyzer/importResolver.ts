@@ -25,7 +25,7 @@ import { getFileSystemEntriesFromDirEntries, isDirectory, isFile, tryRealpath, t
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';
-import { ImportPath, ParentDirectoryCache } from './parentDirectoryCache';
+import { ParentDirectoryCache } from './parentDirectoryCache';
 import { PyTypedInfo, getPyTypedInfo } from './pyTypedUtils';
 import * as PythonPathUtils from './pythonPathUtils';
 import * as SymbolNameUtils from './symbolNameUtils';
@@ -535,75 +535,7 @@ export class ImportResolver {
     ): ImportResult {
         const importName = this.formatImportName(moduleDescriptor);
         const importFailureInfo: string[] = [];
-        const importResult = this._resolveImportStrict(
-            importName,
-            sourceFileUri,
-            execEnv,
-            moduleDescriptor,
-            importFailureInfo
-        );
-
-        if (importResult.isImportFound || moduleDescriptor.leadingDots > 0) {
-            return importResult;
-        }
-
-        // If the import is absolute and no other method works, try resolving the
-        // absolute in the importing file's directory, then the parent directory,
-        // and so on, until the import root is reached.
-        const origin = sourceFileUri.getDirectory();
-
-        const result = this.cachedParentImportResults.getImportResult(origin, importName, importResult);
-        if (result) {
-            // Already ran the parent directory resolution for this import name on this location.
-            return this.filterImplicitImports(result, moduleDescriptor.importedSymbols);
-        }
-
-        // Check whether the given file is in the parent directory import resolution cache.
-        const root = this.getParentImportResolutionRoot(sourceFileUri, execEnv.root);
-        if (!this.cachedParentImportResults.checkValidPath(this.fileSystem, sourceFileUri, root)) {
-            return importResult;
-        }
-
-        const importPath: ImportPath = { importPath: undefined };
-
-        // Going up the given folder one by one until we can resolve the import.
-        let current: Uri | undefined = origin;
-        while (this._shouldWalkUp(current, root, execEnv) && current) {
-            const result = this.resolveAbsoluteImport(
-                sourceFileUri,
-                current,
-                execEnv,
-                moduleDescriptor,
-                importName,
-                [],
-                /* allowPartial */ undefined,
-                /* allowNativeLib */ undefined,
-                /* useStubPackage */ false,
-                /* allowPyi */ true
-            );
-
-            this.cachedParentImportResults.checked(current!, importName, importPath);
-
-            if (result.isImportFound) {
-                // This will make cache to point to actual path that contains the module we found
-                importPath.importPath = current;
-
-                this.cachedParentImportResults.add({
-                    importResult: result,
-                    path: current,
-                    importName,
-                });
-
-                return this.filterImplicitImports(result, moduleDescriptor.importedSymbols);
-            }
-
-            current = this._tryWalkUp(current);
-        }
-
-        if (current) {
-            this.cachedParentImportResults.checked(current, importName, importPath);
-        }
-        return importResult;
+        return this._resolveImportStrict(importName, sourceFileUri, execEnv, moduleDescriptor, importFailureInfo);
     }
 
     protected fileExistsCached(uri: Uri): boolean {
