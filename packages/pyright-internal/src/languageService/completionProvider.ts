@@ -489,7 +489,7 @@ export class CompletionProvider {
                     const isDeclaredStaticMethod =
                         isFunction(declaredType) && FunctionType.isStaticMethod(declaredType);
 
-                    // Special-case the "__init__subclass__" method because it's an implicit
+                    // Special-case the "__init_subclass__" method because it's an implicit
                     // classmethod that the type evaluator flags as a real classmethod.
                     const isDeclaredClassMethod =
                         isFunction(declaredType) &&

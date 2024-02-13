@@ -516,9 +516,14 @@ export function getTypeOfEnumMember(
         // it may implement some magic that computes different values for
         // the "_value_" attribute. If we see a customer __new__ or __init__,
         // we'll assume the value type is what we computed above, or Any.
-        const newMember = lookUpClassMember(classType, '__new__', MemberAccessFlags.SkipBaseClasses);
-        const initMember = lookUpClassMember(classType, '__init__', MemberAccessFlags.SkipBaseClasses);
-        if (newMember || initMember) {
+        const newMember = lookUpClassMember(classType, '__new__', MemberAccessFlags.SkipObjectBaseClass);
+        const initMember = lookUpClassMember(classType, '__init__', MemberAccessFlags.SkipObjectBaseClass);
+
+        if (newMember && isClass(newMember.classType) && !ClassType.isBuiltIn(newMember.classType)) {
+            return { type: valueType ?? AnyType.create(), isIncomplete };
+        }
+
+        if (initMember && isClass(initMember.classType) && !ClassType.isBuiltIn(initMember.classType)) {
             return { type: valueType ?? AnyType.create(), isIncomplete };
         }
 
