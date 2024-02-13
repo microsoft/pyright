@@ -25,7 +25,7 @@ import { getFileSystemEntriesFromDirEntries, isDirectory, isFile, tryRealpath, t
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';
-import { ParentDirectoryCache } from './parentDirectoryCache';
+import { ImportPath, ParentDirectoryCache } from './parentDirectoryCache';
 import { PyTypedInfo, getPyTypedInfo } from './pyTypedUtils';
 import * as PythonPathUtils from './pythonPathUtils';
 import * as SymbolNameUtils from './symbolNameUtils';
@@ -535,7 +535,78 @@ export class ImportResolver {
     ): ImportResult {
         const importName = this.formatImportName(moduleDescriptor);
         const importFailureInfo: string[] = [];
-        return this._resolveImportStrict(importName, sourceFileUri, execEnv, moduleDescriptor, importFailureInfo);
+        const importResult = this._resolveImportStrict(
+            importName,
+            sourceFileUri,
+            execEnv,
+            moduleDescriptor,
+            importFailureInfo
+        );
+
+        if (importResult.isImportFound || moduleDescriptor.leadingDots > 0) {
+            return importResult;
+        }
+
+        // If the import is absolute and no other method works, try resolving the
+        // absolute in the importing file's directory, then the parent directory,
+        // and so on, until the import root is reached.
+        const origin = sourceFileUri.getDirectory();
+
+        const result = this.cachedParentImportResults.getImportResult(origin, importName, importResult);
+        if (result) {
+            // Already ran the parent directory resolution for this import name on this location.
+            return this.filterImplicitImports(result, moduleDescriptor.importedSymbols);
+        }
+
+        // Check whether the given file is in the parent directory import resolution cache.
+        const root = this.getParentImportResolutionRoot(sourceFileUri, execEnv.root);
+        if (!this.cachedParentImportResults.checkValidPath(this.fileSystem, sourceFileUri, root)) {
+            return importResult;
+        }
+
+        const importPath: ImportPath = { importPath: undefined };
+
+        // Going up the given folder one by one until we can resolve the import.
+        let current: Uri | undefined = origin;
+        while (this._shouldWalkUp(current, root, execEnv) && current) {
+            const result = this.resolveAbsoluteImport(
+                sourceFileUri,
+                current,
+                execEnv,
+                moduleDescriptor,
+                importName,
+                [],
+                /* allowPartial */ undefined,
+                /* allowNativeLib */ undefined,
+                /* useStubPackage */ false,
+                /* allowPyi */ true
+            );
+
+            this.cachedParentImportResults.checked(current!, importName, importPath);
+
+            // TODO: figure out how namespace packages work. we disable this stupid fake relative import functionality because it's wrong
+            //  (https://github.com/DetachHead/basedpyright/issues/76) but it seems like stub imports and some mysterious namespace package
+            //  functionality rely on this behavior. so for now i'm just disabling it for everything except namespace packages & stub files
+            if (result.isImportFound && (result.isNamespacePackage || result.isStubFile)) {
+                // This will make cache to point to actual path that contains the module we found
+                importPath.importPath = current;
+
+                this.cachedParentImportResults.add({
+                    importResult: result,
+                    path: current,
+                    importName,
+                });
+
+                return this.filterImplicitImports(result, moduleDescriptor.importedSymbols);
+            }
+
+            current = this._tryWalkUp(current);
+        }
+
+        if (current) {
+            this.cachedParentImportResults.checked(current, importName, importPath);
+        }
+        return importResult;
     }
 
     protected fileExistsCached(uri: Uri): boolean {
