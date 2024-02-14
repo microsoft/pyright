@@ -70,7 +70,7 @@ pyright allows invalid imports such as this:
 ```
 ```py
 # ./module_name/bar.py:
-import foo # wrong! should be `import modulename.foo` or `from modulename import foo`
+import foo # wrong! should be `import module_name.foo` or `from module_name import foo`
 ```
 
 this may look correct at first glance, and will work when running `bar.py` directly as a script, but when it's imported as a module, it will crash:
