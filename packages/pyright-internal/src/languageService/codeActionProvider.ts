@@ -113,6 +113,9 @@ export class CodeActionProvider {
                     token
                 );
                 for (const suggestedImport of completer.getCompletions()?.items ?? []) {
+                    if (!suggestedImport.data) {
+                        continue;
+                    }
                     completer.resolveCompletionItem(suggestedImport);
                     const textEdit = completer.itemToResolve?.additionalTextEdits;
                     if (textEdit === undefined) {
