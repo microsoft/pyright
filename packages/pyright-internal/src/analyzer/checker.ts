@@ -4813,14 +4813,17 @@ export class Checker extends ParseTreeWalker {
                     // If the parent class is a named tuple, all instance variables
                     // (other than dundered ones) are implicitly final.
                     const decl = localSymbol.getDeclarations()[0];
-                    this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportIncompatibleVariableOverride,
-                        LocMessage.namedTupleEntryRedeclared().format({
-                            name,
-                            className: parentSymbol.classType.details.name,
-                        }),
-                        decl.node
-                    );
+
+                    if (decl.type === DeclarationType.Variable) {
+                        this._evaluator.addDiagnostic(
+                            DiagnosticRule.reportIncompatibleVariableOverride,
+                            LocMessage.namedTupleEntryRedeclared().format({
+                                name,
+                                className: parentSymbol.classType.details.name,
+                            }),
+                            decl.node
+                        );
+                    }
                 }
             }
         });
@@ -4838,18 +4841,33 @@ export class Checker extends ParseTreeWalker {
 
         // Is there a custom "__new__" and/or "__init__" method? If so, we'll
         // verify that the signature of these calls is compatible with the values.
-        const newMemberTypeResult = getBoundNewMethod(
+        let newMemberTypeResult = getBoundNewMethod(
             this._evaluator,
             node.name,
             classType,
-            MemberAccessFlags.SkipBaseClasses
+            MemberAccessFlags.SkipObjectBaseClass
         );
-        const initMemberTypeResult = getBoundInitMethod(
+
+        // If this __new__ comes from a built-in class like Enum, we'll ignore it.
+        if (newMemberTypeResult?.classType) {
+            if (isClass(newMemberTypeResult.classType) && ClassType.isBuiltIn(newMemberTypeResult.classType)) {
+                newMemberTypeResult = undefined;
+            }
+        }
+
+        let initMemberTypeResult = getBoundInitMethod(
             this._evaluator,
             node.name,
             ClassType.cloneAsInstance(classType),
-            MemberAccessFlags.SkipBaseClasses
+            MemberAccessFlags.SkipObjectBaseClass
         );
+
+        // If this __init__ comes from a built-in class like Enum, we'll ignore it.
+        if (initMemberTypeResult?.classType) {
+            if (isClass(initMemberTypeResult.classType) && ClassType.isBuiltIn(initMemberTypeResult.classType)) {
+                initMemberTypeResult = undefined;
+            }
+        }
 
         classType.details.fields.forEach((symbol, name) => {
             // Enum members don't have type annotations.
