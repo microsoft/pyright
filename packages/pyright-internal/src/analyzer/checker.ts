@@ -49,6 +49,7 @@ import {
     ImportAsNode,
     ImportFromAsNode,
     ImportFromNode,
+    ImportNode,
     IndexNode,
     LambdaNode,
     ListComprehensionIfNode,
@@ -6993,43 +6994,39 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _reportDuplicateImports() {
-        const importStatements = getTopLevelImports(this._moduleNode);
-
-        const importModuleMap = new Map<string, ImportAsNode>();
-
-        importStatements.orderedImports.forEach((importStatement) => {
+        const importedNames: string[] = [];
+        getTopLevelImports(this._moduleNode).orderedImports.forEach((importStatement) => {
             if (importStatement.node.nodeType === ParseNodeType.ImportFrom) {
-                const symbolMap = new Map<string, ImportFromAsNode>();
-
                 importStatement.node.imports.forEach((importFromAs) => {
-                    // Ignore duplicates if they're aliased.
-                    if (!importFromAs.alias) {
-                        const prevImport = symbolMap.get(importFromAs.name.value);
-                        if (prevImport) {
-                            this._evaluator.addDiagnostic(
-                                DiagnosticRule.reportDuplicateImport,
-                                LocMessage.duplicateImport().format({ importName: importFromAs.name.value }),
-                                importFromAs.name
-                            );
-                        } else {
-                            symbolMap.set(importFromAs.name.value, importFromAs);
-                        }
-                    }
-                });
-            } else if (importStatement.subnode) {
-                // Ignore duplicates if they're aliased.
-                if (!importStatement.subnode.alias) {
-                    const prevImport = importModuleMap.get(importStatement.moduleName);
-                    if (prevImport) {
+                    const node = importFromAs.alias ?? importFromAs.name;
+                    const name = node.value;
+                    if (importedNames.includes(name)) {
                         this._evaluator.addDiagnostic(
                             DiagnosticRule.reportDuplicateImport,
-                            LocMessage.duplicateImport().format({ importName: importStatement.moduleName }),
-                            importStatement.subnode
+                            LocMessage.duplicateImport().format({ importName: name }),
+                            node
                         );
-                    } else {
-                        importModuleMap.set(importStatement.moduleName, importStatement.subnode);
                     }
+                    importedNames.push(name);
+                });
+            } else if (importStatement.subnode) {
+                let node: NameNode | ImportNode;
+                let name: string;
+                if (importStatement.subnode.alias) {
+                    node = importStatement.subnode.alias;
+                    name = node.value;
+                } else {
+                    node = importStatement.node;
+                    name = importStatement.moduleName;
                 }
+                if (importedNames.includes(name)) {
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportDuplicateImport,
+                        LocMessage.duplicateImport().format({ importName: name }),
+                        node
+                    );
+                }
+                importedNames.push(name);
             }
         });
     }
