@@ -4783,14 +4783,17 @@ export class Checker extends ParseTreeWalker {
                     // If the parent class is a named tuple, all instance variables
                     // (other than dundered ones) are implicitly final.
                     const decl = localSymbol.getDeclarations()[0];
-                    this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportIncompatibleVariableOverride,
-                        LocMessage.namedTupleEntryRedeclared().format({
-                            name,
-                            className: parentSymbol.classType.details.name,
-                        }),
-                        decl.node
-                    );
+
+                    if (decl.type === DeclarationType.Variable) {
+                        this._evaluator.addDiagnostic(
+                            DiagnosticRule.reportIncompatibleVariableOverride,
+                            LocMessage.namedTupleEntryRedeclared().format({
+                                name,
+                                className: parentSymbol.classType.details.name,
+                            }),
+                            decl.node
+                        );
+                    }
                 }
             }
         });
