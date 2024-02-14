@@ -2,6 +2,15 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Pyright current file",
+            "type": "node",
+            "request": "launch",
+            "preLaunchTask": "npm: build:cli:dev",
+            "console": "integratedTerminal",
+            "program": "${workspaceFolder}/packages/pyright/index.js",
+            "args": ["${file}"]
+        },
+        {
             "name": "Pyright tests",
             "type": "node",
             "request": "launch",
