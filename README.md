@@ -54,6 +54,36 @@ def foo(bar, baz: Any) -> Any:
 
 basedpyright introduces the `reportAny` option, which will report an error on usages of anything typed as `Any`.
 
+### pylance exclusive features
+
+pyright does not support code actions for import suggestions, [because that feature is exclusive to the closed-source pylance extension](https://github.com/microsoft/pyright/issues/4263#issuecomment-1333987645). basedpyright re-implements this feature in its language server:
+
+![image](https://github.com/DetachHead/basedpyright/assets/57028336/a3e8a506-5682-4230-a43c-e815c84889c0)
+
+for more information about the differences between pyright and pylance, see [here](#pylance-vs-basedpyright)
+
+### pyright treats non-relative imports as relative
+
+pyright allows invalid imports such as this:
+```py
+# ./module_name/foo.py:
+```
+```py
+# ./module_name/bar.py:
+import foo # wrong! should be `import modulename.foo` or `from modulename import foo`
+```
+
+this may look correct at first glance, and will work when running `bar.py` directly as a script, but when it's imported as a module, it will crash:
+```py
+# ./main.py:
+import module_name.bar  # ModuleNotFoundError: No module named 'foo' 
+```
+basedpyright bans imports like this. if you want to do a relative import, the correct way to do it is by prefixing the module name with a `.`:
+```py
+# ./module_name/bar.py:
+import .foo
+```
+
 ### basedmypy feature parity
 
 [basedmypy](https://github.com/kotlinisland/basedmypy) is a fork of mypy with a similar goal in mind: to fix some of the serious problems in mypy that do not seem to be a priority for the maintainers. it also adds many new features which may not be standardized but greatly improve the developer experience when working with python's far-from-perfect type system.
@@ -104,9 +134,9 @@ the basedpyright vscode extension will automatically look for the pypi package i
 
 ## pylance vs basedpyright
 
-the pylance extension is an optional wrapper on top of the pyright language server with some additional functionality ([see the pylance FAQ for more information](https://github.com/microsoft/pylance-release/blob/main/FAQ.md#what-features-are-in-pylance-but-not-in-pyright-what-is-the-difference-exactly)). normally when the pylance extension is enabled, the pyright extension will disable itself to avoid conflicting with it. unfortunately since it's closed-source, there's no way for us to update it to use basedpyright instead.
+the pylance extension is a closed-source vscode extension built on top of the pyright language server with some additional excludive functionality ([see the pylance FAQ for more information](https://github.com/microsoft/pylance-release/blob/main/FAQ.md#what-features-are-in-pylance-but-not-in-pyright-what-is-the-difference-exactly)). normally when the pylance extension is enabled, the pyright extension will disable itself to avoid conflicting with it. unfortunately since it's closed-source, there's no way for us to update it to use basedpyright instead. so we intend to re-implement its exclusive features in basedpyright.
 
-if you don't depend on any pylance features, the recommended solution is to disable/uninstall the pylance extension.
+if you don't depend on any pylance-exclusive features, the recommended solution is to disable/uninstall the pylance extension.
 
 if you do want to continue using pylance, all of the options and commands in basedpyright have been renamed to avoid any conflicts with the pylance extension, and the restriction that prevents both extensions from being enabled at the same time has been removed. for an optimal experience you should disable pylance's type checking and disable basedpyright's language server features. see [the recommended setup section below](#if-using-pylance) for details.
 
