@@ -134,7 +134,7 @@ the basedpyright vscode extension will automatically look for the pypi package i
 
 ## pylance vs basedpyright
 
-the pylance extension is a closed-source vscode extension built on top of the pyright language server with some additional excludive functionality ([see the pylance FAQ for more information](https://github.com/microsoft/pylance-release/blob/main/FAQ.md#what-features-are-in-pylance-but-not-in-pyright-what-is-the-difference-exactly)). normally when the pylance extension is enabled, the pyright extension will disable itself to avoid conflicting with it. unfortunately since it's closed-source, there's no way for us to update it to use basedpyright instead. so we intend to re-implement its exclusive features in basedpyright.
+the pylance extension is microsoft's closed-source vscode extension built on top of the pyright language server with some additional exclusive functionality ([see the pylance FAQ for more information](https://github.com/microsoft/pylance-release/blob/main/FAQ.md#what-features-are-in-pylance-but-not-in-pyright-what-is-the-difference-exactly)). normally when the pylance extension is enabled, the pyright extension will disable itself to avoid conflicting with it. unfortunately since it's closed-source, there's no way for us to update it to use basedpyright instead. so we intend to re-implement its exclusive features in basedpyright.
 
 if you don't depend on any pylance-exclusive features, the recommended solution is to disable/uninstall the pylance extension.
 
