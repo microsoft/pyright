@@ -10,6 +10,7 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { PythonVersion } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
@@ -371,6 +372,18 @@ test('DuplicateImports1', () => {
     configOptions.diagnosticRuleSet.reportDuplicateImport = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['duplicateImports1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('DuplicateImports2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportDuplicateImport = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['duplicateImports2.py'], configOptions);
+    TestUtils.validateResultsButBased(analysisResults, {
+        errors: [
+            { line: 1, code: DiagnosticRule.reportDuplicateImport },
+            { line: 5, code: DiagnosticRule.reportDuplicateImport },
+        ],
+    });
 });
 
 test('ParamNames1', () => {
