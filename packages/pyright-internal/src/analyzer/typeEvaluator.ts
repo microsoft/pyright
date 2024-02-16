@@ -15656,14 +15656,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // If this is an enum, transform the type as required.
                 rightHandType = srcType;
-                if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
+
+                let targetName: NameNode | undefined;
+                if (node.leftExpression.nodeType === ParseNodeType.Name) {
+                    targetName = node.leftExpression;
+                } else if (
+                    node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
+                    node.leftExpression.valueExpression.nodeType === ParseNodeType.Name
+                ) {
+                    targetName = node.leftExpression.valueExpression;
+                }
+
+                if (targetName) {
                     rightHandType =
-                        transformTypeForPossibleEnumClass(
-                            evaluatorInterface,
-                            node,
-                            node.leftExpression,
-                            () => rightHandType!
-                        ) ?? rightHandType;
+                        transformTypeForPossibleEnumClass(evaluatorInterface, node, targetName, () => {
+                            return { assignedType: rightHandType };
+                        }) ?? rightHandType;
                 }
 
                 if (typeAliasNameNode) {
@@ -17176,8 +17184,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // In case this is an enum class and a method wrapped in an enum.member.
         decoratedType =
-            transformTypeForPossibleEnumClass(evaluatorInterface, node, node.name, () => decoratedType!) ??
-            decoratedType;
+            transformTypeForPossibleEnumClass(evaluatorInterface, node, node.name, () => {
+                return { assignedType: decoratedType };
+            }) ?? decoratedType;
 
         // See if there are any overloads provided by previous function declarations.
         if (isFunction(decoratedType)) {
@@ -20529,7 +20538,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         evaluatorInterface,
                                         variableNode,
                                         declaration.node,
-                                        () => declaredType!
+                                        () => {
+                                            return { declaredType };
+                                        }
                                     ) ?? declaredType;
                             }
                         }
@@ -20856,11 +20867,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         () => {
                             assert(resolvedDecl.inferredTypeSource !== undefined);
                             const inferredTypeSource = resolvedDecl.inferredTypeSource;
-                            return (
-                                evaluateTypeForSubnode(inferredTypeSource, () => {
-                                    evaluateTypesForStatement(inferredTypeSource);
-                                })?.type ?? UnknownType.create()
-                            );
+                            return {
+                                assignedType:
+                                    evaluateTypeForSubnode(inferredTypeSource, () => {
+                                        evaluateTypesForStatement(inferredTypeSource);
+                                    })?.type ?? UnknownType.create(),
+                            };
                         }
                     );
 
