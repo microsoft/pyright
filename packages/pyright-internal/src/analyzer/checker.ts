@@ -3429,17 +3429,9 @@ export class Checker extends ParseTreeWalker {
                     }
                 }
             } else if (otherDecl.type === DeclarationType.Variable) {
-                const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl)?.type;
-
                 if (otherDecl.typeAnnotationNode) {
                     if (otherDecl.node.nodeType === ParseNodeType.Name) {
                         let duplicateIsOk = false;
-
-                        // It's OK if they both have the same declared type.
-                        const otherType = this._evaluator.getTypeForDeclaration(otherDecl)?.type;
-                        if (primaryType && otherType && isTypeSame(primaryType, otherType)) {
-                            duplicateIsOk = true;
-                        }
 
                         if (primaryDecl.type === DeclarationType.TypeParameter) {
                             // The error will be reported elsewhere if a type parameter is
