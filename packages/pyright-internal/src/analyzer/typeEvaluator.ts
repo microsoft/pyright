@@ -7337,7 +7337,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // which type to use.
         if (keywordArgs.length === 0 && unpackedDictArgs.length === 0 && positionalArgs.length === 1) {
             useSpeculativeMode(node, () => {
-                callResult = validateCallArguments(node, argList, { type: itemMethodType });
+                callResult = validateCallArguments(
+                    node,
+                    argList,
+                    { type: itemMethodType },
+                    /* typeVarContext */ undefined,
+                    /* skipUnknownArgCheck */ true
+                );
 
                 if (callResult.argumentErrors) {
                     // If the object supports "__index__" magic method, convert
@@ -7365,7 +7371,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        callResult = validateCallArguments(node, argList, { type: itemMethodType });
+        callResult = validateCallArguments(
+            node,
+            argList,
+            { type: itemMethodType },
+            /* typeVarContext */ undefined,
+            /* skipUnknownArgCheck */ true
+        );
 
         return {
             type: callResult.returnType ?? UnknownType.create(),
