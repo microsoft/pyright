@@ -12529,7 +12529,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ).type;
 
                 if (isTypeVar(entryType)) {
-                    if (entryType.scopeId) {
+                    if (entryType.scopeId || entryType.isVariadicUnpacked) {
                         isTypeParamListValid = false;
                     } else {
                         entryType = TypeVarType.cloneForScopeId(
