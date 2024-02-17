@@ -737,7 +737,7 @@ function narrowTypeBasedOnClassPattern(
 
                 if (pattern.arguments.length === 0) {
                     if (isClass(classInstance) && isClass(subjectSubtypeExpanded)) {
-                        if (ClassType.isSameGenericClass(classInstance, subjectSubtypeExpanded)) {
+                        if (ClassType.isDerivedFrom(subjectSubtypeExpanded, classInstance)) {
                             // We know that this match will always succeed, so we can
                             // eliminate this subtype.
                             return undefined;
