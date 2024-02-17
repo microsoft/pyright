@@ -22150,13 +22150,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             destTypeArgs.splice(destTypeArgs.length - 1, 1);
         }
 
-        if (srcVariadicIndex >= 0) {
+        // If we're doing reverse type mappings and the source contains a variadic
+        // TypeVar, we need to adjust the dest so the reverse type mapping assignment
+        // can be performed.
+        if ((flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0) {
             const destArgsToCapture = destTypeArgs.length - srcTypeArgs.length + 1;
 
-            // If we're doing reverse type mappings and the source contains a variadic
-            // TypeVar, we need to adjust the dest so the reverse type mapping assignment
-            // can be performed.
-            if (destArgsToCapture >= 0 && (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0) {
+            if (srcVariadicIndex >= 0 && destArgsToCapture >= 0) {
                 // If the only removed arg from the dest type args is itself a variadic,
                 // don't bother adjusting it.
                 const skipAdjustment =
