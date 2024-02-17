@@ -22,12 +22,10 @@ class ClassB(Generic[T]):
     attr_b: str
 
 
-class ClassC:
-    ...
+class ClassC: ...
 
 
-class ClassD(ClassC):
-    ...
+class ClassD(ClassC): ...
 
 
 def test_unknown(value_to_match):
@@ -74,6 +72,15 @@ def test_custom_type(value_to_match: ClassA | ClassB[int] | ClassB[str] | ClassC
         case ClassC() as a8:
             reveal_type(a8, expected_text="ClassC")
             reveal_type(value_to_match, expected_text="ClassC")
+
+
+def test_subclass(value_to_match: ClassD):
+    match value_to_match:
+        case ClassC() as a1:
+            reveal_type(a1, expected_text="ClassD")
+
+        case _ as a2:
+            reveal_type(a2, expected_text="Never")
 
 
 def test_literal(value_to_match: Literal[3]):
@@ -271,16 +278,13 @@ def func7(subj: object):
 T2 = TypeVar("T2")
 
 
-class Parent(Generic[T]):
-    ...
+class Parent(Generic[T]): ...
 
 
-class Child1(Parent[T]):
-    ...
+class Child1(Parent[T]): ...
 
 
-class Child2(Parent[T], Generic[T, T2]):
-    ...
+class Child2(Parent[T], Generic[T, T2]): ...
 
 
 def func8(subj: Parent[int]):
