@@ -52,7 +52,12 @@ export function analyzeProgram(
         moreToAnalyze = program.analyze(maxTime, token);
 
         const filesLeftToAnalyze = program.getFilesToAnalyzeCount();
-        const diagnostics = program.getDiagnostics(configOptions);
+
+        // If we're using command-line mode, the maxTime will be undefined, and we'll
+        // want to report all diagnostics rather than just the ones that have changed.
+        const reportDiagnosticDeltasOnly = maxTime !== undefined;
+
+        const diagnostics = program.getDiagnostics(configOptions, reportDiagnosticDeltasOnly);
         const diagnosticFileCount = diagnostics.length;
         const elapsedTime = duration.getDurationInSeconds();
 

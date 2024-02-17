@@ -884,12 +884,16 @@ export class Program {
         });
     }
 
-    getDiagnostics(options: ConfigOptions): FileDiagnostics[] {
+    getDiagnostics(options: ConfigOptions, reportDeltasOnly = true): FileDiagnostics[] {
         const fileDiagnostics: FileDiagnostics[] = this._removeUnneededFiles();
 
         this._sourceFileList.forEach((sourceFileInfo) => {
             if (this._shouldCheckFile(sourceFileInfo)) {
-                let diagnostics = sourceFileInfo.sourceFile.getDiagnostics(options, sourceFileInfo.diagnosticsVersion);
+                let diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
+                    options,
+                    reportDeltasOnly ? sourceFileInfo.diagnosticsVersion : undefined
+                );
+
                 if (diagnostics !== undefined) {
                     // Filter out all categories that are translated to tagged hints?
                     if (options.disableTaggedHints) {
