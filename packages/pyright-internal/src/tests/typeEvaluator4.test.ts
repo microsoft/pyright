@@ -14,6 +14,7 @@ import { ConfigOptions } from '../common/configOptions';
 import { PythonVersion } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
+import { DiagnosticRule } from '../common/diagnosticRules';
 
 test('Required1', () => {
     // Analyze with Python 3.10 settings.
@@ -367,7 +368,7 @@ test('Final2', () => {
 
 test('Final3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final3.py']);
-    TestUtils.validateResults(analysisResults, 30);
+    TestUtils.validateResults(analysisResults, 31);
 });
 
 test('Final4', () => {
@@ -659,7 +660,9 @@ test('DataClass13', () => {
 test('DataClass14', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass14.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResultsButBased(analysisResults, {
+        errors: [{ line: 9, code: DiagnosticRule.reportRedeclaration }],
+    });
 });
 
 test('DataClass15', () => {

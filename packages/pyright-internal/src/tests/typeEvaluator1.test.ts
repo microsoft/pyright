@@ -927,7 +927,7 @@ test('Annotations3', () => {
 test('Annotations4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations4.py']);
 
-    TestUtils.validateResults(analysisResults, 8);
+    TestUtils.validateResults(analysisResults, 9);
 });
 
 test('Annotations5', () => {
@@ -951,7 +951,7 @@ test('AnnotatedVar1', () => {
 test('AnnotatedVar2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar2.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('AnnotatedVar3', () => {
@@ -963,13 +963,13 @@ test('AnnotatedVar3', () => {
 test('AnnotatedVar4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar4.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('AnnotatedVar5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar5.py']);
 
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('AnnotatedVar6', () => {

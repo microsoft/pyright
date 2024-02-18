@@ -41,6 +41,7 @@ class Foo:
 
     member2: typing.Final[int] = 3
 
+    # this should generate an error because it's a redeclaration
     member4: Final[int]
 
     # This should generate an error because there is

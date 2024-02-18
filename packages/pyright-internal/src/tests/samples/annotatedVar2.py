@@ -10,8 +10,9 @@ glob_var1 = Exception()  # type: str
 
 glob_var1 = Exception()  # type: Exception
 
-# This should generate an error because the assigned
-# type doesn't match the declared type.
+# This should generate two errors: one because the assigned
+# type doesn't match the declared type, and the other because
+# it's a redeclaration
 glob_var1 = "hello"  # type: Exception
 
 # This should generate an error.

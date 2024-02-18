@@ -14,8 +14,9 @@ class ClassC(object):
         pass
 
     def foo(self):
-        # This should generate an error because the assigned
-        # type doesn't match the declared type.
+        # This should generate two errors because the assigned
+        # type doesn't match the declared type, and because it's
+        # redeclared below.
         self.inst_var1 = 3  # type: str
 
         self.inst_var1: str = "hello"

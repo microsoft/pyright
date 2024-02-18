@@ -427,7 +427,7 @@ test('InconsistentSpaceTab2', () => {
 test('DuplicateDeclaration1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['duplicateDeclaration1.py']);
 
-    TestUtils.validateResults(analysisResults, 10);
+    TestUtils.validateResults(analysisResults, 11);
 });
 
 test('DuplicateDeclaration2', () => {

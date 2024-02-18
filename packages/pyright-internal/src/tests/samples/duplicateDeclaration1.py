@@ -13,6 +13,7 @@ class C:
     def f(self):
         return 0
 
+    # This should generate an error.
     def f(self):
         return 1
 

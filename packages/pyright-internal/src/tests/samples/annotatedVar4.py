@@ -6,8 +6,9 @@ class ClassA(object):
     # type doesn't match the latter declared type.
     class_var1 = 4  # type: str
 
-    # This should generate an error because the assigned
-    # value doesn't match the declared type.
+    # This should generate two errors because the assigned
+    # value doesn't match the declared type, and because
+    # it's redeclared
     class_var1 = "hello"  # type: int
 
     class_var1 = 3  # type: int

@@ -24,4 +24,4 @@ root_int: Root[int] = Root[int](lambda x: x << 2)
 root_float: Root[float] = root_int
 
 # This should generate an error.
-root_float: Root[float] = Root[int](lambda x: x << 2)
+root_float2: Root[float] = Root[int](lambda x: x << 2)

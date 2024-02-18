@@ -48,6 +48,7 @@ def my_func(param1: int, param2):
 
 # This should be fine because both declarations of 'e'
 # use the same type.
+# edit: actually no its not thats cringe
 e: list[int]
 e = [3]
 e: list[int]

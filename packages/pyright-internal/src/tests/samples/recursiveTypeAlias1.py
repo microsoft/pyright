@@ -54,7 +54,7 @@ b5: RecursiveTuple = (1, ("1", 1), (1, (1, 2)))
 b6: RecursiveTuple = (1, ("1", 1), (1, (1, [2])))
 
 # This should generate an error
-b6: RecursiveTuple = (1, [1])
+b7: RecursiveTuple = (1, [1])
 
 
 RecursiveMapping = Union[str, int, Mapping[str, "RecursiveMapping"]]
