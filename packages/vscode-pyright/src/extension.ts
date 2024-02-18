@@ -45,6 +45,7 @@ import {
 } from 'vscode-languageclient/node';
 import { FileBasedCancellationStrategy } from './cancellationUtils';
 import { githubRepo, toolName } from 'pyright-internal/constants';
+import { cp } from 'fs/promises';
 
 let cancellationStrategy: FileBasedCancellationStrategy | undefined;
 
@@ -95,16 +96,19 @@ export async function activate(context: ExtensionContext) {
     let serverOptions: ServerOptions | undefined = undefined;
     if (workspace.getConfiguration('basedpyright').get('importStrategy') === 'fromEnvironment') {
         const pythonApi = await PythonExtension.api();
-        const scriptName = 'basedpyright-langserver';
-        const executablePath = path.join(
-            pythonApi.environments.getActiveEnvironmentPath().path,
-            '..',
-            os.platform() === 'win32' ? `${scriptName}.exe` : scriptName
-        );
+        const executableName = `basedpyright-langserver${os.platform() === 'win32' ? '.exe' : ''}`;
+        const executableDir = path.join(pythonApi.environments.getActiveEnvironmentPath().path, '..');
+        const executablePath = path.join(executableDir, executableName);
         if (existsSync(executablePath)) {
             console.log('using pyright executable:', executablePath);
+
+            // make a copy of the exe to avoid locking it, which would otherwise cause crashes when you try to
+            // update/uninstall basedpyright while vscode is open
+            const copiedExecutablePath = path.join(executableDir, `_vscode_copy_${executableName}`);
+            await cp(executablePath, copiedExecutablePath, { force: true });
+
             serverOptions = {
-                command: executablePath,
+                command: copiedExecutablePath,
                 transport: TransportKind.stdio,
                 args: cancellationStrategy.getCommandLineArguments(),
             };
