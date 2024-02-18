@@ -45,8 +45,7 @@ def func3():
         reveal_type(i, expected_text="tuple[int | str, int | str]")
 
 
-def func5(x: "Iterable[Union[*Ts]]") -> Iterable[Union[*Ts]]:
-    ...
+def func5(x: "Iterable[Union[*Ts]]") -> Iterable[Union[*Ts]]: ...
 
 
 def func6():
@@ -54,8 +53,7 @@ def func6():
     v2: list[int | str] = [i for i in func5([1, "foo"])]
 
 
-def func7(t: "tuple[*Ts]") -> "tuple[Union[*Ts], ...]":
-    ...
+def func7(t: "tuple[*Ts]") -> "tuple[Union[*Ts], ...]": ...
 
 
 def func8(a: int, b: str):
@@ -69,3 +67,10 @@ def func9(x: "tuple[T, ...]", y: "tuple[*Ts]") -> Generator[T | Union[*Ts], None
     for e in z:
         reveal_type(e, expected_text="T@func9 | Union[*Ts@func9]")
         yield e
+
+
+def func10(x: tuple[*Ts]): ...
+
+
+def func11(x: tuple[*Ts, int, int]):
+    func10(x)
