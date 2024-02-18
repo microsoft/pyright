@@ -310,7 +310,8 @@ export function synthesizeTypedDictClassMethods(
 
     const entries = getTypedDictMembersForClass(evaluator, classType);
     let allEntriesAreNotRequired = true;
-    let allEntriesAreReadOnly = true;
+    let allEntriesAreReadOnly = entries.size > 0;
+
     entries.forEach((entry, name) => {
         FunctionType.addParameter(initOverride1, {
             category: ParameterCategory.Simple,
