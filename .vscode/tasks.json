@@ -146,10 +146,10 @@
           "problemMatcher": []
         },
         {
-          "label": "black - all files",
+          "label": "ruff format - all files",
           "type": "shell",
           "command": "${command:python.interpreterPath}",
-          "args": ["-m", "black", "--color", "."],
+          "args": ["-m", "ruff", "format", "."],
           "presentation": {
             "clear": true
           },

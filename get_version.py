@@ -10,6 +10,4 @@ class LernaJson(TypedDict):
 
 
 def get_version() -> str:
-    return cast(LernaJson, loads((Path(__file__).parent / "lerna.json").read_text()))[
-        "version"
-    ]
+    return cast(LernaJson, loads((Path(__file__).parent / "lerna.json").read_text()))["version"]

@@ -5,7 +5,7 @@ main = ["pdm==2.11.2"]
 package-type = "library"
 
 [tool.pdm.dev-dependencies]
-dev = ["black>=23", "pylint>=3.0.0a7", "ruff>=0.0.290"]
+dev = ["pylint>=3.0.0a7", "ruff>=0.2.2"]
 
 [tool.pdm.version]
 source = "call"
@@ -33,12 +33,6 @@ basedpyright-langserver = 'basedpyright.langserver:main'
 [build-system]
 requires = ["pdm-backend", "nodejs-bin>=18.4.0a4"]
 build-backend = "pdm.backend"
-
-[tool.black]
-target-version = ["py38"]
-skip-magic-trailing-comma = true
-preview = true
-force-exclude = "pw|pyright\\-internal"
 
 [tool.pylint.MASTER]
 fail-on = "I"
@@ -250,14 +244,20 @@ pythonPlatform = "All"
 include = ["basedpyright", "get_version.py", "pdm_build.py"]
 exclude = ["pw", "basedpyright/dist", "packages"]
 typeCheckingMode = "all"
-reportImplicitStringConcatenation = false                    # conflicts with black
+reportImplicitStringConcatenation = false                    # conflicts with ruff formatter
 
 [tool.ruff]
+target-version = "py38"
+respect-gitignore = true
+line-length = 100
+preview = true
 unsafe-fixes = true
+extend-exclude = ["pw", "packages/pyright-internal/typeshed-fallback", "packages/pyright-internal/src/tests/samples"]
+
+[tool.ruff.lint]
 extend-select = ["ALL"]
 ignore = [
     "ANN",     # flake8-annotations (covered by pyright)
-    "COM",     # flake8-commas (covered by black)
     "EM",      # flake8-errmsg
     "FIX",     # flake8-fixme
     "PLR0913", # Too many arguments to function call
@@ -277,10 +277,8 @@ ignore = [
     "TRY003",  # Avoid specifying long messages outside the exception class
     "D10",     # Missing docstring
     "D203",    # 1 blank line required before class docstring
-    "D204",    # 1 blank line required after class docstring (handled by black)
     "D205",    # 1 blank line required between summary line and description
     "D209",    # Multi-line docstring closing quotes should be on a separate line
-    "D210",    # No whitespaces allowed surrounding docstring text (conflicts with black when docstring ends with quote (eg. """this is a "quote" """))
     "D212",    # Multi-line docstring summary should start at the first line
     "D213",    # Multi-line docstring summary should start at the second line
     "D400",    # First line should end with a period
@@ -293,24 +291,24 @@ ignore = [
     "D418",    # Function/Method decorated with @overload shouldn't contain a docstring (vscode supports it)
     "PT013",   # Found incorrect import of pytest, use simple import pytest instead (only for bad linters that can't check the qualname)
     "TD002",   # Missing author in TODO
-    "E701",    # Multiple statements on one line (sometimes conflicts with black)
     "CPY001",  # missing-copyright-notice
     "C901",    # max-complexity
+    "ISC001",  # single-line-implicit-string-concatenation (conflicts with formatter)
+    "COM812",  # missing-trailing-comma (conflicts with formatter)
 ]
-target-version = "py38"
-respect-gitignore = true
-line-length = 100
-preview = true
-extend-exclude = ["pw", "packages/pyright-internal/typeshed-fallback", "packages/pyright-internal/src/tests/samples"]
 
-[tool.ruff.pycodestyle]
+[tool.ruff.lint.pycodestyle]
 ignore-overlong-task-comments = true
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "*.pyi" = ["A001", "A002", "N"] # we don't control names in 3rd party modules
 "tests/**/*.py" = [
     "S101", # Use of assert detected (pytest uses assert statements)
 ]
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 combine-as-imports = true
 required-imports = ["from __future__ import annotations"]
+split-on-trailing-comma = false
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true

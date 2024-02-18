@@ -42,14 +42,14 @@ jobs:
       - name: python typecheck
         run: ./pw pdm run basedpyright
 
-      - name: ruff
+      - name: ruff lint
         run: ./pw pdm run ruff .
+
+      - name: ruff format
+        run: ./pw pdm run ruff format --check --diff .
 
       - name: pylint
         run: ./pw pdm run pylint basedpyright pdm_build.py get_version.py
-
-      - name: black
-        run: ./pw pdm run black --check --diff .
 
   test:
     strategy:
