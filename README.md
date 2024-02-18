@@ -4,17 +4,21 @@ Basedpyright is a static type checker for Python that is built on top of the wor
 
 ## why?
 
-pyright has several serious limitations which were the main motivation behind this fork.
+the main motivation behind this fork was the fact that pyright has several serious issues that the maintainers didn't want to address, and many bugs that they consider to be intentional behavior. here is a list of some of its major problems that we've resolved in basedpyright:
 
-### pyright has no way to pin the version used by vscode
+### ability to pin the version used by vscode
 
-this means if the extension gets updated, you may see errors in your project that don't appear in the CI, or vice-versa. see [this issue](https://github.com/microsoft/pylance-release/issues/5207)
+in pyright, if the vscode extension gets updated, you may see errors in your project that don't appear in the CI, or vice-versa. see [this issue](https://github.com/microsoft/pylance-release/issues/5207).
 
-### no way to run the pyright CLI without nodejs
+basedpyright fixes this problem by adding an `importStrategy` option to the extension, which defaults to looking in your project for the [basedpyright pypi package](#published-as-a-pypi-package---no-nodejs-required).
 
-python developers should not be expected to have to install nodejs in order to typecheck their python code. it should just be a regular pypi package, just like mypy, ruff, and pretty much every other python command line tool
+### published as a pypi package - no nodejs required
 
-### issues with unreachable code
+pyright is only published as an npm package, which requires you to install nodejs. [the version on pypi](https://pypi.org/project/pyright/) is just an unofficial wrapper that installs node and the npm package the first time you invoke the cli, [which is quite flaky](https://github.com/RobertCraigie/pyright-python/issues/231).
+
+python developers should not be expected to have to install nodejs in order to typecheck their python code. it should just be a regular pypi package like mypy, ruff, and pretty much all other python tooling. this is why basedpyright is [officially published on pypi](https://pypi.org/project/basedpyright/), which comes bundled with the npm package.
+
+### reporting errors on unreachable code
 
 pyright often incorrectly marks code as unreachable. in most cases, unreachable code is a mistake and therefore should be an error, but pyright does not have an option to report unreachable code. in fact, unreachable code is not even type-checked at all:
 
@@ -29,7 +33,7 @@ to make things worse, unreachable code is not even type-checked, so the obviousl
 
 basedpyright solves this issue with a `reportUnreachable` option, which will report an error on such unchecked code. in this example, you can [update your pyright config to specify more platforms using the `pythonPlatform` option](https://github.com/detachhead/basedpyright/blob/main/docs/configuration.md#main-configuration-options) if you intend for the code to be reachable.
 
-### no errors on invalid configuration
+### errors on invalid configuration
 
 in pyright, if you have any invalid config, it may or may not print a warning to the console, then it will continue type-checking and the exit code will be 0 as long as there were no type errors:
 
@@ -42,7 +46,7 @@ in this example, it's very easy for errors to go undetected because you thought 
 
 to solve this problem, basedpyright will exit with code 3 on any invalid config.
 
-### no way to fully ban the `Any` type
+### option to fully ban the `Any` type
 
 pyright has a few options to ban "Unknown" types such as `reportUnknownVariableType`, `reportUnknownParameterType`, etc. but "Unknown" is not a real type, rather a distinction pyright uses used to represent `Any`s that come from untyped code or unfollowed imports. if you want to ban all kinds of `Any`, pyright has no way to do that:
 
@@ -54,7 +58,7 @@ def foo(bar, baz: Any) -> Any:
 
 basedpyright introduces the `reportAny` option, which will report an error on usages of anything typed as `Any`.
 
-### pylance exclusive features
+### re-implementing pylance-exclusive features
 
 pyright does not support code actions for import suggestions, [because that feature is exclusive to the closed-source pylance extension](https://github.com/microsoft/pyright/issues/4263#issuecomment-1333987645). basedpyright re-implements this feature in its language server:
 
@@ -62,7 +66,7 @@ pyright does not support code actions for import suggestions, [because that feat
 
 for more information about the differences between pyright and pylance, see [here](#pylance-vs-basedpyright)
 
-### pyright treats non-relative imports as relative
+### reporting errors on invalid "relative" imports
 
 pyright allows invalid imports such as this:
 ```py
@@ -78,13 +82,30 @@ this may look correct at first glance, and will work when running `bar.py` direc
 # ./main.py:
 import module_name.bar  # ModuleNotFoundError: No module named 'foo' 
 ```
+
 basedpyright bans imports like this. if you want to do a relative import, the correct way to do it is by prefixing the module name with a `.`:
 ```py
 # ./module_name/bar.py:
 import .foo
 ```
 
-### basedmypy feature parity
+### fixes for the `reportRedeclaration` and `reportDuplicateImport` rules
+
+pyright does not report redeclarations if the redeclaration has the same type:
+```py
+foo: int = 1
+foo: int = 2  # no error
+```
+nor does it care if you have a duplicated import in multiple different `import` statements, or in aliases:
+```py
+from foo import bar
+from bar import bar  # no error
+from baz import foo as baz, bar as baz  # no error
+```
+
+pyright solves both of these problems by always reporting an error on a redeclaration or an import with the same name as an existing import.
+
+## basedmypy feature parity
 
 [basedmypy](https://github.com/kotlinisland/basedmypy) is a fork of mypy with a similar goal in mind: to fix some of the serious problems in mypy that do not seem to be a priority for the maintainers. it also adds many new features which may not be standardized but greatly improve the developer experience when working with python's far-from-perfect type system.
 
