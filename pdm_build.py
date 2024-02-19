@@ -11,11 +11,17 @@ if TYPE_CHECKING:
     from subprocess import run  # noqa: S404
 else:
     from nodejs.npm import run
+import os
+
+from nodejs import node
 
 
 class PackageJson(TypedDict):
     bin: dict[str, str]
 
+
+# ah yes, the classic "wrong path" moment!
+os.environ["PATH"] = os.pathsep.join([str(Path(node.__file__).parent), os.environ["PATH"]])
 
 if not Path("node_modules").exists():
     _ = run(["ci"], check=True)

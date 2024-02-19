@@ -1374,6 +1374,8 @@ export class ConfigOptions {
         if (configObj.pythonPlatform !== undefined) {
             if (typeof configObj.pythonPlatform !== 'string') {
                 errors.push(`Config "pythonPlatform" field must contain a string.`);
+            } else if (!['Linux', 'Windows', 'Darwin', 'All'].includes(configObj.pythonPlatform)) {
+                `'${configObj.pythonPlatform}' is not a supported Python platform; specify All, Darwin, Linux, or Windows.`;
             } else {
                 this.defaultPythonPlatform = configObj.pythonPlatform;
             }
@@ -1515,15 +1517,12 @@ export class ConfigOptions {
 
     ensureDefaultPythonPlatform(host: Host, console: ConsoleInterface) {
         // If no default python platform was specified, assume that the
-        // user wants to use the current platform.
+        // user wants to use all mode
         if (this.defaultPythonPlatform !== undefined) {
             return;
         }
 
-        this.defaultPythonPlatform = host.getPythonPlatform();
-        if (this.defaultPythonPlatform !== undefined) {
-            console.log(`Assuming Python platform ${this.defaultPythonPlatform}`);
-        }
+        this.defaultPythonPlatform = 'All';
     }
 
     ensureDefaultPythonVersion(host: Host, console: ConsoleInterface) {

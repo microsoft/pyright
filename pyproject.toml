@@ -240,7 +240,6 @@ max-line-length = 200
 [tool.basedpyright]
 ignore = ["pw", "basedpyright/dist", "packages"]
 pythonVersion = "3.8"
-pythonPlatform = "All"
 include = ["basedpyright", "get_version.py", "pdm_build.py"]
 exclude = ["pw", "basedpyright/dist", "packages"]
 typeCheckingMode = "all"

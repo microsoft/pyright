@@ -274,11 +274,11 @@ async function processArgs(): Promise<ExitStatus> {
     }
 
     if (args.pythonplatform) {
-        if (args.pythonplatform === 'Darwin' || args.pythonplatform === 'Linux' || args.pythonplatform === 'Windows') {
+        if (!['All', 'Darwin', 'Linux', 'Windows'].includes(args.pythonplatform)) {
             options.pythonPlatform = args.pythonplatform;
         } else {
             console.error(
-                `'${args.pythonplatform}' is not a supported Python platform; specify Darwin, Linux, or Windows`
+                `'${args.pythonplatform}' is not a supported Python platform; specify All, Darwin, Linux, or Windows`
             );
             return ExitStatus.ParameterError;
         }
