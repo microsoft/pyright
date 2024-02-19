@@ -9860,7 +9860,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function evaluateCastCall(argList: FunctionArgument[], errorNode: ExpressionNode) {
         // Verify that the cast is necessary.
         const castToType = getTypeOfArgumentExpectingType(argList[0], { enforceTypeAnnotationRules: true }).type;
-        const castFromType = getTypeOfArgument(argList[1]).type;
+        let castFromType = getTypeOfArgument(argList[1]).type;
+
+        if (castFromType.specialForm) {
+            castFromType = castFromType.specialForm;
+        }
 
         if (TypeBase.isInstantiable(castToType) && !isUnknown(castToType)) {
             if (
