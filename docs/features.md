@@ -36,7 +36,7 @@ Pyright supports [configuration files](configuration.md) that provide granular c
 * [PEP 702](https://www.python.org/dev/peps/pep-0702/) marking deprecations
 * [PEP 705](https://www.python.org/dev/peps/pep-0705/) (draft) TypedDict: read-only items
 * [PEP 712](https://www.python.org/dev/peps/pep-0712/) (draft) converter parameter on dataclasses.field
-* [PEP 724](https://www.python.org/dev/peps/pep-0724/) (draft) stricter type guards
+* [PEP 742](https://www.python.org/dev/peps/pep-0742/) (draft) narrowing types with TypeIs
 * Type inference for function return values, instance variables, class variables, and globals
 * Type guards that understand conditional code flow constructs like if/else statements
 
