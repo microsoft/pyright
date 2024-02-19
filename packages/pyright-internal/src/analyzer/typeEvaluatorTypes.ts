@@ -303,6 +303,7 @@ export interface ValidateArgTypeParams {
     paramType: Type;
     requiresTypeVarMatching: boolean;
     argument: FunctionArgument;
+    isDefaultArg?: boolean;
     argType?: Type | undefined;
     errorNode: ExpressionNode;
     paramName?: string | undefined;
