@@ -987,19 +987,13 @@ test('TypeGuard2', () => {
 });
 
 test('TypeGuard3', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard3.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard3.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('TypeGuard4', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard4.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0);
+test('TypeIs1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs1.py']);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Never1', () => {

@@ -660,7 +660,7 @@ export class Checker extends ParseTreeWalker {
             // Verify common dunder signatures.
             this._validateDunderSignatures(node, functionTypeResult.functionType, containingClassNode !== undefined);
 
-            // Verify TypeGuard functions.
+            // Verify TypeGuard and TypeIs functions.
             this._validateTypeGuardFunction(node, functionTypeResult.functionType, containingClassNode !== undefined);
 
             this._validateFunctionTypeVarUsage(node, functionTypeResult);
@@ -4589,7 +4589,10 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        if (!ClassType.isBuiltIn(returnType, 'TypeGuard')) {
+        const isTypeGuard = ClassType.isBuiltIn(returnType, 'TypeGuard');
+        const isTypeIs = ClassType.isBuiltIn(returnType, 'TypeIs');
+
+        if (!isTypeGuard && !isTypeIs) {
             return;
         }
 
@@ -4611,6 +4614,34 @@ export class Checker extends ParseTreeWalker {
                 LocMessage.typeGuardParamCount(),
                 node.name
             );
+        }
+
+        if (isTypeIs) {
+            const typeGuardType = returnType.typeArguments[0];
+
+            // Determine the type of the first parameter.
+            const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
+            if (paramIndex >= functionType.details.parameters.length) {
+                return;
+            }
+
+            const paramType = FunctionType.getEffectiveParameterType(functionType, paramIndex);
+
+            // Verify that the typeGuardType is a narrower type than the paramType.
+            if (!this._evaluator.assignType(paramType, typeGuardType)) {
+                const returnAnnotation =
+                    node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
+                if (returnAnnotation) {
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typeIsReturnType().format({
+                            type: this._evaluator.printType(paramType),
+                            returnType: this._evaluator.printType(typeGuardType),
+                        }),
+                        returnAnnotation
+                    );
+                }
+            }
         }
     }
 

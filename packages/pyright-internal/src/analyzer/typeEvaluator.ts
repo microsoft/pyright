@@ -11418,16 +11418,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             specializedReturnType = ClassType.cloneForUnpacked(specializedReturnType, /* isUnpackedTuple */ false);
         }
 
-        // Handle 'TypeGuard' specially. We'll transform the return type into a 'bool'
-        // object with a type argument that reflects the narrowed type.
+        // Handle 'TypeGuard' and 'TypeIs' specially. We'll transform the return type
+        // into a 'bool' object with a type argument that reflects the narrowed type.
         if (
             isClassInstance(specializedReturnType) &&
-            ClassType.isBuiltIn(specializedReturnType, 'TypeGuard') &&
+            ClassType.isBuiltIn(specializedReturnType, ['TypeGuard', 'TypeIs']) &&
             specializedReturnType.typeArguments &&
-            specializedReturnType.typeArguments.length > 0 &&
-            isClassInstance(returnType) &&
-            returnType.typeArguments &&
-            returnType.typeArguments.length > 0
+            specializedReturnType.typeArguments.length > 0
         ) {
             if (boolClassType && isInstantiableClass(boolClassType)) {
                 let typeGuardType = specializedReturnType.typeArguments[0];
@@ -11447,25 +11444,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                let useStrictTypeGuardSemantics = false;
-
-                if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
-                    // Determine the type of the first parameter.
-                    const paramIndex = type.boundToType ? 1 : 0;
-                    if (paramIndex < type.details.parameters.length) {
-                        const paramType = FunctionType.getEffectiveParameterType(type, paramIndex);
-
-                        // If the type guard meets the requirements that the first parameter
-                        // type is a proper subtype of the return type, we can use strict
-                        // type guard semantics.
-                        if (assignType(paramType, returnType.typeArguments[0])) {
-                            useStrictTypeGuardSemantics = true;
-                        }
-                    }
-                }
-
+                const useTypeIsSemantics = ClassType.isBuiltIn(specializedReturnType, 'TypeIs');
                 specializedReturnType = ClassType.cloneAsInstance(
-                    ClassType.cloneForTypeGuard(boolClassType, typeGuardType, useStrictTypeGuardSemantics)
+                    ClassType.cloneForTypeGuard(boolClassType, typeGuardType, useTypeIsSemantics)
                 );
             }
         }
@@ -14649,7 +14630,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return type;
     }
 
-    // Creates a "TypeGuard" type. This is an alias for 'bool', which
+    // Creates a "TypeGuard" and "TypeIs" type. This is an alias for 'bool', which
     // isn't a generic type and therefore doesn't have a typeParameter.
     // We'll abuse our internal types a bit by specializing it with
     // a type argument anyway.
@@ -15437,6 +15418,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['Never', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['LiteralString', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['ReadOnly', { alias: '', module: 'builtins', isSpecialForm: true }],
+            ['TypeIs', { alias: '', module: 'builtins', isSpecialForm: true }],
         ]);
 
         const aliasMapEntry = specialTypes.get(assignedName);
@@ -19445,7 +19427,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return { type: createConcatenateType(classType, errorNode, typeArgs, flags) };
                 }
 
-                case 'TypeGuard': {
+                case 'TypeGuard':
+                case 'TypeIs': {
                     return { type: createTypeGuardType(classType, errorNode, typeArgs, flags) };
                 }
 
@@ -23189,7 +23172,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const isLiteral = isClass(srcType) && srcType.literalValue !== undefined;
                     return !isLiteral;
                 }
-            } else if (ClassType.isBuiltIn(destType, 'TypeGuard')) {
+            } else if (ClassType.isBuiltIn(destType, ['TypeGuard', 'TypeIs'])) {
                 // All the source to be a "bool".
                 if ((originalFlags & AssignTypeFlags.AllowBoolTypeGuard) !== 0) {
                     if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'bool')) {
@@ -25058,11 +25041,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ) {
                     isReturnTypeCompatible = true;
                 } else {
-                    // Handle the special case where the return type is a TypeGuard[T].
-                    // This should also act as a bool, since that's its type at runtime.
+                    // Handle the special case where the return type is a TypeGuard[T]
+                    // or TypeIs[T]. This should also act as a bool, since that's its
+                    // type at runtime.
                     if (
                         isClassInstance(srcReturnType) &&
-                        ClassType.isBuiltIn(srcReturnType, 'TypeGuard') &&
+                        ClassType.isBuiltIn(srcReturnType, ['TypeGuard', 'TypeIs']) &&
                         boolClassType &&
                         isInstantiableClass(boolClassType)
                     ) {
