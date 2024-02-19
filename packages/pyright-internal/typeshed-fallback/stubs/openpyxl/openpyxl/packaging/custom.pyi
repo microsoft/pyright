@@ -18,9 +18,14 @@ class NestedBoolText(Bool[Incomplete], NestedText[Incomplete, Incomplete]): ... 
 class _TypedProperty(Strict, Generic[_T]):
     name: String[Literal[False]]
     # Since this is internal, just list all possible values
-    value: Integer[Literal[False]] | Float[Literal[False]] | String[Literal[True]] | DateTime[Literal[False]] | Bool[
-        Literal[False]
-    ] | String[Literal[False]]
+    value: (
+        Integer[Literal[False]]
+        | Float[Literal[False]]
+        | String[Literal[True]]
+        | DateTime[Literal[False]]
+        | Bool[Literal[False]]
+        | String[Literal[False]]
+    )
     def __init__(self, name: str, value: _T) -> None: ...
     def __eq__(self, other: _TypedProperty[Any]) -> bool: ...  # type: ignore[override]
 

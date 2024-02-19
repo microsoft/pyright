@@ -30,6 +30,7 @@ class Subscription(Resource):
         Expired: str
         PastDue: str
         Pending: str
+
     @staticmethod
     def create(params: Incomplete | None = None): ...
     @staticmethod

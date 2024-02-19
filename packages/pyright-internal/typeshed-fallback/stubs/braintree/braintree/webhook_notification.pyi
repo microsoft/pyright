@@ -59,6 +59,7 @@ class WebhookNotification(Resource):
         TransactionDisbursed: str
         TransactionSettled: str
         TransactionSettlementDeclined: str
+
     @staticmethod
     def parse(signature, payload): ...
     @staticmethod

@@ -13,6 +13,7 @@ class Address(Resource):
         Ground: str
         Electronic: str
         ShipToStore: str
+
     @staticmethod
     def create(params: Incomplete | None = None): ...
     @staticmethod

@@ -54,6 +54,7 @@ class Events(Generic[_T, _AbstractListener_T]):
 
     class Event:
         def __eq__(self, other: object) -> bool: ...
+
     _event_queue: Queue[_T]  # undocumented
     _sentinel: object  # undocumented
     _listener: _AbstractListener_T  # undocumented

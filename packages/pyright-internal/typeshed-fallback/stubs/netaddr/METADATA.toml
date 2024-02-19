@@ -1,2 +1,2 @@
-version = "0.10.*"
+version = "1.2.*"
 upstream_repository = "https://github.com/drkjam/netaddr"

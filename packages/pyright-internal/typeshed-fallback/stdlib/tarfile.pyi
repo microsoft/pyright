@@ -7,7 +7,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from gzip import _ReadableFileobj as _GzipReadableFileobj, _WritableFileobj as _GzipWritableFileobj
 from types import TracebackType
 from typing import IO, ClassVar, Literal, Protocol, overload
-from typing_extensions import Self, TypeAlias
+from typing_extensions import Self, TypeAlias, deprecated
 
 __all__ = [
     "TarFile",
@@ -292,14 +292,31 @@ class TarFile:
     def getnames(self) -> _list[str]: ...
     def list(self, verbose: bool = True, *, members: _list[TarInfo] | None = None) -> None: ...
     def next(self) -> TarInfo | None: ...
+    @overload
+    @deprecated(
+        "Extracting tar archives without specifying `filter` is deprecated until Python 3.14, when 'data' filter will become the default."
+    )
     def extractall(
         self,
         path: StrOrBytesPath = ".",
         members: Iterable[TarInfo] | None = None,
         *,
         numeric_owner: bool = False,
-        filter: _TarfileFilter | None = ...,
+        filter: None = ...,
     ) -> None: ...
+    @overload
+    def extractall(
+        self,
+        path: StrOrBytesPath = ".",
+        members: Iterable[TarInfo] | None = None,
+        *,
+        numeric_owner: bool = False,
+        filter: _TarfileFilter,
+    ) -> None: ...
+    @overload
+    @deprecated(
+        "Extracting tar archives without specifying `filter` is deprecated until Python 3.14, when 'data' filter will become the default."
+    )
     def extract(
         self,
         member: str | TarInfo,
@@ -307,7 +324,17 @@ class TarFile:
         set_attrs: bool = True,
         *,
         numeric_owner: bool = False,
-        filter: _TarfileFilter | None = ...,
+        filter: None = ...,
+    ) -> None: ...
+    @overload
+    def extract(
+        self,
+        member: str | TarInfo,
+        path: StrOrBytesPath = "",
+        set_attrs: bool = True,
+        *,
+        numeric_owner: bool = False,
+        filter: _TarfileFilter,
     ) -> None: ...
     def _extract_member(
         self, tarinfo: TarInfo, targetpath: str, set_attrs: bool = True, numeric_owner: bool = False

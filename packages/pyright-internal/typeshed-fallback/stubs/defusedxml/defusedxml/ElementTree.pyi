@@ -1,8 +1,7 @@
 from _typeshed import Incomplete
 from collections.abc import Iterator, Sequence
 from typing import Any
-from xml.dom.minidom import Element
-from xml.etree.ElementTree import ElementTree, ParseError as ParseError, XMLParser as _XMLParser, tostring as tostring
+from xml.etree.ElementTree import Element, ElementTree, ParseError as ParseError, XMLParser as _XMLParser, tostring as tostring
 
 class DefusedXMLParser(_XMLParser):
     forbid_dtd: bool

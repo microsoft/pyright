@@ -40,6 +40,7 @@ class Dispute(AttributeGetter):
         Effortless: str
         Standard: str
         NotProtected: str
+
     @staticmethod
     def accept(id): ...
     @staticmethod
