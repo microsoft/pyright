@@ -17424,8 +17424,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 let isImplicitPositionOnlyParam = false;
 
                 if (param.category === ParameterCategory.Simple && param.name) {
-                    if (isPrivateName(param.name.value)) {
+                    if (
+                        isPrivateName(param.name.value) &&
+                        !node.parameters.some((p) => p.category === ParameterCategory.Simple && !p.name)
+                    ) {
                         isImplicitPositionOnlyParam = true;
+
+                        // If the parameter name indicates an implicit position-only parameter
+                        // but we have already seen non-position-only parameters, report an error.
+                        if (
+                            !paramsArePositionOnly &&
+                            functionType.details.parameters.every((p) => p.category === ParameterCategory.Simple)
+                        ) {
+                            addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                LocMessage.positionOnlyAfterNon(),
+                                param.name
+                            );
+                        }
                     }
                 } else {
                     paramsArePositionOnly = false;
