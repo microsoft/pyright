@@ -10815,6 +10815,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         argumentCategory: ArgumentCategory.Simple,
                                         typeResult: { type: defaultArgType },
                                     },
+                                    isDefaultArg: true,
                                     errorNode,
                                     paramName: param.name,
                                     isParamNameSynthesized: param.isNameSynthesized,
@@ -11855,6 +11856,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (argTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
                 }
+            }
+
+            // If the argument came from a parameter's default argument value,
+            // we may need to specialize the type.
+            if (argParam.isDefaultArg) {
+                argType = applySolvedTypeVars(argType, typeVarContext);
             }
         }
 
