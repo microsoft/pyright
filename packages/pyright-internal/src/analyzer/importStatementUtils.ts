@@ -519,6 +519,8 @@ function _getInsertionEditForAutoImportInsertion(
             }
 
             if (importGroup === curImportGroup && curImport.moduleName > moduleName) {
+                insertBefore = true;
+                insertionImport = curImport;
                 break;
             }
 

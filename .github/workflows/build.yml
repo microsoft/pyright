@@ -1,7 +1,7 @@
 name: 'Build'
 
 env:
-  NODE_VERSION: '16' # Shipped with VS Code.
+  NODE_VERSION: '18' # Shipped with VS Code.
   ARTIFACT_NAME_VSIX: vsix
   VSIX_NAME: vscode-pyright.vsix
 
