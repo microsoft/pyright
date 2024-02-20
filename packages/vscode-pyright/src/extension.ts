@@ -104,9 +104,13 @@ export async function activate(context: ExtensionContext) {
 
             // make a copy of the exe to avoid locking it, which would otherwise cause crashes when you try to
             // update/uninstall basedpyright while vscode is open
-            const copiedExecutablePath = path.join(executableDir, `_vscode_copy_${executableName}`);
-            await cp(executablePath, copiedExecutablePath, { force: true });
-
+            let copiedExecutablePath = path.join(executableDir, `_vscode_copy_${executableName}`);
+            try {
+                await cp(executablePath, copiedExecutablePath, { force: true });
+            } catch (e) {
+                console.warn(`failed to create copy at ${copiedExecutablePath}, falling back to using the real one`);
+                copiedExecutablePath = executablePath;
+            }
             serverOptions = {
                 command: copiedExecutablePath,
                 transport: TransportKind.stdio,
