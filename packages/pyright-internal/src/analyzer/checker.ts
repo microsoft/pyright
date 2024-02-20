@@ -657,7 +657,7 @@ export class Checker extends ParseTreeWalker {
             // Verify common dunder signatures.
             this._validateDunderSignatures(node, functionTypeResult.functionType, containingClassNode !== undefined);
 
-            // Verify TypeGuard functions.
+            // Verify TypeGuard and TypeIs functions.
             this._validateTypeGuardFunction(node, functionTypeResult.functionType, containingClassNode !== undefined);
 
             this._validateFunctionTypeVarUsage(node, functionTypeResult);
@@ -3033,16 +3033,23 @@ export class Checker extends ParseTreeWalker {
                 // verify that there is an implementation.
                 if (!this._fileInfo.isStubFile && overloadedFunctions.length > 0) {
                     let implementationFunction: FunctionType | undefined;
+                    let exemptMissingImplementation = false;
 
-                    if (isOverloadedFunction(type) && OverloadedFunctionType.getImplementation(type)) {
+                    if (isOverloadedFunction(type)) {
                         implementationFunction = OverloadedFunctionType.getImplementation(type);
+
+                        // If the implementation has no name, it was synthesized probably by a
+                        // decorator that used a callable with a ParamSpec that captured the
+                        // overloaded signature. We'll exempt it from this check.
+                        const overloads = OverloadedFunctionType.getOverloads(type);
+                        if (overloads.length > 0 && overloads[0].details.name === '') {
+                            exemptMissingImplementation = true;
+                        }
                     } else if (isFunction(type) && !FunctionType.isOverloaded(type)) {
                         implementationFunction = type;
                     }
 
                     if (!implementationFunction) {
-                        let exemptMissingImplementation = false;
-
                         const containingClassNode = ParseTreeUtils.getEnclosingClassOrFunction(primaryDecl.node);
                         if (containingClassNode && containingClassNode.nodeType === ParseNodeType.Class) {
                             const classType = this._evaluator.getTypeOfClass(containingClassNode);
@@ -4579,7 +4586,10 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        if (!ClassType.isBuiltIn(returnType, 'TypeGuard')) {
+        const isTypeGuard = ClassType.isBuiltIn(returnType, 'TypeGuard');
+        const isTypeIs = ClassType.isBuiltIn(returnType, 'TypeIs');
+
+        if (!isTypeGuard && !isTypeIs) {
             return;
         }
 
@@ -4601,6 +4611,34 @@ export class Checker extends ParseTreeWalker {
                 LocMessage.typeGuardParamCount(),
                 node.name
             );
+        }
+
+        if (isTypeIs) {
+            const typeGuardType = returnType.typeArguments[0];
+
+            // Determine the type of the first parameter.
+            const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
+            if (paramIndex >= functionType.details.parameters.length) {
+                return;
+            }
+
+            const paramType = FunctionType.getEffectiveParameterType(functionType, paramIndex);
+
+            // Verify that the typeGuardType is a narrower type than the paramType.
+            if (!this._evaluator.assignType(paramType, typeGuardType)) {
+                const returnAnnotation =
+                    node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
+                if (returnAnnotation) {
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typeIsReturnType().format({
+                            type: this._evaluator.printType(paramType),
+                            returnType: this._evaluator.printType(typeGuardType),
+                        }),
+                        returnAnnotation
+                    );
+                }
+            }
         }
     }
 
@@ -4773,14 +4811,17 @@ export class Checker extends ParseTreeWalker {
                     // If the parent class is a named tuple, all instance variables
                     // (other than dundered ones) are implicitly final.
                     const decl = localSymbol.getDeclarations()[0];
-                    this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportIncompatibleVariableOverride,
-                        LocMessage.namedTupleEntryRedeclared().format({
-                            name,
-                            className: parentSymbol.classType.details.name,
-                        }),
-                        decl.node
-                    );
+
+                    if (decl.type === DeclarationType.Variable) {
+                        this._evaluator.addDiagnostic(
+                            DiagnosticRule.reportIncompatibleVariableOverride,
+                            LocMessage.namedTupleEntryRedeclared().format({
+                                name,
+                                className: parentSymbol.classType.details.name,
+                            }),
+                            decl.node
+                        );
+                    }
                 }
             }
         });
@@ -4798,18 +4839,33 @@ export class Checker extends ParseTreeWalker {
 
         // Is there a custom "__new__" and/or "__init__" method? If so, we'll
         // verify that the signature of these calls is compatible with the values.
-        const newMemberTypeResult = getBoundNewMethod(
+        let newMemberTypeResult = getBoundNewMethod(
             this._evaluator,
             node.name,
             classType,
-            MemberAccessFlags.SkipBaseClasses
+            MemberAccessFlags.SkipObjectBaseClass
         );
-        const initMemberTypeResult = getBoundInitMethod(
+
+        // If this __new__ comes from a built-in class like Enum, we'll ignore it.
+        if (newMemberTypeResult?.classType) {
+            if (isClass(newMemberTypeResult.classType) && ClassType.isBuiltIn(newMemberTypeResult.classType)) {
+                newMemberTypeResult = undefined;
+            }
+        }
+
+        let initMemberTypeResult = getBoundInitMethod(
             this._evaluator,
             node.name,
             ClassType.cloneAsInstance(classType),
-            MemberAccessFlags.SkipBaseClasses
+            MemberAccessFlags.SkipObjectBaseClass
         );
+
+        // If this __init__ comes from a built-in class like Enum, we'll ignore it.
+        if (initMemberTypeResult?.classType) {
+            if (isClass(initMemberTypeResult.classType) && ClassType.isBuiltIn(initMemberTypeResult.classType)) {
+                initMemberTypeResult = undefined;
+            }
+        }
 
         classType.details.fields.forEach((symbol, name) => {
             // Enum members don't have type annotations.

@@ -17,6 +17,7 @@ class UsBankAccountVerification(AttributeGetter):
         IndependentCheck: str
         TokenizedCheck: str
         MicroTransfers: str
+
     us_bank_account: Any
     def __init__(self, gateway, attributes) -> None: ...
     @staticmethod

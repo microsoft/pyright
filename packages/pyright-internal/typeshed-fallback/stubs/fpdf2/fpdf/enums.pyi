@@ -73,6 +73,10 @@ class TableCellFillMode(CoerciveEnum):
 
     def should_fill_cell(self, i: int, j: int) -> bool: ...
 
+class TableSpan(CoerciveEnum):
+    ROW: Literal["ROW"]
+    COL: Literal["COL"]
+
 class RenderStyle(CoerciveEnum):
     D: str
     F: str

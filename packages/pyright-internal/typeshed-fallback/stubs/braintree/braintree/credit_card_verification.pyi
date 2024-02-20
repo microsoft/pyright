@@ -12,6 +12,7 @@ class CreditCardVerification(AttributeGetter):
         GatewayRejected: str
         ProcessorDeclined: str
         Verified: str
+
     amount: Any
     currency_iso_code: Any
     processor_response_code: Any

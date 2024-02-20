@@ -783,6 +783,7 @@ export namespace Localizer {
             );
         export const positionOnlyAfterArgs = () => getRawString('Diagnostic.positionOnlyAfterArgs');
         export const positionOnlyAfterKeywordOnly = () => getRawString('Diagnostic.positionOnlyAfterKeywordOnly');
+        export const positionOnlyAfterNon = () => getRawString('Diagnostic.positionOnlyAfterNon');
         export const positionOnlyIncompatible = () => getRawString('Diagnostic.positionOnlyIncompatible');
         export const positionOnlyFirstParam = () => getRawString('Diagnostic.positionOnlyFirstParam');
         export const privateUsedOutsideOfClass = () =>
@@ -980,6 +981,8 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeExpectedClass'));
         export const typeGuardArgCount = () => getRawString('Diagnostic.typeGuardArgCount');
         export const typeGuardParamCount = () => getRawString('Diagnostic.typeGuardParamCount');
+        export const typeIsReturnType = () =>
+            new ParameterizedString<{ type: string; returnType: string }>(getRawString('Diagnostic.typeIsReturnType'));
         export const typeNotAwaitable = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeNotAwaitable'));
         export const typeNotIntantiable = () =>

@@ -1,4 +1,4 @@
-version = "24.1.17"
+version = "24.2.6"
 upstream_repository = "https://github.com/PyCQA/flake8-bugbear"
 partial_stub = true
 

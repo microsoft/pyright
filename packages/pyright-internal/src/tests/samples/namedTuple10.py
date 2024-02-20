@@ -8,9 +8,15 @@ class Point(NamedTuple):
     x: int
     y: int
 
+    def f(self):
+        pass
+
 
 class BadPointWithName(Point):
     name: str
 
     # This should generate an error.
     x: int
+
+    def f(self):
+        pass

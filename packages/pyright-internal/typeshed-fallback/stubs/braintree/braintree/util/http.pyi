@@ -27,6 +27,7 @@ class Http:
         Xml: str
         Multipart: str
         Json: str
+
     @staticmethod
     def is_error_status(status): ...
     @staticmethod

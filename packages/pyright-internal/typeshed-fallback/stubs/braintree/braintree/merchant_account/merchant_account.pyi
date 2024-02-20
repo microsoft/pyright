@@ -19,6 +19,7 @@ class MerchantAccount(Resource):
         Bank: str
         Email: str
         MobilePhone: str
+
     FundingDestinations: Any
     individual_details: Any
     business_details: Any

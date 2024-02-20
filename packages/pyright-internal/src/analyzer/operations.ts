@@ -1125,6 +1125,13 @@ function customMetaclassSupportsMethod(type: Type, methodName: string): boolean 
         return false;
     }
 
+    // If the metaclass inherits from Any or Unknown, we have to guess
+    // whether the method is supported. We'll assume it's not, since this
+    // is the most likely case.
+    if (isAnyOrUnknown(memberInfo.classType)) {
+        return false;
+    }
+
     if (isInstantiableClass(memberInfo.classType) && ClassType.isBuiltIn(memberInfo.classType, 'type')) {
         return false;
     }

@@ -7337,7 +7337,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // which type to use.
         if (keywordArgs.length === 0 && unpackedDictArgs.length === 0 && positionalArgs.length === 1) {
             useSpeculativeMode(node, () => {
-                callResult = validateCallArguments(node, argList, { type: itemMethodType });
+                callResult = validateCallArguments(
+                    node,
+                    argList,
+                    { type: itemMethodType },
+                    /* typeVarContext */ undefined,
+                    /* skipUnknownArgCheck */ true
+                );
 
                 if (callResult.argumentErrors) {
                     // If the object supports "__index__" magic method, convert
@@ -7365,7 +7371,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        callResult = validateCallArguments(node, argList, { type: itemMethodType });
+        callResult = validateCallArguments(
+            node,
+            argList,
+            { type: itemMethodType },
+            /* typeVarContext */ undefined,
+            /* skipUnknownArgCheck */ true
+        );
 
         return {
             type: callResult.returnType ?? UnknownType.create(),
@@ -9848,7 +9860,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function evaluateCastCall(argList: FunctionArgument[], errorNode: ExpressionNode) {
         // Verify that the cast is necessary.
         const castToType = getTypeOfArgumentExpectingType(argList[0], { enforceTypeAnnotationRules: true }).type;
-        const castFromType = getTypeOfArgument(argList[1]).type;
+        let castFromType = getTypeOfArgument(argList[1]).type;
+
+        if (castFromType.specialForm) {
+            castFromType = castFromType.specialForm;
+        }
 
         if (TypeBase.isInstantiable(castToType) && !isUnknown(castToType)) {
             if (
@@ -10799,6 +10815,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         argumentCategory: ArgumentCategory.Simple,
                                         typeResult: { type: defaultArgType },
                                     },
+                                    isDefaultArg: true,
                                     errorNode,
                                     paramName: param.name,
                                     isParamNameSynthesized: param.isNameSynthesized,
@@ -11406,16 +11423,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             specializedReturnType = ClassType.cloneForUnpacked(specializedReturnType, /* isUnpackedTuple */ false);
         }
 
-        // Handle 'TypeGuard' specially. We'll transform the return type into a 'bool'
-        // object with a type argument that reflects the narrowed type.
+        // Handle 'TypeGuard' and 'TypeIs' specially. We'll transform the return type
+        // into a 'bool' object with a type argument that reflects the narrowed type.
         if (
             isClassInstance(specializedReturnType) &&
-            ClassType.isBuiltIn(specializedReturnType, 'TypeGuard') &&
+            ClassType.isBuiltIn(specializedReturnType, ['TypeGuard', 'TypeIs']) &&
             specializedReturnType.typeArguments &&
-            specializedReturnType.typeArguments.length > 0 &&
-            isClassInstance(returnType) &&
-            returnType.typeArguments &&
-            returnType.typeArguments.length > 0
+            specializedReturnType.typeArguments.length > 0
         ) {
             if (boolClassType && isInstantiableClass(boolClassType)) {
                 let typeGuardType = specializedReturnType.typeArguments[0];
@@ -11435,25 +11449,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                let useStrictTypeGuardSemantics = false;
-
-                if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
-                    // Determine the type of the first parameter.
-                    const paramIndex = type.boundToType ? 1 : 0;
-                    if (paramIndex < type.details.parameters.length) {
-                        const paramType = FunctionType.getEffectiveParameterType(type, paramIndex);
-
-                        // If the type guard meets the requirements that the first parameter
-                        // type is a proper subtype of the return type, we can use strict
-                        // type guard semantics.
-                        if (assignType(paramType, returnType.typeArguments[0])) {
-                            useStrictTypeGuardSemantics = true;
-                        }
-                    }
-                }
-
+                const useTypeIsSemantics = ClassType.isBuiltIn(specializedReturnType, 'TypeIs');
                 specializedReturnType = ClassType.cloneAsInstance(
-                    ClassType.cloneForTypeGuard(boolClassType, typeGuardType, useStrictTypeGuardSemantics)
+                    ClassType.cloneForTypeGuard(boolClassType, typeGuardType, useTypeIsSemantics)
                 );
             }
         }
@@ -11858,6 +11856,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (argTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
                 }
+            }
+
+            // If the argument came from a parameter's default argument value,
+            // we may need to specialize the type.
+            if (argParam.isDefaultArg) {
+                argType = applySolvedTypeVars(argType, typeVarContext);
             }
         }
 
@@ -12529,7 +12533,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ).type;
 
                 if (isTypeVar(entryType)) {
-                    if (entryType.scopeId) {
+                    if (entryType.scopeId || entryType.isVariadicUnpacked) {
                         isTypeParamListValid = false;
                     } else {
                         entryType = TypeVarType.cloneForScopeId(
@@ -14637,7 +14641,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return type;
     }
 
-    // Creates a "TypeGuard" type. This is an alias for 'bool', which
+    // Creates a "TypeGuard" and "TypeIs" type. This is an alias for 'bool', which
     // isn't a generic type and therefore doesn't have a typeParameter.
     // We'll abuse our internal types a bit by specializing it with
     // a type argument anyway.
@@ -15425,6 +15429,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['Never', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['LiteralString', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['ReadOnly', { alias: '', module: 'builtins', isSpecialForm: true }],
+            ['TypeIs', { alias: '', module: 'builtins', isSpecialForm: true }],
         ]);
 
         const aliasMapEntry = specialTypes.get(assignedName);
@@ -15630,14 +15635,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // If this is an enum, transform the type as required.
                 rightHandType = srcType;
-                if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
+
+                let targetName: NameNode | undefined;
+                if (node.leftExpression.nodeType === ParseNodeType.Name) {
+                    targetName = node.leftExpression;
+                } else if (
+                    node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
+                    node.leftExpression.valueExpression.nodeType === ParseNodeType.Name
+                ) {
+                    targetName = node.leftExpression.valueExpression;
+                }
+
+                if (targetName) {
                     rightHandType =
-                        transformTypeForPossibleEnumClass(
-                            evaluatorInterface,
-                            node,
-                            node.leftExpression,
-                            () => rightHandType!
-                        ) ?? rightHandType;
+                        transformTypeForPossibleEnumClass(evaluatorInterface, node, targetName, () => {
+                            return { assignedType: rightHandType };
+                        }) ?? rightHandType;
                 }
 
                 if (typeAliasNameNode) {
@@ -17136,8 +17149,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // In case this is an enum class and a method wrapped in an enum.member.
         decoratedType =
-            transformTypeForPossibleEnumClass(evaluatorInterface, node, node.name, () => decoratedType!) ??
-            decoratedType;
+            transformTypeForPossibleEnumClass(evaluatorInterface, node, node.name, () => {
+                return { assignedType: decoratedType };
+            }) ?? decoratedType;
 
         // See if there are any overloads provided by previous function declarations.
         if (isFunction(decoratedType)) {
@@ -17410,8 +17424,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 let isImplicitPositionOnlyParam = false;
 
                 if (param.category === ParameterCategory.Simple && param.name) {
-                    if (isPrivateName(param.name.value)) {
+                    if (
+                        isPrivateName(param.name.value) &&
+                        !node.parameters.some((p) => p.category === ParameterCategory.Simple && !p.name)
+                    ) {
                         isImplicitPositionOnlyParam = true;
+
+                        // If the parameter name indicates an implicit position-only parameter
+                        // but we have already seen non-position-only parameters, report an error.
+                        if (
+                            !paramsArePositionOnly &&
+                            functionType.details.parameters.every((p) => p.category === ParameterCategory.Simple)
+                        ) {
+                            addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                LocMessage.positionOnlyAfterNon(),
+                                param.name
+                            );
+                        }
                     }
                 } else {
                     paramsArePositionOnly = false;
@@ -19424,7 +19454,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return { type: createConcatenateType(classType, errorNode, typeArgs, flags) };
                 }
 
-                case 'TypeGuard': {
+                case 'TypeGuard':
+                case 'TypeIs': {
                     return { type: createTypeGuardType(classType, errorNode, typeArgs, flags) };
                 }
 
@@ -20489,7 +20520,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         evaluatorInterface,
                                         variableNode,
                                         declaration.node,
-                                        () => declaredType!
+                                        () => {
+                                            return { declaredType };
+                                        }
                                     ) ?? declaredType;
                             }
                         }
@@ -20816,11 +20849,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         () => {
                             assert(resolvedDecl.inferredTypeSource !== undefined);
                             const inferredTypeSource = resolvedDecl.inferredTypeSource;
-                            return (
-                                evaluateTypeForSubnode(inferredTypeSource, () => {
-                                    evaluateTypesForStatement(inferredTypeSource);
-                                })?.type ?? UnknownType.create()
-                            );
+                            return {
+                                assignedType:
+                                    evaluateTypeForSubnode(inferredTypeSource, () => {
+                                        evaluateTypesForStatement(inferredTypeSource);
+                                    })?.type ?? UnknownType.create(),
+                            };
                         }
                     );
 
@@ -22126,13 +22160,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             destTypeArgs.splice(destTypeArgs.length - 1, 1);
         }
 
-        if (srcVariadicIndex >= 0) {
+        // If we're doing reverse type mappings and the source contains a variadic
+        // TypeVar, we need to adjust the dest so the reverse type mapping assignment
+        // can be performed.
+        if ((flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0) {
             const destArgsToCapture = destTypeArgs.length - srcTypeArgs.length + 1;
 
-            // If we're doing reverse type mappings and the source contains a variadic
-            // TypeVar, we need to adjust the dest so the reverse type mapping assignment
-            // can be performed.
-            if (destArgsToCapture >= 0 && (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0) {
+            if (srcVariadicIndex >= 0 && destArgsToCapture >= 0) {
                 // If the only removed arg from the dest type args is itself a variadic,
                 // don't bother adjusting it.
                 const skipAdjustment =
@@ -23165,7 +23199,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const isLiteral = isClass(srcType) && srcType.literalValue !== undefined;
                     return !isLiteral;
                 }
-            } else if (ClassType.isBuiltIn(destType, 'TypeGuard')) {
+            } else if (ClassType.isBuiltIn(destType, ['TypeGuard', 'TypeIs'])) {
                 // All the source to be a "bool".
                 if ((originalFlags & AssignTypeFlags.AllowBoolTypeGuard) !== 0) {
                     if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'bool')) {
@@ -25034,11 +25068,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ) {
                     isReturnTypeCompatible = true;
                 } else {
-                    // Handle the special case where the return type is a TypeGuard[T].
-                    // This should also act as a bool, since that's its type at runtime.
+                    // Handle the special case where the return type is a TypeGuard[T]
+                    // or TypeIs[T]. This should also act as a bool, since that's its
+                    // type at runtime.
                     if (
                         isClassInstance(srcReturnType) &&
-                        ClassType.isBuiltIn(srcReturnType, 'TypeGuard') &&
+                        ClassType.isBuiltIn(srcReturnType, ['TypeGuard', 'TypeIs']) &&
                         boolClassType &&
                         isInstantiableClass(boolClassType)
                     ) {

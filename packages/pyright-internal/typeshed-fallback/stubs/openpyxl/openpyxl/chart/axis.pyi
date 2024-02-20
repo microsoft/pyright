@@ -155,10 +155,9 @@ class DisplayUnitsLabelList(Serialisable):
     def __init__(
         self,
         custUnit: _HasTagAndGet[ConvertibleToFloat | None] | ConvertibleToFloat | None = None,
-        builtInUnit: _HasTagAndGet[_DisplayUnitsLabelListBuiltInUnit]
-        | _DisplayUnitsLabelListBuiltInUnit
-        | Literal["none"]
-        | None = None,
+        builtInUnit: (
+            _HasTagAndGet[_DisplayUnitsLabelListBuiltInUnit] | _DisplayUnitsLabelListBuiltInUnit | Literal["none"] | None
+        ) = None,
         dispUnitsLbl: DisplayUnitsLabel | None = None,
         extLst: Unused = None,
     ) -> None: ...

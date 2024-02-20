@@ -4101,6 +4101,7 @@ export class Binder extends ParseTreeWalker {
             'Never',
             'LiteralString',
             'OrderedDict',
+            'TypeIs',
         ]);
 
         const assignedName = assignedNameNode.value;

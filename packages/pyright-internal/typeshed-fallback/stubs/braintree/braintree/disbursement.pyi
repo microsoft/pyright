@@ -8,6 +8,7 @@ class Disbursement(Resource):
     class Type:
         Credit: str
         Debit: str
+
     amount: Any
     merchant_account: Any
     def __init__(self, gateway, attributes) -> None: ...

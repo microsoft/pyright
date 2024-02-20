@@ -291,7 +291,7 @@ export function transformTypeForPossibleEnumClass(
     evaluator: TypeEvaluator,
     statementNode: ParseNode,
     nameNode: NameNode,
-    getValueType: () => Type
+    getValueType: () => { declaredType?: Type; assignedType?: Type }
 ): Type | undefined {
     // If the node is within a class that derives from the metaclass
     // "EnumMeta", we need to treat assignments differently.
@@ -343,9 +343,11 @@ export function transformTypeForPossibleEnumClass(
         return undefined;
     }
 
-    let valueType: Type;
+    const valueTypeInfo = getValueType();
+    const declaredType = valueTypeInfo.declaredType;
+    let assignedType = valueTypeInfo.assignedType;
 
-    valueType = getValueType();
+    let valueType = declaredType ?? assignedType ?? UnknownType.create();
 
     // If the LHS is an unpacked tuple, we need to handle this as
     // a special case.
@@ -370,18 +372,22 @@ export function transformTypeForPossibleEnumClass(
         return undefined;
     }
 
+    if (!assignedType && statementNode.nodeType === ParseNodeType.Assignment) {
+        assignedType = evaluator.getTypeOfExpression(statementNode.rightExpression).type;
+    }
+
     // Handle the Python 3.11 "enum.member()" and "enum.nonmember()" features.
-    if (isClassInstance(valueType) && ClassType.isBuiltIn(valueType)) {
-        if (valueType.details.fullName === 'enum.nonmember') {
-            return valueType.typeArguments && valueType.typeArguments.length > 0
-                ? valueType.typeArguments[0]
+    if (assignedType && isClassInstance(assignedType) && ClassType.isBuiltIn(assignedType)) {
+        if (assignedType.details.fullName === 'enum.nonmember') {
+            return assignedType.typeArguments && assignedType.typeArguments.length > 0
+                ? assignedType.typeArguments[0]
                 : UnknownType.create();
         }
 
-        if (valueType.details.fullName === 'enum.member') {
+        if (assignedType.details.fullName === 'enum.member') {
             valueType =
-                valueType.typeArguments && valueType.typeArguments.length > 0
-                    ? valueType.typeArguments[0]
+                assignedType.typeArguments && assignedType.typeArguments.length > 0
+                    ? assignedType.typeArguments[0]
                     : UnknownType.create();
             isMemberOfEnumeration = true;
         }
@@ -516,9 +522,14 @@ export function getTypeOfEnumMember(
         // it may implement some magic that computes different values for
         // the "_value_" attribute. If we see a customer __new__ or __init__,
         // we'll assume the value type is what we computed above, or Any.
-        const newMember = lookUpClassMember(classType, '__new__', MemberAccessFlags.SkipBaseClasses);
-        const initMember = lookUpClassMember(classType, '__init__', MemberAccessFlags.SkipBaseClasses);
-        if (newMember || initMember) {
+        const newMember = lookUpClassMember(classType, '__new__', MemberAccessFlags.SkipObjectBaseClass);
+        const initMember = lookUpClassMember(classType, '__init__', MemberAccessFlags.SkipObjectBaseClass);
+
+        if (newMember && isClass(newMember.classType) && !ClassType.isBuiltIn(newMember.classType)) {
+            return { type: valueType ?? AnyType.create(), isIncomplete };
+        }
+
+        if (initMember && isClass(initMember.classType) && !ClassType.isBuiltIn(initMember.classType)) {
             return { type: valueType ?? AnyType.create(), isIncomplete };
         }
 

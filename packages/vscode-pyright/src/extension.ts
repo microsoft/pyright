@@ -96,9 +96,8 @@ export async function activate(context: ExtensionContext) {
     const clientOptions: LanguageClientOptions = {
         // Register the server for python source files.
         documentSelector: [
-            {
-                language: 'python',
-            },
+            { scheme: 'file', language: 'python' },
+            { scheme: 'untitled', language: 'python' },
         ],
         synchronize: {
             // Synchronize the setting section to the server.
