@@ -159,6 +159,16 @@ test('getTextEditsForAutoImportInsertion - at the top', () => {
     testInsertion(code, 'marker1', [{ alias: 's' }, { name: 'path', alias: 'p' }], 'sys', ImportType.BuiltIn);
 });
 
+test('getTextEditsForAutoImportInsertion - at top of second group', () => {
+    const code = `
+//// import os
+//// 
+//// [|/*marker1*/{|"r":"from test.a import testa!n!"|}|]from test.b import testb
+    `;
+
+    testInsertion(code, 'marker1', [{ name: 'testa' }], 'test.a', ImportType.Local);
+});
+
 test('getTextEditsForAutoImportInsertion - at the top after module doc string', () => {
     const code = `
 //// ''' module doc string '''

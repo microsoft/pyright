@@ -107,7 +107,6 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
 import { isMethodOnlyProtocol, isProtocolUnsafeOverlap } from './protocols';
-import { RegionComment, RegionCommentType, getRegionComments } from './regions';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
@@ -273,8 +272,6 @@ export class Checker extends ParseTreeWalker {
         this._validateSymbolTables();
 
         this._reportDuplicateImports();
-
-        this._checkRegions();
     }
 
     override walk(node: ParseNode) {
@@ -7032,35 +7029,6 @@ export class Checker extends ParseTreeWalker {
                     }
                 }
             }
-        });
-    }
-
-    private _checkRegions() {
-        const regionComments = getRegionComments(this._parseResults);
-        const regionStack: RegionComment[] = [];
-
-        regionComments.forEach((regionComment) => {
-            if (regionComment.type === RegionCommentType.Region) {
-                regionStack.push(regionComment);
-            } else {
-                if (regionStack.length > 0) {
-                    regionStack.pop();
-                } else {
-                    this._addDiagnosticForRegionComment(regionComment, LocMessage.unmatchedEndregionComment());
-                }
-            }
-        });
-
-        regionStack.forEach((regionComment) => {
-            this._addDiagnosticForRegionComment(regionComment, LocMessage.unmatchedRegionComment());
-        });
-    }
-
-    private _addDiagnosticForRegionComment(regionComment: RegionComment, message: string): Diagnostic | undefined {
-        return this._evaluator.addDiagnosticForTextRange(this._fileInfo, 'error', '', message, {
-            // extend range to include # character
-            start: regionComment.comment.start - 1,
-            length: regionComment.comment.length + 1,
         });
     }
 }

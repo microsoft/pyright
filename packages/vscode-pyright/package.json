@@ -14,7 +14,7 @@
         "url": "https://github.com/Microsoft/pyright"
     },
     "engines": {
-        "vscode": "^1.78.0"
+        "vscode": "^1.82.0"
     },
     "keywords": [
         "python"
@@ -1560,14 +1560,14 @@
         "webpack-dev": "npm run clean && webpack --mode development --watch --progress"
     },
     "dependencies": {
-        "vscode-jsonrpc": "8.1.0",
-        "vscode-languageclient": "8.1.0",
-        "vscode-languageserver": "8.1.0",
-        "vscode-languageserver-protocol": "3.17.3"
+        "vscode-jsonrpc": "^8.2.0",
+        "vscode-languageclient": "^9.0.1",
+        "vscode-languageserver": "^9.0.1",
+        "vscode-languageserver-protocol": "^3.17.5"
     },
     "devDependencies": {
         "@types/node": "^17.0.45",
-        "@types/vscode": "^1.78.0",
+        "@types/vscode": "^1.82.0",
         "copy-webpack-plugin": "^11.0.0",
         "detect-indent": "^6.1.0",
         "esbuild-loader": "^3.2.0",
