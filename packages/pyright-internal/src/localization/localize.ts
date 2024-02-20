@@ -1094,8 +1094,6 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.uninitializedInstanceVariable'));
         export const unionUnpackedTuple = () => getRawString('Diagnostic.unionUnpackedTuple');
         export const unionUnpackedTypeVarTuple = () => getRawString('Diagnostic.unionUnpackedTypeVarTuple');
-        export const unmatchedEndregionComment = () => getRawString('Diagnostic.unmatchedEndregionComment');
-        export const unmatchedRegionComment = () => getRawString('Diagnostic.unmatchedRegionComment');
         export const unnecessaryCast = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.unnecessaryCast'));
         export const unnecessaryIsInstanceAlways = () =>

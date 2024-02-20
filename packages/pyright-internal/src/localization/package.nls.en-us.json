@@ -556,8 +556,6 @@
         "uninitializedInstanceVariable": "Instance variable \"{name}\" is not initialized in the class body or __init__ method",
         "unionUnpackedTuple": "Union cannot include an unpacked tuple",
         "unionUnpackedTypeVarTuple": "Union cannot include an unpacked TypeVarTuple",
-        "unmatchedEndregionComment": "#endregion is missing corresponding #region",
-        "unmatchedRegionComment": "#region is missing corresponding #endregion",
         "unnecessaryCast": "Unnecessary \"cast\" call; type is already \"{type}\"",
         "unnecessaryIsInstanceAlways": "Unnecessary isinstance call; \"{testType}\" is always an instance of \"{classType}\"",
         "unnecessaryIsSubclassAlways": "Unnecessary issubclass call; \"{testType}\" is always a subclass of \"{classType}\"",

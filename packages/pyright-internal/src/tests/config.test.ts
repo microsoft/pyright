@@ -21,7 +21,6 @@ import { createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
 import { TestAccessHost } from './harness/testAccessHost';
 import { TestFileSystem } from './harness/vfs/filesystem';
-import { cloneDeep } from 'lodash';
 import { deserialize, serialize } from '../backgroundThreadBase';
 
 function createAnalyzer(console?: ConsoleInterface) {
@@ -336,7 +335,7 @@ test('verify config fileSpecs after cloning', () => {
     const config = new ConfigOptions(Uri.file(process.cwd()));
     const sp = createServiceProvider(fs, new NullConsole());
     config.initializeFromJson(configFile, undefined, sp, new TestAccessHost());
-    const cloned = cloneDeep(config);
+    const cloned = deserialize(serialize(config));
 
     assert.deepEqual(config.ignore, cloned.ignore);
 });

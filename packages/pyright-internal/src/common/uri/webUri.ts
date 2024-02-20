@@ -43,6 +43,10 @@ export class WebUri extends BaseUri {
         return this._fragment;
     }
 
+    get query(): string {
+        return this._query;
+    }
+
     @cacheProperty()
     override get root(): Uri {
         const rootPath = this.getRootPath();
@@ -215,23 +219,22 @@ export class WebUri extends BaseUri {
 
     @cacheMethodWithNoArgs()
     override getDirectory(): Uri {
-        const index = this._path.lastIndexOf('/');
-        if (index > 0) {
-            return WebUri.createWebUri(
-                this._scheme,
-                this._authority,
-                this._path.slice(0, index),
-                this._query,
-                this._fragment,
-                undefined
-            );
-        } else {
+        if (this._path.length === 0) {
             return this;
         }
+
+        const index = this._path.lastIndexOf('/');
+        const newPath = index > 0 ? this._path.slice(0, index) : index === 0 ? '/' : '';
+
+        return WebUri.createWebUri(this._scheme, this._authority, newPath, this._query, this._fragment, undefined);
     }
 
     withFragment(fragment: string): Uri {
         return WebUri.createWebUri(this._scheme, this._authority, this._path, this._query, fragment, undefined);
+    }
+
+    withQuery(query: string): Uri {
+        return WebUri.createWebUri(this._scheme, this._authority, this._path, query, this._fragment, undefined);
     }
 
     override stripExtension(): Uri {

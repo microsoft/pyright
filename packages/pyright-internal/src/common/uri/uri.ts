@@ -12,6 +12,15 @@ import { EmptyUri } from './emptyUri';
 import { FileUri } from './fileUri';
 import { WebUri } from './webUri';
 import { JsonObjType } from './baseUri';
+import { isArray } from '../core';
+
+export const enum UriKinds {
+    file,
+    web,
+    empty,
+}
+
+export type SerializedType = [UriKinds, ...any[]];
 
 export interface Uri {
     // Unique key for storing in maps.
@@ -52,6 +61,9 @@ export interface Uri {
 
     // Returns the fragment part of a URI.
     readonly fragment: string;
+
+    // Returns the query part of a URI.
+    readonly query: string;
 
     isEmpty(): boolean;
     toString(): string;
@@ -98,6 +110,7 @@ export interface Uri {
     hasExtension(ext: string): boolean;
     containsExtension(ext: string): boolean;
     withFragment(fragment: string): Uri;
+    withQuery(query: string): Uri;
     toJsonObj(): any;
 }
 
@@ -169,6 +182,14 @@ export namespace Uri {
     }
 
     export function fromJsonObj(jsonObj: JsonObjType) {
+        if (isArray<SerializedType>(jsonObj)) {
+            // Currently only file uri supports SerializedType.
+            switch (jsonObj[0]) {
+                case UriKinds.file:
+                    return FileUri.fromJsonObj(jsonObj);
+            }
+        }
+
         if (FileUri.isFileUri(jsonObj)) {
             return FileUri.fromJsonObj(jsonObj);
         }
