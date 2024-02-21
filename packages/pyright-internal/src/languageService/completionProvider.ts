@@ -2545,16 +2545,18 @@ export class CompletionProvider {
         const excludes = new Set(existingKeys);
 
         typedDicts.forEach((typedDict) => {
-            getTypedDictMembersForClass(this.evaluator, typedDict, /* allowNarrowed */ true).forEach((_, key) => {
-                // Unions of TypedDicts may define the same key.
-                if (excludes.has(key) || completionMap.has(key)) {
-                    return;
+            getTypedDictMembersForClass(this.evaluator, typedDict, /* allowNarrowed */ true).knownItems.forEach(
+                (_, key) => {
+                    // Unions of TypedDicts may define the same key.
+                    if (excludes.has(key) || completionMap.has(key)) {
+                        return;
+                    }
+
+                    excludes.add(key);
+
+                    this._addStringLiteralToCompletions(key, quoteInfo, postText, completionMap);
                 }
-
-                excludes.add(key);
-
-                this._addStringLiteralToCompletions(key, quoteInfo, postText, completionMap);
-            });
+            );
         });
 
         return true;
@@ -2592,7 +2594,7 @@ export class CompletionProvider {
             const entries = getTypedDictMembersForClass(this.evaluator, type, /* allowNarrowed */ true);
 
             for (let index = 0; index < keys.length; index++) {
-                if (!entries.has(keys[index])) {
+                if (!entries.knownItems.has(keys[index])) {
                     return [];
                 }
             }
@@ -2808,10 +2810,10 @@ export class CompletionProvider {
             this._addNamedParametersToMap(signature.type, argNameSet);
         });
 
-        //Add keys from typed dict outside signatures
+        // Add keys from typed dict outside signatures.
         signatureInfo.signatures.forEach((signature) => {
             if (signature.type.boundToType) {
-                const keys = Array.from(signature.type.boundToType.details.typedDictEntries?.keys() || []);
+                const keys = Array.from(signature.type.boundToType.details.typedDictEntries?.knownItems.keys() || []);
                 keys.forEach((key: string) => argNameSet.add(key));
             }
         });

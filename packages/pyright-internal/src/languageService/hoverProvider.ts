@@ -419,7 +419,7 @@ export class HoverProvider {
         // with the type of the TypedDict key and its docstring, if available.
         doForEachSubtype(type, (subtype) => {
             if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
-                const entry = subtype.details.typedDictEntries?.get(node.value);
+                const entry = subtype.details.typedDictEntries?.knownItems.get(node.value);
                 if (entry) {
                     // If we have already added parts for another declaration (e.g. for a union of TypedDicts that share the same key)
                     // then we need to add a separator to prevent a visual bug.

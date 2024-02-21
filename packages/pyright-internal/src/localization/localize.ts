@@ -959,6 +959,10 @@ export namespace Localizer {
         export const typedDictBaseClass = () => getRawString('Diagnostic.typedDictBaseClass');
         export const typedDictBoolParam = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictBoolParam'));
+        export const typedDictClosedExtras = () =>
+            new ParameterizedString<{ name: string; type: string }>(getRawString('Diagnostic.typedDictClosedExtras'));
+        export const typedDictClosedNoExtras = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictClosedNoExtras'));
         export const typedDictDelete = () => getRawString('Diagnostic.typedDictDelete');
         export const typedDictEmptyName = () => getRawString('Diagnostic.typedDictEmptyName');
         export const typedDictEntryName = () => getRawString('Diagnostic.typedDictEntryName');
@@ -1459,9 +1463,29 @@ export namespace Localizer {
         export const typedDictBaseClass = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.typedDictBaseClass'));
         export const typedDictClassNotAllowed = () => getRawString('DiagnosticAddendum.typedDictClassNotAllowed');
+        export const typedDictExtraFieldNotAllowed = () =>
+            new ParameterizedString<{ name: string; type: string }>(
+                getRawString('DiagnosticAddendum.typedDictExtraFieldNotAllowed')
+            );
+        export const typedDictExtraFieldTypeMismatch = () =>
+            new ParameterizedString<{ name: string; type: string }>(
+                getRawString('DiagnosticAddendum.typedDictExtraFieldTypeMismatch')
+            );
         export const typedDictFieldMissing = () =>
             new ParameterizedString<{ name: string; type: string }>(
                 getRawString('DiagnosticAddendum.typedDictFieldMissing')
+            );
+        export const typedDictClosedExtraNotAllowed = () =>
+            new ParameterizedString<{ name: string }>(
+                getRawString('DiagnosticAddendum.typedDictClosedExtraNotAllowed')
+            );
+        export const typedDictClosedExtraTypeMismatch = () =>
+            new ParameterizedString<{ name: string; type: string }>(
+                getRawString('DiagnosticAddendum.typedDictClosedExtraTypeMismatch')
+            );
+        export const typedDictClosedFieldNotRequired = () =>
+            new ParameterizedString<{ name: string }>(
+                getRawString('DiagnosticAddendum.typedDictClosedFieldNotRequired')
             );
         export const typedDictFieldNotReadOnly = () =>
             new ParameterizedString<{ name: string; type: string }>(
