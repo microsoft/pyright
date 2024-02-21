@@ -280,6 +280,8 @@ import {
     createTypedDictType,
     createTypedDictTypeInlined,
     getTypeOfIndexedTypedDict,
+    getTypedDictDictEquivalent,
+    getTypedDictMappingEquivalent,
     getTypedDictMembersForClass,
     synthesizeTypedDictClassMethods,
 } from './typedDicts';
@@ -305,7 +307,7 @@ import {
     TypeVarScopeId,
     TypeVarScopeType,
     TypeVarType,
-    TypedDictEntry,
+    TypedDictEntries,
     UnboundType,
     UnionType,
     UnknownType,
@@ -597,6 +599,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let dictClassType: Type | undefined;
     let typedDictClassType: Type | undefined;
     let typedDictPrivateClassType: Type | undefined;
+    let supportsKeysAndGetItemProtocolType: Type | undefined;
     let mappingType: Type | undefined;
     let printExpressionSpaceCount = 0;
     let incompleteGenerationCount = 0;
@@ -951,11 +954,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typedDictClassType = getTypingType(node, 'TypedDict');
             typedDictPrivateClassType = getTypingType(node, '_TypedDict');
             awaitableProtocolType = getTypingType(node, 'Awaitable');
+            mappingType = getTypingType(node, 'Mapping');
 
-            mappingType = getTypeshedType(node, 'SupportsKeysAndGetItem');
-            if (!mappingType) {
+            supportsKeysAndGetItemProtocolType = getTypeshedType(node, 'SupportsKeysAndGetItem');
+            if (!supportsKeysAndGetItemProtocolType) {
                 // Fall back on 'Mapping' if 'SupportsKeysAndGetItem' is not available.
-                mappingType = getTypingType(node, 'Mapping');
+                supportsKeysAndGetItemProtocolType = mappingType;
             }
 
             // Wire up the `Any` class to the special-form version of our internal AnyType.
@@ -2429,7 +2433,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return functionType;
         }
 
-        const tdEntries = kwargsType.typedDictNarrowedEntries ?? kwargsType.details.typedDictEntries;
+        const tdEntries = kwargsType.typedDictNarrowedEntries ?? kwargsType.details.typedDictEntries?.knownItems;
         if (!tdEntries) {
             return functionType;
         }
@@ -10460,7 +10464,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const typedDictEntries = getTypedDictMembersForClass(evaluatorInterface, argType);
                         const diag = new DiagnosticAddendum();
 
-                        typedDictEntries.forEach((entry, name) => {
+                        typedDictEntries.knownItems.forEach((entry, name) => {
                             const paramEntry = paramMap.get(name);
                             if (paramEntry && !paramEntry.isPositionalOnly) {
                                 if (paramEntry.argsReceived > 0) {
@@ -10547,12 +10551,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const strObjType = getBuiltInObject(errorNode, 'str');
 
                         if (
-                            mappingType &&
-                            isInstantiableClass(mappingType) &&
+                            supportsKeysAndGetItemProtocolType &&
+                            isInstantiableClass(supportsKeysAndGetItemProtocolType) &&
                             strObjType &&
                             isClassInstance(strObjType)
                         ) {
-                            const mappingTypeVarContext = new TypeVarContext(getTypeVarScopeId(mappingType));
+                            const mappingTypeVarContext = new TypeVarContext(
+                                getTypeVarScopeId(supportsKeysAndGetItemProtocolType)
+                            );
                             let isValidMappingType = false;
 
                             // If this was a TypeVar (e.g. for pseudo-generic classes),
@@ -10561,14 +10567,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 isValidMappingType = true;
                             } else if (
                                 assignType(
-                                    ClassType.cloneAsInstance(mappingType),
+                                    ClassType.cloneAsInstance(supportsKeysAndGetItemProtocolType),
                                     argType,
                                     /* diag */ undefined,
                                     mappingTypeVarContext
                                 )
                             ) {
                                 const specializedMapping = applySolvedTypeVars(
-                                    mappingType,
+                                    supportsKeysAndGetItemProtocolType,
                                     mappingTypeVarContext
                                 ) as ClassType;
                                 const typeArgs = specializedMapping.typeArguments;
@@ -13194,7 +13200,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isValueTypeInvariant: boolean,
         expectedKeyType?: Type,
         expectedValueType?: Type,
-        expectedTypedDictEntries?: Map<string, TypedDictEntry>,
+        expectedTypedDictEntries?: TypedDictEntries,
         expectedDiagAddendum?: DiagnosticAddendum
     ): boolean {
         let isIncomplete = false;
@@ -13234,9 +13240,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isClassInstance(keyType) &&
                     ClassType.isBuiltIn(keyType, 'str') &&
                     isLiteralType(keyType) &&
-                    expectedTypedDictEntries.has(keyType.literalValue as string)
+                    expectedTypedDictEntries.knownItems.has(keyType.literalValue as string)
                 ) {
-                    const effectiveValueType = expectedTypedDictEntries.get(keyType.literalValue as string)!.valueType;
+                    const effectiveValueType = expectedTypedDictEntries.knownItems.get(
+                        keyType.literalValue as string
+                    )!.valueType;
                     entryInferenceContext = makeInferenceContext(effectiveValueType);
                     valueTypeResult = getTypeOfExpression(
                         entryNode.valueExpression,
@@ -13284,10 +13292,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
                 let expectedType: Type | undefined;
                 if (expectedKeyType && expectedValueType) {
-                    if (mappingType && isInstantiableClass(mappingType)) {
+                    if (supportsKeysAndGetItemProtocolType && isInstantiableClass(supportsKeysAndGetItemProtocolType)) {
                         expectedType = ClassType.cloneAsInstance(
                             ClassType.cloneForSpecialization(
-                                mappingType,
+                                supportsKeysAndGetItemProtocolType,
                                 [expectedKeyType, expectedValueType],
                                 /* isTypeArgumentExplicit */ true
                             )
@@ -13331,7 +13339,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             /* allowNarrowed */ true
                         );
 
-                        tdEntries.forEach((entry, name) => {
+                        tdEntries.knownItems.forEach((entry, name) => {
                             if (entry.isRequired || entry.isProvided) {
                                 keyTypes.push({ node: entryNode, type: ClassType.cloneWithLiteral(strObject, name) });
                                 valueTypes.push({ node: entryNode, type: entry.valueType });
@@ -13340,14 +13348,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         addUnknown = false;
                     }
-                } else if (mappingType && isInstantiableClass(mappingType)) {
-                    const mappingTypeVarContext = new TypeVarContext(getTypeVarScopeId(mappingType));
+                } else if (
+                    supportsKeysAndGetItemProtocolType &&
+                    isInstantiableClass(supportsKeysAndGetItemProtocolType)
+                ) {
+                    const mappingTypeVarContext = new TypeVarContext(
+                        getTypeVarScopeId(supportsKeysAndGetItemProtocolType)
+                    );
 
-                    mappingType = selfSpecializeClass(mappingType);
+                    supportsKeysAndGetItemProtocolType = selfSpecializeClass(supportsKeysAndGetItemProtocolType);
 
                     if (
                         assignType(
-                            ClassType.cloneAsInstance(mappingType),
+                            ClassType.cloneAsInstance(supportsKeysAndGetItemProtocolType),
                             unexpandedType,
                             /* diag */ undefined,
                             mappingTypeVarContext,
@@ -13355,7 +13368,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             AssignTypeFlags.RetainLiteralsForTypeVar
                         )
                     ) {
-                        const specializedMapping = applySolvedTypeVars(mappingType, mappingTypeVarContext) as ClassType;
+                        const specializedMapping = applySolvedTypeVars(
+                            supportsKeysAndGetItemProtocolType,
+                            mappingTypeVarContext
+                        ) as ClassType;
                         const typeArgs = specializedMapping.typeArguments;
                         if (typeArgs && typeArgs.length >= 2) {
                             if (forceStrictInference || index < maxEntriesToUseForInference) {
@@ -16057,6 +16073,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // a TypedDict, it is considered a TypedDict.
                             if (ClassType.isBuiltIn(argType, 'TypedDict') || ClassType.isTypedDictClass(argType)) {
                                 classType.details.flags |= ClassTypeFlags.TypedDictClass;
+
+                                // Propagate the "effectively closed" flag from base classes.
+                                if (ClassType.isTypedDictEffectivelyClosed(argType)) {
+                                    classType.details.flags |= ClassTypeFlags.TypedDictEffectivelyClosed;
+                                }
                             }
 
                             // Validate that the class isn't deriving from itself, creating a
@@ -16181,7 +16202,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 } else if (ClassType.isTypedDictClass(classType)) {
-                    if (arg.name.value === 'total') {
+                    if (arg.name.value === 'total' || arg.name.value === 'closed') {
                         // The "total" and "readonly" parameters apply only for TypedDict classes.
                         // PEP 589 specifies that the parameter must be either True or False.
                         const constArgValue = evaluateStaticBoolExpression(
@@ -16189,6 +16210,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             fileInfo.executionEnvironment,
                             fileInfo.definedConstants
                         );
+
                         if (constArgValue === undefined) {
                             addError(
                                 LocMessage.typedDictBoolParam().format({ name: arg.name.value }),
@@ -16196,6 +16218,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             );
                         } else if (arg.name.value === 'total' && !constArgValue) {
                             classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
+                        } else if (arg.name.value === 'closed' && constArgValue) {
+                            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
+                                classType.details.flags |=
+                                    ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
+                            }
                         }
                     } else {
                         addError(LocMessage.typedDictInitsubclassParameter().format({ name: arg.name.value }), arg);
@@ -16511,12 +16538,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     addError(LocMessage.typedDictBaseClass() + diag.getString(), node.name);
                 }
 
-                synthesizeTypedDictClassMethods(
-                    evaluatorInterface,
-                    node,
-                    classType,
-                    isClass(decoratedType) && ClassType.isFinal(decoratedType)
-                );
+                synthesizeTypedDictClassMethods(evaluatorInterface, node, classType);
             }
 
             // Synthesize dataclass methods.
@@ -20146,7 +20168,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // is a valid entry in the TypedDict to avoid resolving declarations for
                 // synthesized symbols such as 'get'.
                 if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
-                    const entry = subtype.details.typedDictEntries?.get(node.value);
+                    const entry = subtype.details.typedDictEntries?.knownItems.get(node.value);
                     if (entry) {
                         const symbol = lookUpObjectMember(subtype, node.value)?.symbol;
 
@@ -21795,49 +21817,110 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Handle typed dicts. They also use a form of structural typing for type
         // checking, as defined in PEP 589.
-        if (
-            ClassType.isTypedDictClass(destType) &&
-            ClassType.isTypedDictClass(srcType) &&
-            !ClassType.isSameGenericClass(destType, srcType)
-        ) {
+        if (ClassType.isTypedDictClass(srcType)) {
+            if (ClassType.isTypedDictClass(destType) && !ClassType.isSameGenericClass(destType, srcType)) {
+                if (
+                    !assignTypedDictToTypedDict(
+                        evaluatorInterface,
+                        destType,
+                        srcType,
+                        diag,
+                        destTypeVarContext,
+                        flags,
+                        recursionCount
+                    )
+                ) {
+                    return false;
+                }
+
+                if (ClassType.isFinal(destType) !== ClassType.isFinal(srcType)) {
+                    diag?.addMessage(
+                        LocAddendum.typedDictFinalMismatch().format({
+                            sourceType: printType(convertToInstance(srcType)),
+                            destType: printType(convertToInstance(destType)),
+                        })
+                    );
+                    return false;
+                }
+
+                // If invariance is being enforced, the two TypedDicts must be assignable to each other.
+                if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
+                    return assignTypedDictToTypedDict(
+                        evaluatorInterface,
+                        srcType,
+                        destType,
+                        /* diag */ undefined,
+                        /* typeVarContext */ undefined,
+                        flags,
+                        recursionCount
+                    );
+                }
+
+                return true;
+            }
+
+            // Handle some special cases where a TypedDict can act like
+            // a Mapping[str, T] or a dict[str, T].
+            if (ClassType.isBuiltIn(destType, 'Mapping')) {
+                const mappingValueType = getTypedDictMappingEquivalent(evaluatorInterface, srcType);
+
+                if (
+                    mappingValueType &&
+                    mappingType &&
+                    isInstantiableClass(mappingType) &&
+                    strClassType &&
+                    isInstantiableClass(strClassType)
+                ) {
+                    srcType = ClassType.cloneForSpecialization(
+                        mappingType,
+                        [ClassType.cloneAsInstance(strClassType), mappingValueType],
+                        /* isTypeArgumentExplicit */ true
+                    );
+                }
+            } else if (ClassType.isBuiltIn(destType, ['dict', 'MutableMapping'])) {
+                const dictValueType = getTypedDictDictEquivalent(evaluatorInterface, srcType, recursionCount);
+
+                if (
+                    dictValueType &&
+                    dictClassType &&
+                    isInstantiableClass(dictClassType) &&
+                    strClassType &&
+                    isInstantiableClass(strClassType)
+                ) {
+                    srcType = ClassType.cloneForSpecialization(
+                        dictClassType,
+                        [ClassType.cloneAsInstance(strClassType), dictValueType],
+                        /* isTypeArgumentExplicit */ true
+                    );
+                }
+            }
+        }
+
+        // See if the dest type is a TypedDict class and the source is a compatible dict.
+        if (ClassType.isTypedDictClass(destType) && ClassType.isBuiltIn(srcType, 'dict')) {
             if (
-                !assignTypedDictToTypedDict(
-                    evaluatorInterface,
-                    destType,
-                    srcType,
-                    diag,
-                    destTypeVarContext,
-                    flags,
-                    recursionCount
-                )
+                srcType.typeArguments &&
+                srcType.typeArguments.length === 2 &&
+                isClassInstance(srcType.typeArguments[0]) &&
+                ClassType.isBuiltIn(srcType.typeArguments[0], 'str')
             ) {
-                return false;
-            }
+                const dictValueType = getTypedDictDictEquivalent(evaluatorInterface, destType, recursionCount);
 
-            if (ClassType.isFinal(destType) !== ClassType.isFinal(srcType)) {
-                diag?.addMessage(
-                    LocAddendum.typedDictFinalMismatch().format({
-                        sourceType: printType(convertToInstance(srcType)),
-                        destType: printType(convertToInstance(destType)),
-                    })
-                );
-                return false;
+                if (
+                    dictValueType &&
+                    assignType(
+                        dictValueType,
+                        srcType.typeArguments[1],
+                        /* diag */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        AssignTypeFlags.EnforceInvariance,
+                        recursionCount + 1
+                    )
+                ) {
+                    return true;
+                }
             }
-
-            // If invariance is being enforced, the two TypedDicts must be assignable to each other.
-            if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
-                return assignTypedDictToTypedDict(
-                    evaluatorInterface,
-                    srcType,
-                    destType,
-                    /* diag */ undefined,
-                    /* typeVarContext */ undefined,
-                    flags,
-                    recursionCount
-                );
-            }
-
-            return true;
         }
 
         // Handle special-case type promotions.
@@ -22970,7 +23053,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isNever(srcType)) {
             if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
-                return isNever(destType);
+                if (isNever(destType)) {
+                    return true;
+                }
+
+                diag?.addMessage(LocAddendum.typeAssignmentMismatch().format(printSrcDestTypes(srcType, destType)));
+                return false;
             }
 
             const targetTypeVarContext =
