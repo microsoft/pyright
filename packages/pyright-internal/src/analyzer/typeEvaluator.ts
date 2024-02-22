@@ -20629,7 +20629,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeVar.details.constraints = constraints;
                 }
             } else {
-                const boundType = getTypeOfExpressionExpectingType(node.boundExpression).type;
+                const boundType = getTypeOfExpressionExpectingType(node.boundExpression, {
+                    disallowProtocolAndTypedDict: true,
+                }).type;
 
                 if (requiresSpecialization(boundType, { ignorePseudoGeneric: true })) {
                     addError(LocMessage.typeVarConstraintGeneric(), node.boundExpression);
