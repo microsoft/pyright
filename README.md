@@ -105,6 +105,15 @@ from baz import foo as baz, bar as baz  # no error
 
 pyright solves both of these problems by always reporting an error on a redeclaration or an import with the same name as an existing import.
 
+### better defaults
+we believe that type checkers and linters should be as strict as possible by default, making the user aware of all the available rules so they can more easily make informed decisions about which rules they don't want enabled in their project. that's why the following defaults have been changed in basedpyright
+
+#### `typeCheckingMode`
+used to be `basic`, but now defaults to `all`. in the future we intend to add [baseline](https://kotlinisland.github.io/basedmypy/baseline.html) to allow for easy adoption of more strict rules in existing codebases.
+
+#### `pythonPlatform`
+used to assume that the operating system pyright is being run on is the only operating system your code will run on, which is rarely the case. in basedpyright, `pythonPlatform` defaults to `All`, which assumes your code can run on any operating system.
+
 ## basedmypy feature parity
 
 [basedmypy](https://github.com/kotlinisland/basedmypy) is a fork of mypy with a similar goal in mind: to fix some of the serious problems in mypy that do not seem to be a priority for the maintainers. it also adds many new features which may not be standardized but greatly improve the developer experience when working with python's far-from-perfect type system.
