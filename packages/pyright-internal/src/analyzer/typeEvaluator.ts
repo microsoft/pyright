@@ -14030,7 +14030,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             },
             {
-                dependentType: expectedType,
+                dependentType: inferenceContext?.expectedType,
                 allowDiagnostics:
                     !forceSpeculative && !isDiagnosticSuppressedForNode(node) && !inferenceContext?.isTypeIncomplete,
             }
