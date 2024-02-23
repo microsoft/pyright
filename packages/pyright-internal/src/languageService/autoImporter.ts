@@ -57,6 +57,7 @@ export type ModuleSymbolMap = Map<string, ModuleSymbolTable>;
 export interface AutoImportResult {
     readonly name: string;
     readonly declUri: Uri;
+    readonly originalName: string;
     readonly originalDeclUri: Uri;
     readonly insertionText: string;
     readonly symbol?: Symbol;
@@ -235,7 +236,7 @@ export class AutoImporter {
         throwIfCancellationRequested(token);
 
         importAliasMap.forEach((mapPerSymbolName) => {
-            mapPerSymbolName.forEach((importAliasData) => {
+            mapPerSymbolName.forEach((importAliasData, originalName) => {
                 if (abbrFromUsers) {
                     // When alias name is used, our regular exclude mechanism would not work. we need to check
                     // whether import, the alias is referring to, already exists.
@@ -296,6 +297,7 @@ export class AutoImporter {
                     insertionText: autoImportTextEdits.insertionText,
                     edits: autoImportTextEdits.edits,
                     declUri: importAliasData.importParts.fileUri,
+                    originalName,
                     originalDeclUri: importAliasData.fileUri,
                 });
             });
@@ -381,6 +383,7 @@ export class AutoImporter {
                 insertionText: autoImportTextEdits.insertionText,
                 edits: autoImportTextEdits.edits,
                 declUri: moduleUri,
+                originalName: name,
                 originalDeclUri: moduleUri,
             });
         });

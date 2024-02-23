@@ -108,7 +108,6 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { validateClassPattern } from './patternMatching';
 import { isMethodOnlyProtocol, isProtocolUnsafeOverlap } from './protocols';
-import { RegionComment, RegionCommentType, getRegionComments } from './regions';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
@@ -162,6 +161,7 @@ import {
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
+import { getEffectiveExtraItemsEntryType, getTypedDictMembersForClass } from './typedDicts';
 import {
     AnyType,
     ClassType,
@@ -275,8 +275,6 @@ export class Checker extends ParseTreeWalker {
         this._validateSymbolTables();
 
         this._reportDuplicateImports();
-
-        this._checkRegions();
     }
 
     override walk(node: ParseNode) {
@@ -357,6 +355,8 @@ export class Checker extends ParseTreeWalker {
             }
 
             this._validateBaseClassOverrides(classTypeResult.classType);
+
+            this._validateTypedDictOverrides(classTypeResult.classType);
 
             this._validateOverloadDecoratorConsistency(classTypeResult.classType);
 
@@ -526,7 +526,7 @@ export class Checker extends ParseTreeWalker {
 
                 if (isClass(kwargsType) && kwargsType.details.typedDictEntries) {
                     const overlappingEntries = new Set<string>();
-                    kwargsType.details.typedDictEntries.forEach((_, name) => {
+                    kwargsType.details.typedDictEntries.knownItems.forEach((_, name) => {
                         if (keywordNames.has(name)) {
                             overlappingEntries.add(name);
                         }
@@ -671,7 +671,7 @@ export class Checker extends ParseTreeWalker {
             // Verify common dunder signatures.
             this._validateDunderSignatures(node, functionTypeResult.functionType, containingClassNode !== undefined);
 
-            // Verify TypeGuard functions.
+            // Verify TypeGuard and TypeIs functions.
             this._validateTypeGuardFunction(node, functionTypeResult.functionType, containingClassNode !== undefined);
 
             this._validateFunctionTypeVarUsage(node, functionTypeResult);
@@ -4610,7 +4610,10 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        if (!ClassType.isBuiltIn(returnType, 'TypeGuard')) {
+        const isTypeGuard = ClassType.isBuiltIn(returnType, 'TypeGuard');
+        const isTypeIs = ClassType.isBuiltIn(returnType, 'TypeIs');
+
+        if (!isTypeGuard && !isTypeIs) {
             return;
         }
 
@@ -4632,6 +4635,34 @@ export class Checker extends ParseTreeWalker {
                 LocMessage.typeGuardParamCount(),
                 node.name
             );
+        }
+
+        if (isTypeIs) {
+            const typeGuardType = returnType.typeArguments[0];
+
+            // Determine the type of the first parameter.
+            const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
+            if (paramIndex >= functionType.details.parameters.length) {
+                return;
+            }
+
+            const paramType = FunctionType.getEffectiveParameterType(functionType, paramIndex);
+
+            // Verify that the typeGuardType is a narrower type than the paramType.
+            if (!this._evaluator.assignType(paramType, typeGuardType)) {
+                const returnAnnotation =
+                    node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
+                if (returnAnnotation) {
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typeIsReturnType().format({
+                            type: this._evaluator.printType(paramType),
+                            returnType: this._evaluator.printType(typeGuardType),
+                        }),
+                        returnAnnotation
+                    );
+                }
+            }
         }
     }
 
@@ -5825,7 +5856,10 @@ export class Checker extends ParseTreeWalker {
 
                 let overriddenTDEntry: TypedDictEntry | undefined;
                 if (overriddenClassAndSymbol.classType.details.typedDictEntries) {
-                    overriddenTDEntry = overriddenClassAndSymbol.classType.details.typedDictEntries.get(memberName);
+                    overriddenTDEntry =
+                        overriddenClassAndSymbol.classType.details.typedDictEntries.knownItems.get(memberName) ??
+                        overriddenClassAndSymbol.classType.details.typedDictEntries.extraItems ??
+                        getEffectiveExtraItemsEntryType(this._evaluator, overriddenClassAndSymbol.classType);
 
                     if (overriddenTDEntry?.isReadOnly) {
                         isInvariant = false;
@@ -5834,7 +5868,10 @@ export class Checker extends ParseTreeWalker {
 
                 let overrideTDEntry: TypedDictEntry | undefined;
                 if (overrideClassAndSymbol.classType.details.typedDictEntries) {
-                    overrideTDEntry = overrideClassAndSymbol.classType.details.typedDictEntries.get(memberName);
+                    overrideTDEntry =
+                        overrideClassAndSymbol.classType.details.typedDictEntries.knownItems.get(memberName) ??
+                        overrideClassAndSymbol.classType.details.typedDictEntries.extraItems ??
+                        getEffectiveExtraItemsEntryType(this._evaluator, overrideClassAndSymbol.classType);
                 }
 
                 if (
@@ -5968,6 +6005,126 @@ export class Checker extends ParseTreeWalker {
                 });
             }
         });
+    }
+
+    // For a TypedDict class that derives from another TypedDict class
+    // that is closed, verify that any new keys are compatible with the
+    // base class.
+    private _validateTypedDictOverrides(classType: ClassType) {
+        if (!ClassType.isTypedDictClass(classType)) {
+            return;
+        }
+
+        const typedDictEntries = getTypedDictMembersForClass(this._evaluator, classType, /* allowNarrowed */ false);
+
+        for (const baseClass of classType.details.baseClasses) {
+            const diag = new DiagnosticAddendum();
+
+            if (
+                !isClass(baseClass) ||
+                !ClassType.isTypedDictClass(baseClass) ||
+                !ClassType.isTypedDictEffectivelyClosed(baseClass)
+            ) {
+                continue;
+            }
+
+            const baseTypedDictEntries = getTypedDictMembersForClass(
+                this._evaluator,
+                baseClass,
+                /* allowNarrowed */ false
+            );
+
+            const typeVarContext = buildTypeVarContextFromSpecializedClass(baseClass);
+
+            const baseExtraItemsType = baseTypedDictEntries.extraItems
+                ? applySolvedTypeVars(baseTypedDictEntries.extraItems.valueType, typeVarContext)
+                : UnknownType.create();
+
+            for (const [name, entry] of typedDictEntries.knownItems) {
+                const baseEntry = baseTypedDictEntries.knownItems.get(name);
+
+                if (!baseEntry) {
+                    if (!baseTypedDictEntries.extraItems || isNever(baseTypedDictEntries.extraItems.valueType)) {
+                        diag.addMessage(
+                            LocAddendum.typedDictClosedExtraNotAllowed().format({
+                                name,
+                            })
+                        );
+                    } else if (
+                        !this._evaluator.assignType(
+                            baseExtraItemsType,
+                            entry.valueType,
+                            /* diag */ undefined,
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            !baseTypedDictEntries.extraItems.isReadOnly
+                                ? AssignTypeFlags.EnforceInvariance
+                                : AssignTypeFlags.Default
+                        )
+                    ) {
+                        diag.addMessage(
+                            LocAddendum.typedDictClosedExtraTypeMismatch().format({
+                                name,
+                                type: this._evaluator.printType(entry.valueType),
+                            })
+                        );
+                    } else if (!baseTypedDictEntries.extraItems.isReadOnly && entry.isRequired) {
+                        diag.addMessage(
+                            LocAddendum.typedDictClosedFieldNotRequired().format({
+                                name,
+                            })
+                        );
+                    }
+                }
+            }
+
+            if (typedDictEntries.extraItems && baseTypedDictEntries.extraItems) {
+                if (
+                    !this._evaluator.assignType(
+                        baseExtraItemsType,
+                        typedDictEntries.extraItems.valueType,
+                        /* diag */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        !baseTypedDictEntries.extraItems.isReadOnly
+                            ? AssignTypeFlags.EnforceInvariance
+                            : AssignTypeFlags.Default
+                    )
+                ) {
+                    diag.addMessage(
+                        LocAddendum.typedDictClosedExtraTypeMismatch().format({
+                            name: '__extra_items__',
+                            type: this._evaluator.printType(typedDictEntries.extraItems.valueType),
+                        })
+                    );
+                }
+            }
+
+            if (!diag.isEmpty() && classType.details.declaration) {
+                const declNode = getNameNodeForDeclaration(classType.details.declaration);
+
+                if (declNode) {
+                    if (baseTypedDictEntries.extraItems) {
+                        this._evaluator.addDiagnostic(
+                            DiagnosticRule.reportIncompatibleVariableOverride,
+                            LocMessage.typedDictClosedExtras().format({
+                                name: baseClass.details.name,
+                                type: this._evaluator.printType(baseExtraItemsType),
+                            }) + diag.getString(),
+                            declNode
+                        );
+                    } else {
+                        this._evaluator.addDiagnostic(
+                            DiagnosticRule.reportIncompatibleVariableOverride,
+                            LocMessage.typedDictClosedNoExtras().format({
+                                name: baseClass.details.name,
+                            }) + diag.getString(),
+                            declNode
+                        );
+                    }
+                }
+            }
+        }
     }
 
     // Validates that any overridden methods or variables contain the same
@@ -6393,17 +6550,34 @@ export class Checker extends ParseTreeWalker {
                     }
 
                     let overriddenTDEntry: TypedDictEntry | undefined;
-                    if (baseClass.details.typedDictEntries) {
-                        overriddenTDEntry = baseClass.details.typedDictEntries.get(memberName);
-
-                        if (overriddenTDEntry?.isReadOnly) {
-                            isInvariant = false;
-                        }
-                    }
-
                     let overrideTDEntry: TypedDictEntry | undefined;
-                    if (childClassType.details.typedDictEntries) {
-                        overrideTDEntry = childClassType.details.typedDictEntries.get(memberName);
+
+                    if (!overrideSymbol.isIgnoredForProtocolMatch()) {
+                        if (baseClass.details.typedDictEntries) {
+                            overriddenTDEntry =
+                                baseClass.details.typedDictEntries.knownItems.get(memberName) ??
+                                baseClass.details.typedDictEntries.extraItems ??
+                                getEffectiveExtraItemsEntryType(this._evaluator, baseClass);
+
+                            if (overriddenTDEntry?.isReadOnly) {
+                                isInvariant = false;
+                            }
+                        }
+
+                        if (childClassType.details.typedDictEntries) {
+                            // Exempt __extra_items__ here. We'll check this separately
+                            // in _validateTypedDictOverrides. If we don't skip it here,
+                            // redundant errors will be produced.
+                            if (ClassType.isTypedDictMarkedClosed(childClassType) && memberName === '__extra_items__') {
+                                overrideTDEntry = overriddenTDEntry;
+                                overrideType = baseType;
+                            } else {
+                                overrideTDEntry =
+                                    childClassType.details.typedDictEntries.knownItems.get(memberName) ??
+                                    childClassType.details.typedDictEntries.extraItems ??
+                                    getEffectiveExtraItemsEntryType(this._evaluator, childClassType);
+                            }
+                        }
                     }
 
                     let diagAddendum = new DiagnosticAddendum();
@@ -7020,35 +7194,6 @@ export class Checker extends ParseTreeWalker {
                 }
                 importedNames.push(name);
             }
-        });
-    }
-
-    private _checkRegions() {
-        const regionComments = getRegionComments(this._parseResults);
-        const regionStack: RegionComment[] = [];
-
-        regionComments.forEach((regionComment) => {
-            if (regionComment.type === RegionCommentType.Region) {
-                regionStack.push(regionComment);
-            } else {
-                if (regionStack.length > 0) {
-                    regionStack.pop();
-                } else {
-                    this._addDiagnosticForRegionComment(regionComment, LocMessage.unmatchedEndregionComment());
-                }
-            }
-        });
-
-        regionStack.forEach((regionComment) => {
-            this._addDiagnosticForRegionComment(regionComment, LocMessage.unmatchedRegionComment());
-        });
-    }
-
-    private _addDiagnosticForRegionComment(regionComment: RegionComment, message: string): Diagnostic | undefined {
-        return this._evaluator.addDiagnosticForTextRange(this._fileInfo, 'error', '', message, {
-            // extend range to include # character
-            start: regionComment.comment.start - 1,
-            length: regionComment.comment.length + 1,
         });
     }
 }

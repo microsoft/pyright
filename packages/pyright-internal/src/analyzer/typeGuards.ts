@@ -715,7 +715,7 @@ export function getTypeNarrowingCallback(
                     return (
                         type.details.declaredReturnType &&
                         isClassInstance(type.details.declaredReturnType) &&
-                        ClassType.isBuiltIn(type.details.declaredReturnType, 'TypeGuard')
+                        ClassType.isBuiltIn(type.details.declaredReturnType, ['TypeGuard', 'TypeIs'])
                     );
                 };
 
@@ -2124,7 +2124,7 @@ function narrowTypeForTypedDictKey(
     const narrowedType = mapSubtypes(referenceType, (subtype) => {
         if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
             const entries = getTypedDictMembersForClass(evaluator, subtype, /* allowNarrowed */ true);
-            const tdEntry = entries.get(literalKey.literalValue as string);
+            const tdEntry = entries.knownItems.get(literalKey.literalValue as string) ?? entries.extraItems;
 
             if (isPositiveTest) {
                 if (!tdEntry) {
@@ -2180,7 +2180,7 @@ export function narrowTypeForDiscriminatedDictEntryComparison(
     const narrowedType = mapSubtypes(referenceType, (subtype) => {
         if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
             const symbolMap = getTypedDictMembersForClass(evaluator, subtype);
-            const tdEntry = symbolMap.get(indexLiteralType.literalValue as string);
+            const tdEntry = symbolMap.knownItems.get(indexLiteralType.literalValue as string);
 
             if (tdEntry && isLiteralTypeOrUnion(tdEntry.valueType)) {
                 if (isPositiveTest) {

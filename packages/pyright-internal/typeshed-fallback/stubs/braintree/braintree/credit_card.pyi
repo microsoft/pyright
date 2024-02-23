@@ -35,6 +35,7 @@ class CreditCard(Resource):
         Yes: str
         No: str
         Unknown: str
+
     Commercial: Any
     DurbinRegulated: Any
     Debit: Any

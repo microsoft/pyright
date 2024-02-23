@@ -231,11 +231,13 @@ class Worksheet(_WorkbookChild):
     ) -> None: ...
     def append(
         self,
-        iterable: list[Incomplete]
-        | tuple[Incomplete, ...]
-        | range
-        | GeneratorType[Incomplete, object, object]
-        | dict[int | str, Incomplete],
+        iterable: (
+            list[Incomplete]
+            | tuple[Incomplete, ...]
+            | range
+            | GeneratorType[Incomplete, object, object]
+            | dict[int | str, Incomplete]
+        ),
     ) -> None: ...
     def insert_rows(self, idx: int, amount: int = 1) -> None: ...
     def insert_cols(self, idx: int, amount: int = 1) -> None: ...

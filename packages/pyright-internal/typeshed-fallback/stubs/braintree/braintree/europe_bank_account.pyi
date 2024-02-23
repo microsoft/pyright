@@ -5,5 +5,6 @@ class EuropeBankAccount(Resource):
     class MandateType:
         Business: str
         Consumer: str
+
     @staticmethod
     def signature(): ...

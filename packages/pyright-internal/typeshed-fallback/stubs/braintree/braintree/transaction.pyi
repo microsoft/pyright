@@ -97,6 +97,7 @@ class Transaction(Resource):
         Telephone: str
         Laundry: str
         Other: str
+
     @staticmethod
     def adjust_authorization(transaction_id, amount): ...
     @staticmethod

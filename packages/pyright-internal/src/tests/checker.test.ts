@@ -509,12 +509,6 @@ test('UninitializedVariable2', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('RegionComments1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['regionComments1.py']);
-
-    TestUtils.validateResults(analysisResults, 2);
-});
-
 test('Deprecated1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

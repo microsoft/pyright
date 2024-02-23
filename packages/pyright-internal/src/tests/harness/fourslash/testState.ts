@@ -749,6 +749,17 @@ export class TestState {
         }
 
         function convertToString(args: any[] | undefined): string[] | undefined {
+            if (args) {
+                // Trim `undefined` from the args.
+                while (args.length > 0) {
+                    if (args[args.length - 1] === undefined) {
+                        args.pop();
+                    } else {
+                        break;
+                    }
+                }
+            }
+
             return args?.map((a) => {
                 if (isString(a)) {
                     // Might be a URI. For comparison purposes in a test, convert it into a

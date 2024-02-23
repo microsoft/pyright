@@ -32,6 +32,7 @@ class HTMLParser:
     lastPhase: Any
     beforeRCDataPhase: Any
     framesetOK: bool
+    tokenizer: Any
     def reset(self) -> None: ...
     @property
     def documentEncoding(self) -> str | None: ...

@@ -248,7 +248,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                 }
 
                 const typedDictType = paramType;
-                paramType.details.typedDictEntries.forEach((entry, name) => {
+                paramType.details.typedDictEntries.knownItems.forEach((entry, name) => {
                     const specializedParamType = partiallySpecializeType(entry.valueType, typedDictType);
 
                     addVirtualParameter(
@@ -263,6 +263,22 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                         specializedParamType
                     );
                 });
+
+                if (paramType.details.typedDictEntries.extraItems) {
+                    addVirtualParameter(
+                        {
+                            category: ParameterCategory.KwargsDict,
+                            name: 'kwargs',
+                            type: paramType.details.typedDictEntries.extraItems.valueType,
+                            hasDeclaredType: true,
+                            hasDefault: false,
+                        },
+                        index,
+                        paramType.details.typedDictEntries.extraItems.valueType
+                    );
+
+                    result.kwargsIndex = result.params.length - 1;
+                }
 
                 result.hasUnpackedTypedDict = true;
                 result.unpackedKwargsTypedDictType = paramType;

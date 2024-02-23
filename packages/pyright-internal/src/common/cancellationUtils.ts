@@ -159,7 +159,7 @@ export class FileBasedToken implements CancellationToken {
     }
 }
 
-class CancellationThrottle {
+export class CancellationThrottle {
     private static _lastCheckTimestamp = 0;
 
     static shouldCheck() {

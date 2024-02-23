@@ -335,6 +335,62 @@ test('TypedDictReadOnly2', () => {
     TestUtils.validateResults(analysisResults, 17);
 });
 
+test('TypedDictClosed1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 7);
+});
+
+test('TypedDictClosed2', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('TypedDictClosed3', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 10);
+});
+
+test('TypedDictClosed4', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed4.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 5);
+});
+
+test('TypedDictClosed5', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed5.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('TypedDictClosed6', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed6.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 6);
+});
+
+test('TypedDictClosed7', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed7.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 6);
+});
+
 test('DataclassTransform1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform1.py']);
 

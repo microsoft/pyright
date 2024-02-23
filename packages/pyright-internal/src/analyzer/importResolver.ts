@@ -881,7 +881,7 @@ export class ImportResolver {
     }
 
     protected getParentImportResolutionRoot(sourceFileUri: Uri, executionRoot: Uri | undefined) {
-        if (executionRoot) {
+        if (executionRoot && !executionRoot.isEmpty()) {
             return this.fileSystem.realCasePath(executionRoot);
         }
 
@@ -2762,7 +2762,11 @@ export class ImportResolver {
     }
 
     private _shouldWalkUp(current: Uri | undefined, root: Uri, execEnv: ExecutionEnvironment) {
-        return current && (current.isChild(root) || (current.equals(root) && !execEnv.root));
+        return (
+            current &&
+            !current.isEmpty() &&
+            (current.isChild(root) || (current.equals(root) && (!execEnv.root || execEnv.root.isEmpty())))
+        );
     }
 }
 

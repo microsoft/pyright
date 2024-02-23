@@ -432,7 +432,7 @@ function narrowTypeBasedOnMappingPattern(
         return mapSubtypes(type, (subtype) => {
             if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
                 const typedDictMembers = getTypedDictMembersForClass(evaluator, subtype, /* allowNarrowed */ true);
-                const member = typedDictMembers.get(keyValue);
+                const member = typedDictMembers.knownItems.get(keyValue);
 
                 if (member && (member.isRequired || member.isProvided) && isClassInstance(member.valueType)) {
                     const memberValueType = member.valueType;
@@ -486,7 +486,7 @@ function narrowTypeBasedOnMappingPattern(
                             }
 
                             const tdEntries = getTypedDictMembersForClass(evaluator, mappingSubtypeInfo.typedDict!);
-                            const valueEntry = tdEntries.get(keySubtype.literalValue as string);
+                            const valueEntry = tdEntries.knownItems.get(keySubtype.literalValue as string);
                             if (valueEntry) {
                                 const narrowedValueType = narrowTypeBasedOnPattern(
                                     evaluator,
@@ -1647,7 +1647,7 @@ export function assignTypeToPatternTargets(
                                         evaluator,
                                         mappingSubtypeInfo.typedDict!
                                     );
-                                    const valueInfo = tdEntries.get(keySubtype.literalValue as string);
+                                    const valueInfo = tdEntries.knownItems.get(keySubtype.literalValue as string);
                                     valueTypes.push(valueInfo ? valueInfo.valueType : UnknownType.create());
                                 } else {
                                     valueTypes.push(UnknownType.create());

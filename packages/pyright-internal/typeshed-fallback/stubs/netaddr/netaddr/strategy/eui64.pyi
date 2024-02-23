@@ -2,10 +2,7 @@ from collections.abc import Iterable, Sequence
 from re import Pattern
 from typing import ClassVar, Literal
 
-AF_EUI64: Literal[64]
 width: Literal[64]
-family: Literal[64]
-family_name: Literal["EUI-64"]
 version: Literal[64]
 max_int: int
 

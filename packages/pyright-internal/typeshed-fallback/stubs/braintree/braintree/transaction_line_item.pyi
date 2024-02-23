@@ -6,6 +6,7 @@ class TransactionLineItem(AttributeGetter):
     class Kind:
         Credit: str
         Debit: str
+
     def __init__(self, attributes) -> None: ...
     @staticmethod
     def find_all(transaction_id): ...
