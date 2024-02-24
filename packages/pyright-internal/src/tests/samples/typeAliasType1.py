@@ -1,7 +1,9 @@
 # This sample tests error cases for calls to the TypeAliasType constructor.
 
 from typing import TypeVar
-from typing_extensions import TypeAliasType
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeAliasType,
+)
 
 # This should generate an error because arguments are missing.
 TA1 = TypeAliasType()

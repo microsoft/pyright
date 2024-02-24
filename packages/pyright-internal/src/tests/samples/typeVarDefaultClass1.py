@@ -3,7 +3,12 @@
 # generic classes.
 
 from typing import Generic, Self
-from typing_extensions import TypeVar, ParamSpec, TypeVarTuple, Unpack
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeVar,
+    ParamSpec,
+    TypeVarTuple,
+    Unpack,
+)
 
 
 T1 = TypeVar("T1")
@@ -55,8 +60,7 @@ P2 = ParamSpec("P2", default=[int, str])
 P3 = ParamSpec("P3", default=...)
 
 
-class ClassB1(Generic[P2, P3]):
-    ...
+class ClassB1(Generic[P2, P3]): ...
 
 
 def func_b1(a: ClassB1, b: ClassB1[[float]], c: ClassB1[[float], [float]]):
@@ -71,16 +75,13 @@ Ts3 = TypeVarTuple("Ts3", default=Unpack[tuple[float, ...]])
 Ts4 = TypeVarTuple("Ts4", default=Unpack[tuple[()]])
 
 
-class ClassC1(Generic[*Ts2]):
-    ...
+class ClassC1(Generic[*Ts2]): ...
 
 
-class ClassC2(Generic[T3, *Ts3]):
-    ...
+class ClassC2(Generic[T3, *Ts3]): ...
 
 
-class ClassC3(Generic[T3, *Ts4]):
-    ...
+class ClassC3(Generic[T3, *Ts4]): ...
 
 
 def func_c1(a: ClassC1, b: ClassC1[*tuple[float]]):

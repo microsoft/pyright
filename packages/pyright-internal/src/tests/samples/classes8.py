@@ -5,35 +5,29 @@
 from os import DirEntry
 from types import TracebackType
 from typing import AnyStr, ContextManager, Iterator
-from typing_extensions import Self
+from typing_extensions import Self  # pyright: ignore[reportMissingModuleSource]
 
 
 class _ScandirIterator(
     Iterator[DirEntry[AnyStr]], ContextManager["_ScandirIterator[AnyStr]"]
 ):
-    def __iter__(self) -> Self:
-        ...
+    def __iter__(self) -> Self: ...
 
-    def __next__(self) -> DirEntry[AnyStr]:
-        ...
+    def __next__(self) -> DirEntry[AnyStr]: ...
 
-    def close(self) -> None:
-        ...
+    def close(self) -> None: ...
 
-    def __enter__(self) -> Self:
-        ...
+    def __enter__(self) -> Self: ...
 
     def __exit__(
         self,
         __exc_type: type[BaseException] | None,
         __exc_value: BaseException | None,
         __traceback: TracebackType | None,
-    ) -> bool | None:
-        ...
+    ) -> bool | None: ...
 
 
-def scandir(path: AnyStr) -> _ScandirIterator[AnyStr]:
-    ...
+def scandir(path: AnyStr) -> _ScandirIterator[AnyStr]: ...
 
 
 def thing(value: AnyStr):

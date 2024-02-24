@@ -2,7 +2,7 @@
 # in PEP 646.
 
 from typing import Union
-from typing_extensions import Unpack
+from typing_extensions import Unpack  # pyright: ignore[reportMissingModuleSource]
 
 
 def func1(v1: tuple[int, Unpack[tuple[bool, bool]], str]):
@@ -65,8 +65,7 @@ def func13(t: type):
 def func14(
     *args: Unpack[tuple[int]],
     other: str,
-) -> None:
-    ...
+) -> None: ...
 
 
 func14(1, other="hi")

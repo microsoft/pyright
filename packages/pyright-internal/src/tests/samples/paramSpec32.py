@@ -2,8 +2,10 @@
 # parameters are used within a constructor.
 
 from typing import Callable, Generic, TypeVar
-
-from typing_extensions import Concatenate, ParamSpec
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    Concatenate,
+    ParamSpec,
+)
 
 P = ParamSpec("P")
 T1 = TypeVar("T1")

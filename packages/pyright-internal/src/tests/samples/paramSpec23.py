@@ -3,13 +3,15 @@
 
 
 from typing import Callable, TypeVar
-from typing_extensions import Concatenate, ParamSpec
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    Concatenate,
+    ParamSpec,
+)
 
 P = ParamSpec("P")
 
 
-def is_inty(f: Callable[P, object]) -> Callable[P, int]:
-    ...
+def is_inty(f: Callable[P, object]) -> Callable[P, int]: ...
 
 
 T = TypeVar("T")

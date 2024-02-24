@@ -1,7 +1,7 @@
 # This sample tests the TypeIs form.
 
 from typing import Any, Literal, Mapping, Sequence, TypeVar, Union
-from typing_extensions import TypeIs
+from typing_extensions import TypeIs  # pyright: ignore[reportMissingModuleSource]
 
 
 def is_str1(val: Union[str, int]) -> TypeIs[str]:

@@ -2,17 +2,18 @@
 # by a TypeVarTuple.
 
 from typing import Any, Generic
-from typing_extensions import TypeVarTuple, Unpack
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeVarTuple,
+    Unpack,
+)
 
 Shape = TypeVarTuple("Shape")
 
 
-class Array(Generic[Unpack[Shape]]):
-    ...
+class Array(Generic[Unpack[Shape]]): ...
 
 
-def func0(x: Array[Unpack[Shape]]) -> Array[Unpack[Shape]]:
-    ...
+def func0(x: Array[Unpack[Shape]]) -> Array[Unpack[Shape]]: ...
 
 
 def func1(y: Array[int, Unpack[tuple[Any, ...]]]):

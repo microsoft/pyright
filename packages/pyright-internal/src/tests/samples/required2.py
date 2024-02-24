@@ -4,7 +4,10 @@
 # pyright: reportMissingModuleSource=false
 
 from typing import Literal, TypedDict, Annotated
-from typing_extensions import NotRequired, Required
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    NotRequired,
+    Required,
+)
 
 
 class TD1(TypedDict, total=False):

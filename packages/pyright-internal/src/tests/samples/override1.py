@@ -2,7 +2,11 @@
 # in PEP 698.
 
 from typing import Callable
-from typing_extensions import Any, overload, override
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    Any,
+    overload,
+    override,
+)
 
 
 class ClassA:
@@ -15,15 +19,12 @@ class ClassB:
         pass
 
     @overload
-    def method5(self, x: int) -> int:
-        ...
+    def method5(self, x: int) -> int: ...
 
     @overload
-    def method5(self, x: str) -> str:
-        ...
+    def method5(self, x: str) -> str: ...
 
-    def method5(self, x: int | str) -> int | str:
-        ...
+    def method5(self, x: int | str) -> int | str: ...
 
 
 class ClassC(ClassA, ClassB):
@@ -52,34 +53,27 @@ class ClassC(ClassA, ClassB):
         pass
 
     @overload
-    def method5(self, x: int) -> int:
-        ...
+    def method5(self, x: int) -> int: ...
 
     @overload
-    def method5(self, x: str) -> str:
-        ...
+    def method5(self, x: str) -> str: ...
 
     @override
-    def method5(self, x: int | str) -> int | str:
-        ...
+    def method5(self, x: int | str) -> int | str: ...
 
     @overload
-    def method6(self, x: int) -> int:
-        ...
+    def method6(self, x: int) -> int: ...
 
     @overload
-    def method6(self, x: str) -> str:
-        ...
+    def method6(self, x: str) -> str: ...
 
     @override
     # This should generate an error because method6 does not
     # override anything in a base class.
-    def method6(self, x: int | str) -> int | str:
-        ...
+    def method6(self, x: int | str) -> int | str: ...
 
 
-class ClassD(Any):
-    ...
+class ClassD(Any): ...
 
 
 class ClassE(ClassD):

@@ -3,7 +3,10 @@
 
 from enum import Enum
 from typing import Literal, overload
-from typing_extensions import TypeGuard, TypeIs
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeGuard,
+    TypeIs,
+)
 
 
 class TypeGuardMode(Enum):
@@ -13,24 +16,18 @@ class TypeGuardMode(Enum):
 
 
 @overload
-def is_int(obj: object, mode: Literal[TypeGuardMode.NoTypeGuard]) -> bool:
-    ...
+def is_int(obj: object, mode: Literal[TypeGuardMode.NoTypeGuard]) -> bool: ...
 
 
 @overload
-def is_int(obj: object, mode: Literal[TypeGuardMode.TypeGuard]) -> TypeGuard[int]:
-    ...
+def is_int(obj: object, mode: Literal[TypeGuardMode.TypeGuard]) -> TypeGuard[int]: ...
+
 
 @overload
-def is_int(
-    obj: object, mode: Literal[TypeGuardMode.TypeIs]
-) -> TypeIs[int]:
-    ...
+def is_int(obj: object, mode: Literal[TypeGuardMode.TypeIs]) -> TypeIs[int]: ...
 
 
-
-def is_int(obj: object, mode: TypeGuardMode) -> bool | TypeGuard[int] | TypeIs[int]:
-    ...
+def is_int(obj: object, mode: TypeGuardMode) -> bool | TypeGuard[int] | TypeIs[int]: ...
 
 
 def func_no_typeguard(val: int | str):

@@ -2,7 +2,7 @@
 # attributes.
 
 from typing import Any, Callable, Protocol, TypeVar, cast
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec  # pyright: ignore[reportMissingModuleSource]
 
 
 P = ParamSpec("P")
@@ -14,8 +14,7 @@ class CallbackProto1(Protocol[P, R]):
 
     other_attribute: int
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
-        ...
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R: ...
 
 
 def decorator1(f: Callable[P, R]) -> CallbackProto1[P, R]:
@@ -35,8 +34,7 @@ def decorator1(f: Callable[P, R]) -> CallbackProto1[P, R]:
 
 
 @decorator1
-def func1(x: int) -> str:
-    ...
+def func1(x: int) -> str: ...
 
 
 reveal_type(func1, expected_text="CallbackProto1[(x: int), str]")
@@ -55,20 +53,17 @@ class CallbackProto2(Protocol):
     __qualname__: str
     __annotations__: dict[str, Any]
 
-    def __call__(self) -> None:
-        ...
+    def __call__(self) -> None: ...
 
 
-def func2() -> None:
-    ...
+def func2() -> None: ...
 
 
 v: CallbackProto2 = func2
 
 
 class TestClass7(Protocol):
-    def __call__(self, x: int, /, y: str) -> Any:
-        ...
+    def __call__(self, x: int, /, y: str) -> Any: ...
 
 
 def func8(x: int, y: str, /) -> Any:

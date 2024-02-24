@@ -2,7 +2,7 @@
 # described in PEP 634) that contain mapping patterns.
 
 from typing import Literal, TypedDict
-from typing_extensions import NotRequired
+from typing_extensions import NotRequired  # pyright: ignore[reportMissingModuleSource]
 
 
 def test_unknown(value_to_match):

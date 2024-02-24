@@ -1,6 +1,10 @@
 # This sample tests the handling of dictionary expansion for TypedDicts.
 
-from typing_extensions import NotRequired, Required, TypedDict
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    NotRequired,
+    Required,
+    TypedDict,
+)
 
 
 class TD1(TypedDict):
@@ -15,8 +19,7 @@ class TD3(TypedDict):
     v1: NotRequired[int]
 
 
-class TD4(TD1, TD2):
-    ...
+class TD4(TD1, TD2): ...
 
 
 td1: TD1 = {"v1": 0}

@@ -1,12 +1,13 @@
 # This sample tests variadic TypeVar matching for unions.
 
-# pyright: reportMissingModuleSource=false
-
 # Enable experimental features to support Union[*Ts].
 # pyright: enableExperimentalFeatures=true
 
 from typing import TypeVar, Union
-from typing_extensions import TypeVarTuple, Unpack
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeVarTuple,
+    Unpack,
+)
 
 
 _T = TypeVar("_T")
@@ -14,32 +15,25 @@ _Xs = TypeVarTuple("_Xs")
 _Ys = TypeVarTuple("_Ys")
 
 
-def func1(x: Union[Unpack[_Xs]]) -> Union[Unpack[_Xs]]:
-    ...
+def func1(x: Union[Unpack[_Xs]]) -> Union[Unpack[_Xs]]: ...
 
 
-def func2(x: Union[Unpack[_Xs], Unpack[_Ys]]) -> Union[Unpack[_Xs], Unpack[_Ys]]:
-    ...
+def func2(x: Union[Unpack[_Xs], Unpack[_Ys]]) -> Union[Unpack[_Xs], Unpack[_Ys]]: ...
 
 
-def func3(x: Union[int, Unpack[_Xs]]) -> Union[Unpack[_Xs]]:
-    ...
+def func3(x: Union[int, Unpack[_Xs]]) -> Union[Unpack[_Xs]]: ...
 
 
-def func4(x: Union[_T, Unpack[_Xs]]) -> Union[_T, Unpack[_Xs]]:
-    ...
+def func4(x: Union[_T, Unpack[_Xs]]) -> Union[_T, Unpack[_Xs]]: ...
 
 
-def func5(x: Union[Unpack[_Xs]], *args: Unpack[_Xs]) -> Union[Unpack[_Xs]]:
-    ...
+def func5(x: Union[Unpack[_Xs]], *args: Unpack[_Xs]) -> Union[Unpack[_Xs]]: ...
 
 
-def func6(*args: Unpack[_Xs]) -> Union[Unpack[_Xs]]:
-    ...
+def func6(*args: Unpack[_Xs]) -> Union[Unpack[_Xs]]: ...
 
 
-def func7(a: list[Union[Unpack[_Xs]]]) -> Union[Unpack[_Xs]]:
-    ...
+def func7(a: list[Union[Unpack[_Xs]]]) -> Union[Unpack[_Xs]]: ...
 
 
 def test1(a: int, b: str, c: list[int], d: Union[complex, str]):

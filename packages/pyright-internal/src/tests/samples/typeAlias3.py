@@ -5,7 +5,7 @@
 # pyright: strict
 
 from typing import Callable, Generic, Optional, TypeVar
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec  # pyright: ignore[reportMissingModuleSource]
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -18,8 +18,7 @@ def foo() -> ValidationResult[str]:
 
 
 class ClassA(Generic[T]):
-    def __new__(cls, value: T) -> "ClassA[T]":
-        ...
+    def __new__(cls, value: T) -> "ClassA[T]": ...
 
 
 TypeAliasA = ClassA[T]

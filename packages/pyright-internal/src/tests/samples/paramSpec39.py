@@ -3,7 +3,7 @@
 # within the type evaluator.
 
 from typing import TypeVar, Callable
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec  # pyright: ignore[reportMissingModuleSource]
 
 P = ParamSpec("P")
 R = TypeVar("R")

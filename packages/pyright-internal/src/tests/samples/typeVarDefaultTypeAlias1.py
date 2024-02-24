@@ -4,7 +4,12 @@
 
 from collections.abc import Callable
 from typing import Any, TypeAlias
-from typing_extensions import TypeVar, ParamSpec, TypeVarTuple, Unpack
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeVar,
+    ParamSpec,
+    TypeVarTuple,
+    Unpack,
+)
 
 
 T1 = TypeVar("T1")

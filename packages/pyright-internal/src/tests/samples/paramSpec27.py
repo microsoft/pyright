@@ -2,27 +2,27 @@
 # a generic class parameterized by a ParamSpec.
 
 from typing import Callable, Generic, Protocol, assert_type
-from typing_extensions import Concatenate, ParamSpec, TypeAlias
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    Concatenate,
+    ParamSpec,
+    TypeAlias,
+)
 
 P = ParamSpec("P")
 
 
-def func1(a: int, b: str) -> None:
-    ...
+def func1(a: int, b: str) -> None: ...
 
 
-def func2(a: str, b: str) -> None:
-    ...
+def func2(a: str, b: str) -> None: ...
 
 
 class Handler(Protocol[P]):
-    def __call__(self, /, *args: P.args, **kwargs: P.kwargs) -> None:
-        ...
+    def __call__(self, /, *args: P.args, **kwargs: P.kwargs) -> None: ...
 
 
 class ConcatHandler(Protocol[P]):
-    def __call__(self, a: int, /, *args: P.args, **kwargs: P.kwargs) -> None:
-        ...
+    def __call__(self, a: int, /, *args: P.args, **kwargs: P.kwargs) -> None: ...
 
 
 ConcatCallableHandler: TypeAlias = Callable[Concatenate[int, P], None]

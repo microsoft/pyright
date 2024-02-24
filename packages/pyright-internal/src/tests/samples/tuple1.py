@@ -2,7 +2,10 @@
 
 import os
 from typing import Any, Callable
-from typing_extensions import TypeVarTuple, Unpack
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeVarTuple,
+    Unpack,
+)
 
 Ts = TypeVarTuple("Ts")
 

@@ -4,7 +4,7 @@
 # pyright: reportIncompatibleVariableOverride=true
 
 from typing import NotRequired, Required, TypedDict
-from typing_extensions import ReadOnly
+from typing_extensions import ReadOnly  # pyright: ignore[reportMissingModuleSource]
 
 
 class TD1(TypedDict):

@@ -1,7 +1,7 @@
 # This sample tests the assert_type call.
 
 from typing import Any, Literal
-from typing_extensions import assert_type
+from typing_extensions import assert_type  # pyright: ignore[reportMissingModuleSource]
 
 
 def func1():

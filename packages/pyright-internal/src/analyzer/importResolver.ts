@@ -1868,7 +1868,15 @@ export class ImportResolver {
                     );
 
                     if (importInfo.isImportFound) {
-                        importInfo.importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
+                        let importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
+
+                        // Handle 'typing_extensions' as a special case because it's
+                        // part of stdlib typeshed stubs, but it's not part of stdlib.
+                        if (importName === 'typing_extensions') {
+                            importType = ImportType.ThirdParty;
+                        }
+
+                        importInfo.importType = importType;
                         return importInfo;
                     }
                 }

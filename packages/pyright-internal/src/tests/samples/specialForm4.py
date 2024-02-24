@@ -22,7 +22,7 @@ from typing import (
     Union,
     Unpack,
 )
-from typing_extensions import ReadOnly
+from typing_extensions import ReadOnly  # pyright: ignore[reportMissingModuleSource]
 
 T = TypeVar("T")
 
