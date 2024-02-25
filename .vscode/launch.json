@@ -17,6 +17,21 @@
             ]
         },
         {
+            "name": "Pyright CLI (pyright-internal)",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceRoot}/packages/pyright-internal/debug.js",
+            "args": [
+                "--typeshedpath",
+                "${workspaceRoot}/packages/pyright-internal/typeshed-fallback",
+                "--version",
+            ],
+            "internalConsoleOptions": "openOnSessionStart",
+            "outFiles": [
+                "${workspaceRoot}/packages/pyright/dist/**/*.js"
+            ]
+        },
+        {
             "name": "Pyright tests",
             "type": "node",
             "request": "launch",
