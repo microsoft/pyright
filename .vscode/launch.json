@@ -28,7 +28,7 @@
             ],
             "internalConsoleOptions": "openOnSessionStart",
             "outFiles": [
-                "${workspaceRoot}/packages/pyright/dist/**/*.js"
+                "${workspaceRoot}/packages/pyright-internal/out/**/*.js"
             ]
         },
         {
