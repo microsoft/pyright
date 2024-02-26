@@ -41,6 +41,7 @@ import {
     mapSubtypes,
     preserveUnknown,
     removeNoneFromUnion,
+    someSubtypes,
     specializeTupleClass,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
@@ -556,9 +557,21 @@ export function getTypeOfBinaryOperation(
 
     if (!expectedOperandType) {
         if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
-            // For "or" and "and", use the type of the left operand. This allows us to
-            // infer a better type for expressions like `x or []`.
-            expectedOperandType = leftType;
+            // For "or" and "and", use the type of the left operand under certain
+            // circumstances. This allows us to infer a better type for expressions
+            // like `x or []`. Do this only if it's a generic class (like list or dict)
+            // or a TypedDict.
+            if (
+                someSubtypes(leftType, (subtype) => {
+                    if (!isClassInstance(subtype)) {
+                        return false;
+                    }
+
+                    return ClassType.isTypedDictClass(subtype) || subtype.details.typeParameters.length > 0;
+                })
+            ) {
+                expectedOperandType = leftType;
+            }
         } else if (node.operator === OperatorType.Add && node.rightExpression.nodeType === ParseNodeType.List) {
             // For the "+" operator , use this technique only if the right operand is
             // a list expression. This heuristic handles the common case of `my_list + [0]`.

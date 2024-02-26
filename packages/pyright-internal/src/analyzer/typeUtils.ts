@@ -781,6 +781,26 @@ export function doForEachSubtype(
     }
 }
 
+export function someSubtypes(type: Type, callback: (type: Type) => boolean): boolean {
+    if (isUnion(type)) {
+        return type.subtypes.some((subtype) => {
+            return callback(subtype);
+        });
+    } else {
+        return callback(type);
+    }
+}
+
+export function allSubtypes(type: Type, callback: (type: Type) => boolean): boolean {
+    if (isUnion(type)) {
+        return type.subtypes.every((subtype) => {
+            callback(subtype);
+        });
+    } else {
+        return callback(type);
+    }
+}
+
 export function doForEachSignature(
     type: FunctionType | OverloadedFunctionType,
     callback: (type: FunctionType, index: number) => void
