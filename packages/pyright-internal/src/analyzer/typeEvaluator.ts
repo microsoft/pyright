@@ -3274,16 +3274,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     diagAddendum = expectedTypeDiagAddendum;
                 }
 
-                addDiagnostic(
-                    DiagnosticRule.reportAssignmentType,
-                    LocMessage.typeAssignmentMismatch().format(printSrcDestTypes(type, declaredType)) +
-                        diagAddendum.getString(),
-                    srcExpression ?? nameNode,
-                    diagAddendum.getEffectiveTextRange() ?? srcExpression ?? nameNode
-                );
+                if (!isTypeIncomplete) {
+                    addDiagnostic(
+                        DiagnosticRule.reportAssignmentType,
+                        LocMessage.typeAssignmentMismatch().format(printSrcDestTypes(type, declaredType)) +
+                            diagAddendum.getString(),
+                        srcExpression ?? nameNode,
+                        diagAddendum.getEffectiveTextRange() ?? srcExpression ?? nameNode
+                    );
 
-                // Replace the assigned type with the (unnarrowed) declared type.
-                destType = declaredType;
+                    // Replace the assigned type with the (unnarrowed) declared type.
+                    destType = declaredType;
+                }
             } else {
                 // Constrain the resulting type to match the declared type.
                 destType = narrowTypeBasedOnAssignment(nameNode, declaredType, type);
