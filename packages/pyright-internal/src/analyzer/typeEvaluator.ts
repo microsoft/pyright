@@ -3274,13 +3274,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     diagAddendum = expectedTypeDiagAddendum;
                 }
 
-                addDiagnostic(
-                    DiagnosticRule.reportAssignmentType,
-                    LocMessage.typeAssignmentMismatch().format(printSrcDestTypes(type, declaredType)) +
-                        diagAddendum.getString(),
-                    srcExpression ?? nameNode,
-                    diagAddendum.getEffectiveTextRange() ?? srcExpression ?? nameNode
-                );
+                if (!isTypeIncomplete) {
+                    addDiagnostic(
+                        DiagnosticRule.reportAssignmentType,
+                        LocMessage.typeAssignmentMismatch().format(printSrcDestTypes(type, declaredType)) +
+                            diagAddendum.getString(),
+                        srcExpression ?? nameNode,
+                        diagAddendum.getEffectiveTextRange() ?? srcExpression ?? nameNode
+                    );
+                }
 
                 // Replace the assigned type with the (unnarrowed) declared type.
                 destType = declaredType;
@@ -24212,6 +24214,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // The srcType is assignable only if all of its subtypes are assignable.
         return !findSubtype(srcType, (srcSubtype) => {
             if (isTypeSame(destType, srcSubtype, { ignorePseudoGeneric: true }, recursionCount)) {
+                return false;
+            }
+
+            if (isIncompleteUnknown(srcSubtype)) {
                 return false;
             }
 
