@@ -21910,33 +21910,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // See if the dest type is a TypedDict class and the source is a compatible dict.
-        if (ClassType.isTypedDictClass(destType) && ClassType.isBuiltIn(srcType, 'dict')) {
-            if (
-                srcType.typeArguments &&
-                srcType.typeArguments.length === 2 &&
-                isClassInstance(srcType.typeArguments[0]) &&
-                ClassType.isBuiltIn(srcType.typeArguments[0], 'str')
-            ) {
-                const dictValueType = getTypedDictDictEquivalent(evaluatorInterface, destType, recursionCount);
-
-                if (
-                    dictValueType &&
-                    assignType(
-                        dictValueType,
-                        srcType.typeArguments[1],
-                        /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.EnforceInvariance,
-                        recursionCount + 1
-                    )
-                ) {
-                    return true;
-                }
-            }
-        }
-
         // Handle special-case type promotions.
         if (destType.includePromotions) {
             const promotionList = typePromotions.get(destType.details.fullName);
