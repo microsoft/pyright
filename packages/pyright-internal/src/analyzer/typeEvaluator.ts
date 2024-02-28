@@ -6899,8 +6899,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     if (ClassType.isBuiltIn(concreteSubtype, 'InitVar')) {
-                        // Special-case InitVar, used in data classes.
+                        // Special-case InitVar, used in dataclasses.
                         const typeArgs = getTypeArgs(node, flags);
+
+                        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                            if ((flags & EvaluatorFlags.VariableTypeAnnotation) === 0) {
+                                addError(LocMessage.initVarNotAllowed(), node.baseExpression);
+                            }
+                        }
+
                         if (typeArgs.length === 1) {
                             return typeArgs[0].type;
                         } else {
@@ -6908,6 +6915,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 LocMessage.typeArgsMismatchOne().format({ received: typeArgs.length }),
                                 node.baseExpression
                             );
+
                             return UnknownType.create();
                         }
                     }
