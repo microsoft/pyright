@@ -1212,7 +1212,7 @@ export function getCodeFlowEngine(
                                 const narrowedTypeResult = typeNarrowingCallback(refTypeInfo.type);
                                 const narrowedType = narrowedTypeResult?.type ?? refTypeInfo.type;
 
-                                if (isNever(narrowedType)) {
+                                if (isNever(narrowedType) && !refTypeInfo.isIncomplete) {
                                     isUnreachable = true;
                                 }
                             }
