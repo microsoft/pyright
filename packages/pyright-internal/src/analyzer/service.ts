@@ -659,7 +659,7 @@ export class AnalyzerService {
                 this._typeCheckingMode,
                 this.serviceProvider,
                 host,
-                commandLineOptions.diagnosticSeverityOverrides
+                commandLineOptions
             );
 
             const configFileDir = this._configFileUri!.getDirectory();
