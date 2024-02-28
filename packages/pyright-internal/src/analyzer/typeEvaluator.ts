@@ -1407,6 +1407,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const exprTypeResult = getTypeOfExpression(node.expression, flags, makeInferenceContext(effectiveExpectedType));
         const typeResult: TypeResult = {
             type: getTypeOfAwaitable(exprTypeResult.type, node.expression),
+            isIncomplete: exprTypeResult.isIncomplete,
+            typeErrors: exprTypeResult.typeErrors,
         };
 
         if (exprTypeResult.isIncomplete) {
