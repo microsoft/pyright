@@ -19503,10 +19503,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case 'ReadOnly': {
-                    if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
-                        return createRequiredOrReadOnlyType(classType, errorNode, typeArgs, flags);
-                    }
-                    break;
+                    return createRequiredOrReadOnlyType(classType, errorNode, typeArgs, flags);
                 }
 
                 case 'Self': {
