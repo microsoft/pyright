@@ -25662,10 +25662,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !isPrivateOrProtectedName(baseParam.name || '') &&
                     baseParamDetails.params[i].source !== ParameterSource.PositionOnly &&
                     baseParam.category === ParameterCategory.Simple &&
+                    enforceParamNames &&
                     baseParam.name !== overrideParam.name
                 ) {
                     if (overrideParam.category === ParameterCategory.Simple) {
-                        if (enforceParamNames && !baseParam.isNameSynthesized) {
+                        if (!baseParam.isNameSynthesized) {
                             if (overrideParamDetails.params[i].source === ParameterSource.PositionOnly) {
                                 diag?.addMessage(
                                     LocAddendum.overrideParamNamePositionOnly().format({
