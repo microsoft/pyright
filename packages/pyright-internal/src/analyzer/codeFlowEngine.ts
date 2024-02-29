@@ -880,8 +880,12 @@ export function getCodeFlowEngine(
                     cacheEntry.incompleteSubtypes.some((subtype) => subtype.isPending)
                 ) {
                     // If entries have been added for all antecedents and there are pending entries
-                    // that have not been evaluated even once, treat it as incomplete.
-                    return { type: cacheEntry.type, isIncomplete: true };
+                    // that have not been evaluated even once, treat it as incomplete. We clean
+                    // any incomplete unknowns from the type here to assist with type convergence.
+                    return {
+                        type: cacheEntry.type ? cleanIncompleteUnknown(cacheEntry.type) : undefined,
+                        isIncomplete: true,
+                    };
                 }
 
                 let attemptCount = 0;
