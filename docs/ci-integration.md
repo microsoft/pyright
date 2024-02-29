@@ -90,7 +90,7 @@ vercomp () {
 # Node version check
 echo "Checking node version..."
 NODE_VERSION=`node -v | cut -d'v' -f2`
-MIN_NODE_VERSION="10.15.2"
+MIN_NODE_VERSION="14.21.3"
 vercomp $MIN_NODE_VERSION $NODE_VERSION
 # 1 == gt
 if [[ $? -eq 1 ]]; then
