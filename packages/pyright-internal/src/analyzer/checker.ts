@@ -1704,7 +1704,12 @@ export class Checker extends ParseTreeWalker {
         const moduleName =
             moduleNameNode.leadingDots === 0
                 ? this._importResolver.getModuleNameForImport(uri, execEnv).moduleName
-                : getRelativeModuleName(this._importResolver.fileSystem, this._fileInfo.fileUri, uri);
+                : getRelativeModuleName(
+                      this._importResolver.fileSystem,
+                      this._fileInfo.fileUri,
+                      uri,
+                      this._importResolver.getConfigOptions()
+                  );
 
         if (!moduleName) {
             return undefined;
