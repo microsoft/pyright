@@ -1516,21 +1516,19 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 diag.category === DiagnosticCategory.UnusedCode ||
                 diag.category === DiagnosticCategory.UnreachableCode
             ) {
-                vsDiag.tags = [DiagnosticTag.Unnecessary];
-                vsDiag.severity = DiagnosticSeverity.Hint;
-
-                // If the client doesn't support "unnecessary" tags, don't report unused code.
-                if (!this.client.supportsUnnecessaryDiagnosticTag) {
-                    return;
+                // If the client doesn't support "unnecessary" tags, don't attach them.
+                if (this.client.supportsUnnecessaryDiagnosticTag) {
+                    vsDiag.tags = [DiagnosticTag.Unnecessary];
                 }
+
+                vsDiag.severity = DiagnosticSeverity.Hint;
             } else if (diag.category === DiagnosticCategory.Deprecated) {
-                vsDiag.tags = [DiagnosticTag.Deprecated];
-                vsDiag.severity = DiagnosticSeverity.Hint;
-
-                // If the client doesn't support "deprecated" tags, don't report.
-                if (!this.client.supportsDeprecatedDiagnosticTag) {
-                    return;
+                // If the client doesn't support "deprecated" tags, don't attach them.
+                if (this.client.supportsDeprecatedDiagnosticTag) {
+                    vsDiag.tags = [DiagnosticTag.Deprecated];
                 }
+
+                vsDiag.severity = DiagnosticSeverity.Hint;
             } else if (diag.category === DiagnosticCategory.TaskItem) {
                 vsDiag.tags = [VSDiagnosticTag.TaskItem as DiagnosticTag];
 
