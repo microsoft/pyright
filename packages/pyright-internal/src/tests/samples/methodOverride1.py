@@ -169,6 +169,11 @@ class ParentClass:
     def my_method45(self, __i: int) -> None:
         ...
 
+    def __my_method46__(self, x: int) -> None:
+        ...
+
+    def __my_method47__(self, x: int) -> None:
+        ...
 
 T_ChildClass = TypeVar("T_ChildClass", bound="ChildClass")
 
@@ -354,6 +359,13 @@ class ChildClass(ParentClass):
         ...
 
     def my_method45(self, i: int, /) -> None:
+        ...
+
+    def __my_method46__(self, y: int) -> None:
+        ...
+
+    # This should generate an error because of a type mismatch.
+    def __my_method47__(self, y: str) -> None:
         ...
 
 
