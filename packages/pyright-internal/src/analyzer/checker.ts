@@ -6331,7 +6331,7 @@ export class Checker extends ParseTreeWalker {
                 // Don't enforce parameter names for dundered methods. Many of them
                 // are misnamed in typeshed stubs, so this would result in many
                 // false positives.
-                const enforceParamNameMatch = !SymbolNameUtils.isDunderName(memberName);
+                const enforceParamNameMatch = true; //!SymbolNameUtils.isDunderName(memberName);
 
                 // Don't check certain magic functions or private symbols.
                 // Also, skip this check if the class is a TypedDict. The methods for a TypedDict
