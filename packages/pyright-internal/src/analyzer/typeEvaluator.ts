@@ -12675,6 +12675,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isBaseClassAny = true;
         }
 
+        // Specifically disallow Annotated.
+        if (
+            baseClass.specialForm &&
+            isInstantiableClass(baseClass.specialForm) &&
+            ClassType.isBuiltIn(baseClass.specialForm, 'Annotated')
+        ) {
+            addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.newTypeNotAClass(),
+                argList[1].node || errorNode
+            );
+            return undefined;
+        }
+
         if (!isInstantiableClass(baseClass)) {
             addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
