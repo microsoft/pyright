@@ -24,12 +24,29 @@ for i in Fruit:
 
 
 class Meta(type):
-    def foo(cls, some_param: str):
+    inst_var1: int
+
+    def __init__(self):
+        self.inst_var1 = 1
+
+    def method1(cls, some_param: str):
         pass
 
 
-class MyClass(metaclass=Meta):
+class MyClass1(metaclass=Meta):
     pass
 
 
-MyClass.foo("some argument")
+MyClass1.method1("some argument")
+reveal_type(MyClass1.inst_var1, expected_text="int")
+
+
+class MyClass2(metaclass=Meta):
+    # This should generate an error
+    inst_var1 = ""
+
+
+class MyClass3(metaclass=Meta):
+    def __init__(self):
+        # This should generate an error
+        self.inst_var1 = ""
