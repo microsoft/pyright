@@ -64,6 +64,7 @@ function isInheritedFromBuiltin(type: FunctionType | OverloadedFunctionType, cla
         type.details.moduleName === 'builtins' &&
         !!classType &&
         !!type.boundToType &&
+        !ClassType.isBuiltIn(type.boundToType) &&
         !ClassType.isSameGenericClass(classType, type.boundToType)
     );
 }
