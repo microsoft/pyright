@@ -1189,14 +1189,6 @@ export namespace ClassType {
             return true;
         }
 
-        // Handle LiteralString as a special case.
-        if (
-            (ClassType.isBuiltIn(classType, 'str') && ClassType.isBuiltIn(type2, 'LiteralString')) ||
-            (ClassType.isBuiltIn(classType, 'LiteralString') && ClassType.isBuiltIn(type2, 'str'))
-        ) {
-            return true;
-        }
-
         // Compare most of the details fields. We intentionally skip the isAbstractClass
         // flag because it gets set dynamically.
         if (
