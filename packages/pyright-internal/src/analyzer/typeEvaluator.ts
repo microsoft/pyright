@@ -6369,7 +6369,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (baseTypeSupportsIndexNarrowing) {
                 // Before performing code flow analysis, update the cache to prevent recursion.
-                writeTypeCache(node, indexTypeResult, flags);
+                writeTypeCache(node, { ...indexTypeResult, isIncomplete: true }, flags);
 
                 // See if we can refine the type based on code flow analysis.
                 const codeFlowTypeResult = getFlowTypeOfReference(
