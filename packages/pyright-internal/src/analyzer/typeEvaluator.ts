@@ -2383,7 +2383,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 /* additionalFlags */ MemberAccessFlags.Default
                             );
 
-                            if (newMethodResult && !newMethodResult.typeErrors && isFunction(newMethodResult.type)) {
+                            if (newMethodResult && !newMethodResult.typeErrors) {
                                 if (
                                     isFunction(newMethodResult.type) &&
                                     newMethodResult.type.details.fullName !== 'builtins.object.__new__'
