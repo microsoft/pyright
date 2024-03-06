@@ -2383,7 +2383,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 /* additionalFlags */ MemberAccessFlags.Default
                             );
 
-                            if (newMethodResult && !newMethodResult.typeErrors && isFunction(newMethodResult.type)) {
+                            if (newMethodResult && !newMethodResult.typeErrors) {
                                 if (
                                     isFunction(newMethodResult.type) &&
                                     newMethodResult.type.details.fullName !== 'builtins.object.__new__'
@@ -6369,7 +6369,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (baseTypeSupportsIndexNarrowing) {
                 // Before performing code flow analysis, update the cache to prevent recursion.
-                writeTypeCache(node, indexTypeResult, flags);
+                writeTypeCache(node, { ...indexTypeResult, isIncomplete: true }, flags);
 
                 // See if we can refine the type based on code flow analysis.
                 const codeFlowTypeResult = getFlowTypeOfReference(
@@ -22284,17 +22284,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (tupleClassType && isInstantiableClass(tupleClassType)) {
                         const removedArgs = srcTypeArgs.splice(destUnboundedOrVariadicIndex, srcArgsToCapture);
 
-                        // Package up the remaining type arguments into a tuple object.
-                        const variadicTuple = makeTupleObject(
-                            removedArgs.map((typeArg) => {
-                                return {
-                                    type: typeArg.type,
-                                    isUnbounded: typeArg.isUnbounded,
-                                    isOptional: typeArg.isOptional,
-                                };
-                            }),
-                            /* isUnpackedTuple */ true
-                        );
+                        let variadicTuple: Type;
+
+                        // If we're left with a single unpacked variadic type var, there's no
+                        // need to wrap it in a nested tuple.
+                        if (removedArgs.length === 1 && isUnpackedVariadicTypeVar(removedArgs[0].type)) {
+                            variadicTuple = removedArgs[0].type;
+                        } else {
+                            // Package up the remaining type arguments into a tuple object.
+                            variadicTuple = makeTupleObject(
+                                removedArgs.map((typeArg) => {
+                                    return {
+                                        type: typeArg.type,
+                                        isUnbounded: typeArg.isUnbounded,
+                                        isOptional: typeArg.isOptional,
+                                    };
+                                }),
+                                /* isUnpackedTuple */ true
+                            );
+                        }
 
                         srcTypeArgs.splice(destUnboundedOrVariadicIndex, 0, {
                             type: variadicTuple,

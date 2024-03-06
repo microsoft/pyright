@@ -197,7 +197,7 @@ def func4(value: str | int) -> str:
 
 If you later added another color to the `Color` enumeration above (e.g. `YELLOW = 4`), Pyright would detect that `func3` no longer exhausts all members of the enumeration and possibly returns `None`, which violates the declared return type. Likewise, if you modify the type of the `value` parameter in `func4` to expand the union, a similar error will be produced.
 
-This “narrowing for implied else” technique works for all narrowing expressions listed above with the exception of simple falsey/truthy statements and type guards. It is also limited to simple names and doesn’t work with member access or index expressions. These are excluded because they are not generally used for exhaustive checks, and their inclusion would have a significant impact on analysis performance.
+This “narrowing for implied else” technique works for all narrowing expressions listed above with the exception of simple falsey/truthy statements and type guards. It is also limited to simple names and doesn’t work with member access or index expressions, and it requires that the name has a declared type (an explicit type annotation). These limitations are imposed because this functionality would otherwise have significant impact on analysis performance.
 
 
 ### Narrowing Any
