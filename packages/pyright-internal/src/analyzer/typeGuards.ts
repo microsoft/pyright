@@ -1235,19 +1235,21 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | Func
         });
     };
 
-    const addClassTypesRecursive = (subtype: Type, recursionCount = 0) => {
+    const addClassTypesRecursive = (type: Type, recursionCount = 0) => {
         if (recursionCount > maxTypeRecursionCount) {
             return;
         }
 
-        if (isClass(subtype) && TypeBase.isInstance(subtype) && isTupleClass(subtype)) {
-            if (subtype.tupleTypeArguments) {
-                subtype.tupleTypeArguments.forEach((tupleEntry) => {
+        if (isClass(type) && TypeBase.isInstance(type) && isTupleClass(type)) {
+            if (type.tupleTypeArguments) {
+                type.tupleTypeArguments.forEach((tupleEntry) => {
                     addClassTypesRecursive(tupleEntry.type, recursionCount + 1);
                 });
             }
         } else {
-            addClassTypesToList([subtype]);
+            doForEachSubtype(type, (subtype) => {
+                addClassTypesToList([subtype]);
+            });
         }
     };
 
