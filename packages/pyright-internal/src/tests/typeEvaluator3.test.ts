@@ -25,6 +25,12 @@ test('Module2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Module3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['module3.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Ellipsis1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['ellipsis1.pyi']);
 
