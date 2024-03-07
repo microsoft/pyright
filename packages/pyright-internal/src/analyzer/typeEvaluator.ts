@@ -3046,12 +3046,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        const codeFlowResult = analyzer.getTypeFromCodeFlow(
-            flowNode,
-            /* reference */ undefined,
-            /* targetSymbolId */ undefined,
-            /* typeAtStart */ UnboundType.create()
-        );
+        const codeFlowResult = analyzer.getTypeFromCodeFlow(flowNode, /* reference */ undefined, {
+            typeAtStart: UnboundType.create(),
+        });
 
         return codeFlowResult.type !== undefined && !isNever(codeFlowResult.type);
     }
@@ -4425,15 +4422,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
 
-                    const codeFlowTypeResult = getFlowTypeOfReference(
-                        node,
-                        symbol.id,
+                    const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
+                        targetSymbolId: symbol.id,
                         typeAtStart,
-                        /* startNode */ undefined,
-                        {
-                            skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
-                        }
-                    );
+                        skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                    });
                     if (codeFlowTypeResult.type) {
                         type = codeFlowTypeResult.type;
                     }
@@ -4647,7 +4640,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             typeAtStart = UnboundType.create();
                         }
 
-                        return getFlowTypeOfReference(node, symbolWithScope.symbol.id, typeAtStart, innerScopeNode);
+                        return getFlowTypeOfReference(node, innerScopeNode, {
+                            targetSymbolId: symbolWithScope.symbol.id,
+                            typeAtStart,
+                        });
                     }
                 }
             }
@@ -5087,16 +5083,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // See if we can refine the type based on code flow analysis.
-            const codeFlowTypeResult = getFlowTypeOfReference(
-                node,
-                indeterminateSymbolId,
+            const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
+                targetSymbolId: indeterminateSymbolId,
                 typeAtStart,
-                /* startNode */ undefined,
-                {
-                    isTypeAtStartIncomplete,
-                    skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
-                }
-            );
+                isTypeAtStartIncomplete,
+                skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+            });
 
             if (codeFlowTypeResult.type) {
                 typeResult.type = codeFlowTypeResult.type;
@@ -6372,16 +6364,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 writeTypeCache(node, { ...indexTypeResult, isIncomplete: true }, flags);
 
                 // See if we can refine the type based on code flow analysis.
-                const codeFlowTypeResult = getFlowTypeOfReference(
-                    node,
-                    indeterminateSymbolId,
-                    indexTypeResult.type,
-                    /* startNode */ undefined,
-                    {
-                        isTypeAtStartIncomplete: !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete,
-                        skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
-                    }
-                );
+                const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
+                    targetSymbolId: indeterminateSymbolId,
+                    typeAtStart: indexTypeResult.type,
+                    isTypeAtStartIncomplete: !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete,
+                    skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                });
+
                 if (codeFlowTypeResult.type) {
                     indexTypeResult.type = codeFlowTypeResult.type;
                 }
@@ -19332,8 +19321,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // lambdas) to support analysis of captured variables.
     function getFlowTypeOfReference(
         reference: CodeFlowReferenceExpressionNode,
-        targetSymbolId: number,
-        typeAtStart: Type,
         startNode?: ClassNode | FunctionNode | LambdaNode,
         options?: FlowNodeTypeOptions
     ): FlowNodeTypeResult {
@@ -19371,7 +19358,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: undefined, isIncomplete: false };
         }
 
-        return analyzer.getTypeFromCodeFlow(flowNode!, reference, targetSymbolId, typeAtStart, options);
+        return analyzer.getTypeFromCodeFlow(flowNode!, reference, options);
     }
 
     // Specializes the specified (potentially generic) class type using
