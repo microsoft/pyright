@@ -3047,7 +3047,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const codeFlowResult = analyzer.getTypeFromCodeFlow(flowNode, /* reference */ undefined, {
-            typeAtStart: UnboundType.create(),
+            typeAtStart: { type: UnboundType.create() },
         });
 
         return codeFlowResult.type !== undefined && !isNever(codeFlowResult.type);
@@ -4424,7 +4424,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
                         targetSymbolId: symbol.id,
-                        typeAtStart,
+                        typeAtStart: { type: typeAtStart },
                         skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
                     });
                     if (codeFlowTypeResult.type) {
@@ -4642,7 +4642,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         return getFlowTypeOfReference(node, innerScopeNode, {
                             targetSymbolId: symbolWithScope.symbol.id,
-                            typeAtStart,
+                            typeAtStart: { type: typeAtStart },
                         });
                     }
                 }
@@ -5085,8 +5085,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // See if we can refine the type based on code flow analysis.
             const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
                 targetSymbolId: indeterminateSymbolId,
-                typeAtStart,
-                isTypeAtStartIncomplete,
+                typeAtStart: { type: typeAtStart, isIncomplete: isTypeAtStartIncomplete },
                 skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
             });
 
@@ -6366,8 +6365,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // See if we can refine the type based on code flow analysis.
                 const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
                     targetSymbolId: indeterminateSymbolId,
-                    typeAtStart: indexTypeResult.type,
-                    isTypeAtStartIncomplete: !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete,
+                    typeAtStart: {
+                        type: indexTypeResult.type,
+                        isIncomplete: !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete,
+                    },
                     skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
                 });
 
