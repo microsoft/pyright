@@ -845,8 +845,9 @@ export function getCodeFlowEngine(
 
                     if (reference === undefined && flowTypeResult.type && !isNever(flowTypeResult.type)) {
                         // If we're solving for "reachability", and we have now proven
-                        // reachability, there's no reason to do more work.
-                        return setCacheEntry(branchNode, options?.typeAtStart?.type, /* isIncomplete */ false);
+                        // reachability, there's no reason to do more work. The type we
+                        // return here doesn't matter as long as it's not undefined.
+                        return setCacheEntry(branchNode, UnknownType.create(), /* isIncomplete */ false);
                     }
 
                     if (flowTypeResult.isIncomplete) {
@@ -876,7 +877,7 @@ export function getCodeFlowEngine(
                     // We haven't been here before, so create a new incomplete cache entry.
                     cacheEntry = setCacheEntry(
                         loopNode,
-                        reference ? undefined : options?.typeAtStart?.type,
+                        reference ? undefined : UnknownType.create(),
                         /* isIncomplete */ true
                     );
                 } else if (
@@ -1006,10 +1007,11 @@ export function getCodeFlowEngine(
 
                     if (isProvenReachable) {
                         // If we saw a pending entry, do not save over the top of the cache
-                        // entry because we'll overwrite a pending evaluation.
+                        // entry because we'll overwrite a pending evaluation. The type that
+                        // we return here doesn't matter as long as it's not undefined.
                         return sawPending
-                            ? { type: options?.typeAtStart?.type, isIncomplete: false }
-                            : setCacheEntry(loopNode, options?.typeAtStart?.type, /* isIncomplete */ false);
+                            ? { type: UnknownType.create(), isIncomplete: false }
+                            : setCacheEntry(loopNode, UnknownType.create(), /* isIncomplete */ false);
                     }
 
                     let effectiveType = cacheEntry.type;
