@@ -81,6 +81,8 @@ export interface FlowNodeTypeResult {
 }
 
 export interface FlowNodeTypeOptions {
+    targetSymbolId?: number;
+    typeAtStart?: Type;
     isTypeAtStartIncomplete?: boolean;
     skipConditionalNarrowing?: boolean;
 }
@@ -89,8 +91,6 @@ export interface CodeFlowAnalyzer {
     getTypeFromCodeFlow: (
         flowNode: FlowNode,
         reference: CodeFlowReferenceExpressionNode | undefined,
-        targetSymbolId: number | undefined,
-        typeAtStart: Type,
         options?: FlowNodeTypeOptions
     ) => FlowNodeTypeResult;
 }
@@ -198,8 +198,6 @@ export function getCodeFlowEngine(
         function getTypeFromCodeFlow(
             flowNode: FlowNode,
             reference: CodeFlowReferenceExpressionNode | undefined,
-            targetSymbolId: number | undefined,
-            typeAtStart: Type,
             options?: FlowNodeTypeOptions
         ): FlowNodeTypeResult {
             if (enablePrintControlFlowGraph) {
@@ -209,8 +207,8 @@ export function getCodeFlowEngine(
             const referenceKey = reference !== undefined ? createKeyForReference(reference) : undefined;
             let subexpressionReferenceKeys: string[] | undefined;
             const referenceKeyWithSymbolId =
-                referenceKey !== undefined && targetSymbolId !== undefined
-                    ? referenceKey + `.${targetSymbolId.toString()}`
+                referenceKey !== undefined && options?.targetSymbolId !== undefined
+                    ? referenceKey + `.${options?.targetSymbolId.toString()}`
                     : '.';
             const flowNodeTypeCache = getFlowNodeTypeCacheForReference(referenceKeyWithSymbolId);
 
@@ -448,7 +446,7 @@ export function getCodeFlowEngine(
                         // comprehension introduces a new scope).
                         if (reference) {
                             if (
-                                targetSymbolId === assignmentFlowNode.targetSymbolId &&
+                                options?.targetSymbolId === assignmentFlowNode.targetSymbolId &&
                                 isMatchingExpression(reference, targetNode)
                             ) {
                                 // Is this a special "unbind" assignment? If so,
@@ -548,7 +546,7 @@ export function getCodeFlowEngine(
                                 //    x = a.b
                                 // The type of "a.b" can no longer be assumed to be Literal[3].
                                 return {
-                                    type: typeAtStart,
+                                    type: options?.typeAtStart,
                                     isIncomplete: !!options?.isTypeAtStartIncomplete,
                                 };
                             }
@@ -810,7 +808,7 @@ export function getCodeFlowEngine(
                     }
 
                     if (curFlowNode.flags & FlowFlags.Start) {
-                        return setCacheEntry(curFlowNode, typeAtStart, !!options?.isTypeAtStartIncomplete);
+                        return setCacheEntry(curFlowNode, options?.typeAtStart, !!options?.isTypeAtStartIncomplete);
                     }
 
                     if (curFlowNode.flags & FlowFlags.WildcardImport) {
@@ -845,7 +843,7 @@ export function getCodeFlowEngine(
                     if (reference === undefined && flowTypeResult.type && !isNever(flowTypeResult.type)) {
                         // If we're solving for "reachability", and we have now proven
                         // reachability, there's no reason to do more work.
-                        return setCacheEntry(branchNode, typeAtStart, /* isIncomplete */ false);
+                        return setCacheEntry(branchNode, options?.typeAtStart, /* isIncomplete */ false);
                     }
 
                     if (flowTypeResult.isIncomplete) {
@@ -873,7 +871,11 @@ export function getCodeFlowEngine(
 
                 if (cacheEntry === undefined) {
                     // We haven't been here before, so create a new incomplete cache entry.
-                    cacheEntry = setCacheEntry(loopNode, reference ? undefined : typeAtStart, /* isIncomplete */ true);
+                    cacheEntry = setCacheEntry(
+                        loopNode,
+                        reference ? undefined : options?.typeAtStart,
+                        /* isIncomplete */ true
+                    );
                 } else if (
                     cacheEntry.incompleteSubtypes &&
                     cacheEntry.incompleteSubtypes.length === loopNode.antecedents.length &&
@@ -1003,8 +1005,8 @@ export function getCodeFlowEngine(
                         // If we saw a pending entry, do not save over the top of the cache
                         // entry because we'll overwrite a pending evaluation.
                         return sawPending
-                            ? { type: typeAtStart, isIncomplete: false }
-                            : setCacheEntry(loopNode, typeAtStart, /* isIncomplete */ false);
+                            ? { type: options?.typeAtStart, isIncomplete: false }
+                            : setCacheEntry(loopNode, options?.typeAtStart, /* isIncomplete */ false);
                     }
 
                     let effectiveType = cacheEntry.type;
@@ -1110,7 +1112,7 @@ export function getCodeFlowEngine(
                 // (namely, string literals that are used for forward
                 // referenced types).
                 return {
-                    type: typeAtStart,
+                    type: options?.typeAtStart,
                     isIncomplete: !!options?.isTypeAtStartIncomplete,
                 };
             }
