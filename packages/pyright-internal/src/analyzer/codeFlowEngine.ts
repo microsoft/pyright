@@ -82,8 +82,7 @@ export interface FlowNodeTypeResult {
 
 export interface FlowNodeTypeOptions {
     targetSymbolId?: number;
-    typeAtStart?: Type;
-    isTypeAtStartIncomplete?: boolean;
+    typeAtStart?: TypeResult;
     skipConditionalNarrowing?: boolean;
 }
 
@@ -546,8 +545,8 @@ export function getCodeFlowEngine(
                                 //    x = a.b
                                 // The type of "a.b" can no longer be assumed to be Literal[3].
                                 return {
-                                    type: options?.typeAtStart,
-                                    isIncomplete: !!options?.isTypeAtStartIncomplete,
+                                    type: options?.typeAtStart?.type,
+                                    isIncomplete: !!options?.typeAtStart?.isIncomplete,
                                 };
                             }
                         }
@@ -808,7 +807,11 @@ export function getCodeFlowEngine(
                     }
 
                     if (curFlowNode.flags & FlowFlags.Start) {
-                        return setCacheEntry(curFlowNode, options?.typeAtStart, !!options?.isTypeAtStartIncomplete);
+                        return setCacheEntry(
+                            curFlowNode,
+                            options?.typeAtStart?.type,
+                            !!options?.typeAtStart?.isIncomplete
+                        );
                     }
 
                     if (curFlowNode.flags & FlowFlags.WildcardImport) {
@@ -843,7 +846,7 @@ export function getCodeFlowEngine(
                     if (reference === undefined && flowTypeResult.type && !isNever(flowTypeResult.type)) {
                         // If we're solving for "reachability", and we have now proven
                         // reachability, there's no reason to do more work.
-                        return setCacheEntry(branchNode, options?.typeAtStart, /* isIncomplete */ false);
+                        return setCacheEntry(branchNode, options?.typeAtStart?.type, /* isIncomplete */ false);
                     }
 
                     if (flowTypeResult.isIncomplete) {
@@ -873,7 +876,7 @@ export function getCodeFlowEngine(
                     // We haven't been here before, so create a new incomplete cache entry.
                     cacheEntry = setCacheEntry(
                         loopNode,
-                        reference ? undefined : options?.typeAtStart,
+                        reference ? undefined : options?.typeAtStart?.type,
                         /* isIncomplete */ true
                     );
                 } else if (
@@ -1005,8 +1008,8 @@ export function getCodeFlowEngine(
                         // If we saw a pending entry, do not save over the top of the cache
                         // entry because we'll overwrite a pending evaluation.
                         return sawPending
-                            ? { type: options?.typeAtStart, isIncomplete: false }
-                            : setCacheEntry(loopNode, options?.typeAtStart, /* isIncomplete */ false);
+                            ? { type: options?.typeAtStart?.type, isIncomplete: false }
+                            : setCacheEntry(loopNode, options?.typeAtStart?.type, /* isIncomplete */ false);
                     }
 
                     let effectiveType = cacheEntry.type;
@@ -1112,8 +1115,8 @@ export function getCodeFlowEngine(
                 // (namely, string literals that are used for forward
                 // referenced types).
                 return {
-                    type: options?.typeAtStart,
-                    isIncomplete: !!options?.isTypeAtStartIncomplete,
+                    type: options?.typeAtStart?.type,
+                    isIncomplete: !!options?.typeAtStart?.isIncomplete,
                 };
             }
 
