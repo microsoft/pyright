@@ -4413,6 +4413,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // type. If it's declared inside our execution scope, it generally starts
                     // as unbound at the start of the code flow.
                     let typeAtStart = effectiveType;
+                    let isTypeAtStartIncomplete = false;
+
                     if (!symbolWithScope.isBeyondExecutionScope && symbol.isInitiallyUnbound()) {
                         typeAtStart = UnboundType.create();
 
@@ -4427,20 +4429,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
 
-                    const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
-                        targetSymbolId: symbol.id,
-                        typeAtStart: { type: typeAtStart },
-                        skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
-                    });
-                    if (codeFlowTypeResult.type) {
-                        type = codeFlowTypeResult.type;
-                    }
-
-                    if (codeFlowTypeResult.isIncomplete) {
-                        isIncomplete = true;
-                    }
-
-                    if (!codeFlowTypeResult.type && symbolWithScope.isBeyondExecutionScope) {
+                    if (symbolWithScope.isBeyondExecutionScope) {
                         const outerScopeTypeResult = getCodeFlowTypeForCapturedVariable(
                             node,
                             symbolWithScope,
@@ -4449,11 +4438,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         if (outerScopeTypeResult?.type) {
                             type = outerScopeTypeResult.type;
+                            typeAtStart = type;
+                            isTypeAtStartIncomplete = !!outerScopeTypeResult.isIncomplete;
                         }
+                    }
 
-                        if (outerScopeTypeResult?.isIncomplete) {
-                            isIncomplete = true;
-                        }
+                    const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
+                        targetSymbolId: symbol.id,
+                        typeAtStart: { type: typeAtStart, isIncomplete: isTypeAtStartIncomplete },
+                        skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                    });
+
+                    if (codeFlowTypeResult.type) {
+                        type = codeFlowTypeResult.type;
+                    }
+
+                    if (codeFlowTypeResult.isIncomplete) {
+                        isIncomplete = true;
                     }
                 }
 
