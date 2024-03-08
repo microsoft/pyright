@@ -95,7 +95,7 @@ export interface CodeFlowAnalyzer {
 }
 
 export interface CodeFlowEngine {
-    createCodeFlowAnalyzer: () => CodeFlowAnalyzer;
+    createCodeFlowAnalyzer: (typeAtStart: TypeResult | undefined) => CodeFlowAnalyzer;
     isFlowNodeReachable: (flowNode: FlowNode, sourceFlowNode?: FlowNode, ignoreNoReturn?: boolean) => boolean;
     narrowConstrainedTypeVar: (flowNode: FlowNode, typeVar: TypeVarType) => Type | undefined;
     printControlFlowGraph: (
@@ -173,7 +173,11 @@ export function getCodeFlowEngine(
     // Creates a new code flow analyzer that can be used to narrow the types
     // of the expressions within an execution context. Each code flow analyzer
     // instance maintains a cache of types it has already determined.
-    function createCodeFlowAnalyzer(): CodeFlowAnalyzer {
+    // The caller should pass a typeAtStart value because the code flow
+    // analyzer may cache types based on this value, but the typeAtStart
+    // may vary depending on the context in which the code flow analysis
+    // is performed.
+    function createCodeFlowAnalyzer(typeAtStart: TypeResult | undefined): CodeFlowAnalyzer {
         const flowNodeTypeCacheSet = new Map<string, CodeFlowTypeCache>();
 
         function getFlowNodeTypeCacheForReference(referenceKey: string) {
