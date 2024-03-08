@@ -1720,6 +1720,33 @@ test('Comments1', () => {
     assert.equal(results.tokens.contains(50), false);
 });
 
+test('Comments2', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('class A:\n    def func(self):\n        pass\n        # comment\n    ');
+    assert.equal(results.tokens.count, 16 + _implicitTokenCount);
+
+    const token17 = results.tokens.getItemAt(17);
+    assert.equal(token17.type, TokenType.EndOfStream);
+    assert.equal(token17.comments, undefined);
+    const start = token17.start;
+
+    const token16 = results.tokens.getItemAt(16);
+    assert.equal(token16.type, TokenType.Dedent);
+    assert.equal(token16.start, start);
+    assert.equal(token16.comments, undefined);
+
+    // When multiple tokens have the same start position (and 0-length)
+    // comments, if any, are stored on the first such token.
+    const token15 = results.tokens.getItemAt(15);
+    assert.equal(token15.type, TokenType.Dedent);
+    assert.equal(token15.start, start);
+    assert.equal(token15.comments!.length, 1);
+    assert.equal(token15.comments![0].value, ' comment');
+
+    const token14 = results.tokens.getItemAt(14);
+    assert.notEqual(token14.start, start);
+});
+
 test('Identifiers1', () => {
     const t = new Tokenizer();
     const results = t.tokenize('배열 数値 лік Opciók 可選值');
