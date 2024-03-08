@@ -1259,9 +1259,7 @@ export class Tokenizer {
         } while (!this._cs.isEndOfStream());
 
         const length = this._cs.position - start;
-        const value = this._cs.getText().substring(start, start + length);
-
-        const comment = Comment.create(start, length, value, type);
+        const comment = Comment.create(start, length, this._cs.getText().slice(start, start + length), type);
         this._addComments(comment);
     }
 
@@ -1270,10 +1268,9 @@ export class Tokenizer {
         this._cs.skipToEol();
 
         const length = this._cs.position - start;
-        const value = this._cs.getText().substring(start, start + length);
-        const comment = Comment.create(start, length, value);
+        const comment = Comment.create(start, length, this._cs.getText().slice(start, start + length));
 
-        const typeIgnoreRegexMatch = value.match(/((^|#)\s*)type:\s*ignore(\s*\[([\s*\w-,]*)\]|\s|$)/);
+        const typeIgnoreRegexMatch = comment.value.match(/((^|#)\s*)type:\s*ignore(\s*\[([\s*\w-,]*)\]|\s|$)/);
         if (typeIgnoreRegexMatch) {
             const commentStart = start + (typeIgnoreRegexMatch.index ?? 0);
             const textRange: TextRange = {
@@ -1292,7 +1289,7 @@ export class Tokenizer {
             }
         }
 
-        const pyrightIgnoreRegexMatch = value.match(/((^|#)\s*)pyright:\s*ignore(\s*\[([\s*\w-,]*)\]|\s|$)/);
+        const pyrightIgnoreRegexMatch = comment.value.match(/((^|#)\s*)pyright:\s*ignore(\s*\[([\s*\w-,]*)\]|\s|$)/);
         if (pyrightIgnoreRegexMatch) {
             const commentStart = start + (pyrightIgnoreRegexMatch.index ?? 0);
             const textRange: TextRange = {
@@ -1572,17 +1569,22 @@ export class Tokenizer {
         const isTriplicate = (flags & StringTokenFlags.Triplicate) !== 0;
         const isFString = (flags & StringTokenFlags.Format) !== 0;
         let isInNamedUnicodeEscape = false;
-        let escapedValueParts: number[] = [];
+        const start = this._cs.position;
+        let escapedValueLength = 0;
+        const getEscapedValue = () => this._cs.getText().slice(start, start + escapedValueLength);
 
         while (true) {
             if (this._cs.isEndOfStream()) {
                 // Hit the end of file without a termination.
                 flags |= StringTokenFlags.Unterminated;
-                return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };
+                return {
+                    escapedValue: getEscapedValue(),
+                    flags,
+                };
             }
 
             if (this._cs.currentChar === Char.Backslash) {
-                escapedValueParts.push(this._cs.currentChar);
+                escapedValueLength++;
 
                 // Move past the escape (backslash) character.
                 this._cs.moveNext();
@@ -1611,14 +1613,14 @@ export class Tokenizer {
                                 this._cs.getCurrentChar() === Char.CarriageReturn &&
                                 this._cs.nextChar === Char.LineFeed
                             ) {
-                                escapedValueParts.push(this._cs.currentChar);
+                                escapedValueLength++;
                                 this._cs.moveNext();
                             }
-                            escapedValueParts.push(this._cs.currentChar);
+                            escapedValueLength++;
                             this._cs.moveNext();
                             this._addLineRange();
                         } else {
-                            escapedValueParts.push(this._cs.currentChar);
+                            escapedValueLength++;
                             this._cs.moveNext();
                         }
                     }
@@ -1627,16 +1629,19 @@ export class Tokenizer {
                 if (!isTriplicate && !isFString) {
                     // Unterminated single-line string
                     flags |= StringTokenFlags.Unterminated;
-                    return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };
+                    return {
+                        escapedValue: getEscapedValue(),
+                        flags,
+                    };
                 }
 
                 // Skip over the new line (either one or two characters).
                 if (this._cs.currentChar === Char.CarriageReturn && this._cs.nextChar === Char.LineFeed) {
-                    escapedValueParts.push(this._cs.currentChar);
+                    escapedValueLength++;
                     this._cs.moveNext();
                 }
 
-                escapedValueParts.push(this._cs.currentChar);
+                escapedValueLength++;
                 this._cs.moveNext();
                 this._addLineRange();
             } else if (!isTriplicate && this._cs.currentChar === quoteChar) {
@@ -1655,41 +1660,35 @@ export class Tokenizer {
                     flags |= StringTokenFlags.ReplacementFieldStart;
                     break;
                 } else {
-                    escapedValueParts.push(this._cs.currentChar);
+                    escapedValueLength++;
                     this._cs.moveNext();
-                    escapedValueParts.push(this._cs.currentChar);
+                    escapedValueLength++;
                     this._cs.moveNext();
                 }
             } else if (isInNamedUnicodeEscape && this._cs.currentChar === Char.CloseBrace) {
                 isInNamedUnicodeEscape = false;
-                escapedValueParts.push(this._cs.currentChar);
+                escapedValueLength++;
                 this._cs.moveNext();
             } else if (isFString && this._cs.currentChar === Char.CloseBrace) {
                 if (inFormatSpecifier || this._cs.nextChar !== Char.CloseBrace) {
                     flags |= StringTokenFlags.ReplacementFieldEnd;
                     break;
                 } else {
-                    escapedValueParts.push(this._cs.currentChar);
+                    escapedValueLength++;
                     this._cs.moveNext();
-                    escapedValueParts.push(this._cs.currentChar);
+                    escapedValueLength++;
                     this._cs.moveNext();
                 }
             } else {
-                escapedValueParts.push(this._cs.currentChar);
+                escapedValueLength++;
                 this._cs.moveNext();
             }
         }
 
-        // String.fromCharCode.apply crashes (stack overflow) if passed an array
-        // that is too long. Cut off the extra characters in this case to avoid
-        // the crash. It's unlikely that the full string value will be used as
-        // a string literal or a docstring, so this should be fine.
-        if (escapedValueParts.length > maxStringTokenLength) {
-            escapedValueParts = escapedValueParts.slice(0, maxStringTokenLength);
-            flags |= StringTokenFlags.ExceedsMaxSize;
-        }
-
-        return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };
+        return {
+            escapedValue: getEscapedValue(),
+            flags,
+        };
     }
 
     private _skipFloatingPointCandidate(): boolean {
