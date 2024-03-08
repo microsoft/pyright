@@ -63,6 +63,12 @@ const _userActivityBackoffTimeInMs = 250;
 
 const _gitDirectory = '/.git/';
 
+export interface LibraryReanalysisTimeProvider {
+    (): number;
+    libraryReanalysisStarted?: () => void;
+    libraryUpdated?: (cancelled: boolean) => void;
+}
+
 export interface AnalyzerServiceOptions {
     console?: ConsoleInterface;
     hostFactory?: HostFactory;
@@ -72,7 +78,7 @@ export interface AnalyzerServiceOptions {
     maxAnalysisTime?: MaxAnalysisTime;
     backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory;
     cancellationProvider?: CancellationProvider;
-    libraryReanalysisTimeProvider?: () => number;
+    libraryReanalysisTimeProvider?: LibraryReanalysisTimeProvider;
     serviceId?: string;
     skipScanningUserFiles?: boolean;
     fileSystem?: FileSystem;
@@ -1505,7 +1511,9 @@ export class AnalyzerService {
         if (this._libraryReanalysisTimer) {
             clearTimeout(this._libraryReanalysisTimer);
             this._libraryReanalysisTimer = undefined;
-            this._backgroundAnalysisProgram?.libraryUpdated();
+
+            const handled = this._backgroundAnalysisProgram?.libraryUpdated();
+            this._options.libraryReanalysisTimeProvider?.libraryUpdated?.(handled);
         }
     }
 
@@ -1517,7 +1525,8 @@ export class AnalyzerService {
 
         this._clearLibraryReanalysisTimer();
 
-        const backOffTimeInMS = this._options.libraryReanalysisTimeProvider?.();
+        const reanalysisTimeProvider = this._options.libraryReanalysisTimeProvider;
+        const backOffTimeInMS = reanalysisTimeProvider?.();
         if (!backOffTimeInMS) {
             // We don't support library reanalysis.
             return;
@@ -1542,6 +1551,7 @@ export class AnalyzerService {
             this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
 
             // No more pending changes.
+            reanalysisTimeProvider!.libraryReanalysisStarted?.();
             this._pendingLibraryChanges.changesOnly = true;
         }, backOffTimeInMS);
     }
