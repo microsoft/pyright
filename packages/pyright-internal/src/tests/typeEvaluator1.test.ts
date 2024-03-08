@@ -1067,6 +1067,12 @@ test('CapturedVariable1', () => {
     TestUtils.validateResults(analysisResults, 5);
 });
 
+test('CapturedVariable2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['capturedVariable2.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Property1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property1.py']);
 
