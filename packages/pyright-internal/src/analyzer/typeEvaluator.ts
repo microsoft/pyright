@@ -570,6 +570,11 @@ interface TypeCacheEntry {
     flags: EvaluatorFlags | undefined;
 }
 
+interface CodeFlowAnalyzerCacheEntry {
+    typeAtStart: TypeResult | undefined;
+    codeFlowAnalyzer: CodeFlowAnalyzer;
+}
+
 export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const asymmetricAccessorAssignmentCache = new Set<number>();
@@ -578,7 +583,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const assignClassToSelfStack: AssignClassToSelfInfo[] = [];
 
     let functionRecursionMap = new Set<number>();
-    let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
+    let codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
     let typeCache = new Map<number, TypeCacheEntry>();
     let effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
     let expectedTypeCache = new Map<number, Type>();
@@ -634,7 +639,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // to clean up the objects if we don't help it out.
     function disposeEvaluator() {
         functionRecursionMap = new Set<number>();
-        codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
+        codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzerCacheEntry[]>();
         typeCache = new Map<number, TypeCacheEntry>();
         effectiveTypeCache = new Map<number, Map<string, EffectiveTypeResult>>();
         expectedTypeCache = new Map<number, Type>();
@@ -3040,7 +3045,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Although isFlowNodeReachable indicates that the node is reachable, it
     // may not be reachable if we apply "never narrowing".
     function isFlowNodeReachableUsingNeverNarrowing(node: ParseNode, flowNode: FlowNode) {
-        const analyzer = getCodeFlowAnalyzerForNode(node.id);
+        const analyzer = getCodeFlowAnalyzerForNode(node.id, /* typeAtStart */ undefined);
 
         if (checkCodeFlowTooComplex(node)) {
             return true;
@@ -19302,13 +19307,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
-    function getCodeFlowAnalyzerForNode(nodeId: number) {
-        let analyzer = codeFlowAnalyzerCache.get(nodeId);
+    function getCodeFlowAnalyzerForNode(nodeId: number, typeAtStart: TypeResult | undefined): CodeFlowAnalyzer {
+        let entries = codeFlowAnalyzerCache.get(nodeId);
 
-        if (!analyzer) {
-            // Allocate a new code flow analyzer.
-            analyzer = codeFlowEngine.createCodeFlowAnalyzer();
-            codeFlowAnalyzerCache.set(nodeId, analyzer);
+        if (entries) {
+            const cachedEntry = entries.find((entry) => {
+                if (!typeAtStart || !entry.typeAtStart) {
+                    return !typeAtStart && !entry.typeAtStart;
+                }
+
+                if (!typeAtStart.isIncomplete !== !entry.typeAtStart.isIncomplete) {
+                    return false;
+                }
+
+                return isTypeSame(typeAtStart.type, entry.typeAtStart.type);
+            });
+
+            if (cachedEntry) {
+                return cachedEntry.codeFlowAnalyzer;
+            }
+        }
+
+        // Allocate a new code flow analyzer.
+        const analyzer = codeFlowEngine.createCodeFlowAnalyzer(typeAtStart);
+        if (entries) {
+            entries.push({ typeAtStart, codeFlowAnalyzer: analyzer });
+        } else {
+            entries = [{ typeAtStart, codeFlowAnalyzer: analyzer }];
+            codeFlowAnalyzerCache.set(nodeId, entries);
         }
 
         return analyzer;
@@ -19351,7 +19377,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // a temporary analyzer that we'll use only for this context.
             analyzer = getCodeFlowAnalyzerForReturnTypeInferenceContext();
         } else {
-            analyzer = getCodeFlowAnalyzerForNode(executionNode.id);
+            analyzer = getCodeFlowAnalyzerForNode(executionNode.id, options?.typeAtStart);
         }
 
         const flowNode = AnalyzerNodeInfo.getFlowNode(startNode ?? reference);
@@ -21623,7 +21649,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const prevTypeCache = returnTypeInferenceTypeCache;
             returnTypeInferenceContextStack.push({
                 functionNode,
-                codeFlowAnalyzer: codeFlowEngine.createCodeFlowAnalyzer(),
+                codeFlowAnalyzer: codeFlowEngine.createCodeFlowAnalyzer(/* typeAtStart */ undefined),
             });
 
             try {
