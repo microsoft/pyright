@@ -4552,15 +4552,17 @@ export class Parser {
             return undefined;
         }
 
-        const interTokenContents = this._fileContents!.substring(curToken.start + curToken.length, nextToken.start);
+        const interTokenContents = this._fileContents!.slice(curToken.start + curToken.length, nextToken.start);
         const commentRegEx = /^(\s*#\s*type:\s*)([^\r\n]*)/;
         const match = interTokenContents.match(commentRegEx);
-        if (!match) {
+        if (!match || !match.index) {
             return undefined;
         }
 
-        // Synthesize a string token and StringNode.
-        const typeString = match[2];
+        // Synthesize a string token and StringNode using the position of the
+        // type. (Slicing is more memory efficient than using the regex results)
+        const typeIndex = match.index + match[1].length;
+        const typeString = interTokenContents.slice(typeIndex, typeIndex + match[2].length);
 
         // Ignore all "ignore" comments. Include "[" in the regular
         // expression because mypy supports ignore comments of the
