@@ -23,6 +23,7 @@ import {
 import { OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { getEnclosingLambda, isWithinLoop, operatorSupportsChaining, printOperator } from './parseTreeUtils';
+import { getScopeForNode } from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
@@ -731,7 +732,7 @@ export function getTypeOfBinaryOperation(
 
     const diag = new DiagnosticAddendum();
 
-    // Don't use literal math if either of the operation is within a loop
+    // Don't use literal math if the operation is within a loop
     // because the literal values may change each time. We also don't want to
     // apply literal math within the body of a lambda because they are often
     // used as callbacks where the value changes each time they are called.
@@ -893,10 +894,11 @@ export function getTypeOfAugmentedAssignment(
                             // assignment, fall back on the normal binary expression evaluator.
                             const binaryOperator = operatorMap[node.operator][1];
 
-                            // Don't use literal math if either of the operation is within a loop
+                            // Don't use literal math if the operation is within a loop
                             // because the literal values may change each time.
                             const isLiteralMathAllowed =
                                 !isWithinLoop(node) &&
+                                isExpressionLocalVariable(evaluator, node.leftExpression) &&
                                 getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) <
                                     maxLiteralMathSubtypeCount;
 
@@ -1161,4 +1163,20 @@ function convertFunctionToObject(evaluator: TypeEvaluator, type: Type) {
     }
 
     return type;
+}
+
+// Determines whether the expression refers to a variable that
+// is defined within the current scope or some outer scope.
+function isExpressionLocalVariable(evaluator: TypeEvaluator, node: ExpressionNode): boolean {
+    if (node.nodeType !== ParseNodeType.Name) {
+        return false;
+    }
+
+    const symbolWithScope = evaluator.lookUpSymbolRecursive(node, node.value, /* honorCodeFlow */ false);
+    if (!symbolWithScope) {
+        return false;
+    }
+
+    const currentScope = getScopeForNode(node);
+    return currentScope === symbolWithScope.scope;
 }
