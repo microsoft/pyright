@@ -9572,13 +9572,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (expandedCallType.details.name === 'type' && argList.length === 1) {
                     const argType = getTypeOfArgument(argList[0]).type;
                     const returnType = mapSubtypes(argType, (subtype) => {
+                        if (isInstantiableClass(subtype)) {
+                            return subtype.details.effectiveMetaclass ?? AnyType.create();
+                        }
+
                         if (
                             isClassInstance(subtype) ||
                             (isTypeVar(subtype) && TypeBase.isInstance(subtype)) ||
                             isNoneInstance(subtype)
                         ) {
                             return convertToInstantiable(stripLiteralValue(subtype));
-                        } else if (isFunction(subtype) && TypeBase.isInstance(subtype)) {
+                        }
+
+                        if (isFunction(subtype) && TypeBase.isInstance(subtype)) {
                             return FunctionType.cloneAsInstantiable(subtype);
                         }
 
