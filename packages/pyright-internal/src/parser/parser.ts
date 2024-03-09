@@ -4555,7 +4555,7 @@ export class Parser {
         const interTokenContents = this._fileContents!.slice(curToken.start + curToken.length, nextToken.start);
         const commentRegEx = /^(\s*#\s*type:\s*)([^\r\n]*)/;
         const match = interTokenContents.match(commentRegEx);
-        if (!match || !match.index) {
+        if (!match || match.index === undefined) {
             return undefined;
         }
 
