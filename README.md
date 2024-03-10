@@ -60,13 +60,26 @@ basedpyright introduces the `reportAny` option, which will report an error on us
 
 ### re-implementing pylance-exclusive features
 
-pyright does not support code actions for import suggestions, [because that feature is exclusive to the closed-source pylance extension](https://github.com/microsoft/pyright/issues/4263#issuecomment-1333987645). basedpyright re-implements this feature in its language server:
+basedpyright re-implements some of the features that microsoft made exclusive to their closed-source pylance extension. for more information about the differences between pyright and pylance, see [here](#pylance-vs-basedpyright)
+
+#### import suggestion code actions
+pyright only supports import suggestions as autocomplete suggestions, but not as quick fixes (see [this issue](https://github.com/microsoft/pyright/issues/4263#issuecomment-1333987645)).
+
+basedpyright re-implements pylance's import suggestion code actions:
 
 ![image](https://github.com/DetachHead/basedpyright/assets/57028336/a3e8a506-5682-4230-a43c-e815c84889c0)
 
-for more information about the differences between pyright and pylance, see [here](#pylance-vs-basedpyright)
+#### syntax highlighting
 
-basedpyright adds support for it to the vscode extension:
+semantic highlighting code was adapted from the [pyright-inlay-hints](https://github.com/jbradaric/pyright-inlay-hints) project.
+
+basedpyright takes it a step further and adds full pylance-style syntax highlighting, and integrates it into the vscode extension.
+
+#### inlay hints
+
+Initial implementations of the inlay hint provider were adapted from [coc-pyright](https://github.com/fannheyward/coc-pyright) and [pyright-inlay-hints](https://github.com/jbradaric/pyright-inlay-hints).
+
+basedpyright integrates it into the vscode extension:
 
 ![image](https://github.com/DetachHead/basedpyright/assets/57028336/41ed93e8-04e2-4163-a1be-c9ec8f3d90df)
 
