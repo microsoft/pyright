@@ -2,7 +2,10 @@
 # type alias with a Callable.
 
 from typing import Any, Callable, Generic, Protocol
-from typing_extensions import Concatenate, ParamSpec
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    Concatenate,
+    ParamSpec,
+)
 
 P = ParamSpec("P")
 
@@ -12,8 +15,7 @@ CommandHandler1 = Callable[Concatenate[int, P], dict[str, Any]]
 
 
 class Command1(Generic[P]):
-    def __init__(self, handler: CommandHandler1[P]) -> None:
-        ...
+    def __init__(self, handler: CommandHandler1[P]) -> None: ...
 
 
 class Application1:
@@ -34,13 +36,11 @@ class Application1:
 
 
 class CommandHandler2(Protocol[P]):
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> dict[str, Any]:
-        ...
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> dict[str, Any]: ...
 
 
 class Command2(Generic[P]):
-    def __init__(self, handler: CommandHandler2[P]) -> None:
-        ...
+    def __init__(self, handler: CommandHandler2[P]) -> None: ...
 
 
 class Application2:
@@ -57,8 +57,7 @@ class Application2:
         return decorator
 
 
-def handler(arg1: int, arg2: str) -> dict[str, Any]:
-    ...
+def handler(arg1: int, arg2: str) -> dict[str, Any]: ...
 
 
 v1: CommandHandler2 = handler
@@ -86,8 +85,7 @@ list_of_handlers: list[HandlerAlias[...]] = []
 
 
 class HandlerProtocol(Protocol[P]):
-    def __call__(self, /, *args: P.args, **kwargs: P.kwargs) -> None:
-        ...
+    def __call__(self, /, *args: P.args, **kwargs: P.kwargs) -> None: ...
 
 
 list_of_handler_protocols: list[HandlerProtocol[...]] = []

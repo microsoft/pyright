@@ -2,7 +2,9 @@
 # described in PEP 634) that contain class patterns.
 
 from typing import Any, Generic, Literal, NamedTuple, TypeVar
-from typing_extensions import LiteralString
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    LiteralString,
+)
 from dataclasses import dataclass, field
 
 foo = 3

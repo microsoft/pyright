@@ -4,42 +4,38 @@
 # pyright: strict, reportMissingModuleSource=false
 
 from typing import Any, Callable, Sequence, TypeVar, overload
-from typing_extensions import TypeGuard
+from typing_extensions import TypeGuard  # pyright: ignore[reportMissingModuleSource]
 
 
 _T = TypeVar("_T")
 
 
-def cb1(obj: object) -> TypeGuard[int]:
-    ...
+def cb1(obj: object) -> TypeGuard[int]: ...
 
 
-def cb2(obj: object) -> bool:
-    ...
+def cb2(obj: object) -> bool: ...
 
 
-def simple_filter(val: Sequence[object], fn: Callable[[object], bool]) -> list[object]:
-    ...
+def simple_filter(
+    val: Sequence[object], fn: Callable[[object], bool]
+) -> list[object]: ...
 
 
 @overload
 def overloaded_filter(
     val: Sequence[object], fn: Callable[[object], TypeGuard[_T]]
-) -> Sequence[_T]:
-    ...
+) -> Sequence[_T]: ...
 
 
 @overload
 def overloaded_filter(
     val: Sequence[object], fn: Callable[[object], bool]
-) -> Sequence[object]:
-    ...
+) -> Sequence[object]: ...
 
 
 def overloaded_filter(
     val: Sequence[object], fn: Callable[[object], Any]
-) -> Sequence[Any]:
-    ...
+) -> Sequence[Any]: ...
 
 
 x1 = cb1(1)

@@ -434,11 +434,41 @@ test('getRelativeModuleName over fake file', () => {
             state.fs,
             dest.getDirectory().combinePaths('source.py'),
             dest,
+            state.configOptions,
             /*ignoreFolderStructure*/ false,
             /*sourceIsFile*/ true
         ),
         '.target'
     );
+});
+
+test('getRelativeModuleName - target in stub path', () => {
+    const code = `
+// @filename: source.py
+//// [|/*src*/|]
+
+// @filename: typings/library/__init__.py
+//// [|/*dest*/|]
+    `;
+
+    testRelativeModuleName(code, undefined);
+});
+
+test('getRelativeModuleName - target in typeshed path', () => {
+    const code = `
+// @filename: pyrightconfig.json
+//// {
+////   "typeshedPath": "my_typeshed"
+//// }
+
+// @filename: source.py
+//// [|/*src*/|]
+
+// @filename: my_typeshed/library/__init__.py
+//// [|/*dest*/|]
+    `;
+
+    testRelativeModuleName(code, undefined);
 });
 
 test('resolve alias of not needed file', () => {
@@ -482,12 +512,15 @@ test('resolve alias of not needed file', () => {
     assert(isFunctionDeclaration(resolved));
 });
 
-function testRelativeModuleName(code: string, expected: string, ignoreFolderStructure = false) {
+function testRelativeModuleName(code: string, expected: string | undefined, ignoreFolderStructure = false) {
     const state = parseAndGetTestState(code).state;
     const src = Uri.file(state.getMarkerByName('src')!.fileName);
     const dest = Uri.file(state.getMarkerByName('dest')!.fileName);
 
-    assert.strictEqual(getRelativeModuleName(state.fs, src, dest, ignoreFolderStructure), expected);
+    assert.strictEqual(
+        getRelativeModuleName(state.fs, src, dest, state.configOptions, ignoreFolderStructure),
+        expected
+    );
 }
 
 function testAddition(

@@ -22,7 +22,7 @@ import { Symbol, SymbolFlags } from './symbol';
 import { isSingleDunderName } from './symbolNameUtils';
 import { FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
-import { MemberAccessFlags, computeMroLinearization, lookUpClassMember } from './typeUtils';
+import { MemberAccessFlags, computeMroLinearization, lookUpClassMember, makeInferenceContext } from './typeUtils';
 import {
     AnyType,
     ClassType,
@@ -373,15 +373,28 @@ export function transformTypeForPossibleEnumClass(
     }
 
     if (!assignedType && statementNode.nodeType === ParseNodeType.Assignment) {
-        assignedType = evaluator.getTypeOfExpression(statementNode.rightExpression).type;
+        assignedType = evaluator.getTypeOfExpression(
+            statementNode.rightExpression,
+            /* flags */ undefined,
+            makeInferenceContext(declaredType)
+        ).type;
     }
 
     // Handle the Python 3.11 "enum.member()" and "enum.nonmember()" features.
     if (assignedType && isClassInstance(assignedType) && ClassType.isBuiltIn(assignedType)) {
         if (assignedType.details.fullName === 'enum.nonmember') {
-            return assignedType.typeArguments && assignedType.typeArguments.length > 0
-                ? assignedType.typeArguments[0]
-                : UnknownType.create();
+            const nonMemberType =
+                assignedType.typeArguments && assignedType.typeArguments.length > 0
+                    ? assignedType.typeArguments[0]
+                    : UnknownType.create();
+
+            // If the type of the nonmember is declared and the assigned value has
+            // a compatible type, use the declared type.
+            if (declaredType && evaluator.assignType(declaredType, nonMemberType)) {
+                return declaredType;
+            }
+
+            return nonMemberType;
         }
 
         if (assignedType.details.fullName === 'enum.member') {

@@ -3,13 +3,16 @@
 # in a call, and a default value is used rather than Unknown.
 
 from typing import Callable, Generic, Unpack
-from typing_extensions import ParamSpec, TypeVar, TypeVarTuple
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    ParamSpec,
+    TypeVar,
+    TypeVarTuple,
+)
 
 T = TypeVar("T", default=str)
 
 
-def func1(x: int | T) -> list[T]:
-    ...
+def func1(x: int | T) -> list[T]: ...
 
 
 v1_1 = func1(3.4)
@@ -23,16 +26,13 @@ P = ParamSpec("P", default=[int, str, str])
 
 
 class ClassA(Generic[P]):
-    def __init__(self, x: Callable[P, None]) -> None:
-        ...
+    def __init__(self, x: Callable[P, None]) -> None: ...
 
 
-def func2(x: int | ClassA[P]) -> ClassA[P]:
-    ...
+def func2(x: int | ClassA[P]) -> ClassA[P]: ...
 
 
-def callback1(x: str) -> None:
-    ...
+def callback1(x: str) -> None: ...
 
 
 v2_1 = func2(ClassA(callback1))
@@ -46,8 +46,7 @@ reveal_type(v2_2, expected_text="ClassA[(int, str, str)]")
 Ts = TypeVarTuple("Ts", default=Unpack[tuple[int, str, float]])
 
 
-def func3(x: int | Callable[[*Ts], None]) -> tuple[*Ts]:
-    ...
+def func3(x: int | Callable[[*Ts], None]) -> tuple[*Ts]: ...
 
 
 v3_1 = func3(callback1)

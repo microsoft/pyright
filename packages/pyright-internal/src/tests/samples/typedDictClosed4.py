@@ -1,7 +1,7 @@
 # This sample tests type consistency rules for closed TypedDicts.
 
 from typing import NotRequired, TypedDict
-from typing_extensions import ReadOnly
+from typing_extensions import ReadOnly  # pyright: ignore[reportMissingModuleSource]
 
 
 class Movie1(TypedDict, closed=True):

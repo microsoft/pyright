@@ -242,6 +242,7 @@
         "inconsistentTabs": "Inconsistent use of tabs and spaces in indentation",
         "initSubclassClsParam": "__init_subclass__ override should take a \"cls\" parameter",
         "initSubclassCallFailed": "Incorrect keyword arguments for __init_subclass__ method",
+        "initVarNotAllowed": "\"InitVar\" is not allowed in this context",
         "instanceMethodSelfParam": "Instance methods should take a \"self\" parameter",
         "instanceVarOverridesClassVar": "Instance variable \"{name}\" overrides class variable of same name in class \"{className}\"",
         "instantiateAbstract": "Cannot instantiate abstract class \"{type}\"",

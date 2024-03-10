@@ -83,8 +83,7 @@ def func7(*args: Any, param0: int, param1: int, param2: str):
 def func8(
     y: str,
     z: bool = ...,
-) -> None:
-    ...
+) -> None: ...
 
 
 kwargs1: dict[str, int] = {}
@@ -92,8 +91,7 @@ kwargs1: dict[str, int] = {}
 func8(z=False, **kwargs1)
 
 
-class MyStr(str):
-    ...
+class MyStr(str): ...
 
 
 kwargs2: dict[MyStr, MyStr] = {}
@@ -107,8 +105,7 @@ def func9(
     a: str = ...,
     b: str,
     c: str,
-) -> None:
-    ...
+) -> None: ...
 
 
 kwargs3: dict[str, str] = {}
@@ -121,8 +118,7 @@ func9(0, *args4, **kwargs3)
 func9(*args4, **kwargs3)
 
 
-def func10(x: int):
-    ...
+def func10(x: int): ...
 
 
 func10(1, *())
@@ -141,3 +137,11 @@ func10(*("",))
 
 def func11(y: tuple[int, ...]):
     func10(1, *y)
+
+
+def func12(x: int, /, y: str):
+    pass
+
+
+# This should generate an error.
+func12(1, **{"z": None})

@@ -2,7 +2,10 @@
 # pop, __delitem__, clear, and popitem for a TypedDict.
 
 from typing import TypedDict, final
-from typing_extensions import NotRequired, Required
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    NotRequired,
+    Required,
+)
 
 
 class TD1(TypedDict):

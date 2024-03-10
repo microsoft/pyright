@@ -1127,11 +1127,6 @@ export class SourceFile {
         // Add diagnostics for comments that match the task list tokens.
         this._addTaskListDiagnostics(configOptions.taskListTokens, diagList);
 
-        // If the file is in the ignore list, clear the diagnostic list.
-        if (configOptions.ignore.find((ignoreFileSpec) => this._uri.matchesRegex(ignoreFileSpec.regExp))) {
-            diagList = [];
-        }
-
         // If there is a "type: ignore" comment at the top of the file, clear
         // the diagnostic list of all error, warning, and information diagnostics.
         if (this._diagnosticRuleSet.enableTypeIgnoreComments) {
@@ -1158,6 +1153,11 @@ export class SourceFile {
                     diag.category === DiagnosticCategory.UnreachableCode ||
                     diag.category === DiagnosticCategory.Deprecated
             );
+        }
+
+        // If the file is in the ignore list, clear the diagnostic list.
+        if (configOptions.ignore.find((ignoreFileSpec) => this._uri.matchesRegex(ignoreFileSpec.regExp))) {
+            diagList = [];
         }
 
         this._writableData.accumulatedDiagnostics = diagList;

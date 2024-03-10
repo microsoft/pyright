@@ -2,14 +2,13 @@
 # when it binds to a ParamSpec.
 
 from typing import Any, Callable, TypeVar
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec  # pyright: ignore[reportMissingModuleSource]
 
 T = TypeVar("T")
 P = ParamSpec("P")
 
 
-def func1(f: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
-    ...
+def func1(f: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T: ...
 
 
 def func2(a: Any) -> None:

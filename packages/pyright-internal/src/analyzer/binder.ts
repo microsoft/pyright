@@ -283,7 +283,7 @@ export class Binder extends ParseTreeWalker {
                 // List taken from https://docs.python.org/3/reference/import.html#__name__
                 this._addImplicitSymbolToCurrentScope('__name__', node, 'str');
                 this._addImplicitSymbolToCurrentScope('__loader__', node, 'Any');
-                this._addImplicitSymbolToCurrentScope('__package__', node, 'str');
+                this._addImplicitSymbolToCurrentScope('__package__', node, 'str | None');
                 this._addImplicitSymbolToCurrentScope('__spec__', node, 'Any');
                 this._addImplicitSymbolToCurrentScope('__path__', node, 'Iterable[str]');
                 this._addImplicitSymbolToCurrentScope('__file__', node, 'str');
@@ -293,9 +293,14 @@ export class Binder extends ParseTreeWalker {
                 this._addImplicitSymbolToCurrentScope('__builtins__', node, 'Any');
 
                 // If there is a static docstring provided in the module, assume
-                // that the type of `__doc__` is `str` rather than `str | None`.
+                // that the type of `__doc__` is `str` rather than `str | None`. This
+                // doesn't apply to stub files.
                 const moduleDocString = ParseTreeUtils.getDocString(node.statements);
-                this._addImplicitSymbolToCurrentScope('__doc__', node, moduleDocString ? 'str' : 'str | None');
+                this._addImplicitSymbolToCurrentScope(
+                    '__doc__',
+                    node,
+                    !this._fileInfo.isStubFile && moduleDocString ? 'str' : 'str | None'
+                );
 
                 // Create a start node for the module.
                 this._currentFlowNode = this._createStartFlowNode();

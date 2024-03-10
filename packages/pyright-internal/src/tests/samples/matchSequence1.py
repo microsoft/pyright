@@ -3,7 +3,7 @@
 
 from enum import Enum
 from typing import Any, Generic, Iterator, List, Literal, Protocol, Reversible, Sequence, Tuple, TypeVar, Union
-from typing_extensions import Unpack
+from typing_extensions import Unpack # pyright: ignore[reportMissingModuleSource]
 
 def test_unknown(value_to_match):
     match value_to_match:

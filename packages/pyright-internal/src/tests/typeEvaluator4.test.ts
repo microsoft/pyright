@@ -50,7 +50,7 @@ test('Metaclass1', () => {
 
 test('Metaclass2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass2.py']);
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Metaclass3', () => {
@@ -368,7 +368,7 @@ test('Final2', () => {
 
 test('Final3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final3.py']);
-    TestUtils.validateResults(analysisResults, 31);
+    TestUtils.validateResults(analysisResults, 33);
 });
 
 test('Final4', () => {

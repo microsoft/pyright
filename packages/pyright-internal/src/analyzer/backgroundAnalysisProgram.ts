@@ -172,8 +172,8 @@ export class BackgroundAnalysisProgram {
         return this._program.analyzeFile(fileUri, token);
     }
 
-    libraryUpdated() {
-        // empty
+    libraryUpdated(): boolean {
+        return false;
     }
 
     async getDiagnosticsForRange(fileUri: Uri, range: Range, token: CancellationToken): Promise<Diagnostic[]> {

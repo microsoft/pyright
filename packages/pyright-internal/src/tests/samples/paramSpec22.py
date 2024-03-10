@@ -3,7 +3,10 @@
 # uses a ParamSpec.
 
 from typing import Callable, Generic, TypeVar
-from typing_extensions import Concatenate, ParamSpec
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    Concatenate,
+    ParamSpec,
+)
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -14,8 +17,7 @@ class MyPartial(Generic[P, R]):
         self.first = first
         self.func = func
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
-        ...
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R: ...
 
 
 class MyPartialCreator(Generic[P, R]):

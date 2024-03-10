@@ -8,17 +8,14 @@ _T = TypeVar("_T", bound=str)
 
 
 @overload
-def func1(cmd: _T) -> _T:
-    ...
+def func1(cmd: _T) -> _T: ...
 
 
 @overload
-def func1(cmd: bytes) -> None:
-    ...
+def func1(cmd: bytes) -> None: ...
 
 
-def func1(cmd: Any) -> Any:
-    ...
+def func1(cmd: Any) -> Any: ...
 
 
 def func2(x: bool):
@@ -34,3 +31,12 @@ def func3(x: list[str]):
 def func4(x: set[str]):
     y = x or []
     reveal_type(y, expected_text="set[str] | list[Any]")
+
+
+def identity(v: _T) -> _T:
+    return v
+
+
+def func5(x: int):
+    v = x and identity("")
+    reveal_type(v, expected_text="str | Literal[0]")

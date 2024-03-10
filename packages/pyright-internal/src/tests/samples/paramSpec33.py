@@ -3,8 +3,7 @@
 # by an outer function that uses P in its return type.
 
 from typing import Callable, Concatenate
-
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec  # pyright: ignore[reportMissingModuleSource]
 
 P = ParamSpec("P")
 

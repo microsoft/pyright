@@ -6,15 +6,17 @@
 # pyright: strict
 
 from typing import Protocol, TypeVar
-from typing_extensions import TypeVarTuple, Unpack
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeVarTuple,
+    Unpack,
+)
 
 T = TypeVar("T")
 Ts = TypeVarTuple("Ts")
 
 
 class CallbackA(Protocol[*Ts, T]):
-    def __call__(self, *args: *Ts, keyed: T) -> tuple[Unpack[Ts], T]:
-        ...
+    def __call__(self, *args: *Ts, keyed: T) -> tuple[Unpack[Ts], T]: ...
 
 
 def example(a: int, b: str, *, keyed: bool) -> tuple[int, str, bool]:

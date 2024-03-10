@@ -2,7 +2,7 @@
 # dict and MutableMapping types.
 
 from typing import MutableMapping, NotRequired, TypedDict
-from typing_extensions import ReadOnly
+from typing_extensions import ReadOnly  # pyright: ignore[reportMissingModuleSource]
 
 
 class IntDict1(TypedDict, closed=True):
@@ -19,13 +19,17 @@ def func1(x: IntDict1) -> None:
 
 
 def func2(x: dict[str, int]):
+    # This should generate an error.
     not_required_num: IntDictWithNum = x
 
 
-def func3(p1: IntDictWithNum):
+def func3(p1: IntDictWithNum, p2: dict[str, int]):
     d1: dict[str, int] = p1
     m1: MutableMapping[str, int] = p1
     func1(p1)
+
+    # This should generate an error.
+    d2: IntDictWithNum = p2
 
 
 class IntDict2(TypedDict, closed=True):

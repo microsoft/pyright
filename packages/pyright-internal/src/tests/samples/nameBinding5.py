@@ -18,7 +18,7 @@ def func_b() -> None:
     b = "a"
 
     class A:
-        reveal_type(b, expected_text="int")
+        reveal_type(b, expected_text="Literal[0]")
         b = "b"
         reveal_type(b, expected_text="str")
 

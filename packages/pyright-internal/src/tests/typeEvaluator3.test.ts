@@ -25,6 +25,12 @@ test('Module2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Module3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['module3.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Ellipsis1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['ellipsis1.pyi']);
 
@@ -415,6 +421,30 @@ test('Loop41', () => {
 
 test('Loop42', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop42.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Loop43', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop43.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Loop44', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop44.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Loop45', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop45.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Loop46', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop46.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
@@ -844,7 +874,7 @@ test('MethodOverride1', () => {
 
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 36);
+    TestUtils.validateResults(analysisResults, 37);
 });
 
 test('MethodOverride2', () => {

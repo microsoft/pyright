@@ -36,6 +36,7 @@ import { ModuleNameAndType } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { findTokenAfter, getTokenAt } from './parseTreeUtils';
 import * as SymbolNameUtils from './symbolNameUtils';
+import { ConfigOptions } from '../common/configOptions';
 
 export interface ImportStatement {
     node: ImportNode | ImportFromNode;
@@ -849,6 +850,7 @@ export function getRelativeModuleName(
     fs: ReadOnlyFileSystem,
     sourcePath: Uri,
     targetPath: Uri,
+    configOptions: ConfigOptions,
     ignoreFolderStructure = false,
     sourceIsFile?: boolean
 ) {
@@ -860,6 +862,13 @@ export function getRelativeModuleName(
 
     let symbolName: string | undefined;
     let destPath = targetPath;
+    if (
+        (configOptions.stubPath && destPath.isChild(configOptions.stubPath)) ||
+        (configOptions.typeshedPath && destPath.isChild(configOptions.typeshedPath))
+    ) {
+        // Always use absolute imports for files in these library-like directories.
+        return undefined;
+    }
     if (sourceIsFile) {
         destPath = targetPath.getDirectory();
 

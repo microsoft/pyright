@@ -570,6 +570,7 @@ export namespace Localizer {
         export const initMustReturnNone = () => getRawString('Diagnostic.initMustReturnNone');
         export const initSubclassClsParam = () => getRawString('Diagnostic.initSubclassClsParam');
         export const initSubclassCallFailed = () => getRawString('Diagnostic.initSubclassCallFailed');
+        export const initVarNotAllowed = () => getRawString('Diagnostic.initVarNotAllowed');
         export const instanceMethodSelfParam = () => getRawString('Diagnostic.instanceMethodSelfParam');
         export const instanceVarOverridesClassVar = () =>
             new ParameterizedString<{ name: string; className: string }>(

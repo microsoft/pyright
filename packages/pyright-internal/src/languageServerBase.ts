@@ -77,7 +77,7 @@ import { AnalysisResults } from './analyzer/analysis';
 import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
-import { AnalyzerService, configFileNames, getNextServiceId } from './analyzer/service';
+import { AnalyzerService, LibraryReanalysisTimeProvider, configFileNames, getNextServiceId } from './analyzer/service';
 import { IPythonMode } from './analyzer/sourceFile';
 import type { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
@@ -422,7 +422,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     createAnalyzerService(
         name: string,
         services?: WorkspaceServices,
-        libraryReanalysisTimeProvider?: () => number
+        libraryReanalysisTimeProvider?: LibraryReanalysisTimeProvider
     ): AnalyzerService {
         this.console.info(`Starting service instance "${name}"`);
 
@@ -1375,18 +1375,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         // 5 seconds default
         const defaultBackOffTime = 5 * 1000;
 
-        // 10 seconds back off for multi workspace.
-        const multiWorkspaceBackOffTime = 10 * 1000;
-
-        const libraryReanalysisTimeProvider =
-            kinds.length === 1 && kinds[0] === WellKnownWorkspaceKinds.Regular
-                ? () =>
-                      this.workspaceFactory.hasMultipleWorkspaces(kinds[0])
-                          ? multiWorkspaceBackOffTime
-                          : defaultBackOffTime
-                : () => defaultBackOffTime;
-
-        return this.createAnalyzerService(name, services, libraryReanalysisTimeProvider);
+        return this.createAnalyzerService(name, services, () => defaultBackOffTime);
     }
 
     protected recordUserInteractionTime() {

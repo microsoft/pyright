@@ -321,7 +321,6 @@ test('TypeAliasType2', () => {
 
 test('TypedDictReadOnly1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 4);
@@ -329,7 +328,6 @@ test('TypedDictReadOnly1', () => {
 
 test('TypedDictReadOnly2', () => {
     const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictReadOnly2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 17);
@@ -380,7 +378,7 @@ test('TypedDictClosed6', () => {
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed6.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypedDictClosed7', () => {

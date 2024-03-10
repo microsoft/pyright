@@ -2,7 +2,7 @@
 # where it is not allowed.
 
 from typing import Annotated, Any, ClassVar, Final, Generic, TypeAlias, TypeVar
-from typing_extensions import Self
+from typing_extensions import Self  # pyright: ignore[reportMissingModuleSource]
 
 # This should generate an error.
 x: ClassVar[int] = 3

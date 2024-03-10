@@ -2,7 +2,7 @@
 # used as a runtime object rather than a special form.
 
 import typing as t
-import typing_extensions as te
+import typing_extensions as te  # pyright: ignore[reportMissingModuleSource]
 
 
 T1 = t.TypeVar("T1")
@@ -61,8 +61,7 @@ def func2(x: bool, a: T2, b: S2) -> T2 | S2:
         return b
 
 
-def func3(t: t.TypeVar, ts: t.TypeVarTuple = ..., p: t.ParamSpec = ...) -> None:
-    ...
+def func3(t: t.TypeVar, ts: t.TypeVarTuple = ..., p: t.ParamSpec = ...) -> None: ...
 
 
 func3(T1, Ts1, P1)
@@ -72,8 +71,7 @@ func3(T1, Ts1, P1)
 func3(T2)
 
 
-def func4(t: te.TypeVar, ts: te.TypeVarTuple = ..., p: te.ParamSpec = ...) -> None:
-    ...
+def func4(t: te.TypeVar, ts: te.TypeVarTuple = ..., p: te.ParamSpec = ...) -> None: ...
 
 
 func4(T2, Ts2, P2)

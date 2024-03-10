@@ -1,10 +1,11 @@
 # This sample tests the TypeVar matching logic related to
 # variadic type variables.
 
-# pyright: reportMissingModuleSource=false
-
-from typing import Any, Generic, Sequence, TypeVar, Union
-from typing_extensions import TypeVarTuple, Unpack
+from typing import Any, Generic, TypeVar
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeVarTuple,
+    Unpack,
+)
 
 
 _T = TypeVar("_T")
@@ -17,16 +18,13 @@ class Array(Generic[Unpack[_Xs]]):
         reveal_type(args, expected_text="tuple[*_Xs@Array]")
 
     # This should generate an error because _Xs is not unpacked.
-    def foo(self, *args: _Xs) -> None:
-        ...
+    def foo(self, *args: _Xs) -> None: ...
 
 
-def linearize(value: Array[Unpack[_Xs]]) -> tuple[Unpack[_Xs]]:
-    ...
+def linearize(value: Array[Unpack[_Xs]]) -> tuple[Unpack[_Xs]]: ...
 
 
-def array_to_tuple(value: Array[Unpack[_Xs]]) -> tuple[complex, Unpack[_Xs]]:
-    ...
+def array_to_tuple(value: Array[Unpack[_Xs]]) -> tuple[complex, Unpack[_Xs]]: ...
 
 
 def func1(x: Array[int, str, str, float], y: Array[()]):

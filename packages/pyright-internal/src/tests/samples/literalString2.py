@@ -2,7 +2,9 @@
 # type variable.
 
 from typing import TypeVar, Generic
-from typing_extensions import LiteralString
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    LiteralString,
+)
 
 L = TypeVar("L", bound=LiteralString)
 

@@ -82,15 +82,21 @@ export class PackageTypeVerifier {
     ) {
         const host = new FullAccessHost(_serviceProvider);
         this._configOptions = new BasedConfigOptions(Uri.empty());
-
-        this._configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
-        this._configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
-
-        // Make sure we have default python version and platform set if the user didn't
-        // specify these on the command line.
         const console = new NullConsole();
-        this._configOptions.ensureDefaultPythonPlatform(host, console);
-        this._configOptions.ensureDefaultPythonVersion(host, console);
+
+        // Make sure we have a default python platform and version.
+        // Allow the command-line parameters to override the normal defaults.
+        if (commandLineOptions.pythonPlatform) {
+            this._configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
+        } else {
+            this._configOptions.ensureDefaultPythonPlatform(host, console);
+        }
+
+        if (commandLineOptions.pythonVersion) {
+            this._configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
+        } else {
+            this._configOptions.ensureDefaultPythonVersion(host, console);
+        }
 
         if (_ignoreExternal) {
             this._configOptions.evaluateUnknownImportsAsAny = true;

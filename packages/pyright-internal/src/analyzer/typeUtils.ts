@@ -781,6 +781,26 @@ export function doForEachSubtype(
     }
 }
 
+export function someSubtypes(type: Type, callback: (type: Type) => boolean): boolean {
+    if (isUnion(type)) {
+        return type.subtypes.some((subtype) => {
+            return callback(subtype);
+        });
+    } else {
+        return callback(type);
+    }
+}
+
+export function allSubtypes(type: Type, callback: (type: Type) => boolean): boolean {
+    if (isUnion(type)) {
+        return type.subtypes.every((subtype) => {
+            callback(subtype);
+        });
+    } else {
+        return callback(type);
+    }
+}
+
 export function doForEachSignature(
     type: FunctionType | OverloadedFunctionType,
     callback: (type: FunctionType, index: number) => void
@@ -1646,6 +1666,23 @@ export function lookUpClassMember(
     flags = MemberAccessFlags.Default,
     skipMroClass?: ClassType | undefined
 ): ClassMember | undefined {
+    // Look in the metaclass first.
+    const metaclass = classType.details.effectiveMetaclass;
+
+    // Skip the "type" class as an optimization because it is known to not
+    // define any instance variables, and it's by far the most common metaclass.
+    if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
+        const metaMemberItr = getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers);
+        const metaMember = metaMemberItr.next()?.value;
+
+        if (metaMember) {
+            // Set the isClassMember to true because it's a class member from the
+            // perspective of the classType.
+            metaMember.isClassMember = true;
+            return metaMember;
+        }
+    }
+
     const memberItr = getClassMemberIterator(classType, memberName, flags, skipMroClass);
 
     return memberItr.next()?.value;

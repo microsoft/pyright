@@ -116,10 +116,6 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         }
     }
 
-    if (positionOnlyIndex >= 0) {
-        result.firstPositionOrKeywordIndex = positionOnlyIndex + 1;
-    }
-
     for (let i = 0; i < positionOnlyIndex; i++) {
         if (type.details.parameters[i].hasDefault) {
             break;
@@ -325,6 +321,11 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         ) {
             result.paramSpec = TypeVarType.cloneForParamSpecAccess(secondLastParam.type, undefined);
         }
+    }
+
+    result.firstPositionOrKeywordIndex = result.params.findIndex((p) => p.source !== ParameterSource.PositionOnly);
+    if (result.firstPositionOrKeywordIndex < 0) {
+        result.firstPositionOrKeywordIndex = result.params.length;
     }
 
     return result;

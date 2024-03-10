@@ -1,6 +1,6 @@
 # This sample tests type narrowing in a loop.
 
-from typing_extensions import Self
+from typing_extensions import Self  # pyright: ignore[reportMissingModuleSource]
 from collections.abc import Generator
 
 
@@ -8,8 +8,7 @@ class A:
     parent: Self | None
 
 
-class B:
-    ...
+class B: ...
 
 
 def foo(v: A | B | None) -> Generator[A, None, None]:

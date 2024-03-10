@@ -653,7 +653,7 @@ export class CompletionProvider {
             : undefined;
 
         const autoImportText = detail.autoImportSource
-            ? this._getAutoImportText(name, detail.autoImportSource, detail.autoImportAlias)
+            ? this.getAutoImportText(name, detail.autoImportSource, detail.autoImportAlias)
             : undefined;
 
         // Are we resolving a completion item? If so, see if this symbol
@@ -882,7 +882,7 @@ export class CompletionProvider {
                     completionMap,
                     {
                         extraCommitChars: true,
-                        autoImportText: this._getAutoImportText(result.name, result.source, result.alias),
+                        autoImportText: this.getAutoImportText(result.name, result.source, result.alias),
                         edits: {
                             textEdit: this.createReplaceEdits(priorWord, /* node */ undefined, result.insertionText),
                             additionalTextEdits: result.edits,
@@ -1057,6 +1057,24 @@ export class CompletionProvider {
         }
 
         completionMap.set(completionItem);
+    }
+
+    protected getAutoImportText(importName: string, importFrom?: string, importAlias?: string) {
+        const autoImportText = getAutoImportText(importName, importFrom, importAlias);
+
+        let importText = '';
+        if (this.options.format === MarkupKind.Markdown) {
+            importText = `\`\`\`\n${autoImportText}\n\`\`\``;
+        } else if (this.options.format === MarkupKind.PlainText) {
+            importText = autoImportText;
+        } else {
+            fail(`Unsupported markup type: ${this.options.format}`);
+        }
+
+        return {
+            source: importFrom ?? '',
+            importText,
+        };
     }
 
     private get _fileContents() {
@@ -2969,24 +2987,6 @@ export class CompletionProvider {
             prevToken.type === TokenType.Operator &&
             (prevToken as OperatorToken).operatorType === OperatorType.Assign
         );
-    }
-
-    private _getAutoImportText(importName: string, importFrom?: string, importAlias?: string) {
-        const autoImportText = getAutoImportText(importName, importFrom, importAlias);
-
-        let importText = '';
-        if (this.options.format === MarkupKind.Markdown) {
-            importText = `\`\`\`\n${autoImportText}\n\`\`\``;
-        } else if (this.options.format === MarkupKind.PlainText) {
-            importText = autoImportText;
-        } else {
-            fail(`Unsupported markup type: ${this.options.format}`);
-        }
-
-        return {
-            source: importFrom ?? '',
-            importText,
-        };
     }
 
     private _getRecentListIndex(name: string, autoImportText: string) {

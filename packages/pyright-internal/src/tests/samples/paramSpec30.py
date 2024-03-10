@@ -3,7 +3,10 @@
 # pyright: strict
 
 from typing import Callable, TypeVar, overload
-from typing_extensions import Concatenate, ParamSpec
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    Concatenate,
+    ParamSpec,
+)
 
 _T = TypeVar("_T")
 _R = TypeVar("_R")
@@ -13,8 +16,9 @@ _P = ParamSpec("_P")
 @overload
 def error_decorator(
     error_codes: None = None,
-) -> Callable[[Callable[Concatenate[_T, _P], _R]], Callable[Concatenate[_T, _P], _R]]:
-    ...
+) -> Callable[
+    [Callable[Concatenate[_T, _P], _R]], Callable[Concatenate[_T, _P], _R]
+]: ...
 
 
 @overload
@@ -22,8 +26,7 @@ def error_decorator(
     error_codes: list[str],
 ) -> Callable[
     [Callable[Concatenate[_T, _P], _R]], Callable[Concatenate[_T, _P], _R | None]
-]:
-    ...
+]: ...
 
 
 def error_decorator(

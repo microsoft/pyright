@@ -1840,13 +1840,19 @@ export function getTokenAt(tokens: TextRangeCollection<Token>, position: number)
 }
 
 export function getTokenOverlapping(tokens: TextRangeCollection<Token>, position: number) {
+    const index = getIndexOfTokenOverlapping(tokens, position);
+    return getTokenAtIndex(tokens, index);
+}
+
+export function getIndexOfTokenOverlapping(tokens: TextRangeCollection<Token>, position: number) {
     const index = tokens.getItemAtPosition(position);
     if (index < 0) {
-        return undefined;
+        return -1;
     }
 
     const token = tokens.getItemAt(index);
-    return TextRange.overlaps(token, position) ? token : undefined;
+
+    return TextRange.overlaps(token, position) ? index : -1;
 }
 
 export function findTokenAfter(parseResults: ParseResults, offset: number, predicate: (t: Token) => boolean) {
@@ -1865,6 +1871,28 @@ export function findTokenAfter(parseResults: ParseResults, offset: number, predi
     }
 
     return undefined;
+}
+
+export function getCommentsAtTokenIndex(tokens: TextRangeCollection<Token>, index: number) {
+    let token = getTokenAtIndex(tokens, index);
+    if (!token) {
+        return undefined;
+    }
+
+    // If the preceding token has the same start offset
+    // (in other words, when tokens have zero length and they're piled on top of each other)
+    // look back through the tokens until we find the first token with that start offset.
+    // That's where the comments (if any) will be.
+    for (let precedingIndex = index - 1; precedingIndex >= 0; --precedingIndex) {
+        const precedingToken = getTokenAtIndex(tokens, precedingIndex);
+        if (precedingToken && precedingToken.start === token.start) {
+            token = precedingToken;
+        } else {
+            break;
+        }
+    }
+
+    return token.comments;
 }
 
 export function printParseNodeType(type: ParseNodeType) {

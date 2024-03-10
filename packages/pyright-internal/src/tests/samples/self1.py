@@ -1,15 +1,14 @@
 # This sample tests various error conditions for the Self type
 
 from typing import Callable, Generic, TypeVar
-from typing_extensions import Self
+from typing_extensions import Self  # pyright: ignore[reportMissingModuleSource]
 
 
 T = TypeVar("T")
 
 
 # This should generate an error because Self can't be used in this context.
-class A(Self):
-    ...
+class A(Self): ...
 
 
 # This should generate an error because Self can't be used in this context.
@@ -22,13 +21,11 @@ def func1() -> None:
 
 
 # This should generate an error because Self can't be used in this context.
-def func2(a: Self) -> None:
-    ...
+def func2(a: Self) -> None: ...
 
 
 # This should generate an error because Self can't be used in this context.
-def func3() -> Self:
-    ...
+def func3() -> Self: ...
 
 
 def is_self(t: object):
@@ -64,8 +61,7 @@ class B:
         return cls
 
     @classmethod
-    def method6(cls, a: Self) -> None:
-        ...
+    def method6(cls, a: Self) -> None: ...
 
     @classmethod
     def method7(cls: type[Self]) -> type[Self]:
@@ -98,23 +94,19 @@ class C:
         return inner
 
 
-class D(Generic[T]):
-    ...
+class D(Generic[T]): ...
 
 
 # This should generate an error because "Self" cannot be used
 # within a generic class definition.
-class E(D[Self]):
-    ...
+class E(D[Self]): ...
 
 
 class MetaA(type):
     # This should generate an error because "Self" isn't
     # allowed in a metaclass.
-    def __new__(cls, *args: object) -> Self:
-        ...
+    def __new__(cls, *args: object) -> Self: ...
 
     # This should generate an error because "Self" isn't
     # allowed in a metaclass.
-    def __mul__(cls, count: int) -> list[Self]:
-        ...
+    def __mul__(cls, count: int) -> list[Self]: ...

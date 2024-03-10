@@ -1,7 +1,7 @@
 # This sample tests variance inference for traditional type variables.
 
 from typing import Generic, Iterator, Sequence
-from typing_extensions import TypeVar
+from typing_extensions import TypeVar  # pyright: ignore[reportMissingModuleSource]
 from dataclasses import dataclass
 
 T = TypeVar("T", infer_variance=True)
@@ -18,11 +18,9 @@ S2 = TypeVar("S2", contravariant=True, infer_variance=True)
 
 
 class ShouldBeCovariant1(Generic[T]):
-    def __getitem__(self, index: int) -> T:
-        ...
+    def __getitem__(self, index: int) -> T: ...
 
-    def __iter__(self) -> Iterator[T]:
-        ...
+    def __iter__(self) -> Iterator[T]: ...
 
 
 vco1_1: ShouldBeCovariant1[float] = ShouldBeCovariant1[int]()
@@ -41,9 +39,9 @@ vco2_2: ShouldBeCovariant2[int] = ShouldBeCovariant2[float]()
 
 
 class ShouldBeCovariant3(Generic[T]):
-    def method1(self) -> "ShouldBeCovariant2[T]":
-        ...
- 
+    def method1(self) -> "ShouldBeCovariant2[T]": ...
+
+
 vco3_1: ShouldBeCovariant3[float] = ShouldBeCovariant3[int]()
 # This should generate an error based on variance.
 vco3_2: ShouldBeCovariant3[int] = ShouldBeCovariant3[float]()
@@ -52,6 +50,7 @@ vco3_2: ShouldBeCovariant3[int] = ShouldBeCovariant3[float]()
 @dataclass(frozen=True)
 class ShouldBeCovariant4(Generic[T]):
     x: T
+
 
 vo4_1: ShouldBeCovariant4[float] = ShouldBeCovariant4[int](1)
 # This should generate an error based on variance.
@@ -65,6 +64,7 @@ class ShouldBeCovariant5(Generic[T]):
     @property
     def x(self) -> T:
         return self._x
+
 
 vo5_1: ShouldBeCovariant5[float] = ShouldBeCovariant5[int](1)
 # This should generate an error based on variance.
@@ -130,6 +130,7 @@ vinv3_4: ShouldBeInvariant3[str, int] = ShouldBeInvariant3[str, float]()
 class ShouldBeInvariant4[T]:
     x: T
 
+
 # This should generate an error based on variance.
 vinv4_1: ShouldBeInvariant4[float] = ShouldBeInvariant4[int](1)
 
@@ -137,6 +138,7 @@ vinv4_1: ShouldBeInvariant4[float] = ShouldBeInvariant4[int](1)
 class ShouldBeInvariant5[T]:
     def __init__(self, x: T) -> None:
         self.x = x
+
 
 # This should generate an error based on variance.
 vinv5_1: ShouldBeInvariant5[float] = ShouldBeInvariant5[int](1)

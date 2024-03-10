@@ -12,7 +12,7 @@ import { isAbsolute } from 'path';
 import { getPathsFromPthFiles } from '../analyzer/pythonPathUtils';
 import * as pathConsts from '../common/pathConsts';
 import { appendArray } from './collectionUtils';
-import { DiagnosticSeverityOverrides, DiagnosticSeverityOverridesMap } from './commandLineOptions';
+import { CommandLineOptions, DiagnosticSeverityOverrides, DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { ConsoleInterface, NullConsole } from './console';
 import { TaskListToken } from './diagnostic';
 import { DiagnosticRule } from './diagnosticRules';
@@ -1228,7 +1228,7 @@ export class ConfigOptions {
         typeCheckingMode: string | undefined,
         serviceProvider: ServiceProvider,
         host: Host,
-        diagnosticOverrides?: DiagnosticSeverityOverridesMap
+        commandLineOptions?: CommandLineOptions
     ): string[] {
         this.initializedFromJson = true;
         const console = serviceProvider.tryGet(ServiceKeys.console) ?? new NullConsole();
@@ -1297,7 +1297,7 @@ export class ConfigOptions {
         this.diagnosticRuleSet = { ...defaultSettings };
 
         // Apply host-provided overrides.
-        this.applyDiagnosticOverrides(diagnosticOverrides);
+        this.applyDiagnosticOverrides(commandLineOptions?.diagnosticSeverityOverrides);
 
         // Apply overrides from the config file for the boolean rules.
         getBooleanDiagnosticRules(/* includeNonOverridable */ true).forEach((ruleName) => {
@@ -1368,6 +1368,11 @@ export class ConfigOptions {
             }
         }
 
+        // Override the default python version if it was specified on the command line.
+        if (commandLineOptions?.pythonVersion) {
+            this.defaultPythonVersion = commandLineOptions.pythonVersion;
+        }
+
         this.ensureDefaultPythonVersion(host, console);
 
         // Read the default "pythonPlatform".
@@ -1379,6 +1384,10 @@ export class ConfigOptions {
             } else {
                 this.defaultPythonPlatform = configObj.pythonPlatform;
             }
+        }
+
+        if (commandLineOptions?.pythonPlatform) {
+            this.defaultPythonPlatform = commandLineOptions.pythonPlatform;
         }
 
         this.ensureDefaultPythonPlatform(host, console);
@@ -1463,7 +1472,7 @@ export class ConfigOptions {
             } else {
                 const execEnvironments = configObj.executionEnvironments as ExecutionEnvironment[];
                 execEnvironments.forEach((env, index) => {
-                    const result = this._initExecutionEnvironmentFromJson(env, index);
+                    const result = this._initExecutionEnvironmentFromJson(env, index, commandLineOptions);
                     if (result instanceof ExecutionEnvironment) {
                         this.executionEnvironments.push(result);
                     } else {
@@ -1612,7 +1621,11 @@ export class ConfigOptions {
         return defaultValue;
     }
 
-    private _initExecutionEnvironmentFromJson(envObj: any, index: number): ExecutionEnvironment | string[] {
+    private _initExecutionEnvironmentFromJson(
+        envObj: any,
+        index: number,
+        commandLineOptions?: CommandLineOptions
+    ): ExecutionEnvironment | undefined {
         const errors = [];
         try {
             const newExecEnv = new ExecutionEnvironment(
@@ -1663,6 +1676,12 @@ export class ConfigOptions {
                 }
             }
 
+            // If the pythonVersion was specified on the command line, it overrides
+            // the configuration settings for the execution environment.
+            if (commandLineOptions?.pythonVersion) {
+                newExecEnv.pythonVersion = commandLineOptions.pythonVersion;
+            }
+
             // Validate the pythonPlatform.
             if (envObj.pythonPlatform) {
                 if (typeof envObj.pythonPlatform === 'string') {
@@ -1670,6 +1689,12 @@ export class ConfigOptions {
                 } else {
                     errors.push(`Config executionEnvironments index ${index} pythonPlatform must be a string.`);
                 }
+            }
+
+            // If the pythonPlatform was specified on the command line, it overrides
+            // the configuration settings for the execution environment.
+            if (commandLineOptions?.pythonPlatform) {
+                newExecEnv.pythonPlatform = commandLineOptions.pythonPlatform;
             }
 
             // Validate the name
