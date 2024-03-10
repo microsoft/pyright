@@ -21,16 +21,6 @@ export class InlayHintsProvider {
         this._parseResults = this._program.getParseResults(this._fileUri);
     }
 
-    _itemInRange(start: Position, end: Position): boolean {
-        if (start.line > this._range.end.line) {
-            return false;
-        }
-        if (end.line < this._range.start.line) {
-            return false;
-        }
-        return true;
-    }
-
     async onInlayHints(): Promise<InlayHint[] | null> {
         if (!this._parseResults) {
             return null;
@@ -48,7 +38,7 @@ export class InlayHintsProvider {
             }
 
             const hoverResponse =
-                item.inlayHintType === 'parameter' ? null : await this.getHoverAtOffset(startPosition);
+                item.inlayHintType === 'parameter' ? null : await this._getHoverAtOffset(startPosition);
             if (!hoverResponse && item.inlayHintType !== 'parameter') {
                 continue;
             }
@@ -56,10 +46,10 @@ export class InlayHintsProvider {
             let inlayHintLabelValue: string | undefined = undefined;
             let inlayHintPosition: Position | undefined = undefined;
             if (item.inlayHintType === 'variable') {
-                inlayHintLabelValue = this.getVariableHintAtHover(hoverResponse!);
+                inlayHintLabelValue = this._getVariableHintAtHover(hoverResponse!);
             }
             if (item.inlayHintType === 'functionReturn') {
-                inlayHintLabelValue = this.getFunctionReturnHintAtHover(hoverResponse!);
+                inlayHintLabelValue = this._getFunctionReturnHintAtHover(hoverResponse!);
             }
             if (item.inlayHintType === 'parameter') {
                 inlayHintLabelValue = item.value + '=';
@@ -89,8 +79,8 @@ export class InlayHintsProvider {
                     const inlayHint: InlayHint = {
                         label: inlayHintLabelPart,
                         position: inlayHintPosition,
-                        paddingLeft: item.inlayHintType == 'functionReturn' ?? true,
-                        kind: item.inlayHintType == 'parameter' ? 2 : 1,
+                        paddingLeft: item.inlayHintType === 'functionReturn' ?? true,
+                        kind: item.inlayHintType === 'parameter' ? 2 : 1,
                     };
                     inlayHints.push(inlayHint);
                 }
@@ -100,12 +90,22 @@ export class InlayHintsProvider {
         return inlayHints;
     }
 
-    private async getHoverAtOffset(position: Position) {
+    private _itemInRange(start: Position, end: Position): boolean {
+        if (start.line > this._range.end.line) {
+            return false;
+        }
+        if (end.line < this._range.start.line) {
+            return false;
+        }
+        return true;
+    }
+
+    private async _getHoverAtOffset(position: Position) {
         const hover = new HoverProvider(this._program, this._fileUri, position, 'markdown', this._token);
         return hover.getHover();
     }
 
-    private getVariableHintAtHover(hover: Hover): string | undefined {
+    private _getVariableHintAtHover(hover: Hover): string | undefined {
         const contents = hover.contents as MarkupContent;
         if (contents && contents.value.includes('(variable)')) {
             const firstIdx = contents.value.indexOf(': ');
@@ -123,7 +123,7 @@ export class InlayHintsProvider {
         return undefined;
     }
 
-    private getFunctionReturnHintAtHover(hover: Hover): string | undefined {
+    private _getFunctionReturnHintAtHover(hover: Hover): string | undefined {
         const contents = hover.contents as MarkupContent;
         if (contents && (contents.value.includes('(function)') || contents.value.includes('(method)'))) {
             const retvalIdx = contents.value.indexOf('->') + 2;

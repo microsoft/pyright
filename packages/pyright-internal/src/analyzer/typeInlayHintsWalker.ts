@@ -1,4 +1,3 @@
-import { ParameterStructures } from 'vscode-languageserver-protocol';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { isDunderName } from '../analyzer/symbolNameUtils';
 import { FunctionType } from '../analyzer/types';
@@ -107,7 +106,24 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
         return super.visitMemberAccess(node);
     }
 
-    _generateHintsForCallNode(node: CallNode) {
+    override visitCall(node: CallNode): boolean {
+        this._generateHintsForCallNode(node);
+        return super.visitCall(node);
+    }
+
+    override visitFunction(node: FunctionNode): boolean {
+        if (!node.returnTypeAnnotation) {
+            this.featureItems.push({
+                inlayHintType: 'functionReturn',
+                startOffset: node.name.start,
+                endOffset: node.suite.start,
+                value: node.name.value,
+            });
+        }
+        return super.visitFunction(node);
+    }
+
+    private _generateHintsForCallNode(node: CallNode) {
         const matchedArgs = this._program.evaluator?.matchCallArgsToParams(node);
         if (!matchedArgs) {
             return;
@@ -154,22 +170,5 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
                 });
             }
         }
-    }
-
-    override visitCall(node: CallNode): boolean {
-        this._generateHintsForCallNode(node);
-        return super.visitCall(node);
-    }
-
-    override visitFunction(node: FunctionNode): boolean {
-        if (!node.returnTypeAnnotation) {
-            this.featureItems.push({
-                inlayHintType: 'functionReturn',
-                startOffset: node.name.start,
-                endOffset: node.suite.start,
-                value: node.name.value,
-            });
-        }
-        return super.visitFunction(node);
     }
 }
