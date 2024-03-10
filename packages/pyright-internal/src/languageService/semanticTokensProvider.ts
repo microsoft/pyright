@@ -21,11 +21,14 @@ export const tokenTypes: string[] = [
     SemanticTokenTypes.decorator,
     SemanticTokenTypes.property,
     SemanticTokenTypes.namespace,
+    SemanticTokenTypes.variable,
+    SemanticTokenTypes.type,
 ];
 export const tokenModifiers: string[] = [
     SemanticTokenModifiers.definition,
     SemanticTokenModifiers.declaration,
     SemanticTokenModifiers.async,
+    SemanticTokenModifiers.readonly,
 ];
 
 export const SemanticTokensProviderLegend = {

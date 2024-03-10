@@ -1,6 +1,6 @@
 import { ParseTreeWalker } from './parseTreeWalker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
-import { FunctionType, OverloadedFunctionType, TypeCategory, TypeFlags } from './types';
+import { ClassTypeFlags, FunctionType, OverloadedFunctionType, TypeCategory, TypeFlags } from './types';
 import { ClassNode, FunctionNode, ImportAsNode, ImportFromNode, NameNode } from '../parser/parseNodes';
 import { SemanticTokenModifiers, SemanticTokenTypes } from 'vscode-languageserver';
 
@@ -91,15 +91,32 @@ export class SemanticTokensWalker extends ParseTreeWalker {
                 }
                 break;
 
+            case TypeCategory.Module:
+                this._addItem(node.start, node.length, SemanticTokenTypes.namespace, []);
+                break;
+            case TypeCategory.Union:
+                this._addItem(node.start, node.length, SemanticTokenTypes.type, []);
+                break;
+            case TypeCategory.Unbound:
+            case undefined:
+                break;
+            case TypeCategory.TypeVar:
+                this._addItem(node.start, node.length, SemanticTokenTypes.typeParameter, []);
+                break;
             case TypeCategory.Class:
                 if (!(type.flags & TypeFlags.Instance)) {
                     this._addItem(node.start, node.length, SemanticTokenTypes.class, []);
                     break;
                 }
-                break;
-            case TypeCategory.Module:
-                this._addItem(node.start, node.length, SemanticTokenTypes.namespace, []);
-                break;
+            // eslint-disable-next-line no-fallthrough -- intentional
+            default:
+                if ((type && type.flags & ClassTypeFlags.Final) || node.value.toUpperCase() === node.value) {
+                    this._addItem(node.start, node.length, SemanticTokenTypes.variable, [
+                        SemanticTokenModifiers.readonly,
+                    ]);
+                } else {
+                    this._addItem(node.start, node.length, SemanticTokenTypes.variable, []);
+                }
         }
         return super.visitName(node);
     }
