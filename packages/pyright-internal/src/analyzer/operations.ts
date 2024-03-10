@@ -170,11 +170,11 @@ export function validateBinaryOperation(
         if (operator === OperatorType.In || operator === OperatorType.NotIn) {
             type = evaluator.mapSubtypesExpandTypeVars(
                 rightType,
-                /* conditionFilter */ undefined,
+                /* options */ undefined,
                 (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                     return evaluator.mapSubtypesExpandTypeVars(
                         concreteLeftType,
-                        getTypeCondition(rightSubtypeExpanded),
+                        { conditionFilter: getTypeCondition(rightSubtypeExpanded) },
                         (leftSubtype) => {
                             if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
                                 return preserveUnknown(leftSubtype, rightSubtypeExpanded);
@@ -226,11 +226,11 @@ export function validateBinaryOperation(
         } else {
             type = evaluator.mapSubtypesExpandTypeVars(
                 concreteLeftType,
-                /* conditionFilter */ undefined,
+                /* options */ undefined,
                 (leftSubtypeExpanded, leftSubtypeUnexpanded) => {
                     return evaluator.mapSubtypesExpandTypeVars(
                         rightType,
-                        getTypeCondition(leftSubtypeExpanded),
+                        { conditionFilter: getTypeCondition(leftSubtypeExpanded) },
                         (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                             // If the operator is an AND or OR, we need to combine the two types.
                             if (operator === OperatorType.And || operator === OperatorType.Or) {
@@ -352,11 +352,11 @@ export function validateBinaryOperation(
         if (!type) {
             type = evaluator.mapSubtypesExpandTypeVars(
                 leftType,
-                /* conditionFilter */ undefined,
+                /* options */ undefined,
                 (leftSubtypeExpanded, leftSubtypeUnexpanded) => {
                     return evaluator.mapSubtypesExpandTypeVars(
                         rightType,
-                        getTypeCondition(leftSubtypeExpanded),
+                        { conditionFilter: getTypeCondition(leftSubtypeExpanded) },
                         (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                             if (isAnyOrUnknown(leftSubtypeUnexpanded) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
                                 return preserveUnknown(leftSubtypeUnexpanded, rightSubtypeUnexpanded);
@@ -848,11 +848,11 @@ export function getTypeOfAugmentedAssignment(
     } else {
         type = evaluator.mapSubtypesExpandTypeVars(
             leftType,
-            /* conditionFilter */ undefined,
+            /* options */ undefined,
             (leftSubtypeExpanded, leftSubtypeUnexpanded) => {
                 return evaluator.mapSubtypesExpandTypeVars(
                     rightType,
-                    getTypeCondition(leftSubtypeExpanded),
+                    { conditionFilter: getTypeCondition(leftSubtypeExpanded) },
                     (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                         if (isAnyOrUnknown(leftSubtypeUnexpanded) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
                             return preserveUnknown(leftSubtypeUnexpanded, rightSubtypeUnexpanded);

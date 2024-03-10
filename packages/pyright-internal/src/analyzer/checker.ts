@@ -1752,7 +1752,7 @@ export class Checker extends ParseTreeWalker {
 
         let isTypeBool = true;
         const diag = new DiagnosticAddendum();
-        this._evaluator.mapSubtypesExpandTypeVars(operandType, /* conditionFilter */ undefined, (expandedSubtype) => {
+        this._evaluator.mapSubtypesExpandTypeVars(operandType, /* options */ undefined, (expandedSubtype) => {
             if (isAnyOrUnknown(expandedSubtype)) {
                 return undefined;
             }

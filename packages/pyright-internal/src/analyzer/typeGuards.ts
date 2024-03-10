@@ -1074,7 +1074,7 @@ function narrowTypeForTruthiness(evaluator: TypeEvaluator, type: Type, isPositiv
 // Handle type narrowing for expressions of the form "a[I] is None" and "a[I] is not None" where
 // I is an integer and a is a union of Tuples (or subtypes thereof) with known lengths and entry types.
 function narrowTupleTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTest: boolean, indexValue: number) {
-    return evaluator.mapSubtypesExpandTypeVars(type, /* conditionFilter */ undefined, (subtype) => {
+    return evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (subtype) => {
         const tupleType = getSpecializedTupleType(subtype);
         if (!tupleType || isUnboundedTupleClass(tupleType) || !tupleType.tupleTypeArguments) {
             return subtype;
@@ -1111,7 +1111,7 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
 
     const result = evaluator.mapSubtypesExpandTypeVars(
         expandedType,
-        /* conditionFilter */ undefined,
+        /* options */ undefined,
         (subtype, unexpandedSubtype) => {
             if (isAnyOrUnknown(subtype)) {
                 // We need to assume that "Any" is always both None and not None,
@@ -1168,41 +1168,35 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
         return transformPossibleRecursiveTypeAlias(subtype);
     });
 
-    return evaluator.mapSubtypesExpandTypeVars(
-        expandedType,
-        /* conditionFilter */ undefined,
-        (subtype, unexpandedSubtype) => {
-            if (isAnyOrUnknown(subtype)) {
-                // We need to assume that "Any" is always both None and not None,
-                // so it matches regardless of whether the test is positive or negative.
-                return subtype;
-            }
-
-            // If this is a TypeVar that isn't constrained, use the unexpanded
-            // TypeVar. For all other cases (including constrained TypeVars),
-            // use the expanded subtype.
-            const adjustedSubtype =
-                isTypeVar(unexpandedSubtype) && unexpandedSubtype.details.constraints.length === 0
-                    ? unexpandedSubtype
-                    : subtype;
-
-            // See if it's a match for object.
-            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
-                return isPositiveTest
-                    ? addConditionToType(evaluator.getNoneType(), subtype.condition)
-                    : adjustedSubtype;
-            }
-
-            const isEllipsis = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['EllipsisType', 'ellipsis']);
-
-            // See if it's a match for "...".
-            if (isEllipsis === isPositiveTest) {
-                return subtype;
-            }
-
-            return undefined;
+    return evaluator.mapSubtypesExpandTypeVars(expandedType, /* options */ undefined, (subtype, unexpandedSubtype) => {
+        if (isAnyOrUnknown(subtype)) {
+            // We need to assume that "Any" is always both None and not None,
+            // so it matches regardless of whether the test is positive or negative.
+            return subtype;
         }
-    );
+
+        // If this is a TypeVar that isn't constrained, use the unexpanded
+        // TypeVar. For all other cases (including constrained TypeVars),
+        // use the expanded subtype.
+        const adjustedSubtype =
+            isTypeVar(unexpandedSubtype) && unexpandedSubtype.details.constraints.length === 0
+                ? unexpandedSubtype
+                : subtype;
+
+        // See if it's a match for object.
+        if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
+            return isPositiveTest ? addConditionToType(evaluator.getNoneType(), subtype.condition) : adjustedSubtype;
+        }
+
+        const isEllipsis = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['EllipsisType', 'ellipsis']);
+
+        // See if it's a match for "...".
+        if (isEllipsis === isPositiveTest) {
+            return subtype;
+        }
+
+        return undefined;
+    });
 }
 
 // The "isinstance" and "issubclass" calls support two forms - a simple form
@@ -1766,7 +1760,7 @@ function narrowTypeForIsInstance(
 
     const filteredType = evaluator.mapSubtypesExpandTypeVars(
         expandedTypes,
-        /* conditionFilter */ undefined,
+        /* options */ undefined,
         (subtype, unexpandedSubtype) => {
             // If we fail to filter anything in the negative case, we need to decide
             // whether to retain the original TypeVar or replace it with its specialized
@@ -2353,7 +2347,7 @@ function narrowTypeForDiscriminatedFieldNoneComparison(
 function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: ClassType, isPositiveTest: boolean) {
     return evaluator.mapSubtypesExpandTypeVars(
         type,
-        /* conditionFilter */ undefined,
+        /* options */ undefined,
         (subtype: Type, unexpandedSubtype: Type) => {
             if (isClassInstance(subtype)) {
                 const matches = ClassType.isDerivedFrom(classType, ClassType.cloneAsInstantiable(subtype));
@@ -2536,7 +2530,7 @@ function narrowTypeForCallable(
     errorNode: ExpressionNode,
     allowIntersections: boolean
 ): Type {
-    return evaluator.mapSubtypesExpandTypeVars(type, /* conditionFilter */ undefined, (subtype) => {
+    return evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (subtype) => {
         switch (subtype.category) {
             case TypeCategory.Function:
             case TypeCategory.OverloadedFunction: {

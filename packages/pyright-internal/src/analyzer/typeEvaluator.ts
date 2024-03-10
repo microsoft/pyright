@@ -178,6 +178,7 @@ import {
     ExpectedTypeResult,
     FunctionArgument,
     FunctionTypeResult,
+    MapSubtypesOptions,
     MemberAccessDeprecationInfo,
     PrintTypeOptions,
     ResolveAliasOptions,
@@ -2763,7 +2764,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     const returnType = mapSubtypesExpandTypeVars(
                         iterReturnType,
-                        /* conditionFilter */ undefined,
+                        /* options */ undefined,
                         (subtype) => {
                             if (isAnyOrUnknown(subtype)) {
                                 return subtype;
@@ -3854,9 +3855,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // do not match will be ignored.
     function mapSubtypesExpandTypeVars(
         type: Type,
-        conditionFilter: TypeCondition[] | undefined,
+        options: MapSubtypesOptions | undefined,
         callback: (expandedSubtype: Type, unexpandedSubtype: Type, isLastIteration: boolean) => Type | undefined,
-        sortSubtypes = false,
         recursionCount = 0
     ): Type {
         const newSubtypes: Type[] = [];
@@ -3866,12 +3866,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let expandedType = isUnion(unexpandedType) ? unexpandedType : makeTopLevelTypeVarsConcrete(unexpandedType);
 
             expandedType = transformPossibleRecursiveTypeAlias(expandedType);
+            if (options?.expandCallback) {
+                expandedType = options.expandCallback(expandedType);
+            }
 
             doForEachSubtype(
                 expandedType,
                 (subtype, index, allSubtypes) => {
-                    if (conditionFilter) {
-                        const filteredType = applyConditionFilterToType(subtype, conditionFilter, recursionCount);
+                    if (options?.conditionFilter) {
+                        const filteredType = applyConditionFilterToType(
+                            subtype,
+                            options.conditionFilter,
+                            recursionCount
+                        );
                         if (!filteredType) {
                             return undefined;
                         }
@@ -3911,12 +3918,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                     return undefined;
                 },
-                sortSubtypes
+                options?.sortSubtypes
             );
         }
 
         if (isUnion(type)) {
-            const subtypes = sortSubtypes ? sortTypes(type.subtypes) : type.subtypes;
+            const subtypes = options?.sortSubtypes ? sortTypes(type.subtypes) : type.subtypes;
             subtypes.forEach((subtype, index) => {
                 expandSubtype(subtype, index === type.subtypes.length - 1);
             });
@@ -3973,11 +3980,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 const filteredTypeArg = mapSubtypesExpandTypeVars(
                     typeArg,
-                    conditionFilter,
+                    { conditionFilter },
                     (expandedSubtype) => {
                         return expandedSubtype;
                     },
-                    /* sortSubtypes */ undefined,
                     recursionCount
                 );
 
@@ -6359,7 +6365,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // known to have symmetric __getitem__ and __setitem__ methods (i.e. the value
             // passed to __setitem__ is the same type as the value returned by __getitem__).
             let baseTypeSupportsIndexNarrowing = !isAny(baseTypeResult.type);
-            mapSubtypesExpandTypeVars(baseTypeResult.type, /* conditionFilter */ undefined, (subtype) => {
+            mapSubtypesExpandTypeVars(baseTypeResult.type, /* options */ undefined, (subtype) => {
                 if (
                     !isClassInstance(subtype) ||
                     !(ClassType.isBuiltIn(subtype) || ClassType.isTypedDictClass(subtype))
@@ -6846,7 +6852,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const type = mapSubtypesExpandTypeVars(
             baseTypeResult.type,
-            /* conditionFilter */ undefined,
+            /* options */ undefined,
             (concreteSubtype, unexpandedSubtype) => {
                 const selfType = isTypeVar(unexpandedSubtype) ? unexpandedSubtype : undefined;
 
@@ -9144,7 +9150,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let returnType = mapSubtypesExpandTypeVars(
             callTypeResult.type,
-            /* conditionFilter */ undefined,
+            { sortSubtypes: true },
             (expandedSubtype, unexpandedSubtype, isLastIteration) => {
                 return useSpeculativeMode(
                     isLastIteration ? undefined : errorNode,
@@ -9181,8 +9187,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         allowDiagnostics: true,
                     }
                 );
-            },
-            /* sortSubtypes */ true
+            }
         );
 
         // If we ended up with a "Never" type because all code paths returned
@@ -11921,9 +11926,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // if appropriate. This doesn't properly handle non-top-level constrained
         // type variables.
         if (options.conditionFilter) {
-            argType = mapSubtypesExpandTypeVars(argType, options.conditionFilter, (expandedSubtype) => {
-                return expandedSubtype;
-            });
+            argType = mapSubtypesExpandTypeVars(
+                argType,
+                { conditionFilter: options.conditionFilter },
+                (expandedSubtype) => {
+                    return expandedSubtype;
+                }
+            );
         }
 
         const condition = argType.condition;

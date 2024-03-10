@@ -444,6 +444,12 @@ export interface ValidateTypeArgsOptions {
     allowUnpackedTuples?: boolean;
 }
 
+export interface MapSubtypesOptions {
+    conditionFilter?: TypeCondition[] | undefined;
+    sortSubtypes?: boolean;
+    expandCallback?: (type: Type) => Type;
+}
+
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
@@ -519,7 +525,7 @@ export interface TypeEvaluator {
     makeTopLevelTypeVarsConcrete: (type: Type, makeParamSpecsConcrete?: boolean) => Type;
     mapSubtypesExpandTypeVars: (
         type: Type,
-        conditionFilter: TypeCondition[] | undefined,
+        options: MapSubtypesOptions | undefined,
         callback: (expandedSubtype: Type, unexpandedSubtype: Type) => Type | undefined
     ) => Type;
     isTypeSubsumedByOtherType: (type: Type, otherType: Type, allowAnyToSubsume: boolean) => boolean;
