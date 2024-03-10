@@ -46,6 +46,18 @@ T11 = TypeVar("T11", bytes, str, default=str | bytes)
 # This should generate an error because S1 isn't one of the constrained types.
 T12 = TypeVar("T12", bytes, str, default=S1)
 
+T13 = TypeVar("T13", int, str)
+T14 = TypeVar("T14", int, str, bool, default=T13)
+
+# This should generate an error because the constraints for T13 are not compatible.
+T15 = TypeVar("T15", int, complex, bool, default=T13)
+
+T16 = TypeVar("T16", bound=int)
+T17 = TypeVar("T17", int, complex, bool, default=T16)
+
+# This should generate an error because the type of T16 is not compatible.
+T18 = TypeVar("T18", str, list, default=T16)
+
 
 Ts1 = TypeVarTuple("Ts1", default=Unpack[tuple[int]])
 

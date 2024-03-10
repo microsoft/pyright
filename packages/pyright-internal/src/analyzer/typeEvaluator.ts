@@ -12277,33 +12277,58 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If a default is provided, make sure it is compatible with the bound
         // or constraint.
         if (typeVar.details.defaultType && defaultValueNode) {
-            const typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
-            const concreteDefaultType = makeTopLevelTypeVarsConcrete(
-                applySolvedTypeVars(typeVar.details.defaultType, typeVarContext, {
-                    unknownIfNotFound: true,
-                })
-            );
-
-            if (typeVar.details.boundType) {
-                if (!assignType(typeVar.details.boundType, concreteDefaultType)) {
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.typeVarDefaultBoundMismatch(),
-                        defaultValueNode
-                    );
-                }
-            } else if (typeVar.details.constraints.length > 0) {
-                if (!typeVar.details.constraints.some((constraint) => isTypeSame(constraint, concreteDefaultType))) {
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.typeVarDefaultConstraintMismatch(),
-                        defaultValueNode
-                    );
-                }
-            }
+            verifyTypeVarDefaultIsCompatible(typeVar, defaultValueNode);
         }
 
         return typeVar;
+    }
+
+    function verifyTypeVarDefaultIsCompatible(typeVar: TypeVarType, defaultValueNode: ExpressionNode) {
+        assert(typeVar.details.defaultType !== undefined);
+
+        const typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
+        const concreteDefaultType = makeTopLevelTypeVarsConcrete(
+            applySolvedTypeVars(typeVar.details.defaultType, typeVarContext, {
+                unknownIfNotFound: true,
+            })
+        );
+
+        if (typeVar.details.boundType) {
+            if (!assignType(typeVar.details.boundType, concreteDefaultType)) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeVarDefaultBoundMismatch(),
+                    defaultValueNode
+                );
+            }
+        } else if (typeVar.details.constraints.length > 0) {
+            let isConstraintCompatible = true;
+
+            // If the default type is a constrained TypeVar, make sure all of its constraints
+            // are also constraints in typeVar. If the default type is not a constrained TypeVar,
+            // use its concrete type to compare against the constraints.
+            if (isTypeVar(typeVar.details.defaultType) && typeVar.details.defaultType.details.constraints.length > 0) {
+                for (const constraint of typeVar.details.defaultType.details.constraints) {
+                    if (!typeVar.details.constraints.some((c) => isTypeSame(c, constraint))) {
+                        isConstraintCompatible = false;
+                    }
+                }
+            } else if (
+                !typeVar.details.constraints.some((constraint) =>
+                    isTypeSame(constraint, concreteDefaultType, { ignoreConditions: true })
+                )
+            ) {
+                isConstraintCompatible = false;
+            }
+
+            if (!isConstraintCompatible) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeVarDefaultConstraintMismatch(),
+                    defaultValueNode
+                );
+            }
+        }
     }
 
     function createTypeVarTupleType(
@@ -20779,28 +20804,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If a default is provided, make sure it is compatible with the bound
         // or constraint.
         if (typeVar.details.defaultType && node.defaultExpression) {
-            const typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
-            const concreteDefaultType = applySolvedTypeVars(typeVar.details.defaultType, typeVarContext, {
-                unknownIfNotFound: true,
-            });
-
-            if (typeVar.details.boundType) {
-                if (!assignType(typeVar.details.boundType, concreteDefaultType)) {
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.typeVarDefaultBoundMismatch(),
-                        node.defaultExpression
-                    );
-                }
-            } else if (typeVar.details.constraints.length > 0) {
-                if (!typeVar.details.constraints.some((constraint) => isTypeSame(constraint, concreteDefaultType))) {
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.typeVarDefaultConstraintMismatch(),
-                        node.defaultExpression
-                    );
-                }
-            }
+            verifyTypeVarDefaultIsCompatible(typeVar, node.defaultExpression);
         }
 
         // Associate the type variable with the owning scope.

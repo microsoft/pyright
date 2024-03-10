@@ -179,7 +179,7 @@ test('Override2', () => {
 
 test('TypeVarDefault1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault1.py']);
-    TestUtils.validateResults(analysisResults, 12);
+    TestUtils.validateResults(analysisResults, 14);
 });
 
 test('TypeVarDefault2', () => {
