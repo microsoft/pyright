@@ -1,7 +1,14 @@
 import { ParseTreeWalker } from './parseTreeWalker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
-import { ClassTypeFlags, FunctionType, OverloadedFunctionType, TypeCategory, TypeFlags } from './types';
-import { ClassNode, FunctionNode, ImportAsNode, ImportFromNode, NameNode } from '../parser/parseNodes';
+import { ClassTypeFlags, FunctionType, OverloadedFunctionType, Type, TypeCategory, TypeFlags } from './types';
+import {
+    ClassNode,
+    FunctionNode,
+    ImportAsNode,
+    ImportFromAsNode,
+    ImportFromNode,
+    NameNode,
+} from '../parser/parseNodes';
 import { SemanticTokenModifiers, SemanticTokenTypes } from 'vscode-languageserver';
 
 type SemanticTokenItem = {
@@ -60,6 +67,11 @@ export class SemanticTokensWalker extends ParseTreeWalker {
         return super.visitImportAs(node);
     }
 
+    override visitImportFromAs(node: ImportFromAsNode): boolean {
+        this._visitNameWithType(node.name, this._evaluator?.getType(node.alias ?? node.name));
+        return super.visitImportFromAs(node);
+    }
+
     override visitImportFrom(node: ImportFromNode): boolean {
         for (const part of node.module.nameParts) {
             this._addItem(part.start, part.length, SemanticTokenTypes.namespace, []);
@@ -68,7 +80,11 @@ export class SemanticTokensWalker extends ParseTreeWalker {
     }
 
     override visitName(node: NameNode): boolean {
-        const type = this._evaluator?.getType(node);
+        this._visitNameWithType(node, this._evaluator?.getType(node));
+        return super.visitName(node);
+    }
+
+    private _visitNameWithType(node: NameNode, type: Type | undefined) {
         switch (type?.category) {
             case TypeCategory.Function:
                 {
@@ -118,7 +134,6 @@ export class SemanticTokensWalker extends ParseTreeWalker {
                     this._addItem(node.start, node.length, SemanticTokenTypes.variable, []);
                 }
         }
-        return super.visitName(node);
     }
 
     private _addItem(start: number, length: number, type: string, modifiers: string[]) {
