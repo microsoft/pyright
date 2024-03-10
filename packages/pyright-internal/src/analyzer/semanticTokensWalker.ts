@@ -110,14 +110,18 @@ export class SemanticTokensWalker extends ParseTreeWalker {
             case TypeCategory.Module:
                 this._addItem(node.start, node.length, SemanticTokenTypes.namespace, []);
                 break;
-            case TypeCategory.Union:
-                this._addItem(node.start, node.length, SemanticTokenTypes.type, []);
-                break;
             case TypeCategory.Unbound:
             case undefined:
                 break;
             case TypeCategory.TypeVar:
                 this._addItem(node.start, node.length, SemanticTokenTypes.typeParameter, []);
+                break;
+            case TypeCategory.Union:
+            case TypeCategory.Never:
+                if (!(type.flags & TypeFlags.Instance)) {
+                    this._addItem(node.start, node.length, SemanticTokenTypes.type, []);
+                    break;
+                }
                 break;
             case TypeCategory.Class:
                 if (!(type.flags & TypeFlags.Instance)) {
