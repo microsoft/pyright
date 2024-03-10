@@ -540,6 +540,7 @@
         "typeVarUsedByOuterScope": "TypeVar \"{name}\" is already in use by an outer scope",
         "typeVarUsedOnlyOnce": "TypeVar \"{name}\" appears only once in generic function signature",
         "typeVarVariance": "TypeVar cannot be both covariant and contravariant",
+        "typeVarWithDefaultFollowsVariadic": "TypeVar \"{typeVarName}\" has a default value and cannot follow TypeVarTuple \"{variadicName}\"",
         "typeVarWithoutDefault": "\"{name}\" cannot appear after \"{other}\" in type parameter list because it has no default type",
         "unaccessedClass": "Class \"{name}\" is not accessed",
         "unaccessedFunction": "Function \"{name}\" is not accessed",

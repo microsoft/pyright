@@ -15309,6 +15309,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return convertToInstance(typeVar);
         });
 
+        // See if the type alias includes a TypeVarTuple followed by a TypeVar
+        // with a default value. This isn't allowed.
+        const firstTypeVarTupleIndex = typeParameters.findIndex((typeVar) => isVariadicTypeVar(typeVar));
+        if (firstTypeVarTupleIndex >= 0) {
+            const typeVarWithDefaultIndex = typeParameters.findIndex(
+                (typeVar, index) =>
+                    index > firstTypeVarTupleIndex &&
+                    !typeVar.details.isParamSpec &&
+                    typeVar.details.defaultType !== undefined
+            );
+
+            if (typeVarWithDefaultIndex >= 0) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeVarWithDefaultFollowsVariadic().format({
+                        typeVarName: typeParameters[typeVarWithDefaultIndex].details.name,
+                        variadicName: typeParameters[firstTypeVarTupleIndex].details.name,
+                    }),
+                    typeParamNodes ? typeParamNodes[typeVarWithDefaultIndex].name : name
+                );
+            }
+        }
+
         const typeAliasScopeId = ParseTreeUtils.getScopeIdForNode(name);
 
         // Validate the default types for all type parameters.
@@ -15867,6 +15890,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeParamNodes
         );
 
+        // See if the type alias relies on itself in a way that cannot be resolved.
         if (isTypeAliasRecursive(typeAliasTypeVar, aliasType)) {
             addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -16331,15 +16355,38 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // Make sure there's at most one variadic type parameter.
-            const variadics = classType.details.typeParameters.filter((param) => isVariadicTypeVar(param));
+            const variadics = typeParameters.filter((param) => isVariadicTypeVar(param));
             if (variadics.length > 1) {
-                addError(
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
                     LocMessage.variadicTypeParamTooManyClass().format({
                         names: variadics.map((v) => `"${v.details.name}"`).join(', '),
                     }),
                     node.name,
                     TextRange.combine(node.arguments) || node.name
                 );
+            } else if (variadics.length > 0) {
+                // Make sure a TypeVar with a default doesn't come after a variadic type parameter.
+                const firstVariadicIndex = classType.details.typeParameters.findIndex((param) =>
+                    isVariadicTypeVar(param)
+                );
+                const typeVarWithDefaultIndex = classType.details.typeParameters.findIndex(
+                    (param, index) =>
+                        index > firstVariadicIndex &&
+                        !param.details.isParamSpec &&
+                        param.details.defaultType !== undefined
+                );
+
+                if (typeVarWithDefaultIndex >= 0) {
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typeVarWithDefaultFollowsVariadic().format({
+                            typeVarName: typeParameters[typeVarWithDefaultIndex].details.name,
+                            variadicName: typeParameters[firstVariadicIndex].details.name,
+                        }),
+                        node.typeParameters ? node.typeParameters.parameters[typeVarWithDefaultIndex].name : node.name
+                    );
+                }
             }
 
             // Validate the default types for all type parameters.
@@ -16358,7 +16405,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             if (!computeMroLinearization(classType)) {
-                addError(LocMessage.methodOrdering(), node.name);
+                addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.methodOrdering(), node.name);
             }
 
             // The scope for this class becomes the "fields" for the corresponding type.
