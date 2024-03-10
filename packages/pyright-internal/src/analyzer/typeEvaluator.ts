@@ -2762,52 +2762,48 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     const iterReturnTypeDiag = new DiagnosticAddendum();
 
-                    const returnType = mapSubtypesExpandTypeVars(
-                        iterReturnType,
-                        /* options */ undefined,
-                        (subtype) => {
-                            if (isAnyOrUnknown(subtype)) {
-                                return subtype;
-                            }
+                    const returnType = mapSubtypesExpandTypeVars(iterReturnType, /* options */ undefined, (subtype) => {
+                        if (isAnyOrUnknown(subtype)) {
+                            return subtype;
+                        }
 
-                            if (isClassInstance(subtype)) {
-                                let nextReturnType = getTypeOfMagicMethodCall(subtype, nextMethodName, [], errorNode);
+                        if (isClassInstance(subtype)) {
+                            let nextReturnType = getTypeOfMagicMethodCall(subtype, nextMethodName, [], errorNode);
 
-                                if (!nextReturnType) {
-                                    iterReturnTypeDiag.addMessage(
-                                        LocMessage.methodNotDefinedOnType().format({
-                                            name: nextMethodName,
-                                            type: printType(subtype),
-                                        })
-                                    );
-                                } else {
-                                    // Convert any unpacked TypeVarTuples into object instances. We don't
-                                    // know anything more about them.
-                                    nextReturnType = mapSubtypes(nextReturnType, (returnSubtype) => {
-                                        if (isTypeVar(returnSubtype) && isUnpackedVariadicTypeVar(returnSubtype)) {
-                                            return objectType ?? UnknownType.create();
-                                        }
-
-                                        return returnSubtype;
-                                    });
-
-                                    if (!isAsync) {
-                                        return nextReturnType;
+                            if (!nextReturnType) {
+                                iterReturnTypeDiag.addMessage(
+                                    LocMessage.methodNotDefinedOnType().format({
+                                        name: nextMethodName,
+                                        type: printType(subtype),
+                                    })
+                                );
+                            } else {
+                                // Convert any unpacked TypeVarTuples into object instances. We don't
+                                // know anything more about them.
+                                nextReturnType = mapSubtypes(nextReturnType, (returnSubtype) => {
+                                    if (isTypeVar(returnSubtype) && isUnpackedVariadicTypeVar(returnSubtype)) {
+                                        return objectType ?? UnknownType.create();
                                     }
 
-                                    // If it's an async iteration, there's an implicit
-                                    // 'await' operator applied.
-                                    return getTypeOfAwaitable(nextReturnType, errorNode);
-                                }
-                            } else {
-                                iterReturnTypeDiag.addMessage(
-                                    LocMessage.methodReturnsNonObject().format({ name: iterMethodName })
-                                );
-                            }
+                                    return returnSubtype;
+                                });
 
-                            return undefined;
+                                if (!isAsync) {
+                                    return nextReturnType;
+                                }
+
+                                // If it's an async iteration, there's an implicit
+                                // 'await' operator applied.
+                                return getTypeOfAwaitable(nextReturnType, errorNode);
+                            }
+                        } else {
+                            iterReturnTypeDiag.addMessage(
+                                LocMessage.methodReturnsNonObject().format({ name: iterMethodName })
+                            );
                         }
-                    );
+
+                        return undefined;
+                    });
 
                     if (iterReturnTypeDiag.isEmpty()) {
                         return returnType;
