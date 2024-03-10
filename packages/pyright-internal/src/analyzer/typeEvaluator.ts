@@ -6457,11 +6457,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (variadicIndex >= 0) {
             const variadicTypeVar = typeParameters[variadicIndex];
 
+            // If the type param list ends with a ParamSpec with a default value,
+            // we can ignore it for purposes of finding type args that map to the
+            // TypeVarTuple.
+            let typeParamCount = typeParameters.length;
+            while (typeParamCount > 0) {
+                const lastTypeParam = typeParameters[typeParamCount - 1];
+                if (!lastTypeParam.details.isParamSpec || lastTypeParam.details.defaultType === undefined) {
+                    break;
+                }
+
+                typeParamCount--;
+            }
+
             if (variadicIndex < typeArgs.length) {
-                const variadicTypeResults = typeArgs.slice(
-                    variadicIndex,
-                    variadicIndex + 1 + typeArgs.length - typeParameters.length
-                );
+                // If there are typeArg lists at the end, these should map to ParamSpecs rather
+                // than the TypeVarTuple, so exclude them.
+                let variadicEndIndex = variadicIndex + 1 + typeArgs.length - typeParamCount;
+                while (variadicEndIndex > variadicIndex) {
+                    if (!typeArgs[variadicEndIndex - 1].typeList) {
+                        break;
+                    }
+                    variadicEndIndex--;
+                }
+                const variadicTypeResults = typeArgs.slice(variadicIndex, variadicEndIndex);
 
                 // If the type args consist of a lone variadic type variable, don't wrap it in a tuple.
                 if (variadicTypeResults.length === 1 && isVariadicTypeVar(variadicTypeResults[0].type)) {
@@ -6494,7 +6513,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeArgs = [
                         ...typeArgs.slice(0, variadicIndex),
                         { node: typeArgs[variadicIndex].node, type: tupleObject },
-                        ...typeArgs.slice(variadicIndex + 1 + typeArgs.length - typeParameters.length, typeArgs.length),
+                        ...typeArgs.slice(variadicEndIndex, typeArgs.length),
                     ];
                 }
             } else if (!variadicTypeVar.details.defaultType) {
