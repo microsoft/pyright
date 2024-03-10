@@ -3311,13 +3311,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const varDecl: Declaration | undefined = declarations.find((decl) => decl.type === DeclarationType.Variable);
+        const varDeclIndex = declarations.findIndex((decl) => decl.type === DeclarationType.Variable);
+        const varDecl = varDeclIndex >= 0 ? declarations[varDeclIndex] : undefined;
+
+        // Are there any non-var decls before the var decl?
+        const nonVarDecl = declarations.find(
+            (decl, index) => varDeclIndex < index && decl.type !== DeclarationType.Variable
+        );
 
         if (varDecl && varDecl.type === DeclarationType.Variable) {
             if (varDecl.isConstant) {
                 // A constant variable can be assigned only once. If this
                 // isn't the first assignment, generate an error.
-                if (nameNode !== getNameNodeForDeclaration(declarations[0])) {
+                if (nameNode !== getNameNodeForDeclaration(declarations[0]) || !!nonVarDecl) {
                     addDiagnostic(
                         DiagnosticRule.reportConstantRedefinition,
                         LocMessage.constantRedefinition().format({ name: nameValue }),

@@ -367,7 +367,7 @@ test('Final2', () => {
 
 test('Final3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final3.py']);
-    TestUtils.validateResults(analysisResults, 30);
+    TestUtils.validateResults(analysisResults, 32);
 });
 
 test('Final4', () => {
