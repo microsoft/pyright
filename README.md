@@ -66,6 +66,10 @@ pyright does not support code actions for import suggestions, [because that feat
 
 for more information about the differences between pyright and pylance, see [here](#pylance-vs-basedpyright)
 
+basedpyright adds support for it to the vscode extension:
+
+![image](https://github.com/DetachHead/basedpyright/assets/57028336/41ed93e8-04e2-4163-a1be-c9ec8f3d90df)
+
 ### reporting errors on invalid "relative" imports
 
 pyright allows invalid imports such as this:
