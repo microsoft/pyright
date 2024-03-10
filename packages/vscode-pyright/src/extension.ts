@@ -32,12 +32,15 @@ import {
     env,
     languages,
     SemanticTokens,
+    InlayHint,
+    InlayHintLabelPart,
 } from 'vscode';
 import {
     CancellationToken,
     ConfigurationParams,
     ConfigurationRequest,
     DidChangeConfigurationNotification,
+    InlayHintRequest,
     LanguageClient,
     LanguageClientOptions,
     ResponseError,
@@ -352,9 +355,9 @@ export async function activate(context: ExtensionContext) {
             })
         );
     }
-
+    const documentSelector = { language: 'python', scheme: 'file' };
     languages.registerDocumentSemanticTokensProvider(
-        { language: 'python', scheme: 'file' },
+        documentSelector,
         {
             provideDocumentSemanticTokens: async (document) => {
                 const result = await client.sendRequest(SemanticTokensRequest.type, {
@@ -368,6 +371,25 @@ export async function activate(context: ExtensionContext) {
         },
         SemanticTokensProviderLegend
     );
+
+    languages.registerInlayHintsProvider(documentSelector, {
+        provideInlayHints: async (document) => {
+            const result = await client.sendRequest(InlayHintRequest.type, {
+                textDocument: { uri: document.uri.toString() },
+                range: document.validateRange(new Range(new Position(0, 0), new Position(Infinity, Infinity))),
+            });
+            return result?.map(
+                (result) =>
+                    new InlayHint(
+                        new Position(result.position.character, result.position.line),
+                        typeof result.label === 'string'
+                            ? result.label
+                            : result.label.map((label) => new InlayHintLabelPart(label.value)),
+                        result.kind
+                    )
+            );
+        },
+    });
 
     await client.start();
 }
