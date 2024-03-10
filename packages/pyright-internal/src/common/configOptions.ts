@@ -1625,7 +1625,7 @@ export class ConfigOptions {
         envObj: any,
         index: number,
         commandLineOptions?: CommandLineOptions
-    ): ExecutionEnvironment | undefined {
+    ): ExecutionEnvironment | string[] {
         const errors = [];
         try {
             const newExecEnv = new ExecutionEnvironment(
