@@ -1,9 +1,8 @@
 import { ParseTreeWalker } from './parseTreeWalker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
-import { ClassTypeFlags, FunctionType, OverloadedFunctionType, Type, TypeCategory, TypeFlags } from './types';
+import { FunctionType, OverloadedFunctionType, Type, TypeCategory, TypeFlags } from './types';
 import {
     ClassNode,
-    FunctionAnnotationNode,
     FunctionNode,
     ImportAsNode,
     ImportFromAsNode,
@@ -13,7 +12,7 @@ import {
 } from '../parser/parseNodes';
 import { SemanticTokenModifiers, SemanticTokenTypes } from 'vscode-languageserver';
 
-type SemanticTokenItem = {
+export type SemanticTokenItem = {
     type: string;
     modifiers: string[];
     start: number;
@@ -140,7 +139,8 @@ export class SemanticTokensWalker extends ParseTreeWalker {
                     return;
                 }
         }
-        if ((type && type.flags & ClassTypeFlags.Final) || node.value.toUpperCase() === node.value) {
+        const symbol = this._evaluator?.lookUpSymbolRecursive(node, node.value, false)?.symbol;
+        if (node.value.toUpperCase() === node.value || (symbol && this._evaluator.isFinalVariable(symbol))) {
             this._addItem(node.start, node.length, SemanticTokenTypes.variable, [SemanticTokenModifiers.readonly]);
         } else {
             this._addItem(node.start, node.length, SemanticTokenTypes.variable, []);

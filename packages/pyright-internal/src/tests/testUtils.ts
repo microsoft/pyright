@@ -27,6 +27,7 @@ import { Uri } from '../common/uri/uri';
 import { ParseOptions, ParseResults, Parser } from '../parser/parser';
 import { entries } from '@detachhead/ts-helpers/dist/functions/misc';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { SemanticTokenItem, SemanticTokensWalker } from '../analyzer/semanticTokensWalker';
 
 // This is a bit gross, but it's necessary to allow the fallback typeshed
 // directory to be located when running within the jest environment. This
@@ -98,11 +99,7 @@ export function parseSampleFile(
     };
 }
 
-export function typeAnalyzeSampleFiles(
-    fileNames: string[],
-    configOptions = new ConfigOptions(Uri.empty()),
-    console?: ConsoleWithLogLevel
-): FileAnalysisResult[] {
+const createProgram = (configOptions = new ConfigOptions(Uri.empty())) => {
     // Always enable "test mode".
     configOptions.internalTestMode = true;
 
@@ -110,7 +107,15 @@ export function typeAnalyzeSampleFiles(
     const serviceProvider = createServiceProvider(fs, console || new NullConsole());
     const importResolver = new ImportResolver(serviceProvider, configOptions, new FullAccessHost(serviceProvider));
 
-    const program = new Program(importResolver, configOptions, serviceProvider);
+    return new Program(importResolver, configOptions, serviceProvider);
+};
+
+export function typeAnalyzeSampleFiles(
+    fileNames: string[],
+    configOptions = new ConfigOptions(Uri.empty()),
+    console?: ConsoleWithLogLevel
+): FileAnalysisResult[] {
+    const program = createProgram(configOptions);
     const fileUris = fileNames.map((name) => Uri.file(resolveSampleFilePath(name)));
     program.setTrackedFiles(fileUris);
 
@@ -127,6 +132,16 @@ export function typeAnalyzeSampleFiles(
     program.dispose();
     return results;
 }
+
+export const semanticTokenizeSampleFile = (fileName: string): SemanticTokenItem[] => {
+    const program = createProgram();
+    const fileUri = Uri.file(resolveSampleFilePath(path.join('semantic_highlighting', fileName)));
+    program.setTrackedFiles([fileUri]);
+    const walker = new SemanticTokensWalker(program.evaluator!);
+    walker.walk(program.getParseResults(fileUri)!.parseTree);
+    program.dispose();
+    return walker.items;
+};
 
 export function getAnalysisResults(
     program: Program,
