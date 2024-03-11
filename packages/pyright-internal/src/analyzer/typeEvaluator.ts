@@ -21278,7 +21278,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     allowExternallyHiddenAccess: AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile,
                 }) ?? decl;
 
-            if (!isPossibleTypeAliasDeclaration(resolvedDecl)) {
+            if (!isPossibleTypeAliasDeclaration(resolvedDecl) && !isExplicitTypeAliasDeclaration(resolvedDecl)) {
                 includesIllegalTypeAliasDecl = true;
             }
 
