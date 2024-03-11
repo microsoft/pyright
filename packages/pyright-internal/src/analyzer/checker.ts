@@ -1752,7 +1752,7 @@ export class Checker extends ParseTreeWalker {
 
         let isTypeBool = true;
         const diag = new DiagnosticAddendum();
-        this._evaluator.mapSubtypesExpandTypeVars(operandType, /* conditionFilter */ undefined, (expandedSubtype) => {
+        this._evaluator.mapSubtypesExpandTypeVars(operandType, /* options */ undefined, (expandedSubtype) => {
             if (isAnyOrUnknown(expandedSubtype)) {
                 return undefined;
             }
@@ -3140,21 +3140,31 @@ export class Checker extends ParseTreeWalker {
                 sawFinal = true;
             }
 
-            if (decl.type === DeclarationType.Variable && decl.inferredTypeSource) {
-                if (sawAssignment) {
-                    // We check for assignment of Final instance and class variables
-                    // the type evaluator because we need to take into account whether
-                    // the assignment is within an `__init__` method, so ignore class
-                    // scopes here.
-                    if (scopeType !== ScopeType.Class) {
-                        this._evaluator.addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            LocMessage.finalReassigned().format({ name }),
-                            decl.node
-                        );
+            let reportRedeclaration = false;
+
+            if (decl.type === DeclarationType.Variable) {
+                if (decl.inferredTypeSource) {
+                    if (sawAssignment) {
+                        // We check for assignment of Final instance and class variables
+                        // the type evaluator because we need to take into account whether
+                        // the assignment is within an `__init__` method, so ignore class
+                        // scopes here.
+                        if (scopeType !== ScopeType.Class) {
+                            reportRedeclaration = true;
+                        }
                     }
+                    sawAssignment = true;
                 }
-                sawAssignment = true;
+            } else {
+                reportRedeclaration = true;
+            }
+
+            if (reportRedeclaration) {
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.finalReassigned().format({ name }),
+                    getNameNodeForDeclaration(decl) ?? decl.node
+                );
             }
         });
 

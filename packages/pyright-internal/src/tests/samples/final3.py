@@ -191,3 +191,17 @@ def func3(x: type[T]) -> T:
 
 # This should generate two errors because Final isn't compatible with type.
 func3(Final[int])
+
+
+foo5: Final = lambda: None
+
+
+# This should generate an error because foo5 is declared as Final.
+def foo5() -> None:
+    pass
+
+
+# This should generate an error because ClassVar is Final.
+from typing import ClassVar
+
+ClassVar: Final = 3

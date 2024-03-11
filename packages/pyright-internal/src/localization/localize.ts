@@ -1072,6 +1072,10 @@ export namespace Localizer {
         export const typeVarUsedOnlyOnce = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarUsedOnlyOnce'));
         export const typeVarVariance = () => getRawString('Diagnostic.typeVarVariance');
+        export const typeVarWithDefaultFollowsVariadic = () =>
+            new ParameterizedString<{ variadicName: string; typeVarName: string }>(
+                getRawString('Diagnostic.typeVarWithDefaultFollowsVariadic')
+            );
         export const typeVarWithoutDefault = () =>
             new ParameterizedString<{ name: string; other: string }>(getRawString('Diagnostic.typeVarWithoutDefault'));
         export const unaccessedClass = () =>

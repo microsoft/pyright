@@ -179,7 +179,7 @@ test('Override2', () => {
 
 test('TypeVarDefault1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault1.py']);
-    TestUtils.validateResults(analysisResults, 12);
+    TestUtils.validateResults(analysisResults, 14);
 });
 
 test('TypeVarDefault2', () => {
@@ -191,8 +191,11 @@ test('TypeVarDefault2', () => {
 });
 
 test('TypeVarDefault3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault3.py']);
-    TestUtils.validateResults(analysisResults, 4);
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.defaultPythonVersion = PythonVersion.V3_13;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefault3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypeVarDefault4', () => {
@@ -221,7 +224,7 @@ test('TypeVarDefaultClass2', () => {
     configOptions.defaultPythonVersion = PythonVersion.V3_13;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultClass2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 8);
+    TestUtils.validateResults(analysisResults, 9);
 });
 
 test('TypeVarDefaultClass3', () => {
@@ -229,7 +232,7 @@ test('TypeVarDefaultClass3', () => {
     configOptions.defaultPythonVersion = PythonVersion.V3_13;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultClass3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 10);
 });
 
 test('TypeVarDefaultClass4', () => {
@@ -247,7 +250,7 @@ test('TypeVarDefaultTypeAlias1', () => {
 
 test('TypeVarDefaultTypeAlias2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultTypeAlias2.py']);
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 10);
 });
 
 test('TypeVarDefaultTypeAlias3', () => {
@@ -255,7 +258,7 @@ test('TypeVarDefaultTypeAlias3', () => {
     configOptions.defaultPythonVersion = PythonVersion.V3_13;
 
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVarDefaultTypeAlias3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 10);
 });
 
 test('TypeVarDefaultFunction1', () => {

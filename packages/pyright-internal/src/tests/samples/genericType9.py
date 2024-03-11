@@ -28,15 +28,15 @@ class ClassASub2(ClassA[int]):
 
 
 def test1(val_str: str, val_int: int):
-    reveal_type(ClassA.func1(val_str), expected_text="ClassA[str]")
-    reveal_type(ClassASub1.func1(val_str), expected_text="ClassA[str]")
+    reveal_type(ClassA.func1(val_str), expected_text="ClassA[Unknown]")
+    reveal_type(ClassASub1.func1(val_str), expected_text="ClassA[Unknown]")
     reveal_type(ClassASub2.func1(val_int), expected_text="ClassA[int]")
 
     # This should generate an error because the argument type doesn't match.
     ClassASub2.func1(val_str)
 
-    reveal_type(ClassA.func2(val_str), expected_text="ClassA[str]")
-    reveal_type(ClassASub1.func2(val_str), expected_text="ClassA[str]")
+    reveal_type(ClassA.func2(val_str), expected_text="ClassA[Unknown]")
+    reveal_type(ClassASub1.func2(val_str), expected_text="ClassA[Unknown]")
     reveal_type(ClassASub2.func2(val_int), expected_text="ClassA[int]")
 
     # This should generate an error because the argument type doesn't match.
