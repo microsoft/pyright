@@ -69,16 +69,15 @@ basedpyright re-implements pylance's import suggestion code actions:
 
 ![image](https://github.com/DetachHead/basedpyright/assets/57028336/a3e8a506-5682-4230-a43c-e815c84889c0)
 
-#### syntax highlighting
+#### semantic highlighting
 
 |before|after|
 |-|-|
-|![image](https://github.com/DetachHead/basedpyright/assets/57028336/aa6be02f-9330-467a-a7fd-077f81b43fe4)|![image](https://github.com/DetachHead/basedpyright/assets/57028336/f9aa9f5f-e741-4ea3-a111-e88e72b44ca4)|
+|![image](https://github.com/DetachHead/basedpyright/assets/57028336/f2977463-b828-470e-8094-ca437a312350)|![image](https://github.com/DetachHead/basedpyright/assets/57028336/e2c7999e-28c0-4a4c-b975-f63575ec3404)|
 
+basedpyright re-implements pylance's semantic highlighting and improves upon it in some cases (eg. variables marked as `Final` have the correct "read-only" colour)
 
-semantic highlighting code was adapted from the [pyright-inlay-hints](https://github.com/jbradaric/pyright-inlay-hints) project.
-
-basedpyright takes it a step further and adds full pylance-style syntax highlighting, and integrates it into the vscode extension.
+initial implementation of the semantic highlighting provider was adapted from the [pyright-inlay-hints](https://github.com/jbradaric/pyright-inlay-hints) project.
 
 #### inlay hints
 
