@@ -269,6 +269,7 @@ import {
     specializeClassType,
     specializeForBaseClass,
     specializeTupleClass,
+    specializeWithDefaultTypeArgs,
     synthesizeTypeVarForSelfCls,
     transformExpectedType,
     transformPossibleRecursiveTypeAlias,
@@ -2067,6 +2068,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             }
             return { type: UnknownType.create() };
+        }
+
+        // If this is an unspecialized generic class, specialize it using the default
+        // values for its type parameters.
+        if (
+            isInstantiableClass(objectType) &&
+            !objectType.includeSubclasses &&
+            objectType.details.typeParameters.length > 0
+        ) {
+            // Skip this if we're suppressing the use of attribute access override,
+            // such as with dundered methods (like __call__).
+            if ((flags & MemberAccessFlags.SkipAttributeAccessOverride) === 0) {
+                objectType = specializeWithDefaultTypeArgs(objectType);
+            }
         }
 
         // Determine the class that was used to instantiate the objectType.
