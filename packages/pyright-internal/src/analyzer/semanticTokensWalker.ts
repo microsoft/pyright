@@ -8,7 +8,6 @@ import {
     ImportFromAsNode,
     ImportFromNode,
     NameNode,
-    TypeAnnotationNode,
 } from '../parser/parseNodes';
 import { SemanticTokenModifiers, SemanticTokenTypes } from 'vscode-languageserver';
 
@@ -72,14 +71,6 @@ export class SemanticTokensWalker extends ParseTreeWalker {
         return super.visitName(node);
     }
 
-    override visitTypeAnnotation(node: TypeAnnotationNode): boolean {
-        const type = this._evaluator?.getType(node.typeAnnotation);
-        if (type?.category === TypeCategory.Never) {
-            this._addItem(node.typeAnnotation.start, node.typeAnnotation.length, SemanticTokenTypes.type, []);
-        }
-        return super.visitTypeAnnotation(node);
-    }
-
     private _visitNameWithType(node: NameNode, type: Type | undefined) {
         switch (type?.category) {
             case TypeCategory.Function:
@@ -116,7 +107,6 @@ export class SemanticTokensWalker extends ParseTreeWalker {
                 }
                 break;
             case TypeCategory.Union:
-            case TypeCategory.Never:
                 if (!(type.flags & TypeFlags.Instance)) {
                     this._addItem(node.start, node.length, SemanticTokenTypes.type, []);
                     return;
@@ -130,7 +120,11 @@ export class SemanticTokensWalker extends ParseTreeWalker {
                 }
         }
         const symbol = this._evaluator?.lookUpSymbolRecursive(node, node.value, false)?.symbol;
-        if (node.value.toUpperCase() === node.value || (symbol && this._evaluator.isFinalVariable(symbol))) {
+        if (type?.category === TypeCategory.Never && symbol && !this._evaluator.getDeclaredTypeOfSymbol(symbol).type) {
+            // for some reason Never is considered both instantiable and an instance, so we need to look up the type this way
+            // to differentiate between "instances" of `Never` and type aliases/annotations of Never:
+            this._addItem(node.start, node.length, SemanticTokenTypes.type, []);
+        } else if (node.value.toUpperCase() === node.value || (symbol && this._evaluator.isFinalVariable(symbol))) {
             this._addItem(node.start, node.length, SemanticTokenTypes.variable, [SemanticTokenModifiers.readonly]);
         } else {
             this._addItem(node.start, node.length, SemanticTokenTypes.variable, []);

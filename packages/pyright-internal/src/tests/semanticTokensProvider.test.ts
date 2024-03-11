@@ -51,14 +51,13 @@ if (process.platform !== 'win32' || !process.env['CI']) {
             { type: 'namespace', modifiers: [], start: 5, length: 6 },
             { type: 'class', modifiers: [], start: 19, length: 5 },
             { type: 'class', modifiers: [], start: 19, length: 5 },
-            { type: 'type', modifiers: [], start: 31, length: 5 },
             { type: 'variable', modifiers: [], start: 26, length: 3 },
-            { type: 'variable', modifiers: [], start: 31, length: 5 }, // TODO: this one shouldnt be here
+            { type: 'type', modifiers: [], start: 31, length: 5 },
             { type: 'class', modifiers: [], start: 37, length: 3 },
             { type: 'class', modifiers: [], start: 43, length: 5 },
             { type: 'function', modifiers: ['definition'], start: 54, length: 3 },
             { type: 'function', modifiers: [], start: 54, length: 3 },
-            { type: 'variable', modifiers: [], start: 63, length: 5 }, // TODO: this should be a type
+            { type: 'type', modifiers: [], start: 63, length: 5 },
         ]);
     });
 
