@@ -9,7 +9,6 @@
  */
 
 import { Char } from '../common/charCodes';
-import { maxStringTokenLength } from './tokenizer';
 import { FStringMiddleToken, StringToken, StringTokenFlags } from './tokenizerTypes';
 
 export const enum UnescapeErrorType {
@@ -93,14 +92,11 @@ export function getUnescapedString(stringToken: StringToken | FStringMiddleToken
     const addInvalidEscapeOffset = () => {
         // Invalid escapes are not reported for raw strings.
         if (!isRaw) {
-            // If this is the last character of a truncated string, don't report.
-            if ((stringToken.flags & StringTokenFlags.ExceedsMaxSize) === 0 || strOffset < maxStringTokenLength) {
-                output.unescapeErrors.push({
-                    offset: strOffset - 1,
-                    length: 2,
-                    errorType: UnescapeErrorType.InvalidEscapeSequence,
-                });
-            }
+            output.unescapeErrors.push({
+                offset: strOffset - 1,
+                length: 2,
+                errorType: UnescapeErrorType.InvalidEscapeSequence,
+            });
         }
     };
 

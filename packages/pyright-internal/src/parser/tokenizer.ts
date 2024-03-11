@@ -143,8 +143,6 @@ const _byteOrderMarker = 0xfeff;
 
 const defaultTabSize = 8;
 
-export const maxStringTokenLength = 32 * 1024;
-
 export interface TokenizerOutput {
     // List of all tokens.
     tokens: TextRangeCollection<Token>;
