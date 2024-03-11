@@ -74,6 +74,9 @@ export class SemanticTokensProvider {
 
         throwIfCancellationRequested(this._token);
 
+        // seems that tokens are lost if they show up out of order. TODO: figure out if there's a proper way to fix this
+        walker.items.sort((a, b) => a.start - b.start);
+
         for (const item of walker.items) {
             const range = convertOffsetsToRange(
                 item.start,

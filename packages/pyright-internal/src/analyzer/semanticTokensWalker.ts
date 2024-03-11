@@ -3,11 +3,13 @@ import { TypeEvaluator } from './typeEvaluatorTypes';
 import { ClassTypeFlags, FunctionType, OverloadedFunctionType, Type, TypeCategory, TypeFlags } from './types';
 import {
     ClassNode,
+    FunctionAnnotationNode,
     FunctionNode,
     ImportAsNode,
     ImportFromAsNode,
     ImportFromNode,
     NameNode,
+    TypeAnnotationNode,
 } from '../parser/parseNodes';
 import { SemanticTokenModifiers, SemanticTokenTypes } from 'vscode-languageserver';
 
@@ -84,6 +86,14 @@ export class SemanticTokensWalker extends ParseTreeWalker {
         return super.visitName(node);
     }
 
+    override visitTypeAnnotation(node: TypeAnnotationNode): boolean {
+        const type = this._evaluator?.getType(node.typeAnnotation);
+        if (type?.category === TypeCategory.Never) {
+            this._addItem(node.typeAnnotation.start, node.typeAnnotation.length, SemanticTokenTypes.type, []);
+        }
+        return super.visitTypeAnnotation(node);
+    }
+
     private _visitNameWithType(node: NameNode, type: Type | undefined) {
         switch (type?.category) {
             case TypeCategory.Function:
@@ -94,7 +104,7 @@ export class SemanticTokensWalker extends ParseTreeWalker {
                         this._addItem(node.start, node.length, SemanticTokenTypes.function, []);
                     }
                 }
-                break;
+                return;
 
             case TypeCategory.OverloadedFunction:
                 {
@@ -105,38 +115,35 @@ export class SemanticTokensWalker extends ParseTreeWalker {
                         this._addItem(node.start, node.length, SemanticTokenTypes.function, []);
                     }
                 }
-                break;
+                return;
 
             case TypeCategory.Module:
                 this._addItem(node.start, node.length, SemanticTokenTypes.namespace, []);
-                break;
+                return;
             case TypeCategory.Unbound:
             case undefined:
-                break;
+                return;
             case TypeCategory.TypeVar:
                 this._addItem(node.start, node.length, SemanticTokenTypes.typeParameter, []);
-                break;
+                return;
             case TypeCategory.Union:
             case TypeCategory.Never:
                 if (!(type.flags & TypeFlags.Instance)) {
                     this._addItem(node.start, node.length, SemanticTokenTypes.type, []);
-                    break;
+                    return;
                 }
                 break;
             case TypeCategory.Class:
+                //type annotations handled by visitTypeAnnotation
                 if (!(type.flags & TypeFlags.Instance)) {
                     this._addItem(node.start, node.length, SemanticTokenTypes.class, []);
-                    break;
+                    return;
                 }
-            // eslint-disable-next-line no-fallthrough -- intentional
-            default:
-                if ((type && type.flags & ClassTypeFlags.Final) || node.value.toUpperCase() === node.value) {
-                    this._addItem(node.start, node.length, SemanticTokenTypes.variable, [
-                        SemanticTokenModifiers.readonly,
-                    ]);
-                } else {
-                    this._addItem(node.start, node.length, SemanticTokenTypes.variable, []);
-                }
+        }
+        if ((type && type.flags & ClassTypeFlags.Final) || node.value.toUpperCase() === node.value) {
+            this._addItem(node.start, node.length, SemanticTokenTypes.variable, [SemanticTokenModifiers.readonly]);
+        } else {
+            this._addItem(node.start, node.length, SemanticTokenTypes.variable, []);
         }
     }
 
