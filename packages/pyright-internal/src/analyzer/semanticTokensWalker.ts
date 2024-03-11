@@ -8,6 +8,7 @@ import {
     ImportFromAsNode,
     ImportFromNode,
     NameNode,
+    ParameterCategory,
     TypeAnnotationNode,
 } from '../parser/parseNodes';
 import { SemanticTokenModifiers, SemanticTokenTypes } from 'vscode-languageserver';
@@ -45,15 +46,20 @@ export class SemanticTokensWalker extends ParseTreeWalker {
                 continue;
             }
             const modifiers = [SemanticTokenModifiers.declaration];
-            this._addItem(param.start, param.name!.value.length, SemanticTokenTypes.parameter, modifiers);
-            if (param.typeAnnotation) {
-                this._addItem(
-                    param.typeAnnotation.start,
-                    param.typeAnnotation.length,
-                    SemanticTokenTypes.typeParameter,
-                    []
-                );
+            let offset: number;
+            if (param.category === ParameterCategory.ArgsList) {
+                offset = 1;
+            } else if (param.category === ParameterCategory.KwargsDict) {
+                offset = 2;
+            } else {
+                offset = 0;
             }
+            this._addItem(
+                param.start + offset,
+                param.name!.value.length - offset,
+                SemanticTokenTypes.parameter,
+                modifiers
+            );
         }
         return super.visitFunction(node);
     }
