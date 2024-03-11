@@ -63,7 +63,7 @@ export class SemanticTokensProvider {
         this._parseResults = this._program.getParseResults(this._fileUri);
     }
 
-    async onSemanticTokens(): Promise<SemanticTokens> {
+    onSemanticTokens(): SemanticTokens {
         const builder = new SemanticTokensBuilder();
         if (!this._parseResults) {
             return builder.build();
