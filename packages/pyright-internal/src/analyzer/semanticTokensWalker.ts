@@ -35,7 +35,8 @@ export class SemanticTokensWalker extends ParseTreeWalker {
         if (node.isAsync) {
             modifiers.push(SemanticTokenModifiers.async);
         }
-        if ((node as any).declaration.isMethod) {
+        //TODO: whats the correct type here
+        if ((node as any).declaration?.isMethod) {
             this._addItem(node.name.start, node.name.length, SemanticTokenTypes.method, modifiers);
         } else {
             this._addItem(node.name.start, node.name.length, SemanticTokenTypes.function, modifiers);
