@@ -1344,7 +1344,6 @@ function getKeywordTypeString(type: KeywordType) {
 const StringTokenFlagsStrings: [StringTokenFlags, string][] = [
     [StringTokenFlags.Bytes, 'Bytes'],
     [StringTokenFlags.DoubleQuote, 'DoubleQuote'],
-    [StringTokenFlags.ExceedsMaxSize, 'ExceedsMaxSize'],
     [StringTokenFlags.Format, 'Format'],
     [StringTokenFlags.Raw, 'Raw'],
     [StringTokenFlags.SingleQuote, 'SingleQuote'],

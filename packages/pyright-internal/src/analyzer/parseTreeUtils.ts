@@ -277,7 +277,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
             let escapedString = node.token.escapedValue;
             if ((flags & PrintExpressionFlags.DoNotLimitStringLength) === 0) {
                 const maxStringLength = 32;
-                escapedString = escapedString.substring(0, maxStringLength);
+                escapedString = escapedString.slice(0, maxStringLength);
             }
 
             if (node.token.flags & StringTokenFlags.Triplicate) {

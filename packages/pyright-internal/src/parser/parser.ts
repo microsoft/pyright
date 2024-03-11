@@ -4552,7 +4552,7 @@ export class Parser {
             return undefined;
         }
 
-        const interTokenContents = this._fileContents!.substring(curToken.start + curToken.length, nextToken.start);
+        const interTokenContents = this._fileContents!.slice(curToken.start + curToken.length, nextToken.start);
         const commentRegEx = /^(\s*#\s*type:\s*)([^\r\n]*)/;
         const match = interTokenContents.match(commentRegEx);
         if (!match) {
