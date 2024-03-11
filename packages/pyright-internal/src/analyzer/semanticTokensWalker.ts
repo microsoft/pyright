@@ -8,7 +8,6 @@ import {
     ImportFromAsNode,
     ImportFromNode,
     NameNode,
-    ParameterCategory,
     TypeAnnotationNode,
 } from '../parser/parseNodes';
 import { SemanticTokenModifiers, SemanticTokenTypes } from 'vscode-languageserver';
@@ -41,26 +40,7 @@ export class SemanticTokensWalker extends ParseTreeWalker {
         } else {
             this._addItem(node.name.start, node.name.length, SemanticTokenTypes.function, modifiers);
         }
-        for (const param of node.parameters) {
-            if (!param.name) {
-                continue;
-            }
-            const modifiers = [SemanticTokenModifiers.declaration];
-            let offset: number;
-            if (param.category === ParameterCategory.ArgsList) {
-                offset = 1;
-            } else if (param.category === ParameterCategory.KwargsDict) {
-                offset = 2;
-            } else {
-                offset = 0;
-            }
-            this._addItem(
-                param.start + offset,
-                param.name!.value.length - offset,
-                SemanticTokenTypes.parameter,
-                modifiers
-            );
-        }
+        // parameters & return type are covered by visitName
         return super.visitFunction(node);
     }
 
@@ -129,8 +109,11 @@ export class SemanticTokensWalker extends ParseTreeWalker {
             case undefined:
                 return;
             case TypeCategory.TypeVar:
-                this._addItem(node.start, node.length, SemanticTokenTypes.typeParameter, []);
-                return;
+                if (!(type.flags & TypeFlags.Instance)) {
+                    this._addItem(node.start, node.length, SemanticTokenTypes.typeParameter, []);
+                    return;
+                }
+                break;
             case TypeCategory.Union:
             case TypeCategory.Never:
                 if (!(type.flags & TypeFlags.Instance)) {
