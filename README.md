@@ -71,6 +71,11 @@ basedpyright re-implements pylance's import suggestion code actions:
 
 #### syntax highlighting
 
+|before|after|
+|-|-|
+|![image](https://github.com/DetachHead/basedpyright/assets/57028336/aa6be02f-9330-467a-a7fd-077f81b43fe4)|![image](https://github.com/DetachHead/basedpyright/assets/57028336/f9aa9f5f-e741-4ea3-a111-e88e72b44ca4)|
+
+
 semantic highlighting code was adapted from the [pyright-inlay-hints](https://github.com/jbradaric/pyright-inlay-hints) project.
 
 basedpyright takes it a step further and adds full pylance-style syntax highlighting, and integrates it into the vscode extension.
