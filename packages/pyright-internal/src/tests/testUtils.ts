@@ -99,7 +99,7 @@ export function parseSampleFile(
     };
 }
 
-const createProgram = (configOptions = new ConfigOptions(Uri.empty())) => {
+const createProgram = (configOptions = new ConfigOptions(Uri.empty()), console?: ConsoleWithLogLevel) => {
     // Always enable "test mode".
     configOptions.internalTestMode = true;
 
@@ -115,7 +115,7 @@ export function typeAnalyzeSampleFiles(
     configOptions = new ConfigOptions(Uri.empty()),
     console?: ConsoleWithLogLevel
 ): FileAnalysisResult[] {
-    const program = createProgram(configOptions);
+    const program = createProgram(configOptions, console);
     const fileUris = fileNames.map((name) => Uri.file(resolveSampleFilePath(name)));
     program.setTrackedFiles(fileUris);
 
