@@ -73,4 +73,7 @@ if (process.platform !== 'win32' || !process.env['CI']) {
             { type: 'class', modifiers: [], start: 28, length: 3 },
         ]);
     });
+} else {
+    // prevent jest from failing because no tests were found
+    test('windows placeholder', () => {});
 }
