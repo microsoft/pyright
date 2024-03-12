@@ -6132,9 +6132,11 @@ export class Checker extends ParseTreeWalker {
             }
 
             // If the symbol has no declaration, and the type is inferred,
-            // skip this check.
-            if (!symbol.hasTypedDeclarations() && !this._evaluator.isFinalVariable(symbol)) {
-                return;
+            // skip the type validation but still check for other issues like
+            // Final overrides and class/instance variable mismatches.
+            let validateType = true;
+            if (!symbol.hasTypedDeclarations()) {
+                validateType = false;
             }
 
             // Get the symbol type defined in this class.
@@ -6169,7 +6171,13 @@ export class Checker extends ParseTreeWalker {
 
                 firstOverride = firstOverride ?? baseClassAndSymbol;
 
-                this._validateBaseClassOverride(baseClassAndSymbol, symbol, typeOfSymbol, classType, name);
+                this._validateBaseClassOverride(
+                    baseClassAndSymbol,
+                    symbol,
+                    validateType ? typeOfSymbol : AnyType.create(),
+                    classType,
+                    name
+                );
             }
 
             if (!firstOverride) {
