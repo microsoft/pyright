@@ -575,6 +575,12 @@
       "title": "Controls reporting of attempts to use an unbound variable",
       "default": "error"
     },
+    "reportUnhashable": {
+      "$id": "#/properties/reportUnhashable",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of unhashable object in container that requires hashability",
+      "default": "error"
+    },
     "reportUndefinedVariable": {
       "$id": "#/properties/reportUndefinedVariable",
       "$ref": "#/definitions/diagnostic",

@@ -13789,7 +13789,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const message = isDictKey ? LocMessage.unhashableDictKey() : LocMessage.unhashableSetEntry();
 
-            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, message + diag.getString(), entry);
+            addDiagnostic(DiagnosticRule.reportUnhashable, message + diag.getString(), entry);
         }
     }
 
