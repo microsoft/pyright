@@ -200,6 +200,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 <a name="reportUnboundVariable"></a> **reportUnboundVariable** [boolean or string, optional]: Generate or suppress diagnostics for unbound variables. The default value for this setting is `"error"`.
 
+<a name="reportUnhashable"></a> **reportUnhashable** [boolean or string, optional]: Generate or suppress diagnostics for the use of an unhashable object in a container that requires hashability.
+
 <a name="reportInvalidStubStatement"></a> **reportInvalidStubStatement** [boolean or string, optional]: Generate or suppress diagnostics for statements that are syntactically correct but have no purpose within a type stub file. The default value for this setting is `"none"`.
 
 <a name="reportIncompleteStub"></a> **reportIncompleteStub** [boolean or string, optional]: Generate or suppress diagnostics for a module-level `__getattr__` call in a type stub file, indicating that it is incomplete. The default value for this setting is `"none"`.
@@ -376,6 +378,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportTypedDictNotRequiredAccess          | "none"     | "error"    | "error"    | "error"    |
 | reportPrivateImportUsage                  | "none"     | "error"    | "error"    | "error"    |
 | reportUnboundVariable                     | "none"     | "error"    | "error"    | "error"    |
+| reportUnhashable                          | "none"     | "error"    | "error"    | "error"    |
 | reportUnusedCoroutine                     | "none"     | "error"    | "error"    | "error"    |
 | reportUnusedExcept                        | "none"     | "error"    | "error"    | "error"    |
 | reportFunctionMemberAccess                | "none"     | "none"     | "error"    | "error"    |

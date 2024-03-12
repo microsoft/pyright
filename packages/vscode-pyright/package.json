@@ -1327,6 +1327,22 @@
                                 false
                             ]
                         },
+                        "reportUnhashable": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for the use of an unhashable object in a container that requires hashability.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
+                        },
                         "reportUnsupportedDunderAll": {
                             "type": [
                                 "string",
