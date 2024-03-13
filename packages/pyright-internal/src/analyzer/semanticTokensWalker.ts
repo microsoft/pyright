@@ -102,6 +102,7 @@ export class SemanticTokensWalker extends ParseTreeWalker {
                 this._addItem(node.start, node.length, SemanticTokenTypes.namespace, []);
                 return;
             case TypeCategory.Unbound:
+            case TypeCategory.Unknown:
             case undefined:
                 return;
             case TypeCategory.TypeVar:

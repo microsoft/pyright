@@ -82,6 +82,10 @@ if (process.platform !== 'win32' || !process.env['CI']) {
             { type: 'class', modifiers: [], start: 120, length: 3 },
         ]);
     });
+    test('undefined', () => {
+        const result = semanticTokenizeSampleFile('undefined.py');
+        expect(result).toStrictEqual([]);
+    });
 } else {
     // prevent jest from failing because no tests were found
     test('windows placeholder', () => {});
