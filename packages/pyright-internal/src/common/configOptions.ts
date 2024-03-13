@@ -338,6 +338,9 @@ export interface DiagnosticRuleSet {
     // Report usage of unbound variables.
     reportUnboundVariable: DiagnosticLevel;
 
+    // Report use of unhashable type in a dictionary.
+    reportUnhashable: DiagnosticLevel;
+
     // Report statements that are syntactically correct but
     // have no semantic meaning within a type stub file.
     reportInvalidStubStatement: DiagnosticLevel;
@@ -487,6 +490,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportSelfClsParameterName,
         DiagnosticRule.reportImplicitStringConcatenation,
         DiagnosticRule.reportUndefinedVariable,
+        DiagnosticRule.reportUnhashable,
         DiagnosticRule.reportUnboundVariable,
         DiagnosticRule.reportInvalidStubStatement,
         DiagnosticRule.reportIncompleteStub,
@@ -594,6 +598,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportSelfClsParameterName: 'none',
         reportImplicitStringConcatenation: 'none',
         reportUnboundVariable: 'none',
+        reportUnhashable: 'none',
         reportUndefinedVariable: 'none',
         reportInvalidStubStatement: 'none',
         reportIncompleteStub: 'none',
@@ -697,6 +702,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportSelfClsParameterName: 'warning',
         reportImplicitStringConcatenation: 'none',
         reportUnboundVariable: 'error',
+        reportUnhashable: 'error',
         reportUndefinedVariable: 'error',
         reportInvalidStubStatement: 'none',
         reportIncompleteStub: 'none',
@@ -800,6 +806,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportSelfClsParameterName: 'warning',
         reportImplicitStringConcatenation: 'none',
         reportUnboundVariable: 'error',
+        reportUnhashable: 'error',
         reportUndefinedVariable: 'error',
         reportInvalidStubStatement: 'none',
         reportIncompleteStub: 'none',
@@ -902,6 +909,7 @@ export const getAllDiagnosticRuleSet = (): DiagnosticRuleSet => ({
     reportSelfClsParameterName: 'error',
     reportImplicitStringConcatenation: 'error',
     reportUnboundVariable: 'error',
+    reportUnhashable: 'error',
     reportUndefinedVariable: 'error',
     reportInvalidStubStatement: 'error',
     reportIncompleteStub: 'error',
@@ -1002,6 +1010,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportSelfClsParameterName: 'error',
         reportImplicitStringConcatenation: 'none',
         reportUnboundVariable: 'error',
+        reportUnhashable: 'error',
         reportUndefinedVariable: 'error',
         reportInvalidStubStatement: 'error',
         reportIncompleteStub: 'error',

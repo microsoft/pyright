@@ -178,6 +178,7 @@ import {
     ExpectedTypeResult,
     FunctionArgument,
     FunctionTypeResult,
+    MapSubtypesOptions,
     MemberAccessDeprecationInfo,
     MatchArgsToParamsResult,
     MatchCallArgsToParams,
@@ -270,6 +271,7 @@ import {
     specializeClassType,
     specializeForBaseClass,
     specializeTupleClass,
+    specializeWithDefaultTypeArgs,
     synthesizeTypeVarForSelfCls,
     transformExpectedType,
     transformPossibleRecursiveTypeAlias,
@@ -2049,6 +2051,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: UnknownType.create() };
         }
 
+        // If this is an unspecialized generic class, specialize it using the default
+        // values for its type parameters.
+        if (
+            isInstantiableClass(objectType) &&
+            !objectType.includeSubclasses &&
+            objectType.details.typeParameters.length > 0
+        ) {
+            // Skip this if we're suppressing the use of attribute access override,
+            // such as with dundered methods (like __call__).
+            if ((flags & MemberAccessFlags.SkipAttributeAccessOverride) === 0) {
+                objectType = specializeWithDefaultTypeArgs(objectType);
+            }
+        }
+
         // Determine the class that was used to instantiate the objectType.
         // If the objectType is a class itself, then the class used to instantiate
         // it is the metaclass.
@@ -2861,52 +2877,48 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     const iterReturnTypeDiag = new DiagnosticAddendum();
 
-                    const returnType = mapSubtypesExpandTypeVars(
-                        iterReturnType,
-                        /* conditionFilter */ undefined,
-                        (subtype) => {
-                            if (isAnyOrUnknown(subtype)) {
-                                return subtype;
-                            }
+                    const returnType = mapSubtypesExpandTypeVars(iterReturnType, /* options */ undefined, (subtype) => {
+                        if (isAnyOrUnknown(subtype)) {
+                            return subtype;
+                        }
 
-                            if (isClassInstance(subtype)) {
-                                let nextReturnType = getTypeOfMagicMethodCall(subtype, nextMethodName, [], errorNode);
+                        if (isClassInstance(subtype)) {
+                            let nextReturnType = getTypeOfMagicMethodCall(subtype, nextMethodName, [], errorNode);
 
-                                if (!nextReturnType) {
-                                    iterReturnTypeDiag.addMessage(
-                                        LocMessage.methodNotDefinedOnType().format({
-                                            name: nextMethodName,
-                                            type: printType(subtype),
-                                        })
-                                    );
-                                } else {
-                                    // Convert any unpacked TypeVarTuples into object instances. We don't
-                                    // know anything more about them.
-                                    nextReturnType = mapSubtypes(nextReturnType, (returnSubtype) => {
-                                        if (isTypeVar(returnSubtype) && isUnpackedVariadicTypeVar(returnSubtype)) {
-                                            return objectType ?? UnknownType.create();
-                                        }
-
-                                        return returnSubtype;
-                                    });
-
-                                    if (!isAsync) {
-                                        return nextReturnType;
+                            if (!nextReturnType) {
+                                iterReturnTypeDiag.addMessage(
+                                    LocMessage.methodNotDefinedOnType().format({
+                                        name: nextMethodName,
+                                        type: printType(subtype),
+                                    })
+                                );
+                            } else {
+                                // Convert any unpacked TypeVarTuples into object instances. We don't
+                                // know anything more about them.
+                                nextReturnType = mapSubtypes(nextReturnType, (returnSubtype) => {
+                                    if (isTypeVar(returnSubtype) && isUnpackedVariadicTypeVar(returnSubtype)) {
+                                        return objectType ?? UnknownType.create();
                                     }
 
-                                    // If it's an async iteration, there's an implicit
-                                    // 'await' operator applied.
-                                    return getTypeOfAwaitable(nextReturnType, errorNode);
-                                }
-                            } else {
-                                iterReturnTypeDiag.addMessage(
-                                    LocMessage.methodReturnsNonObject().format({ name: iterMethodName })
-                                );
-                            }
+                                    return returnSubtype;
+                                });
 
-                            return undefined;
+                                if (!isAsync) {
+                                    return nextReturnType;
+                                }
+
+                                // If it's an async iteration, there's an implicit
+                                // 'await' operator applied.
+                                return getTypeOfAwaitable(nextReturnType, errorNode);
+                            }
+                        } else {
+                            iterReturnTypeDiag.addMessage(
+                                LocMessage.methodReturnsNonObject().format({ name: iterMethodName })
+                            );
                         }
-                    );
+
+                        return undefined;
+                    });
 
                     if (iterReturnTypeDiag.isEmpty()) {
                         return returnType;
@@ -3971,9 +3983,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // do not match will be ignored.
     function mapSubtypesExpandTypeVars(
         type: Type,
-        conditionFilter: TypeCondition[] | undefined,
+        options: MapSubtypesOptions | undefined,
         callback: (expandedSubtype: Type, unexpandedSubtype: Type, isLastIteration: boolean) => Type | undefined,
-        sortSubtypes = false,
         recursionCount = 0
     ): Type {
         const newSubtypes: Type[] = [];
@@ -3983,12 +3994,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let expandedType = isUnion(unexpandedType) ? unexpandedType : makeTopLevelTypeVarsConcrete(unexpandedType);
 
             expandedType = transformPossibleRecursiveTypeAlias(expandedType);
+            if (options?.expandCallback) {
+                expandedType = options.expandCallback(expandedType);
+            }
 
             doForEachSubtype(
                 expandedType,
                 (subtype, index, allSubtypes) => {
-                    if (conditionFilter) {
-                        const filteredType = applyConditionFilterToType(subtype, conditionFilter, recursionCount);
+                    if (options?.conditionFilter) {
+                        const filteredType = applyConditionFilterToType(
+                            subtype,
+                            options.conditionFilter,
+                            recursionCount
+                        );
                         if (!filteredType) {
                             return undefined;
                         }
@@ -4028,12 +4046,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                     return undefined;
                 },
-                sortSubtypes
+                options?.sortSubtypes
             );
         }
 
         if (isUnion(type)) {
-            const subtypes = sortSubtypes ? sortTypes(type.subtypes) : type.subtypes;
+            const subtypes = options?.sortSubtypes ? sortTypes(type.subtypes) : type.subtypes;
             subtypes.forEach((subtype, index) => {
                 expandSubtype(subtype, index === type.subtypes.length - 1);
             });
@@ -4090,11 +4108,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 const filteredTypeArg = mapSubtypesExpandTypeVars(
                     typeArg,
-                    conditionFilter,
+                    { conditionFilter },
                     (expandedSubtype) => {
                         return expandedSubtype;
                     },
-                    /* sortSubtypes */ undefined,
                     recursionCount
                 );
 
@@ -6475,7 +6492,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // known to have symmetric __getitem__ and __setitem__ methods (i.e. the value
             // passed to __setitem__ is the same type as the value returned by __getitem__).
             let baseTypeSupportsIndexNarrowing = !isAny(baseTypeResult.type);
-            mapSubtypesExpandTypeVars(baseTypeResult.type, /* conditionFilter */ undefined, (subtype) => {
+            mapSubtypesExpandTypeVars(baseTypeResult.type, /* options */ undefined, (subtype) => {
                 if (
                     !isClassInstance(subtype) ||
                     !(ClassType.isBuiltIn(subtype) || ClassType.isTypedDictClass(subtype))
@@ -6573,11 +6590,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (variadicIndex >= 0) {
             const variadicTypeVar = typeParameters[variadicIndex];
 
+            // If the type param list ends with a ParamSpec with a default value,
+            // we can ignore it for purposes of finding type args that map to the
+            // TypeVarTuple.
+            let typeParamCount = typeParameters.length;
+            while (typeParamCount > 0) {
+                const lastTypeParam = typeParameters[typeParamCount - 1];
+                if (!lastTypeParam.details.isParamSpec || lastTypeParam.details.defaultType === undefined) {
+                    break;
+                }
+
+                typeParamCount--;
+            }
+
             if (variadicIndex < typeArgs.length) {
-                const variadicTypeResults = typeArgs.slice(
-                    variadicIndex,
-                    variadicIndex + 1 + typeArgs.length - typeParameters.length
-                );
+                // If there are typeArg lists at the end, these should map to ParamSpecs rather
+                // than the TypeVarTuple, so exclude them.
+                let variadicEndIndex = variadicIndex + 1 + typeArgs.length - typeParamCount;
+                while (variadicEndIndex > variadicIndex) {
+                    if (!typeArgs[variadicEndIndex - 1].typeList) {
+                        break;
+                    }
+                    variadicEndIndex--;
+                }
+                const variadicTypeResults = typeArgs.slice(variadicIndex, variadicEndIndex);
 
                 // If the type args consist of a lone variadic type variable, don't wrap it in a tuple.
                 if (variadicTypeResults.length === 1 && isVariadicTypeVar(variadicTypeResults[0].type)) {
@@ -6610,7 +6646,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeArgs = [
                         ...typeArgs.slice(0, variadicIndex),
                         { node: typeArgs[variadicIndex].node, type: tupleObject },
-                        ...typeArgs.slice(variadicIndex + 1 + typeArgs.length - typeParameters.length, typeArgs.length),
+                        ...typeArgs.slice(variadicEndIndex, typeArgs.length),
                     ];
                 }
             } else if (!variadicTypeVar.details.defaultType) {
@@ -6943,7 +6979,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const type = mapSubtypesExpandTypeVars(
             baseTypeResult.type,
-            /* conditionFilter */ undefined,
+            /* options */ undefined,
             (concreteSubtype, unexpandedSubtype) => {
                 const selfType = isTypeVar(unexpandedSubtype) ? unexpandedSubtype : undefined;
 
@@ -9241,7 +9277,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let returnType = mapSubtypesExpandTypeVars(
             callTypeResult.type,
-            /* conditionFilter */ undefined,
+            { sortSubtypes: true },
             (expandedSubtype, unexpandedSubtype, isLastIteration) => {
                 return useSpeculativeMode(
                     isLastIteration ? undefined : errorNode,
@@ -9278,8 +9314,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         allowDiagnostics: true,
                     }
                 );
-            },
-            /* sortSubtypes */ true
+            }
         );
 
         // If we ended up with a "Never" type because all code paths returned
@@ -12018,9 +12053,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // if appropriate. This doesn't properly handle non-top-level constrained
         // type variables.
         if (options.conditionFilter) {
-            argType = mapSubtypesExpandTypeVars(argType, options.conditionFilter, (expandedSubtype) => {
-                return expandedSubtype;
-            });
+            argType = mapSubtypesExpandTypeVars(
+                argType,
+                { conditionFilter: options.conditionFilter },
+                (expandedSubtype) => {
+                    return expandedSubtype;
+                }
+            );
         }
 
         const condition = argType.condition;
@@ -12377,33 +12416,58 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If a default is provided, make sure it is compatible with the bound
         // or constraint.
         if (typeVar.details.defaultType && defaultValueNode) {
-            const typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
-            const concreteDefaultType = makeTopLevelTypeVarsConcrete(
-                applySolvedTypeVars(typeVar.details.defaultType, typeVarContext, {
-                    unknownIfNotFound: true,
-                })
-            );
-
-            if (typeVar.details.boundType) {
-                if (!assignType(typeVar.details.boundType, concreteDefaultType)) {
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.typeVarDefaultBoundMismatch(),
-                        defaultValueNode
-                    );
-                }
-            } else if (typeVar.details.constraints.length > 0) {
-                if (!typeVar.details.constraints.some((constraint) => isTypeSame(constraint, concreteDefaultType))) {
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.typeVarDefaultConstraintMismatch(),
-                        defaultValueNode
-                    );
-                }
-            }
+            verifyTypeVarDefaultIsCompatible(typeVar, defaultValueNode);
         }
 
         return typeVar;
+    }
+
+    function verifyTypeVarDefaultIsCompatible(typeVar: TypeVarType, defaultValueNode: ExpressionNode) {
+        assert(typeVar.details.defaultType !== undefined);
+
+        const typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
+        const concreteDefaultType = makeTopLevelTypeVarsConcrete(
+            applySolvedTypeVars(typeVar.details.defaultType, typeVarContext, {
+                unknownIfNotFound: true,
+            })
+        );
+
+        if (typeVar.details.boundType) {
+            if (!assignType(typeVar.details.boundType, concreteDefaultType)) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeVarDefaultBoundMismatch(),
+                    defaultValueNode
+                );
+            }
+        } else if (typeVar.details.constraints.length > 0) {
+            let isConstraintCompatible = true;
+
+            // If the default type is a constrained TypeVar, make sure all of its constraints
+            // are also constraints in typeVar. If the default type is not a constrained TypeVar,
+            // use its concrete type to compare against the constraints.
+            if (isTypeVar(typeVar.details.defaultType) && typeVar.details.defaultType.details.constraints.length > 0) {
+                for (const constraint of typeVar.details.defaultType.details.constraints) {
+                    if (!typeVar.details.constraints.some((c) => isTypeSame(c, constraint))) {
+                        isConstraintCompatible = false;
+                    }
+                }
+            } else if (
+                !typeVar.details.constraints.some((constraint) =>
+                    isTypeSame(constraint, concreteDefaultType, { ignoreConditions: true })
+                )
+            ) {
+                isConstraintCompatible = false;
+            }
+
+            if (!isConstraintCompatible) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeVarDefaultConstraintMismatch(),
+                    defaultValueNode
+                );
+            }
+        }
     }
 
     function createTypeVarTupleType(
@@ -13849,7 +13913,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const message = isDictKey ? LocMessage.unhashableDictKey() : LocMessage.unhashableSetEntry();
 
-            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, message + diag.getString(), entry);
+            addDiagnostic(DiagnosticRule.reportUnhashable, message + diag.getString(), entry);
         }
     }
 
@@ -15434,6 +15498,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return convertToInstance(typeVar);
         });
 
+        // See if the type alias includes a TypeVarTuple followed by a TypeVar
+        // with a default value. This isn't allowed.
+        const firstTypeVarTupleIndex = typeParameters.findIndex((typeVar) => isVariadicTypeVar(typeVar));
+        if (firstTypeVarTupleIndex >= 0) {
+            const typeVarWithDefaultIndex = typeParameters.findIndex(
+                (typeVar, index) =>
+                    index > firstTypeVarTupleIndex &&
+                    !typeVar.details.isParamSpec &&
+                    typeVar.details.defaultType !== undefined
+            );
+
+            if (typeVarWithDefaultIndex >= 0) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeVarWithDefaultFollowsVariadic().format({
+                        typeVarName: typeParameters[typeVarWithDefaultIndex].details.name,
+                        variadicName: typeParameters[firstTypeVarTupleIndex].details.name,
+                    }),
+                    typeParamNodes ? typeParamNodes[typeVarWithDefaultIndex].name : name
+                );
+            }
+        }
+
         const typeAliasScopeId = ParseTreeUtils.getScopeIdForNode(name);
 
         // Validate the default types for all type parameters.
@@ -15992,6 +16079,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             typeParamNodes
         );
 
+        // See if the type alias relies on itself in a way that cannot be resolved.
         if (isTypeAliasRecursive(typeAliasTypeVar, aliasType)) {
             addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -16458,15 +16546,38 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // Make sure there's at most one variadic type parameter.
-            const variadics = classType.details.typeParameters.filter((param) => isVariadicTypeVar(param));
+            const variadics = typeParameters.filter((param) => isVariadicTypeVar(param));
             if (variadics.length > 1) {
-                addError(
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
                     LocMessage.variadicTypeParamTooManyClass().format({
                         names: variadics.map((v) => `"${v.details.name}"`).join(', '),
                     }),
                     node.name,
                     TextRange.combine(node.arguments) || node.name
                 );
+            } else if (variadics.length > 0) {
+                // Make sure a TypeVar with a default doesn't come after a variadic type parameter.
+                const firstVariadicIndex = classType.details.typeParameters.findIndex((param) =>
+                    isVariadicTypeVar(param)
+                );
+                const typeVarWithDefaultIndex = classType.details.typeParameters.findIndex(
+                    (param, index) =>
+                        index > firstVariadicIndex &&
+                        !param.details.isParamSpec &&
+                        param.details.defaultType !== undefined
+                );
+
+                if (typeVarWithDefaultIndex >= 0) {
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typeVarWithDefaultFollowsVariadic().format({
+                            typeVarName: typeParameters[typeVarWithDefaultIndex].details.name,
+                            variadicName: typeParameters[firstVariadicIndex].details.name,
+                        }),
+                        node.typeParameters ? node.typeParameters.parameters[typeVarWithDefaultIndex].name : node.name
+                    );
+                }
             }
 
             // Validate the default types for all type parameters.
@@ -16485,7 +16596,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
 
             if (!computeMroLinearization(classType)) {
-                addError(LocMessage.methodOrdering(), node.name);
+                addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.methodOrdering(), node.name);
             }
 
             // The scope for this class becomes the "fields" for the corresponding type.
@@ -20847,28 +20958,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If a default is provided, make sure it is compatible with the bound
         // or constraint.
         if (typeVar.details.defaultType && node.defaultExpression) {
-            const typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
-            const concreteDefaultType = applySolvedTypeVars(typeVar.details.defaultType, typeVarContext, {
-                unknownIfNotFound: true,
-            });
-
-            if (typeVar.details.boundType) {
-                if (!assignType(typeVar.details.boundType, concreteDefaultType)) {
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.typeVarDefaultBoundMismatch(),
-                        node.defaultExpression
-                    );
-                }
-            } else if (typeVar.details.constraints.length > 0) {
-                if (!typeVar.details.constraints.some((constraint) => isTypeSame(constraint, concreteDefaultType))) {
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.typeVarDefaultConstraintMismatch(),
-                        node.defaultExpression
-                    );
-                }
-            }
+            verifyTypeVarDefaultIsCompatible(typeVar, node.defaultExpression);
         }
 
         // Associate the type variable with the owning scope.
@@ -21327,7 +21417,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     allowExternallyHiddenAccess: AnalyzerNodeInfo.getFileInfo(decl.node).isStubFile,
                 }) ?? decl;
 
-            if (!isPossibleTypeAliasDeclaration(resolvedDecl)) {
+            if (!isPossibleTypeAliasDeclaration(resolvedDecl) && !isExplicitTypeAliasDeclaration(resolvedDecl)) {
                 includesIllegalTypeAliasDecl = true;
             }
 

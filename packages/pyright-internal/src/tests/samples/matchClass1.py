@@ -440,3 +440,31 @@ def func18(x: str | float | bool | None):
         case _:
             reveal_type(x, expected_text="int | None")
     reveal_type(x, expected_text="str | float | bool | int | None")
+
+
+T5 = TypeVar("T5", complex, str)
+
+
+def func19(x: T5) -> T5:
+    match x:
+        case complex():
+            return x
+        case str():
+            return x
+
+    reveal_type(x, expected_text="float* | int*")
+    return x
+
+
+T6 = TypeVar("T6", bound=complex | str)
+
+
+def func20(x: T6) -> T6:
+    match x:
+        case complex():
+            return x
+        case str():
+            return x
+
+    reveal_type(x, expected_text="float* | int*")
+    return x

@@ -143,8 +143,6 @@ const _byteOrderMarker = 0xfeff;
 
 const defaultTabSize = 8;
 
-export const maxStringTokenLength = 32 * 1024;
-
 export interface TokenizerOutput {
     // List of all tokens.
     tokens: TextRangeCollection<Token>;
@@ -266,7 +264,7 @@ export class Tokenizer {
         } else if (length < 0 || start + length > text.length) {
             throw new Error(`Invalid range length (start=${start}, length=${length}, text.length=${text.length})`);
         } else if (start + length < text.length) {
-            text = text.substring(0, start + length);
+            text = text.slice(0, start + length);
         }
 
         this._cs = new CharacterStream(text);
@@ -432,7 +430,7 @@ export class Tokenizer {
         if (stringPrefixLength >= 0) {
             let stringPrefix = '';
             if (stringPrefixLength > 0) {
-                stringPrefix = this._cs.getText().substring(this._cs.position, this._cs.position + stringPrefixLength);
+                stringPrefix = this._cs.getText().slice(this._cs.position, this._cs.position + stringPrefixLength);
                 // Indeed a string
                 this._cs.advance(stringPrefixLength);
             }
@@ -860,7 +858,7 @@ export class Tokenizer {
         }
 
         if (this._cs.position > start) {
-            const value = this._cs.getText().substring(start, this._cs.position);
+            const value = this._cs.getText().slice(start, this._cs.position);
             if (_keywords.has(value)) {
                 this._tokens.push(
                     KeywordToken.create(start, this._cs.position - start, _keywords.get(value)!, this._getComments())
@@ -926,9 +924,9 @@ export class Tokenizer {
             }
 
             if (radix > 0) {
-                const text = this._cs.getText().substring(start, this._cs.position);
+                const text = this._cs.getText().slice(start, this._cs.position);
                 const simpleIntText = text.replace(/_/g, '');
-                let intValue: number | bigint = parseInt(simpleIntText.substring(leadingChars), radix);
+                let intValue: number | bigint = parseInt(simpleIntText.slice(leadingChars), radix);
 
                 if (!isNaN(intValue)) {
                     const bigIntValue = BigInt(simpleIntText);
@@ -979,7 +977,7 @@ export class Tokenizer {
         }
 
         if (isDecimalInteger) {
-            let text = this._cs.getText().substring(start, this._cs.position);
+            let text = this._cs.getText().slice(start, this._cs.position);
             const simpleIntText = text.replace(/_/g, '');
             let intValue: number | bigint = parseInt(simpleIntText, 10);
 
@@ -1015,7 +1013,7 @@ export class Tokenizer {
             (this._cs.currentChar === Char.Period && this._cs.nextChar >= Char._0 && this._cs.nextChar <= Char._9)
         ) {
             if (this._skipFloatingPointCandidate()) {
-                let text = this._cs.getText().substring(start, this._cs.position);
+                let text = this._cs.getText().slice(start, this._cs.position);
                 const value = parseFloat(text);
                 if (!isNaN(value)) {
                     let isImaginary = false;
@@ -1244,7 +1242,7 @@ export class Tokenizer {
 
             if (type === CommentType.IPythonMagic || type === CommentType.IPythonShellEscape) {
                 const length = this._cs.position - begin;
-                const value = this._cs.getText().substring(begin, begin + length);
+                const value = this._cs.getText().slice(begin, begin + length);
 
                 // is it multiline magics?
                 // %magic command \
@@ -1259,9 +1257,7 @@ export class Tokenizer {
         } while (!this._cs.isEndOfStream());
 
         const length = this._cs.position - start;
-        const value = this._cs.getText().substring(start, start + length);
-
-        const comment = Comment.create(start, length, value, type);
+        const comment = Comment.create(start, length, this._cs.getText().slice(start, start + length), type);
         this._addComments(comment);
     }
 
@@ -1270,10 +1266,9 @@ export class Tokenizer {
         this._cs.skipToEol();
 
         const length = this._cs.position - start;
-        const value = this._cs.getText().substring(start, start + length);
-        const comment = Comment.create(start, length, value);
+        const comment = Comment.create(start, length, this._cs.getText().slice(start, start + length));
 
-        const typeIgnoreRegexMatch = value.match(/((^|#)\s*)type:\s*ignore(\s*\[([\s*\w-,]*)\]|\s|$)/);
+        const typeIgnoreRegexMatch = comment.value.match(/((^|#)\s*)type:\s*ignore(\s*\[([\s*\w-,]*)\]|\s|$)/);
         if (typeIgnoreRegexMatch) {
             const commentStart = start + (typeIgnoreRegexMatch.index ?? 0);
             const textRange: TextRange = {
@@ -1292,7 +1287,7 @@ export class Tokenizer {
             }
         }
 
-        const pyrightIgnoreRegexMatch = value.match(/((^|#)\s*)pyright:\s*ignore(\s*\[([\s*\w-,]*)\]|\s|$)/);
+        const pyrightIgnoreRegexMatch = comment.value.match(/((^|#)\s*)pyright:\s*ignore(\s*\[([\s*\w-,]*)\]|\s|$)/);
         if (pyrightIgnoreRegexMatch) {
             const commentStart = start + (pyrightIgnoreRegexMatch.index ?? 0);
             const textRange: TextRange = {
@@ -1371,7 +1366,7 @@ export class Tokenizer {
         if (this._cs.lookAhead(2) === Char.SingleQuote || this._cs.lookAhead(2) === Char.DoubleQuote) {
             const prefix = this._cs
                 .getText()
-                .substring(this._cs.position, this._cs.position + 2)
+                .slice(this._cs.position, this._cs.position + 2)
                 .toLowerCase();
             switch (prefix) {
                 case 'rf':
@@ -1572,17 +1567,22 @@ export class Tokenizer {
         const isTriplicate = (flags & StringTokenFlags.Triplicate) !== 0;
         const isFString = (flags & StringTokenFlags.Format) !== 0;
         let isInNamedUnicodeEscape = false;
-        let escapedValueParts: number[] = [];
+        const start = this._cs.position;
+        let escapedValueLength = 0;
+        const getEscapedValue = () => this._cs.getText().slice(start, start + escapedValueLength);
 
         while (true) {
             if (this._cs.isEndOfStream()) {
                 // Hit the end of file without a termination.
                 flags |= StringTokenFlags.Unterminated;
-                return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };
+                return {
+                    escapedValue: getEscapedValue(),
+                    flags,
+                };
             }
 
             if (this._cs.currentChar === Char.Backslash) {
-                escapedValueParts.push(this._cs.currentChar);
+                escapedValueLength++;
 
                 // Move past the escape (backslash) character.
                 this._cs.moveNext();
@@ -1611,14 +1611,14 @@ export class Tokenizer {
                                 this._cs.getCurrentChar() === Char.CarriageReturn &&
                                 this._cs.nextChar === Char.LineFeed
                             ) {
-                                escapedValueParts.push(this._cs.currentChar);
+                                escapedValueLength++;
                                 this._cs.moveNext();
                             }
-                            escapedValueParts.push(this._cs.currentChar);
+                            escapedValueLength++;
                             this._cs.moveNext();
                             this._addLineRange();
                         } else {
-                            escapedValueParts.push(this._cs.currentChar);
+                            escapedValueLength++;
                             this._cs.moveNext();
                         }
                     }
@@ -1627,16 +1627,19 @@ export class Tokenizer {
                 if (!isTriplicate && !isFString) {
                     // Unterminated single-line string
                     flags |= StringTokenFlags.Unterminated;
-                    return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };
+                    return {
+                        escapedValue: getEscapedValue(),
+                        flags,
+                    };
                 }
 
                 // Skip over the new line (either one or two characters).
                 if (this._cs.currentChar === Char.CarriageReturn && this._cs.nextChar === Char.LineFeed) {
-                    escapedValueParts.push(this._cs.currentChar);
+                    escapedValueLength++;
                     this._cs.moveNext();
                 }
 
-                escapedValueParts.push(this._cs.currentChar);
+                escapedValueLength++;
                 this._cs.moveNext();
                 this._addLineRange();
             } else if (!isTriplicate && this._cs.currentChar === quoteChar) {
@@ -1655,41 +1658,35 @@ export class Tokenizer {
                     flags |= StringTokenFlags.ReplacementFieldStart;
                     break;
                 } else {
-                    escapedValueParts.push(this._cs.currentChar);
+                    escapedValueLength++;
                     this._cs.moveNext();
-                    escapedValueParts.push(this._cs.currentChar);
+                    escapedValueLength++;
                     this._cs.moveNext();
                 }
             } else if (isInNamedUnicodeEscape && this._cs.currentChar === Char.CloseBrace) {
                 isInNamedUnicodeEscape = false;
-                escapedValueParts.push(this._cs.currentChar);
+                escapedValueLength++;
                 this._cs.moveNext();
             } else if (isFString && this._cs.currentChar === Char.CloseBrace) {
                 if (inFormatSpecifier || this._cs.nextChar !== Char.CloseBrace) {
                     flags |= StringTokenFlags.ReplacementFieldEnd;
                     break;
                 } else {
-                    escapedValueParts.push(this._cs.currentChar);
+                    escapedValueLength++;
                     this._cs.moveNext();
-                    escapedValueParts.push(this._cs.currentChar);
+                    escapedValueLength++;
                     this._cs.moveNext();
                 }
             } else {
-                escapedValueParts.push(this._cs.currentChar);
+                escapedValueLength++;
                 this._cs.moveNext();
             }
         }
 
-        // String.fromCharCode.apply crashes (stack overflow) if passed an array
-        // that is too long. Cut off the extra characters in this case to avoid
-        // the crash. It's unlikely that the full string value will be used as
-        // a string literal or a docstring, so this should be fine.
-        if (escapedValueParts.length > maxStringTokenLength) {
-            escapedValueParts = escapedValueParts.slice(0, maxStringTokenLength);
-            flags |= StringTokenFlags.ExceedsMaxSize;
-        }
-
-        return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };
+        return {
+            escapedValue: getEscapedValue(),
+            flags,
+        };
     }
 
     private _skipFloatingPointCandidate(): boolean {

@@ -90,6 +90,7 @@ export enum DiagnosticRule {
     reportImplicitStringConcatenation = 'reportImplicitStringConcatenation',
     reportUndefinedVariable = 'reportUndefinedVariable',
     reportUnboundVariable = 'reportUnboundVariable',
+    reportUnhashable = 'reportUnhashable',
     reportInvalidStubStatement = 'reportInvalidStubStatement',
     reportIncompleteStub = 'reportIncompleteStub',
     reportUnsupportedDunderAll = 'reportUnsupportedDunderAll',

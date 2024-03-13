@@ -99,3 +99,21 @@ def func_c3(a: ClassC3, b: ClassC3[int], c: ClassC3[int, *tuple[float]]):
     reveal_type(a, expected_text="ClassC3[str]")
     reveal_type(b, expected_text="ClassC3[int]")
     reveal_type(c, expected_text="ClassC3[int, float]")
+
+
+P4 = ParamSpec("P4", default=[float, bool])
+P5 = ParamSpec("P5", default=[bool])
+Ts5 = TypeVarTuple("Ts5")
+
+
+class ClassD(Generic[*Ts5, P4, P5]): ...  # OK
+
+
+reveal_type(
+    ClassD[int, str, complex],
+    expected_text="type[ClassD[int, str, complex, (float, bool), (bool)]]",
+)
+reveal_type(
+    ClassD[int, str, [str, complex]],
+    expected_text="type[ClassD[int, str, (str, complex), (bool)]]",
+)

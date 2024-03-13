@@ -108,6 +108,7 @@ ta4 = ClassTA[int, float, *tuple[None, ...]]()
 reveal_type(ta4, expected_text="ClassTA[int, float, *tuple[None, ...]]")
 
 # This should generate an error because Ts1 depends on T2.
+# It will generate a second error because T2 follows a TypeVarTuple.
 class ClassTB[T1=str, *Ts1=Unpack[tuple[T1, T2]], T2=T1]: ...
 
 class ClassTC[T1=str, *Ts2=Unpack[tuple[T1, ...]]]: ...

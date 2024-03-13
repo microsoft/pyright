@@ -115,6 +115,7 @@ def func5(
 
 
 # This should generate an error because Ts1 depends on T2.
+# It should also generate a second error because T2 follows a TypeVarTuple.
 TA_TB = tuple[T1, *Ts1, T2]
 
 

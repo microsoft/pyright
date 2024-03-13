@@ -75,3 +75,20 @@ def func_c3(a: TA6, b: TA6[int], c: TA6[int, *tuple[float]]):
     reveal_type(a, expected_text="tuple[str]")
     reveal_type(b, expected_text="tuple[int]")
     reveal_type(c, expected_text="tuple[int, float]")
+
+
+P4 = ParamSpec("P4", default=[float, bool])
+P5 = ParamSpec("P5", default=[bool])
+Ts5 = TypeVarTuple("Ts5")
+
+TA7 = tuple[*Ts5] | Callable[P4, Any] | Callable[P5, Any]
+
+
+reveal_type(
+    TA7[int, str, complex],
+    expected_text="type[tuple[int, str, complex]] | type[(float, bool) -> Any] | type[(bool) -> Any]",
+)
+reveal_type(
+    TA7[int, str, [str, complex]],
+    expected_text="type[tuple[int, str]] | type[(str, complex) -> Any] | type[(bool) -> Any]",
+)
