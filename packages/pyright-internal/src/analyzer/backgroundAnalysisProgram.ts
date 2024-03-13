@@ -20,6 +20,7 @@ import { Uri } from '../common/uri/uri';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { ImportResolver } from './importResolver';
 import { MaxAnalysisTime, OpenFileOptions, Program } from './program';
+import { Type } from './types';
 
 export enum InvalidatedReason {
     Reanalyzed,
@@ -41,7 +42,8 @@ export class BackgroundAnalysisProgram {
         private _importResolver: ImportResolver,
         private _backgroundAnalysis?: BackgroundAnalysisBase,
         private readonly _maxAnalysisTime?: MaxAnalysisTime,
-        private readonly _disableChecker?: boolean
+        private readonly _disableChecker?: boolean,
+        shouldExpandTypeFilter = (type: Type) => true
     ) {
         this._program = new Program(
             this.importResolver,
@@ -49,7 +51,8 @@ export class BackgroundAnalysisProgram {
             this._serviceProvider,
             undefined,
             this._disableChecker,
-            serviceId
+            serviceId,
+            shouldExpandTypeFilter
         );
     }
 

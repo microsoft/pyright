@@ -161,7 +161,8 @@ export class Program {
         readonly serviceProvider: ServiceProvider,
         logTracker?: LogTracker,
         private _disableChecker?: boolean,
-        id?: string
+        id?: string,
+        private _shouldExpandTypeFilter = (type: Type) => true
     ) {
         this._console = serviceProvider.tryGet(ServiceKeys.console) || new StandardConsole();
         this._logTracker = logTracker ?? new LogTracker(this._console, 'FG');
@@ -955,7 +956,10 @@ export class Program {
             this._importResolver,
             this._configOptions,
             this.serviceProvider,
-            new LogTracker(this._console, 'Cloned')
+            new LogTracker(this._console, 'Cloned'),
+            this._disableChecker,
+            this.id,
+            this._shouldExpandTypeFilter
         );
 
         // Cloned program will use whatever user files the program currently has.
@@ -1624,6 +1628,7 @@ export class Program {
                 minimumLoggingThreshold: this._configOptions.typeEvaluationTimeThreshold,
                 evaluateUnknownImportsAsAny: !!this._configOptions.evaluateUnknownImportsAsAny,
                 verifyTypeCacheEvaluatorFlags: !!this._configOptions.internalTestMode,
+                shouldExpandType: this._shouldExpandTypeFilter,
             },
             this._logTracker,
             this._configOptions.logTypeEvaluationTime

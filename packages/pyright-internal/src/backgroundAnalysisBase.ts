@@ -38,6 +38,7 @@ import { LogTracker } from './common/logTracker';
 import { ServiceProvider } from './common/serviceProvider';
 import { Range } from './common/textRange';
 import { Uri } from './common/uri/uri';
+import { Type } from './analyzer/types';
 
 export class BackgroundAnalysisBase {
     private _worker: Worker | undefined;
@@ -292,7 +293,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     protected logTracker: LogTracker;
     protected isCaseSensitive = true;
 
-    protected constructor(protected serviceProvider: ServiceProvider) {
+    protected constructor(protected serviceProvider: ServiceProvider, shouldExpandTypeFilter = (type: Type) => true) {
         super(workerData as InitializationData, serviceProvider);
 
         // Stash the base directory into a global variable.
@@ -304,7 +305,15 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         const console = this.getConsole();
         this.logTracker = new LogTracker(console, `BG(${threadId})`);
 
-        this._program = new Program(this.importResolver, this._configOptions, serviceProvider, this.logTracker);
+        this._program = new Program(
+            this.importResolver,
+            this._configOptions,
+            serviceProvider,
+            this.logTracker,
+            /* disableChecker */ undefined,
+            /* id */ undefined,
+            shouldExpandTypeFilter
+        );
     }
 
     get program(): Program {

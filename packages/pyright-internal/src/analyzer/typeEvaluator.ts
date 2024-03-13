@@ -555,6 +555,7 @@ export interface EvaluatorOptions {
     minimumLoggingThreshold: number;
     evaluateUnknownImportsAsAny: boolean;
     verifyTypeCacheEvaluatorFlags: boolean;
+    shouldExpandType: (type: Type) => boolean;
 }
 
 // Describes a "deferred class completion" that is run when a class type is
@@ -1660,6 +1661,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return mapSubtypes(type, (subtype) => {
+            if (!evaluatorOptions.shouldExpandType(subtype)) {
+                return subtype;
+            }
             if (isClass(subtype)) {
                 if (subtype.literalValue !== undefined) {
                     return ClassType.cloneWithLiteral(subtype, /* value */ undefined);
@@ -3872,6 +3876,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): Type {
         const newSubtypes: Type[] = [];
         let typeChanged = false;
+        if (!evaluatorOptions.shouldExpandType(type)) {
+            return type;
+        }
 
         function expandSubtype(unexpandedType: Type, isLastSubtype: boolean) {
             let expandedType = isUnion(unexpandedType) ? unexpandedType : makeTopLevelTypeVarsConcrete(unexpandedType);
