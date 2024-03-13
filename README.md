@@ -75,7 +75,11 @@ basedpyright re-implements pylance's import suggestion code actions:
 |-|-|
 |![image](https://github.com/DetachHead/basedpyright/assets/57028336/f2977463-b828-470e-8094-ca437a312350)|![image](https://github.com/DetachHead/basedpyright/assets/57028336/e2c7999e-28c0-4a4c-b975-f63575ec3404)|
 
-basedpyright re-implements pylance's semantic highlighting and improves upon it in some cases (eg. variables marked as `Final` have the correct "read-only" colour)
+basedpyright re-implements pylance's semantic highlighting along with some additional improvements:
+
+- variables marked as `Final` have the correct "read-only" colour
+- supports [the new `type` keyword in python 3.12](https://peps.python.org/pep-0695/)
+- `Final` variables are coloured as read-only
 
 initial implementation of the semantic highlighting provider was adapted from the [pyright-inlay-hints](https://github.com/jbradaric/pyright-inlay-hints) project.
 
