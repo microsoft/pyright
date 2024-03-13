@@ -10,6 +10,7 @@ import {
     NameNode,
 } from '../parser/parseNodes';
 import { SemanticTokenModifiers, SemanticTokenTypes } from 'vscode-languageserver';
+import { isConstantName } from './symbolNameUtils';
 
 export type SemanticTokenItem = {
     type: string;
@@ -129,7 +130,7 @@ export class SemanticTokensWalker extends ParseTreeWalker {
             // for some reason Never is considered both instantiable and an instance, so we need to look up the type this way
             // to differentiate between "instances" of `Never` and type aliases/annotations of Never:
             this._addItem(node.start, node.length, SemanticTokenTypes.type, []);
-        } else if (node.value.toUpperCase() === node.value || (symbol && this._evaluator.isFinalVariable(symbol))) {
+        } else if (isConstantName(node.value) || (symbol && this._evaluator.isFinalVariable(symbol))) {
             this._addItem(node.start, node.length, SemanticTokenTypes.variable, [SemanticTokenModifiers.readonly]);
         } else {
             this._addItem(node.start, node.length, SemanticTokenTypes.variable, []);

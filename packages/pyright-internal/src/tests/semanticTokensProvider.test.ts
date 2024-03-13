@@ -40,8 +40,11 @@ if (process.platform !== 'win32' || !process.env['CI']) {
             { type: 'class', modifiers: [], start: 19, length: 5 },
             { type: 'class', modifiers: [], start: 19, length: 5 },
             { type: 'variable', modifiers: ['readonly'], start: 26, length: 3 },
-            { type: 'variable', modifiers: ['readonly'], start: 35, length: 3 },
-            { type: 'class', modifiers: [], start: 40, length: 5 },
+            { type: 'variable', modifiers: ['readonly'], start: 34, length: 3 },
+            { type: 'class', modifiers: [], start: 39, length: 5 },
+            { type: 'variable', modifiers: [], start: 49, length: 1 },
+            { type: 'variable', modifiers: ['readonly'], start: 55, length: 2 },
+            { type: 'class', modifiers: [], start: 59, length: 5 },
         ]);
     });
 
