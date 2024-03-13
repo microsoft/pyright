@@ -64,13 +64,22 @@ if (process.platform !== 'win32' || !process.env['CI']) {
     test('functions', () => {
         const result = semanticTokenizeSampleFile('functions.py');
         expect(result).toStrictEqual([
-            { type: 'function', modifiers: ['definition'], start: 4, length: 3 },
-            { type: 'function', modifiers: [], start: 4, length: 3 },
-            { type: 'variable', modifiers: [], start: 8, length: 1 },
-            { type: 'class', modifiers: [], start: 11, length: 3 },
-            { type: 'variable', modifiers: [], start: 17, length: 1 },
-            { type: 'variable', modifiers: [], start: 22, length: 1 },
-            { type: 'class', modifiers: [], start: 28, length: 3 },
+            { type: 'namespace', modifiers: [], start: 5, length: 6 },
+            { type: 'class', modifiers: [], start: 19, length: 8 },
+            { type: 'class', modifiers: [], start: 19, length: 8 },
+            { type: 'function', modifiers: ['definition'], start: 34, length: 3 },
+            { type: 'function', modifiers: [], start: 34, length: 3 },
+            { type: 'variable', modifiers: [], start: 38, length: 1 },
+            { type: 'class', modifiers: [], start: 41, length: 3 },
+            { type: 'variable', modifiers: [], start: 47, length: 1 },
+            { type: 'variable', modifiers: [], start: 52, length: 1 },
+            { type: 'class', modifiers: [], start: 58, length: 3 },
+            { type: 'function', modifiers: [], start: 72, length: 3 },
+            { type: 'type', modifiers: [], start: 79, length: 3 },
+            { type: 'class', modifiers: [], start: 85, length: 8 },
+            { type: 'function', modifiers: [], start: 105, length: 3 },
+            { type: 'class', modifiers: [], start: 110, length: 8 },
+            { type: 'class', modifiers: [], start: 120, length: 3 },
         ]);
     });
 } else {

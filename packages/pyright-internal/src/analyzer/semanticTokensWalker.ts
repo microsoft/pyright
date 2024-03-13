@@ -74,23 +74,27 @@ export class SemanticTokensWalker extends ParseTreeWalker {
     private _visitNameWithType(node: NameNode, type: Type | undefined) {
         switch (type?.category) {
             case TypeCategory.Function:
-                {
+                if (type.flags & TypeFlags.Instance)
                     if ((type as FunctionType).details.declaration?.isMethod) {
                         this._addItem(node.start, node.length, SemanticTokenTypes.method, []);
                     } else {
                         this._addItem(node.start, node.length, SemanticTokenTypes.function, []);
                     }
+                else {
+                    // type alias to Callable
+                    this._addItem(node.start, node.length, SemanticTokenTypes.type, []);
                 }
                 return;
-
             case TypeCategory.OverloadedFunction:
-                {
-                    const funcType = OverloadedFunctionType.getOverloads(type)[0];
-                    if (funcType.details.declaration?.isMethod) {
+                if (type.flags & TypeFlags.Instance) {
+                    if (OverloadedFunctionType.getOverloads(type)[0].details.declaration?.isMethod) {
                         this._addItem(node.start, node.length, SemanticTokenTypes.method, []);
                     } else {
                         this._addItem(node.start, node.length, SemanticTokenTypes.function, []);
                     }
+                } else {
+                    // dunno if this is possible but better safe than sorry!!!
+                    this._addItem(node.start, node.length, SemanticTokenTypes.type, []);
                 }
                 return;
 
