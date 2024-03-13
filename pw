@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 from venv import EnvBuilder
 
-VERSION = "2.0.2"
+VERSION = "2.1.6"
 
 PYPROJECTX_INSTALL_DIR_ENV_VAR = "PYPROJECTX_INSTALL_DIR"
 PYPROJECTX_PACKAGE_ENV_VAR = "PYPROJECTX_PACKAGE"
@@ -133,7 +133,7 @@ def arg_parser():
     parser.add_argument(
         "--upgrade",
         action="store_true",
-        help="Download the latest pyprojectx wrapper scripts.",
+        help="Print instructions to download the latest pyprojectx wrapper scripts.",
     )
     parser.add_argument(
         "command", nargs=argparse.REMAINDER, help="The command/alias with optional arguments to execute."
