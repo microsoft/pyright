@@ -23,6 +23,7 @@ export const tokenTypes: string[] = [
     SemanticTokenTypes.namespace,
     SemanticTokenTypes.variable,
     SemanticTokenTypes.type,
+    SemanticTokenTypes.keyword,
 ];
 export const tokenModifiers: string[] = [
     SemanticTokenModifiers.definition,

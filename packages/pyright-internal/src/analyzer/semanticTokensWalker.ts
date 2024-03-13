@@ -8,6 +8,7 @@ import {
     ImportFromAsNode,
     ImportFromNode,
     NameNode,
+    TypeAliasNode,
 } from '../parser/parseNodes';
 import { SemanticTokenModifiers, SemanticTokenTypes } from 'vscode-languageserver';
 import { isConstantName } from './symbolNameUtils';
@@ -70,6 +71,15 @@ export class SemanticTokensWalker extends ParseTreeWalker {
     override visitName(node: NameNode): boolean {
         this._visitNameWithType(node, this._evaluator?.getType(node));
         return super.visitName(node);
+    }
+
+    override visitTypeAlias(node: TypeAliasNode): boolean {
+        // this shouldn't be needed because keywords are part of syntax highlighting, not semantic highlighting,
+        // but vscode incorrectly treats the type keyword as a type instead of a keyword so we need to fix it
+        // TODO: keyword makes it purple like `if`, `for`, `import`, etc. but the `type` keyword is more like
+        // `def`, `class` and `lambda` which are blue but i can't figure out what semantic token type does that.
+        this._addItem(node.start, 4 /* length of the word "type" */, SemanticTokenTypes.keyword, []);
+        return super.visitTypeAlias(node);
     }
 
     private _visitNameWithType(node: NameNode, type: Type | undefined) {

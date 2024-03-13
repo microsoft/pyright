@@ -89,6 +89,22 @@ if (process.platform !== 'win32' || !process.env['CI']) {
         const result = semanticTokenizeSampleFile('undefined.py');
         expect(result).toStrictEqual([]);
     });
+    test('type_aliases', () => {
+        const result = semanticTokenizeSampleFile('type_aliases.py');
+        expect(result).toStrictEqual([
+            { type: 'namespace', modifiers: [], start: 5, length: 6 },
+            { type: 'class', modifiers: [], start: 19, length: 9 },
+            { type: 'class', modifiers: [], start: 19, length: 9 },
+            { type: 'class', modifiers: [], start: 30, length: 3 },
+            { type: 'class', modifiers: [], start: 36, length: 3 },
+            { type: 'class', modifiers: [], start: 40, length: 3 },
+            { type: 'class', modifiers: [], start: 45, length: 9 },
+            { type: 'class', modifiers: [], start: 57, length: 3 },
+            { type: 'keyword', modifiers: [], start: 61, length: 4 },
+            { type: 'class', modifiers: [], start: 66, length: 3 },
+            { type: 'class', modifiers: [], start: 72, length: 3 },
+        ]);
+    });
 } else {
     // prevent jest from failing because no tests were found
     test('windows placeholder', () => {});
