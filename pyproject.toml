@@ -2,7 +2,7 @@
 main = ["pdm==2.11.2"]
 
 [tool.pdm]
-package-type = "library"
+distribution = true
 
 [tool.pdm.dev-dependencies]
 dev = ["pylint>=3.0.0a7", "ruff>=0.2.2"]
