@@ -24,7 +24,7 @@ import { FileSystem } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
 import { defaultStubsDirectory } from '../common/pathConsts';
-import { getFileName, isRootedDiskPath } from '../common/pathUtils';
+import { getFileName, isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
 import { ServiceProvider } from '../common/serviceProvider';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Range } from '../common/textRange';
@@ -61,7 +61,7 @@ export const pyprojectTomlName = 'pyproject.toml';
 // the analyzer on any files that have not yet been analyzed?
 const _userActivityBackoffTimeInMs = 250;
 
-const _gitDirectory = '/.git/';
+const _gitDirectory = normalizeSlashes('/.git/');
 
 export interface LibraryReanalysisTimeProvider {
     (): number;
