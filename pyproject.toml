@@ -11,6 +11,14 @@ dev = ["pylint>=3.0.0a7", "ruff>=0.2.2"]
 source = "call"
 getter = "get_version:get_version"
 
+[tool.pdm.scripts]
+update = "pdm update"
+refresh_lockfile = "pdm lock --update-reuse"
+typecheck = 'basedpyright'
+ruff_check = { composite = ['ruff check', 'ruff format --check --diff'] }
+ruff_fix = { composite = ['ruff check --fix', 'ruff format --fix'] }
+pylint = 'pylint basedpyright'
+
 [project]
 name = "basedpyright"
 description = "static type checking for Python (but based)"

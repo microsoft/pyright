@@ -6,6 +6,7 @@
         "focus": false,
         "panel": "shared"
     },
+    // tasks should be defined as either pdm or npm scripts where possible
     "tasks": [
         {
             "label": "Watch extension",
@@ -76,80 +77,10 @@
             }
         },
         {
-          "label": "pdm install requirements",
+          "label": "install dependencies",
           "type": "shell",
           "command": "./pw",
-          "args": ["pdm", "install"],
-          "presentation": {
-            "clear": true
-          },
-          "problemMatcher": []
-        },
-        {
-          "label": "pdm update lockfile",
-          "type": "shell",
-          "command": "./pw",
-          "args": ["pdm", "update"],
-          "presentation": {
-            "clear": true
-          },
-          "problemMatcher": []
-        },
-        {
-          "label": "pdm refresh lockfile (no update)",
-          "type": "shell",
-          "command": "./pw",
-          "args": ["pdm", "lock", "--update-reuse"],
-          "presentation": {
-            "clear": true
-          },
-          "problemMatcher": []
-        },
-        {
-          "label": "basedpyright - all files",
-          "type": "shell",
-          "command": "./pw",
-          "args": ["pdm", "run", "basedpyright"],
-          "presentation": {
-            "clear": true
-          },
-          "problemMatcher": []
-        },
-        {
-          "label": "ruff - all files",
-          "type": "shell",
-          "command": "${command:python.interpreterPath}",
-          "args": ["-m", "ruff", "."],
-          "presentation": {
-            "clear": true
-          },
-          "problemMatcher": []
-        },
-        {
-          "label": "ruff fix - all files",
-          "type": "shell",
-          "command": "${command:python.interpreterPath}",
-          "args": ["-m", "ruff", "--fix", "."],
-          "presentation": {
-            "clear": true
-          },
-          "problemMatcher": []
-        },
-        {
-          "label": "pylint - all files",
-          "type": "shell",
-          "command": "${command:python.interpreterPath}",
-          "args": ["-m", "pylint", "basedpyright"],
-          "presentation": {
-            "clear": true
-          },
-          "problemMatcher": []
-        },
-        {
-          "label": "ruff format - all files",
-          "type": "shell",
-          "command": "${command:python.interpreterPath}",
-          "args": ["-m", "ruff", "format", "."],
+          "args": ["pdm", "sync","--clean"],
           "presentation": {
             "clear": true
           },
