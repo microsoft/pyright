@@ -62,4 +62,12 @@
     "pylint.ignorePatterns": [
         "**/pyright-internal/src/tests/samples/*"
     ],
+    "terminal.integrated.env.windows": {
+      "PATH": "${env:PATH};./.pyprojectx/main"
+    },
+    "terminal.integrated.env.osx": { "PATH": "${env:PATH};./.pyprojectx/main" },
+    "terminal.integrated.env.linux": {
+      "PATH": "${env:PATH};./.pyprojectx/main"
+    },
+    "task.problemMatchers.neverPrompt": true
 }
