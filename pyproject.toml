@@ -17,7 +17,7 @@ refresh_lockfile = "pdm lock --update-reuse"
 typecheck = 'basedpyright'
 ruff_check = { composite = ['ruff check', 'ruff format --check --diff'] }
 ruff_fix = { composite = ['ruff check --fix', 'ruff format --fix'] }
-pylint = 'pylint basedpyright'
+pylint = 'pylint basedpyright pdm_build.py get_version.py'
 
 [project]
 name = "basedpyright"
