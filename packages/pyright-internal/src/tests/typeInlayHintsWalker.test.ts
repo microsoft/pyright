@@ -24,9 +24,10 @@ if (process.platform !== 'win32' || !process.env['CI']) {
     test('function calls', () => {
         const result = inlayHintSampleFile('function_calls.py');
         expect(result).toStrictEqual([
-            { inlayHintType: 'parameter', position: 62, value: 'value=' },
-            { inlayHintType: 'parameter', position: 136, value: 'value=' },
-            { inlayHintType: 'parameter', position: 139, value: 'bar=' },
+            { inlayHintType: 'parameter', position: 70, value: 'value=' },
+            { inlayHintType: 'parameter', position: 146, value: 'value=' },
+            { inlayHintType: 'parameter', position: 149, value: 'bar=' },
+            { inlayHintType: 'parameter', position: 190, value: 'bar=' },
         ]);
     });
 } else {

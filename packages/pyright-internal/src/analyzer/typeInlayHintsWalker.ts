@@ -156,7 +156,7 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
             if (p.paramName?.startsWith('__')) {
                 continue;
             }
-            if (p.paramName === p.argument.name) {
+            if (argNode.nodeType === ParseNodeType.Name && p.paramName === argNode.value) {
                 continue;
             }
             if (p.paramName) {
