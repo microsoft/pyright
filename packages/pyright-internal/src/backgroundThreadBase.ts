@@ -17,6 +17,7 @@ import { ServiceProvider } from './common/serviceProvider';
 import './common/serviceProviderExtensions';
 import { ServiceKeys } from './common/serviceProviderExtensions';
 import { Uri } from './common/uri/uri';
+import { isThenable } from './common/core';
 
 export class BackgroundConsole implements ConsoleInterface {
     // We always generate logs in the background. For the foreground,
@@ -155,10 +156,39 @@ export interface MessagePoster {
     postMessage(value: any, transferList?: ReadonlyArray<TransferListItem>): void;
 }
 
-export function run<T = any>(code: () => T, port: MessagePoster, serializer = serialize) {
+export function run<T = any>(code: () => Promise<T>, port: MessagePoster): Promise<void>;
+export function run<T = any>(
+    code: () => Promise<T>,
+    port: MessagePoster,
+    serializer: (obj: any) => string
+): Promise<void>;
+export function run<T = any>(code: () => T, port: MessagePoster): void;
+export function run<T = any>(code: () => T, port: MessagePoster, serializer: (obj: any) => string): void;
+export function run<T = any>(
+    code: () => T | Promise<T>,
+    port: MessagePoster,
+    serializer = serialize
+): void | Promise<void> {
     try {
         const result = code();
-        port.postMessage({ kind: 'ok', data: serializer(result) });
+        if (!isThenable(result)) {
+            port.postMessage({ kind: 'ok', data: serializer(result) });
+            return;
+        }
+
+        return result.then(
+            (r) => {
+                port.postMessage({ kind: 'ok', data: serializer(r) });
+            },
+            (e) => {
+                if (OperationCanceledException.is(e)) {
+                    port.postMessage({ kind: 'cancelled', data: e.message });
+                    return;
+                }
+
+                port.postMessage({ kind: 'failed', data: `Exception: ${e.message} in ${e.stack}` });
+            }
+        );
     } catch (e: any) {
         if (OperationCanceledException.is(e)) {
             port.postMessage({ kind: 'cancelled', data: e.message });

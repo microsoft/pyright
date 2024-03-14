@@ -14,7 +14,7 @@ import {
 } from '../../../analyzer/backgroundAnalysisProgram';
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { MaxAnalysisTime } from '../../../analyzer/program';
-import { AnalyzerService } from '../../../analyzer/service';
+import { AnalyzerService, AnalyzerServiceOptions } from '../../../analyzer/service';
 import { BackgroundAnalysisBase } from '../../../backgroundAnalysisBase';
 import { CommandController } from '../../../commands/commandController';
 import { ConfigOptions } from '../../../common/configOptions';
@@ -81,7 +81,12 @@ export class TestLanguageService implements LanguageServerInterface {
     private readonly _workspace: Workspace;
     private readonly _defaultWorkspace: Workspace;
 
-    constructor(workspace: Workspace, readonly console: ConsoleInterface, readonly fs: FileSystem) {
+    constructor(
+        workspace: Workspace,
+        readonly console: ConsoleInterface,
+        readonly fs: FileSystem,
+        options?: AnalyzerServiceOptions
+    ) {
         this._workspace = workspace;
         this._defaultWorkspace = {
             workspaceName: '',
@@ -89,13 +94,17 @@ export class TestLanguageService implements LanguageServerInterface {
             pythonPath: undefined,
             pythonPathKind: WorkspacePythonPathKind.Mutable,
             kinds: [WellKnownWorkspaceKinds.Test],
-            service: new AnalyzerService('test service', new ServiceProvider(), {
-                console: this.console,
-                hostFactory: () => new TestAccessHost(),
-                importResolverFactory: AnalyzerService.createImportResolver,
-                configOptions: new ConfigOptions(Uri.empty()),
-                fileSystem: this.fs,
-            }),
+            service: new AnalyzerService(
+                'test service',
+                new ServiceProvider(),
+                options ?? {
+                    console: this.console,
+                    hostFactory: () => new TestAccessHost(),
+                    importResolverFactory: AnalyzerService.createImportResolver,
+                    configOptions: new ConfigOptions(Uri.empty()),
+                    fileSystem: this.fs,
+                }
+            ),
             disableLanguageServices: false,
             disableTaggedHints: false,
             disableOrganizeImports: false,
