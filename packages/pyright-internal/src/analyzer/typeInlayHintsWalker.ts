@@ -6,7 +6,6 @@ import {
     AssignmentNode,
     CallNode,
     FunctionNode,
-    MemberAccessNode,
     NameNode,
     ParameterCategory,
     ParseNode,
@@ -99,17 +98,6 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
             }
         }
         return super.visitName(node);
-    }
-
-    override visitMemberAccess(node: MemberAccessNode): boolean {
-        if (isLeftSideOfAssignment(node) && !isDunderName(node.memberName.value)) {
-            this.featureItems.push({
-                inlayHintType: 'variable',
-                position: node.memberName.start,
-                value: node.memberName.value,
-            });
-        }
-        return super.visitMemberAccess(node);
     }
 
     override visitCall(node: CallNode): boolean {
