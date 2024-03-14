@@ -1771,7 +1771,13 @@ function wrapTypeInList(evaluator: TypeEvaluator, node: ParseNode, type: Type): 
 }
 
 export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternClassNode) {
-    const exprType = evaluator.getTypeOfExpression(pattern.className, EvaluatorFlags.CallBaseDefaults).type;
+    let exprType = evaluator.getTypeOfExpression(pattern.className, EvaluatorFlags.CallBaseDefaults).type;
+
+    // If the expression is a type alias or other special form, treat it
+    // as the special form rather than the class.
+    if (exprType.specialForm) {
+        exprType = exprType.specialForm;
+    }
 
     if (isAnyOrUnknown(exprType)) {
         return;
