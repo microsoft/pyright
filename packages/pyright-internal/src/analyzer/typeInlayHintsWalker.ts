@@ -1,6 +1,6 @@
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { isDunderName } from '../analyzer/symbolNameUtils';
-import { FunctionType } from '../analyzer/types';
+import { FunctionType, Type, isAny, isClass, isParamSpec, isTypeVar } from '../analyzer/types';
 import { ProgramView } from '../common/extensibility';
 import {
     AssignmentNode,
@@ -13,12 +13,13 @@ import {
     ParseNodeType,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { isLiteralType } from './typeUtils';
 
 type TypeInlayHintsItemType = {
     inlayHintType: 'variable' | 'functionReturn' | 'parameter';
     startOffset: number;
     endOffset: number;
-    value?: string;
+    value: string;
 };
 // Don't generate inlay hints for arguments to builtin types and functions
 const ignoredBuiltinTypes = new Set(
@@ -84,12 +85,21 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
 
     override visitName(node: NameNode): boolean {
         if (isLeftSideOfAssignment(node) && !isDunderName(node.value)) {
-            this.featureItems.push({
-                inlayHintType: 'variable',
-                startOffset: node.start,
-                endOffset: node.start + node.length - 1,
-                value: node.value,
-            });
+            const type = this._program.evaluator?.getType(node);
+            if (
+                type &&
+                !isAny(type) &&
+                !(isClass(type) && isLiteralType(type)) &&
+                !isTypeVar(type) &&
+                !isParamSpec(type)
+            ) {
+                this.featureItems.push({
+                    inlayHintType: 'variable',
+                    startOffset: node.start,
+                    endOffset: node.start + node.length - 1,
+                    value: `: ${this._printType(type)}`,
+                });
+            }
         }
         return super.visitName(node);
     }
@@ -112,13 +122,17 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
     }
 
     override visitFunction(node: FunctionNode): boolean {
-        if (!node.returnTypeAnnotation) {
-            this.featureItems.push({
-                inlayHintType: 'functionReturn',
-                startOffset: node.name.start,
-                endOffset: node.suite.start,
-                value: node.name.value,
-            });
+        const evaluator = this._program.evaluator;
+        const inferredReturnType = evaluator?.getTypeOfFunction(node)?.functionType.inferredReturnType;
+        if (inferredReturnType) {
+            if (inferredReturnType) {
+                this.featureItems.push({
+                    inlayHintType: 'functionReturn',
+                    startOffset: node.name.start,
+                    endOffset: node.suite.start,
+                    value: `-> ${this._printType(inferredReturnType)}`,
+                });
+            }
         }
         return super.visitFunction(node);
     }
@@ -166,9 +180,12 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
                     inlayHintType: 'parameter',
                     startOffset: argNode.start,
                     endOffset: argNode.start + argNode.length - 1,
-                    value: p.paramName,
+                    value: `${p.paramName}=`,
                 });
             }
         }
     }
+
+    private _printType = (type: Type): string =>
+        this._program.evaluator!.printType(type, { enforcePythonSyntax: true });
 }
