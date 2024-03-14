@@ -23,6 +23,10 @@ def func3() -> list[str]:
     # the declared return type.
     return c
 
+def func4():
+    c = [(i for i in [1, 2, 3])]
+    reveal_type(c, expected_text="list[Generator[int, None, None]]")
+
 
 def generate():
     for i in range(2):
@@ -43,3 +47,4 @@ def to_list(values: Iterable[FooOrBar]) -> list[FooOrBar]:
 x = 3
 # This should generate a syntax error.
 [x for in range(3)]
+
