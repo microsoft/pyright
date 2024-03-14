@@ -12,13 +12,11 @@ import {
     ParseNode,
     ParseNodeType,
 } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
 import { isLiteralType } from './typeUtils';
 
-type TypeInlayHintsItemType = {
+export type TypeInlayHintsItemType = {
     inlayHintType: 'variable' | 'functionReturn' | 'parameter';
-    startOffset: number;
-    endOffset: number;
+    position: number;
     value: string;
 };
 // Don't generate inlay hints for arguments to builtin types and functions
@@ -79,7 +77,7 @@ function isLeftSideOfAssignment(node: ParseNode): boolean {
 export class TypeInlayHintsWalker extends ParseTreeWalker {
     featureItems: TypeInlayHintsItemType[] = [];
 
-    constructor(private readonly _program: ProgramView, private readonly _parseResults: ParseResults) {
+    constructor(private readonly _program: ProgramView) {
         super();
     }
 
@@ -95,8 +93,7 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
             ) {
                 this.featureItems.push({
                     inlayHintType: 'variable',
-                    startOffset: node.start,
-                    endOffset: node.start + node.length - 1,
+                    position: node.start + node.length,
                     value: `: ${this._printType(type)}`,
                 });
             }
@@ -108,8 +105,7 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
         if (isLeftSideOfAssignment(node) && !isDunderName(node.memberName.value)) {
             this.featureItems.push({
                 inlayHintType: 'variable',
-                startOffset: node.memberName.start,
-                endOffset: node.memberName.start + node.memberName.length - 1,
+                position: node.memberName.start,
                 value: node.memberName.value,
             });
         }
@@ -123,13 +119,13 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
 
     override visitFunction(node: FunctionNode): boolean {
         const evaluator = this._program.evaluator;
-        const inferredReturnType = evaluator?.getTypeOfFunction(node)?.functionType.inferredReturnType;
-        if (inferredReturnType) {
+        const functionType = evaluator?.getTypeOfFunction(node)?.functionType;
+        if (functionType !== undefined && !functionType.details.declaredReturnType) {
+            const inferredReturnType = evaluator?.getFunctionInferredReturnType(functionType);
             if (inferredReturnType) {
                 this.featureItems.push({
                     inlayHintType: 'functionReturn',
-                    startOffset: node.name.start,
-                    endOffset: node.suite.start,
+                    position: node.suite.start,
                     value: `-> ${this._printType(inferredReturnType)}`,
                 });
             }
@@ -178,8 +174,7 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
             if (p.paramName) {
                 this.featureItems.push({
                     inlayHintType: 'parameter',
-                    startOffset: argNode.start,
-                    endOffset: argNode.start + argNode.length - 1,
+                    position: argNode.start,
                     value: `${p.paramName}=`,
                 });
             }

@@ -30,21 +30,15 @@ import {
     workspace,
     WorkspaceConfiguration,
     env,
-    languages,
-    SemanticTokens,
-    InlayHint,
-    InlayHintLabelPart,
 } from 'vscode';
 import {
     CancellationToken,
     ConfigurationParams,
     ConfigurationRequest,
     DidChangeConfigurationNotification,
-    InlayHintRequest,
     LanguageClient,
     LanguageClientOptions,
     ResponseError,
-    SemanticTokensRequest,
     ServerOptions,
     TextEdit,
     TransportKind,
@@ -52,7 +46,6 @@ import {
 import { FileBasedCancellationStrategy } from './cancellationUtils';
 import { githubRepo, toolName } from 'pyright-internal/constants';
 import { cp } from 'fs/promises';
-import { SemanticTokensProviderLegend } from 'pyright-internal/languageService/semanticTokensProvider';
 
 let cancellationStrategy: FileBasedCancellationStrategy | undefined;
 
@@ -355,42 +348,6 @@ export async function activate(context: ExtensionContext) {
             })
         );
     }
-    const documentSelector = { language: 'python', scheme: 'file' };
-    languages.registerDocumentSemanticTokensProvider(
-        documentSelector,
-        {
-            provideDocumentSemanticTokens: async (document) => {
-                const result = await client.sendRequest(SemanticTokensRequest.type, {
-                    textDocument: { uri: document.uri.toString() },
-                });
-                if (result === null) {
-                    return result;
-                }
-                return new SemanticTokens(Uint32Array.from(result.data), result?.resultId);
-            },
-        },
-        SemanticTokensProviderLegend
-    );
-
-    languages.registerInlayHintsProvider(documentSelector, {
-        provideInlayHints: async (document) => {
-            const result = await client.sendRequest(InlayHintRequest.type, {
-                textDocument: { uri: document.uri.toString() },
-                range: document.validateRange(new Range(new Position(0, 0), new Position(Infinity, Infinity))),
-            });
-            return result?.map(
-                (result) =>
-                    new InlayHint(
-                        new Position(result.position.character, result.position.line),
-                        typeof result.label === 'string'
-                            ? result.label
-                            : result.label.map((label) => new InlayHintLabelPart(label.value)),
-                        result.kind
-                    )
-            );
-        },
-    });
-
     await client.start();
 }
 
