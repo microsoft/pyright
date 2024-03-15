@@ -2368,7 +2368,7 @@ export class Checker extends ParseTreeWalker {
                     // instances in these particular cases.
                     let isExempt =
                         nameType.details.constraints.length > 0 ||
-                        !!nameType.details.defaultType ||
+                        nameType.details.isDefaultExplicit ||
                         (exemptBoundTypeVar && subscriptIndex !== undefined) ||
                         isParamSpec(nameType);
 
@@ -2422,7 +2422,7 @@ export class Checker extends ParseTreeWalker {
                     const existingEntry = classTypeVarUsage.get(nameType.details.name);
                     const isParamTypeWithEllipsisUsage =
                         curParamNode?.defaultValue?.nodeType === ParseNodeType.Ellipsis;
-                    const isExempt = !!nameType.details.defaultType;
+                    const isExempt = !!nameType.details.isDefaultExplicit;
 
                     if (!existingEntry) {
                         classTypeVarUsage.set(nameType.details.name, {
