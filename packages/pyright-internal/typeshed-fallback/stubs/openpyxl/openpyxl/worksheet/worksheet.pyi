@@ -3,6 +3,7 @@ from collections.abc import Generator, Iterable, Iterator
 from datetime import datetime
 from types import GeneratorType
 from typing import Any, Final, Literal, NoReturn, overload
+from typing_extensions import deprecated
 
 from openpyxl import _Decodable, _VisibilityType
 from openpyxl.cell import _CellValue
@@ -130,7 +131,7 @@ class Worksheet(_WorkbookChild):
     @overload
     def iter_rows(
         self, min_row: int | None, max_row: int | None, min_col: int | None, max_col: int | None, values_only: bool
-    ) -> Generator[tuple[Cell | str | float | datetime | None, ...], None, None]: ...
+    ) -> Generator[tuple[Cell, ...], None, None] | Generator[tuple[str | float | datetime | None, ...], None, None]: ...
     @overload
     def iter_rows(
         self,
@@ -140,7 +141,7 @@ class Worksheet(_WorkbookChild):
         max_col: int | None = None,
         *,
         values_only: bool,
-    ) -> Generator[tuple[Cell | str | float | datetime | None, ...], None, None]: ...
+    ) -> Generator[tuple[Cell, ...], None, None] | Generator[tuple[str | float | datetime | None, ...], None, None]: ...
     @property
     def rows(self) -> Generator[tuple[Cell, ...], None, None]: ...
     @property
@@ -171,7 +172,7 @@ class Worksheet(_WorkbookChild):
     @overload
     def iter_cols(
         self, min_col: int | None, max_col: int | None, min_row: int | None, max_row: int | None, values_only: bool
-    ) -> Generator[tuple[Cell | str | float | datetime | None, ...], None, None]: ...
+    ) -> Generator[tuple[Cell, ...], None, None] | Generator[tuple[str | float | datetime | None, ...], None, None]: ...
     @overload
     def iter_cols(
         self,
@@ -181,7 +182,7 @@ class Worksheet(_WorkbookChild):
         max_row: int | None = None,
         *,
         values_only: bool,
-    ) -> Generator[tuple[Cell | str | float | datetime | None, ...], None, None]: ...
+    ) -> Generator[tuple[Cell, ...], None, None] | Generator[tuple[str | float | datetime | None, ...], None, None]: ...
     @property
     def columns(self) -> Generator[tuple[Cell, ...], None, None]: ...
     def set_printer_settings(
@@ -218,8 +219,9 @@ class Worksheet(_WorkbookChild):
         end_row: ConvertibleToInt,
         end_column: ConvertibleToInt,
     ) -> None: ...
-    # deprecated: Will always raise: TypeError: 'set' object is not subscriptable
+    # Will always raise: TypeError: 'set' object is not subscriptable
     @property
+    @deprecated("Use ws.merged_cells.ranges")
     def merged_cell_ranges(self) -> NoReturn: ...
     def unmerge_cells(
         self,

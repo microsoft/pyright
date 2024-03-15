@@ -234,7 +234,7 @@ class NestedMinMax(Nested[_M], MinMax[_M, _N]):  # type: ignore[misc]
     def __get__(self: NestedMinMax[_M, Literal[True]], instance: Serialisable | Strict, cls: type | None = None) -> _M | None: ...
     @overload
     def __get__(self: NestedMinMax[_M, Literal[False]], instance: Serialisable | Strict, cls: type | None = None) -> _M: ...
-    @overload  # type:ignore[override]  # Different restrictions
+    @overload  # type: ignore[override]  # Different restrictions
     def __set__(
         self: NestedMinMax[int, Literal[True]],
         instance: Serialisable | Strict,

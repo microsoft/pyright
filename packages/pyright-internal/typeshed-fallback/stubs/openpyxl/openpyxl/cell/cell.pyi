@@ -84,8 +84,8 @@ class MergedCell(StyleableObject):
     data_type: str
     comment: Comment | None
     hyperlink: Hyperlink | None
-    row: int
-    column: int
+    row: int | None
+    column: int | None
     def __init__(self, worksheet: Worksheet, row: int | None = None, column: int | None = None) -> None: ...
     # Same as Cell.coordinate
     @property

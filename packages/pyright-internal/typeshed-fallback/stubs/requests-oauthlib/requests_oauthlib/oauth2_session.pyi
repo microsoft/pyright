@@ -10,14 +10,14 @@ from requests.cookies import RequestsCookieJar
 _Token: TypeAlias = dict[str, Incomplete]  # oauthlib.oauth2.Client.token
 
 class _AccessTokenResponseHook(Protocol):
-    def __call__(self, __response: requests.Response) -> requests.Response: ...
+    def __call__(self, response: requests.Response, /) -> requests.Response: ...
 
 class _RefreshTokenResponseHook(Protocol):
-    def __call__(self, __response: requests.Response) -> requests.Response: ...
+    def __call__(self, response: requests.Response, /) -> requests.Response: ...
 
 class _ProtectedRequestHook(Protocol):
     def __call__(
-        self, __url: Incomplete, __headers: Incomplete, __data: Incomplete
+        self, url: Incomplete, headers: Incomplete, data: Incomplete, /
     ) -> tuple[Incomplete, Incomplete, Incomplete]: ...
 
 class _ComplianceHooks(TypedDict):
@@ -38,7 +38,6 @@ class OAuth2Session(requests.Session):
     auto_refresh_kwargs: dict[str, Any]
     token_updater: Incomplete
     compliance_hook: _ComplianceHooks
-    scope: Incomplete | None
     def __init__(
         self,
         client_id: Incomplete | None = None,
@@ -50,8 +49,13 @@ class OAuth2Session(requests.Session):
         token: Incomplete | None = None,
         state: Incomplete | None = None,
         token_updater: Incomplete | None = None,
+        pkce: Incomplete | None = None,
         **kwargs,
     ) -> None: ...
+    @property
+    def scope(self) -> Incomplete | None: ...  # oauthlib.oauth2.Client.scope
+    @scope.setter
+    def scope(self, value: Incomplete | None) -> None: ...
     def new_state(self): ...
     @property
     def client_id(self) -> Incomplete | None: ...  # oauthlib.oauth2.Client.client_id
@@ -85,7 +89,7 @@ class OAuth2Session(requests.Session):
         force_querystring: bool = False,
         timeout: Incomplete | None = None,
         headers: Incomplete | None = None,
-        verify: bool = True,
+        verify: bool | None = None,
         proxies: Incomplete | None = None,
         include_client_id: Incomplete | None = None,
         client_secret: Incomplete | None = None,
@@ -101,7 +105,7 @@ class OAuth2Session(requests.Session):
         auth: Incomplete | None = None,
         timeout: Incomplete | None = None,
         headers: Incomplete | None = None,
-        verify: bool = True,
+        verify: bool | None = None,
         proxies: Incomplete | None = None,
         **kwargs,
     ) -> _Token: ...
@@ -114,10 +118,10 @@ class OAuth2Session(requests.Session):
         withhold_token: bool = False,
         client_id: Incomplete | None = None,
         client_secret: Incomplete | None = None,
+        files: requests.sessions._Files | None = None,
         *,
         params: requests.sessions._Params | None = None,
         cookies: None | RequestsCookieJar | requests.sessions._TextMapping = None,
-        files: requests.sessions._Files | None = None,
         auth: requests.sessions._Auth | None = None,
         timeout: requests.sessions._Timeout | None = None,
         allow_redirects: bool = True,

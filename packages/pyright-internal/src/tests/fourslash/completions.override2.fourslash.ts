@@ -32,7 +32,7 @@
                     kind: Consts.CompletionItemKind.Method,
                     textEdit: {
                         range: helper.getPositionRange('marker'),
-                        newText: 'append(self, __object: _T) -> None:\n    return super().append(__object)',
+                        newText: 'append(self, object: _T, /) -> None:\n    return super().append(object)',
                     },
                 },
             ],

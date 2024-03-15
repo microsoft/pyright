@@ -234,7 +234,7 @@ class Tag(PageElement):
     sourceline: int | None
     sourcepos: int | None
     known_xml: bool | None
-    attrs: dict[str, str]
+    attrs: dict[str, str | Any]
     contents: list[PageElement]
     hidden: bool
     can_be_empty_element: bool | None

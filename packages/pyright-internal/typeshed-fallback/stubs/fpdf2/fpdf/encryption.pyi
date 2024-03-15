@@ -16,7 +16,7 @@ LOGGER: Logger
 import_error: ImportError | None
 
 class _SupportsGetItem(Protocol[_T_co]):
-    def __getitem__(self, __k: int) -> _T_co: ...
+    def __getitem__(self, k: int, /) -> _T_co: ...
 
 class ARC4:
     MOD: ClassVar[int]
