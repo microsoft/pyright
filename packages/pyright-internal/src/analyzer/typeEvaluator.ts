@@ -13836,7 +13836,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         node.entries.forEach((entry, index) => {
             let entryTypeResult: TypeResult;
 
-            if (entry.nodeType === ParseNodeType.ListComprehension) {
+            if (entry.nodeType === ParseNodeType.ListComprehension && !entry.isGenerator) {
                 entryTypeResult = getElementTypeFromListComprehension(entry);
             } else {
                 entryTypeResult = getTypeOfExpression(entry);
