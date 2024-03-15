@@ -1090,7 +1090,7 @@ export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
 
     return ClassType.cloneForSpecialization(
         type,
-        type.details.typeParameters.map((param) => param.details.defaultType ?? getUnknownTypeForTypeVar(param)),
+        type.details.typeParameters.map((param) => param.details.defaultType),
         /* isTypeArgumentExplicit */ false,
         /* includeSubclasses */ type.includeSubclasses
     );
@@ -1539,7 +1539,7 @@ export function validateTypeVarDefault(
 ) {
     // If there is no default type or the default type is concrete, there's
     // no need to do any more work here.
-    if (typeVar.details.defaultType && requiresSpecialization(typeVar.details.defaultType)) {
+    if (typeVar.details.isDefaultExplicit && requiresSpecialization(typeVar.details.defaultType)) {
         const validator = new TypeVarDefaultValidator(liveTypeParams, invalidTypeVars);
         validator.apply(typeVar.details.defaultType, 0);
     }
@@ -2099,10 +2099,7 @@ export function specializeClassType(type: ClassType): ClassType {
     const typeParams = ClassType.getTypeParameters(type);
 
     typeParams.forEach((typeParam) => {
-        typeVarContext.setTypeVarType(
-            typeParam,
-            applySolvedTypeVars(typeParam.details.defaultType ?? UnknownType.create(), typeVarContext)
-        );
+        typeVarContext.setTypeVarType(typeParam, applySolvedTypeVars(typeParam.details.defaultType, typeVarContext));
     });
 
     return applySolvedTypeVars(type, typeVarContext) as ClassType;
@@ -2947,7 +2944,7 @@ export function requiresTypeArguments(classType: ClassType) {
 
         // If the first type parameter has a default type, then no
         // type arguments are needed.
-        if (firstTypeParam.details.defaultType) {
+        if (firstTypeParam.details.isDefaultExplicit) {
             return false;
         }
 
@@ -4260,7 +4257,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
             if (useDefaultOrUnknown) {
                 // Use the default value if there is one.
-                if (typeVar.details.defaultType) {
+                if (typeVar.details.isDefaultExplicit) {
                     return this._solveDefaultType(typeVar.details.defaultType, recursionCount);
                 }
 
@@ -4278,7 +4275,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 return signatureContext.getTypeVarType(replacementEntry.typeVar);
             }
 
-            if (typeVar.details.defaultType) {
+            if (typeVar.details.isDefaultExplicit) {
                 return this.apply(typeVar.details.defaultType, recursionCount);
             }
 
@@ -4330,7 +4327,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         if (!typeVar.scopeId || !this._typeVarContext.hasSolveForScope(typeVar.scopeId)) {
             const defaultType = typeVar.details.defaultType;
 
-            if (defaultType && isClassInstance(defaultType) && defaultType.tupleTypeArguments) {
+            if (typeVar.details.isDefaultExplicit && isClassInstance(defaultType) && defaultType.tupleTypeArguments) {
                 return defaultType.tupleTypeArguments;
             }
 
@@ -4358,7 +4355,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 return signatureContext.getParamSpecType(replacementEntry.typeVar);
             }
 
-            if (paramSpec.details.defaultType) {
+            if (paramSpec.details.isDefaultExplicit) {
                 return convertTypeToParamSpecValue(this.apply(paramSpec.details.defaultType, recursionCount));
             }
 
@@ -4386,7 +4383,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
         if (useDefaultOrUnknown) {
             // Use the default value if there is one.
-            if (paramSpec.details.defaultType) {
+            if (paramSpec.details.isDefaultExplicit) {
                 return convertTypeToParamSpecValue(
                     this._solveDefaultType(paramSpec.details.defaultType, recursionCount)
                 );
