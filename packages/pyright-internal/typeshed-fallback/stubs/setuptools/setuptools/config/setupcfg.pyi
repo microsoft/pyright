@@ -1,21 +1,18 @@
-import os
-from _typeshed import Incomplete
+from _typeshed import Incomplete, StrPath
 from typing import Generic, TypeVar
-from typing_extensions import TypeAlias
 
 from .._distutils.dist import DistributionMetadata
 from ..dist import Distribution
 from . import expand
 
-_Path: TypeAlias = str | os.PathLike[Incomplete]
 SingleCommandOptions: Incomplete
 AllCommandOptions: Incomplete
 Target = TypeVar("Target", bound=Distribution | DistributionMetadata)  # noqa: Y001 # Exists at runtime
 
 def read_configuration(
-    filepath: _Path, find_others: bool = False, ignore_option_errors: bool = False
+    filepath: StrPath, find_others: bool = False, ignore_option_errors: bool = False
 ) -> dict[Incomplete, Incomplete]: ...
-def apply_configuration(dist: Distribution, filepath: _Path) -> Distribution: ...
+def apply_configuration(dist: Distribution, filepath: StrPath) -> Distribution: ...
 def configuration_to_dict(
     handlers: tuple[ConfigHandler[Distribution | DistributionMetadata], ...]
 ) -> dict[Incomplete, Incomplete]: ...
@@ -57,7 +54,7 @@ class ConfigMetadataHandler(ConfigHandler[DistributionMetadata]):
         ignore_option_errors: bool,
         ensure_discovered: expand.EnsurePackagesDiscovered,
         package_dir: dict[Incomplete, Incomplete] | None = None,
-        root_dir: _Path = ".",
+        root_dir: StrPath = ".",
     ) -> None: ...
     @property
     def parsers(self): ...

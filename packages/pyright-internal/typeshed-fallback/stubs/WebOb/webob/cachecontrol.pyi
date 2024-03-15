@@ -18,7 +18,7 @@ class UpdateDict(dict[_KT, _VT]):
 class exists_property:
     prop: str
     type: str | None
-    def __init__(self, prop: str, type: str | None = None): ...
+    def __init__(self, prop: str, type: str | None = None) -> None: ...
     @overload
     def __get__(self, obj: None, type: _Type | None = None) -> Self: ...
     @overload
@@ -32,9 +32,9 @@ class value_property(Generic[_T, _NoneLiteral]):
     none: _NoneLiteral
     type: str | None
     @overload
-    def __init__(self, prop: str, default: None = None, none: None = None, type: str | None = None): ...
+    def __init__(self, prop: str, default: None = None, none: None = None, type: str | None = None) -> None: ...
     @overload
-    def __init__(self, prop: str, default: _T, none: _NoneLiteral, type: str | None = None): ...
+    def __init__(self, prop: str, default: _T, none: _NoneLiteral, type: str | None = None) -> None: ...
     @overload
     def __get__(self, obj: None, type: _Type | None = None) -> Self: ...
     @overload
@@ -83,7 +83,7 @@ class _ResponseCacheControl(_BaseCacheControl):
     stale_if_error: _IntValueProperty[None]
 
 class _AnyCacheControl(_RequestCacheControl, _ResponseCacheControl):
-    type: None  # type:ignore[assignment]
+    type: None  # type: ignore[assignment]
 
 class CacheControl(_AnyCacheControl):
     @overload

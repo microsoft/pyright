@@ -1,4 +1,5 @@
 from _typeshed import Incomplete
+from typing_extensions import deprecated
 
 class BaseQuery:
     counters: Incomplete
@@ -24,6 +25,8 @@ class BaseQuery:
 class Query(BaseQuery):
     volatilecounters: Incomplete
     def __init__(self, *args, **namedargs) -> None: ...
+    @deprecated("Use `addcounterbybrowsing` instead.")
+    def addperfcounter(self, object, counter, machine=None): ...
     def addinstcounter(
         self, object, counter, machine: Incomplete | None = ..., objtype: str = ..., volatile: int = ..., format=...
     ) -> None: ...

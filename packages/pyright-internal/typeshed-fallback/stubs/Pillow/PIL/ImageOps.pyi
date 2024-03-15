@@ -9,7 +9,7 @@ from .ImageColor import _Ink
 _Border: TypeAlias = int | tuple[int, int] | tuple[int, int, int, int]
 
 class _Deformer(Protocol):
-    def getmesh(self, __image: Image): ...
+    def getmesh(self, image: Image, /): ...
 
 def autocontrast(
     image: Image,

@@ -18,7 +18,7 @@ if sys.platform != "win32":
 
     class ares_host_result(tuple[str, list[str], list[str]]):
         family: int
-        def __new__(cls, family: int, __hostname: str, __aliases: list[str], __addr_list: list[str]) -> Self: ...
+        def __new__(cls, family: int, hostname: str, aliases: list[str], addr_list: list[str], /) -> Self: ...
 
     class channel:
         @property

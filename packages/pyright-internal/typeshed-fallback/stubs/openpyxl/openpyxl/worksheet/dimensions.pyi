@@ -73,7 +73,7 @@ class ColumnDimension(Dimension):
     width: Float[Literal[False]]
     bestFit: Bool[Literal[False]]
     auto_size: Alias
-    index: String[Literal[False]]  # type:ignore[assignment]
+    index: String[Literal[False]]  # type: ignore[assignment]
     min: Integer[Literal[True]]
     max: Integer[Literal[True]]
     collapsed: Bool[Literal[False]]

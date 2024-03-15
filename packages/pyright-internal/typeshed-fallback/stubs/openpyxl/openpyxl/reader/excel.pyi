@@ -1,4 +1,3 @@
-from _typeshed import Incomplete
 from typing import Final, Literal
 from typing_extensions import TypeAlias
 from zipfile import ZipFile
@@ -21,7 +20,7 @@ class ExcelReader:
     data_only: bool
     keep_links: bool
     rich_text: bool
-    shared_strings: list[Incomplete]
+    shared_strings: list[str]
     package: Manifest  # defined after call to read_manifest()
     parser: WorkbookParser  # defined after call to read_workbook()
     wb: Workbook  # defined after call to read_workbook()

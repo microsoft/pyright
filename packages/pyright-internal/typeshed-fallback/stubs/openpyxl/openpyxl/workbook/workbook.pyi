@@ -2,12 +2,15 @@ from _typeshed import Incomplete, Unused
 from collections.abc import Iterator
 from datetime import datetime
 from typing import Any, Final
+from typing_extensions import deprecated
 from zipfile import ZipFile
 
 from openpyxl import _Decodable, _ZipFileFileProtocol
 from openpyxl.chartsheet.chartsheet import Chartsheet
 from openpyxl.styles.named_styles import NamedStyle
+from openpyxl.utils.indexed_list import IndexedList
 from openpyxl.workbook.child import _WorkbookChild
+from openpyxl.worksheet._read_only import ReadOnlyWorksheet
 from openpyxl.worksheet._write_only import WriteOnlyWorksheet
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -19,7 +22,7 @@ class Workbook:
     defined_names: Incomplete
     properties: Incomplete
     security: Incomplete
-    shared_strings: Incomplete
+    shared_strings: IndexedList[str]
     loaded_theme: Incomplete
     vba_archive: ZipFile | None
     is_template: bool
@@ -29,6 +32,9 @@ class Workbook:
     rels: Incomplete
     calculation: Incomplete
     views: Incomplete
+    # Private, but useful as a reference of what "sheets" can be for other types
+    # ExcelReader can add ReadOnlyWorksheet in read_only mode.
+    _sheets: list[Worksheet | WriteOnlyWorksheet | Chartsheet | ReadOnlyWorksheet]
     def __init__(self, write_only: bool = False, iso_dates: bool = False) -> None: ...
     @property
     def epoch(self) -> datetime: ...
@@ -52,15 +58,19 @@ class Workbook:
     ) -> Any: ...  # AnyOf[WriteOnlyWorksheet, Worksheet]
     def move_sheet(self, sheet: Worksheet | str, offset: int = 0) -> None: ...
     def remove(self, worksheet: Worksheet) -> None: ...
+    @deprecated("Use wb.remove(worksheet) or del wb[sheetname]")
     def remove_sheet(self, worksheet: Worksheet) -> None: ...
     def create_chartsheet(self, title: str | _Decodable | None = None, index: int | None = None) -> Chartsheet: ...
+    @deprecated("Use wb[sheetname]")
     def get_sheet_by_name(self, name: str) -> Worksheet: ...
     def __contains__(self, key: str) -> bool: ...
     def index(self, worksheet: Worksheet) -> int: ...
+    @deprecated("Use wb.index(worksheet)")
     def get_index(self, worksheet: Worksheet) -> int: ...
     def __getitem__(self, key: str) -> Worksheet: ...
     def __delitem__(self, key: str) -> None: ...
     def __iter__(self) -> Iterator[Worksheet]: ...
+    @deprecated("Use wb.sheetnames")
     def get_sheet_names(self) -> list[Worksheet]: ...
     @property
     def worksheets(self) -> list[Worksheet]: ...
@@ -68,6 +78,7 @@ class Workbook:
     def chartsheets(self) -> list[Chartsheet]: ...
     @property
     def sheetnames(self) -> list[str]: ...
+    @deprecated("Assign scoped named ranges directly to worksheets or global ones to the workbook. Deprecated in 3.1")
     def create_named_range(
         self, name: str, worksheet: Worksheet | None = None, value: str | Incomplete | None = None, scope: Unused = None
     ) -> None: ...
