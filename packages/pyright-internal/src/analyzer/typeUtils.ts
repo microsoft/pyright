@@ -1098,7 +1098,7 @@ export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
 
 // Specializes the class with "Unknown" type args (or the equivalent for ParamSpecs
 // or TypeVarTuples).
-export function specializeWithUnknown(type: ClassType): ClassType {
+export function specializeWithUnknownTypeArgs(type: ClassType): ClassType {
     if (type.details.typeParameters.length === 0) {
         return type;
     }
@@ -2175,10 +2175,7 @@ export function setTypeArgumentsRecursive(
             if (destType.details.paramSpec) {
                 // Fill in an empty signature for a ParamSpec.
                 if (!typeVarContext.getPrimarySignature().getTypeVar(destType.details.paramSpec)) {
-                    typeVarContext.setTypeVarType(
-                        destType.details.paramSpec,
-                        getUnknownTypeForTypeVar(destType.details.paramSpec)
-                    );
+                    typeVarContext.setTypeVarType(destType.details.paramSpec, getUnknownTypeForParamSpec());
                 }
             }
             break;
