@@ -2,6 +2,7 @@ import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { isDunderName } from '../analyzer/symbolNameUtils';
 import { FunctionType, Type, isAny, isClass, isParamSpec, isTypeVar } from '../analyzer/types';
 import { ProgramView } from '../common/extensibility';
+import { limitOverloadBasedOnCall } from '../languageService/tooltipUtils';
 import {
     AssignmentNode,
     CallNode,
@@ -122,12 +123,22 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
     }
 
     private _generateHintsForCallNode(node: CallNode) {
-        const matchedArgs = this._program.evaluator?.matchCallArgsToParams(node);
-        if (!matchedArgs) {
+        const evaluator = this._program.evaluator;
+        if (!evaluator) {
             return;
         }
-        // sort matches by relevance and use the most relevant match
-        matchedArgs.sort((r1, r2) => r2.match.relevance - r1.match.relevance);
+        const functionType = evaluator.getType(node.leftExpression);
+        if (!functionType) {
+            return;
+        }
+        // if it's an overload, figure out which one to use based on the arguments:
+        const matchedFunctionType = limitOverloadBasedOnCall(evaluator, functionType, node.leftExpression);
+        const matchedArgs = this._program.evaluator?.matchCallArgsToParams(node, matchedFunctionType);
+
+        // if there was no match, or if there were multiple matches, we don't want to show any inlay hints because they'd likely be wrong:
+        if (matchedArgs?.length !== 1) {
+            return;
+        }
         const result = matchedArgs[0];
 
         if (result.match.argumentErrors) {

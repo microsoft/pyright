@@ -2254,9 +2254,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
-    function matchCallArgsToParams(callNode: CallNode): MatchCallArgsToParams[] | undefined {
+    function matchCallArgsToParams(
+        callNode: CallNode,
+        callType: Type | undefined = getType(callNode.leftExpression)
+    ): MatchCallArgsToParams[] | undefined {
         const exprNode = callNode.leftExpression;
-        const callType = getType(exprNode);
         if (callType === undefined) {
             return undefined;
         }

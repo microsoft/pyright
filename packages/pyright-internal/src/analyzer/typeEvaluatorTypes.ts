@@ -608,7 +608,7 @@ export interface TypeEvaluator {
         recursionCount?: number
     ) => FunctionType | OverloadedFunctionType | undefined;
     getCallSignatureInfo: (node: CallNode, activeIndex: number, activeOrFake: boolean) => CallSignatureInfo | undefined;
-    matchCallArgsToParams: (callNode: CallNode) => MatchCallArgsToParams[] | undefined;
+    matchCallArgsToParams: (callNode: CallNode, callType?: Type) => MatchCallArgsToParams[] | undefined;
     getAbstractSymbols: (classType: ClassType) => AbstractSymbol[];
     narrowConstrainedTypeVar: (node: ParseNode, typeVar: TypeVarType) => Type | undefined;
 
