@@ -35,9 +35,12 @@ export function isSingleDunderName(name: string) {
     return name.length > 2 && name.startsWith('_') && name.endsWith('_');
 }
 
+/** underscore-only names mean a value is being intentionally ignored */
+export const isUnderscoreOnlyName = (name: string) => name.match(_underscoreOnlyRegEx);
+
 // Constants are all-caps with possible numbers and underscores.
 export function isConstantName(name: string) {
-    return !!name.match(_constantRegEx) && !name.match(_underscoreOnlyRegEx);
+    return !!name.match(_constantRegEx) && !isUnderscoreOnlyName(name);
 }
 
 // Type aliases are CamelCase with possible numbers and underscores.

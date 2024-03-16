@@ -1,5 +1,5 @@
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
-import { isDunderName } from '../analyzer/symbolNameUtils';
+import { isDunderName, isUnderscoreOnlyName } from '../analyzer/symbolNameUtils';
 import { FunctionType, Type, isAny, isClass, isParamSpec, isTypeVar } from '../analyzer/types';
 import { ProgramView } from '../common/extensibility';
 import { limitOverloadBasedOnCall } from '../languageService/tooltipUtils';
@@ -82,7 +82,7 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
     }
 
     override visitName(node: NameNode): boolean {
-        if (isLeftSideOfAssignment(node) && !isDunderName(node.value)) {
+        if (isLeftSideOfAssignment(node) && !isDunderName(node.value) && !isUnderscoreOnlyName(node.value)) {
             const type = this._program.evaluator?.getType(node);
             if (
                 type &&
