@@ -319,3 +319,15 @@ def func16() -> Callable[[Func[*Ts]], Func[*Ts]]: ...
 def func16(
     function: Func[*Ts] | None = None,
 ) -> Func[*Ts] | Callable[[Func[*Ts]], Func[*Ts]]: ...
+
+
+@overload
+def func17(d: dict[str, float], /) -> None: ...
+
+
+@overload
+def func17(**kwargs: float) -> None: ...
+
+
+def func17(d: dict[str, float] | None = None, /, **kwargs: float) -> None:
+    pass

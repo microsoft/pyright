@@ -25018,7 +25018,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (srcStartOfNamed >= 0) {
                 srcParamDetails.params.forEach((srcParamInfo, index) => {
                     if (index >= srcStartOfNamed) {
-                        if (srcParamInfo.param.name && srcParamInfo.param.category === ParameterCategory.Simple) {
+                        if (
+                            srcParamInfo.param.name &&
+                            srcParamInfo.param.category === ParameterCategory.Simple &&
+                            srcParamInfo.source !== ParameterSource.PositionOnly
+                        ) {
                             const destParamInfo = destParamMap.get(srcParamInfo.param.name);
                             const paramDiag = diag?.createAddendum();
                             const srcParamType = srcParamInfo.type;
