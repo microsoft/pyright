@@ -6421,7 +6421,7 @@ export class Checker extends ParseTreeWalker {
             // Handle properties specially.
             if (!isProperty(overrideType)) {
                 const decls = overrideSymbol.getDeclarations();
-                if (decls.length > 0) {
+                if (decls.length > 0 && overrideSymbol.isClassMember()) {
                     const lastDecl = decls[decls.length - 1];
                     this._evaluator.addDiagnostic(
                         DiagnosticRule.reportIncompatibleMethodOverride,

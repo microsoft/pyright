@@ -402,6 +402,14 @@ class ClassA(Generic[_T2A]):
     def prop5(self) -> int:
         return 3
 
+    @property
+    def prop6(self) -> int:
+        return 3
+
+    @prop6.setter
+    def prop6(self, x: int) -> None:
+        pass
+
 
 class ClassB(ClassA[_T2B]):
     # This should generate an error because a variable
@@ -440,6 +448,9 @@ class ClassB(ClassA[_T2B]):
     @property
     def prop5(self) -> str:
         return "hi"
+
+    def func6(self):
+        self.prop6 = 1
 
 
 class Base3:
