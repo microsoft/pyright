@@ -7,8 +7,15 @@
 #### VS Code
 see https://github.com/DetachHead/basedpyright#vscode-extension
 
+#### Neovim
+BasedPyright is not yet available to the [`nvim-lspconfig`](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md) repo, which declares all the supported severs and their configurations.  But it can be configured through the [`pyright`](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#pyright) explicitly declaring the command name in the settings:
+```lua
+local lspconfig = require("lspconfig")
+lspconfig.pyright.setup { cmd = { "basedpyright-langserver", "--stdio" } }
+```
+
 #### Vim
-Vim/neovim users can install [coc-pyright](https://github.com/fannheyward/coc-pyright), the Pyright extension for coc.nvim.
+Vim/Neovim users can install [coc-pyright](https://github.com/fannheyward/coc-pyright), the Pyright extension for coc.nvim.
 
 Alternatively, [ALE](https://github.com/dense-analysis/ale) will automatically check your code with Pyright if added to the linters list.
 
