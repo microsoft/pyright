@@ -3802,7 +3802,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return AnyType.create();
                 }
 
-                return subtype;
+                // Fall back to "*tuple[object, ...]".
+                return makeTupleObject(
+                    [{ type: objectType ?? UnknownType.create(), isUnbounded: true }],
+                    /* isUnpacked */ true
+                );
             }
 
             if (isTypeVar(subtype)) {
