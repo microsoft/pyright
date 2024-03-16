@@ -13653,9 +13653,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         });
 
-        const isTypeInvariant =
-            isClassInstance(inferenceContext.expectedType) &&
-            ClassType.isBuiltIn(inferenceContext.expectedType, builtInClassName);
+        let isTypeInvariant = false;
+
+        if (isClassInstance(inferenceContext.expectedType)) {
+            inferTypeParameterVarianceForClass(inferenceContext.expectedType);
+
+            if (
+                inferenceContext.expectedType.details.typeParameters.some(
+                    (t) => TypeVarType.getVariance(t) === Variance.Invariant
+                )
+            ) {
+                isTypeInvariant = true;
+            }
+        }
+
         const specializedEntryType = inferTypeArgFromExpectedEntryType(
             makeInferenceContext(expectedEntryType),
             entryTypes,
