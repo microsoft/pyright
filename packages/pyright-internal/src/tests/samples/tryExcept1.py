@@ -63,6 +63,9 @@ def func5():
     # This should generate an error.
     except (NotImplementedError, str):
         pass
+    # This should generate an error.
+    except [Exception, ValueError]:
+        pass
     except BaseException:
         pass
 
