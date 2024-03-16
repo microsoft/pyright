@@ -25923,6 +25923,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
+            // Check for positional (named) parameters in the base method that
+            // do not exist in the override.
+            if (enforceParamNames && overrideParamDetails.kwargsIndex === undefined) {
+                for (let i = positionalParamCount; i < baseParamDetails.positionParamCount; i++) {
+                    const baseParam = baseParamDetails.params[i];
+
+                    if (
+                        baseParam.source === ParameterSource.PositionOrKeyword &&
+                        baseParam.param.category === ParameterCategory.Simple
+                    ) {
+                        diag?.addMessage(
+                            LocAddendum.overrideParamNamePositionOnly().format({
+                                index: i + 1,
+                                baseName: baseParam.param.name || '*',
+                            })
+                        );
+                        canOverride = false;
+                    }
+                }
+            }
+
             // Check for a *args match.
             if (baseParamDetails.argsIndex !== undefined) {
                 if (overrideParamDetails.argsIndex === undefined) {
