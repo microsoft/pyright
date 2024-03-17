@@ -3,7 +3,8 @@
     "compilerOptions": {
         "outDir": "./out",
         "paths": {
-        }
+        },
+        "lib": ["ES2021.WeakRef"]
     },
     "include": [
         "src/**/*",
