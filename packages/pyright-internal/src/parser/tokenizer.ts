@@ -143,155 +143,17 @@ const _byteOrderMarker = 0xfeff;
 
 const defaultTabSize = 8;
 
-function toArray(token: Token): TokenPrimitive[] {
-    const comments = token.comments || [];
-    const flattenedComments = comments
-        .map((c) => {
-            return [c.type, c.start, c.length, c.value] as const;
-        })
-        .flat();
-    const withoutComments = Object.keys(token)
-        .map((key) => {
-            if (key !== 'comments') {
-                return token[key as keyof Token];
-            } else {
-                return undefined;
-            }
-        })
-        .filter((v) => v !== undefined) as TokenPrimitive[];
-
-    // Run length encode the comment list.
-    return [...withoutComments, flattenedComments.length, ...flattenedComments];
-}
-
-function commentsFromArray(array: TokenPrimitive[], start: number): Comment[] {
-    const count = array[start] as number;
-    const comments: Comment[] = [];
-    for (let i = 0; i < count; i++) {
-        const type = array[start + 1 + i * 4] as CommentType;
-        const commentStart = array[start + 2 + i * 4] as number;
-        const commentLength = array[start + 3 + i * 4] as number;
-        const value = array[start + 4 + i * 4] as string;
-        comments.push({
-            type,
-            start: commentStart,
-            length: commentLength,
-            value,
-        });
-    }
-    return comments;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function fromArray(array: TokenPrimitive[], start: number): Token {
-    // Use the type to decide how to decode the array.
-    const type = array[start] as TokenType;
-    switch (type) {
-        case TokenType.Indent:
-            return IndentToken.create(
-                array[start + 1] as number,
-                array[start + 2] as number,
-                array[start + 3] as number,
-                array[start + 4] as boolean,
-                commentsFromArray(array, start + 5)
-            );
-        case TokenType.Dedent:
-            return DedentToken.create(
-                array[start + 1] as number,
-                array[start + 2] as number,
-                array[start + 3] as number,
-                array[start + 4] as boolean,
-                array[start + 5] as boolean,
-                commentsFromArray(array, start + 6)
-            );
-        case TokenType.NewLine:
-            return NewLineToken.create(
-                array[start + 1] as number,
-                array[start + 2] as number,
-                array[start + 3] as NewLineType,
-                commentsFromArray(array, start + 4)
-            );
-        case TokenType.Keyword:
-            return KeywordToken.create(
-                array[start + 1] as number,
-                array[start + 2] as number,
-                array[start + 3] as KeywordType,
-                commentsFromArray(array, start + 4)
-            );
-        case TokenType.Identifier:
-            return IdentifierToken.create(
-                array[start + 1] as number,
-                array[start + 2] as number,
-                array[start + 3] as string,
-                commentsFromArray(array, start + 4)
-            );
-        case TokenType.Operator:
-            return OperatorToken.create(
-                array[start + 1] as number,
-                array[start + 2] as number,
-                array[start + 3] as OperatorType,
-                commentsFromArray(array, start + 4)
-            );
-        case TokenType.Number:
-            return NumberToken.create(
-                array[start + 1] as number,
-                array[start + 2] as number,
-                array[start + 3] as number,
-                array[start + 4] as boolean,
-                array[start + 5] as boolean,
-                commentsFromArray(array, start + 6)
-            );
-        case TokenType.String:
-            return StringToken.create(
-                array[start + 1] as number,
-                array[start + 2] as number,
-                array[start + 3] as StringTokenFlags,
-                array[start + 4] as string,
-                array[start + 5] as number,
-                commentsFromArray(array, start + 6)
-            );
-        case TokenType.FStringStart:
-            return FStringStartToken.create(
-                array[start + 1] as number,
-                array[start + 2] as number,
-                array[start + 3] as StringTokenFlags,
-                array[start + 4] as number,
-                commentsFromArray(array, start + 5)
-            );
-        case TokenType.FStringMiddle:
-            return FStringMiddleToken.create(
-                array[start + 1] as number,
-                array[start + 2] as number,
-                array[start + 3] as StringTokenFlags,
-                array[start + 4] as string
-            );
-        case TokenType.FStringEnd:
-            return FStringEndToken.create(
-                array[start + 1] as number,
-                array[start + 2] as number,
-                array[start + 3] as StringTokenFlags
-            );
-        default:
-            return Token.create(
-                type,
-                array[start + 1] as number,
-                array[start + 2] as number,
-                commentsFromArray(array, start + 3)
-            );
-    }
-}
-
 export class TokenCollection {
     private _tokens: (string | number | boolean | bigint)[] = [];
-    private _tokenIndex: number[] = [];
+    private _tokenPositions: number[] = [];
 
     constructor(tokens: Token[]) {
         tokens.forEach((t) => {
             // Turn each token into a flat array.
-            const array = toArray(t);
+            const array = Token.toArray(t);
 
             // Remember the position of this token for quicker lookup later.
-            this._tokenIndex.push(this._tokens.length);
+            this._tokenPositions.push(this._tokens.length);
 
             // Store the flat array in the collection.
             this._tokens.push(...array);
@@ -305,11 +167,11 @@ export class TokenCollection {
 
     get end(): number {
         // Find the last token and return its end position.
-        const lastTokenIndex = this._tokenIndex.length > 0 ? this._tokenIndex[this._tokenIndex.length - 1] : -1;
-        if (lastTokenIndex < 0) {
+        const position = this._tokenPositions.length > 0 ? this._tokenPositions[this._tokenPositions.length - 1] : -1;
+        if (position < 0) {
             return 0;
         }
-        const lastToken = fromArray(this._tokens, lastTokenIndex);
+        const lastToken = Token.fromArray(this._tokens.slice(position));
         return lastToken.start + lastToken.length;
     }
 
@@ -318,7 +180,7 @@ export class TokenCollection {
     }
 
     get count(): number {
-        return this._tokenIndex.length;
+        return this._tokenPositions.length;
     }
 
     contains(position: number) {
@@ -326,19 +188,20 @@ export class TokenCollection {
     }
 
     getItemAt(index: number): Token {
-        if (index < 0 || index >= this._tokenIndex.length) {
+        if (index < 0 || index >= this._tokenPositions.length) {
             throw new Error('index is out of range');
         }
-        return fromArray(this._tokens, this._tokenIndex[index]);
+        const position = this._tokenPositions[index];
+        return Token.fromArray(this._tokens.slice(position));
     }
 
     getItemStart(index: number): number {
-        if (index < 0 || index >= this._tokenIndex.length) {
+        if (index < 0 || index >= this._tokenPositions.length) {
             throw new Error('index is out of range');
         }
 
         // Start is always second entry in a token array.
-        return this._tokens[this._tokenIndex[index] + 1] as number;
+        return this._tokens[this._tokenPositions[index] + 1] as number;
     }
 
     // Returns the nearest item prior to the position.
