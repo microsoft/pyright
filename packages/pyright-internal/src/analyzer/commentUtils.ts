@@ -26,7 +26,7 @@ import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { LocAddendum, LocMessage } from '../localization/localize';
-import { Token } from '../parser/tokenizerTypes';
+import { TokenCollection } from '../parser/tokenizer';
 
 const strictSetting = 'strict';
 const standardSetting = 'standard';
@@ -38,7 +38,7 @@ export interface CommentDiagnostic {
 }
 
 export function getFileLevelDirectives(
-    tokens: TextRangeCollection<Token>,
+    tokens: TokenCollection,
     lines: TextRangeCollection<TextRange>,
     defaultRuleSet: DiagnosticRuleSet,
     useStrict: boolean,

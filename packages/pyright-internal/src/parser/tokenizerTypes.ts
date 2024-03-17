@@ -183,6 +183,8 @@ export const enum CommentType {
     IPythonCellShellEscape,
 }
 
+export type TokenPrimitive = string | number | boolean | bigint;
+
 export interface Comment extends TextRange {
     readonly type: CommentType;
     readonly value: string;
@@ -200,6 +202,24 @@ export namespace Comment {
         };
 
         return comment;
+    }
+
+    export function toArray(comments: Comment[] | undefined) {
+        const commentsLength = comments?.length || 0;
+        const commentsArray = comments?.map((c) => [c.type, c.start, c.length, c.value]) || [];
+        return [commentsLength, ...commentsArray.flat()];
+    }
+
+    export function fromArray(data: TokenPrimitive[]): Comment[] {
+        const commentsLength = data[3] as number;
+        const commentsArray: Comment[] = [];
+        for (let i = 0; i < commentsLength; i++) {
+            const slice = data.slice(4 + i * 4);
+            commentsArray.push(
+                create(slice[1] as number, slice[2] as number, slice[3] as string, slice[0] as CommentType)
+            );
+        }
+        return commentsArray;
     }
 }
 
@@ -222,6 +242,14 @@ export namespace Token {
         };
 
         return token;
+    }
+
+    export function toArray(token: Token): TokenPrimitive[] {
+        return [token.type, token.start, token.length, ...Comment.toArray(token.comments)];
+    }
+
+    export function fromArray(data: TokenPrimitive[]) {
+        return create(data[0] as TokenType, data[1] as number, data[2] as number, Comment.fromArray(data.slice(3)));
     }
 }
 
@@ -249,6 +277,27 @@ export namespace IndentToken {
         };
 
         return token;
+    }
+
+    export function toArray(token: IndentToken): TokenPrimitive[] {
+        return [
+            token.type,
+            token.start,
+            token.length,
+            token.indentAmount,
+            token.isIndentAmbiguous,
+            ...Comment.toArray(token.comments),
+        ];
+    }
+
+    export function fromArray(data: TokenPrimitive[]) {
+        return create(
+            data[1] as number,
+            data[2] as number,
+            data[3] as number,
+            data[4] as boolean,
+            Comment.fromArray(data.slice(5))
+        );
     }
 }
 
@@ -280,6 +329,29 @@ export namespace DedentToken {
 
         return token;
     }
+
+    export function toArray(token: DedentToken): TokenPrimitive[] {
+        return [
+            token.type,
+            token.start,
+            token.length,
+            token.indentAmount,
+            token.matchesIndent,
+            token.isDedentAmbiguous,
+            ...Comment.toArray(token.comments),
+        ];
+    }
+
+    export function fromArray(data: TokenPrimitive[]) {
+        return create(
+            data[1] as number,
+            data[2] as number,
+            data[3] as number,
+            data[4] as boolean,
+            data[5] as boolean,
+            Comment.fromArray(data.slice(6))
+        );
+    }
 }
 
 export interface NewLineToken extends Token {
@@ -299,6 +371,14 @@ export namespace NewLineToken {
 
         return token;
     }
+
+    export function toArray(token: NewLineToken): TokenPrimitive[] {
+        return [token.type, token.start, token.length, token.newLineType, ...Comment.toArray(token.comments)];
+    }
+
+    export function fromArray(data: TokenPrimitive[]) {
+        return create(data[1] as number, data[2] as number, data[3] as NewLineType, Comment.fromArray(data.slice(4)));
+    }
 }
 
 export interface KeywordToken extends Token {
@@ -317,6 +397,14 @@ export namespace KeywordToken {
         };
 
         return token;
+    }
+
+    export function toArray(token: KeywordToken): TokenPrimitive[] {
+        return [token.type, token.start, token.length, token.keywordType, ...Comment.toArray(token.comments)];
+    }
+
+    export function fromArray(data: TokenPrimitive[]) {
+        return create(data[1] as number, data[2] as number, data[3] as KeywordType, Comment.fromArray(data.slice(4)));
     }
 }
 

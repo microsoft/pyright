@@ -11,10 +11,10 @@ import { CompletionItemKind, MarkupKind } from 'vscode-languageserver-types';
 
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';
-import { TextRangeCollection } from '../common/textRangeCollection';
-import { Comment, CommentType, Token } from '../parser/tokenizerTypes';
-import { parseAndGetTestState } from './harness/fourslash/testState';
 import { LocMessage } from '../localization/localize';
+import { TokenCollection } from '../parser/tokenizer';
+import { Comment, CommentType } from '../parser/tokenizerTypes';
+import { parseAndGetTestState } from './harness/fourslash/testState';
 
 test('regular mode', () => {
     const code = `
@@ -508,7 +508,7 @@ function getCommentType(text: string) {
     }
 }
 
-function findCommentByOffset(tokens: TextRangeCollection<Token>, offset: number) {
+function findCommentByOffset(tokens: TokenCollection, offset: number) {
     let startIndex = tokens.getItemAtPosition(offset);
     startIndex = startIndex >= 0 ? startIndex : 0;
 

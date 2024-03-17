@@ -31,8 +31,7 @@ import { Uri } from '../common/uri/uri';
 import { LocMessage } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
-import { IgnoreComment } from '../parser/tokenizer';
-import { Token } from '../parser/tokenizerTypes';
+import { IgnoreComment, TokenCollection } from '../parser/tokenizer';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Binder } from './binder';
@@ -687,7 +686,7 @@ export class SourceFile {
                     importedModules: [],
                     futureImports: new Set<string>(),
                     tokenizerOutput: {
-                        tokens: new TextRangeCollection<Token>([]),
+                        tokens: new TokenCollection([]),
                         lines: new TextRangeCollection<TextRange>([]),
                         typeIgnoreAll: undefined,
                         typeIgnoreLines: new Map<number, IgnoreComment>(),

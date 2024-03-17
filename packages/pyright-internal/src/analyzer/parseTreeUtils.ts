@@ -45,7 +45,7 @@ import {
     isExpressionNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { TokenizerOutput } from '../parser/tokenizer';
+import { TokenCollection, TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
 import { ParseTreeWalker, getChildNodes } from './parseTreeWalker';
@@ -1660,11 +1660,7 @@ export function getEnclosingParameter(node: ParseNode): ParameterNode | undefine
     return undefined;
 }
 
-export function getCallNodeAndActiveParameterIndex(
-    node: ParseNode,
-    insertionOffset: number,
-    tokens: TextRangeCollection<Token>
-) {
+export function getCallNodeAndActiveParameterIndex(node: ParseNode, insertionOffset: number, tokens: TokenCollection) {
     // Find the call node that contains the specified node.
     let curNode: ParseNode | undefined = node;
     let callNode: CallNode | undefined;
@@ -1747,7 +1743,7 @@ export function getCallNodeAndActiveParameterIndex(
         activeOrFake,
     };
 
-    function isOffsetInsideCallArgs(tokens: TextRangeCollection<Token>, node: CallNode, offset: number) {
+    function isOffsetInsideCallArgs(tokens: TokenCollection, node: CallNode, offset: number) {
         const argumentStart =
             node.leftExpression.length > 0 ? TextRange.getEnd(node.leftExpression) - 1 : node.leftExpression.start;
 
@@ -1781,7 +1777,7 @@ export function getCallNodeAndActiveParameterIndex(
 }
 
 export function getTokenIndexAtLeft(
-    tokens: TextRangeCollection<Token>,
+    tokens: TokenCollection,
     position: number,
     includeWhitespace = false,
     includeZeroLengthToken = false
@@ -1810,7 +1806,7 @@ export function getTokenIndexAtLeft(
 }
 
 export function getTokenAtLeft(
-    tokens: TextRangeCollection<Token>,
+    tokens: TokenCollection,
     position: number,
     includeWhitespace = false,
     includeZeroLengthToken = false
@@ -1827,7 +1823,7 @@ export function isWhitespace(token: Token) {
     return token.type === TokenType.NewLine || token.type === TokenType.Indent || token.type === TokenType.Dedent;
 }
 
-export function getTokenAtIndex(tokens: TextRangeCollection<Token>, index: number) {
+export function getTokenAtIndex(tokens: TokenCollection, index: number) {
     if (index < 0) {
         return undefined;
     }
@@ -1835,16 +1831,16 @@ export function getTokenAtIndex(tokens: TextRangeCollection<Token>, index: numbe
     return tokens.getItemAt(index);
 }
 
-export function getTokenAt(tokens: TextRangeCollection<Token>, position: number) {
+export function getTokenAt(tokens: TokenCollection, position: number) {
     return getTokenAtIndex(tokens, tokens.getItemAtPosition(position));
 }
 
-export function getTokenOverlapping(tokens: TextRangeCollection<Token>, position: number) {
+export function getTokenOverlapping(tokens: TokenCollection, position: number) {
     const index = getIndexOfTokenOverlapping(tokens, position);
     return getTokenAtIndex(tokens, index);
 }
 
-export function getIndexOfTokenOverlapping(tokens: TextRangeCollection<Token>, position: number) {
+export function getIndexOfTokenOverlapping(tokens: TokenCollection, position: number) {
     const index = tokens.getItemAtPosition(position);
     if (index < 0) {
         return -1;
@@ -1873,7 +1869,7 @@ export function findTokenAfter(parseResults: ParseResults, offset: number, predi
     return undefined;
 }
 
-export function getCommentsAtTokenIndex(tokens: TextRangeCollection<Token>, index: number) {
+export function getCommentsAtTokenIndex(tokens: TokenCollection, index: number) {
     let token = getTokenAtIndex(tokens, index);
     if (!token) {
         return undefined;

@@ -82,7 +82,6 @@ import { convertOffsetToPosition, convertPositionToOffset } from '../common/posi
 import { PythonVersion, pythonVersion3_10, pythonVersion3_5 } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
 import { comparePositions, Position, TextRange } from '../common/textRange';
-import { TextRangeCollection } from '../common/textRangeCollection';
 import { Uri } from '../common/uri/uri';
 import { convertToTextEdits } from '../common/workspaceEditUtils';
 import { Localizer } from '../localization/localize';
@@ -109,13 +108,13 @@ import {
     TypeAnnotationNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { TokenCollection } from '../parser/tokenizer';
 import {
     FStringStartToken,
     OperatorToken,
     OperatorType,
     StringToken,
     StringTokenFlags,
-    Token,
     TokenType,
 } from '../parser/tokenizerTypes';
 import { AutoImporter, AutoImportResult, buildModuleSymbolsMap } from './autoImporter';
@@ -1465,7 +1464,7 @@ export class CompletionProvider {
 
         return token.comments?.some((c) => TextRange.overlaps(c, offset)) ?? false;
 
-        function getTokenAfter(offset: number, tokens: TextRangeCollection<Token>) {
+        function getTokenAfter(offset: number, tokens: TokenCollection) {
             const tokenIndex = tokens.getItemAtPosition(offset);
             if (tokenIndex < 0) {
                 return undefined;
