@@ -8,11 +8,12 @@
 see https://github.com/DetachHead/basedpyright#vscode-extension
 
 #### Neovim
-BasedPyright is available through the [`nvim-lspconfig`](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#basedpyright) adapter for native Neovim's LSP support.  To configure it simply add this to your Neovim's settings:
+BasedPyright is available through the [`nvim-lspconfig`](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#basedpyright) adapter for native Neovim's LSP support.  TL;DR simply add this to your Neovim's settings:
 ```lua
 local lspconfig = require("lspconfig")
-lspconfig.basedpyright.setup {}
+lspconfig.basedpyright.setup{}
 ```
+Further info for this LSP server options for `nvim-lspconfig` are available on their docs, linked above.
 
 #### Vim
 Vim/Neovim users can install [coc-pyright](https://github.com/fannheyward/coc-pyright), the Pyright extension for coc.nvim.
