@@ -44,6 +44,7 @@ import {
     ModuleType,
     NeverType,
     OverloadedFunctionType,
+    PropertyMethodInfo,
     removeFromUnion,
     SignatureWithOffsets,
     SpecializedFunctionTypes,
@@ -1385,7 +1386,36 @@ export function partiallySpecializeType(
         populateTypeVarContextForSelfType(typeVarContext, contextClassType, selfClass);
     }
 
-    return applySolvedTypeVars(type, typeVarContext, { typeClassType });
+    let result = applySolvedTypeVars(type, typeVarContext, { typeClassType });
+
+    // If this is a property, we may need to partially specialize the
+    // access methods associated with it.
+    if (isClass(result)) {
+        if (result.fgetInfo || result.fsetInfo || result.fdelInfo) {
+            function updatePropertyMethodInfo(methodInfo?: PropertyMethodInfo): PropertyMethodInfo | undefined {
+                if (!methodInfo) {
+                    return undefined;
+                }
+
+                return {
+                    methodType: partiallySpecializeType(
+                        methodInfo.methodType,
+                        contextClassType,
+                        selfClass,
+                        typeClassType
+                    ) as FunctionType,
+                    classType: methodInfo.classType,
+                };
+            }
+
+            result = TypeBase.cloneType(result);
+            result.fgetInfo = updatePropertyMethodInfo(result.fgetInfo);
+            result.fsetInfo = updatePropertyMethodInfo(result.fsetInfo);
+            result.fdelInfo = updatePropertyMethodInfo(result.fdelInfo);
+        }
+    }
+
+    return result;
 }
 
 export function populateTypeVarContextForSelfType(
