@@ -108,7 +108,7 @@ import {
     TypeAnnotationNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { TokenCollection } from '../parser/tokenizer';
+import { TokenCollection } from '../parser/tokenCollection';
 import {
     FStringStartToken,
     OperatorToken,

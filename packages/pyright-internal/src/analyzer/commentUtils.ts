@@ -26,7 +26,7 @@ import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { LocAddendum, LocMessage } from '../localization/localize';
-import { TokenCollection } from '../parser/tokenizer';
+import { TokenCollection } from '../parser/tokenCollection';
 
 const strictSetting = 'strict';
 const standardSetting = 'standard';

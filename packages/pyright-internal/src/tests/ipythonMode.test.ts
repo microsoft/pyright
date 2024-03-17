@@ -12,7 +12,7 @@ import { CompletionItemKind, MarkupKind } from 'vscode-languageserver-types';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';
 import { LocMessage } from '../localization/localize';
-import { TokenCollection } from '../parser/tokenizer';
+import { TokenCollection } from '../parser/tokenCollection';
 import { Comment, CommentType } from '../parser/tokenizerTypes';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 

@@ -45,7 +45,8 @@ import {
     isExpressionNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { TokenCollection, TokenizerOutput } from '../parser/tokenizer';
+import { TokenCollection } from '../parser/tokenCollection';
+import { TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
 import { ParseTreeWalker, getChildNodes } from './parseTreeWalker';

@@ -25,6 +25,7 @@ import {
     isOctal,
     isSurrogateChar,
 } from './characters';
+import { TokenCollection } from './tokenCollection';
 import {
     Comment,
     CommentType,
@@ -142,134 +143,6 @@ const _operatorInfo: { [key: number]: OperatorFlags } = {
 const _byteOrderMarker = 0xfeff;
 
 const defaultTabSize = 8;
-
-export class TokenCollection {
-    private _tokenData: (string | number | boolean | bigint)[] = [];
-    private _tokenPositions: number[] = [];
-    private _tokenRefs = new Map<Number, WeakRef<Token>>();
-
-    constructor(tokens: Token[]) {
-        tokens.forEach((t) => {
-            // Turn each token into a flat array.
-            const array = Token.toArray(t);
-
-            // Remember the position of this token for quicker lookup later.
-            this._tokenPositions.push(this._tokenData.length);
-
-            // Make a weak ref to the token so we can retrieve it later without
-            // having to recreate it.
-            this._tokenRefs.set(this._tokenData.length, new WeakRef(t));
-
-            // Store the flat array in the collection.
-            this._tokenData.push(...array);
-        });
-    }
-
-    get start(): number {
-        // Start of the first token is always at position 1.
-        return this._tokenData.length > 0 ? (this._tokenData[1] as number) : 0;
-    }
-
-    get end(): number {
-        // Find the last token and return its end position.
-        const position = this._tokenPositions.length > 0 ? this._tokenPositions[this._tokenPositions.length - 1] : -1;
-        if (position < 0) {
-            return 0;
-        }
-        const start = this._tokenData[position + 1] as number;
-        const length = this._tokenData[position + 2] as number;
-        return start + length;
-    }
-
-    get length(): number {
-        return this.end - this.start;
-    }
-
-    get count(): number {
-        return this._tokenPositions.length;
-    }
-
-    minimize() {
-        // Cleanup all of the temporary refs. (Used for testing).
-        this._tokenRefs.clear();
-    }
-
-    contains(position: number) {
-        return position >= this.start && position < this.end;
-    }
-
-    getItemAt(index: number): Token {
-        if (index < 0 || index >= this._tokenPositions.length) {
-            throw new Error('index is out of range');
-        }
-        const position = this._tokenPositions[index];
-
-        // See if we have a WeakRef to this token.
-        const ref = this._tokenRefs.get(position);
-        let token = ref?.deref();
-        if (!token) {
-            // If not, create a new token from the array and make a new weak ref
-            // for it.
-            token = Token.fromArray(this._tokenData.slice(position));
-            this._tokenRefs.set(position, new WeakRef(token));
-        }
-        return token;
-    }
-
-    getTypeAt(index: number): TokenType {
-        if (index < 0 || index >= this._tokenPositions.length) {
-            throw new Error('index is out of range');
-        }
-        const position = this._tokenPositions[index];
-        return this._tokenData[position] as TokenType; // First element in a token array is the token type.
-    }
-
-    getItemStart(index: number): number {
-        if (index < 0 || index >= this._tokenPositions.length) {
-            throw new Error('index is out of range');
-        }
-
-        // Start is always second entry in a token array.
-        return this._tokenData[this._tokenPositions[index] + 1] as number;
-    }
-
-    // Returns the nearest item prior to the position.
-    // The position may not be contained within the item.
-    getItemAtPosition(position: number): number {
-        if (this.count === 0) {
-            return -1;
-        }
-        if (position < this.start) {
-            return -1;
-        }
-        if (position > this.end) {
-            return -1;
-        }
-
-        let min = 0;
-        let max = this.count - 1;
-
-        while (min < max) {
-            const mid = Math.floor(min + (max - min) / 2);
-            const item = this.getItemStart(mid);
-
-            // Is the position past the start of this item but before
-            // the start of the next item? If so, we found our item.
-            if (position >= item) {
-                if (mid >= this.count - 1 || position < this.getItemStart(mid + 1)) {
-                    return mid;
-                }
-            }
-
-            if (position < item) {
-                max = mid - 1;
-            } else {
-                min = mid + 1;
-            }
-        }
-        return min;
-    }
-}
 
 export interface TokenizerOutput {
     // List of all tokens.

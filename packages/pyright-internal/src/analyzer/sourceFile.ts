@@ -31,7 +31,8 @@ import { Uri } from '../common/uri/uri';
 import { LocMessage } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
-import { IgnoreComment, TokenCollection } from '../parser/tokenizer';
+import { TokenCollection } from '../parser/tokenCollection';
+import { IgnoreComment } from '../parser/tokenizer';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Binder } from './binder';
@@ -801,6 +802,9 @@ export class SourceFile {
             // Prepare for the next stage of the analysis.
             this._writableData.isCheckingNeeded = true;
             this._writableData.isBindingNeeded = false;
+
+            // Clear up some memory in the parser.
+            this._writableData.parseResults?.tokenizerOutput.tokens.minimize();
 
             this._recomputeDiagnostics(configOptions);
         });
