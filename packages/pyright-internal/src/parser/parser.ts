@@ -5042,15 +5042,7 @@ export class Parser {
     }
 
     private _peekTokenType(): TokenType {
-        if (this._tokenIndex < 0) {
-            return this._tokenizerOutput!.tokens.getTypeAt(0);
-        }
-
-        if (this._tokenIndex >= this._tokenizerOutput!.tokens.count) {
-            return this._tokenizerOutput!.tokens.getTypeAt(this._tokenizerOutput!.tokens.count - 1);
-        }
-
-        return this._tokenizerOutput!.tokens.getTypeAt(this._tokenIndex);
+        return this._peekToken().type;
     }
 
     private _peekKeywordType(): KeywordType | undefined {

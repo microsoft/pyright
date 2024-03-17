@@ -7,7 +7,7 @@
  */
 
 import { TextRangeCollection } from '../common/textRangeCollection';
-import { Token, TokenType } from './tokenizerTypes';
+import { Token } from './tokenizerTypes';
 
 // Interface implemented by a TokenCollection
 interface ITokenCollection {
@@ -17,20 +17,12 @@ interface ITokenCollection {
     count: number;
     contains(position: number): boolean;
     getItemAt(index: number): Token;
-    getTypeAt(index: number): TokenType;
-    getItemStart(index: number): number;
     getItemAtPosition(position: number): number;
 }
 
 class TokenCollectionFast extends TextRangeCollection<Token> implements ITokenCollection {
     constructor(private readonly _tokens: Token[]) {
         super(_tokens);
-    }
-    getTypeAt(index: number): TokenType {
-        return this.getItemAt(index).type;
-    }
-    getItemStart(index: number): number {
-        return this.getItemAt(index).start;
     }
 
     toArray(): Token[] {
@@ -40,7 +32,7 @@ class TokenCollectionFast extends TextRangeCollection<Token> implements ITokenCo
 
 // Special TokenCollection that is optimized for memory usage but is a lot
 // slower to fetch actual tokens.
-class TokenCollectionSlim implements ITokenCollection {
+export class TokenCollectionSlim implements ITokenCollection {
     private _tokenData: (string | number | boolean | bigint)[] = [];
     private _tokenPositions: number[] = [];
     constructor(tokens: Token[]) {
@@ -90,14 +82,6 @@ class TokenCollectionSlim implements ITokenCollection {
         }
         const position = this._tokenPositions[index];
         return Token.fromArray(this._tokenData.slice(position));
-    }
-
-    getTypeAt(index: number): TokenType {
-        if (index < 0 || index >= this._tokenPositions.length) {
-            throw new Error('index is out of range');
-        }
-        const position = this._tokenPositions[index];
-        return this._tokenData[position] as TokenType; // First element in a token array is the token type.
     }
 
     getItemStart(index: number): number {
@@ -163,12 +147,6 @@ export class TokenCollection implements ITokenCollection {
     getItemAt(index: number): Token {
         return this._impl.getItemAt(index);
     }
-    getTypeAt(index: number): TokenType {
-        return this._impl.getTypeAt(index);
-    }
-    getItemStart(index: number): number {
-        return this._impl.getItemStart(index);
-    }
     getItemAtPosition(position: number): number {
         return this._impl.getItemAtPosition(position);
     }
@@ -190,8 +168,6 @@ export class TokenCollection implements ITokenCollection {
         // Reassign all methods for faster execution.
         this.contains = impl.contains.bind(impl);
         this.getItemAt = impl.getItemAt.bind(impl);
-        this.getTypeAt = impl.getTypeAt.bind(impl);
-        this.getItemStart = impl.getItemStart.bind(impl);
         this.getItemAtPosition = impl.getItemAtPosition.bind(impl);
     }
 }

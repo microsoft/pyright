@@ -210,7 +210,7 @@ interface FStringContext {
 
 export class Tokenizer {
     private _cs = new CharacterStream('');
-    private _tokens: any[] = [];
+    private _tokens: Token[] = [];
     private _prevLineStart = 0;
     private _parenDepth = 0;
     private _lineRanges: TextRange[] = [];
