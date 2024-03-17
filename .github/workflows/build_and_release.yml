@@ -5,11 +5,9 @@ env:
   ARTIFACT_NAME_VSIX: vsix
   VSIX_NAME: vscode-pyright.vsix
   VSIX_DIR: packages/vscode-pyright
+  NPM_PACKAGE_DIR: packages/pyright
 
-on:
-  push:
-    branches:
-      - main
+on: push
 
 jobs:
   build-and-release:
@@ -47,6 +45,11 @@ jobs:
       - id: current-version
         run: echo ::set-output name=CURRENT_VERSION::$(node -p "require(\"./lerna.json\").version")
 
+      - if: github.ref == 'refs/heads/main'
+        run: echo ::set-output name=VERSION_INFO::$(npm view $(node -p "require(\"./package.json\").name")@=${{ steps.current-version.outputs.CURRENT_VERSION }})
+        id: version-was-changed
+        working-directory: ${{ env.NPM_PACKAGE_DIR }}
+
       - name: Build VSIX
         working-directory: ${{ env.VSIX_DIR }}
         run: |
@@ -58,15 +61,41 @@ jobs:
           name: ${{ env.ARTIFACT_NAME_VSIX }}
           path: ${{ env.VSIX_DIR }}/${{ env.VSIX_NAME }}
 
+      # publish npm canary version on every push to every branch except main
+      - name: canary version
+        if: github.ref != 'refs/heads/main'
+        run: npm version ${{ steps.current-version.outputs.CURRENT_VERSION }}-$GITHUB_SHA --git-tag-version false
+        working-directory: ${{ env.NPM_PACKAGE_DIR }}
+      - name: canary publish
+        if: github.ref != 'refs/heads/main'
+        uses: JS-DevTools/npm-publish@v1
+        with:
+          token: ${{ secrets.NPM_TOKEN }}
+          access: public
+          tag: canary
+          package: ${{ env.NPM_PACKAGE_DIR }}/package.json
+
+      - name: publish
+        # publish npm & pypi packages, vscode extension and github release if the version in lerna.json was changed:
+        if: steps.version-was-changed.outputs.VERSION_INFO == ''
+        uses: JS-DevTools/npm-publish@v1
+        with:
+          token: ${{ secrets.NPM_TOKEN }}
+          access: public
+          package: ${{ env.NPM_PACKAGE_DIR }}/package.json
+
       - name: publish pypi package
+        if: github.ref == 'refs/heads/main' && steps.version-was-changed.outputs.VERSION_INFO == ''
         run: ./pw pdm publish
 
       # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
       - name: Publish VSIX
+        if: github.ref == 'refs/heads/main' && steps.version-was-changed.outputs.VERSION_INFO == ''
         run: ./node_modules/.bin/vsce publish --packagePath ${{ env.VSIX_NAME }} --pat ${{ secrets.VSCE_TOKEN }} --noVerify
         working-directory: ${{ env.VSIX_DIR }}
 
       - uses: marvinpinto/action-automatic-releases@v1.2.1
+        if: github.ref == 'refs/heads/main' && steps.version-was-changed.outputs.VERSION_INFO == ''
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           prerelease: false

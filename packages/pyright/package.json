@@ -1,26 +1,24 @@
 {
-    "name": "pyright",
-    "private": true,
-    "displayName": "Pyright",
-    "description": "Type checker for the Python language",
+    "name": "basedpyright",
+    "displayName": "basedpyright",
+    "description": "a pyright fork with various type checking improvements, improved vscode support and pylance features built into the language server",
     "version": "1.6.0",
     "license": "MIT",
     "author": {
-        "name": "Microsoft Corporation"
+        "name": "detachhead"
     },
-    "publisher": "Microsoft Corporation",
     "engines": {
         "node": ">=14.0.0"
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/Microsoft/pyright",
+        "url": "https://github.com/detachhead/basedpyright",
         "directory": "packages/pyright"
     },
     "scripts": {
         "build": "webpack --mode production --progress",
-        "clean": "shx rm -rf ./dist ./out README.md LICENSE.txt",
-        "prepack": "npm run clean && shx cp ../../README.md . && shx cp ../../LICENSE.txt . && npm run build",
+        "clean": "shx rm -rf ./dist ./out LICENSE.txt",
+        "prepack": "npm run clean && shx cp ../../LICENSE.txt . && npm run build",
         "webpack": "webpack --mode development --progress"
     },
     "optionalDependencies": {
