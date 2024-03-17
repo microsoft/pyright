@@ -39,7 +39,6 @@ import {
     computeMroLinearization,
     getTypeVarScopeId,
     isProperty,
-    partiallySpecializeType,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
@@ -520,12 +519,7 @@ export function assignProperty(
             }
 
             evaluator.inferReturnTypeIfNecessary(srcAccessType);
-            if (isClass(srcClass)) {
-                srcAccessType = partiallySpecializeType(srcAccessType, srcClass) as FunctionType;
-            }
-
             evaluator.inferReturnTypeIfNecessary(destAccessType);
-            destAccessType = partiallySpecializeType(destAccessType, destClass) as FunctionType;
 
             // If the caller provided a "self" TypeVar context, replace any Self types.
             // This is needed during protocol matching.
@@ -553,16 +547,17 @@ export function assignProperty(
                 /* memberClass */ undefined,
                 /* treatConstructorAsClassMember */ undefined,
                 /* firstParamType */ undefined,
-                /* diag */ undefined,
+                diag?.createAddendum(),
                 recursionCount
             );
+
             const boundSrcAccessType = evaluator.bindFunctionToClassOrObject(
                 srcObjectToBind,
                 srcAccessType,
                 /* memberClass */ undefined,
                 /* treatConstructorAsClassMember */ undefined,
                 /* firstParamType */ undefined,
-                /* diag */ undefined,
+                diag?.createAddendum(),
                 recursionCount
             );
 

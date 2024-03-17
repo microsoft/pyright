@@ -1177,6 +1177,12 @@ test('Property16', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Property17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['property17.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Operator1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operator1.py']);
 
