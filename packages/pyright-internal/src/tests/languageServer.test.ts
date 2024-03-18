@@ -17,7 +17,7 @@ import {
 } from 'vscode-languageserver';
 
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { PythonVersion } from '../common/pythonVersion';
+import { PythonVersion, pythonVersion3_10 } from '../common/pythonVersion';
 
 import { isArray } from '../common/core';
 import { normalizeSlashes } from '../common/pathUtils';
@@ -40,7 +40,7 @@ describe(`Basic language server tests`, () => {
         code: string,
         callInitialize = true,
         extraSettings?: { item: ConfigurationItem; value: any }[],
-        pythonVersion: PythonVersion = PythonVersion.V3_10,
+        pythonVersion: PythonVersion = pythonVersion3_10,
         supportsBackgroundThread?: boolean
     ) {
         const result = await runPyrightServer(

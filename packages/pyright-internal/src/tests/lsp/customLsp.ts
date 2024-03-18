@@ -131,7 +131,7 @@ export namespace CustomLSP {
         logFile: Uri; // Helpful for debugging
         code: string; // Fourslash data.
         projectRoots: Uri[];
-        pythonVersion: number;
+        pythonVersion: string;
         backgroundAnalysis?: boolean;
     }
 

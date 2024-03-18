@@ -12,7 +12,7 @@ import { compareComparableValues } from '../common/core';
 import { FileSystem } from '../common/fileSystem';
 import { Host } from '../common/host';
 import * as pathConsts from '../common/pathConsts';
-import { PythonVersion, versionToString } from '../common/pythonVersion';
+import { PythonVersion } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import { getFileSystemEntries, isDirectory, tryStat } from '../common/uri/uriUtils';
 
@@ -156,7 +156,7 @@ function findSitePackagesPath(
     // version), prefer that over other python directories.
     if (pythonVersion) {
         const preferredDir = candidateDirs.find(
-            (dirName) => dirName.fileName === `python${versionToString(pythonVersion)}`
+            (dirName) => dirName.fileName === `python${pythonVersion.toMajorMinorString()}`
         );
         if (preferredDir) {
             const dirPath = preferredDir.combinePaths(pathConsts.sitePackages);

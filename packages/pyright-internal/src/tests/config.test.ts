@@ -10,18 +10,18 @@
 import assert from 'assert';
 
 import { AnalyzerService } from '../analyzer/service';
+import { deserialize, serialize } from '../backgroundThreadBase';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../common/console';
 import { NoAccessHost } from '../common/host';
 import { combinePaths, normalizePath, normalizeSlashes } from '../common/pathUtils';
-import { PythonVersion } from '../common/pythonVersion';
+import { pythonVersion3_9 } from '../common/pythonVersion';
 import { createFromRealFileSystem } from '../common/realFileSystem';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
 import { TestAccessHost } from './harness/testAccessHost';
 import { TestFileSystem } from './harness/vfs/filesystem';
-import { deserialize, serialize } from '../backgroundThreadBase';
 
 function createAnalyzer(console?: ConsoleInterface) {
     const cons = console ?? new NullConsole();
@@ -63,11 +63,11 @@ test('FindFilesVirtualEnvAutoDetectExclude', () => {
     service.setOptions(commandLineOptions);
 
     // The config file is empty, so no 'exclude' are specified
-    // The myvenv directory is detected as a venv and will be automatically excluded
+    // The myVenv directory is detected as a venv and will be automatically excluded
     const fileList = service.test_getFileNamesFromFileSpecs();
 
-    // There are 3 python files in the workspace, outside of myvenv
-    // There is 1 python file in myvenv, which should be excluded
+    // There are 3 python files in the workspace, outside of myVenv
+    // There is 1 python file in myVenv, which should be excluded
     const fileNames = fileList.map((p) => p.fileName).sort();
     assert.deepStrictEqual(fileNames, ['sample1.py', 'sample2.py', 'sample3.py']);
 });
@@ -83,9 +83,9 @@ test('FindFilesVirtualEnvAutoDetectInclude', () => {
     // Config file defines 'exclude' folder so virtual env will be included
     const fileList = service.test_getFileNamesFromFileSpecs();
 
-    // There are 3 python files in the workspace, outside of myvenv
+    // There are 3 python files in the workspace, outside of myVenv
     // There is 1 more python file in excluded folder
-    // There is 1 python file in myvenv, which should be included
+    // There is 1 python file in myVenv, which should be included
     const fileNames = fileList.map((p) => p.fileName).sort();
     assert.deepStrictEqual(fileNames, ['library1.py', 'sample1.py', 'sample2.py', 'sample3.py']);
 });
@@ -305,7 +305,7 @@ test('BasicPyprojectTomlParsing', () => {
     service.setOptions(commandLineOptions);
 
     const configOptions = service.test_getConfigOptions(commandLineOptions);
-    assert.strictEqual(configOptions.defaultPythonVersion!, PythonVersion.V3_9);
+    assert.strictEqual(configOptions.defaultPythonVersion!.toString(), pythonVersion3_9.toString());
     assert.strictEqual(configOptions.diagnosticRuleSet.reportMissingImports, 'error');
     assert.strictEqual(configOptions.diagnosticRuleSet.reportUnusedClass, 'warning');
 });

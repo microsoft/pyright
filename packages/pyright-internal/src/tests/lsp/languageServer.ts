@@ -31,6 +31,7 @@ import { BackgroundAnalysis, BackgroundAnalysisRunner } from '../../backgroundAn
 import { BackgroundAnalysisBase } from '../../backgroundAnalysisBase';
 import { serialize } from '../../backgroundThreadBase';
 import { FileSystem } from '../../common/fileSystem';
+import { PythonVersion } from '../../common/pythonVersion';
 import { ServiceKeys } from '../../common/serviceProviderExtensions';
 import { ServerSettings } from '../../languageServerBase';
 import { PyrightFileSystem } from '../../pyrightFileSystem';
@@ -112,7 +113,7 @@ function createTestHost(testServerData: CustomLSP.TestServerStartOptions) {
     ) => {
         return { stdout: scriptOutput, stderr: '', exitCode: 0 };
     };
-    const options = new TestHostOptions({ version: testServerData.pythonVersion, runScript });
+    const options = new TestHostOptions({ version: PythonVersion.fromString(testServerData.pythonVersion), runScript });
     const projectRootPaths = testServerData.projectRoots.map((p) => getFileLikePath(p));
     const testData = parseTestData(
         testServerData.projectRoots.length === 1 ? projectRootPaths[0] : DEFAULT_WORKSPACE_ROOT,
