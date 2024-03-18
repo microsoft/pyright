@@ -9,7 +9,7 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
-import { PythonVersion } from '../common/pythonVersion';
+import { pythonVersion3_10, pythonVersion3_9 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -296,11 +296,11 @@ test('isInstance2', () => {
 test('isInstance3', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    configOptions.defaultPythonVersion = pythonVersion3_9;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 4);
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 4);
 });

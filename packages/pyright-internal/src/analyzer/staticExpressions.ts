@@ -9,6 +9,7 @@
  */
 
 import { ExecutionEnvironment, PythonPlatform } from '../common/configOptions';
+import { PythonReleaseLevel, PythonVersion } from '../common/pythonVersion';
 import { ArgumentCategory, ExpressionNode, NameNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
@@ -79,8 +80,10 @@ export function evaluateStaticBoolExpression(
         ) {
             // Handle the special case of "sys.version_info >= (3, x)"
             const comparisonVersion = _convertTupleToVersion(node.rightExpression);
-            return _evaluateNumericBinaryOperation(node.operator, execEnv.pythonVersion, comparisonVersion);
-        } else if (
+            return _evaluateVersionBinaryOperation(node.operator, execEnv.pythonVersion, comparisonVersion);
+        }
+
+        if (
             node.leftExpression.nodeType === ParseNodeType.Index &&
             _isSysVersionInfoExpression(node.leftExpression.baseExpression, sysImportAliases) &&
             node.leftExpression.items.length === 1 &&
@@ -91,15 +94,18 @@ export function evaluateStaticBoolExpression(
             !node.leftExpression.items[0].valueExpression.isImaginary &&
             node.leftExpression.items[0].valueExpression.value === 0 &&
             node.rightExpression.nodeType === ParseNodeType.Number &&
-            node.rightExpression.isInteger
+            node.rightExpression.isInteger &&
+            typeof node.rightExpression.value === 'number'
         ) {
             // Handle the special case of "sys.version_info[0] >= X"
-            return _evaluateNumericBinaryOperation(
+            return _evaluateVersionBinaryOperation(
                 node.operator,
-                Math.floor(execEnv.pythonVersion / 256),
-                node.rightExpression.value
+                new PythonVersion(execEnv.pythonVersion.major, 0),
+                new PythonVersion(node.rightExpression.value, 0)
             );
-        } else if (
+        }
+
+        if (
             _isSysPlatformInfoExpression(node.leftExpression, sysImportAliases) &&
             node.rightExpression.nodeType === ParseNodeType.StringList
         ) {
@@ -107,7 +113,9 @@ export function evaluateStaticBoolExpression(
             const comparisonPlatform = node.rightExpression.strings.map((s) => s.value).join('');
             const expectedPlatformName = _getExpectedPlatformNameFromPlatform(execEnv);
             return _evaluateStringBinaryOperation(node.operator, expectedPlatformName, comparisonPlatform);
-        } else if (
+        }
+
+        if (
             _isOsNameInfoExpression(node.leftExpression) &&
             node.rightExpression.nodeType === ParseNodeType.StringList
         ) {
@@ -187,9 +195,7 @@ export function evaluateStaticBoolLikeExpression(
     return evaluateStaticBoolExpression(node, execEnv, definedConstants, typingImportAliases, sysImportAliases);
 }
 
-function _convertTupleToVersion(node: TupleNode): number | undefined {
-    let comparisonVersion: number | undefined;
-    // Ignore patch versions.
+function _convertTupleToVersion(node: TupleNode): PythonVersion | undefined {
     if (node.expressions.length >= 2) {
         if (
             node.expressions[0].nodeType === ParseNodeType.Number &&
@@ -197,43 +203,84 @@ function _convertTupleToVersion(node: TupleNode): number | undefined {
             node.expressions[1].nodeType === ParseNodeType.Number &&
             !node.expressions[1].isImaginary
         ) {
-            const majorVersion = node.expressions[0];
-            const minorVersion = node.expressions[1];
-            if (typeof majorVersion.value === 'number' && typeof minorVersion.value === 'number') {
-                comparisonVersion = majorVersion.value * 256 + minorVersion.value;
+            const majorNode = node.expressions[0];
+            const minorNode = node.expressions[1];
+            if (typeof majorNode.value !== 'number' || typeof minorNode.value !== 'number') {
+                return undefined;
             }
+
+            const major = majorNode.value;
+            const minor = minorNode.value;
+            let micro: number | undefined;
+            if (
+                node.expressions.length >= 3 &&
+                node.expressions[2].nodeType === ParseNodeType.Number &&
+                !node.expressions[2].isImaginary &&
+                typeof node.expressions[2].value === 'number'
+            ) {
+                micro = node.expressions[2].value;
+            }
+
+            let releaseLevel: PythonReleaseLevel | undefined;
+            if (
+                node.expressions.length >= 4 &&
+                node.expressions[3].nodeType === ParseNodeType.StringList &&
+                node.expressions[3].strings.length === 1 &&
+                node.expressions[3].strings[0].nodeType === ParseNodeType.String
+            ) {
+                releaseLevel = node.expressions[3].strings[0].value as PythonReleaseLevel;
+            }
+
+            let serial: number | undefined;
+            if (
+                node.expressions.length >= 5 &&
+                node.expressions[4].nodeType === ParseNodeType.Number &&
+                !node.expressions[4].isImaginary &&
+                typeof node.expressions[4].value === 'number'
+            ) {
+                serial = node.expressions[4].value;
+            }
+
+            return new PythonVersion(major, minor, micro, releaseLevel, serial);
         }
     } else if (node.expressions.length === 1) {
-        const majorVersion = node.expressions[0] as NumberNode;
-        if (typeof majorVersion.value === 'number') {
-            comparisonVersion = majorVersion.value * 256;
+        const major = node.expressions[0] as NumberNode;
+        if (typeof major.value === 'number') {
+            return new PythonVersion(major.value, 0);
         }
     }
 
-    return comparisonVersion;
+    return undefined;
 }
 
-function _evaluateNumericBinaryOperation(
+function _evaluateVersionBinaryOperation(
     operatorType: OperatorType,
-    leftValue: number | bigint | undefined,
-    rightValue: number | bigint | undefined
+    leftValue: PythonVersion | undefined,
+    rightValue: PythonVersion | undefined
 ): any | undefined {
     if (leftValue !== undefined && rightValue !== undefined) {
-        leftValue = BigInt(leftValue);
-        rightValue = BigInt(rightValue);
-
         if (operatorType === OperatorType.LessThan) {
-            return leftValue < rightValue;
-        } else if (operatorType === OperatorType.LessThanOrEqual) {
-            return leftValue <= rightValue;
-        } else if (operatorType === OperatorType.GreaterThan) {
-            return leftValue > rightValue;
-        } else if (operatorType === OperatorType.GreaterThanOrEqual) {
-            return leftValue >= rightValue;
-        } else if (operatorType === OperatorType.Equals) {
-            return leftValue === rightValue;
-        } else if (operatorType === OperatorType.NotEquals) {
-            return leftValue !== rightValue;
+            return leftValue.isLessThan(rightValue);
+        }
+
+        if (operatorType === OperatorType.LessThanOrEqual) {
+            return leftValue.isLessOrEqualTo(rightValue);
+        }
+
+        if (operatorType === OperatorType.GreaterThan) {
+            return leftValue.isGreaterThan(rightValue);
+        }
+
+        if (operatorType === OperatorType.GreaterThanOrEqual) {
+            return leftValue.isGreaterOrEqualTo(rightValue);
+        }
+
+        if (operatorType === OperatorType.Equals) {
+            return leftValue.isEqualTo(rightValue);
+        }
+
+        if (operatorType === OperatorType.NotEquals) {
+            return !leftValue.isEqualTo(rightValue);
         }
     }
 

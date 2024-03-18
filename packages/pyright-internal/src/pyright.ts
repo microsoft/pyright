@@ -29,7 +29,7 @@ import { Diagnostic, DiagnosticCategory, compareDiagnostics } from './common/dia
 import { FileDiagnostics } from './common/diagnosticSink';
 import { FullAccessHost } from './common/fullAccessHost';
 import { combinePaths, normalizePath } from './common/pathUtils';
-import { versionFromString } from './common/pythonVersion';
+import { PythonVersion } from './common/pythonVersion';
 import { RealTempFile, createFromRealFileSystem } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
 import { createServiceProvider } from './common/serviceProviderExtensions';
@@ -286,7 +286,7 @@ async function processArgs(): Promise<ExitStatus> {
     }
 
     if (args.pythonversion) {
-        const version = versionFromString(args.pythonversion);
+        const version = PythonVersion.fromString(args.pythonversion);
         if (version) {
             options.pythonVersion = version;
         } else {

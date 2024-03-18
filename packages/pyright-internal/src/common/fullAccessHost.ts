@@ -15,7 +15,7 @@ import { PythonPlatform } from './configOptions';
 import { assertNever } from './debug';
 import { HostKind, NoAccessHost, ScriptOutput } from './host';
 import { normalizePath } from './pathUtils';
-import { PythonVersion, versionFromMajorMinor } from './pythonVersion';
+import { PythonVersion } from './pythonVersion';
 import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
 import { isDirectory } from './uri/uriUtils';
@@ -40,7 +40,7 @@ const extractSys = [
 const extractVersion = [
     ...removeCwdFromSysPath,
     'import sys, json',
-    'json.dump(dict(major=sys.version_info[0], minor=sys.version_info[1]), sys.stdout)',
+    'json.dump(tuple(sys.version_info), sys.stdout)',
 ].join('; ');
 
 export class LimitedAccessHost extends NoAccessHost {
@@ -113,12 +113,23 @@ export class FullAccessHost extends LimitedAccessHost {
                 child_process.execFileSync(p, commandLineArgs, { encoding: 'utf8' })
             );
 
-            const versionJson: { major: number; minor: number } = JSON.parse(execOutput!);
-            const version = versionFromMajorMinor(versionJson.major, versionJson.minor);
+            const versionJson: any[] = JSON.parse(execOutput!);
+
+            if (!Array.isArray(versionJson) || versionJson.length < 5) {
+                importFailureInfo.push(`Python version ${execOutput} from interpreter is unexpected format`);
+                return undefined;
+            }
+
+            const version = new PythonVersion(
+                versionJson[0],
+                versionJson[1],
+                versionJson[2],
+                versionJson[3],
+                versionJson[4]
+            );
+
             if (version === undefined) {
-                importFailureInfo.push(
-                    `Python version ${versionJson.major}.${versionJson.minor} from interpreter is unsupported`
-                );
+                importFailureInfo.push(`Python version ${execOutput} from interpreter is unsupported`);
                 return undefined;
             }
 

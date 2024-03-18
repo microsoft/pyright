@@ -60,7 +60,7 @@ import { LimitedAccessHost } from '../../common/fullAccessHost';
 import { HostKind, ScriptOutput } from '../../common/host';
 import { combinePaths, resolvePaths } from '../../common/pathUtils';
 import { convertOffsetToPosition } from '../../common/positionUtils';
-import { PythonVersion } from '../../common/pythonVersion';
+import { PythonVersion, pythonVersion3_10 } from '../../common/pythonVersion';
 import { FileUri } from '../../common/uri/fileUri';
 import { Uri } from '../../common/uri/uri';
 import { ParseOptions, Parser } from '../../parser/parser';
@@ -124,7 +124,7 @@ export class TestHostOptions {
     ) => Promise<ScriptOutput>;
 
     constructor({
-        version = PythonVersion.V3_10,
+        version = pythonVersion3_10,
         platform = PythonPlatform.Linux,
         searchPaths = [libFolder, distlibFolder],
         runScript = async (
@@ -237,7 +237,7 @@ export function getParseResults(fileContents: string, isStubFile = false, ipytho
     const parseOptions = new ParseOptions();
     parseOptions.ipythonMode = ipythonMode;
     parseOptions.isStubFile = isStubFile;
-    parseOptions.pythonVersion = PythonVersion.V3_10;
+    parseOptions.pythonVersion = pythonVersion3_10;
     parseOptions.skipFunctionAndClassBody = false;
 
     // Parse the token stream, building the abstract syntax tree.
@@ -325,7 +325,7 @@ export async function runPyrightServer(
     code: string,
     callInitialize = true,
     extraSettings?: { item: ConfigurationItem; value: any }[],
-    pythonVersion: PythonVersion = PythonVersion.V3_10,
+    pythonVersion: PythonVersion = pythonVersion3_10,
     backgroundAnalysis?: boolean
 ): Promise<PyrightServerInfo> {
     // Normalize the URIs for all of the settings.
@@ -341,7 +341,7 @@ export async function runPyrightServer(
         testName: expect.getState().currentTestName ?? 'NoName',
         code,
         projectRoots: projectRootsArray.map((p) => (p.includes(':') ? Uri.parse(p, true) : Uri.file(p))),
-        pythonVersion,
+        pythonVersion: pythonVersion.toString(),
         backgroundAnalysis,
         logFile: Uri.file(path.join(__dirname, `log${process.pid}.txt`)),
         pid: process.pid.toString(),
@@ -410,10 +410,10 @@ export async function runPyrightServer(
             info.logs.push(p);
         }),
         info.connection.onRequest(SemanticTokensRefreshRequest.type, () => {
-            // empty. Sliently ignore for now.
+            // Empty. Silently ignore for now.
         }),
         info.connection.onRequest(InlayHintRefreshRequest.type, () => {
-            // empty. Sliently ignore for now.
+            // Empty. Silently ignore for now.
         }),
         info.connection.onRequest(ApplyWorkspaceEditRequest.type, (p) => {
             info.workspaceEdits.push(p);

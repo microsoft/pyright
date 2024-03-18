@@ -128,7 +128,7 @@ test('Marker', () => {
 });
 
 test('MarkerWithData', () => {
-    // embeded json data
+    // embedded json data
     const code = `
 ////class A:
 ////    {| "data1":"1", "data2":"2" |}pass
@@ -147,7 +147,7 @@ test('MarkerWithData', () => {
 });
 
 test('MarkerWithDataAndName', () => {
-    // embeded json data with "name"
+    // embedded json data with "name"
     const code = `
 ////class A:
 ////    {| "name": "marker1", "data1":"1", "data2":"2" |}pass

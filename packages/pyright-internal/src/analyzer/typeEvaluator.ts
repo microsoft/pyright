@@ -24,7 +24,13 @@ import { assert, assertNever, fail } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetToPosition, convertOffsetsToRange } from '../common/positionUtils';
-import { PythonVersion } from '../common/pythonVersion';
+import {
+    PythonVersion,
+    pythonVersion3_13,
+    pythonVersion3_6,
+    pythonVersion3_7,
+    pythonVersion3_9,
+} from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { LocAddendum, LocMessage, ParameterizedString } from '../localization/localize';
@@ -424,21 +430,21 @@ interface ValidateArgTypeOptions {
 // It lists the first version of Python where subscripting is
 // allowed.
 const nonSubscriptableBuiltinTypes: Map<string, PythonVersion> = new Map([
-    ['asyncio.futures.Future', PythonVersion.V3_9],
-    ['asyncio.tasks.Task', PythonVersion.V3_9],
-    ['builtins.dict', PythonVersion.V3_9],
-    ['builtins.frozenset', PythonVersion.V3_9],
-    ['builtins.list', PythonVersion.V3_9],
-    ['builtins._PathLike', PythonVersion.V3_9],
-    ['builtins.set', PythonVersion.V3_9],
-    ['builtins.tuple', PythonVersion.V3_9],
-    ['collections.ChainMap', PythonVersion.V3_9],
-    ['collections.Counter', PythonVersion.V3_9],
-    ['collections.defaultdict', PythonVersion.V3_9],
-    ['collections.DefaultDict', PythonVersion.V3_9],
-    ['collections.deque', PythonVersion.V3_9],
-    ['collections.OrderedDict', PythonVersion.V3_9],
-    ['queue.Queue', PythonVersion.V3_9],
+    ['asyncio.futures.Future', pythonVersion3_9],
+    ['asyncio.tasks.Task', pythonVersion3_9],
+    ['builtins.dict', pythonVersion3_9],
+    ['builtins.frozenset', pythonVersion3_9],
+    ['builtins.list', pythonVersion3_9],
+    ['builtins._PathLike', pythonVersion3_9],
+    ['builtins.set', pythonVersion3_9],
+    ['builtins.tuple', pythonVersion3_9],
+    ['collections.ChainMap', pythonVersion3_9],
+    ['collections.Counter', pythonVersion3_9],
+    ['collections.defaultdict', pythonVersion3_9],
+    ['collections.DefaultDict', pythonVersion3_9],
+    ['collections.deque', pythonVersion3_9],
+    ['collections.OrderedDict', pythonVersion3_9],
+    ['queue.Queue', pythonVersion3_9],
 ]);
 
 // Some types that do not inherit from others are still considered
@@ -5379,7 +5385,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const getAttrSymbol = ModuleType.getField(baseType, '__getattr__');
                         if (getAttrSymbol) {
                             const isModuleGetAttrSupported =
-                                fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_7 ||
+                                fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_7) ||
                                 getAttrSymbol.getDeclarations().some((decl) => decl.uri.hasExtension('.pyi'));
 
                             if (isModuleGetAttrSupported) {
@@ -6359,7 +6365,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const minPythonVersion = nonSubscriptableBuiltinTypes.get(baseTypeResult.type.details.fullName);
                     if (
                         minPythonVersion !== undefined &&
-                        fileInfo.executionEnvironment.pythonVersion < minPythonVersion &&
+                        fileInfo.executionEnvironment.pythonVersion.isLessThan(minPythonVersion) &&
                         !fileInfo.isStubFile
                     ) {
                         addError(
@@ -12254,7 +12260,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                     if (
                         !fileInfo.isStubFile &&
-                        fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_13 &&
+                        fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_13) &&
                         classType.details.moduleName !== 'typing_extensions'
                     ) {
                         addError(LocMessage.typeVarDefaultIllegal(), defaultValueNode!);
@@ -12396,7 +12402,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                     if (
                         !fileInfo.isStubFile &&
-                        fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_13 &&
+                        fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_13) &&
                         classType.details.moduleName !== 'typing_extensions'
                     ) {
                         addError(LocMessage.typeVarDefaultIllegal(), expr!);
@@ -12475,7 +12481,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                     if (
                         !fileInfo.isStubFile &&
-                        fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_13 &&
+                        fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_13) &&
                         classType.details.moduleName !== 'typing_extensions'
                     ) {
                         addError(LocMessage.typeVarDefaultIllegal(), expr!);
@@ -16194,7 +16200,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 if (
                                     !fileInfo.isStubFile &&
                                     !ClassType.isTypingExtensionClass(argType) &&
-                                    fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_7
+                                    fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_7)
                                 ) {
                                     addError(LocMessage.protocolIllegal(), arg.valueExpression);
                                 }
@@ -16207,7 +16213,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                             // If the class directly derives from NamedTuple (in Python 3.6 or
                             // newer), it's considered a (read-only) dataclass.
-                            if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_6) {
+                            if (fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_6)) {
                                 if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
                                     classType.details.flags |=
                                         ClassTypeFlags.DataClass |
@@ -18642,7 +18648,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     // Handle PEP 562 support for module-level __getattr__ function,
                     // introduced in Python 3.7.
-                    if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_7 || fileInfo.isStubFile) {
+                    if (
+                        fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_7) ||
+                        fileInfo.isStubFile
+                    ) {
                         const getAttrSymbol = importLookupInfo.symbolTable.get('__getattr__');
                         if (getAttrSymbol) {
                             const getAttrType = getEffectiveTypeOfSymbol(getAttrSymbol);
@@ -19694,7 +19703,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
         if (
             fileInfo.isStubFile ||
-            fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_9 ||
+            fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_9) ||
             isAnnotationEvaluationPostponed(AnalyzerNodeInfo.getFileInfo(errorNode)) ||
             (flags & EvaluatorFlags.AllowForwardReferences) !== 0
         ) {

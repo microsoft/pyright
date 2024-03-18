@@ -10,7 +10,7 @@
 
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { PythonVersion } from '../common/pythonVersion';
+import { pythonVersion3_10 } from '../common/pythonVersion';
 import { LocMessage } from '../localization/localize';
 import {
     AugmentedAssignmentNode,
@@ -621,7 +621,7 @@ export function getTypeOfBinaryOperation(
             const unionNotationSupported =
                 fileInfo.isStubFile ||
                 (flags & EvaluatorFlags.AllowForwardReferences) !== 0 ||
-                fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_10;
+                fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_10);
             if (!unionNotationSupported) {
                 // If the left type is Any, we can't say for sure whether this
                 // is an illegal syntax or a valid application of the "|" operator.
