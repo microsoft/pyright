@@ -1,10 +1,10 @@
 <h1><img src="https://github.com/DetachHead/basedpyright/assets/57028336/c7342c31-bf23-413c-af6d-bc430898b3dd"> basedpyright</h1>
 
-Basedpyright is a static type checker for Python that is built on top of the work done by the [pyright project](https://github.com/Microsoft/pyright).
+Basedpyright is a fork of [pyright](https://github.com/microsoft/pyright) with various type checking improvements, improved vscode support and pylance features built into the language server.
 
 ## why?
 
-the main motivation behind this fork was the fact that pyright has several serious issues that the maintainers didn't want to address, and many bugs that they consider to be intentional behavior. here is a list of some of its major problems that we've resolved in basedpyright:
+the main motivation behind this fork was the fact that pyright has several serious issues that the maintainers didn't want to address, and many bugs that they consider to be intentional behavior. here is a list of some of its major problems that basedpyright resolves:
 
 ### ability to pin the version used by vscode
 
@@ -60,7 +60,9 @@ basedpyright introduces the `reportAny` option, which will report an error on us
 
 ### re-implementing pylance-exclusive features
 
-basedpyright re-implements some of the features that microsoft made exclusive to their closed-source pylance extension. for more information about the differences between pyright and pylance, see [here](#pylance-vs-basedpyright)
+basedpyright re-implements some of the features that microsoft made exclusive to their closed-source pylance extension. for more information about the differences between pyright and pylance, see [here](#pylance-vs-basedpyright).
+
+these features are implemented in the language server, meaning they are no longer exclusive to vscode. you can use any editor that supports the [language server protocol](https://microsoft.github.io/language-server-protocol/). for more information on installing pyright in your editor of choice, see [the installation instructions](https://detachhead.github.io/basedpyright/#/installation)
 
 #### import suggestion code actions
 pyright only supports import suggestions as autocomplete suggestions, but not as quick fixes (see [this issue](https://github.com/microsoft/pyright/issues/4263#issuecomment-1333987645)).
