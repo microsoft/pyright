@@ -71,7 +71,7 @@ function isLeftSideOfAssignment(node: ParseNode): boolean {
     if (node.parent?.nodeType !== ParseNodeType.Assignment) {
         return false;
     }
-    return node.start < (node.parent as AssignmentNode).rightExpression.start;
+    return node.start < node.parent.rightExpression.start;
 }
 
 export class TypeInlayHintsWalker extends ParseTreeWalker {
