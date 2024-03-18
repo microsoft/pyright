@@ -10,6 +10,11 @@ if (process.platform !== 'win32' || !process.env['CI']) {
                 position: 53,
                 value: ': str',
             },
+            {
+                inlayHintType: 'variable',
+                position: 364,
+                value: ': TypeAlias',
+            },
         ]);
     });
 

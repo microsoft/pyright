@@ -1,17 +1,9 @@
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { isDunderName, isUnderscoreOnlyName } from '../analyzer/symbolNameUtils';
-import { FunctionType, Type, isAny, isClass, isParamSpec, isTypeVar } from '../analyzer/types';
+import { FunctionType, Type, getTypeAliasInfo, isAny, isClass, isParamSpec, isTypeVar } from '../analyzer/types';
 import { ProgramView } from '../common/extensibility';
 import { limitOverloadBasedOnCall } from '../languageService/tooltipUtils';
-import {
-    AssignmentNode,
-    CallNode,
-    FunctionNode,
-    NameNode,
-    ParameterCategory,
-    ParseNode,
-    ParseNodeType,
-} from '../parser/parseNodes';
+import { CallNode, FunctionNode, NameNode, ParameterCategory, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { isLiteralType } from './typeUtils';
 
 export type TypeInlayHintsItemType = {
@@ -94,7 +86,7 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
                 this.featureItems.push({
                     inlayHintType: 'variable',
                     position: node.start + node.length,
-                    value: `: ${this._printType(type)}`,
+                    value: `: ${getTypeAliasInfo(type) ? 'TypeAlias' : this._printType(type)}`,
                 });
             }
         }
