@@ -128,7 +128,7 @@ from bar import bar  # no error
 from baz import foo as baz, bar as baz  # no error
 ```
 
-pyright solves both of these problems by always reporting an error on a redeclaration or an import with the same name as an existing import.
+basedpyright solves both of these problems by always reporting an error on a redeclaration or an import with the same name as an existing import.
 
 ### better defaults
 we believe that type checkers and linters should be as strict as possible by default, making the user aware of all the available rules so they can more easily make informed decisions about which rules they don't want enabled in their project. that's why the following defaults have been changed in basedpyright
