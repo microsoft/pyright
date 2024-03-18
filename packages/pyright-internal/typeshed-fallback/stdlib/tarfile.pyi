@@ -7,7 +7,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from gzip import _ReadableFileobj as _GzipReadableFileobj, _WritableFileobj as _GzipWritableFileobj
 from types import TracebackType
 from typing import IO, ClassVar, Literal, Protocol, overload
-from typing_extensions import Self, TypeAlias, deprecated
+from typing_extensions import Self, TypeAlias
 
 __all__ = [
     "TarFile",
@@ -43,10 +43,10 @@ _FilterFunction: TypeAlias = Callable[[TarInfo, str], TarInfo | None]
 _TarfileFilter: TypeAlias = Literal["fully_trusted", "tar", "data"] | _FilterFunction
 
 class _Fileobj(Protocol):
-    def read(self, __size: int) -> bytes: ...
-    def write(self, __b: bytes) -> object: ...
+    def read(self, size: int, /) -> bytes: ...
+    def write(self, b: bytes, /) -> object: ...
     def tell(self) -> int: ...
-    def seek(self, __pos: int) -> object: ...
+    def seek(self, pos: int, /) -> object: ...
     def close(self) -> object: ...
     # Optional fields:
     # name: str | bytes
@@ -292,31 +292,17 @@ class TarFile:
     def getnames(self) -> _list[str]: ...
     def list(self, verbose: bool = True, *, members: _list[TarInfo] | None = None) -> None: ...
     def next(self) -> TarInfo | None: ...
-    @overload
-    @deprecated(
-        "Extracting tar archives without specifying `filter` is deprecated until Python 3.14, when 'data' filter will become the default."
-    )
+    # Calling this method without `filter` is deprecated, but it may be set either on the class or in an
+    # individual call, so we can't mark it as @deprecated here.
     def extractall(
         self,
         path: StrOrBytesPath = ".",
         members: Iterable[TarInfo] | None = None,
         *,
         numeric_owner: bool = False,
-        filter: None = ...,
+        filter: _TarfileFilter | None = ...,
     ) -> None: ...
-    @overload
-    def extractall(
-        self,
-        path: StrOrBytesPath = ".",
-        members: Iterable[TarInfo] | None = None,
-        *,
-        numeric_owner: bool = False,
-        filter: _TarfileFilter,
-    ) -> None: ...
-    @overload
-    @deprecated(
-        "Extracting tar archives without specifying `filter` is deprecated until Python 3.14, when 'data' filter will become the default."
-    )
+    # Same situation as for `extractall`.
     def extract(
         self,
         member: str | TarInfo,
@@ -324,17 +310,7 @@ class TarFile:
         set_attrs: bool = True,
         *,
         numeric_owner: bool = False,
-        filter: None = ...,
-    ) -> None: ...
-    @overload
-    def extract(
-        self,
-        member: str | TarInfo,
-        path: StrOrBytesPath = "",
-        set_attrs: bool = True,
-        *,
-        numeric_owner: bool = False,
-        filter: _TarfileFilter,
+        filter: _TarfileFilter | None = ...,
     ) -> None: ...
     def _extract_member(
         self, tarinfo: TarInfo, targetpath: str, set_attrs: bool = True, numeric_owner: bool = False

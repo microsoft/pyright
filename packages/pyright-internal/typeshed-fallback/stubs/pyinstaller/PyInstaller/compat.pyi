@@ -16,6 +16,7 @@ is_py311: Final[bool]
 is_py312: Final[bool]
 is_win: Final[bool]
 is_win_10: Final[bool]
+is_win_11: Final[bool]
 is_win_wine: Final[bool]
 is_cygwin: Final[bool]
 is_darwin: Final[bool]
@@ -44,7 +45,9 @@ ALL_SUFFIXES: Final[list[str]]
 
 architecture: Final[Literal["64bit", "n32bit", "32bit"]]
 system: Final[Literal["Cygwin", "Linux", "Darwin", "Java", "Windows"]]
-machine: Final[Literal["sw_64", "loongarch64", "arm", "intel", "ppc", "mips", "riscv", "s390x", "unknown"] | None]
+machine: Final[
+    Literal["AMD64", "x86", "ARM64", "sw_64", "loongarch64", "arm", "intel", "ppc", "mips", "riscv", "s390x", "unknown"] | None
+]
 
 def is_wine_dll(filename: FileDescriptorOrPath) -> bool: ...
 @overload

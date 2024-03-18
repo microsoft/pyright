@@ -1,5 +1,5 @@
 from _typeshed import Incomplete, Unused
-from collections.abc import Iterator, Mapping, Set as AbstractSet
+from collections.abc import Iterable, Iterator, Mapping, Set as AbstractSet
 from typing import Any, Generic, Literal, TypeVar, overload
 from typing_extensions import Self
 
@@ -69,6 +69,10 @@ class OutEdgeView(AbstractSet[Incomplete], Mapping[Incomplete, Incomplete], Gene
     def __getitem__(self, e: _Edge[_Node]) -> dict[str, Any]: ...
     @overload
     def __call__(self, nbunch: None = None, data: Literal[False] = False, *, default: Unused = None) -> Self: ...
+    @overload
+    def __call__(
+        self, nbunch: _Node | Iterable[_Node], data: Literal[False] = False, *, default: None = None
+    ) -> OutEdgeDataView[_Node, tuple[_Node, _Node]]: ...
     @overload
     def __call__(
         self, nbunch: _NBunch[_Node], data: Literal[True], *, default: None = None

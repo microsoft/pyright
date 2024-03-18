@@ -173,7 +173,7 @@ class DynamicFilter(Serialisable):
 class CustomFilterValueDescriptor(Convertible[float | str, _N]):
     pattern: Pattern[str]
     expected_type: type[float | str]
-    @overload  # type:ignore[override]  # Different restrictions
+    @overload  # type: ignore[override]  # Different restrictions
     def __set__(
         self: CustomFilterValueDescriptor[Literal[True]], instance: Serialisable | Strict, value: str | ConvertibleToFloat | None
     ) -> None: ...

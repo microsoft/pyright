@@ -3921,7 +3921,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return AnyType.create();
                 }
 
-                return subtype;
+                // Fall back to "*tuple[object, ...]".
+                return makeTupleObject(
+                    [{ type: objectType ?? UnknownType.create(), isUnbounded: true }],
+                    /* isUnpacked */ true
+                );
             }
 
             if (isTypeVar(subtype)) {
@@ -4989,12 +4993,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const typeVarContext = new TypeVarContext(type.typeAliasInfo.typeVarScopeId);
 
             type.typeAliasInfo.typeParameters.forEach((param) => {
-                if (!param.details.defaultType) {
+                if (!param.details.isDefaultExplicit) {
                     reportMissingTypeArguments = true;
                 }
 
                 let defaultType: Type;
-                if (param.details.defaultType || param.details.isParamSpec) {
+                if (param.details.isDefaultExplicit || param.details.isParamSpec) {
                     defaultType = applySolvedTypeVars(param, typeVarContext, { unknownIfNotFound: true });
                 } else if (param.details.isVariadic && tupleClassType && isInstantiableClass(tupleClassType)) {
                     defaultType = makeTupleObject(
@@ -6598,7 +6602,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let typeParamCount = typeParameters.length;
             while (typeParamCount > 0) {
                 const lastTypeParam = typeParameters[typeParamCount - 1];
-                if (!lastTypeParam.details.isParamSpec || lastTypeParam.details.defaultType === undefined) {
+                if (!lastTypeParam.details.isParamSpec || !lastTypeParam.details.isDefaultExplicit) {
                     break;
                 }
 
@@ -6651,7 +6655,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         ...typeArgs.slice(variadicEndIndex, typeArgs.length),
                     ];
                 }
-            } else if (!variadicTypeVar.details.defaultType) {
+            } else if (!variadicTypeVar.details.isDefaultExplicit) {
                 // Add an empty tuple that maps to the TypeVarTuple type parameter.
                 typeArgs.push({
                     node: errorNode,
@@ -6727,7 +6731,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         let minTypeArgCount = typeParameters.length;
-        const firstDefaultParamIndex = typeParameters.findIndex((param) => !!param.details.defaultType);
+        const firstDefaultParamIndex = typeParameters.findIndex((param) => !!param.details.isDefaultExplicit);
         if (firstDefaultParamIndex >= 0) {
             minTypeArgCount = firstDefaultParamIndex;
         }
@@ -6855,7 +6859,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 let typeArgType: Type;
                 if (index < typeArgs.length) {
                     typeArgType = convertToInstance(typeArgs[index].type);
-                } else if (param.details.defaultType) {
+                } else if (param.details.isDefaultExplicit) {
                     typeArgType = applySolvedTypeVars(param, typeVarContext, { unknownIfNotFound: true });
                 } else {
                     typeArgType = UnknownType.create();
@@ -12371,6 +12375,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             allowTypeVarsWithoutScopeId: true,
                         }).type;
                     typeVar.details.defaultType = convertToInstance(argType);
+                    typeVar.details.isDefaultExplicit = true;
 
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
                     if (
@@ -12417,7 +12422,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // If a default is provided, make sure it is compatible with the bound
         // or constraint.
-        if (typeVar.details.defaultType && defaultValueNode) {
+        if (typeVar.details.isDefaultExplicit && defaultValueNode) {
             verifyTypeVarDefaultIsCompatible(typeVar, defaultValueNode);
         }
 
@@ -12425,7 +12430,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function verifyTypeVarDefaultIsCompatible(typeVar: TypeVarType, defaultValueNode: ExpressionNode) {
-        assert(typeVar.details.defaultType !== undefined);
+        assert(typeVar.details.isDefaultExplicit);
 
         const typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
         const concreteDefaultType = makeTopLevelTypeVarsConcrete(
@@ -12496,6 +12501,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ClassType.cloneAsInstance(classType)
         );
         typeVar.details.isVariadic = true;
+        typeVar.details.defaultType = makeTupleObject([{ type: UnknownType.create(), isUnbounded: true }]);
 
         // Parse the remaining parameters.
         for (let i = 1; i < argList.length; i++) {
@@ -12506,7 +12512,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (paramName === 'default') {
                     const expr = argList[i].valueExpression;
                     if (expr) {
-                        typeVar.details.defaultType = getTypeVarTupleDefaultType(expr);
+                        const defaultType = getTypeVarTupleDefaultType(expr);
+                        if (defaultType) {
+                            typeVar.details.defaultType = defaultType;
+                            typeVar.details.isDefaultExplicit = true;
+                        }
                     }
 
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
@@ -12570,6 +12580,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ClassType.cloneAsInstance(classType)
         );
 
+        paramSpec.details.defaultType = getUnknownTypeForParamSpec();
+
         // Parse the remaining parameters.
         for (let i = 1; i < argList.length; i++) {
             const paramNameNode = argList[i].name;
@@ -12579,7 +12591,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (paramName === 'default') {
                     const expr = argList[i].valueExpression;
                     if (expr) {
-                        paramSpec.details.defaultType = getParamSpecDefaultType(expr);
+                        const defaultType = getParamSpecDefaultType(expr);
+                        if (defaultType) {
+                            paramSpec.details.defaultType = defaultType;
+                            paramSpec.details.isDefaultExplicit = true;
+                        }
                     }
 
                     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
@@ -13767,9 +13783,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         });
 
-        const isTypeInvariant =
-            isClassInstance(inferenceContext.expectedType) &&
-            ClassType.isBuiltIn(inferenceContext.expectedType, builtInClassName);
+        let isTypeInvariant = false;
+
+        if (isClassInstance(inferenceContext.expectedType)) {
+            inferTypeParameterVarianceForClass(inferenceContext.expectedType);
+
+            if (
+                inferenceContext.expectedType.details.typeParameters.some(
+                    (t) => TypeVarType.getVariance(t) === Variance.Invariant
+                )
+            ) {
+                isTypeInvariant = true;
+            }
+        }
+
         const specializedEntryType = inferTypeArgFromExpectedEntryType(
             makeInferenceContext(expectedEntryType),
             entryTypes,
@@ -15506,9 +15533,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (firstTypeVarTupleIndex >= 0) {
             const typeVarWithDefaultIndex = typeParameters.findIndex(
                 (typeVar, index) =>
-                    index > firstTypeVarTupleIndex &&
-                    !typeVar.details.isParamSpec &&
-                    typeVar.details.defaultType !== undefined
+                    index > firstTypeVarTupleIndex && !typeVar.details.isParamSpec && typeVar.details.isDefaultExplicit
             );
 
             if (typeVarWithDefaultIndex >= 0) {
@@ -16565,9 +16590,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
                 const typeVarWithDefaultIndex = classType.details.typeParameters.findIndex(
                     (param, index) =>
-                        index > firstVariadicIndex &&
-                        !param.details.isParamSpec &&
-                        param.details.defaultType !== undefined
+                        index > firstVariadicIndex && !param.details.isParamSpec && param.details.isDefaultExplicit
                 );
 
                 if (typeVarWithDefaultIndex >= 0) {
@@ -16912,12 +16935,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         scopeId: TypeVarScopeId
     ) {
         if (
-            !typeParam.details.defaultType &&
+            !typeParam.details.isDefaultExplicit &&
             !typeParam.details.isSynthesized &&
             !typeParam.details.isSynthesizedSelf
         ) {
             const typeVarWithDefault = otherLiveTypeParams.find(
-                (param) => param.details.defaultType && param.scopeId === scopeId
+                (param) => param.details.isDefaultExplicit && param.scopeId === scopeId
             );
 
             if (typeVarWithDefault) {
@@ -19879,7 +19902,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (typeArgs) {
             let minTypeArgCount = typeParameters.length;
-            const firstDefaultParamIndex = typeParameters.findIndex((param) => !!param.details.defaultType);
+            const firstDefaultParamIndex = typeParameters.findIndex((param) => !!param.details.isDefaultExplicit);
 
             if (firstDefaultParamIndex >= 0) {
                 minTypeArgCount = firstDefaultParamIndex;
@@ -20945,21 +20968,40 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (node.defaultExpression) {
-            if (node.typeParamCategory === TypeParameterCategory.ParamSpec) {
-                typeVar.details.defaultType = getParamSpecDefaultType(node.defaultExpression);
-            } else if (node.typeParamCategory === TypeParameterCategory.TypeVarTuple) {
-                typeVar.details.defaultType = getTypeVarTupleDefaultType(node.defaultExpression);
+        if (node.typeParamCategory === TypeParameterCategory.ParamSpec) {
+            const defaultType = node.defaultExpression ? getParamSpecDefaultType(node.defaultExpression) : undefined;
+
+            if (defaultType) {
+                typeVar.details.defaultType = defaultType;
+                typeVar.details.isDefaultExplicit = true;
             } else {
-                typeVar.details.defaultType = convertToInstance(
-                    getTypeOfExpressionExpectingType(node.defaultExpression).type
-                );
+                typeVar.details.defaultType = getUnknownTypeForParamSpec();
+            }
+        } else if (node.typeParamCategory === TypeParameterCategory.TypeVarTuple) {
+            const defaultType = node.defaultExpression ? getTypeVarTupleDefaultType(node.defaultExpression) : undefined;
+
+            if (defaultType) {
+                typeVar.details.defaultType = defaultType;
+                typeVar.details.isDefaultExplicit = true;
+            } else {
+                typeVar.details.defaultType = makeTupleObject([{ type: UnknownType.create(), isUnbounded: true }]);
+            }
+        } else {
+            const defaultType = node.defaultExpression
+                ? convertToInstance(getTypeOfExpressionExpectingType(node.defaultExpression).type)
+                : undefined;
+
+            if (defaultType) {
+                typeVar.details.defaultType = defaultType;
+                typeVar.details.isDefaultExplicit = true;
+            } else {
+                typeVar.details.defaultType = UnknownType.create();
             }
         }
 
         // If a default is provided, make sure it is compatible with the bound
         // or constraint.
-        if (typeVar.details.defaultType && node.defaultExpression) {
+        if (typeVar.details.isDefaultExplicit && node.defaultExpression) {
             verifyTypeVarDefaultIsCompatible(typeVar, node.defaultExpression);
         }
 
@@ -25117,7 +25159,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (srcStartOfNamed >= 0) {
                 srcParamDetails.params.forEach((srcParamInfo, index) => {
                     if (index >= srcStartOfNamed) {
-                        if (srcParamInfo.param.name && srcParamInfo.param.category === ParameterCategory.Simple) {
+                        if (
+                            srcParamInfo.param.name &&
+                            srcParamInfo.param.category === ParameterCategory.Simple &&
+                            srcParamInfo.source !== ParameterSource.PositionOnly
+                        ) {
                             const destParamInfo = destParamMap.get(srcParamInfo.param.name);
                             const paramDiag = diag?.createAddendum();
                             const srcParamType = srcParamInfo.type;
@@ -26019,6 +26065,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         diag?.addMessage(
                             LocAddendum.overrideParamNoDefault().format({
                                 index: i + 1,
+                            })
+                        );
+                        canOverride = false;
+                    }
+                }
+            }
+
+            // Check for positional (named) parameters in the base method that
+            // do not exist in the override.
+            if (enforceParamNames && overrideParamDetails.kwargsIndex === undefined) {
+                for (let i = positionalParamCount; i < baseParamDetails.positionParamCount; i++) {
+                    const baseParam = baseParamDetails.params[i];
+
+                    if (
+                        baseParam.source === ParameterSource.PositionOrKeyword &&
+                        baseParam.param.category === ParameterCategory.Simple
+                    ) {
+                        diag?.addMessage(
+                            LocAddendum.overrideParamNamePositionOnly().format({
+                                index: i + 1,
+                                baseName: baseParam.param.name || '*',
                             })
                         );
                         canOverride = false;

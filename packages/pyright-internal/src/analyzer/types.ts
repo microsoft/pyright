@@ -2488,7 +2488,8 @@ export interface TypeVarDetails {
     name: string;
     constraints: Type[];
     boundType?: Type | undefined;
-    defaultType?: Type | undefined;
+    isDefaultExplicit?: boolean;
+    defaultType: Type;
 
     isParamSpec: boolean;
     isVariadic: boolean;
@@ -2707,6 +2708,7 @@ export namespace TypeVarType {
                 isParamSpec,
                 isVariadic: false,
                 isSynthesized: false,
+                defaultType: UnknownType.create(),
             },
             flags: typeFlags,
         };

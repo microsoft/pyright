@@ -24,6 +24,9 @@ TLSv1_2_METHOD: int
 TLS_METHOD: int
 TLS_SERVER_METHOD: int
 TLS_CLIENT_METHOD: int
+DTLS_METHOD: int
+DTLS_SERVER_METHOD: int
+DTLS_CLIENT_METHOD: int
 
 SSL3_VERSION: int
 TLS1_VERSION: int
@@ -166,7 +169,7 @@ class Connection:
     ) -> Incomplete: ...  # TODO: type, see RFC-5705
     def get_app_data(self) -> Any: ...
     def set_app_data(self, data: Any) -> None: ...
-    def sock_shutdown(self, __how: int) -> None: ...  # alias to `_socket.socket.shutdown`
+    def sock_shutdown(self, how: int, /) -> None: ...  # alias to `_socket.socket.shutdown`
     def want_read(self) -> bool: ...
     def want_write(self) -> bool: ...
     def get_session(self) -> Session | None: ...

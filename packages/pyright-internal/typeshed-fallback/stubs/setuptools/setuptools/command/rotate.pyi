@@ -5,7 +5,7 @@ from .. import Command
 class rotate(Command):
     description: str
     user_options: Any
-    boolean_options: Any
+    boolean_options: list[str]
     match: Any
     dist_dir: Any
     keep: Any

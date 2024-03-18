@@ -34,7 +34,7 @@ _Color: TypeAlias = (
 )
 
 class _Writeable(SupportsWrite[bytes], Protocol):
-    def seek(self, __offset: int) -> Any: ...
+    def seek(self, offset: int, /) -> Any: ...
 
 # Ref: https://numpy.org/doc/stable/reference/arrays.interface.html#python-side
 class _SupportsArrayInterface(Protocol):

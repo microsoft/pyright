@@ -1,4 +1,4 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, SupportsGetItem
 from collections.abc import Generator
 
 from openpyxl import _VisibilityType
@@ -23,7 +23,7 @@ class ReadOnlyWorksheet:
     parent: Incomplete
     title: str
     sheet_state: _VisibilityType
-    def __init__(self, parent_workbook, title: str, worksheet_path, shared_strings) -> None: ...
+    def __init__(self, parent_workbook, title: str, worksheet_path, shared_strings: SupportsGetItem[int, str]) -> None: ...
     def calculate_dimension(self, force: bool = False): ...
     def reset_dimensions(self) -> None: ...
     @property

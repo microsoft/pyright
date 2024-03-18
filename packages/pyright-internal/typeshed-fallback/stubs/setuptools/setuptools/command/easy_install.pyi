@@ -116,7 +116,7 @@ class _SplitArgs(TypedDict, total=False):
     posix: bool
 
 class CommandSpec(list[str]):
-    options: list[Incomplete]
+    options: list[str]
     split_args: ClassVar[_SplitArgs]
     @classmethod
     def best(cls) -> type[CommandSpec]: ...

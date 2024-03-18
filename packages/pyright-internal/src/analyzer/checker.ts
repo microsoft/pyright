@@ -2397,7 +2397,7 @@ export class Checker extends ParseTreeWalker {
                     // instances in these particular cases.
                     let isExempt =
                         nameType.details.constraints.length > 0 ||
-                        !!nameType.details.defaultType ||
+                        nameType.details.isDefaultExplicit ||
                         (exemptBoundTypeVar && subscriptIndex !== undefined) ||
                         isParamSpec(nameType);
 
@@ -2451,7 +2451,7 @@ export class Checker extends ParseTreeWalker {
                     const existingEntry = classTypeVarUsage.get(nameType.details.name);
                     const isParamTypeWithEllipsisUsage =
                         curParamNode?.defaultValue?.nodeType === ParseNodeType.Ellipsis;
-                    const isExempt = !!nameType.details.defaultType;
+                    const isExempt = !!nameType.details.isDefaultExplicit;
 
                     if (!existingEntry) {
                         classTypeVarUsage.set(nameType.details.name, {
@@ -2910,8 +2910,12 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
-    private _validateExceptionType(exceptionType: Type, errorNode: ExpressionNode) {
-        const baseExceptionType = this._evaluator.getBuiltInType(errorNode, 'BaseException');
+    private _validateExceptionTypeRecursive(
+        exceptionType: Type,
+        diag: DiagnosticAddendum,
+        baseExceptionType: Type | undefined,
+        allowTuple: boolean
+    ) {
         const derivesFromBaseException = (classType: ClassType) => {
             if (!baseExceptionType || !isInstantiableClass(baseExceptionType)) {
                 return true;
@@ -2920,54 +2924,49 @@ export class Checker extends ParseTreeWalker {
             return derivesFromClassRecursive(classType, baseExceptionType, /* ignoreUnknown */ false);
         };
 
-        const diagAddendum = new DiagnosticAddendum();
-        let resultingExceptionType: Type | undefined;
-
-        if (isAnyOrUnknown(exceptionType)) {
-            resultingExceptionType = exceptionType;
-        } else {
-            if (isInstantiableClass(exceptionType)) {
-                if (!derivesFromBaseException(exceptionType)) {
-                    diagAddendum.addMessage(
-                        LocMessage.exceptionTypeIncorrect().format({
-                            type: this._evaluator.printType(exceptionType),
-                        })
-                    );
-                }
-                resultingExceptionType = ClassType.cloneAsInstance(exceptionType);
-            } else if (isClassInstance(exceptionType)) {
-                const iterableType =
-                    this._evaluator.getTypeOfIterator({ type: exceptionType }, /* isAsync */ false, errorNode)?.type ??
-                    UnknownType.create();
-
-                resultingExceptionType = mapSubtypes(iterableType, (subtype) => {
-                    subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
-
-                    if (isAnyOrUnknown(subtype) || isNever(subtype)) {
-                        return subtype;
-                    }
-
-                    if (isInstantiableClass(subtype)) {
-                        if (!derivesFromBaseException(subtype)) {
-                            diagAddendum.addMessage(
-                                LocMessage.exceptionTypeIncorrect().format({
-                                    type: this._evaluator.printType(exceptionType),
-                                })
-                            );
-                        }
-
-                        return ClassType.cloneAsInstance(subtype);
-                    }
-
-                    diagAddendum.addMessage(
-                        LocMessage.exceptionTypeIncorrect().format({
-                            type: this._evaluator.printType(exceptionType),
-                        })
-                    );
-                    return UnknownType.create();
-                });
+        doForEachSubtype(exceptionType, (exceptionSubtype) => {
+            if (isAnyOrUnknown(exceptionSubtype)) {
+                return;
             }
-        }
+
+            if (isClass(exceptionSubtype)) {
+                if (TypeBase.isInstantiable(exceptionSubtype)) {
+                    if (!derivesFromBaseException(exceptionSubtype)) {
+                        diag.addMessage(
+                            LocMessage.exceptionTypeIncorrect().format({
+                                type: this._evaluator.printType(exceptionSubtype),
+                            })
+                        );
+                    }
+                    return;
+                }
+
+                if (allowTuple && exceptionSubtype.tupleTypeArguments) {
+                    exceptionSubtype.tupleTypeArguments.forEach((typeArg) => {
+                        this._validateExceptionTypeRecursive(
+                            typeArg.type,
+                            diag,
+                            baseExceptionType,
+                            /* allowTuple */ false
+                        );
+                    });
+                    return;
+                }
+
+                diag.addMessage(
+                    LocMessage.exceptionTypeIncorrect().format({
+                        type: this._evaluator.printType(exceptionSubtype),
+                    })
+                );
+            }
+        });
+    }
+
+    private _validateExceptionType(exceptionType: Type, errorNode: ExpressionNode): void {
+        const baseExceptionType = this._evaluator.getBuiltInType(errorNode, 'BaseException');
+        const diagAddendum = new DiagnosticAddendum();
+
+        this._validateExceptionTypeRecursive(exceptionType, diagAddendum, baseExceptionType, /* allowTuple */ true);
 
         if (!diagAddendum.isEmpty()) {
             this._evaluator.addDiagnostic(
@@ -2978,8 +2977,6 @@ export class Checker extends ParseTreeWalker {
                 errorNode
             );
         }
-
-        return resultingExceptionType || UnknownType.create();
     }
 
     private _reportUnusedDunderAllSymbols(nodes: StringNode[]) {
@@ -6447,7 +6444,7 @@ export class Checker extends ParseTreeWalker {
             // Handle properties specially.
             if (!isProperty(overrideType)) {
                 const decls = overrideSymbol.getDeclarations();
-                if (decls.length > 0) {
+                if (decls.length > 0 && overrideSymbol.isClassMember()) {
                     const lastDecl = decls[decls.length - 1];
                     this._evaluator.addDiagnostic(
                         DiagnosticRule.reportIncompatibleMethodOverride,

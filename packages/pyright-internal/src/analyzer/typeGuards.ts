@@ -88,7 +88,7 @@ import {
     mapSubtypes,
     MemberAccessFlags,
     specializeTupleClass,
-    specializeWithUnknown,
+    specializeWithUnknownTypeArgs,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -1357,7 +1357,7 @@ function narrowTypeForIsInstance(
                 // parameters have default values), replace the default type arguments
                 // with Unknown.
                 if (concreteFilterType.typeArguments && !concreteFilterType.isTypeArgumentExplicit) {
-                    concreteFilterType = specializeWithUnknown(
+                    concreteFilterType = specializeWithUnknownTypeArgs(
                         ClassType.cloneForSpecialization(
                             concreteFilterType,
                             /* typeArguments */ undefined,

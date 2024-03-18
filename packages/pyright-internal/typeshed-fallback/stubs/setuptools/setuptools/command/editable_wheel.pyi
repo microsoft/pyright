@@ -1,4 +1,4 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, StrPath
 from enum import Enum
 from pathlib import Path
 from types import TracebackType
@@ -11,7 +11,6 @@ from ..warnings import SetuptoolsWarning
 
 # Actually from wheel.wheelfile import WheelFile
 _WheelFile: TypeAlias = Incomplete
-_Path: TypeAlias = str | Path
 
 class _EditableMode(Enum):
     STRICT: str
@@ -53,7 +52,7 @@ class _StaticPth:
 class _LinkTree(_StaticPth):
     auxiliary_dir: Incomplete
     build_lib: Incomplete
-    def __init__(self, dist: Distribution, name: str, auxiliary_dir: _Path, build_lib: _Path) -> None: ...
+    def __init__(self, dist: Distribution, name: str, auxiliary_dir: StrPath, build_lib: StrPath) -> None: ...
     def __call__(self, wheel: _WheelFile, files: list[str], mapping: dict[str, str]): ...
     def __enter__(self) -> Self: ...
     def __exit__(
