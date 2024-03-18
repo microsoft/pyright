@@ -87,11 +87,9 @@ initial implementation of the semantic highlighting provider was adapted from th
 
 #### inlay hints
 
-Initial implementations of the inlay hint provider were adapted from [coc-pyright](https://github.com/fannheyward/coc-pyright) and [pyright-inlay-hints](https://github.com/jbradaric/pyright-inlay-hints).
-
-basedpyright integrates it into the vscode extension:
-
 ![image](https://github.com/DetachHead/basedpyright/assets/57028336/41ed93e8-04e2-4163-a1be-c9ec8f3d90df)
+
+basedpyright contains several improvements and bug fixes to the original implementation adapted from [pyright-inlay-hints](https://github.com/jbradaric/pyright-inlay-hints).
 
 ### reporting errors on invalid "relative" imports
 
