@@ -17166,7 +17166,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 const paramInfo = paramListDetails.params[paramIndex];
                                 const argParam: ValidateArgTypeParams = {
                                     paramCategory: paramInfo.param.category,
-                                    paramType: FunctionType.getEffectiveParameterType(newMethodType, paramInfo.index),
+                                    paramType: paramInfo.type,
                                     requiresTypeVarMatching: false,
                                     argument: arg,
                                     errorNode: arg.valueExpression ?? errorNode,
