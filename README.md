@@ -195,6 +195,10 @@ if you don't depend on any pylance-exclusive features, the recommended solution 
 
 if you do want to continue using pylance, all of the options and commands in basedpyright have been renamed to avoid any conflicts with the pylance extension, and the restriction that prevents both extensions from being enabled at the same time has been removed. for an optimal experience you should disable pylance's type checking and disable basedpyright's language server features. see [the recommended setup section below](#if-using-pylance) for details.
 
+# playground
+
+you can try basedpyright in your browser using the [playground](http://basedpyright.com)
+
 # recommended setup
 
 it's recommended to use both the basedpyright cli and vscode extension in your project. the vscode extension is for local development and the cli is for your CI.
