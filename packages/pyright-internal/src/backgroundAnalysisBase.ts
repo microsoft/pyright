@@ -38,6 +38,7 @@ import { LogTracker } from './common/logTracker';
 import { ServiceProvider } from './common/serviceProvider';
 import { Range } from './common/textRange';
 import { Uri } from './common/uri/uri';
+import { UriEx } from './common/uri/uriUtils';
 
 export class BackgroundAnalysisBase {
     private _worker: Worker | undefined;
@@ -298,7 +299,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         // Stash the base directory into a global variable.
         const data = workerData as InitializationData;
         this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootUri}`);
-        this._configOptions = new ConfigOptions(Uri.parse(data.rootUri, serviceProvider.fs().isCaseSensitive));
+        this._configOptions = new ConfigOptions(UriEx.parse(data.rootUri, serviceProvider));
         this.importResolver = this.createImportResolver(serviceProvider, this._configOptions, this.createHost());
 
         const console = this.getConsole();

@@ -6,13 +6,14 @@
 
 import * as assert from 'assert';
 import * as path from 'path';
-import { createFromRealFileSystem } from '../common/realFileSystem';
+import { RealTempFile, createFromRealFileSystem } from '../common/realFileSystem';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
 import { Uri } from '../common/uri/uri';
 
 function runTests(p: string): void {
-    const zipRoot = Uri.file(path.resolve(path.dirname(module.filename), p));
-    const fs = createFromRealFileSystem();
+    const tempFile = new RealTempFile();
+    const zipRoot = Uri.file(path.resolve(path.dirname(module.filename), p), tempFile.isLocalFileSystemCaseSensitive());
+    const fs = createFromRealFileSystem(tempFile);
 
     test('stat root', () => {
         const stats = fs.statSync(zipRoot);
@@ -97,8 +98,9 @@ describe('egg', () => runTests('./samples/zipfs/basic.egg'));
 describe('jar', () => runTests('./samples/zipfs/basic.jar'));
 
 function runBadTests(p: string): void {
-    const zipRoot = Uri.file(path.resolve(path.dirname(module.filename), p));
-    const fs = createFromRealFileSystem();
+    const tempFile = new RealTempFile();
+    const zipRoot = Uri.file(path.resolve(path.dirname(module.filename), p), tempFile.isLocalFileSystemCaseSensitive());
+    const fs = createFromRealFileSystem(tempFile);
 
     test('stat root', () => {
         const stats = fs.statSync(zipRoot);

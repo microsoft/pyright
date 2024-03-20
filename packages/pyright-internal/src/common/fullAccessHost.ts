@@ -19,6 +19,7 @@ import { PythonVersion } from './pythonVersion';
 import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
 import { isDirectory } from './uri/uriUtils';
+import { ServiceKeys } from './serviceProviderExtensions';
 
 // preventLocalImports removes the working directory from sys.path.
 // The -c flag adds it automatically, which can allow some stdlib
@@ -235,7 +236,9 @@ export class FullAccessHost extends LimitedAccessHost {
             const commandLineArgs: string[] = ['-c', extractSys];
             importFailureInfo.push(`Executing interpreter: '${interpreterPath}'`);
             const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, { encoding: 'utf8' });
-            const isCaseSensitive = this.serviceProvider.fs().isCaseSensitive;
+            const isCaseSensitive = this.serviceProvider
+                .get(ServiceKeys.caseSensitivityDetector)
+                .isLocalFileSystemCaseSensitive();
 
             // Parse the execOutput. It should be a JSON-encoded array of paths.
             try {

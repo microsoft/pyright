@@ -19,7 +19,7 @@ import { getFileExtension, stripFileExtension } from '../common/pathUtils';
 import { ServiceProvider } from '../common/serviceProvider';
 import { getEmptyRange, Range } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
-import { tryStat } from '../common/uri/uriUtils';
+import { tryStat, UriEx } from '../common/uri/uriUtils';
 import { DeclarationType, FunctionDeclaration, VariableDeclaration } from './declaration';
 import { createImportedModuleDescriptor, ImportResolver } from './importResolver';
 import {
@@ -102,7 +102,7 @@ export class PackageTypeVerifier {
             this._configOptions.evaluateUnknownImportsAsAny = true;
         }
 
-        this._execEnv = this._configOptions.findExecEnvironment(Uri.file('.', _serviceProvider.fs().isCaseSensitive));
+        this._execEnv = this._configOptions.findExecEnvironment(UriEx.file('.', _serviceProvider));
         this._importResolver = new ImportResolver(this._serviceProvider, this._configOptions, this._host);
         this._program = new Program(this._importResolver, this._configOptions, this._serviceProvider);
     }

@@ -127,6 +127,7 @@ import {
 } from './completionProviderUtils';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
+import { UriEx } from '../common/uri/uriUtils';
 
 namespace Keywords {
     const base: string[] = [
@@ -348,11 +349,11 @@ export class CompletionProvider {
         if (
             completionItemData.moduleUri &&
             ImportResolver.isSupportedImportSourceFile(
-                Uri.parse(completionItemData.moduleUri, this.importResolver.fileSystem.isCaseSensitive)
+                UriEx.parse(completionItemData.moduleUri, this.program.serviceProvider)
             )
         ) {
             const documentation = getModuleDocStringFromUris(
-                [Uri.parse(completionItemData.moduleUri, this.importResolver.fileSystem.isCaseSensitive)],
+                [UriEx.parse(completionItemData.moduleUri, this.program.serviceProvider)],
                 this.sourceMapper
             );
             if (!documentation) {

@@ -13,14 +13,9 @@ import * as path from 'path';
 
 import { expandPathVariables } from '../common/envVarUtils';
 import { isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
-import { createFromRealFileSystem } from '../common/realFileSystem';
+import { RealTempFile, createFromRealFileSystem } from '../common/realFileSystem';
 import { Uri } from '../common/uri/uri';
-import {
-    deduplicateFolders,
-    getWildcardRegexPattern,
-    getWildcardRoot,
-    isFileSystemCaseSensitiveInternal,
-} from '../common/uri/uriUtils';
+import { deduplicateFolders, getWildcardRegexPattern, getWildcardRoot } from '../common/uri/uriUtils';
 import * as vfs from './harness/vfs/filesystem';
 
 test('parse', () => {
@@ -847,10 +842,10 @@ test('CaseSensitivity', () => {
     const cwd = '/';
 
     const fsCaseInsensitive = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
-    assert.equal(isFileSystemCaseSensitiveInternal(fsCaseInsensitive, fsCaseInsensitive), false);
+    assert.equal(fsCaseInsensitive.isLocalFileSystemCaseSensitive(), false);
 
     const fsCaseSensitive = new vfs.TestFileSystem(/*ignoreCase*/ false, { cwd });
-    assert.equal(isFileSystemCaseSensitiveInternal(fsCaseSensitive, fsCaseSensitive), true);
+    assert.equal(fsCaseSensitive.isLocalFileSystemCaseSensitive(), true);
 });
 
 test('deduplicateFolders', () => {
@@ -888,9 +883,10 @@ function lowerCaseDrive(entries: string[]) {
 }
 
 test('Realcase', () => {
-    const fs = createFromRealFileSystem();
+    const tempFile = new RealTempFile();
+    const fs = createFromRealFileSystem(tempFile);
     const cwd = process.cwd();
-    const dir = Uri.file(path.join(cwd, 'src', 'tests', '..', 'tests'));
+    const dir = Uri.file(path.join(cwd, 'src', 'tests', '..', 'tests'), tempFile.isLocalFileSystemCaseSensitive());
     const dirFilePath = dir.getFilePath()!;
     const entries = nodefs
         .readdirSync(dirFilePath)
@@ -917,10 +913,11 @@ test('Realcase', () => {
 });
 
 test('Realcase use cwd implicitly', () => {
-    const fs = createFromRealFileSystem();
+    const tempFile = new RealTempFile();
+    const fs = createFromRealFileSystem(tempFile);
     const cwd = process.cwd();
     const dir = path.join(cwd, 'src', 'tests');
-    const uri = Uri.file(dir);
+    const uri = Uri.file(dir, tempFile.isLocalFileSystemCaseSensitive());
 
     const entries = nodefs.readdirSync(dir).map((entry) => path.basename(nodefs.realpathSync(path.join(dir, entry))));
     const fsentries = fs.readdirSync(uri);
@@ -931,7 +928,8 @@ test('Realcase use cwd implicitly', () => {
 });
 
 test('Web URIs dont exist', () => {
-    const fs = createFromRealFileSystem();
+    const tempFile = new RealTempFile();
+    const fs = createFromRealFileSystem(tempFile);
     const uri = Uri.parse('http://www.bing.com', /*ignoreCase*/ true);
     assert(!fs.existsSync(uri));
     const stat = fs.statSync(uri);

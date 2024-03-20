@@ -15,6 +15,7 @@ import { ParseNodeType } from '../parser/parseNodes';
 import { TypeCategory } from '../analyzer/types';
 import { VariableDeclaration, isVariableDeclaration } from '../analyzer/declaration';
 import { TextRange } from '../common/textRange';
+import { UriEx } from '../common/uri/uriUtils';
 
 function buildImportTree(
     sourceFile: string,
@@ -221,7 +222,7 @@ function assertTypeAlias(code: string) {
     assert.strictEqual(type.typeAliasInfo.moduleName, 'test');
 
     const marker = state.getMarkerByName('marker');
-    const markerUri = Uri.file(marker.fileName, state.fs.isCaseSensitive);
+    const markerUri = UriEx.file(marker.fileName, state.workspace.service.serviceProvider);
     const mapper = state.program.getSourceMapper(
         markerUri,
         CancellationToken.None,

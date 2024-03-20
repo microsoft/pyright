@@ -33,7 +33,7 @@ import { serialize } from '../../backgroundThreadBase';
 import { FileSystem } from '../../common/fileSystem';
 import { PythonVersion } from '../../common/pythonVersion';
 import { ServiceKeys } from '../../common/serviceProviderExtensions';
-import { ServerSettings } from '../../languageServerBase';
+import { ServerSettings } from '../../common/languageServerInterface';
 import { PyrightFileSystem } from '../../pyrightFileSystem';
 import { PyrightServer } from '../../server';
 import { InitStatus, Workspace } from '../../workspaceFactory';

@@ -797,32 +797,30 @@ function createTestFileSystem(files: { path: string; content: string }[]): TestF
     return fs;
 }
 function createServiceProviderFromFiles(files: { path: string; content: string }[]): ServiceProvider {
-    const fs = new PyrightFileSystem(createTestFileSystem(files));
-    return createServiceProvider(fs);
+    const testFS = createTestFileSystem(files);
+    const fs = new PyrightFileSystem(testFS);
+    return createServiceProvider(testFS, fs);
 }
 
 function createServiceProviderWithCombinedFs(files: { path: string; content: string }[]): ServiceProvider {
-    const fs = new PyrightFileSystem(new CombinedFileSystem(createTestFileSystem(files)));
-    return createServiceProvider(fs);
+    const testFS = createTestFileSystem(files);
+    const fs = new PyrightFileSystem(new CombinedFileSystem(testFS));
+    return createServiceProvider(testFS, fs);
 }
 
 class TruePythonTestAccessHost extends FullAccessHost {
     constructor(sp: ServiceProvider) {
         // Make sure the service provide in use is using a real file system
         const clone = sp.clone();
-        clone.add(ServiceKeys.fs, createFromRealFileSystem());
+        clone.add(ServiceKeys.fs, createFromRealFileSystem(sp.get(ServiceKeys.caseSensitivityDetector)));
         super(clone);
     }
 }
 
 class CombinedFileSystem implements FileSystem {
-    private _realFS = createFromRealFileSystem();
+    private _realFS = createFromRealFileSystem(this._testFS);
 
-    constructor(private _testFS: FileSystem) {}
-
-    get isCaseSensitive(): boolean {
-        return this._testFS.isCaseSensitive;
-    }
+    constructor(private _testFS: TestFileSystem) {}
 
     mkdirSync(path: Uri, options?: MkDirOptions | undefined): void {
         this._testFS.mkdirSync(path, options);

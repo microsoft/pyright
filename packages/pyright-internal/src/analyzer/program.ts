@@ -1454,7 +1454,7 @@ export class Program {
                 let importedFileInfo = this.getSourceFileInfo(importInfo.path);
                 if (!importedFileInfo) {
                     const moduleImportInfo = this._getModuleImportInfoForFile(importInfo.path);
-                    const sourceFile = new SourceFile(
+                    const sourceFile = this._sourceFileFactory.createSourceFile(
                         this.serviceProvider,
                         importInfo.path,
                         moduleImportInfo.moduleName,
@@ -1909,18 +1909,19 @@ export class Program {
                 return false;
             }
 
+            const boundFile = this._bindFile(
+                fileToCheck,
+                undefined,
+                // If binding is required we want to make sure to bind the file, otherwise
+                // the sourceFile.check below will fail.
+                /* skipFileNeededCheck */ fileToCheck.sourceFile.isBindingRequired()
+            );
+
             if (!this._disableChecker) {
                 // For ipython, make sure we check all its dependent files first since
                 // their results can affect this file's result.
                 const dependentFiles = this._checkDependentFiles(fileToCheck, chainedByList, token);
 
-                const boundFile = this._bindFile(
-                    fileToCheck,
-                    undefined,
-                    // If binding is required we want to make sure to bind the file, otherwise
-                    // the sourceFile.check below will fail.
-                    /* skipFileNeededCheck */ fileToCheck.sourceFile.isBindingRequired()
-                );
                 if (this._preCheckCallback) {
                     const parseResults = fileToCheck.sourceFile.getParseResults();
                     if (parseResults) {

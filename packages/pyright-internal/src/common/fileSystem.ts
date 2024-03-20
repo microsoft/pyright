@@ -34,7 +34,6 @@ export interface MkDirOptions {
 }
 
 export interface ReadOnlyFileSystem {
-    readonly isCaseSensitive: boolean;
     existsSync(uri: Uri): boolean;
     chdir(uri: Uri): void;
     readdirEntriesSync(uri: Uri): fs.Dirent[];
@@ -89,6 +88,11 @@ export interface TempFile {
     dispose(): void;
 }
 
+export interface CaseSensitivityDetector {
+    isCaseSensitive(uri: string): boolean;
+    isLocalFileSystemCaseSensitive(): boolean;
+}
+
 export namespace FileSystem {
     export function is(value: any): value is FileSystem {
         return value.createFileSystemWatcher && value.createReadStream && value.createWriteStream && value.copyFileSync;
@@ -98,6 +102,12 @@ export namespace FileSystem {
 export namespace TempFile {
     export function is(value: any): value is TempFile {
         return value.tmpdir && value.tmpfile && value.dispose;
+    }
+}
+
+export namespace CaseSensitivityDetector {
+    export function is(value: any): value is CaseSensitivityDetector {
+        return !!value.isCaseSensitive && !!value.isLocalFileSystemCaseSensitive;
     }
 }
 

@@ -8,7 +8,7 @@
 
 import { CancellationToken, ExecuteCommandParams, ResponseError } from 'vscode-languageserver';
 
-import { LanguageServerInterface } from '../languageServerBase';
+import { LanguageServerInterface } from '../common/languageServerInterface';
 import { Commands } from './commands';
 import { CreateTypeStubCommand } from './createTypeStub';
 import { DumpFileDebugInfoCommand } from './dumpFileDebugInfoCommand';
@@ -65,5 +65,9 @@ export class CommandController implements ServerCommand {
             default:
                 return false;
         }
+    }
+
+    isRefactoringCommand(command: string): boolean {
+        return false;
     }
 }

@@ -21,7 +21,7 @@ import { fail } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
 import { FullAccessHost } from '../common/fullAccessHost';
-import { createFromRealFileSystem } from '../common/realFileSystem';
+import { RealTempFile, createFromRealFileSystem } from '../common/realFileSystem';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
 import { ParseOptions, ParseResults, Parser } from '../parser/parser';
@@ -104,8 +104,9 @@ export function typeAnalyzeSampleFiles(
     // Always enable "test mode".
     configOptions.internalTestMode = true;
 
-    const fs = createFromRealFileSystem();
-    const serviceProvider = createServiceProvider(fs, console || new NullConsole());
+    const tempFile = new RealTempFile();
+    const fs = createFromRealFileSystem(tempFile);
+    const serviceProvider = createServiceProvider(fs, console || new NullConsole(), tempFile);
     const importResolver = new ImportResolver(serviceProvider, configOptions, new FullAccessHost(serviceProvider));
 
     const program = new Program(importResolver, configOptions, serviceProvider);

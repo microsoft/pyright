@@ -13,8 +13,9 @@ import { AnalyzerService, getNextServiceId } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { LogLevel } from '../common/console';
 import { FileSystem } from '../common/fileSystem';
+import { LanguageServerInterface, ServerSettings } from '../common/languageServerInterface';
 import { FileUri } from '../common/uri/fileUri';
-import { LanguageServerInterface, ServerSettings } from '../languageServerBase';
+
 import { WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../workspaceFactory';
 
 export interface CloneOptions {

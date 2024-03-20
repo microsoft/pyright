@@ -50,9 +50,9 @@ import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../.
 import { DocumentRange, Position, Range as PositionRange, TextRange, rangesAreEqual } from '../../../common/textRange';
 import { TextRangeCollection } from '../../../common/textRangeCollection';
 import { Uri } from '../../../common/uri/uri';
-import { getFileSpec, setTestingMode } from '../../../common/uri/uriUtils';
+import { getFileSpec } from '../../../common/uri/uriUtils';
 import { convertToWorkspaceEdit } from '../../../common/workspaceEditUtils';
-import { LanguageServerInterface } from '../../../languageServerBase';
+import { LanguageServerInterface } from '../../../common/languageServerInterface';
 import { CallHierarchyProvider } from '../../../languageService/callHierarchyProvider';
 import { CompletionOptions, CompletionProvider } from '../../../languageService/completionProvider';
 import {
@@ -216,8 +216,6 @@ export class TestState {
         if (!delayFileInitialization) {
             this.initializeFiles();
         }
-
-        setTestingMode(true);
     }
 
     get importResolver(): ImportResolver {
@@ -837,7 +835,9 @@ export class TestState {
             if (verifyCodeActionCount) {
                 if (codeActions.length !== Object.keys(map).length) {
                     this.raiseError(
-                        `doesn't contain expected result: ${stringify(map[name])}, actual: ${stringify(codeActions)}`
+                        `doesn't contain expected result count: ${stringify(map[name])}, actual: ${stringify(
+                            codeActions
+                        )}`
                     );
                 }
             }

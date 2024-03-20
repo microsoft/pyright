@@ -25,6 +25,7 @@ import {
     setCancellationFolderName,
 } from './cancellationUtils';
 import { Uri } from './uri/uri';
+import { IdCancellationReceiverStrategy } from 'vscode-jsonrpc/lib/common/connection';
 
 class StatSyncFromFs {
     statSync(uri: Uri) {
@@ -123,7 +124,7 @@ function getCancellationFileUri(folderName: string, id: CancellationId): string 
     return Uri.file(path.join(getCancellationFolderPath(folderName), `cancellation-${String(id)}.tmp`)).toString();
 }
 
-class FileCancellationReceiverStrategy implements CancellationReceiverStrategy {
+class FileCancellationReceiverStrategy implements IdCancellationReceiverStrategy {
     constructor(readonly folderName: string) {}
 
     createCancellationTokenSource(id: CancellationId): AbstractCancellationTokenSource {

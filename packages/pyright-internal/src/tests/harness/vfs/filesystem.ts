@@ -9,7 +9,13 @@
 /* eslint-disable no-dupe-class-members */
 import { Dirent, ReadStream, WriteStream } from 'fs';
 
-import { FileSystem, MkDirOptions, TempFile, TmpfileOptions } from '../../../common/fileSystem';
+import {
+    CaseSensitivityDetector,
+    FileSystem,
+    MkDirOptions,
+    TempFile,
+    TmpfileOptions,
+} from '../../../common/fileSystem';
 import { FileWatcher, FileWatcherEventHandler, FileWatcherEventType } from '../../../common/fileWatcher';
 import * as pathUtil from '../../../common/pathUtils';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../../common/stringUtils';
@@ -17,6 +23,7 @@ import { Uri } from '../../../common/uri/uri';
 import { bufferFrom, createIOError } from '../utils';
 import { Metadata, SortedMap, closeIterator, getIterator, nextResult } from './../utils';
 import { ValidationFlags, validate } from './pathValidation';
+import { FileUriSchema } from '../../../common/uri/fileUri';
 
 export const MODULE_PATH = pathUtil.normalizeSlashes('/');
 
@@ -45,7 +52,7 @@ export class TestFileSystemWatcher implements FileWatcher {
 /**
  * Represents a virtual POSIX-like file system.
  */
-export class TestFileSystem implements FileSystem, TempFile {
+export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDetector {
     /** Indicates whether the file system is case-sensitive (`false`) or case-insensitive (`true`). */
     readonly ignoreCase: boolean;
 
@@ -105,10 +112,6 @@ export class TestFileSystem implements FileSystem, TempFile {
         }
 
         this._cwd = cwd || '';
-    }
-
-    get isCaseSensitive() {
-        return !this.ignoreCase;
     }
 
     /**
@@ -350,9 +353,21 @@ export class TestFileSystem implements FileSystem, TempFile {
         return Uri.file(MODULE_PATH);
     }
 
+    isCaseSensitive(uri: string) {
+        if (uri.startsWith(FileUriSchema)) {
+            return !this.ignoreCase;
+        }
+
+        return true;
+    }
+
+    isLocalFileSystemCaseSensitive(): boolean {
+        return !this.ignoreCase;
+    }
+
     tmpdir(): Uri {
         this.mkdirpSync('/tmp');
-        return Uri.parse('file:///tmp', true);
+        return Uri.parse('file:///tmp', !this.ignoreCase);
     }
 
     tmpfile(options?: TmpfileOptions): Uri {

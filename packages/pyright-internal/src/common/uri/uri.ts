@@ -9,7 +9,7 @@
 import { URI, Utils } from 'vscode-uri';
 import { combinePaths, isRootedDiskPath } from '../pathUtils';
 import { EmptyUri } from './emptyUri';
-import { FileUri } from './fileUri';
+import { FileUri, FileUriSchema } from './fileUri';
 import { WebUri } from './webUri';
 import { JsonObjType } from './baseUri';
 import { isArray } from '../core';
@@ -210,7 +210,7 @@ export namespace Uri {
         // Normalize the value here. This gets rid of '..' and '.' in the path. It also removes any
         // '/' on the end of the path.
         const normalized = normalizeUri(value);
-        if (normalized.uri.scheme === 'file') {
+        if (normalized.uri.scheme === FileUriSchema) {
             return FileUri.createFileUri(
                 getFilePath(normalized.uri),
                 normalized.uri.query,

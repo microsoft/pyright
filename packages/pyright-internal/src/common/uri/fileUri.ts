@@ -27,6 +27,8 @@ import { SerializedType, Uri, UriKinds } from './uri';
 
 type FileUriSerializedType = [0, string, string, string, string | undefined, 1 | 0];
 
+export const FileUriSchema = 'file';
+
 export class FileUri extends BaseUri {
     private _formattedString: string | undefined;
     private _normalizedPath: string | undefined;
@@ -43,7 +45,7 @@ export class FileUri extends BaseUri {
     }
 
     override get scheme(): string {
-        return 'file';
+        return FileUriSchema;
     }
 
     get fragment(): string {

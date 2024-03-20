@@ -17,7 +17,7 @@ import {
     SymbolDefinitionProvider,
     SymbolUsageProviderFactory,
 } from './extensibility';
-import { FileSystem, TempFile } from './fileSystem';
+import { CaseSensitivityDetector, FileSystem, TempFile } from './fileSystem';
 import { LogTracker } from './logTracker';
 import { GroupServiceKey, ServiceKey, ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
@@ -43,6 +43,7 @@ export namespace ServiceKeys {
     export const tempFile = new ServiceKey<TempFile>();
     export const cacheManager = new ServiceKey<CacheManager>();
     export const debugInfoInspector = new ServiceKey<DebugInfoInspector>();
+    export const caseSensitivityDetector = new ServiceKey<CaseSensitivityDetector>();
 }
 
 export function createServiceProvider(...services: any): ServiceProvider {
@@ -64,6 +65,9 @@ export function createServiceProvider(...services: any): ServiceProvider {
         }
         if (TempFile.is(service)) {
             sp.add(ServiceKeys.tempFile, service);
+        }
+        if (CaseSensitivityDetector.is(service)) {
+            sp.add(ServiceKeys.caseSensitivityDetector, service);
         }
         if (CacheManager.is(service)) {
             sp.add(ServiceKeys.cacheManager, service);

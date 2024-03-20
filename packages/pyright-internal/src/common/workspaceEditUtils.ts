@@ -128,7 +128,7 @@ export function applyWorkspaceEdit(program: EditableProgram, edits: WorkspaceEdi
                     continue;
                 }
 
-                applyDocumentChanges(program, fileInfo, change.edits);
+                applyDocumentChanges(program, fileInfo, change.edits.filter((e) => TextEdit.is(e)) as TextEdit[]);
                 filesChanged.set(fileUri.key, fileUri);
             }
 

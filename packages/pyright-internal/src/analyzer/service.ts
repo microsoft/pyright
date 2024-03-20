@@ -32,6 +32,7 @@ import { timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import {
     FileSpec,
+    UriEx,
     forEachAncestorDirectory,
     getFileSpec,
     getFileSystemEntries,
@@ -142,8 +143,7 @@ export class AnalyzerService {
         this._options.hostFactory = options.hostFactory ?? (() => new NoAccessHost());
 
         this._options.configOptions =
-            options.configOptions ??
-            new ConfigOptions(Uri.file(process.cwd(), this._serviceProvider.fs().isCaseSensitive));
+            options.configOptions ?? new ConfigOptions(UriEx.file(process.cwd(), this._serviceProvider));
         const importResolver = this._options.importResolverFactory(
             this._serviceProvider,
             this._options.configOptions,
@@ -516,7 +516,7 @@ export class AnalyzerService {
     private _getConfigOptions(host: Host, commandLineOptions: CommandLineOptions, possibleRoot?: Uri): ConfigOptions {
         const executionRootUri =
             possibleRoot ??
-            Uri.file(commandLineOptions.executionRoot, this.fs.isCaseSensitive, /* checkRelative */ true);
+            UriEx.file(commandLineOptions.executionRoot, this.serviceProvider, /* checkRelative */ true);
         const executionRoot = this.fs.realCasePath(executionRootUri);
         let projectRoot = executionRoot;
         let configFilePath: Uri | undefined;
@@ -528,7 +528,7 @@ export class AnalyzerService {
             // or a file.
             configFilePath = this.fs.realCasePath(
                 isRootedDiskPath(commandLineOptions.configFilePath)
-                    ? Uri.file(commandLineOptions.configFilePath, this.fs.isCaseSensitive, /* checkRelative */ true)
+                    ? UriEx.file(commandLineOptions.configFilePath, this.serviceProvider, /* checkRelative */ true)
                     : projectRoot.resolvePaths(commandLineOptions.configFilePath)
             );
             if (!this.fs.existsSync(configFilePath)) {
@@ -589,7 +589,7 @@ export class AnalyzerService {
                 `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
             );
             configOptions.pythonPath = this.fs.realCasePath(
-                Uri.file(commandLineOptions.pythonPath, this.fs.isCaseSensitive, /* checkRelative */ true)
+                UriEx.file(commandLineOptions.pythonPath, this.serviceProvider, /* checkRelative */ true)
             );
         }
 
@@ -704,7 +704,7 @@ export class AnalyzerService {
             configOptions.include = [];
             commandLineOptions.includeFileSpecsOverride.forEach((include) => {
                 configOptions.include.push(
-                    getFileSpec(Uri.file(include, this.fs.isCaseSensitive, /* checkRelative */ true), '.')
+                    getFileSpec(UriEx.file(include, this.serviceProvider, /* checkRelative */ true), '.')
                 );
             });
         }
@@ -1269,7 +1269,7 @@ export class AnalyzerService {
                         return;
                     }
 
-                    let uri = Uri.file(path, this.fs.isCaseSensitive, /* checkRelative */ true);
+                    let uri = UriEx.file(path, this.serviceProvider, /* checkRelative */ true);
 
                     // Make sure path is the true case.
                     uri = this.fs.realCasePath(uri);
@@ -1455,7 +1455,7 @@ export class AnalyzerService {
                         return;
                     }
 
-                    const uri = Uri.file(path, this.fs.isCaseSensitive, /* checkRelative */ true);
+                    const uri = UriEx.file(path, this.serviceProvider, /* checkRelative */ true);
 
                     if (!this._shouldHandleLibraryFileWatchChanges(uri, watchList)) {
                         return;

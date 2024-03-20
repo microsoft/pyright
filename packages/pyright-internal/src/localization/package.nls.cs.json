@@ -532,6 +532,7 @@
         "typeVarUsedByOuterScope": "TypeVar „{name}“ se už používá ve vnějším oboru",
         "typeVarUsedOnlyOnce": "TypeVar {name} se v signatuře obecné funkce zobrazuje jenom jednou",
         "typeVarVariance": "TypeVar nemůže být kovariantní i kontravariantní",
+        "typeVarWithDefaultFollowsVariadic": "TypeVar {typeVarName} má výchozí hodnotu a nemůže následovat po typeVarTuple {variadicName}.",
         "typeVarWithoutDefault": "„{name}“ se v seznamu parametrů typu nemůže zobrazit za „{other}“ , protože nemá žádný výchozí typ",
         "typeVarsNotInGenericOrProtocol": "Generic[] nebo Protocol[] musí obsahovat všechny proměnné typu",
         "typedDictAccess": "Nepovedlo se získat přístup k položce v TypedDict",

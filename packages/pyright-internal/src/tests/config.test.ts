@@ -17,16 +17,18 @@ import { ConsoleInterface, NullConsole } from '../common/console';
 import { NoAccessHost } from '../common/host';
 import { combinePaths, normalizePath, normalizeSlashes } from '../common/pathUtils';
 import { pythonVersion3_9 } from '../common/pythonVersion';
-import { createFromRealFileSystem } from '../common/realFileSystem';
+import { RealTempFile, createFromRealFileSystem } from '../common/realFileSystem';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
+import { UriEx } from '../common/uri/uriUtils';
 import { TestAccessHost } from './harness/testAccessHost';
 import { TestFileSystem } from './harness/vfs/filesystem';
 
 function createAnalyzer(console?: ConsoleInterface) {
+    const tempFile = new RealTempFile();
     const cons = console ?? new NullConsole();
-    const fs = createFromRealFileSystem(cons);
-    const serviceProvider = createServiceProvider(fs, cons);
+    const fs = createFromRealFileSystem(tempFile, cons);
+    const serviceProvider = createServiceProvider(fs, cons, tempFile);
     return new AnalyzerService('<default>', serviceProvider, { console: cons });
 }
 
@@ -43,7 +45,9 @@ test('FindFilesWithConfigFile', () => {
     assert.strictEqual(configOptions.include.length, 1, `failed creating options from ${cwd}`);
     assert.strictEqual(
         configOptions.projectRoot.key,
-        service.fs.realCasePath(Uri.file(combinePaths(cwd, commandLineOptions.configFilePath))).key
+        service.fs.realCasePath(
+            UriEx.file(combinePaths(cwd, commandLineOptions.configFilePath), service.serviceProvider)
+        ).key
     );
 
     const fileList = service.test_getFileNamesFromFileSpecs();
@@ -218,9 +222,12 @@ test('PythonPlatform', () => {
 });
 
 test('AutoSearchPathsOn', () => {
-    const cwd = Uri.file(normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src')));
     const nullConsole = new NullConsole();
     const service = createAnalyzer(nullConsole);
+    const cwd = UriEx.file(
+        normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src')),
+        service.serviceProvider
+    );
     const commandLineOptions = new CommandLineOptions(cwd.getFilePath(), /* fromVsCodeExtension */ false);
     commandLineOptions.autoSearchPaths = true;
     service.setOptions(commandLineOptions);
@@ -278,9 +285,9 @@ test('AutoSearchPathsOnWithConfigExecEnv', () => {
 test('AutoSearchPathsOnAndExtraPaths', () => {
     const nullConsole = new NullConsole();
     const service = createAnalyzer(nullConsole);
-    const cwd = Uri.file(
+    const cwd = UriEx.file(
         normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src_with_config_no_extra_paths')),
-        service.fs.isCaseSensitive
+        service.serviceProvider
     );
     const commandLineOptions = new CommandLineOptions(cwd.getFilePath(), /* fromVsCodeExtension */ false);
     commandLineOptions.autoSearchPaths = true;

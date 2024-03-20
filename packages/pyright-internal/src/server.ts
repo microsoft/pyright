@@ -36,11 +36,12 @@ import { RealTempFile, WorkspaceFileWatcherProvider, createFromRealFileSystem } 
 import { ServiceProvider } from './common/serviceProvider';
 import { createServiceProvider } from './common/serviceProviderExtensions';
 import { Uri } from './common/uri/uri';
-import { getRootUri } from './common/uri/uriUtils';
-import { LanguageServerBase, ServerSettings } from './languageServerBase';
+import { UriEx, getRootUri } from './common/uri/uriUtils';
+import { ServerSettings } from './common/languageServerInterface';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 import { PyrightFileSystem } from './pyrightFileSystem';
 import { WellKnownWorkspaceKinds, Workspace } from './workspaceFactory';
+import { LanguageServerBase } from './languageServerBase';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
 
@@ -51,11 +52,11 @@ export class PyrightServer extends LanguageServerBase {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const version = require('../package.json').version || '';
 
+        const tempFile = new RealTempFile();
         const console = new ConsoleWithLogLevel(connection.console);
         const fileWatcherProvider = new WorkspaceFileWatcherProvider();
-        const fileSystem = realFileSystem ?? createFromRealFileSystem(console, fileWatcherProvider);
+        const fileSystem = realFileSystem ?? createFromRealFileSystem(tempFile, console, fileWatcherProvider);
         const pyrightFs = new PyrightFileSystem(fileSystem);
-        const tempFile = new RealTempFile(pyrightFs.isCaseSensitive);
         const cacheManager = new CacheManager();
 
         const serviceProvider = createServiceProvider(pyrightFs, tempFile, console, cacheManager);
@@ -63,8 +64,7 @@ export class PyrightServer extends LanguageServerBase {
         // When executed from CLI command (pyright-langserver), __rootDirectory is
         // already defined. When executed from VSCode extension, rootDirectory should
         // be __dirname.
-        const rootDirectory: Uri =
-            getRootUri(pyrightFs.isCaseSensitive) || Uri.file(__dirname, pyrightFs.isCaseSensitive);
+        const rootDirectory: Uri = getRootUri(serviceProvider) || UriEx.file(__dirname, serviceProvider);
         const realPathRoot = pyrightFs.realCasePath(rootDirectory);
 
         super(
@@ -261,13 +261,17 @@ export class PyrightServer extends LanguageServerBase {
         return this._controller.isLongRunningCommand(command);
     }
 
+    protected isRefactoringCommand(command: string): boolean {
+        return this._controller.isRefactoringCommand(command);
+    }
+
     protected async executeCodeAction(
         params: CodeActionParams,
         token: CancellationToken
     ): Promise<(Command | CodeAction)[] | undefined | null> {
         this.recordUserInteractionTime();
 
-        const uri = Uri.parse(params.textDocument.uri, this.serverOptions.serviceProvider.fs().isCaseSensitive);
+        const uri = UriEx.parse(params.textDocument.uri, this.serverOptions.serviceProvider);
         const workspace = await this.getWorkspaceForFile(uri);
         return CodeActionProvider.getCodeActionsForPosition(workspace, uri, params.range, params.context.only, token);
     }

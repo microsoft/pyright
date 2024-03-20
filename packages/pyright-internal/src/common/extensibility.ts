@@ -16,7 +16,7 @@ import { SourceMapper } from '../analyzer/sourceMapper';
 import { SymbolTable } from '../analyzer/symbol';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { Diagnostic } from '../common/diagnostic';
-import { ServerSettings } from '../languageServerBase';
+import { ServerSettings } from '../common/languageServerInterface';
 import { ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { ConfigOptions } from './configOptions';

@@ -29,10 +29,10 @@
         "leven": "^3.1.0",
         "source-map-support": "^0.5.21",
         "tmp": "^0.2.1",
-        "vscode-jsonrpc": "^8.2.0",
-        "vscode-languageserver": "^9.0.1",
-        "vscode-languageserver-textdocument": "1.0.10",
-        "vscode-languageserver-types": "^3.17.5",
+        "vscode-jsonrpc": "^9.0.0-next.2",
+        "vscode-languageserver": "^10.0.0-next.2",
+        "vscode-languageserver-textdocument": "1.0.11",
+        "vscode-languageserver-types": "^3.17.6-next.3",
         "vscode-uri": "^3.0.8"
     },
     "devDependencies": {

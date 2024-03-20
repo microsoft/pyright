@@ -13,6 +13,30 @@ import { createFromRealFileSystem } from '../../common/realFileSystem';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../common/stringUtils';
 import { Uri } from '../../common/uri/uri';
 import { directoryExists, fileExists, getFileSize } from '../../common/uri/uriUtils';
+import { CaseSensitivityDetector } from '../../common/fileSystem';
+import { FileUriSchema } from '../../common/uri/fileUri';
+
+export class TestCaseSensitivityDetector implements CaseSensitivityDetector {
+    constructor(private _isCaseSensitive = true) {
+        // Empty
+    }
+
+    setCaseSensitivity(value: boolean) {
+        this._isCaseSensitive = value;
+    }
+
+    isCaseSensitive(uri: string): boolean {
+        if (uri.startsWith(FileUriSchema)) {
+            return this._isCaseSensitive;
+        }
+
+        return false;
+    }
+
+    isLocalFileSystemCaseSensitive(): boolean {
+        return this._isCaseSensitive;
+    }
+}
 
 export const HOST: TestHost = createHost();
 
@@ -41,9 +65,12 @@ function createHost(): TestHost {
     // byte order mark from the specified encoding. Using any other byte order mark does
     // not actually work.
     const byteOrderMarkIndicator = '\uFEFF';
-    const vfs = createFromRealFileSystem(new NullConsole());
+
+    const caseDetector = new TestCaseSensitivityDetector();
+    const vfs = createFromRealFileSystem(caseDetector, new NullConsole());
 
     const useCaseSensitiveFileNames = isFileSystemCaseSensitive();
+    caseDetector.setCaseSensitivity(useCaseSensitiveFileNames);
 
     function isFileSystemCaseSensitive(): boolean {
         // win32\win64 are case insensitive platforms
