@@ -89,9 +89,14 @@ jobs:
         run: ./pw pdm publish
 
       # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
-      - name: Publish VSIX
+      - name: Publish VSIX to visual studio marketplace
         if: github.ref == 'refs/heads/main' && steps.version-was-changed.outputs.VERSION_INFO == ''
         run: ./node_modules/.bin/vsce publish --packagePath ${{ env.VSIX_NAME }} --pat ${{ secrets.VSCE_TOKEN }} --noVerify
+        working-directory: ${{ env.VSIX_DIR }}
+
+      - name: Publish VSIX to open VSX
+        if: github.ref == 'refs/heads/main' && steps.version-was-changed.outputs.VERSION_INFO == ''
+        run: ./node_modules/.bin/osvx publish --packagePath ${{ env.VSIX_NAME }} --pat ${{ secrets.OPEN_VSX_TOKEN }}
         working-directory: ${{ env.VSIX_DIR }}
 
       - uses: marvinpinto/action-automatic-releases@v1.2.1
