@@ -112,7 +112,6 @@ def writeSurrogateRangeTable(
         f"export const unicode{category}Surrogate: UnicodeSurrogateRangeTable = {{\n"
     )
 
-    consecutiveRangeStartChar: Character | None = None
     previousCharRange: CharacterRange | None = None
     for charRange in surrogateRanges:
         if (
