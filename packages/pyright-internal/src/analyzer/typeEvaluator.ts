@@ -13832,7 +13832,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isNarrowable: boolean
     ): Type | undefined {
         // If the expected type is Any, the resulting type becomes Any.
-        if (isAnyOrUnknown(inferenceContext.expectedType)) {
+        if (isAny(inferenceContext.expectedType)) {
             return inferenceContext.expectedType;
         }
 
