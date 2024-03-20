@@ -329,7 +329,7 @@ test('BasicPyprojectTomlParsing', () => {
 
 test('basedPyprojectTomlParsing', () => {
     const { configOptions, analysisResult } = setupPyprojectToml('src/tests/samples/based_project_with_pyproject_toml');
-    assert.strictEqual(configOptions.defaultPythonVersion!, PythonVersion.V3_9);
+    assert.strictEqual(configOptions.defaultPythonVersion!, pythonVersion3_9);
     assert.strictEqual(configOptions.diagnosticRuleSet.reportMissingImports, 'error');
     assert.strictEqual(configOptions.diagnosticRuleSet.reportUnusedClass, 'warning');
     assert(analysisResult === undefined);
