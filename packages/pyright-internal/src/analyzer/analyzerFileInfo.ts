@@ -10,7 +10,7 @@
 
 import { DiagnosticRuleSet, ExecutionEnvironment } from '../common/configOptions';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import { PythonVersion } from '../common/pythonVersion';
+import { pythonVersion3_13 } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Uri } from '../common/uri/uri';
@@ -78,7 +78,7 @@ export function isAnnotationEvaluationPostponed(fileInfo: AnalyzerFileInfo) {
     // It was tentatively approved for 3.12, but they decided to defer until the next
     // release to reduce the risk.
     // https://discuss.python.org/t/pep-649-deferred-evaluation-of-annotations-tentatively-accepted/21331
-    if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_13) {
+    if (fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_13)) {
         return true;
     }
 

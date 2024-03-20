@@ -20,7 +20,7 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever } from '../common/debug';
 import { ActionKind, Diagnostic, DiagnosticAddendum, RenameShadowedFileAction } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { PythonVersion, versionToString } from '../common/pythonVersion';
+import { pythonVersion3_12, pythonVersion3_5, pythonVersion3_6 } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { DefinitionProvider } from '../languageService/definitionProvider';
@@ -627,7 +627,7 @@ export class Checker extends ParseTreeWalker {
 
             if (
                 this._fileInfo.diagnosticRuleSet.reportTypeCommentUsage !== 'none' &&
-                this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_5
+                this._fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_5)
             ) {
                 this._evaluator.addDiagnostic(
                     DiagnosticRule.reportTypeCommentUsage,
@@ -1219,7 +1219,7 @@ export class Checker extends ParseTreeWalker {
 
             if (
                 this._fileInfo.diagnosticRuleSet.reportTypeCommentUsage !== 'none' &&
-                this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_6
+                this._fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_6)
             ) {
                 this._evaluator.addDiagnostic(
                     DiagnosticRule.reportTypeCommentUsage,
@@ -1381,7 +1381,7 @@ export class Checker extends ParseTreeWalker {
         // associated with f-strings that we need to validate. Determine whether
         // we're within an f-string (or multiple f-strings if nesting is used).
         const fStringContainers: FormatStringNode[] = [];
-        if (this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_12) {
+        if (this._fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_12)) {
             let curNode: ParseNode | undefined = node;
             while (curNode) {
                 if (curNode.nodeType === ParseNodeType.FormatString) {
@@ -4265,12 +4265,12 @@ export class Checker extends ParseTreeWalker {
                     (isInstantiableClass(type) && type.details.fullName === deprecatedForm.fullName) ||
                     type.typeAliasInfo?.fullName === deprecatedForm.fullName
                 ) {
-                    if (this._fileInfo.executionEnvironment.pythonVersion >= deprecatedForm.version) {
+                    if (this._fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(deprecatedForm.version)) {
                         if (!deprecatedForm.typingImportOnly || isImportFromTyping) {
                             if (this._fileInfo.diagnosticRuleSet.reportDeprecated === 'none') {
                                 this._evaluator.addDeprecated(
                                     LocMessage.deprecatedType().format({
-                                        version: versionToString(deprecatedForm.version),
+                                        version: deprecatedForm.version.toString(),
                                         replacement: deprecatedForm.replacementText,
                                     }),
                                     node
@@ -4279,7 +4279,7 @@ export class Checker extends ParseTreeWalker {
                                 this._evaluator.addDiagnostic(
                                     DiagnosticRule.reportDeprecated,
                                     LocMessage.deprecatedType().format({
-                                        version: versionToString(deprecatedForm.version),
+                                        version: deprecatedForm.version.toString(),
                                         replacement: deprecatedForm.replacementText,
                                     }),
                                     node

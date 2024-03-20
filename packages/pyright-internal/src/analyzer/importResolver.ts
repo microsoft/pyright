@@ -15,7 +15,7 @@ import { ConfigOptions, ExecutionEnvironment, matchFileSpecs } from '../common/c
 import { Host } from '../common/host';
 import { stubsSuffix } from '../common/pathConsts';
 import { stripFileExtension } from '../common/pathUtils';
-import { PythonVersion, versionFromString } from '../common/pythonVersion';
+import { PythonVersion, pythonVersion3_0 } from '../common/pythonVersion';
 import { ServiceProvider } from '../common/serviceProvider';
 import { ServiceKeys } from '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
@@ -471,7 +471,7 @@ export class ImportResolver {
         this._cachedTypeshedStdLibModuleVersionInfo.forEach((versionInfo, moduleName) => {
             let shouldExcludeModule = false;
 
-            if (versionInfo.max !== undefined && pythonVersion > versionInfo.max) {
+            if (versionInfo.max !== undefined && pythonVersion.isGreaterThan(versionInfo.max)) {
                 shouldExcludeModule = true;
             }
 
@@ -2065,11 +2065,11 @@ export class ImportResolver {
             const versionInfo = this._cachedTypeshedStdLibModuleVersionInfo.get(namePartsToConsider.join('.'));
 
             if (versionInfo) {
-                if (pythonVersion < versionInfo.min) {
+                if (pythonVersion.isLessThan(versionInfo.min)) {
                     return false;
                 }
 
-                if (versionInfo.max !== undefined && pythonVersion > versionInfo.max) {
+                if (versionInfo.max !== undefined && pythonVersion.isGreaterThan(versionInfo.max)) {
                     return false;
                 }
 
@@ -2140,14 +2140,14 @@ export class ImportResolver {
                             // If the version ends in "+", strip it off.
                             minVersionString = minVersionString.substr(0, minVersionString.length - 1);
                         }
-                        let minVersion = versionFromString(minVersionString);
+                        let minVersion = PythonVersion.fromString(minVersionString);
                         if (!minVersion) {
-                            minVersion = PythonVersion.V3_0;
+                            minVersion = pythonVersion3_0;
                         }
 
                         let maxVersion: PythonVersion | undefined;
                         if (versionSplit.length > 1) {
-                            maxVersion = versionFromString(versionSplit[1].trim());
+                            maxVersion = PythonVersion.fromString(versionSplit[1].trim());
                         }
 
                         // A semicolon can be followed by a semicolon-delimited list of other

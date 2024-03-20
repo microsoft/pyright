@@ -13,7 +13,13 @@ import * as assert from 'assert';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { ScopeType } from '../analyzer/scope';
 import { ConfigOptions } from '../common/configOptions';
-import { PythonVersion } from '../common/pythonVersion';
+import {
+    pythonVersion3_10,
+    pythonVersion3_11,
+    pythonVersion3_7,
+    pythonVersion3_8,
+    pythonVersion3_9,
+} from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -632,12 +638,12 @@ test('Unpack3', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.7 settings.
-    configOptions.defaultPythonVersion = PythonVersion.V3_7;
+    configOptions.defaultPythonVersion = pythonVersion3_7;
     const analysisResults37 = TestUtils.typeAnalyzeSampleFiles(['unpack3.py'], configOptions);
     TestUtils.validateResults(analysisResults37, 1);
 
     // Analyze with Python 3.8 settings.
-    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    configOptions.defaultPythonVersion = pythonVersion3_8;
     const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['unpack3.py'], configOptions);
     TestUtils.validateResults(analysisResults38, 0);
 });
@@ -646,12 +652,12 @@ test('Unpack4', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.8 settings.
-    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    configOptions.defaultPythonVersion = pythonVersion3_8;
     const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['unpack4.py'], configOptions);
     TestUtils.validateResults(analysisResults38, 2);
 
     // Analyze with Python 3.9 settings.
-    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    configOptions.defaultPythonVersion = pythonVersion3_9;
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['unpack4.py'], configOptions);
     TestUtils.validateResults(analysisResults39, 1);
 });
@@ -659,7 +665,7 @@ test('Unpack4', () => {
 test('Unpack4', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unpack5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
@@ -770,12 +776,12 @@ test('Call3', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.7 settings. This will generate more errors.
-    configOptions.defaultPythonVersion = PythonVersion.V3_7;
+    configOptions.defaultPythonVersion = pythonVersion3_7;
     const analysisResults37 = TestUtils.typeAnalyzeSampleFiles(['call3.py'], configOptions);
     TestUtils.validateResults(analysisResults37, 36);
 
     // Analyze with Python 3.8 settings.
-    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    configOptions.defaultPythonVersion = pythonVersion3_8;
     const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['call3.py'], configOptions);
     TestUtils.validateResults(analysisResults38, 20);
 });
@@ -1624,11 +1630,11 @@ test('TupleUnpack1', () => {
 test('TupleUnpack2', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack2.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 18);
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack2.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 4);
 });
@@ -1636,7 +1642,7 @@ test('TupleUnpack2', () => {
 test('TupleUnpack3', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tupleUnpack3.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 1);
 });
@@ -1716,13 +1722,13 @@ test('Dictionary4', () => {
 test('StaticExpression1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    configOptions.defaultPythonVersion = pythonVersion3_8;
     configOptions.defaultPythonPlatform = 'windows';
 
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['staticExpression1.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 9);
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    configOptions.defaultPythonVersion = pythonVersion3_11;
     configOptions.defaultPythonPlatform = 'Linux';
 
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['staticExpression1.py'], configOptions);

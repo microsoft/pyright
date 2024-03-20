@@ -17,7 +17,19 @@ import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
-import { PythonVersion, latestStablePythonVersion } from '../common/pythonVersion';
+import {
+    PythonVersion,
+    latestStablePythonVersion,
+    pythonVersion3_10,
+    pythonVersion3_11,
+    pythonVersion3_12,
+    pythonVersion3_13,
+    pythonVersion3_3,
+    pythonVersion3_5,
+    pythonVersion3_6,
+    pythonVersion3_8,
+    pythonVersion3_9,
+} from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
@@ -455,7 +467,7 @@ export class Parser {
     private _parseTypeAliasStatement(): TypeAliasNode {
         const typeToken = this._getKeywordToken(KeywordType.Type);
 
-        if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_12) {
+        if (!this._parseOptions.isStubFile && this._getLanguageVersion().isLessThan(pythonVersion3_12)) {
             this._addSyntaxError(LocMessage.typeAliasStatementIllegal(), typeToken);
         }
 
@@ -555,7 +567,7 @@ export class Parser {
                 /* allowUnpack */ typeParamCategory === TypeParameterCategory.TypeVarTuple
             );
 
-            if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_13) {
+            if (!this._parseOptions.isStubFile && this._getLanguageVersion().isLessThan(pythonVersion3_13)) {
                 this._addSyntaxError(LocMessage.typeVarDefaultIllegal(), defaultExpression);
             }
         }
@@ -680,7 +692,7 @@ export class Parser {
         }
 
         // This feature requires Python 3.10.
-        if (this._getLanguageVersion() < PythonVersion.V3_10) {
+        if (this._getLanguageVersion().isLessThan(pythonVersion3_10)) {
             this._addSyntaxError(LocMessage.matchIncompatible(), matchToken);
         }
 
@@ -1603,7 +1615,7 @@ export class Parser {
 
             // Versions of Python earlier than 3.9 didn't allow unpack operators if the
             // tuple wasn't enclosed in parentheses.
-            if (this._getLanguageVersion() < PythonVersion.V3_9 && !this._parseOptions.isStubFile) {
+            if (this._getLanguageVersion().isLessThan(pythonVersion3_9) && !this._parseOptions.isStubFile) {
                 if (seqExpr.nodeType === ParseNodeType.Tuple && !seqExpr.enclosedInParens) {
                     let sawStar = false;
                     seqExpr.expressions.forEach((expr) => {
@@ -1779,7 +1791,7 @@ export class Parser {
             const possibleStarToken = this._peekToken();
             let isExceptGroup = false;
             if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
-                if (this._getLanguageVersion() < PythonVersion.V3_11 && !this._parseOptions.isStubFile) {
+                if (this._getLanguageVersion().isLessThan(pythonVersion3_11) && !this._parseOptions.isStubFile) {
                     this._addSyntaxError(LocMessage.exceptionGroupIncompatible(), possibleStarToken);
                 }
                 isExceptGroup = true;
@@ -1878,7 +1890,7 @@ export class Parser {
         if (possibleOpenBracket.type === TokenType.OpenBracket) {
             typeParameters = this._parseTypeParameterList();
 
-            if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_12) {
+            if (!this._parseOptions.isStubFile && this._getLanguageVersion().isLessThan(pythonVersion3_12)) {
                 this._addSyntaxError(LocMessage.functionTypeParametersIllegal(), typeParameters);
             }
         }
@@ -2092,7 +2104,7 @@ export class Parser {
         } else if (this._consumeTokenIfOperator(OperatorType.Power)) {
             starCount = 2;
         } else if (this._consumeTokenIfOperator(OperatorType.Divide)) {
-            if (this._getLanguageVersion() < PythonVersion.V3_8 && !this._parseOptions.isStubFile) {
+            if (this._getLanguageVersion().isLessThan(pythonVersion3_8) && !this._parseOptions.isStubFile) {
                 this._addSyntaxError(LocMessage.positionOnlyIncompatible(), firstToken);
             }
             slashCount = 1;
@@ -2196,7 +2208,7 @@ export class Parser {
 
         if (isParenthesizedWithItemList) {
             this._consumeTokenIfType(TokenType.OpenParenthesis);
-            if (this._getLanguageVersion() < PythonVersion.V3_9) {
+            if (this._getLanguageVersion().isLessThan(pythonVersion3_9)) {
                 this._addSyntaxError(LocMessage.parenthesizedContextManagerIllegal(), possibleParen);
             }
         }
@@ -2305,7 +2317,7 @@ export class Parser {
 
         // Versions of Python prior to 3.9 support a limited set of
         // expression forms.
-        if (this._getLanguageVersion() < PythonVersion.V3_9) {
+        if (this._getLanguageVersion().isLessThan(pythonVersion3_9)) {
             let isSupportedExpressionForm = false;
             if (this._isNameOrMemberAccessExpression(expression)) {
                 isSupportedExpressionForm = true;
@@ -2356,7 +2368,7 @@ export class Parser {
         if (possibleOpenBracket.type === TokenType.OpenBracket) {
             typeParameters = this._parseTypeParameterList();
 
-            if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_12) {
+            if (!this._parseOptions.isStubFile && this._getLanguageVersion().isLessThan(pythonVersion3_12)) {
                 this._addSyntaxError(LocMessage.classTypeParametersIllegal(), typeParameters);
             }
         }
@@ -2818,7 +2830,7 @@ export class Parser {
 
         const nextToken = this._peekToken();
         if (this._consumeTokenIfKeyword(KeywordType.From)) {
-            if (this._getLanguageVersion() < PythonVersion.V3_3) {
+            if (this._getLanguageVersion().isLessThan(pythonVersion3_3)) {
                 this._addSyntaxError(LocMessage.yieldFromIllegal(), nextToken);
             }
             return YieldFromNode.create(yieldToken, this._parseTestExpression(/* allowAssignmentExpression */ false));
@@ -3155,7 +3167,7 @@ export class Parser {
             this._addSyntaxError(LocMessage.walrusNotAllowed(), walrusToken);
         }
 
-        if (this._getLanguageVersion() < PythonVersion.V3_8) {
+        if (this._getLanguageVersion().isLessThan(pythonVersion3_8)) {
             this._addSyntaxError(LocMessage.walrusIllegal(), walrusToken);
         }
 
@@ -3448,7 +3460,7 @@ export class Parser {
         let awaitToken: KeywordToken | undefined;
         if (this._peekKeywordType() === KeywordType.Await) {
             awaitToken = this._getKeywordToken(KeywordType.Await);
-            if (this._getLanguageVersion() < PythonVersion.V3_5) {
+            if (this._getLanguageVersion().isLessThan(pythonVersion3_5)) {
                 this._addSyntaxError(LocMessage.awaitIllegal(), awaitToken);
             }
         }
@@ -3632,7 +3644,7 @@ export class Parser {
                     valueExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
 
                     // Python 3.10 and newer allow assignment expressions to be used inside of a subscript.
-                    if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_10) {
+                    if (!this._parseOptions.isStubFile && this._getLanguageVersion().isLessThan(pythonVersion3_10)) {
                         this._addSyntaxError(LocMessage.assignmentExprInSubscript(), valueExpr);
                     }
                 }
@@ -3659,7 +3671,7 @@ export class Parser {
                 const unpackListAllowed =
                     this._parseOptions.isStubFile ||
                     this._isParsingQuotedText ||
-                    this._getLanguageVersion() >= PythonVersion.V3_11;
+                    this._getLanguageVersion().isGreaterOrEqualTo(pythonVersion3_11);
 
                 if (argType === ArgumentCategory.UnpackedList && !unpackListAllowed) {
                     this._addSyntaxError(LocMessage.unpackedSubscriptIllegal(), argNode);
@@ -3713,7 +3725,7 @@ export class Parser {
             if (nextTokenType !== TokenType.Colon) {
                 // Python 3.10 and newer allow assignment expressions to be used inside of a subscript.
                 const allowAssignmentExpression =
-                    this._parseOptions.isStubFile || this._getLanguageVersion() >= PythonVersion.V3_10;
+                    this._parseOptions.isStubFile || this._getLanguageVersion().isGreaterOrEqualTo(pythonVersion3_10);
                 sliceExpressions[sliceIndex] = this._parseTestExpression(allowAssignmentExpression);
             }
             sliceIndex++;
@@ -4312,7 +4324,7 @@ export class Parser {
             annotationExpr = this._parseTypeAnnotation();
             leftExpr = TypeAnnotationNode.create(leftExpr, annotationExpr);
 
-            if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_6) {
+            if (!this._parseOptions.isStubFile && this._getLanguageVersion().isLessThan(pythonVersion3_6)) {
                 this._addSyntaxError(LocMessage.varAnnotationIllegal(), annotationExpr);
             }
 
@@ -4492,7 +4504,7 @@ export class Parser {
             allowUnpack &&
             !this._parseOptions.isStubFile &&
             !this._isParsingQuotedText &&
-            this._getLanguageVersion() < PythonVersion.V3_11
+            this._getLanguageVersion().isLessThan(pythonVersion3_11)
         ) {
             this._addSyntaxError(LocMessage.unpackedSubscriptIllegal(), startToken);
         }
@@ -4520,7 +4532,7 @@ export class Parser {
         }
 
         if (stringToken.flags & StringTokenFlags.Format) {
-            if (this._getLanguageVersion() < PythonVersion.V3_6) {
+            if (this._getLanguageVersion().isLessThan(pythonVersion3_6)) {
                 this._addSyntaxError(LocMessage.formatStringIllegal(), stringToken);
             }
 
@@ -4675,7 +4687,7 @@ export class Parser {
             (nextToken as OperatorToken).operatorType === OperatorType.Assign
         ) {
             // This feature requires Python 3.8 or newer.
-            if (this._parseOptions.pythonVersion < PythonVersion.V3_8) {
+            if (this._parseOptions.pythonVersion.isLessThan(pythonVersion3_8)) {
                 this._addSyntaxError(LocMessage.formatStringDebuggingIllegal(), nextToken);
             }
 
@@ -4924,7 +4936,7 @@ export class Parser {
             return;
         }
 
-        if (this._parseOptions.pythonVersion >= PythonVersion.V3_8) {
+        if (this._parseOptions.pythonVersion.isGreaterOrEqualTo(pythonVersion3_8)) {
             return;
         }
 

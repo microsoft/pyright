@@ -11,7 +11,14 @@
 import * as assert from 'assert';
 
 import { ConfigOptions } from '../common/configOptions';
-import { PythonVersion } from '../common/pythonVersion';
+import {
+    pythonVersion3_10,
+    pythonVersion3_11,
+    pythonVersion3_12,
+    pythonVersion3_7,
+    pythonVersion3_8,
+    pythonVersion3_9,
+} from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -19,7 +26,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 test('Required1', () => {
     // Analyze with Python 3.10 settings.
     const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['required1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 8);
@@ -28,7 +35,7 @@ test('Required1', () => {
 test('Required2', () => {
     // Analyze with Python 3.10 settings.
     const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['required2.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 7);
@@ -37,7 +44,7 @@ test('Required2', () => {
 test('Required3', () => {
     // Analyze with Python 3.10 settings.
     const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['required3.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 2);
@@ -409,11 +416,11 @@ test('CallSite2', () => {
 test('FString1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['fstring1.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 14, 1);
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_12;
+    configOptions.defaultPythonVersion = pythonVersion3_12;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['fstring1.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 10, 1);
 });
@@ -437,12 +444,12 @@ test('FString5', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.7 settings. This will generate errors.
-    configOptions.defaultPythonVersion = PythonVersion.V3_7;
+    configOptions.defaultPythonVersion = pythonVersion3_7;
     const analysisResults37 = TestUtils.typeAnalyzeSampleFiles(['fstring5.py'], configOptions);
     TestUtils.validateResults(analysisResults37, 6);
 
     // Analyze with Python 3.8 settings.
-    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    configOptions.defaultPythonVersion = pythonVersion3_8;
     const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['fstring5.py'], configOptions);
     TestUtils.validateResults(analysisResults38, 0);
 });
@@ -685,7 +692,7 @@ test('DataClassFrozen1', () => {
 
 test('DataClassKwOnly1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassKwOnly1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 3);
@@ -693,7 +700,7 @@ test('DataClassKwOnly1', () => {
 
 test('DataClassSlots1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassSlots1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 5);
@@ -806,12 +813,12 @@ test('Unions1', () => {
     configOptions.diagnosticRuleSet.disableBytesTypePromotions = true;
 
     // Analyze with Python 3.9 settings. This will generate errors.
-    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    configOptions.defaultPythonVersion = pythonVersion3_9;
     const analysisResults3_9 = TestUtils.typeAnalyzeSampleFiles(['unions1.py'], configOptions);
     TestUtils.validateResults(analysisResults3_9, 11);
 
     // Analyze with Python 3.10 settings.
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults3_10 = TestUtils.typeAnalyzeSampleFiles(['unions1.py'], configOptions);
     TestUtils.validateResults(analysisResults3_10, 0);
 });
@@ -820,7 +827,7 @@ test('Unions2', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.8 settings.
-    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    configOptions.defaultPythonVersion = pythonVersion3_8;
     const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['unions2.py'], configOptions);
     TestUtils.validateResults(analysisResults38, 0);
 });
@@ -829,12 +836,12 @@ test('Unions3', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     // Analyze with Python 3.9 settings. This will generate errors.
-    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    configOptions.defaultPythonVersion = pythonVersion3_9;
     const analysisResults3_9 = TestUtils.typeAnalyzeSampleFiles(['unions3.py'], configOptions);
     TestUtils.validateResults(analysisResults3_9, 1);
 
     // Analyze with Python 3.10 settings.
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults3_10 = TestUtils.typeAnalyzeSampleFiles(['unions3.py'], configOptions);
     TestUtils.validateResults(analysisResults3_10, 0);
 });
@@ -865,11 +872,11 @@ test('ParamSpec1', () => {
 test('ParamSpec2', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    configOptions.defaultPythonVersion = pythonVersion3_9;
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
     TestUtils.validateResults(analysisResults39, 9);
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults310 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
     TestUtils.validateResults(analysisResults310, 0);
 });
@@ -1218,11 +1225,11 @@ test('TypeVar12', () => {
 test('Annotated1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    configOptions.defaultPythonVersion = pythonVersion3_8;
     const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['annotated1.py'], configOptions);
     TestUtils.validateResults(analysisResults38, 6);
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['annotated1.py'], configOptions);
     TestUtils.validateResults(analysisResults39, 3);
 });
@@ -1284,11 +1291,11 @@ test('TryExcept6', () => {
 test('TryExcept7', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tryExcept7.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 3);
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['tryExcept7.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 0);
 });
@@ -1296,7 +1303,7 @@ test('TryExcept7', () => {
 test('TryExcept8', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_11;
+    configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept8.py'], configOptions);
     TestUtils.validateResults(analysisResults, 3);
 });

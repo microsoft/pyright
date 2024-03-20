@@ -18,7 +18,7 @@ import { TaskListToken } from './diagnostic';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
 import { Host } from './host';
-import { PythonVersion, latestStablePythonVersion, versionFromString, versionToString } from './pythonVersion';
+import { PythonVersion, latestStablePythonVersion } from './pythonVersion';
 import { ServiceProvider } from './serviceProvider';
 import { ServiceKeys } from './serviceProviderExtensions';
 import { Uri } from './uri/uri';
@@ -63,7 +63,7 @@ export class ExecutionEnvironment {
     ) {
         this.name = name;
         this.root = root;
-        this.pythonVersion = defaultPythonVersion || latestStablePythonVersion;
+        this.pythonVersion = defaultPythonVersion ?? latestStablePythonVersion;
         this.pythonPlatform = defaultPythonPlatform;
         this.extraPaths = Array.from(defaultExtraPaths ?? []);
     }
@@ -1366,7 +1366,7 @@ export class ConfigOptions {
         // Read the default "pythonVersion".
         if (configObj.pythonVersion !== undefined) {
             if (typeof configObj.pythonVersion === 'string') {
-                const version = versionFromString(configObj.pythonVersion);
+                const version = PythonVersion.fromString(configObj.pythonVersion);
                 if (version) {
                     this.defaultPythonVersion = version;
                 } else {
@@ -1553,7 +1553,7 @@ export class ConfigOptions {
         const importFailureInfo: string[] = [];
         this.defaultPythonVersion = host.getPythonVersion(this.pythonPath, importFailureInfo);
         if (this.defaultPythonVersion !== undefined) {
-            console.info(`Assuming Python version ${versionToString(this.defaultPythonVersion)}`);
+            console.info(`Assuming Python version ${this.defaultPythonVersion.toString()}`);
         }
 
         for (const log of importFailureInfo) {
@@ -1674,7 +1674,7 @@ export class ConfigOptions {
             // Validate the pythonVersion.
             if (envObj.pythonVersion) {
                 if (typeof envObj.pythonVersion === 'string') {
-                    const version = versionFromString(envObj.pythonVersion);
+                    const version = PythonVersion.fromString(envObj.pythonVersion);
                     if (version) {
                         newExecEnv.pythonVersion = version;
                     } else {

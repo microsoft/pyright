@@ -79,7 +79,7 @@ import { fail } from '../common/debug';
 import { ProgramView } from '../common/extensibility';
 import { fromLSPAny, toLSPAny } from '../common/lspUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
-import { PythonVersion } from '../common/pythonVersion';
+import { PythonVersion, pythonVersion3_10, pythonVersion3_5 } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
 import { comparePositions, Position, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -173,10 +173,10 @@ namespace Keywords {
     const python3_10: string[] = [...python3_5, 'case', 'match'];
 
     export function forVersion(version: PythonVersion): string[] {
-        if (version >= PythonVersion.V3_10) {
+        if (version.isGreaterOrEqualTo(pythonVersion3_10)) {
             return python3_10;
         }
-        if (version >= PythonVersion.V3_5) {
+        if (version.isGreaterOrEqualTo(pythonVersion3_5)) {
             return python3_5;
         }
         return base;
