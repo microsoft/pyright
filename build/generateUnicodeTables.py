@@ -1,16 +1,6 @@
+import sys
 import urllib.request
 from io import TextIOWrapper
-
-
-def downloadUnicodeData(unicodeVersion: str) -> str:
-    url = f'https://www.unicode.org/Public/{unicodeVersion}.0/ucd/UnicodeData.txt'
-    (path, _) = urllib.request.urlretrieve(url)
-    return path
-
-
-def loadFile(filePath: str) -> list[str]:
-    with open(filePath, "r") as reader:
-        return [x.strip() for x in reader.readlines()]
 
 
 class Character:
@@ -28,68 +18,59 @@ class Character:
             self.highSurrogate = int(hex[2:4] + hex[0:2], base=16)
             self.lowSurrogate = int(hex[6:8] + hex[4:6], base=16)
 
-    def __str__(self):
-        return f"{self.code} ({self.category})"
-
-
-DUMMY_CHARACTER = Character(-999, "ZZ")
-
 
 class CharacterRange:
     def __init__(self, start: Character, end: Character):
         self.start = start
         self.end = end
 
-    def __str__(self):
-        return f"{self.start} -> {self.end}"
+
+def downloadUnicodeData(unicodeVersion: str) -> str:
+    url = f"https://www.unicode.org/Public/{unicodeVersion}.0/ucd/UnicodeData.txt"
+    (path, _) = urllib.request.urlretrieve(url)
+    return path
 
 
-def parse(line: str) -> Character:
+def parseLine(line: str) -> Character:
     splitOnSemicolon = line.split(";")
     return Character(int(splitOnSemicolon[0], base=16), splitOnSemicolon[2])
 
 
-path = downloadUnicodeData("15.1")
-lines = loadFile(path)
-chars = [parse(line) for line in lines]
-
-
-def sort(range: Character) -> int:
-    return range.code
-
-
-chars.sort(key=sort)
+def parseFile(filePath: str) -> list[Character]:
+    with open(filePath, "r") as reader:
+        return [parseLine(x.strip()) for x in reader.readlines()]
 
 
 def getSurrogateRanges(chars: list[Character]) -> list[CharacterRange]:
     surrogateRanges: list[CharacterRange] = []
 
     consecutiveRangeStartChar: Character | None = None
-    previousChar = DUMMY_CHARACTER
+    previousChar: Character | None = None
     for char in chars:
         if not consecutiveRangeStartChar:
             consecutiveRangeStartChar = char
 
-        if not previousChar.hasSurrogate and not char.hasSurrogate:
-            if (
-                char.code == previousChar.code + 1
-                and char.category == previousChar.category
-            ):
-                pass
-        elif not previousChar.hasSurrogate and char.hasSurrogate:
-            consecutiveRangeStartChar = char
-        else:
-            if (
-                char.highSurrogate == previousChar.highSurrogate
-                and char.lowSurrogate == previousChar.lowSurrogate + 1
-                and char.category == previousChar.category
-            ):
-                pass
-            else:
-                surrogateRanges.append(
-                    CharacterRange(consecutiveRangeStartChar, previousChar)
-                )
+        if previousChar:
+            if not previousChar.hasSurrogate and not char.hasSurrogate:
+                if (
+                    char.code == previousChar.code + 1
+                    and char.category == previousChar.category
+                ):
+                    pass
+            elif not previousChar.hasSurrogate and char.hasSurrogate:
                 consecutiveRangeStartChar = char
+            else:
+                if (
+                    char.highSurrogate == previousChar.highSurrogate
+                    and char.lowSurrogate == previousChar.lowSurrogate + 1
+                    and char.category == previousChar.category
+                ):
+                    pass
+                else:
+                    surrogateRanges.append(
+                        CharacterRange(consecutiveRangeStartChar, previousChar)
+                    )
+                    consecutiveRangeStartChar = char
 
         previousChar = char
 
@@ -113,19 +94,23 @@ def writeRangeTable(writer: TextIOWrapper, category: str, chars: list[Character]
                 writer.write(f"    {consecutiveRangeStartChar.code},\n")
             else:
                 writer.write(f"    [{consecutiveRangeStartChar.code}, {char.code}],\n")
-            
+
             consecutiveRangeStartChar = None
 
     writer.write("];\n\n")
 
 
-def writeSurrogateRangeTable(writer: TextIOWrapper, category: str, surrogateRanges: list[CharacterRange]):
+def writeSurrogateRangeTable(
+    writer: TextIOWrapper, category: str, surrogateRanges: list[CharacterRange]
+):
     surrogateRanges = [r for r in surrogateRanges if r.start.category == category]
 
     if len(surrogateRanges) == 0:
         return
 
-    writer.write(f"export const unicode{category}Surrogate: UnicodeSurrogateRangeTable = {{\n")
+    writer.write(
+        f"export const unicode{category}Surrogate: UnicodeSurrogateRangeTable = {{\n"
+    )
 
     consecutiveRangeStartChar: Character | None = None
     previousCharRange: CharacterRange | None = None
@@ -152,10 +137,13 @@ def writeSurrogateRangeTable(writer: TextIOWrapper, category: str, surrogateRang
     writer.write("};\n\n")
 
 
+path = downloadUnicodeData("15.1")
+chars = parseFile(path)
 surrogateRanges = getSurrogateRanges(chars)
 
 with open("packages/pyright-internal/src/parser/unicode.ts", "w") as writer:
-    writer.write("""/*
+    writer.write(
+        """/*
  * unicode.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
@@ -171,7 +159,8 @@ export type UnicodeRange = [number, number] | number;
 export type UnicodeRangeTable = UnicodeRange[];
 export type UnicodeSurrogateRangeTable = { [surrogate: number]: UnicodeRange[] };
 
-""")
+"""
+    )
 
     for category in ["Lu", "Ll", "Lt", "Lo", "Lm", "Nl", "Mn", "Mc", "Nd", "Pc"]:
         writeRangeTable(writer, category, chars)
