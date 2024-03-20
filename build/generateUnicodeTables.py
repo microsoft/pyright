@@ -137,7 +137,7 @@ def writeSurrogateRangeTable(
     writer.write("};\n\n")
 
 
-path = downloadUnicodeData("15.1")
+path = downloadUnicodeData("15.1" if len(sys.argv) <= 1 else sys.argv[1])
 chars = parseFile(path)
 surrogateRanges = getSurrogateRanges(chars)
 
