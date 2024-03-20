@@ -1,4 +1,11 @@
+import urllib.request
 from io import TextIOWrapper
+
+
+def downloadUnicodeData(unicodeVersion: str) -> str:
+    url = f'https://www.unicode.org/Public/{unicodeVersion}.0/ucd/UnicodeData.txt'
+    (path, _) = urllib.request.urlretrieve(url)
+    return path
 
 
 def loadFile(filePath: str) -> list[str]:
@@ -42,7 +49,8 @@ def parse(line: str) -> Character:
     return Character(int(splitOnSemicolon[0], base=16), splitOnSemicolon[2])
 
 
-lines = loadFile("15.1.0_UnicodeData.txt")
+path = downloadUnicodeData("15.1")
+lines = loadFile(path)
 chars = [parse(line) for line in lines]
 
 
@@ -146,7 +154,7 @@ def writeSurrogateRangeTable(writer: TextIOWrapper, category: str, surrogateRang
 
 surrogateRanges = getSurrogateRanges(chars)
 
-with open("output.ts", "w") as writer:
+with open("packages/pyright-internal/src/parser/unicode.ts", "w") as writer:
     writer.write("""/*
  * unicode.ts
  * Copyright (c) Microsoft Corporation.
