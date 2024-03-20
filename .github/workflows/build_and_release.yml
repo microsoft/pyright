@@ -77,7 +77,7 @@ jobs:
 
       - name: publish
         # publish npm & pypi packages, vscode extension and github release if the version in lerna.json was changed:
-        if: steps.version-was-changed.outputs.VERSION_INFO == ''
+        if: github.ref == 'refs/heads/main' && steps.version-was-changed.outputs.VERSION_INFO == ''
         uses: JS-DevTools/npm-publish@v1
         with:
           token: ${{ secrets.NPM_TOKEN }}
