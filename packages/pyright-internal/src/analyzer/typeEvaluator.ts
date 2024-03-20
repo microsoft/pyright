@@ -17820,18 +17820,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         functionType: FunctionType,
         typeParametersSeen: TypeVarType[]
     ) {
-        const typeVarsInReturnType = getTypeVarArgumentsRecursive(returnType);
+        const typeVarsInReturnType = getTypeVarArgumentsRecursive(returnType).filter(
+            (t) => t.scopeId === functionType.details.typeVarScopeId
+        );
         const rescopedTypeVars: TypeVarType[] = [];
 
         typeVarsInReturnType.forEach((typeVar) => {
             if (TypeBase.isInstantiable(typeVar)) {
                 typeVar = TypeVarType.cloneAsInstance(typeVar);
-            }
-
-            // If this type variable isn't scoped to this function, it is probably
-            // associated with an outer scope.
-            if (typeVar.scopeId !== functionType.details.typeVarScopeId) {
-                return;
             }
 
             // If this type variable was already seen in one or more input parameters,
