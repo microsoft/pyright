@@ -96,7 +96,7 @@ jobs:
 
       - name: Publish VSIX to open VSX
         if: github.ref == 'refs/heads/main' && steps.version-was-changed.outputs.VERSION_INFO == ''
-        run: ./node_modules/.bin/osvx publish --packagePath ${{ env.VSIX_NAME }} --pat ${{ secrets.OPEN_VSX_TOKEN }}
+        run: ./node_modules/.bin/ovsx publish --packagePath ${{ env.VSIX_NAME }} --pat ${{ secrets.OPEN_VSX_TOKEN }}
         working-directory: ${{ env.VSIX_DIR }}
 
       - uses: marvinpinto/action-automatic-releases@v1.2.1
