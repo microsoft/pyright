@@ -1,3 +1,10 @@
+# generateUnicodeTables.py
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+#
+# Generates the content of unicode.ts based on the official Unicode
+# character database.
+
 import sys
 import urllib.request
 from io import TextIOWrapper
