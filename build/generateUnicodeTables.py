@@ -33,6 +33,9 @@ def downloadUnicodeData(unicodeVersion: str) -> str:
 
 def parseLine(line: str) -> Character:
     splitOnSemicolon = line.split(";")
+# NEED TO SUPPORT FIRST/LAST BACKCOMPAT CONVENTION
+# D800;<Non Private Use High Surrogate, First>;Cs;0;L;;;;;N;;;;;
+# DB7F;<Non Private Use High Surrogate, Last>;Cs;0;L;;;;;N;;;;;
     return Character(int(splitOnSemicolon[0], base=16), splitOnSemicolon[2])
 
 
