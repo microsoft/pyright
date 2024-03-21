@@ -31,17 +31,31 @@ def downloadUnicodeData(unicodeVersion: str) -> str:
     return path
 
 
-def parseLine(line: str) -> Character:
-    splitOnSemicolon = line.split(";")
-# NEED TO SUPPORT FIRST/LAST BACKCOMPAT CONVENTION
-# D800;<Non Private Use High Surrogate, First>;Cs;0;L;;;;;N;;;;;
-# DB7F;<Non Private Use High Surrogate, Last>;Cs;0;L;;;;;N;;;;;
-    return Character(int(splitOnSemicolon[0], base=16), splitOnSemicolon[2])
-
-
 def parseFile(filePath: str) -> list[Character]:
     with open(filePath, "r") as reader:
-        return [parseLine(x.strip()) for x in reader.readlines()]
+        lines = reader.readlines()
+        chars: list[Character] = []
+        for i in range(len(lines)):
+            line = lines[i]
+            splitOnSemicolon = line.split(";")
+            charCode = int(splitOnSemicolon[0], base=16)
+            category = splitOnSemicolon[2]
+
+            if splitOnSemicolon[1].endswith(", First>"):
+                # Range syntax
+                # D800;<Non Private Use High Surrogate, First>;Cs;0;L;;;;;N;;;;;
+                # DB7F;<Non Private Use High Surrogate, Last>;Cs;0;L;;;;;N;;;;;
+                nextLine = lines[i + 1]
+                nextSplitOnSemicolon = nextLine.split(";")
+                nextCharCode = int(nextSplitOnSemicolon[0], base=16)
+                for ord in range(charCode, nextCharCode + 1):
+                    chars.append(Character(ord, category))
+            elif splitOnSemicolon[1].endswith(", Last>"):
+                continue
+            else:
+                chars.append(Character(charCode, category))
+
+        return chars
 
 
 def getSurrogateRanges(chars: list[Character]) -> list[CharacterRange]:
