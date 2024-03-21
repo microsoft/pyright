@@ -25,6 +25,9 @@
 # Nabataean
 𐢖𐢊ﬗ = 0
 
+# CJK ideographs
+㐀䶿一鿿𠀀𪛖𪜀𫜴𫝀𫠝𫠠𬺡𬺰𮯠𣎴 = 1
+
 # This should generate an error because "𐢭" is outside the range of
 # characters supported by the Python standard.
 𐢭 = 0
