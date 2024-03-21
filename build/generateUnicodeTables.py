@@ -126,9 +126,9 @@ def writeRangeTable(writer: TextIOWrapper, category: str, chars: list[Character]
 
         if i + 1 >= len(chars) or chars[i + 1].code != char.code + 1:
             if consecutiveRangeStartChar.code == char.code:
-                writer.write(f"    {consecutiveRangeStartChar.code},\n")
+                writer.write(f"    0x{consecutiveRangeStartChar.code:04X},\n")
             else:
-                writer.write(f"    [{consecutiveRangeStartChar.code}, {char.code}],\n")
+                writer.write(f"    [0x{consecutiveRangeStartChar.code:04X}, 0x{char.code:04X}],\n")
 
             consecutiveRangeStartChar = None
 
@@ -160,14 +160,14 @@ def writeSurrogateRangeTable(
             previousCharRange = None
 
         if not previousCharRange:
-            writer.write(f"    {charRange.start.highSurrogate}: [\n")
+            writer.write(f"    0x{charRange.start.highSurrogate:04X}: [\n")
             previousCharRange = charRange
 
         if charRange.start.lowSurrogate == charRange.end.lowSurrogate:
-            writer.write(f"        {charRange.start.lowSurrogate},\n")
+            writer.write(f"        0x{charRange.start.lowSurrogate:04X}, // 0x{charRange.start.code:04X}\n")
         else:
             writer.write(
-                f"        [{charRange.start.lowSurrogate}, {charRange.end.lowSurrogate}],\n"
+                f"        [0x{charRange.start.lowSurrogate:04X}, 0x{charRange.end.lowSurrogate:04X}], // 0x{charRange.start.code:04X}..0x{charRange.end.code:04X}\n"
             )
 
     writer.write("    ],\n")
