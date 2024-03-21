@@ -490,7 +490,10 @@ export class Parser {
             this._getNextToken();
         }
 
+        const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
+        this._isParsingTypeAnnotation = true;
         const expression = this._parseTestExpression(/* allowAssignmentExpression */ false);
+        this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
 
         return TypeAliasNode.create(typeToken, name, expression, typeParameters);
     }
