@@ -1170,6 +1170,8 @@ export namespace Localizer {
         export const yieldWithinListCompr = () => getRawString('Diagnostic.yieldWithinListCompr');
         export const zeroCaseStatementsFound = () => getRawString('Diagnostic.zeroCaseStatementsFound');
         export const zeroLengthTupleNotAllowed = () => getRawString('Diagnostic.zeroLengthTupleNotAllowed');
+        export const pyrightIgnoreCommentWithoutRule = () => getRawString('Diagnostic.pyrightIgnoreCommentWithoutRule');
+        export const typeIgnoreCommentWithoutRule = () => getRawString('Diagnostic.typeIgnoreCommentWithoutRule');
     }
 
     export namespace DiagnosticAddendum {

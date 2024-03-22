@@ -106,4 +106,5 @@ export enum DiagnosticRule {
     // basedpyright options:
     reportUnreachable = 'reportUnreachable',
     reportAny = 'reportAny',
+    reportIgnoreCommentWithoutRule = 'reportIgnoreCommentWithoutRule',
 }

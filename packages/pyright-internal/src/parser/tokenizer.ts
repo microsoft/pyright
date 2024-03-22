@@ -193,7 +193,7 @@ export interface IgnoreCommentRule {
 
 export interface IgnoreComment {
     range: TextRange;
-    rulesList: IgnoreCommentRule[] | undefined;
+    rulesList: IgnoreCommentRule[];
 }
 
 interface FStringReplacementFieldContext {
@@ -1305,9 +1305,9 @@ export class Tokenizer {
     }
 
     // Extracts the individual rules within a "type: ignore [x, y, z]" comment.
-    private _getIgnoreCommentRulesList(start: number, match: RegExpMatchArray): IgnoreCommentRule[] | undefined {
+    private _getIgnoreCommentRulesList(start: number, match: RegExpMatchArray): IgnoreCommentRule[] {
         if (match.length < 5 || match[4] === undefined) {
-            return undefined;
+            return [];
         }
 
         const splitElements = match[4].split(',');

@@ -666,6 +666,12 @@
       "title": "Controls reporting of values typed as `Any`",
       "default": "none"
     },
+    "reportIgnoreCommentWithoutRule": {
+      "$id": "#/properties/reportIgnoreCommentWithoutRule",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting `# type: ignore` and `# pyright: ignore` comments without specifying a rule",
+      "default": "none"
+    },
     "extraPaths": {
       "$id": "#/properties/extraPaths",
       "type": "array",

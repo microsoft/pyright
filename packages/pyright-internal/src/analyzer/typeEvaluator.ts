@@ -3229,7 +3229,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function addError(message: string, node: ParseNode, range?: TextRange) {
-        return addDiagnosticWithSuppressionCheck('error', message, node, range);
+        return addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, message, node, range);
     }
 
     function addUnusedCode(node: ParseNode, textRange: TextRange) {

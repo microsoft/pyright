@@ -616,7 +616,9 @@
         "yieldOutsideFunction": "\"yield\" not allowed outside of a function or lambda",
         "yieldWithinListCompr": "\"yield\" not allowed inside a list comprehension",
         "zeroCaseStatementsFound": "Match statement must include at least one case statement",
-        "zeroLengthTupleNotAllowed": "Zero-length tuple is not allowed in this context"
+        "zeroLengthTupleNotAllowed": "Zero-length tuple is not allowed in this context",
+        "pyrightIgnoreCommentWithoutRule": "`pyright: ignore` comment must specify a rule (eg. `# pyright: ignore[ruleName]`)",
+        "typeIgnoreCommentWithoutRule": "`type: ignore` comment must specify a rule (eg. `# type: ignore[ruleName]`)"
     },
     "DiagnosticAddendum": {
         "annotatedNotAllowed": "\"Annotated\" special form cannot be used with instance and class checks",

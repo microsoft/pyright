@@ -1518,6 +1518,22 @@
                                 true,
                                 false
                             ]
+                        },
+                        "reportIgnoreCommentWithoutRule": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for `# type: ignore` and `# pyright: ignore` comments without specifying a rule",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
                         }
                     }
                 },

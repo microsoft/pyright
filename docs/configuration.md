@@ -232,6 +232,8 @@ the following additional options are not available in regular pyright:
 
 <a name="reportAny"></a> **reportAny** [boolean or string, optional]: Ban all usages of the `Any` type. this accounts for all scenarios not covered by the `reportUnknown*` rules (since "Unknown" isn't a real type, but a distinction pyright makes to disallow the `Any` type only in certain circumstances).
 
+<a name="reportIgnoreCommentWithoutRule"></a> **reportIgnoreCommentWithoutRule** [boolean or string, optional]: Enforce that all `# type:ignore`/`# pyright:ignore` comments specify a rule in brackets (eg. `# pyright:ignore[reportAny]`)
+
 ## Execution Environment Options
 Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with different import search paths or a different version of the python interpreter than the rest of the source base.
 
@@ -434,6 +436,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUnusedCallResult                    | "none"     | "none"     | "none"     | "none"     | "error"    |
 | reportUnreachable                         | "none"     | "none"     | "none"     | "none"     | "error"    |
 | reportAny                                 | "none"     | "none"     | "none"     | "none"     | "error"    |
+| reportIgnoreCommentWithoutRule            | "none"     | "none"     | "none"     | "none"     | "error"    |
 
 
 ## Locale Configuration

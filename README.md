@@ -139,6 +139,20 @@ used to be `basic`, but now defaults to `all`. in the future we intend to add [b
 #### `pythonPlatform`
 used to assume that the operating system pyright is being run on is the only operating system your code will run on, which is rarely the case. in basedpyright, `pythonPlatform` defaults to `All`, which assumes your code can run on any operating system.
 
+### added error codes for all errors and option to enforce error codes in `type:ignore` comments
+
+it's always best to specify an error code in your `type:ignore` comments:
+
+```py
+# type:ignore[reportUnreachable]
+```
+
+that way, if the error changes or a new error appears on the same line in the future, you'll get a new error because the comment doesn't account for the other error. unfortunately there are many rules in pyright that do not have error codes, so you can't always do this.
+
+basedpyright resolves this by reporting those errors under the `reportGeneralTypeIssues` code. this isn't a perfect solution, but there are over 100 code-less errors that would otherwise need their own rules. i intend to split them into their own rules in the future, but this will do for now.
+
+this also allows for the new `reportIgnoreCommentWithoutRule` rule.
+
 ## basedmypy feature parity
 
 [basedmypy](https://github.com/kotlinisland/basedmypy) is a fork of mypy with a similar goal in mind: to fix some of the serious problems in mypy that do not seem to be a priority for the maintainers. it also adds many new features which may not be standardized but greatly improve the developer experience when working with python's far-from-perfect type system.

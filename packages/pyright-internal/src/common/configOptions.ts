@@ -387,6 +387,9 @@ export interface DiagnosticRuleSet {
 
     // Report usages of Any-typed values
     reportAny: DiagnosticLevel;
+
+    // Report ignore comments without a specified rule
+    reportIgnoreCommentWithoutRule: DiagnosticLevel;
 }
 
 export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
@@ -505,6 +508,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportImplicitOverride,
         DiagnosticRule.reportUnreachable,
         DiagnosticRule.reportAny,
+        DiagnosticRule.reportIgnoreCommentWithoutRule,
     ];
 }
 
@@ -613,6 +617,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportImplicitOverride: 'none',
         reportUnreachable: 'none',
         reportAny: 'none',
+        reportIgnoreCommentWithoutRule: 'none',
     };
 
     return diagSettings;
@@ -717,6 +722,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportImplicitOverride: 'none',
         reportUnreachable: 'none',
         reportAny: 'none',
+        reportIgnoreCommentWithoutRule: 'none',
     };
 
     return diagSettings;
@@ -821,6 +827,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportImplicitOverride: 'none',
         reportUnreachable: 'none',
         reportAny: 'none',
+        reportIgnoreCommentWithoutRule: 'none',
     };
 
     return diagSettings;
@@ -924,6 +931,7 @@ export const getAllDiagnosticRuleSet = (): DiagnosticRuleSet => ({
     reportImplicitOverride: 'error',
     reportUnreachable: 'error',
     reportAny: 'error',
+    reportIgnoreCommentWithoutRule: 'error',
 });
 
 export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
@@ -1025,6 +1033,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportImplicitOverride: 'none',
         reportUnreachable: 'none',
         reportAny: 'none',
+        reportIgnoreCommentWithoutRule: 'none',
     };
 
     return diagSettings;

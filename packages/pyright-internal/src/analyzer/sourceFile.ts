@@ -890,6 +890,12 @@ export class SourceFile {
         return new TextRangeDiagnosticSink(lines);
     }
 
+    private _getRangeFromIgnoreComment = (ignoreComment: IgnoreComment) => {
+        const rangeStart = ignoreComment.range.start;
+        const rangeEnd = rangeStart + ignoreComment.range.length;
+        return convertOffsetsToRange(rangeStart, rangeEnd, this._writableData.parseResults!.tokenizerOutput.lines!);
+    };
+
     // Computes an updated set of accumulated diagnostics for the file
     // based on the partial diagnostics from various analysis stages.
     private _recomputeDiagnostics(configOptions: ConfigOptions) {
@@ -946,7 +952,7 @@ export class SourceFile {
                     for (let line = d.range.start.line; line <= d.range.end.line; line++) {
                         const pyrightIgnoreComment = this._writableData.pyrightIgnoreLines.get(line);
                         if (pyrightIgnoreComment) {
-                            if (!pyrightIgnoreComment.rulesList) {
+                            if (!pyrightIgnoreComment.rulesList.length) {
                                 pyrightIgnoreLinesClone.delete(line);
                                 return false;
                             }
@@ -962,7 +968,7 @@ export class SourceFile {
                             if (pyrightIgnoreComment.rulesList.find((rule) => rule.text === diagRule)) {
                                 // Update the pyrightIgnoreLinesClone to remove this rule.
                                 const oldClone = pyrightIgnoreLinesClone.get(line);
-                                if (oldClone?.rulesList) {
+                                if (oldClone?.rulesList.length) {
                                     const filteredRulesList = oldClone.rulesList.filter(
                                         (rule) => rule.text !== diagRule
                                     );
@@ -986,6 +992,34 @@ export class SourceFile {
 
                 return true;
             });
+        }
+
+        // report diagnostics for ignore comments that don't specify rules
+        if (this._diagnosticRuleSet.reportIgnoreCommentWithoutRule) {
+            for (const ignoreComment of this._writableData.pyrightIgnoreLines.values()) {
+                if (!ignoreComment.rulesList.length) {
+                    const diagnostic = new Diagnostic(
+                        DiagnosticCategory.Error,
+                        LocMessage.pyrightIgnoreCommentWithoutRule(),
+                        this._getRangeFromIgnoreComment(ignoreComment)
+                    );
+                    diagnostic.setRule(DiagnosticRule.reportIgnoreCommentWithoutRule);
+                    diagList.push(diagnostic);
+                }
+            }
+            if (this._diagnosticRuleSet.enableTypeIgnoreComments) {
+                for (const ignoreComment of this._writableData.typeIgnoreLines.values()) {
+                    if (!ignoreComment.rulesList.length) {
+                        const diagnostic = new Diagnostic(
+                            DiagnosticCategory.Error,
+                            LocMessage.typeIgnoreCommentWithoutRule(),
+                            this._getRangeFromIgnoreComment(ignoreComment)
+                        );
+                        diagnostic.setRule(DiagnosticRule.reportIgnoreCommentWithoutRule);
+                        diagList.push(diagnostic);
+                    }
+                }
+            }
         }
 
         const unnecessaryTypeIgnoreDiags: Diagnostic[] = [];
@@ -1051,7 +1085,7 @@ export class SourceFile {
 
             pyrightIgnoreLinesClone.forEach((ignoreComment) => {
                 if (this._writableData.parseResults?.tokenizerOutput.lines) {
-                    if (!ignoreComment.rulesList) {
+                    if (!ignoreComment.rulesList.length) {
                         const rangeStart = ignoreComment.range.start;
                         const rangeEnd = rangeStart + ignoreComment.range.length;
                         const range = convertOffsetsToRange(

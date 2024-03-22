@@ -13,6 +13,7 @@ import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_10, pythonVersion3_8, pythonVersion3_9 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
+import { LocMessage } from '../localization/localize';
 import * as TestUtils from './testUtils';
 
 test('BadToken1', () => {
@@ -352,6 +353,50 @@ test('PyrightIgnore2', () => {
     configOptions.diagnosticRuleSet.reportUnnecessaryTypeIgnoreComment = 'warning';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['pyrightIgnore2.py'], configOptions);
     TestUtils.validateResults(analysisResults, 2, 3);
+});
+
+test('pyrightIgnoreCommentsBased', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.diagnosticRuleSet.reportIgnoreCommentWithoutRule = 'error';
+    configOptions.diagnosticRuleSet.enableTypeIgnoreComments = false;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['pyrightIgnoreBased.py'], configOptions);
+    TestUtils.validateResultsButBased(analysisResults, {
+        errors: [
+            {
+                line: 0,
+                message: LocMessage.pyrightIgnoreCommentWithoutRule(),
+                code: DiagnosticRule.reportIgnoreCommentWithoutRule,
+            },
+            {
+                line: 1,
+                message: LocMessage.pyrightIgnoreCommentWithoutRule(),
+                code: DiagnosticRule.reportIgnoreCommentWithoutRule,
+            },
+        ],
+    });
+});
+
+test('typeIgnoreCommentsBased', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.diagnosticRuleSet.reportIgnoreCommentWithoutRule = 'error';
+    configOptions.diagnosticRuleSet.enableTypeIgnoreComments = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnoreBased.py'], configOptions);
+    TestUtils.validateResultsButBased(analysisResults, {
+        errors: [
+            {
+                line: 0,
+                message: LocMessage.typeIgnoreCommentWithoutRule(),
+                code: DiagnosticRule.reportIgnoreCommentWithoutRule,
+            },
+            {
+                line: 1,
+                message: LocMessage.typeIgnoreCommentWithoutRule(),
+                code: DiagnosticRule.reportIgnoreCommentWithoutRule,
+            },
+        ],
+    });
 });
 
 test('PyrightComment1', () => {
