@@ -11,6 +11,7 @@
         "tamasfe.even-better-toml",
         "redhat.vscode-yaml",
         "github.vscode-github-actions",
-        "gabdug.pdm"
+        "gabdug.pdm",
+        "Orta.vscode-jest"
     ]
 }
