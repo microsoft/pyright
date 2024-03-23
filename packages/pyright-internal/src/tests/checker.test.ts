@@ -348,11 +348,11 @@ test('PyrightIgnore2', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['pyrightIgnore2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 1);
 
     configOptions.diagnosticRuleSet.reportUnnecessaryTypeIgnoreComment = 'warning';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['pyrightIgnore2.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 2, 3);
+    TestUtils.validateResults(analysisResults, 1, 3);
 });
 
 test('pyrightIgnoreCommentsBased', () => {

@@ -14,6 +14,7 @@ def func1(self, x: int | None) -> str:
     v3 = x + x  # pyright: ignore [foo, bar]
 
     # This will not suppress the error
+    # erm actually it does because it's now treated the same as an ignore comment with no codes soooo
     v4 = x + x  # pyright: ignore []
 
     # One of these is unnecessary
