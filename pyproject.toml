@@ -168,7 +168,7 @@ respect-gitignore = true
 line-length = 100
 preview = true
 unsafe-fixes = true
-extend-exclude = ["pw", "packages/pyright-internal/typeshed-fallback", "packages/pyright-internal/src/tests/samples"]
+extend-exclude = ["pw", "packages/pyright-internal/typeshed-fallback", "packages/pyright-internal/src/tests/samples", "build/generateUnicodeTables.py"]
 
 [tool.ruff.lint]
 extend-select = ["ALL"]
