@@ -31,7 +31,7 @@ import { Uri } from '../common/uri/uri';
 import { LocMessage } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
-import { IgnoreComment } from '../parser/tokenizer';
+import { IgnoreComment, IgnoreCommentRule } from '../parser/tokenizer';
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -890,7 +890,7 @@ export class SourceFile {
         return new TextRangeDiagnosticSink(lines);
     }
 
-    private _getRangeFromIgnoreComment = (ignoreComment: IgnoreComment) => {
+    private _getRangeFromIgnoreComment = (ignoreComment: IgnoreComment | IgnoreCommentRule) => {
         const rangeStart = ignoreComment.range.start;
         const rangeEnd = rangeStart + ignoreComment.range.length;
         return convertOffsetsToRange(rangeStart, rangeEnd, this._writableData.parseResults!.tokenizerOutput.lines!);
@@ -1052,13 +1052,7 @@ export class SourceFile {
             };
 
             if (prefilteredErrorList.length === 0 && this._writableData.typeIgnoreAll !== undefined) {
-                const rangeStart = this._writableData.typeIgnoreAll.range.start;
-                const rangeEnd = rangeStart + this._writableData.typeIgnoreAll.range.length;
-                const range = convertOffsetsToRange(
-                    rangeStart,
-                    rangeEnd,
-                    this._writableData.parseResults!.tokenizerOutput.lines!
-                );
+                const range = this._getRangeFromIgnoreComment(this._writableData.typeIgnoreAll);
 
                 if (!isUnreachableCodeRange(range) && this._diagnosticRuleSet.enableTypeIgnoreComments) {
                     unnecessaryTypeIgnoreDiags.push(
@@ -1069,13 +1063,7 @@ export class SourceFile {
 
             typeIgnoreLinesClone.forEach((ignoreComment) => {
                 if (this._writableData.parseResults?.tokenizerOutput.lines) {
-                    const rangeStart = ignoreComment.range.start;
-                    const rangeEnd = rangeStart + ignoreComment.range.length;
-                    const range = convertOffsetsToRange(
-                        rangeStart,
-                        rangeEnd,
-                        this._writableData.parseResults!.tokenizerOutput.lines!
-                    );
+                    const range = this._getRangeFromIgnoreComment(ignoreComment);
 
                     if (!isUnreachableCodeRange(range) && this._diagnosticRuleSet.enableTypeIgnoreComments) {
                         unnecessaryTypeIgnoreDiags.push(
@@ -1088,13 +1076,7 @@ export class SourceFile {
             pyrightIgnoreLinesClone.forEach((ignoreComment) => {
                 if (this._writableData.parseResults?.tokenizerOutput.lines) {
                     if (!ignoreComment.rulesList.length) {
-                        const rangeStart = ignoreComment.range.start;
-                        const rangeEnd = rangeStart + ignoreComment.range.length;
-                        const range = convertOffsetsToRange(
-                            rangeStart,
-                            rangeEnd,
-                            this._writableData.parseResults!.tokenizerOutput.lines!
-                        );
+                        const range = this._getRangeFromIgnoreComment(ignoreComment);
 
                         if (!isUnreachableCodeRange(range)) {
                             unnecessaryTypeIgnoreDiags.push(
@@ -1103,13 +1085,7 @@ export class SourceFile {
                         }
                     } else {
                         ignoreComment.rulesList.forEach((unusedRule) => {
-                            const rangeStart = unusedRule.range.start;
-                            const rangeEnd = rangeStart + unusedRule.range.length;
-                            const range = convertOffsetsToRange(
-                                rangeStart,
-                                rangeEnd,
-                                this._writableData.parseResults!.tokenizerOutput.lines!
-                            );
+                            const range = this._getRangeFromIgnoreComment(unusedRule);
 
                             if (!isUnreachableCodeRange(range)) {
                                 unnecessaryTypeIgnoreDiags.push(
