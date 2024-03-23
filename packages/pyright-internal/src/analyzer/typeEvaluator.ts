@@ -3228,7 +3228,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return addDiagnosticWithSuppressionCheck('information', message, node, range);
     }
 
+    /** @deprecated use {@link addDiagnostic} with a specific diagnostic rule instead */
     function addError(message: string, node: ParseNode, range?: TextRange) {
+        //TODO: the errors about ignore comments do not call this function and therefore do not
+        // have a code. but suppressing an unused ignore comment is an edge case sooooo
         return addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, message, node, range);
     }
 
