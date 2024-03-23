@@ -995,11 +995,13 @@ export class SourceFile {
         }
 
         // report diagnostics for ignore comments that don't specify rules
-        if (this._diagnosticRuleSet.reportIgnoreCommentWithoutRule) {
+        const ignoreCommentWithoutRule = this._diagnosticRuleSet.reportIgnoreCommentWithoutRule;
+        if (ignoreCommentWithoutRule !== 'none') {
+            const category = convertLevelToCategory(this._diagnosticRuleSet.reportIgnoreCommentWithoutRule);
             for (const ignoreComment of this._writableData.pyrightIgnoreLines.values()) {
                 if (!ignoreComment.rulesList.length) {
                     const diagnostic = new Diagnostic(
-                        DiagnosticCategory.Error,
+                        category,
                         LocMessage.pyrightIgnoreCommentWithoutRule(),
                         this._getRangeFromIgnoreComment(ignoreComment)
                     );
@@ -1011,7 +1013,7 @@ export class SourceFile {
                 for (const ignoreComment of this._writableData.typeIgnoreLines.values()) {
                     if (!ignoreComment.rulesList.length) {
                         const diagnostic = new Diagnostic(
-                            DiagnosticCategory.Error,
+                            category,
                             LocMessage.typeIgnoreCommentWithoutRule(),
                             this._getRangeFromIgnoreComment(ignoreComment)
                         );
