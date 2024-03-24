@@ -790,6 +790,16 @@ function narrowTypeBasedOnClassPattern(
             pattern.className
         );
         return NeverType.createNever();
+    } else if (
+        isInstantiableClass(exprType) &&
+        ClassType.isProtocolClass(exprType) &&
+        !ClassType.isRuntimeCheckable(exprType)
+    ) {
+        evaluator.addDiagnostic(
+            DiagnosticRule.reportGeneralTypeIssues,
+            LocAddendum.protocolRequiresRuntimeCheckable(),
+            pattern.className
+        );
     }
 
     return evaluator.mapSubtypesExpandTypeVars(
