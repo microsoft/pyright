@@ -672,6 +672,12 @@
       "title": "Controls reporting `# type: ignore` and `# pyright: ignore` comments without specifying a rule",
       "default": "none"
     },
+    "reportPrivateNonPyTypedImportUsage": {
+      "$id": "#/properties/reportPrivateNonPyTypedImportUsage",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of improper usage of symbols imported from a non-\"py.typed\" module that are not re-exported from that module. Should be used along with `reportPrivateImportUsage`",
+      "default": "none"
+    },
     "extraPaths": {
       "$id": "#/properties/extraPaths",
       "type": "array",

@@ -1534,6 +1534,22 @@
                                 true,
                                 false
                             ]
+                        },
+                        "reportPrivateNonPyTypedImportUsage": {
+                            "type": [
+                                "string",
+                                "boolean"
+                            ],
+                            "description": "Diagnostics for incorrect usage of symbol imported from a non-\"py.typed\" module that is not re-exported from that module. Should be used along with `reportNonPrivateImportUsage`",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error",
+                                true,
+                                false
+                            ]
                         }
                     }
                 },

@@ -107,4 +107,5 @@ export enum DiagnosticRule {
     reportUnreachable = 'reportUnreachable',
     reportAny = 'reportAny',
     reportIgnoreCommentWithoutRule = 'reportIgnoreCommentWithoutRule',
+    reportPrivateNonPyTypedImportUsage = 'reportPrivateNonPyTypedImportUsage',
 }

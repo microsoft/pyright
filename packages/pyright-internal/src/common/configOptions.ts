@@ -390,6 +390,9 @@ export interface DiagnosticRuleSet {
 
     // Report ignore comments without a specified rule
     reportIgnoreCommentWithoutRule: DiagnosticLevel;
+
+    // the "works properly" version of reportPrivateImportUsage
+    reportPrivateNonPyTypedImportUsage: DiagnosticLevel;
 }
 
 export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
@@ -618,6 +621,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnreachable: 'none',
         reportAny: 'none',
         reportIgnoreCommentWithoutRule: 'none',
+        reportPrivateNonPyTypedImportUsage: 'none',
     };
 
     return diagSettings;
@@ -723,6 +727,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnreachable: 'none',
         reportAny: 'none',
         reportIgnoreCommentWithoutRule: 'none',
+        reportPrivateNonPyTypedImportUsage: 'none',
     };
 
     return diagSettings;
@@ -828,6 +833,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnreachable: 'none',
         reportAny: 'none',
         reportIgnoreCommentWithoutRule: 'none',
+        reportPrivateNonPyTypedImportUsage: 'none',
     };
 
     return diagSettings;
@@ -932,6 +938,7 @@ export const getAllDiagnosticRuleSet = (): DiagnosticRuleSet => ({
     reportUnreachable: 'error',
     reportAny: 'error',
     reportIgnoreCommentWithoutRule: 'error',
+    reportPrivateNonPyTypedImportUsage: 'error',
 });
 
 export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
@@ -1034,6 +1041,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnreachable: 'none',
         reportAny: 'none',
         reportIgnoreCommentWithoutRule: 'none',
+        reportPrivateNonPyTypedImportUsage: 'none',
     };
 
     return diagSettings;

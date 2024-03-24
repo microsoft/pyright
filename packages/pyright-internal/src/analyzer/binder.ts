@@ -324,8 +324,10 @@ export class Binder extends ParseTreeWalker {
             if (!this._dunderAllNames?.some((sym) => sym === name)) {
                 if (this._fileInfo.isStubFile) {
                     symbol.setIsExternallyHidden();
-                } else {
+                } else if (this._fileInfo.isInPyTypedPackage) {
                     symbol.setPrivatePyTypedImport();
+                } else {
+                    symbol.setPrivateNonPyTypedImport();
                 }
             }
         });
@@ -1749,13 +1751,14 @@ export class Binder extends ParseTreeWalker {
                     node.module.nameParts.length !== 1 ||
                     node.module.nameParts[0].value !== node.alias.value)
             ) {
-                if (this._fileInfo.isStubFile || this._fileInfo.isInPyTypedPackage) {
-                    // PEP 484 indicates that imported symbols should not be
-                    // considered "reexported" from a type stub file unless
-                    // they are imported using the "as" form and the aliased
-                    // name is entirely redundant.
-                    this._potentialHiddenSymbols.set(symbolName, symbol);
-                }
+                // PEP 484 indicates that imported symbols should not be
+                // considered "reexported" from a type stub file unless
+                // they are imported using the "as" form and the aliased
+                // name is entirely redundant.
+
+                // in basedpyright, we don't care whether it's a stub file or not. this should
+                // apply to regular modules too. this is also consistent with mypy'ss behavior.
+                this._potentialHiddenSymbols.set(symbolName, symbol);
             }
 
             const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
@@ -1946,13 +1949,11 @@ export class Binder extends ParseTreeWalker {
                                 !importSymbolNode.alias ||
                                 importSymbolNode.alias.value !== importSymbolNode.name.value
                             ) {
-                                if (this._fileInfo.isStubFile || this._fileInfo.isInPyTypedPackage) {
-                                    // PEP 484 indicates that imported symbols should not be
-                                    // considered "reexported" from a type stub file unless
-                                    // they are imported using the "as" form using a redundant form.
-                                    // Py.typed packages follow the same rule as PEP 484.
-                                    this._potentialHiddenSymbols.set(nameNode.value, symbol);
-                                }
+                                // PEP 484 indicates that imported symbols should not be
+                                // considered "reexported" from a type stub file unless
+                                // they are imported using the "as" form using a redundant form.
+                                // Py.typed packages follow the same rule as PEP 484.
+                                this._potentialHiddenSymbols.set(nameNode.value, symbol);
                             }
                         }
                     }

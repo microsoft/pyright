@@ -5499,6 +5499,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }),
                             node.memberName
                         );
+                    } else if (symbol.isPrivateNonPyTypedImport()) {
+                        addDiagnostic(
+                            DiagnosticRule.reportPrivateNonPyTypedImportUsage,
+                            LocMessage.privateImportFromPyTypedModule().format({
+                                name: memberName,
+                                module: baseType.moduleName,
+                            }),
+                            node.memberName
+                        );
                     }
                 } else {
                     // Does the module export a top-level __getattr__ function?
@@ -19050,21 +19059,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node.name
                 );
             }
-
-            if (resolvedAliasInfo.privatePyTypedImporter) {
+            const privateImporter =
+                resolvedAliasInfo.privatePyTypedImporter || resolvedAliasInfo.privateNonPyTypedImporter;
+            if (privateImporter) {
                 const diag = new DiagnosticAddendum();
-                if (resolvedAliasInfo.privatePyTypedImported) {
+                if (resolvedAliasInfo.privateImported) {
                     diag.addMessage(
                         LocAddendum.privateImportFromPyTypedSource().format({
-                            module: resolvedAliasInfo.privatePyTypedImported,
+                            module: resolvedAliasInfo.privateImported,
                         })
                     );
                 }
                 addDiagnostic(
-                    DiagnosticRule.reportPrivateImportUsage,
+                    resolvedAliasInfo.privatePyTypedImporter
+                        ? DiagnosticRule.reportPrivateImportUsage
+                        : DiagnosticRule.reportPrivateNonPyTypedImportUsage,
                     LocMessage.privateImportFromPyTypedModule().format({
                         name: node.name.value,
-                        module: resolvedAliasInfo.privatePyTypedImporter,
+                        module: privateImporter,
                     }) + diag.getString(),
                     node.name
                 );
