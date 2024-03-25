@@ -1705,7 +1705,9 @@ export function lookUpClassMember(
         const metaMemberItr = getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers);
         const metaMember = metaMemberItr.next()?.value;
 
-        if (metaMember) {
+        // If the metaclass defines the member and we didn't hit an Unknown
+        // class in the metaclass MRO, use the metaclass member.
+        if (metaMember && !isAnyOrUnknown(metaMember.classType)) {
             // Set the isClassMember to true because it's a class member from the
             // perspective of the classType.
             metaMember.isClassMember = true;
@@ -1944,8 +1946,12 @@ export function getClassFieldsRecursive(classType: ClassType): Map<string, Class
 
 // Combines two lists of type var types, maintaining the combined order
 // but removing any duplicates.
-export function addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarType[]) {
+export function addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarType[], typeVarScopeId?: TypeVarScopeId) {
     for (const type2 of list2) {
+        if (typeVarScopeId && type2.scopeId !== typeVarScopeId) {
+            continue;
+        }
+
         if (!list1.find((type1) => isTypeSame(convertToInstance(type1), convertToInstance(type2)))) {
             list1.push(type2);
         }

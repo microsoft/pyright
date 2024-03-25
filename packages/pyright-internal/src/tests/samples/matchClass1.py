@@ -1,7 +1,15 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain class patterns.
 
-from typing import Any, Generic, Literal, NamedTuple, TypeVar
+from typing import (
+    Any,
+    Generic,
+    Literal,
+    NamedTuple,
+    Protocol,
+    TypeVar,
+    runtime_checkable,
+)
 from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
     LiteralString,
 )
@@ -468,3 +476,22 @@ def func20(x: T6) -> T6:
 
     reveal_type(x, expected_text="float* | int*")
     return x
+
+
+@runtime_checkable
+class Proto1(Protocol):
+    x: int
+
+
+class Proto2(Protocol):
+    x: int
+
+
+def func21(subj: object):
+    match subj:
+        case Proto1():
+            pass
+
+        # This should generate an error because Proto2 isn't runtime checkable.
+        case Proto2():
+            pass
