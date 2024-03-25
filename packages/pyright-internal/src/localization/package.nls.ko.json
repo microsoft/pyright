@@ -532,6 +532,7 @@
         "typeVarUsedByOuterScope": "TypeVar ‘{name}’은(는) 외부 범위에서 이미 사용 중입니다.",
         "typeVarUsedOnlyOnce": "TypeVar \"{name}\"이(가) 제네릭 함수 시그니처에 한 번만 나타납니다.",
         "typeVarVariance": "TypeVar는 공변이면서 반공변일 수 없습니다.",
+        "typeVarWithDefaultFollowsVariadic": "TypeVar \"{typeVarName}\"에 기본값이 있으며 TypeVarTuple \"{variadicName}\"을(를) 따를 수 없습니다.",
         "typeVarWithoutDefault": "‘{name}’은 기본 형식이 없으므로 형식 매개 변수 목록에서 ‘{other}’ 뒤에 나타날 수 없습니다.",
         "typeVarsNotInGenericOrProtocol": "Generic[] 또는 Protocol[]에는 모든 형식 변수가 포함되어야 합니다.",
         "typedDictAccess": "TypedDict의 항목에 액세스할 수 없습니다.",

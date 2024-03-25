@@ -8,12 +8,13 @@ import assert from 'assert';
 
 import { lib, sitePackages } from '../common/pathConsts';
 import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
-import { Uri } from '../common/uri/uri';
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { TestFileSystem } from './harness/vfs/filesystem';
+import { Uri } from '../common/uri/uri';
+import { UriEx } from '../common/uri/uriUtils';
 
 const libraryRoot = combinePaths(normalizeSlashes('/'), lib, sitePackages);
-const libraryRootUri = Uri.file(libraryRoot);
+const libraryRootUri = UriEx.file(libraryRoot);
 
 test('virtual file exists', () => {
     const files = [
@@ -167,7 +168,7 @@ test('existing stub file', () => {
 
 test('multiple package installed', () => {
     const extraRoot = combinePaths(normalizeSlashes('/'), lib, 'extra');
-    const extraRootUri = Uri.file(extraRoot);
+    const extraRootUri = UriEx.file(extraRoot);
     const files = [
         {
             path: combinePaths(libraryRoot, 'myLib-stubs', 'partialStub.pyi'),
@@ -202,7 +203,7 @@ test('multiple package installed', () => {
 
 test('bundled partial stubs', () => {
     const bundledPath = combinePaths(normalizeSlashes('/'), 'bundled');
-    const bundledPathUri = Uri.file(bundledPath);
+    const bundledPathUri = UriEx.file(bundledPath);
 
     const files = [
         {
@@ -242,7 +243,7 @@ function createFileSystem(files: { path: string; content: string }[]): PyrightFi
         const dir = getDirectoryPath(path);
         fs.mkdirpSync(dir);
 
-        fs.writeFileSync(Uri.file(path), file.content);
+        fs.writeFileSync(Uri.file(path, fs), file.content);
     }
 
     return new PyrightFileSystem(fs);

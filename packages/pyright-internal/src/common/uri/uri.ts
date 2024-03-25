@@ -7,12 +7,16 @@
  */
 
 import { URI, Utils } from 'vscode-uri';
-import { combinePaths, isRootedDiskPath } from '../pathUtils';
-import { EmptyUri } from './emptyUri';
-import { FileUri } from './fileUri';
+import { CaseSensitivityDetector } from '../caseSensitivityDetector';
+import { combinePaths, isRootedDiskPath, normalizeSlashes } from '../pathUtils';
+import { ServiceKey } from '../serviceProvider';
+import { FileUri, FileUriSchema } from './fileUri';
 import { WebUri } from './webUri';
+import { EmptyUri } from './emptyUri';
 import { JsonObjType } from './baseUri';
 import { isArray } from '../core';
+import { ServiceKeys } from '../serviceKeys';
+import { ConstantUri } from './constantUri';
 
 export const enum UriKinds {
     file,
@@ -57,6 +61,8 @@ export interface Uri {
     readonly fileNameWithoutExtensions: string;
 
     // Indicates if the underlying file system for this URI is case sensitive or not.
+    // This should never be used to create another Uri.
+    // Use `CaseSensitivityDetector` when creating new Uri using `Uri.parse/file`
     readonly isCaseSensitive: boolean;
 
     // Returns the fragment part of a URI.
@@ -159,13 +165,23 @@ function normalizeUri(uri: string | URI): { uri: URI; str: string } {
 }
 
 export namespace Uri {
-    export function file(path: string, isCaseSensitive = true, checkRelative = false): Uri {
+    export interface IServiceProvider {
+        get<T>(key: ServiceKey<T>): T;
+    }
+
+    export function file(path: string, serviceProvider: IServiceProvider, checkRelative?: boolean): Uri;
+    export function file(path: string, caseSensitivityDetector: CaseSensitivityDetector, checkRelative?: boolean): Uri;
+    export function file(path: string, arg: IServiceProvider | CaseSensitivityDetector, checkRelative = false): Uri {
+        arg = CaseSensitivityDetector.is(arg) ? arg : arg.get(ServiceKeys.caseSensitivityDetector);
+
         // Fix path if we're checking for relative paths and this is not a rooted path.
         path = checkRelative && !isRootedDiskPath(path) ? combinePaths(process.cwd(), path) : path;
 
         // If this already starts with 'file:', then we can
         // parse it normally. It's actually a uri string. Otherwise parse it as a file path.
-        const normalized = path.startsWith('file:') ? normalizeUri(path) : normalizeUri(URI.file(path));
+        const normalized = path.startsWith('file:')
+            ? normalizeUri(path)
+            : normalizeUri(URI.file(normalizeSlashes(path)));
 
         // Turn the path into a file URI.
         return FileUri.createFileUri(
@@ -173,8 +189,45 @@ export namespace Uri {
             normalized.uri.query,
             normalized.uri.fragment,
             normalized.str,
-            isCaseSensitive
+            arg.isCaseSensitive(normalized.str)
         );
+    }
+
+    export function parse(value: string | undefined, serviceProvider: IServiceProvider): Uri;
+    export function parse(value: string | undefined, caseSensitivityDetector: CaseSensitivityDetector): Uri;
+    export function parse(value: string | undefined, arg: IServiceProvider | CaseSensitivityDetector): Uri {
+        if (!value) {
+            return Uri.empty();
+        }
+
+        arg = CaseSensitivityDetector.is(arg) ? arg : arg.get(ServiceKeys.caseSensitivityDetector);
+
+        // Normalize the value here. This gets rid of '..' and '.' in the path. It also removes any
+        // '/' on the end of the path.
+        const normalized = normalizeUri(value);
+        if (normalized.uri.scheme === FileUriSchema) {
+            return FileUri.createFileUri(
+                getFilePath(normalized.uri),
+                normalized.uri.query,
+                normalized.uri.fragment,
+                normalized.str,
+                arg.isCaseSensitive(normalized.str)
+            );
+        }
+
+        // Web URIs are always case sensitive.
+        return WebUri.createWebUri(
+            normalized.uri.scheme,
+            normalized.uri.authority,
+            normalized.uri.path,
+            normalized.uri.query,
+            normalized.uri.fragment,
+            normalized.str
+        );
+    }
+
+    export function constant(markerName: string): Uri {
+        return new ConstantUri(markerName);
     }
 
     export function empty(): Uri {
@@ -202,36 +255,7 @@ export namespace Uri {
         return jsonObj;
     }
 
-    export function parse(value: string | undefined, isCaseSensitive: boolean): Uri {
-        if (!value) {
-            return Uri.empty();
-        }
-
-        // Normalize the value here. This gets rid of '..' and '.' in the path. It also removes any
-        // '/' on the end of the path.
-        const normalized = normalizeUri(value);
-        if (normalized.uri.scheme === 'file') {
-            return FileUri.createFileUri(
-                getFilePath(normalized.uri),
-                normalized.uri.query,
-                normalized.uri.fragment,
-                normalized.str,
-                isCaseSensitive
-            );
-        }
-
-        // Web URIs are always case sensitive.
-        return WebUri.createWebUri(
-            normalized.uri.scheme,
-            normalized.uri.authority,
-            normalized.uri.path,
-            normalized.uri.query,
-            normalized.uri.fragment,
-            normalized.str
-        );
-    }
-
-    export function isUri(thing: any): thing is Uri {
+    export function is(thing: any): thing is Uri {
         return !!thing && typeof thing._key === 'string';
     }
 }

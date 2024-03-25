@@ -532,6 +532,7 @@
         "typeVarUsedByOuterScope": "TypeVar“{name}”已被外部作用域使用",
         "typeVarUsedOnlyOnce": "TypeVar \"{name}\" 在泛型函数签名中仅显示一次",
         "typeVarVariance": "TypeVar 不能同时为协变和逆变",
+        "typeVarWithDefaultFollowsVariadic": "TypeVar“{typeVarName}”具有默认值，并且不能遵循 TypeVarTuple“{variadicName}”",
         "typeVarWithoutDefault": "“{name}”不能出现在类型参数列表的“{other}”后面，因为它没有默认类型",
         "typeVarsNotInGenericOrProtocol": "Generic[] 或 Protocol[] 必须包括所有类型变量",
         "typedDictAccess": "无法存取 TypedDict 中的项",

@@ -123,26 +123,30 @@ export function getLocaleFromEnv() {
         return localeOverride;
     }
 
-    const env = process.env;
+    try {
+        const env = process?.env;
 
-    // Start with the VSCode environment variables.
-    const vscodeConfigString = env.VSCODE_NLS_CONFIG;
-    if (vscodeConfigString) {
-        try {
-            return JSON.parse(vscodeConfigString).locale;
-        } catch {
-            // Fall through
+        // Start with the VSCode environment variables.
+        const vscodeConfigString = env?.VSCODE_NLS_CONFIG;
+        if (vscodeConfigString) {
+            try {
+                return JSON.parse(vscodeConfigString).locale;
+            } catch {
+                // Fall through
+            }
         }
-    }
 
-    // See if there is a language env variable.
-    const localeString = env.LC_ALL || env.LC_MESSAGES || env.LANG || env.LANGUAGE;
-    if (localeString) {
-        // This string may contain a local followed by an encoding (e.g. "en-us.UTF-8").
-        const localeStringSplit = localeString.split('.');
-        if (localeStringSplit.length > 0 && localeStringSplit[0]) {
-            return localeStringSplit[0];
+        // See if there is a language env variable.
+        const localeString = env?.LC_ALL || env?.LC_MESSAGES || env?.LANG || env?.LANGUAGE;
+        if (localeString) {
+            // This string may contain a local followed by an encoding (e.g. "en-us.UTF-8").
+            const localeStringSplit = localeString.split('.');
+            if (localeStringSplit.length > 0 && localeStringSplit[0]) {
+                return localeStringSplit[0];
+            }
         }
+    } catch {
+        // Just use the default locale
     }
 
     // Fall back to the default locale.

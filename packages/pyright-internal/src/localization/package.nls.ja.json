@@ -532,6 +532,7 @@
         "typeVarUsedByOuterScope": "TypeVar \"{name}\" は外部スコープで既に使用されています",
         "typeVarUsedOnlyOnce": "TypeVar \"{name}\" はジェネリック関数シグネチャに 1 回だけ出現します",
         "typeVarVariance": "TypeVar を共変と反変の両方にすることはできません",
+        "typeVarWithDefaultFollowsVariadic": "TypeVar \"{typeVarName}\" には既定値があり、TypeVarTuple \"{variadicName}\" の後に続けることはできません",
         "typeVarWithoutDefault": "\"{name}\" は既定の型がないため、型パラメーター リストの \"{other}\" の後に表示できません",
         "typeVarsNotInGenericOrProtocol": "Generic[] または Protocol[] には、すべての型変数を含める必要があります",
         "typedDictAccess": "TypedDict の項目にアクセスできませんでした",

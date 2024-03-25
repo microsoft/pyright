@@ -34,7 +34,6 @@ export interface MkDirOptions {
 }
 
 export interface ReadOnlyFileSystem {
-    readonly isCaseSensitive: boolean;
     existsSync(uri: Uri): boolean;
     chdir(uri: Uri): void;
     readdirEntriesSync(uri: Uri): fs.Dirent[];

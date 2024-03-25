@@ -9,19 +9,19 @@
 import { CancellationToken, ExecuteCommandParams } from 'vscode-languageserver';
 
 import { OperationCanceledException } from '../common/cancellationUtils';
-import { Uri } from '../common/uri/uri';
-import { LanguageServerInterface } from '../languageServerBase';
+import { LanguageServerInterface } from '../common/languageServerInterface';
 import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecutor';
 import { ServerCommand } from './commandController';
+import { Uri } from '../common/uri/uri';
 
 export class CreateTypeStubCommand implements ServerCommand {
     constructor(private _ls: LanguageServerInterface) {}
 
     async execute(cmdParams: ExecuteCommandParams, token: CancellationToken): Promise<any> {
         if (cmdParams.arguments && cmdParams.arguments.length >= 2) {
-            const workspaceRoot = Uri.parse(cmdParams.arguments[0] as string, this._ls.rootUri.isCaseSensitive);
+            const workspaceRoot = Uri.parse(cmdParams.arguments[0] as string, this._ls.serviceProvider);
             const importName = cmdParams.arguments[1] as string;
-            const callingFile = Uri.parse(cmdParams.arguments[2] as string, this._ls.rootUri.isCaseSensitive);
+            const callingFile = Uri.parse(cmdParams.arguments[2] as string, this._ls.serviceProvider);
 
             const service = await AnalyzerServiceExecutor.cloneService(
                 this._ls,

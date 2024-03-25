@@ -96,7 +96,10 @@ export function verifyDocumentEdits(
                             return false;
                         }
 
-                        return textEditsAreSame(expectedEdit.edits, actualEdit.edits);
+                        return textEditsAreSame(
+                            expectedEdit.edits.filter((e) => TextEdit.is(e)) as TextEdit[],
+                            actualEdit.edits.filter((e) => TextEdit.is(e)) as TextEdit[]
+                        );
                     }
                     case 'create': {
                         const expectedOp = op as CreateFile;

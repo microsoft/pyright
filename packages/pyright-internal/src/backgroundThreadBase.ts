@@ -17,7 +17,7 @@ import { PythonVersion } from './common/pythonVersion';
 import { createFromRealFileSystem, RealTempFile } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
 import './common/serviceProviderExtensions';
-import { ServiceKeys } from './common/serviceProviderExtensions';
+import { ServiceKeys } from './common/serviceKeys';
 import { Uri } from './common/uri/uri';
 
 export class BackgroundConsole implements ConsoleInterface {
@@ -55,21 +55,29 @@ export class BackgroundThreadBase {
         if (!this._serviceProvider.tryGet(ServiceKeys.console)) {
             this._serviceProvider.add(ServiceKeys.console, new BackgroundConsole());
         }
-        if (!this._serviceProvider.tryGet(ServiceKeys.fs)) {
-            this._serviceProvider.add(ServiceKeys.fs, createFromRealFileSystem(this.getConsole()));
-        }
+
+        let tempFile: RealTempFile | undefined = undefined;
         if (!this._serviceProvider.tryGet(ServiceKeys.tempFile)) {
+            tempFile = new RealTempFile();
+            this._serviceProvider.add(ServiceKeys.tempFile, tempFile);
+        }
+
+        if (!this._serviceProvider.tryGet(ServiceKeys.caseSensitivityDetector)) {
+            this._serviceProvider.add(ServiceKeys.caseSensitivityDetector, tempFile ?? new RealTempFile());
+        }
+
+        if (!this._serviceProvider.tryGet(ServiceKeys.fs)) {
             this._serviceProvider.add(
-                ServiceKeys.tempFile,
-                new RealTempFile(this._serviceProvider.fs().isCaseSensitive)
+                ServiceKeys.fs,
+                createFromRealFileSystem(
+                    this._serviceProvider.get(ServiceKeys.caseSensitivityDetector),
+                    this.getConsole()
+                )
             );
         }
 
         // Stash the base directory into a global variable.
-        (global as any).__rootDirectory = Uri.parse(
-            data.rootUri,
-            this._serviceProvider.fs().isCaseSensitive
-        ).getFilePath();
+        (global as any).__rootDirectory = Uri.parse(data.rootUri, this._serviceProvider).getFilePath();
     }
 
     protected get fs() {
@@ -97,7 +105,7 @@ export class BackgroundThreadBase {
 // Function used to serialize specific types that can't automatically be serialized.
 // Exposed here so it can be reused by a caller that wants to add more cases.
 export function serializeReplacer(key: string, value: any) {
-    if (Uri.isUri(value) && value.toJsonObj !== undefined) {
+    if (Uri.is(value) && value.toJsonObj !== undefined) {
         return { __serialized_uri_val: value.toJsonObj() };
     }
     if (value instanceof PythonVersion) {

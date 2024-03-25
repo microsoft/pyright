@@ -83,24 +83,10 @@ import type { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
 import { CancelAfter, CancellationProvider } from './common/cancellationUtils';
 import { getNestedProperty } from './common/collectionUtils';
-import {
-    DiagnosticSeverityOverrides,
-    DiagnosticSeverityOverridesMap,
-    getDiagnosticSeverityOverrides,
-} from './common/commandLineOptions';
-import {
-    ConfigOptions,
-    SignatureDisplayType,
-    getDiagLevelDiagnosticRules,
-    parseDiagLevel,
-} from './common/configOptions';
+import { DiagnosticSeverityOverrides, getDiagnosticSeverityOverrides } from './common/commandLineOptions';
+import { ConfigOptions, getDiagLevelDiagnosticRules, parseDiagLevel } from './common/configOptions';
 import { ConsoleInterface, ConsoleWithLogLevel, LogLevel } from './common/console';
-import {
-    Diagnostic as AnalyzerDiagnostic,
-    DiagnosticCategory,
-    TaskListPriority,
-    TaskListToken,
-} from './common/diagnostic';
+import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory, TaskListPriority } from './common/diagnostic';
 import { DiagnosticRule } from './common/diagnosticRules';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { FileSystem, ReadOnlyFileSystem } from './common/fileSystem';
@@ -128,65 +114,9 @@ import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvid
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { ParseResults } from './parser/parser';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
-
-export interface ServerSettings {
-    venvPath?: Uri | undefined;
-    pythonPath?: Uri | undefined;
-    typeshedPath?: Uri | undefined;
-    stubPath?: Uri | undefined;
-    openFilesOnly?: boolean | undefined;
-    typeCheckingMode?: string | undefined;
-    useLibraryCodeForTypes?: boolean | undefined;
-    disableLanguageServices?: boolean | undefined;
-    disableTaggedHints?: boolean | undefined;
-    disableOrganizeImports?: boolean | undefined;
-    autoSearchPaths?: boolean | undefined;
-    extraPaths?: Uri[] | undefined;
-    watchForSourceChanges?: boolean | undefined;
-    watchForLibraryChanges?: boolean | undefined;
-    watchForConfigChanges?: boolean | undefined;
-    diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap | undefined;
-    logLevel?: LogLevel | undefined;
-    autoImportCompletions?: boolean | undefined;
-    indexing?: boolean | undefined;
-    logTypeEvaluationTime?: boolean | undefined;
-    typeEvaluationTimeThreshold?: number | undefined;
-    includeFileSpecs?: string[];
-    excludeFileSpecs?: string[];
-    ignoreFileSpecs?: string[];
-    taskListTokens?: TaskListToken[];
-    functionSignatureDisplay?: SignatureDisplayType | undefined;
-}
-
-export interface MessageAction {
-    title: string;
-    id: string;
-}
-
-export interface WindowInterface {
-    showErrorMessage(message: string): void;
-    showErrorMessage(message: string, ...actions: MessageAction[]): Promise<MessageAction | undefined>;
-
-    showWarningMessage(message: string): void;
-    showWarningMessage(message: string, ...actions: MessageAction[]): Promise<MessageAction | undefined>;
-
-    showInformationMessage(message: string): void;
-    showInformationMessage(message: string, ...actions: MessageAction[]): Promise<MessageAction | undefined>;
-}
-
-export interface LanguageServerInterface {
-    readonly rootUri: Uri;
-    readonly console: ConsoleInterface;
-    readonly window: WindowInterface;
-    readonly supportAdvancedEdits: boolean;
-
-    getWorkspaces(): Promise<Workspace[]>;
-    getWorkspaceForFile(fileUri: Uri): Promise<Workspace>;
-    getSettings(workspace: Workspace): Promise<ServerSettings>;
-    createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined;
-    reanalyze(): void;
-    restart(): void;
-}
+import { ServiceKeys } from './common/serviceKeys';
+import { LanguageServerInterface, ServerSettings } from './common/languageServerInterface';
+import { CaseSensitivityDetector } from './common/caseSensitivityDetector';
 
 export interface ServerOptions {
     productName: string;
@@ -315,9 +245,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     private _initialized = false;
     private _workspaceFoldersChangedDisposable: Disposable | undefined;
 
-    // Global root path - the basis for all global settings.
-    rootUri = Uri.empty();
-
     protected client: ClientCapabilities = {
         hasConfigurationCapability: false,
         hasVisualStudioExtensionsCapability: false,
@@ -347,6 +274,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected readonly workspaceFactory: WorkspaceFactory;
     protected readonly openFileMap = new Map<string, TextDocument>();
     protected readonly fs: FileSystem;
+    protected readonly caseSensitiveDetector: CaseSensitivityDetector;
 
     // The URIs for which diagnostics are reported
     protected readonly documentsWithDiagnostics = new Set<string>();
@@ -365,6 +293,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.console.info(`Server root directory: ${serverOptions.rootDirectory}`);
 
         this.fs = this.serverOptions.serviceProvider.fs();
+        this.caseSensitiveDetector = this.serverOptions.serviceProvider.get(ServiceKeys.caseSensitivityDetector);
 
         this.workspaceFactory = new WorkspaceFactory(
             this.console,
@@ -373,7 +302,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             this.isPythonPathImmutable.bind(this),
             this.onWorkspaceCreated.bind(this),
             this.onWorkspaceRemoved.bind(this),
-            this.fs.isCaseSensitive
+            this.serviceProvider
         );
 
         // Set the working directory to a known location within
@@ -404,6 +333,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     get supportAdvancedEdits(): boolean {
         return this.client.hasDocumentChangeCapability && this.client.hasDocumentAnnotationCapability;
+    }
+
+    get serviceProvider() {
+        return this.serverOptions.serviceProvider;
     }
 
     dispose() {
@@ -531,6 +464,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     protected abstract executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
 
     protected abstract isLongRunningCommand(command: string): boolean;
+    protected abstract isRefactoringCommand(command: string): boolean;
 
     protected abstract executeCodeAction(
         params: CodeActionParams,
@@ -674,8 +608,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         if (params.locale) {
             setLocaleOverride(params.locale);
         }
-
-        this.rootUri = params.rootUri ? Uri.parse(params.rootUri, this.fs.isCaseSensitive) : Uri.empty();
 
         const capabilities = params.capabilities;
         this.client.hasConfigurationCapability = !!capabilities.workspace?.configuration;
@@ -934,6 +866,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 program,
                 uri,
                 this.client.hasHierarchicalDocumentSymbolCapability,
+                { includeAliases: false },
                 token
             ).getSymbols();
         }, token);
@@ -1242,13 +1175,21 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             if (WorkspaceEdit.is(result)) {
                 // Tell client to apply edits.
                 // Do not await; the client isn't expecting a result.
-                this.connection.workspace.applyEdit({ label: `Command '${params.command}'`, edit: result });
+                this.connection.workspace.applyEdit({
+                    label: `Command '${params.command}'`,
+                    edit: result,
+                    metadata: { isRefactoring: this.isRefactoringCommand(params.command) },
+                });
             }
 
             if (CommandResult.is(result)) {
                 // Tell client to apply edits.
                 // Await so that we return after the edit is complete.
-                await this.connection.workspace.applyEdit({ label: result.label, edit: result.edits });
+                await this.connection.workspace.applyEdit({
+                    label: result.label,
+                    edit: result.edits,
+                    metadata: { isRefactoring: this.isRefactoringCommand(params.command) },
+                });
             }
 
             return result;
@@ -1434,7 +1375,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected decodeUri(uri: string) {
-        return Uri.parse(uri, this.fs.isCaseSensitive);
+        return Uri.parse(uri, this.serverOptions.serviceProvider);
     }
 
     private _setupFileWatcher() {

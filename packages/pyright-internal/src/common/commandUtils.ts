@@ -12,7 +12,7 @@ import { Uri } from './uri/uri';
 export function createCommand(title: string, command: string, ...args: any[]): Command {
     // Make sure if any of the args are URIs, we convert them to strings.
     const convertedArgs = args.map((arg) => {
-        if (Uri.isUri(arg)) {
+        if (Uri.is(arg)) {
             return arg.toString();
         }
         return arg;

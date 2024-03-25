@@ -285,7 +285,7 @@ export class TextEditTracker {
     }
 
     private _removeEdits(fileUriOrEdit: Uri | FileEditAction[], edits: FileEditAction[]) {
-        if (Uri.isUri(fileUriOrEdit)) {
+        if (Uri.is(fileUriOrEdit)) {
             fileUriOrEdit = this._results.get(fileUriOrEdit.key) ?? [];
         }
 
@@ -320,7 +320,7 @@ export class TextEditTracker {
     }
 
     private _getOverlappingForSpan(fileUriOrEdit: Uri | FileEditAction[], range: Range) {
-        if (Uri.isUri(fileUriOrEdit)) {
+        if (Uri.is(fileUriOrEdit)) {
             fileUriOrEdit = this._results.get(fileUriOrEdit.key) ?? [];
         }
 

@@ -11,7 +11,7 @@
 
 import type * as fs from 'fs';
 
-import { getPyTypedInfo } from './analyzer/pyTypedUtils';
+import { PyTypedInfo, getPyTypedInfo } from './analyzer/pyTypedUtils';
 import { ExecutionEnvironment } from './common/configOptions';
 import { FileSystem, MkDirOptions } from './common/fileSystem';
 import { stubsSuffix } from './common/pathConsts';
@@ -86,7 +86,17 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
         return this._rootSearched.has(uri.key);
     }
 
-    processPartialStubPackages(paths: Uri[], roots: Uri[], bundledStubPath?: Uri) {
+    processPartialStubPackages(
+        paths: Uri[],
+        roots: Uri[],
+        bundledStubPath?: Uri,
+        allowMoving?: (
+            isBundled: boolean,
+            packagePyTyped: PyTypedInfo | undefined,
+            _stubPyTyped: PyTypedInfo
+        ) => boolean
+    ): void {
+        const allowMovingFn = allowMoving ?? this._allowMoving.bind(this);
         for (const path of paths) {
             this._rootSearched.add(path.key);
 
@@ -133,16 +143,11 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
                             continue;
                         }
 
-                        if (isBundledStub) {
-                            // If partial stub we found is from bundled stub and library installed is marked as py.typed
-                            // ignore bundled partial stub.
-                            const packagePyTyped = getPyTypedInfo(this.realFS, packagePath);
-                            if (packagePyTyped && !packagePyTyped.isPartiallyTyped) {
-                                // We have fully typed package.
-                                continue;
-                            }
+                        // If partial stub we found is from bundled stub and library installed is marked as py.typed
+                        // ignore bundled partial stub.
+                        if (!allowMovingFn(isBundledStub, getPyTypedInfo(this.realFS, packagePath), pyTypedInfo)) {
+                            continue;
                         }
-
                         // Merge partial stub packages to the library.
                         partialStubs = partialStubs ?? this._getRelativePathPartialStubs(partialStubPackagePath);
                         for (const partialStub of partialStubs) {
@@ -167,6 +172,20 @@ export class PyrightFileSystem extends ReadOnlyAugmentedFileSystem implements IP
 
     protected override isMovedEntry(uri: Uri) {
         return this._partialStubPackagePaths.has(uri.key) || super.isMovedEntry(uri);
+    }
+
+    private _allowMoving(
+        isBundled: boolean,
+        packagePyTyped: PyTypedInfo | undefined,
+        _stubPyTyped: PyTypedInfo
+    ): boolean {
+        if (!isBundled) {
+            return true;
+        }
+
+        // If partial stub we found is from bundled stub and library installed is marked as py.typed
+        // allow moving only if the package is marked as partially typed.
+        return !packagePyTyped || packagePyTyped.isPartiallyTyped;
     }
 
     private _getRelativePathPartialStubs(partialStubPath: Uri) {

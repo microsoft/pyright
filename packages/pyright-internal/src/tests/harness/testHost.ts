@@ -11,8 +11,28 @@ import { NullConsole } from '../../common/console';
 import { combinePaths, FileSystemEntries, resolvePaths } from '../../common/pathUtils';
 import { createFromRealFileSystem } from '../../common/realFileSystem';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../common/stringUtils';
+import { directoryExists, fileExists, getFileSize, UriEx } from '../../common/uri/uriUtils';
+import { FileUriSchema } from '../../common/uri/fileUri';
 import { Uri } from '../../common/uri/uri';
-import { directoryExists, fileExists, getFileSize } from '../../common/uri/uriUtils';
+import { CaseSensitivityDetector } from '../../common/caseSensitivityDetector';
+
+export class TestCaseSensitivityDetector implements CaseSensitivityDetector {
+    constructor(private _isCaseSensitive = true) {
+        // Empty
+    }
+
+    setCaseSensitivity(value: boolean) {
+        this._isCaseSensitive = value;
+    }
+
+    isCaseSensitive(uri: string): boolean {
+        if (uri.startsWith(FileUriSchema)) {
+            return this._isCaseSensitive;
+        }
+
+        return false;
+    }
+}
 
 export const HOST: TestHost = createHost();
 
@@ -41,9 +61,12 @@ function createHost(): TestHost {
     // byte order mark from the specified encoding. Using any other byte order mark does
     // not actually work.
     const byteOrderMarkIndicator = '\uFEFF';
-    const vfs = createFromRealFileSystem(new NullConsole());
+
+    const caseDetector = new TestCaseSensitivityDetector();
+    const vfs = createFromRealFileSystem(caseDetector, new NullConsole());
 
     const useCaseSensitiveFileNames = isFileSystemCaseSensitive();
+    caseDetector.setCaseSensitivity(useCaseSensitiveFileNames);
 
     function isFileSystemCaseSensitive(): boolean {
         // win32\win64 are case insensitive platforms
@@ -52,7 +75,7 @@ function createHost(): TestHost {
             return false;
         }
         // If this file exists under a different case, we must be case-insensitve.
-        return !vfs.existsSync(Uri.file(swapCase(__filename)));
+        return !vfs.existsSync(UriEx.file(swapCase(__filename)));
 
         /** Convert all lowercase chars to uppercase, and vice-versa */
         function swapCase(s: string): string {
@@ -67,9 +90,9 @@ function createHost(): TestHost {
         function filesInFolder(folder: string): string[] {
             let paths: string[] = [];
 
-            for (const file of vfs.readdirSync(Uri.file(folder))) {
+            for (const file of vfs.readdirSync(Uri.file(folder, caseDetector))) {
                 const pathToFile = pathModule.join(folder, file);
-                const stat = vfs.statSync(Uri.file(pathToFile));
+                const stat = vfs.statSync(Uri.file(pathToFile, caseDetector));
                 if (options.recursive && stat.isDirectory()) {
                     paths = paths.concat(filesInFolder(pathToFile));
                 } else if (stat.isFile() && (!spec || file.match(spec))) {
@@ -86,7 +109,7 @@ function createHost(): TestHost {
     function getAccessibleFileSystemEntries(dirname: string): FileSystemEntries {
         try {
             const entries: string[] = vfs
-                .readdirSync(Uri.file(dirname || '.'))
+                .readdirSync(Uri.file(dirname || '.', caseDetector))
                 .sort(useCaseSensitiveFileNames ? compareStringsCaseSensitive : compareStringsCaseInsensitive);
             const files: string[] = [];
             const directories: string[] = [];
@@ -96,7 +119,7 @@ function createHost(): TestHost {
                 }
                 const name = combinePaths(dirname, entry);
                 try {
-                    const stat = vfs.statSync(Uri.file(name));
+                    const stat = vfs.statSync(Uri.file(name, caseDetector));
                     if (!stat) {
                         continue;
                     }
@@ -116,10 +139,10 @@ function createHost(): TestHost {
     }
 
     function readFile(fileName: string, _encoding?: string): string | undefined {
-        if (!fileExists(vfs, Uri.file(fileName))) {
+        if (!fileExists(vfs, Uri.file(fileName, caseDetector))) {
             return undefined;
         }
-        const buffer = vfs.readFileSync(Uri.file(fileName));
+        const buffer = vfs.readFileSync(Uri.file(fileName, caseDetector));
         let len = buffer.length;
         if (len >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
             // Big endian UTF-16 byte order mark detected. Since big endian is not supported by node.js,
@@ -150,18 +173,18 @@ function createHost(): TestHost {
             data = byteOrderMarkIndicator + data;
         }
 
-        vfs.writeFileSync(Uri.file(fileName), data, 'utf8');
+        vfs.writeFileSync(Uri.file(fileName, caseDetector), data, 'utf8');
     }
 
     return {
         useCaseSensitiveFileNames: () => useCaseSensitiveFileNames,
-        getFileSize: (path: string) => getFileSize(vfs, Uri.file(path)),
+        getFileSize: (path: string) => getFileSize(vfs, Uri.file(path, caseDetector)),
         readFile: (path) => readFile(path),
         writeFile: (path, content) => {
             writeFile(path, content);
         },
-        fileExists: (path) => fileExists(vfs, Uri.file(path)),
-        directoryExists: (path) => directoryExists(vfs, Uri.file(path)),
+        fileExists: (path) => fileExists(vfs, Uri.file(path, caseDetector)),
+        directoryExists: (path) => directoryExists(vfs, Uri.file(path, caseDetector)),
         listFiles,
         log: (s) => {
             console.log(s);

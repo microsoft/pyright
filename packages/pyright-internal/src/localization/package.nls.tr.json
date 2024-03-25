@@ -532,6 +532,7 @@
         "typeVarUsedByOuterScope": "TypeVar \"{name}\" zaten bir dış kapsam tarafından kullanılıyor",
         "typeVarUsedOnlyOnce": "TypeVar \"{name}\" genel işlev imzasında yalnızca bir kez görünür",
         "typeVarVariance": "TypeVar hem birlikte değişken hem de değişken karşıtı olamaz",
+        "typeVarWithDefaultFollowsVariadic": "\"{typeVarName}\" TypeVar alanı bir varsayılan değer içerir ve \"{variadicName}\" TypeVarTuple alanına uyamaz",
         "typeVarWithoutDefault": "\"{name}\" varsayılan türe sahip olmadığından tür parametresi listesinde \"{other}\" sonrasında bulunamaz",
         "typeVarsNotInGenericOrProtocol": "Generic[] veya Protocol[] tüm tür değişkenlerini içermeli",
         "typedDictAccess": "TypedDict'da öğeye erişilemedi",

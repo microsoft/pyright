@@ -224,13 +224,13 @@ export class Checker extends ParseTreeWalker {
     constructor(
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
-        private _parseResults: ParseResults,
+        parseResults: ParseResults,
         private _sourceMapper: SourceMapper,
         private _dependentFiles?: ParseResults[]
     ) {
         super();
 
-        this._moduleNode = _parseResults.parseTree;
+        this._moduleNode = parseResults.parseTree;
         this._fileInfo = AnalyzerNodeInfo.getFileInfo(this._moduleNode)!;
     }
 

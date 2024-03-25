@@ -13,10 +13,12 @@ import { FileSystem, MkDirOptions, TempFile, TmpfileOptions } from '../../../com
 import { FileWatcher, FileWatcherEventHandler, FileWatcherEventType } from '../../../common/fileWatcher';
 import * as pathUtil from '../../../common/pathUtils';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../../common/stringUtils';
-import { Uri } from '../../../common/uri/uri';
 import { bufferFrom, createIOError } from '../utils';
 import { Metadata, SortedMap, closeIterator, getIterator, nextResult } from './../utils';
 import { ValidationFlags, validate } from './pathValidation';
+import { FileUriSchema } from '../../../common/uri/fileUri';
+import { Uri } from '../../../common/uri/uri';
+import { CaseSensitivityDetector } from '../../../common/caseSensitivityDetector';
 
 export const MODULE_PATH = pathUtil.normalizeSlashes('/');
 
@@ -45,7 +47,7 @@ export class TestFileSystemWatcher implements FileWatcher {
 /**
  * Represents a virtual POSIX-like file system.
  */
-export class TestFileSystem implements FileSystem, TempFile {
+export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDetector {
     /** Indicates whether the file system is case-sensitive (`false`) or case-insensitive (`true`). */
     readonly ignoreCase: boolean;
 
@@ -105,10 +107,6 @@ export class TestFileSystem implements FileSystem, TempFile {
         }
 
         this._cwd = cwd || '';
-    }
-
-    get isCaseSensitive() {
-        return !this.ignoreCase;
     }
 
     /**
@@ -275,7 +273,7 @@ export class TestFileSystem implements FileSystem, TempFile {
             this._dirStack.push(this._cwd);
         }
         if (path && path !== this._cwd) {
-            this.chdir(Uri.file(path));
+            this.chdir(Uri.file(path, this));
         }
     }
 
@@ -288,7 +286,7 @@ export class TestFileSystem implements FileSystem, TempFile {
         }
         const path = this._dirStack && this._dirStack.pop();
         if (path) {
-            this.chdir(Uri.file(path));
+            this.chdir(Uri.file(path, this));
         }
     }
 
@@ -340,19 +338,31 @@ export class TestFileSystem implements FileSystem, TempFile {
 
     fireFileWatcherEvent(path: string, event: FileWatcherEventType) {
         for (const watcher of this._watchers) {
-            if (watcher.fireFileChange(Uri.file(path), event)) {
+            if (watcher.fireFileChange(Uri.file(path, this), event)) {
                 break;
             }
         }
     }
 
     getModulePath(): Uri {
-        return Uri.file(MODULE_PATH);
+        return Uri.file(MODULE_PATH, this);
+    }
+
+    isCaseSensitive(uri: string) {
+        if (uri.startsWith(FileUriSchema)) {
+            return !this.ignoreCase;
+        }
+
+        return true;
+    }
+
+    isLocalFileSystemCaseSensitive(): boolean {
+        return !this.ignoreCase;
     }
 
     tmpdir(): Uri {
         this.mkdirpSync('/tmp');
-        return Uri.parse('file:///tmp', true);
+        return Uri.parse('file:///tmp', this);
     }
 
     tmpfile(options?: TmpfileOptions): Uri {
@@ -416,12 +426,12 @@ export class TestFileSystem implements FileSystem, TempFile {
         try {
             const stats = this.lstatSync(path);
             if (stats.isFile() || stats.isSymbolicLink()) {
-                this.unlinkSync(Uri.file(path));
+                this.unlinkSync(Uri.file(path, this));
             } else if (stats.isDirectory()) {
-                for (const file of this.readdirSync(Uri.file(path))) {
+                for (const file of this.readdirSync(Uri.file(path, this))) {
                     this.rimrafSync(pathUtil.combinePaths(path, file));
                 }
-                this.rmdirSync(Uri.file(path));
+                this.rmdirSync(Uri.file(path, this));
             }
         } catch (e: any) {
             if (e.code === 'ENOENT') {
@@ -789,7 +799,7 @@ export class TestFileSystem implements FileSystem, TempFile {
     realpathSync(path: Uri) {
         try {
             const { realpath } = this._walk(this._resolve(path.getFilePath()));
-            return Uri.file(realpath);
+            return Uri.file(realpath, this);
         } catch (e: any) {
             return path;
         }
@@ -954,7 +964,7 @@ export class TestFileSystem implements FileSystem, TempFile {
         }
         if (axis === 'descendants-or-self' || axis === 'descendants') {
             if (stats.isDirectory() && (!traversal.traverse || traversal.traverse(path, stats))) {
-                for (const file of this.readdirSync(Uri.file(path))) {
+                for (const file of this.readdirSync(Uri.file(path, this))) {
                     try {
                         const childpath = pathUtil.combinePaths(path, file);
                         const stats = this._stat(this._walk(childpath, noFollow));
@@ -1588,7 +1598,7 @@ export class TestFileSystem implements FileSystem, TempFile {
                     throw new TypeError('Roots cannot be files.');
                 }
                 this.mkdirpSync(pathUtil.getDirectoryPath(path));
-                this.writeFileSync(Uri.file(path), value.data, value.encoding);
+                this.writeFileSync(Uri.file(path, this), value.data, value.encoding);
                 this._applyFileExtendedOptions(path, value);
             } else if (value instanceof Directory) {
                 this.mkdirpSync(path);

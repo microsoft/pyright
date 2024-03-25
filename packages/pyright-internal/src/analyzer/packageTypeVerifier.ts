@@ -102,7 +102,7 @@ export class PackageTypeVerifier {
             this._configOptions.evaluateUnknownImportsAsAny = true;
         }
 
-        this._execEnv = this._configOptions.findExecEnvironment(Uri.file('.', _serviceProvider.fs().isCaseSensitive));
+        this._execEnv = this._configOptions.findExecEnvironment(Uri.file('.', _serviceProvider));
         this._importResolver = new ImportResolver(this._serviceProvider, this._configOptions, this._host);
         this._program = new Program(this._importResolver, this._configOptions, this._serviceProvider);
     }

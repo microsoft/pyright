@@ -348,11 +348,11 @@ export class CompletionProvider {
         if (
             completionItemData.moduleUri &&
             ImportResolver.isSupportedImportSourceFile(
-                Uri.parse(completionItemData.moduleUri, this.importResolver.fileSystem.isCaseSensitive)
+                Uri.parse(completionItemData.moduleUri, this.program.serviceProvider)
             )
         ) {
             const documentation = getModuleDocStringFromUris(
-                [Uri.parse(completionItemData.moduleUri, this.importResolver.fileSystem.isCaseSensitive)],
+                [Uri.parse(completionItemData.moduleUri, this.program.serviceProvider)],
                 this.sourceMapper
             );
             if (!documentation) {

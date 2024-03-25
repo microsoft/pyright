@@ -10,24 +10,63 @@ import * as os from 'os';
 
 import { Workspace } from '../workspaceFactory';
 import { Uri } from './uri/uri';
+import { isRootedDiskPath, normalizeSlashes } from './pathUtils';
+import { ServiceKeys } from './serviceKeys';
+
+export function resolvePathWithEnvVariables(
+    workspace: Workspace,
+    path: string,
+    workspaces: Workspace[]
+): Uri | undefined {
+    const rootUri = workspace.rootUri;
+
+    const expanded = expandPathVariables(path, rootUri ?? Uri.empty(), workspaces);
+    const caseDetector = workspace.service.serviceProvider.get(ServiceKeys.caseSensitivityDetector);
+    if (maybeUri(expanded)) {
+        // If path is expanded to uri, no need to resolve it against the workspace root.
+        return Uri.parse(normalizeSlashes(expanded, '/'), caseDetector);
+    }
+
+    if (rootUri) {
+        // normal case, resolve the path against workspace root.
+        return rootUri.resolvePaths(normalizeSlashes(expanded, '/'));
+    }
+
+    // We don't have workspace root. but path contains something that require `workspace root`
+    if (path.includes('${workspaceFolder')) {
+        return undefined;
+    }
+
+    // Without workspace root, we can't handle any `relative path`.
+    if (!isRootedDiskPath(normalizeSlashes(expanded))) {
+        return undefined;
+    }
+
+    // We have absolute file path.
+    return Uri.file(expanded, caseDetector);
+}
 
 // Expands certain predefined variables supported within VS Code settings.
 // Ideally, VS Code would provide an API for doing this expansion, but
 // it doesn't. We'll handle the most common variables here as a convenience.
 export function expandPathVariables(path: string, rootPath: Uri, workspaces: Workspace[]): string {
-    // Make sure the pathStr looks like a URI path.
-    let pathStr = path.replace(/\\/g, '/');
-
     // Make sure all replacements look like URI paths too.
     const replace = (match: RegExp, replaceValue: string) => {
-        pathStr = pathStr.replace(match, replaceValue.replace(/\\/g, '/'));
+        path = path.replace(match, replaceValue);
     };
 
     // Replace everything inline.
-    pathStr = pathStr.replace(/\$\{workspaceFolder\}/g, rootPath.getPath());
+    path = path.replace(/\$\{workspaceFolder\}/g, rootPath.getPath());
+
+    // this is for vscode multiroot workspace supports.
+    // https://code.visualstudio.com/docs/editor/variables-reference#_variables-scoped-per-workspace-folder
     for (const workspace of workspaces) {
+        if (!workspace.rootUri) {
+            continue;
+        }
+
         const ws_regexp = RegExp(`\\$\\{workspaceFolder:${workspace.workspaceName}\\}`, 'g');
-        pathStr = pathStr.replace(ws_regexp, workspace.rootUri.getPath());
+        path = path.replace(ws_regexp, workspace.rootUri.getPath());
     }
     if (process.env.HOME !== undefined) {
         replace(/\$\{env:HOME\}/g, process.env.HOME || '');
@@ -43,5 +82,12 @@ export function expandPathVariables(path: string, rootPath: Uri, workspaces: Wor
         replace(/^~/g, os.homedir() || process.env.HOME || process.env.USERPROFILE || '~');
     }
 
-    return pathStr;
+    return path;
+}
+
+function maybeUri(value: string) {
+    const windows = /^[a-zA-Z]:\\?/;
+    const uri = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/?\/?/;
+
+    return uri.test(value) && !windows.test(value);
 }

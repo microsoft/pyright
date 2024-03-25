@@ -31,9 +31,9 @@ import { BackgroundAnalysis, BackgroundAnalysisRunner } from '../../backgroundAn
 import { BackgroundAnalysisBase } from '../../backgroundAnalysisBase';
 import { serialize } from '../../backgroundThreadBase';
 import { FileSystem } from '../../common/fileSystem';
+import { ServerSettings } from '../../common/languageServerInterface';
 import { PythonVersion } from '../../common/pythonVersion';
-import { ServiceKeys } from '../../common/serviceProviderExtensions';
-import { ServerSettings } from '../../languageServerBase';
+import { ServiceKeys } from '../../common/serviceKeys';
 import { PyrightFileSystem } from '../../pyrightFileSystem';
 import { PyrightServer } from '../../server';
 import { InitStatus, Workspace } from '../../workspaceFactory';
@@ -143,6 +143,7 @@ class TestServer extends PyrightServer {
     test_onDidChangeWatchedFiles(params: any) {
         this.onDidChangeWatchedFiles(params);
     }
+
     override async updateSettingsForWorkspace(
         workspace: Workspace,
         status: InitStatus | undefined,
@@ -154,7 +155,7 @@ class TestServer extends PyrightServer {
         // when the work caused by the notification actually ended. To workaround that issue, we will send custom lsp to indicate
         // something has been done.
         CustomLSP.sendNotification(this.connection, CustomLSP.Notifications.TestSignal, {
-            uri: workspace.rootUri.toString(),
+            uri: workspace.rootUri?.toString() ?? '',
             kind: CustomLSP.TestSignalKinds.Initialization,
         });
 
@@ -195,7 +196,7 @@ async function runServer(
         // are how the test code queries the state of the server.
         disposables.push(
             CustomLSP.onRequest(connection, CustomLSP.Requests.GetDiagnostics, async (params, token) => {
-                const filePath = Uri.parse(params.uri, true);
+                const filePath = Uri.parse(params.uri, server.serviceProvider);
                 const workspace = await server.getWorkspaceForFile(filePath);
                 workspace.service.test_program.analyze(undefined, token);
                 const file = workspace.service.test_program.getBoundSourceFile(filePath);

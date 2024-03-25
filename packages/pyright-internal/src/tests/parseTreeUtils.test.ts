@@ -25,7 +25,6 @@ import {
     printExpression,
 } from '../analyzer/parseTreeUtils';
 import { TextRange, rangesAreEqual } from '../common/textRange';
-import { Uri } from '../common/uri/uri';
 import { MemberAccessNode, NameNode, ParseNodeType, StringNode, isExpressionNode } from '../parser/parseNodes';
 import { TestState, getNodeAtMarker, getNodeForRange, parseAndGetTestState } from './harness/fourslash/testState';
 
@@ -321,7 +320,7 @@ test('printExpression', () => {
 
 function testNodeRange(state: TestState, markerName: string, type: ParseNodeType, includeTrailingBlankLines = false) {
     const range = state.getRangeByMarkerName(markerName)!;
-    const sourceFile = state.program.getBoundSourceFile(Uri.file(range.marker!.fileName))!;
+    const sourceFile = state.program.getBoundSourceFile(range.marker!.fileUri)!;
 
     const statementNode = getFirstAncestorOrSelfOfKind(getNodeAtMarker(state, markerName), type)!;
     const statementRange = getFullStatementRange(statementNode, sourceFile.getParseResults()!, {

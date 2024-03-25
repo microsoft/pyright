@@ -39,7 +39,7 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
     const separatorRegExp = /[\\/]/g;
     function printFileOrModuleName(fileUriOrModule: Uri | AbsoluteModuleDescriptor | undefined) {
         if (fileUriOrModule) {
-            if (Uri.isUri(fileUriOrModule)) {
+            if (Uri.is(fileUriOrModule)) {
                 for (const root of roots) {
                     if (fileUriOrModule.isChild(root)) {
                         const subFile = root.getRelativePath(fileUriOrModule);
@@ -226,7 +226,7 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
 
     function isDeclaration(o: any): o is Declaration {
         const d = o as Declaration;
-        return d && isNumber(d.type) && Uri.isUri(d.uri) && isString(d.moduleName);
+        return d && isNumber(d.type) && Uri.is(d.uri) && isString(d.moduleName);
     }
 
     function isType(o: any): o is Type {
