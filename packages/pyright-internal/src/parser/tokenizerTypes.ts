@@ -183,7 +183,7 @@ export const enum CommentType {
     IPythonCellShellEscape,
 }
 
-export type TokenPrimitive = string | number | boolean | bigint;
+export type TokenPrimitive = string | number | bigint;
 
 export interface Comment extends TextRange {
     readonly type: CommentType;
@@ -345,7 +345,7 @@ export namespace IndentToken {
             token.start,
             token.length,
             token.indentAmount,
-            token.isIndentAmbiguous,
+            token.isIndentAmbiguous ? 1 : 0,
             ...Comment.toArray(token.comments),
         ];
     }
@@ -355,7 +355,7 @@ export namespace IndentToken {
             data[start + 1] as number,
             data[start + 2] as number,
             data[start + 3] as number,
-            data[start + 4] as boolean,
+            data[start + 4] ? true : false,
             Comment.fromArray(data, start + 5)
         );
     }
@@ -396,8 +396,8 @@ export namespace DedentToken {
             token.start,
             token.length,
             token.indentAmount,
-            token.matchesIndent,
-            token.isDedentAmbiguous,
+            token.matchesIndent ? 1 : 0,
+            token.isDedentAmbiguous ? 1 : 0,
             ...Comment.toArray(token.comments),
         ];
     }
@@ -407,8 +407,8 @@ export namespace DedentToken {
             data[start + 1] as number,
             data[start + 2] as number,
             data[start + 3] as number,
-            data[start + 4] as boolean,
-            data[start + 5] as boolean,
+            data[start + 4] ? true : false,
+            data[start + 5] ? true : false,
             Comment.fromArray(data, start + 6)
         );
     }
@@ -619,14 +619,7 @@ export namespace FStringMiddleToken {
     }
 
     export function toArray(token: FStringMiddleToken): TokenPrimitive[] {
-        return [
-            token.type,
-            token.start,
-            token.length,
-            token.flags,
-            token.escapedValue,
-            ...Comment.toArray(token.comments),
-        ];
+        return [token.type, token.start, token.length, token.flags, token.escapedValue];
     }
 
     export function fromArray(data: TokenPrimitive[], start: number): FStringMiddleToken {
@@ -657,7 +650,7 @@ export namespace FStringEndToken {
     }
 
     export function toArray(token: FStringEndToken): TokenPrimitive[] {
-        return [token.type, token.start, token.length, token.flags, ...Comment.toArray(token.comments)];
+        return [token.type, token.start, token.length, token.flags];
     }
 
     export function fromArray(data: TokenPrimitive[], start: number): FStringEndToken {
@@ -700,8 +693,8 @@ export namespace NumberToken {
             token.start,
             token.length,
             token.value,
-            token.isInteger,
-            token.isImaginary,
+            token.isInteger ? 1 : 0,
+            token.isImaginary ? 1 : 0,
             ...Comment.toArray(token.comments),
         ];
     }
@@ -711,8 +704,8 @@ export namespace NumberToken {
             data[start + 1] as number,
             data[start + 2] as number,
             data[start + 3] as number | bigint,
-            data[start + 4] as boolean,
-            data[start + 5] as boolean,
+            data[start + 4] ? true : false,
+            data[start + 5] ? true : false,
             Comment.fromArray(data, start + 6)
         );
     }

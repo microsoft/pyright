@@ -740,74 +740,79 @@ export class SourceFile {
         assert(!this._writableData.isBindingInProgress, 'Bind called while binding in progress');
         assert(this._writableData.parseResults !== undefined, 'Parse results not available');
 
-        return this._logTracker.log(`binding: ${this._getPathForLogging(this._uri)}`, () => {
-            try {
-                // Perform name binding.
-                timingStats.bindTime.timeOperation(() => {
-                    this._cleanParseTreeIfRequired();
+        return this._logTracker.log(
+            `binding: ${this._getPathForLogging(this._uri)} (${
+                this._writableData.parseResults!.tokenizerOutput.tokens.count
+            }) tokens`,
+            () => {
+                try {
+                    // Perform name binding.
+                    timingStats.bindTime.timeOperation(() => {
+                        this._cleanParseTreeIfRequired();
 
-                    const fileInfo = this._buildFileInfo(
-                        configOptions,
-                        this._writableData.parseResults!.text,
-                        importLookup,
-                        builtinsScope,
-                        futureImports
+                        const fileInfo = this._buildFileInfo(
+                            configOptions,
+                            this._writableData.parseResults!.text,
+                            importLookup,
+                            builtinsScope,
+                            futureImports
+                        );
+                        AnalyzerNodeInfo.setFileInfo(this._writableData.parseResults!.parseTree, fileInfo);
+
+                        const binder = new Binder(fileInfo, configOptions.indexGenerationMode);
+                        this._writableData.isBindingInProgress = true;
+                        binder.bindModule(this._writableData.parseResults!.parseTree);
+
+                        // If we're in "test mode" (used for unit testing), run an additional
+                        // "test walker" over the parse tree to validate its internal consistency.
+                        if (configOptions.internalTestMode) {
+                            const testWalker = new TestWalker();
+                            testWalker.walk(this._writableData.parseResults!.parseTree);
+                        }
+
+                        this._writableData.bindDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
+                        const moduleScope = AnalyzerNodeInfo.getScope(this._writableData.parseResults!.parseTree);
+                        assert(moduleScope !== undefined, 'Module scope not returned by binder');
+                        this._writableData.moduleSymbolTable = moduleScope!.symbolTable;
+                    });
+                } catch (e: any) {
+                    const message: string =
+                        (e.stack ? e.stack.toString() : undefined) ||
+                        (typeof e.message === 'string' ? e.message : undefined) ||
+                        JSON.stringify(e);
+                    this._console.error(
+                        LocMessage.internalBindError().format({
+                            file: this.getUri().toUserVisibleString(),
+                            message,
+                        })
                     );
-                    AnalyzerNodeInfo.setFileInfo(this._writableData.parseResults!.parseTree, fileInfo);
 
-                    const binder = new Binder(fileInfo, configOptions.indexGenerationMode);
-                    this._writableData.isBindingInProgress = true;
-                    binder.bindModule(this._writableData.parseResults!.parseTree);
+                    const diagSink = this.createDiagnosticSink();
+                    diagSink.addError(
+                        LocMessage.internalBindError().format({
+                            file: this.getUri().toUserVisibleString(),
+                            message,
+                        }),
+                        getEmptyRange()
+                    );
+                    this._writableData.bindDiagnostics = diagSink.fetchAndClear();
 
-                    // If we're in "test mode" (used for unit testing), run an additional
-                    // "test walker" over the parse tree to validate its internal consistency.
-                    if (configOptions.internalTestMode) {
-                        const testWalker = new TestWalker();
-                        testWalker.walk(this._writableData.parseResults!.parseTree);
-                    }
+                    // Do not rethrow the exception, swallow it here. Callers are not
+                    // prepared to handle an exception.
+                } finally {
+                    this._writableData.isBindingInProgress = false;
+                }
 
-                    this._writableData.bindDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
-                    const moduleScope = AnalyzerNodeInfo.getScope(this._writableData.parseResults!.parseTree);
-                    assert(moduleScope !== undefined, 'Module scope not returned by binder');
-                    this._writableData.moduleSymbolTable = moduleScope!.symbolTable;
-                });
-            } catch (e: any) {
-                const message: string =
-                    (e.stack ? e.stack.toString() : undefined) ||
-                    (typeof e.message === 'string' ? e.message : undefined) ||
-                    JSON.stringify(e);
-                this._console.error(
-                    LocMessage.internalBindError().format({
-                        file: this.getUri().toUserVisibleString(),
-                        message,
-                    })
-                );
+                // Prepare for the next stage of the analysis.
+                this._writableData.isCheckingNeeded = true;
+                this._writableData.isBindingNeeded = false;
 
-                const diagSink = this.createDiagnosticSink();
-                diagSink.addError(
-                    LocMessage.internalBindError().format({
-                        file: this.getUri().toUserVisibleString(),
-                        message,
-                    }),
-                    getEmptyRange()
-                );
-                this._writableData.bindDiagnostics = diagSink.fetchAndClear();
+                // Clear up some memory in the parser.
+                this._writableData.parseResults?.tokenizerOutput.tokens.minimize();
 
-                // Do not rethrow the exception, swallow it here. Callers are not
-                // prepared to handle an exception.
-            } finally {
-                this._writableData.isBindingInProgress = false;
+                this._recomputeDiagnostics(configOptions);
             }
-
-            // Prepare for the next stage of the analysis.
-            this._writableData.isCheckingNeeded = true;
-            this._writableData.isBindingNeeded = false;
-
-            // Clear up some memory in the parser.
-            this._writableData.parseResults?.tokenizerOutput.tokens.minimize();
-
-            this._recomputeDiagnostics(configOptions);
-        });
+        );
     }
 
     check(

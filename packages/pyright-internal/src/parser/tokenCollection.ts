@@ -7,7 +7,7 @@
  */
 
 import { TextRangeCollection } from '../common/textRangeCollection';
-import { Token } from './tokenizerTypes';
+import { Token, TokenPrimitive } from './tokenizerTypes';
 
 // Interface implemented by a TokenCollection
 interface ITokenCollection {
@@ -33,15 +33,16 @@ class TokenCollectionFast extends TextRangeCollection<Token> implements ITokenCo
 // Special TokenCollection that is optimized for memory usage but is a lot
 // slower to fetch actual tokens.
 export class TokenCollectionSlim implements ITokenCollection {
-    private _tokenData: (string | number | boolean | bigint)[] = [];
-    private _tokenPositions: number[] = [];
+    private _tokenData: TokenPrimitive[] = [];
+    private _tokenPositions: Int32Array;
     constructor(tokens: Token[]) {
-        tokens.forEach((t) => {
+        this._tokenPositions = new Int32Array(tokens.length);
+        tokens.forEach((t, i) => {
             // Turn each token into a flat array.
             const array = Token.toArray(t);
 
             // Remember the position of this token for quicker lookup later.
-            this._tokenPositions.push(this._tokenData.length);
+            this._tokenPositions[i] = this._tokenData.length;
 
             // Store the flat array in the collection.
             this._tokenData.push(...array);
@@ -137,6 +138,7 @@ export class TokenCollection implements ITokenCollection {
     end!: number;
     length!: number;
     count!: number;
+    private _secondImpl?: TokenCollectionSlim;
     constructor(tokens: Token[]) {
         // Start out with the faster implementation.
         this._assignImpl(new TokenCollectionFast(tokens));
@@ -153,8 +155,8 @@ export class TokenCollection implements ITokenCollection {
 
     minimize() {
         // Switch to the slower but more memory efficient implementation.
-        if (this._impl instanceof TokenCollectionFast) {
-            this._assignImpl(new TokenCollectionSlim((this._impl as TokenCollectionFast).toArray()));
+        if (this._impl instanceof TokenCollectionFast && !this._secondImpl) {
+            this._secondImpl = new TokenCollectionSlim((this._impl as TokenCollectionFast).toArray());
         }
     }
 
