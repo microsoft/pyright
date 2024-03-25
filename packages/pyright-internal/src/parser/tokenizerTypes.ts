@@ -210,13 +210,18 @@ export namespace Comment {
         return [commentsLength, ...commentsArray.flat()];
     }
 
-    export function fromArray(data: TokenPrimitive[]): Comment[] | undefined {
-        const commentsLength = data[0] as number;
+    export function fromArray(data: TokenPrimitive[], start: number): Comment[] | undefined {
+        const commentsLength = data[start] as number;
         const commentsArray: Comment[] = [];
         for (let i = 0; i < commentsLength; i++) {
-            const slice = data.slice(1 + i * 4);
+            const sliceIndex = start + 1 + i * 4;
             commentsArray.push(
-                create(slice[1] as number, slice[2] as number, slice[3] as string, slice[0] as CommentType)
+                create(
+                    data[sliceIndex + 1] as number,
+                    data[sliceIndex + 2] as number,
+                    data[sliceIndex + 3] as string,
+                    data[sliceIndex] as CommentType
+                )
             );
         }
         return commentsArray.length > 0 ? commentsArray : undefined;
@@ -273,36 +278,36 @@ export namespace Token {
         }
     }
 
-    export function fromArray(data: TokenPrimitive[]) {
-        switch (data[0] as TokenType) {
+    export function fromArray(data: TokenPrimitive[], start: number) {
+        switch (data[start] as TokenType) {
             case TokenType.Indent:
-                return IndentToken.fromArray(data);
+                return IndentToken.fromArray(data, start);
             case TokenType.Dedent:
-                return DedentToken.fromArray(data);
+                return DedentToken.fromArray(data, start);
             case TokenType.NewLine:
-                return NewLineToken.fromArray(data);
+                return NewLineToken.fromArray(data, start);
             case TokenType.Keyword:
-                return KeywordToken.fromArray(data);
+                return KeywordToken.fromArray(data, start);
             case TokenType.String:
-                return StringToken.fromArray(data);
+                return StringToken.fromArray(data, start);
             case TokenType.FStringStart:
-                return FStringStartToken.fromArray(data);
+                return FStringStartToken.fromArray(data, start);
             case TokenType.FStringMiddle:
-                return FStringMiddleToken.fromArray(data);
+                return FStringMiddleToken.fromArray(data, start);
             case TokenType.FStringEnd:
-                return FStringEndToken.fromArray(data);
+                return FStringEndToken.fromArray(data, start);
             case TokenType.Number:
-                return NumberToken.fromArray(data);
+                return NumberToken.fromArray(data, start);
             case TokenType.Operator:
-                return OperatorToken.fromArray(data);
+                return OperatorToken.fromArray(data, start);
             case TokenType.Identifier:
-                return IdentifierToken.fromArray(data);
+                return IdentifierToken.fromArray(data, start);
             default:
                 return create(
-                    data[0] as TokenType,
-                    data[1] as number,
-                    data[2] as number,
-                    Comment.fromArray(data.slice(3))
+                    data[start] as TokenType,
+                    data[start + 1] as number,
+                    data[start + 2] as number,
+                    Comment.fromArray(data, start + 3)
                 );
         }
     }
@@ -345,13 +350,13 @@ export namespace IndentToken {
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[]) {
+    export function fromArray(data: TokenPrimitive[], start: number) {
         return create(
-            data[1] as number,
-            data[2] as number,
-            data[3] as number,
-            data[4] as boolean,
-            Comment.fromArray(data.slice(5))
+            data[start + 1] as number,
+            data[start + 2] as number,
+            data[start + 3] as number,
+            data[start + 4] as boolean,
+            Comment.fromArray(data, start + 5)
         );
     }
 }
@@ -397,14 +402,14 @@ export namespace DedentToken {
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[]) {
+    export function fromArray(data: TokenPrimitive[], start: number) {
         return create(
-            data[1] as number,
-            data[2] as number,
-            data[3] as number,
-            data[4] as boolean,
-            data[5] as boolean,
-            Comment.fromArray(data.slice(6))
+            data[start + 1] as number,
+            data[start + 2] as number,
+            data[start + 3] as number,
+            data[start + 4] as boolean,
+            data[start + 5] as boolean,
+            Comment.fromArray(data, start + 6)
         );
     }
 }
@@ -431,8 +436,13 @@ export namespace NewLineToken {
         return [token.type, token.start, token.length, token.newLineType, ...Comment.toArray(token.comments)];
     }
 
-    export function fromArray(data: TokenPrimitive[]) {
-        return create(data[1] as number, data[2] as number, data[3] as NewLineType, Comment.fromArray(data.slice(4)));
+    export function fromArray(data: TokenPrimitive[], start: number) {
+        return create(
+            data[start + 1] as number,
+            data[start + 2] as number,
+            data[start + 3] as NewLineType,
+            Comment.fromArray(data, start + 4)
+        );
     }
 }
 
@@ -458,8 +468,13 @@ export namespace KeywordToken {
         return [token.type, token.start, token.length, token.keywordType, ...Comment.toArray(token.comments)];
     }
 
-    export function fromArray(data: TokenPrimitive[]) {
-        return create(data[1] as number, data[2] as number, data[3] as KeywordType, Comment.fromArray(data.slice(4)));
+    export function fromArray(data: TokenPrimitive[], start: number) {
+        return create(
+            data[start + 1] as number,
+            data[start + 2] as number,
+            data[start + 3] as KeywordType,
+            Comment.fromArray(data, start + 4)
+        );
     }
 }
 
@@ -514,14 +529,14 @@ export namespace StringToken {
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[]): StringToken {
+    export function fromArray(data: TokenPrimitive[], start: number): StringToken {
         return create(
-            data[1] as number,
-            data[2] as number,
-            data[3] as StringTokenFlags,
-            data[4] as string,
-            data[5] as number,
-            Comment.fromArray(data.slice(6))
+            data[start + 1] as number,
+            data[start + 2] as number,
+            data[start + 3] as StringTokenFlags,
+            data[start + 4] as string,
+            data[start + 5] as number,
+            Comment.fromArray(data, start + 6)
         );
     }
 }
@@ -571,13 +586,13 @@ export namespace FStringStartToken {
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[]): FStringStartToken {
+    export function fromArray(data: TokenPrimitive[], start: number): FStringStartToken {
         return create(
-            data[1] as number,
-            data[2] as number,
-            data[3] as StringTokenFlags,
-            data[4] as number,
-            Comment.fromArray(data.slice(5))
+            data[start + 1] as number,
+            data[start + 2] as number,
+            data[start + 3] as StringTokenFlags,
+            data[start + 4] as number,
+            Comment.fromArray(data, start + 5)
         );
     }
 }
@@ -614,8 +629,13 @@ export namespace FStringMiddleToken {
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[]): FStringMiddleToken {
-        return create(data[1] as number, data[2] as number, data[3] as StringTokenFlags, data[4] as string);
+    export function fromArray(data: TokenPrimitive[], start: number): FStringMiddleToken {
+        return create(
+            data[start + 1] as number,
+            data[start + 2] as number,
+            data[start + 3] as StringTokenFlags,
+            data[start + 4] as string
+        );
     }
 }
 
@@ -640,8 +660,8 @@ export namespace FStringEndToken {
         return [token.type, token.start, token.length, token.flags, ...Comment.toArray(token.comments)];
     }
 
-    export function fromArray(data: TokenPrimitive[]): FStringEndToken {
-        return create(data[1] as number, data[2] as number, data[3] as StringTokenFlags);
+    export function fromArray(data: TokenPrimitive[], start: number): FStringEndToken {
+        return create(data[start + 1] as number, data[start + 2] as number, data[start + 3] as StringTokenFlags);
     }
 }
 
@@ -686,14 +706,14 @@ export namespace NumberToken {
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[]): NumberToken {
+    export function fromArray(data: TokenPrimitive[], start: number): NumberToken {
         return create(
-            data[1] as number,
-            data[2] as number,
-            data[3] as number | bigint,
-            data[4] as boolean,
-            data[5] as boolean,
-            Comment.fromArray(data.slice(6))
+            data[start + 1] as number,
+            data[start + 2] as number,
+            data[start + 3] as number | bigint,
+            data[start + 4] as boolean,
+            data[start + 5] as boolean,
+            Comment.fromArray(data, start + 6)
         );
     }
 }
@@ -720,8 +740,13 @@ export namespace OperatorToken {
         return [token.type, token.start, token.length, token.operatorType, ...Comment.toArray(token.comments)];
     }
 
-    export function fromArray(data: TokenPrimitive[]): OperatorToken {
-        return create(data[1] as number, data[2] as number, data[3] as OperatorType, Comment.fromArray(data.slice(4)));
+    export function fromArray(data: TokenPrimitive[], start: number): OperatorToken {
+        return create(
+            data[start + 1] as number,
+            data[start + 2] as number,
+            data[start + 3] as OperatorType,
+            Comment.fromArray(data, start + 4)
+        );
     }
 }
 
@@ -750,7 +775,12 @@ export namespace IdentifierToken {
         return [token.type, token.start, token.length, token.value, ...Comment.toArray(token.comments)];
     }
 
-    export function fromArray(data: TokenPrimitive[]): IdentifierToken {
-        return create(data[1] as number, data[2] as number, data[3] as string, Comment.fromArray(data.slice(4)));
+    export function fromArray(data: TokenPrimitive[], start: number): IdentifierToken {
+        return create(
+            data[start + 1] as number,
+            data[start + 2] as number,
+            data[start + 3] as string,
+            Comment.fromArray(data, start + 4)
+        );
     }
 }

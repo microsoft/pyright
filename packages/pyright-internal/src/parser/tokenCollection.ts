@@ -81,7 +81,7 @@ export class TokenCollectionSlim implements ITokenCollection {
             throw new Error('index is out of range');
         }
         const position = this._tokenPositions[index];
-        return Token.fromArray(this._tokenData.slice(position));
+        return Token.fromArray(this._tokenData, position);
     }
 
     getItemStart(index: number): number {
