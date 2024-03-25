@@ -30,7 +30,7 @@ import { convertOffsetToPosition, convertOffsetsToRange } from '../common/positi
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Uri } from '../common/uri/uri';
-import { LanguageServerInterface } from '../languageServerBase';
+import { LanguageServerInterface } from '../common/languageServerInterface';
 import {
     ArgumentCategory,
     ArgumentNode,
@@ -133,7 +133,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
             return [];
         }
 
-        const fileUri = Uri.parse(params.arguments[0] as string, this._ls.rootUri.isCaseSensitive);
+        const fileUri = Uri.parse(params.arguments[0] as string, this._ls.serviceProvider);
         const kind = params.arguments[1];
 
         const workspace = await this._ls.getWorkspaceForFile(fileUri);

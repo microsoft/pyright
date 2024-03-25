@@ -532,6 +532,7 @@
         "typeVarUsedByOuterScope": "TypeVar \"{name}\" уже используется внешней областью",
         "typeVarUsedOnlyOnce": "TypeVar \"{name}\" появляется в сигнатуре универсальной функции только один раз",
         "typeVarVariance": "TypeVar не может быть одновременно ковариантным и контравариантным",
+        "typeVarWithDefaultFollowsVariadic": "TypeVar \"{typeVarName}\" имеет значение по умолчанию и не может следовать за typeVarTuple \"{variadicName}\"",
         "typeVarWithoutDefault": "\"{name}\" не может появиться после \"{other}\" в списке параметров типа, так как у него нет типа по умолчанию",
         "typeVarsNotInGenericOrProtocol": "Generic[] и Protocol[] должны включать все переменные типа",
         "typedDictAccess": "Не удалось получить доступ к элементу в TypedDict",

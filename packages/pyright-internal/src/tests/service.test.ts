@@ -9,16 +9,17 @@ import assert from 'assert';
 import { CancellationToken } from 'vscode-jsonrpc';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { combinePaths, getDirectoryPath } from '../common/pathUtils';
-import { Uri } from '../common/uri/uri';
 import { parseAndGetTestState } from './harness/fourslash/testState';
+import { Uri } from '../common/uri/uri';
 
 test('random library file changed', () => {
     const state = parseAndGetTestState('', '/projectRoot').state;
 
     assert.strictEqual(
-        state.workspace.service.test_shouldHandleLibraryFileWatchChanges(Uri.file('/site-packages/test.py'), [
-            Uri.file('/site-packages'),
-        ]),
+        state.workspace.service.test_shouldHandleLibraryFileWatchChanges(
+            Uri.file('/site-packages/test.py', state.serviceProvider),
+            [Uri.file('/site-packages', state.serviceProvider)]
+        ),
         true
     );
 });
@@ -27,9 +28,10 @@ test('random library file starting with . changed', () => {
     const state = parseAndGetTestState('', '/projectRoot').state;
 
     assert.strictEqual(
-        state.workspace.service.test_shouldHandleLibraryFileWatchChanges(Uri.file('/site-packages/.test.py'), [
-            Uri.file('/site-packages'),
-        ]),
+        state.workspace.service.test_shouldHandleLibraryFileWatchChanges(
+            Uri.file('/site-packages/.test.py', state.serviceProvider),
+            [Uri.file('/site-packages', state.serviceProvider)]
+        ),
         false
     );
 });
@@ -39,8 +41,8 @@ test('random library file changed, nested search paths', () => {
 
     assert.strictEqual(
         state.workspace.service.test_shouldHandleLibraryFileWatchChanges(
-            Uri.file('/lib/.venv/site-packages/myFile.py'),
-            [Uri.file('/lib'), Uri.file('/lib/.venv/site-packages')]
+            Uri.file('/lib/.venv/site-packages/myFile.py', state.serviceProvider),
+            [Uri.file('/lib', state.serviceProvider), Uri.file('/lib/.venv/site-packages', state.serviceProvider)]
         ),
         true
     );
@@ -55,8 +57,8 @@ test('random library file changed, nested search paths, fs is not case sensitive
 
     assert.strictEqual(
         state.workspace.service.test_shouldHandleLibraryFileWatchChanges(
-            Uri.file('/lib/.venv/site-packages/myFile.py', false),
-            [Uri.file('/lib', false), Uri.file('/LIB/.venv/site-packages', false)]
+            Uri.file('/lib/.venv/site-packages/myFile.py', state.serviceProvider),
+            [Uri.file('/lib', state.serviceProvider), Uri.file('/LIB/.venv/site-packages', state.serviceProvider)]
         ),
         true
     );
@@ -71,8 +73,8 @@ test('random library file changed, nested search paths, fs is case sensitive', (
 
     assert.strictEqual(
         state.workspace.service.test_shouldHandleLibraryFileWatchChanges(
-            Uri.file('/lib/.venv/site-packages/myFile.py'),
-            [Uri.file('/lib'), Uri.file('/LIB/.venv/site-packages')]
+            Uri.file('/lib/.venv/site-packages/myFile.py', state.serviceProvider),
+            [Uri.file('/lib', state.serviceProvider), Uri.file('/LIB/.venv/site-packages', state.serviceProvider)]
         ),
         false
     );
@@ -86,10 +88,10 @@ test('random library file starting with . changed, fs is not case sensitive', ()
     const state = parseAndGetTestState(code, '/projectRoot').state;
 
     assert.strictEqual(
-        state.workspace.service.test_shouldHandleLibraryFileWatchChanges(Uri.file('/lib/.test.py', false), [
-            Uri.file('/LIB', false),
-            Uri.file('/lib/site-packages', false),
-        ]),
+        state.workspace.service.test_shouldHandleLibraryFileWatchChanges(
+            Uri.file('/lib/.test.py', state.serviceProvider),
+            [Uri.file('/LIB', state.serviceProvider), Uri.file('/lib/site-packages', state.serviceProvider)]
+        ),
         false
     );
 });
@@ -102,10 +104,10 @@ test('random library file starting with . changed, fs is case sensitive', () => 
     const state = parseAndGetTestState(code, '/projectRoot').state;
 
     assert.strictEqual(
-        state.workspace.service.test_shouldHandleLibraryFileWatchChanges(Uri.file('/lib/.test.py'), [
-            Uri.file('/LIB'),
-            Uri.file('/lib/site-packages'),
-        ]),
+        state.workspace.service.test_shouldHandleLibraryFileWatchChanges(
+            Uri.file('/lib/.test.py', state.serviceProvider),
+            [Uri.file('/LIB', state.serviceProvider), Uri.file('/lib/site-packages', state.serviceProvider)]
+        ),
         true
     );
 });
@@ -115,8 +117,8 @@ test('random library file under a folder starting with . changed', () => {
 
     assert.strictEqual(
         state.workspace.service.test_shouldHandleLibraryFileWatchChanges(
-            Uri.file('/site-packages/.testFolder/test.py'),
-            [Uri.file('/site-packages')]
+            Uri.file('/site-packages/.testFolder/test.py', state.serviceProvider),
+            [Uri.file('/site-packages', state.serviceProvider)]
         ),
         false
     );
@@ -200,7 +202,10 @@ test('random folder changed', () => {
     const state = parseAndGetTestState(code, '/projectRoot').state;
 
     assert.strictEqual(
-        state.workspace.service.test_shouldHandleSourceFileWatchChanges(Uri.file('/randomFolder'), /* isFile */ false),
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(
+            Uri.file('/randomFolder', state.serviceProvider),
+            /* isFile */ false
+        ),
         false
     );
 });
@@ -302,7 +307,7 @@ test('program containsSourceFileIn', () => {
     `;
 
     const state = parseAndGetTestState(code, '/projectRoot').state;
-    assert(state.workspace.service.test_program.containsSourceFileIn(Uri.file(state.activeFile.fileName)));
+    assert(state.workspace.service.test_program.containsSourceFileIn(state.activeFile.fileUri));
 });
 
 test('service runEditMode', () => {
@@ -317,10 +322,10 @@ test('service runEditMode', () => {
     const state = parseAndGetTestState(code, '/projectRoot').state;
     const open = state.getMarkerByName('open');
     const closed = state.getMarkerByName('closed');
-    const openUri = Uri.file(open.fileName);
-    const closedUri = Uri.file(closed.fileName);
+    const openUri = open.fileUri;
+    const closedUri = closed.fileUri;
 
-    const newFileUri = Uri.file(combinePaths(getDirectoryPath(open.fileName), 'interimFile.py'));
+    const newFileUri = Uri.file(combinePaths(getDirectoryPath(open.fileName), 'interimFile.py'), state.serviceProvider);
     state.testFS.writeFileSync(newFileUri, '# empty', 'utf8');
 
     const options = {
@@ -379,7 +384,7 @@ function testSourceFileWatchChange(code: string, expected = true, isFile = true)
     const path = isFile ? marker.fileName : getDirectoryPath(marker.fileName);
 
     assert.strictEqual(
-        state.workspace.service.test_shouldHandleSourceFileWatchChanges(Uri.file(path), isFile),
+        state.workspace.service.test_shouldHandleSourceFileWatchChanges(Uri.file(path, state.serviceProvider), isFile),
         expected
     );
 }

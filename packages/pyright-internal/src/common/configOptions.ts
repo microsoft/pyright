@@ -20,7 +20,7 @@ import { FileSystem } from './fileSystem';
 import { Host } from './host';
 import { PythonVersion, latestStablePythonVersion } from './pythonVersion';
 import { ServiceProvider } from './serviceProvider';
-import { ServiceKeys } from './serviceProviderExtensions';
+import { ServiceKeys } from './serviceKeys';
 import { Uri } from './uri/uri';
 import { FileSpec, getFileSpec, isDirectory } from './uri/uriUtils';
 
@@ -1087,7 +1087,7 @@ export class ConfigOptions {
     findExecEnvironment(file: Uri): ExecutionEnvironment {
         return (
             this.executionEnvironments.find((env) => {
-                const envRoot = Uri.isUri(env.root) ? env.root : this.projectRoot.resolvePaths(env.root || '');
+                const envRoot = Uri.is(env.root) ? env.root : this.projectRoot.resolvePaths(env.root || '');
                 return file.startsWith(envRoot);
             }) ?? this.getDefaultExecEnvironment()
         );

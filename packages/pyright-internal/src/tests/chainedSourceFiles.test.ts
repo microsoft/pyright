@@ -25,6 +25,7 @@ import { TestAccessHost } from './harness/testAccessHost';
 import * as host from './harness/testHost';
 import { createFromFileSystem, distlibFolder, libFolder } from './harness/vfs/factory';
 import * as vfs from './harness/vfs/filesystem';
+import { UriEx } from '../common/uri/uriUtils';
 
 test('check chained files', () => {
     const code = `
@@ -41,7 +42,7 @@ test('check chained files', () => {
 //// [|foo/*marker*/|]
     `;
 
-    const basePath = Uri.file(normalizeSlashes('/'));
+    const basePath = UriEx.file(normalizeSlashes('/'));
     const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
 
     const marker = data.markerPositions.get('marker')!;
@@ -81,7 +82,7 @@ test('modify chained files', () => {
 //// [|foo/*marker*/|]
     `;
 
-    const basePath = Uri.file(normalizeSlashes('/'));
+    const basePath = UriEx.file(normalizeSlashes('/'));
     const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
 
     // Make sure files are all realized.
@@ -90,7 +91,7 @@ test('modify chained files', () => {
     const parseResult = service.getParseResult(markerUri)!;
 
     // Close file in the middle of the chain
-    service.setFileClosed(Uri.file(data.markerPositions.get('delete')!.fileName));
+    service.setFileClosed(data.markerPositions.get('delete')!.fileUri);
 
     // Make sure we don't get suggestion from auto import but from chained files.
     service.test_program.configOptions.autoImportCompletions = false;
@@ -130,7 +131,7 @@ test('modify chained files', async () => {
 //// [|/*marker*/foo1()|]
     `;
 
-    const basePath = Uri.file(normalizeSlashes('/'));
+    const basePath = UriEx.file(normalizeSlashes('/'));
     const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
 
     const marker = data.markerPositions.get('marker')!;
@@ -150,7 +151,7 @@ test('modify chained files', async () => {
     assert.strictEqual(initialDiags.length, 0);
 
     // Change test1 content
-    service.updateOpenFileContents(Uri.file(data.markerPositions.get('changed')!.fileName), 2, 'def foo5(): pass');
+    service.updateOpenFileContents(data.markerPositions.get('changed')!.fileUri, 2, 'def foo5(): pass');
     analyze(service.test_program);
 
     const finalDiags = await service.getDiagnosticsForRange(
@@ -180,7 +181,7 @@ test('chained files with 1000s of files', async () => {
 //// [|/*marker*/foo1()|]
     `;
     const code = generateChainedFiles(1000, lastFile);
-    const basePath = Uri.file(normalizeSlashes('/'));
+    const basePath = UriEx.file(normalizeSlashes('/'));
     const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
     const marker = data.markerPositions.get('marker')!;
     const markerUri = marker.fileUri;
@@ -208,7 +209,7 @@ test('imported by files', async () => {
 //// os.path.join()
     `;
 
-    const basePath = Uri.file(normalizeSlashes('/'));
+    const basePath = UriEx.file(normalizeSlashes('/'));
     const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
     analyze(service.test_program);
 
@@ -235,7 +236,7 @@ test('re ordering cells', async () => {
 //// /*bottom*/os.path.join()
     `;
 
-    const basePath = Uri.file(normalizeSlashes('/'));
+    const basePath = UriEx.file(normalizeSlashes('/'));
     const { data, service } = createServiceWithChainedSourceFiles(basePath, code);
     analyze(service.test_program);
 
@@ -244,7 +245,7 @@ test('re ordering cells', async () => {
     const range = data.ranges.find((r) => r.marker === marker)!;
 
     const bottom = data.markerPositions.get('bottom')!;
-    const bottomUri = Uri.file(bottom.fileName);
+    const bottomUri = bottom.fileUri;
 
     service.updateChainedUri(bottomUri, undefined);
     service.updateChainedUri(markerUri, bottomUri);
@@ -264,7 +265,7 @@ function createServiceWithChainedSourceFiles(basePath: Uri, code: string) {
     const fs = createFromFileSystem(host.HOST, /*ignoreCase*/ false, { cwd: basePath.getFilePath() });
     const service = new AnalyzerService('test service', new ServiceProvider(), {
         console: new NullConsole(),
-        hostFactory: () => new TestAccessHost(Uri.file(vfs.MODULE_PATH), [libFolder, distlibFolder]),
+        hostFactory: () => new TestAccessHost(UriEx.file(vfs.MODULE_PATH), [libFolder, distlibFolder]),
         importResolverFactory: AnalyzerService.createImportResolver,
         configOptions: new ConfigOptions(basePath),
         fileSystem: fs,
@@ -274,7 +275,7 @@ function createServiceWithChainedSourceFiles(basePath: Uri, code: string) {
 
     let chainedFilePath: Uri | undefined;
     for (const file of data.files) {
-        const uri = Uri.file(file.fileName);
+        const uri = file.fileUri;
         service.setFileOpened(uri, 1, file.content, IPythonMode.CellDocs, chainedFilePath);
         chainedFilePath = uri;
     }

@@ -9,12 +9,12 @@ import assert from 'assert';
 import { CancellationToken, CancellationTokenSource } from 'vscode-jsonrpc';
 
 import { buildImportTree as buildImportTreeImpl } from '../analyzer/sourceMapperUtils';
-import { Uri } from '../common/uri/uri';
 import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 import { ParseNodeType } from '../parser/parseNodes';
 import { TypeCategory } from '../analyzer/types';
 import { VariableDeclaration, isVariableDeclaration } from '../analyzer/declaration';
 import { TextRange } from '../common/textRange';
+import { UriEx } from '../common/uri/uriUtils';
 
 function buildImportTree(
     sourceFile: string,
@@ -23,11 +23,11 @@ function buildImportTree(
     token: CancellationToken
 ): string[] {
     return buildImportTreeImpl(
-        Uri.file(sourceFile),
-        Uri.file(targetFile),
+        UriEx.file(sourceFile),
+        UriEx.file(targetFile),
         (from) => {
             const resolved = importResolver(from.getFilePath().slice(1));
-            return resolved.map((f) => Uri.file(f));
+            return resolved.map((f) => UriEx.file(f));
         },
         token
     ).map((u) => u.getFilePath().slice(1));
@@ -221,7 +221,7 @@ function assertTypeAlias(code: string) {
     assert.strictEqual(type.typeAliasInfo.moduleName, 'test');
 
     const marker = state.getMarkerByName('marker');
-    const markerUri = Uri.file(marker.fileName, state.fs.isCaseSensitive);
+    const markerUri = marker.fileUri;
     const mapper = state.program.getSourceMapper(
         markerUri,
         CancellationToken.None,

@@ -26,10 +26,6 @@ export class ReadOnlyAugmentedFileSystem implements FileSystem {
 
     constructor(protected realFS: FileSystem) {}
 
-    get isCaseSensitive(): boolean {
-        return this.realFS.isCaseSensitive;
-    }
-
     existsSync(uri: Uri): boolean {
         if (this.isMovedEntry(uri)) {
             // Pretend partial stub folder and its files not exist

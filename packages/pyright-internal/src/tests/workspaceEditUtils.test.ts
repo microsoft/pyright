@@ -58,7 +58,7 @@ test('test edit mode for workspace', async () => {
 
     const state = parseAndGetTestState(code).state;
     const range = state.getRangeByMarkerName('marker')!;
-    const addedFileUri = Uri.file(combinePaths(getDirectoryPath(range.fileName), 'test2.py'));
+    const addedFileUri = Uri.file(combinePaths(getDirectoryPath(range.fileName), 'test2.py'), state.serviceProvider);
     const edits = state.workspace.service.runEditMode((program) => {
         const fileChanged = new Map<string, Uri>();
         applyWorkspaceEdit(
@@ -224,7 +224,7 @@ test('test generateWorkspaceEdits', async () => {
         cloned,
         {
             changes: {
-                [Uri.file(range1.fileName).toString()]: [
+                [range1.fileUri.toString()]: [
                     {
                         range: state.convertPositionRange(range1),
                         newText: 'Test1 Changed',
@@ -241,7 +241,7 @@ test('test generateWorkspaceEdits', async () => {
             documentChanges: [
                 TextDocumentEdit.create(
                     {
-                        uri: Uri.file(range1.fileName).toString(),
+                        uri: range1.fileUri.toString(),
                         version: null,
                     },
                     [
@@ -263,7 +263,7 @@ test('test generateWorkspaceEdits', async () => {
             documentChanges: [
                 TextDocumentEdit.create(
                     {
-                        uri: Uri.file(range2.fileName).toString(),
+                        uri: range2.fileUri.toString(),
                         version: null,
                     },
                     [
@@ -282,7 +282,7 @@ test('test generateWorkspaceEdits', async () => {
         cloned,
         {
             changes: {
-                [Uri.file(range2.fileName).toString()]: [
+                [range2.fileUri.toString()]: [
                     {
                         range: { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } },
                         newText: 'NewTest2',
@@ -299,13 +299,13 @@ test('test generateWorkspaceEdits', async () => {
     verifyWorkspaceEdit(
         {
             changes: {
-                [Uri.file(range1.fileName).toString()]: [
+                [range1.fileUri.toString()]: [
                     {
                         range: state.convertPositionRange(range1),
                         newText: 'NewTest1 Changed',
                     },
                 ],
-                [Uri.file(range2.fileName).toString()]: [
+                [range2.fileUri.toString()]: [
                     {
                         range: state.convertPositionRange(range1),
                         newText: 'NewTest2 Changed',

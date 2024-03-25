@@ -44,6 +44,7 @@ export interface FourSlashFile {
     // The contents of the file (with markers, etc stripped out)
     content: string;
     fileName: string;
+    fileUri: Uri;
     version: number;
     // File-specific options (name/value pairs)
     fileOptions: CompilerSettings;

@@ -24,7 +24,7 @@ import { LogTracker } from '../common/logTracker';
 import { convertRangeToTextRange } from '../common/positionUtils';
 import { ServiceProvider } from '../common/serviceProvider';
 import '../common/serviceProviderExtensions';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
+import { ServiceKeys } from '../common/serviceKeys';
 import { Range, doRangesIntersect } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
@@ -38,7 +38,7 @@ import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getDocString } from './parseTreeUtils';
 import { Scope } from './scope';
-import { IPythonMode, SourceFile, SourceFileEditMode } from './sourceFile';
+import { IPythonMode, SourceFile } from './sourceFile';
 import { SourceFileInfo } from './sourceFileInfo';
 import { createChainedByList, isUserCode, verifyNoCyclesInChainedFiles } from './sourceFileInfoUtils';
 import { SourceMapper } from './sourceMapper';
@@ -49,6 +49,7 @@ import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
 import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
+import { ISourceFileFactory } from './programTypes';
 
 const _maxImportDepth = 256;
 
@@ -73,26 +74,6 @@ interface UpdateImportInfo {
 }
 
 export type PreCheckCallback = (parseResults: ParseResults, evaluator: TypeEvaluator) => void;
-
-export interface ISourceFileFactory {
-    createSourceFile(
-        serviceProvider: ServiceProvider,
-        fileUri: Uri,
-        moduleName: string,
-        isThirdPartyImport: boolean,
-        isThirdPartyPyTypedPresent: boolean,
-        editMode: SourceFileEditMode,
-        console?: ConsoleInterface,
-        logTracker?: LogTracker,
-        ipythonMode?: IPythonMode
-    ): SourceFile;
-}
-
-export namespace ISourceFileFactory {
-    export function is(obj: any): obj is ISourceFileFactory {
-        return obj.createSourceFile !== undefined;
-    }
-}
 
 export interface OpenFileOptions {
     isTracked: boolean;
@@ -1454,7 +1435,7 @@ export class Program {
                 let importedFileInfo = this.getSourceFileInfo(importInfo.path);
                 if (!importedFileInfo) {
                     const moduleImportInfo = this._getModuleImportInfoForFile(importInfo.path);
-                    const sourceFile = new SourceFile(
+                    const sourceFile = this._sourceFileFactory.createSourceFile(
                         this.serviceProvider,
                         importInfo.path,
                         moduleImportInfo.moduleName,
@@ -1796,7 +1777,7 @@ export class Program {
     ): ImportLookupResult | undefined => {
         let sourceFileInfo: SourceFileInfo | undefined;
 
-        if (Uri.isUri(fileUriOrModule)) {
+        if (Uri.is(fileUriOrModule)) {
             sourceFileInfo = this.getSourceFileInfo(fileUriOrModule);
         } else {
             // Resolve the import.
@@ -1909,18 +1890,19 @@ export class Program {
                 return false;
             }
 
+            const boundFile = this._bindFile(
+                fileToCheck,
+                undefined,
+                // If binding is required we want to make sure to bind the file, otherwise
+                // the sourceFile.check below will fail.
+                /* skipFileNeededCheck */ fileToCheck.sourceFile.isBindingRequired()
+            );
+
             if (!this._disableChecker) {
                 // For ipython, make sure we check all its dependent files first since
                 // their results can affect this file's result.
                 const dependentFiles = this._checkDependentFiles(fileToCheck, chainedByList, token);
 
-                const boundFile = this._bindFile(
-                    fileToCheck,
-                    undefined,
-                    // If binding is required we want to make sure to bind the file, otherwise
-                    // the sourceFile.check below will fail.
-                    /* skipFileNeededCheck */ fileToCheck.sourceFile.isBindingRequired()
-                );
                 if (this._preCheckCallback) {
                     const parseResults = fileToCheck.sourceFile.getParseResults();
                     if (parseResults) {

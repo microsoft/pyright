@@ -19,6 +19,7 @@ import { PythonVersion } from './pythonVersion';
 import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
 import { isDirectory } from './uri/uriUtils';
+import { ServiceKeys } from './serviceKeys';
 
 // preventLocalImports removes the working directory from sys.path.
 // The -c flag adds it automatically, which can allow some stdlib
@@ -235,7 +236,7 @@ export class FullAccessHost extends LimitedAccessHost {
             const commandLineArgs: string[] = ['-c', extractSys];
             importFailureInfo.push(`Executing interpreter: '${interpreterPath}'`);
             const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, { encoding: 'utf8' });
-            const isCaseSensitive = this.serviceProvider.fs().isCaseSensitive;
+            const caseDetector = this.serviceProvider.get(ServiceKeys.caseSensitivityDetector);
 
             // Parse the execOutput. It should be a JSON-encoded array of paths.
             try {
@@ -244,7 +245,7 @@ export class FullAccessHost extends LimitedAccessHost {
                     execSplitEntry = execSplitEntry.trim();
                     if (execSplitEntry) {
                         const normalizedPath = normalizePath(execSplitEntry);
-                        const normalizedUri = Uri.file(normalizedPath, isCaseSensitive);
+                        const normalizedUri = Uri.file(normalizedPath, caseDetector);
                         // Skip non-existent paths and broken zips/eggs.
                         if (
                             this.serviceProvider.fs().existsSync(normalizedUri) &&
@@ -257,7 +258,7 @@ export class FullAccessHost extends LimitedAccessHost {
                     }
                 }
 
-                result.prefix = Uri.file(execSplit.prefix, isCaseSensitive);
+                result.prefix = Uri.file(execSplit.prefix, caseDetector);
 
                 if (result.paths.length === 0) {
                     importFailureInfo.push(`Found no valid directories`);

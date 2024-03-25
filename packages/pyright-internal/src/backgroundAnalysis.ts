@@ -23,7 +23,7 @@ export class BackgroundAnalysis extends BackgroundAnalysisBase {
         super(serviceProvider.console());
 
         const initialData: InitializationData = {
-            rootUri: getRootUri(serviceProvider.fs().isCaseSensitive)?.toString() ?? '',
+            rootUri: getRootUri(serviceProvider)?.toString() ?? '',
             cancellationFolderName: getCancellationFolderName(),
             runner: undefined,
         };

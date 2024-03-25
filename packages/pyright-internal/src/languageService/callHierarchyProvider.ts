@@ -31,15 +31,15 @@ import { ProgramView, ReferenceUseCase, SymbolUsageProvider } from '../common/ex
 import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { getSymbolKind } from '../common/lspUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
+import { ServiceKeys } from '../common/serviceKeys';
 import { Position, rangesAreEqual } from '../common/textRange';
-import { Uri } from '../common/uri/uri';
 import { encodeUri } from '../common/uri/uriUtils';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { CallNode, MemberAccessNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { canNavigateToFile } from './navigationUtils';
+import { Uri } from '../common/uri/uri';
 
 export class CallHierarchyProvider {
     private readonly _parseResults: ParseResults | undefined;
@@ -93,7 +93,7 @@ export class CallHierarchyProvider {
             selectionRange: targetDecl.range,
         };
 
-        if (!canNavigateToFile(this._program.fileSystem, Uri.parse(callItem.uri, this._fileUri.isCaseSensitive))) {
+        if (!canNavigateToFile(this._program.fileSystem, Uri.parse(callItem.uri, this._program.serviceProvider))) {
             return null;
         }
 
@@ -138,7 +138,7 @@ export class CallHierarchyProvider {
         }
 
         return items.filter((item) =>
-            canNavigateToFile(this._program.fileSystem, Uri.parse(item.from.uri, this._fileUri.isCaseSensitive))
+            canNavigateToFile(this._program.fileSystem, Uri.parse(item.from.uri, this._program.serviceProvider))
         );
     }
 
@@ -210,7 +210,7 @@ export class CallHierarchyProvider {
         }
 
         return outgoingCalls.filter((item) =>
-            canNavigateToFile(this._program.fileSystem, Uri.parse(item.to.uri, this._fileUri.isCaseSensitive))
+            canNavigateToFile(this._program.fileSystem, Uri.parse(item.to.uri, this._program.serviceProvider))
         );
     }
 

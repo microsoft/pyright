@@ -8,17 +8,16 @@
 
 import type { Dirent } from 'fs';
 
-import { randomBytesHex } from '../crypto';
-import { FileSystem, ReadOnlyFileSystem, Stats, TempFile } from '../fileSystem';
+import { FileSystem, ReadOnlyFileSystem, Stats } from '../fileSystem';
 import {
     getRegexEscapedSeparator,
     isDirectoryWildcardPatternPresent,
     stripTrailingDirectorySeparator,
 } from '../pathUtils';
 import { Uri } from './uri';
-
-let _fsCaseSensitivity: boolean | undefined = undefined;
-let _underTest: boolean = false;
+import { ServiceProvider } from '../extensibility';
+import { ServiceKeys } from '../serviceKeys';
+import { CaseSensitivityDetector } from '../caseSensitivityDetector';
 
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
@@ -205,10 +204,6 @@ export function getFileSystemEntriesFromDirEntries(
     return { files, directories };
 }
 
-export function setTestingMode(underTest: boolean) {
-    _underTest = underTest;
-}
-
 // Transforms a relative file spec (one that potentially contains
 // escape characters **, * or ?) and returns a regular expression
 // that can be used for matching against.
@@ -321,50 +316,6 @@ function fileSystemEntryExists(fs: ReadOnlyFileSystem, uri: Uri, entryKind: File
     }
 }
 
-const isFileSystemCaseSensitiveMap = new WeakMap<FileSystem, boolean>();
-
-export function isFileSystemCaseSensitive(fs: FileSystem, tmp: TempFile | undefined) {
-    if (!_underTest && _fsCaseSensitivity !== undefined) {
-        return _fsCaseSensitivity;
-    }
-
-    if (!isFileSystemCaseSensitiveMap.has(fs)) {
-        _fsCaseSensitivity = tmp ? isFileSystemCaseSensitiveInternal(fs, tmp) : false;
-        isFileSystemCaseSensitiveMap.set(fs, _fsCaseSensitivity);
-    }
-    return !!isFileSystemCaseSensitiveMap.get(fs);
-}
-
-export function isFileSystemCaseSensitiveInternal(fs: FileSystem, tmp: TempFile) {
-    let filePath: Uri | undefined = undefined;
-    try {
-        // Make unique file name.
-        let name: string;
-        let mangledFilePath: Uri;
-        do {
-            name = `${randomBytesHex(21)}-a`;
-            filePath = tmp.tmpdir().combinePaths(name);
-            mangledFilePath = tmp.tmpdir().combinePaths(name.toUpperCase());
-        } while (fs.existsSync(filePath) || fs.existsSync(mangledFilePath));
-
-        fs.writeFileSync(filePath, '', 'utf8');
-
-        // If file exists, then it is insensitive.
-        return !fs.existsSync(mangledFilePath);
-    } catch (e: any) {
-        return false;
-    } finally {
-        if (filePath) {
-            // remove temp file created
-            try {
-                fs.unlinkSync(filePath);
-            } catch (e: any) {
-                /* ignored */
-            }
-        }
-    }
-}
-
 export function getDirectoryChangeKind(
     fs: ReadOnlyFileSystem,
     oldDirectory: Uri,
@@ -417,14 +368,51 @@ export function deduplicateFolders(listOfFolders: Uri[][]): Uri[] {
     return [...foldersToWatch.values()];
 }
 
-export function getRootUri(isCaseSensitive: boolean): Uri | undefined {
+export function getRootUri(serviceProvider: ServiceProvider): Uri | undefined;
+export function getRootUri(caseDetector: CaseSensitivityDetector): Uri | undefined;
+export function getRootUri(csdOrSp: CaseSensitivityDetector | ServiceProvider): Uri | undefined {
+    csdOrSp = CaseSensitivityDetector.is(csdOrSp) ? csdOrSp : csdOrSp.get(ServiceKeys.caseSensitivityDetector);
+
     if ((global as any).__rootDirectory) {
-        return Uri.file((global as any).__rootDirectory, isCaseSensitive);
+        return Uri.file((global as any).__rootDirectory, csdOrSp);
     }
+
     return undefined;
 }
 
 export function encodeUri(fs: ReadOnlyFileSystem, uri: Uri): string {
     // Convert to a URI string that the LSP client understands (mapped files are only local to the server).
     return fs.getOriginalUri(uri).toString();
+}
+
+export namespace UriEx {
+    export function file(path: string): Uri;
+    export function file(path: string, isCaseSensitive: boolean, checkRelative?: boolean): Uri;
+    export function file(path: string, arg?: boolean, checkRelative?: boolean): Uri {
+        const caseDetector = _getCaseSensitivityDetector(arg);
+        return Uri.file(path, caseDetector, checkRelative);
+    }
+
+    export function parse(path: string | undefined): Uri;
+    export function parse(path: string | undefined, isCaseSensitive: boolean): Uri;
+    export function parse(value: string | undefined, arg?: boolean): Uri {
+        const caseDetector = _getCaseSensitivityDetector(arg);
+        return Uri.parse(value, caseDetector);
+    }
+
+    const caseSensitivityDetector: CaseSensitivityDetector = {
+        isCaseSensitive: () => true,
+    };
+
+    const caseInsensitivityDetector: CaseSensitivityDetector = {
+        isCaseSensitive: () => false,
+    };
+
+    function _getCaseSensitivityDetector(arg: boolean | undefined) {
+        if (arg === undefined) {
+            return caseSensitivityDetector;
+        }
+
+        return arg ? caseSensitivityDetector : caseInsensitivityDetector;
+    }
 }

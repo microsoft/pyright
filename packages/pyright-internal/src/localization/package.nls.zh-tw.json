@@ -532,6 +532,7 @@
         "typeVarUsedByOuterScope": "外部領域已在使用 TypeVar \"{name}\"",
         "typeVarUsedOnlyOnce": "TypeVar \"{name}\" 只會在一般函式簽章中出現一次",
         "typeVarVariance": "TypeVar 不能同時為共變數和逆變數",
+        "typeVarWithDefaultFollowsVariadic": "TypeVar \"{typeVarName}\" 具有預設值，無法遵循 TypeVarTuple \"{variadicName}\"",
         "typeVarWithoutDefault": "\"{name}\" 無法出現在型別參數清單中的 \"{other}\" 後面，因為它沒有預設型別",
         "typeVarsNotInGenericOrProtocol": "Generic[] 或 Protocol[] 必須包含所有類型變數",
         "typedDictAccess": "無法存取 TypedDict 中的項目",

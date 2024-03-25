@@ -24,7 +24,12 @@ import { FileSystem } from '../../../common/fileSystem';
 import { ServiceProvider } from '../../../common/serviceProvider';
 import { Range } from '../../../common/textRange';
 import { Uri } from '../../../common/uri/uri';
-import { LanguageServerInterface, MessageAction, ServerSettings, WindowInterface } from '../../../languageServerBase';
+import {
+    LanguageServerInterface,
+    MessageAction,
+    ServerSettings,
+    WindowInterface,
+} from '../../../common/languageServerInterface';
 import { CodeActionProvider } from '../../../languageService/codeActionProvider';
 import {
     WellKnownWorkspaceKinds,
@@ -74,9 +79,9 @@ export class TestFeatures implements HostSpecificFeatures {
 }
 
 export class TestLanguageService implements LanguageServerInterface {
-    readonly rootUri = Uri.file('/');
     readonly window = new TestWindow();
     readonly supportAdvancedEdits = true;
+    readonly serviceProvider: ServiceProvider;
 
     private readonly _workspace: Workspace;
     private readonly _defaultWorkspace: Workspace;
@@ -88,9 +93,11 @@ export class TestLanguageService implements LanguageServerInterface {
         options?: AnalyzerServiceOptions
     ) {
         this._workspace = workspace;
+        this.serviceProvider = this._workspace.service.serviceProvider;
+
         this._defaultWorkspace = {
             workspaceName: '',
-            rootUri: Uri.empty(),
+            rootUri: undefined,
             pythonPath: undefined,
             pythonPathKind: WorkspacePythonPathKind.Mutable,
             kinds: [WellKnownWorkspaceKinds.Test],

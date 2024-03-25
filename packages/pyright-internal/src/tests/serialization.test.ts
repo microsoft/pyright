@@ -9,7 +9,7 @@
 import assert from 'assert';
 
 import { deserialize, serialize } from '../backgroundThreadBase';
-import { Uri } from '../common/uri/uri';
+import { UriEx } from '../common/uri/uriUtils';
 
 export function serializationTests(serializer = serialize, deserializer = deserialize) {
     test('Simple string', () => {
@@ -77,15 +77,15 @@ export function serializationTests(serializer = serialize, deserializer = deseri
     });
 
     test('Object with URI', () => {
-        const serialized = serializer({ a: Uri.file('hello') });
+        const serialized = serializer({ a: UriEx.file('hello') });
         const deserialized = deserializer(serialized);
-        assert.deepStrictEqual(deserialized, { a: Uri.file('hello') });
+        assert.deepStrictEqual(deserialized, { a: UriEx.file('hello') });
     });
 
     test('Object with URI array', () => {
-        const serialized = serializer({ a: [Uri.file('hello'), Uri.file('world')] });
+        const serialized = serializer({ a: [UriEx.file('hello'), UriEx.file('world')] });
         const deserialized = deserializer(serialized);
-        assert.deepStrictEqual(deserialized, { a: [Uri.file('hello'), Uri.file('world')] });
+        assert.deepStrictEqual(deserialized, { a: [UriEx.file('hello'), UriEx.file('world')] });
     });
 }
 

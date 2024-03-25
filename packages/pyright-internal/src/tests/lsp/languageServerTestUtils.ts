@@ -53,6 +53,7 @@ import {
 import { PythonPathResult } from '../../analyzer/pythonPathUtils';
 import { IPythonMode } from '../../analyzer/sourceFile';
 import { PythonPlatform } from '../../common/configOptions';
+import { toBoolean } from '../../common/core';
 import { createDeferred, Deferred } from '../../common/deferred';
 import { DiagnosticSink } from '../../common/diagnosticSink';
 import { FileSystem } from '../../common/fileSystem';
@@ -63,9 +64,10 @@ import { convertOffsetToPosition } from '../../common/positionUtils';
 import { PythonVersion, pythonVersion3_10 } from '../../common/pythonVersion';
 import { FileUri } from '../../common/uri/fileUri';
 import { Uri } from '../../common/uri/uri';
+import { UriEx } from '../../common/uri/uriUtils';
 import { ParseOptions, Parser } from '../../parser/parser';
 import { parseTestData } from '../harness/fourslash/fourSlashParser';
-import { FourSlashData } from '../harness/fourslash/fourSlashTypes';
+import { FourSlashData, GlobalMetadataOptionNames } from '../harness/fourslash/fourSlashTypes';
 import { createVfsInfoFromFourSlashData, getMarkerByName } from '../harness/fourslash/testStateUtils';
 import * as host from '../harness/testHost';
 import { createFromFileSystem, distlibFolder, libFolder } from '../harness/vfs/factory';
@@ -221,10 +223,11 @@ export function createFileSystem(projectRoot: string, testData: FourSlashData, o
 const settingsMap = new Map<PyrightServerInfo, { item: ConfigurationItem; value: any }[]>();
 
 export function updateSettingsMap(info: PyrightServerInfo, settings: { item: ConfigurationItem; value: any }[]) {
+    const ignoreCase = toBoolean(info.testData.globalOptions[GlobalMetadataOptionNames.ignoreCase]);
     // Normalize the URIs for all of the settings.
     settings.forEach((s) => {
         if (s.item.scopeUri) {
-            s.item.scopeUri = Uri.parse(s.item.scopeUri, true).toString();
+            s.item.scopeUri = UriEx.parse(s.item.scopeUri, !ignoreCase).toString();
         }
     });
 
@@ -328,22 +331,17 @@ export async function runPyrightServer(
     pythonVersion: PythonVersion = pythonVersion3_10,
     backgroundAnalysis?: boolean
 ): Promise<PyrightServerInfo> {
-    // Normalize the URIs for all of the settings.
-    extraSettings?.forEach((s) => {
-        if (s.item.scopeUri) {
-            s.item.scopeUri = Uri.parse(s.item.scopeUri, true).toString();
-        }
-    });
-
     // Setup the test data we need to send for Test server startup.
     const projectRootsArray = Array.isArray(projectRoots) ? projectRoots : [projectRoots];
+
+    // Here all Uri has `isCaseSensitive` as true.
     const testServerData: CustomLSP.TestServerStartOptions = {
         testName: expect.getState().currentTestName ?? 'NoName',
         code,
-        projectRoots: projectRootsArray.map((p) => (p.includes(':') ? Uri.parse(p, true) : Uri.file(p))),
+        projectRoots: projectRootsArray.map((p) => (p.includes(':') ? UriEx.parse(p) : UriEx.file(p))),
         pythonVersion: pythonVersion.toString(),
         backgroundAnalysis,
-        logFile: Uri.file(path.join(__dirname, `log${process.pid}.txt`)),
+        logFile: UriEx.file(path.join(__dirname, `log${process.pid}.txt`)),
         pid: process.pid.toString(),
     };
 
@@ -358,6 +356,15 @@ export async function runPyrightServer(
         testServerData.code,
         'noname.py'
     );
+
+    const ignoreCase = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.ignoreCase]);
+
+    // Normalize the URIs for all of the settings.
+    extraSettings?.forEach((s) => {
+        if (s.item.scopeUri) {
+            s.item.scopeUri = UriEx.parse(s.item.scopeUri, !ignoreCase).toString();
+        }
+    });
 
     // Start listening to the 'client' side of the connection.
     const disposables: Disposable[] = [];
@@ -385,7 +392,7 @@ export async function runPyrightServer(
         workspaceEdits: [],
         workspaceEditsEvent: workspaceEditsEmitter.event,
         getInitializeParams: () => getInitializeParams(testServerData.projectRoots),
-        convertPathToUri: (path: string) => Uri.file(path),
+        convertPathToUri: (path: string) => UriEx.file(path, !ignoreCase),
         dispose: async () => {
             // Send shutdown. This should disconnect the dispatcher and kill the server.
             await connection.sendRequest(ShutdownRequest.type, undefined);
