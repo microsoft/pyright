@@ -69,7 +69,7 @@ def setup(
     password: str = ...,
     fullname: str = ...,
     **attrs: Any,
-) -> None: ...
+) -> Distribution: ...
 
 class Command(_Command):
     command_consumes_arguments: bool

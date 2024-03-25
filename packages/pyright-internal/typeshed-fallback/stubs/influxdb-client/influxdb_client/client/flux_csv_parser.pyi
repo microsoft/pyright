@@ -45,6 +45,7 @@ class FluxCsvParser:
         data_frame_index: list[str] | None = None,
         query_options: Incomplete | None = None,
         response_metadata_mode: FluxResponseMetadataMode = ...,
+        use_extension_dtypes: bool = False,
     ) -> None: ...
     def __enter__(self) -> Self: ...
     def __exit__(
