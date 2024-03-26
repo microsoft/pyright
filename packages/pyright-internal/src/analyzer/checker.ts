@@ -6220,6 +6220,11 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // If the base class is unknown, don't report a missing decorator.
+        if (isAnyOrUnknown(baseMember.classType)) {
+            return;
+        }
+
         const funcNode = overrideFunction.details.declaration.node;
         this._evaluator.addDiagnostic(
             DiagnosticRule.reportImplicitOverride,
