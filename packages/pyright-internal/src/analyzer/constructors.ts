@@ -13,6 +13,7 @@
  */
 
 import { appendArray } from '../common/collectionUtils';
+import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
 import { ArgumentCategory, ExpressionNode, ParameterCategory } from '../parser/parseNodes';
@@ -61,6 +62,7 @@ export function getBoundNewMethod(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     type: ClassType,
+    diag: DiagnosticAddendum | undefined = undefined,
     additionalFlags = MemberAccessFlags.SkipObjectBaseClass
 ) {
     const flags =
@@ -69,7 +71,7 @@ export function getBoundNewMethod(
         MemberAccessFlags.TreatConstructorAsClassMethod |
         additionalFlags;
 
-    return evaluator.getTypeOfBoundMember(errorNode, type, '__new__', { method: 'get' }, /* diag */ undefined, flags);
+    return evaluator.getTypeOfBoundMember(errorNode, type, '__new__', { method: 'get' }, diag, flags);
 }
 
 // Fetches and binds the __init__ method from a class instance.
@@ -77,12 +79,13 @@ export function getBoundInitMethod(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     type: ClassType,
+    diag: DiagnosticAddendum | undefined = undefined,
     additionalFlags = MemberAccessFlags.SkipObjectBaseClass
 ) {
     const flags =
         MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipAttributeAccessOverride | additionalFlags;
 
-    return evaluator.getTypeOfBoundMember(errorNode, type, '__init__', { method: 'get' }, /* diag */ undefined, flags);
+    return evaluator.getTypeOfBoundMember(errorNode, type, '__init__', { method: 'get' }, diag, flags);
 }
 
 // Fetches and binds the __call__ method from a class or its metaclass.
@@ -126,7 +129,11 @@ export function validateConstructorArguments(
         // something other than Any or an instance of the class, assume that it
         // overrides the normal `type.__call__` logic and don't perform the usual
         // __new__ and __init__ validation.
-        if (metaclassResult.argumentErrors || !evaluator.assignType(convertToInstance(type), metaclassReturnType)) {
+        if (
+            metaclassResult.argumentErrors ||
+            isNever(metaclassReturnType) ||
+            !evaluator.assignType(convertToInstance(type), metaclassReturnType)
+        ) {
             return metaclassResult;
         }
 
@@ -138,7 +145,12 @@ export function validateConstructorArguments(
     }
 
     // Determine whether the class overrides the object.__new__ method.
-    const newMethodTypeResult = getBoundNewMethod(evaluator, errorNode, type);
+    const newMethodDiag = new DiagnosticAddendum();
+    const newMethodTypeResult = getBoundNewMethod(evaluator, errorNode, type, newMethodDiag);
+    if (newMethodTypeResult?.typeErrors) {
+        evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, newMethodDiag.getString(), errorNode);
+    }
+
     const useConstructorTransform = hasConstructorTransform(type);
 
     // If there is a constructor transform, evaluate all arguments speculatively
@@ -303,7 +315,11 @@ function validateNewAndInitMethods(
         }
 
         // Determine whether the class overrides the object.__init__ method.
-        initMethodTypeResult = getBoundInitMethod(evaluator, errorNode, initMethodBindToType);
+        const initMethodDiag = new DiagnosticAddendum();
+        initMethodTypeResult = getBoundInitMethod(evaluator, errorNode, initMethodBindToType, initMethodDiag);
+        if (initMethodTypeResult?.typeErrors) {
+            evaluator.addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, initMethodDiag.getString(), errorNode);
+        }
 
         // Validate __init__ if it's present.
         if (initMethodTypeResult) {

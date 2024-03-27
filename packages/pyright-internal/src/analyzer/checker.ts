@@ -4858,6 +4858,7 @@ export class Checker extends ParseTreeWalker {
             this._evaluator,
             node.name,
             classType,
+            /* diag */ undefined,
             MemberAccessFlags.SkipObjectBaseClass
         );
 
@@ -4872,6 +4873,7 @@ export class Checker extends ParseTreeWalker {
             this._evaluator,
             node.name,
             ClassType.cloneAsInstance(classType),
+            /* diag */ undefined,
             MemberAccessFlags.SkipObjectBaseClass
         );
 

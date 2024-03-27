@@ -600,6 +600,7 @@ export function getEnumAutoValueType(evaluator: TypeEvaluator, node: ExpressionN
             // returning an "Any" type in the typeshed stubs.
             if (
                 memberInfo &&
+                !memberInfo.typeErrors &&
                 isFunction(memberInfo.type) &&
                 memberInfo.classType &&
                 isClass(memberInfo.classType) &&
