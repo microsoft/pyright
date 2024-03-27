@@ -1890,6 +1890,9 @@ export class Program {
                 return false;
             }
 
+            // Bind the file if necessary even if we're not going to run the checker.
+            // disableChecker means disable semantic errors, not syntax errors. We need to bind again
+            // in order to generate syntax errors.
             const boundFile = this._bindFile(
                 fileToCheck,
                 undefined,
