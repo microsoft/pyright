@@ -34,3 +34,20 @@ td4_1: TD4 = {**td1, **td2}
 td4_2: TD4 = {**td3_1, **td2}
 
 td4_3: TD4 = {**td3_2, **td2}
+
+
+class TD5(TypedDict):
+    f1: str
+    f2: str
+
+
+class TD6(TypedDict):
+    f1: str
+    f2: int
+
+
+def func1(t1: TD5) -> TD6:
+    return {**t1, "f2": 0}
+
+
+td6: TD6 = {"f1": 1, "f2": "", "f1": "", "f2": 1}

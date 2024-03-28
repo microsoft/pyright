@@ -13408,6 +13408,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (forceStrictInference || index < maxEntriesToUseForInference) {
+                    // If an existing key has the same literal type, delete the previous
+                    // key since we're overwriting it here.
+                    if (isClass(keyType) && isLiteralType(keyType)) {
+                        const existingIndex = keyTypes.findIndex((kt) => isTypeSame(keyType, kt.type));
+                        if (existingIndex >= 0) {
+                            keyTypes.splice(existingIndex, 1);
+                            valueTypes.splice(existingIndex, 1);
+                        }
+                    }
+
                     keyTypes.push({ node: entryNode.keyExpression, type: keyType });
                     valueTypes.push({ node: entryNode.valueExpression, type: valueType });
                 }
