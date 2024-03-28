@@ -46,6 +46,7 @@ import {
     Type,
     TypeVarType,
     UnknownType,
+    combineTypes,
     isAny,
     isAnyOrUnknown,
     isClassInstance,
@@ -804,14 +805,15 @@ export function createFunctionFromConstructor(
     classType: ClassType,
     selfType: ClassType | TypeVarType | undefined = undefined,
     recursionCount = 0
-): FunctionType | OverloadedFunctionType | undefined {
+): Type | undefined {
     const fromInit = createFunctionFromInitMethod(evaluator, classType, selfType, recursionCount);
+    const fromNew = createFunctionFromNewMethod(evaluator, classType, selfType, recursionCount);
+
     if (fromInit) {
-        return fromInit;
+        return fromNew ? combineTypes([fromInit, fromNew]) : fromInit;
     }
 
-    const fromNew = createFunctionFromNewMethod(evaluator, classType, selfType, recursionCount);
-    return fromNew;
+    return fromNew ?? createFunctionFromObjectNewMethod(classType);
 }
 
 function createFunctionFromNewMethod(
@@ -820,7 +822,6 @@ function createFunctionFromNewMethod(
     selfType: ClassType | TypeVarType | undefined,
     recursionCount: number
 ): FunctionType | OverloadedFunctionType | undefined {
-    // Fall back on the __new__ method if __init__ isn't available.
     const newInfo = lookUpClassMember(
         classType,
         '__new__',
@@ -885,6 +886,10 @@ function createFunctionFromNewMethod(
         }
     }
 
+    return undefined;
+}
+
+function createFunctionFromObjectNewMethod(classType: ClassType) {
     // Return a fallback constructor based on the object.__new__ method.
     const constructorFunction = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.None);
     constructorFunction.details.declaredReturnType = ClassType.cloneAsInstance(classType);
