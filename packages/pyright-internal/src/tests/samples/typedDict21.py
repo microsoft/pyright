@@ -27,10 +27,14 @@ td2: TD2 = {"v2": ""}
 td3_1: TD3 = {}
 td3_2: TD3 = {"v1": 0}
 
+# This should generate an error because td2 could
+# contain a "v1" key of unknown type that overwrites
+# the "v1" key provided by td1.
 td4_1: TD4 = {**td1, **td2}
 
 # This should generate an error because td3_1
 # does not include the required "v1" entry.
 td4_2: TD4 = {**td3_1, **td2}
 
+# This should generate an error.
 td4_3: TD4 = {**td3_2, **td2}

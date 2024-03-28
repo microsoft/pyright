@@ -13463,12 +13463,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             /* allowNarrowed */ true
                         );
 
-                        tdEntries.knownItems.forEach((entry, name) => {
-                            if (entry.isRequired || entry.isProvided) {
-                                keyTypes.push({ node: entryNode, type: ClassType.cloneWithLiteral(strObject, name) });
-                                valueTypes.push({ node: entryNode, type: entry.valueType });
-                            }
-                        });
+                        // Is the TypedDict closed -- i.e. does it limit the types of extra items?
+                        if (tdEntries.extraItems) {
+                            tdEntries.knownItems.forEach((entry, name) => {
+                                if (entry.isRequired || entry.isProvided) {
+                                    keyTypes.push({
+                                        node: entryNode,
+                                        type: ClassType.cloneWithLiteral(strObject, name),
+                                    });
+                                    valueTypes.push({ node: entryNode, type: entry.valueType });
+                                }
+                            });
+
+                            keyTypes.push({ node: entryNode, type: ClassType.cloneAsInstance(strObject) });
+                            valueTypes.push({ node: entryNode, type: tdEntries.extraItems.valueType });
+                        } else {
+                            keyTypes.push({ node: entryNode, type: ClassType.cloneAsInstance(strObject) });
+                            valueTypes.push({ node: entryNode, type: objectType ?? UnknownType.create() });
+                        }
 
                         addUnknown = false;
                     }
