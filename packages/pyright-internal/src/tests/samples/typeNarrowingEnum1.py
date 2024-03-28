@@ -1,7 +1,7 @@
 # This sample tests exhaustive type narrowing for enums
 # and the use of "Never" and "NoReturn".
 
-from enum import Enum
+from enum import Enum, Flag
 from typing import Literal, NoReturn, Union
 
 
@@ -56,3 +56,15 @@ def func4(val: Union[str, int]) -> Union[str, int]:
         # point, it should be assignable to Union[str, int]
         # because Never is assignable to any type.
         return val
+
+
+class MyFlags(Flag):
+    V1 = 1
+    V2 = 2
+
+
+def func5(val: MyFlags):
+    if val == MyFlags.V1 or val == MyFlags.V2:
+        return
+
+    reveal_type(val, expected_text="MyFlags")
