@@ -184,7 +184,7 @@ export class SignatureHelpProvider {
                 const sig = signatures[prevActiveSignature];
                 if (isActive(sig)) {
                     activeSignature = prevActiveSignature;
-                    activeParameter = sig.activeParameter;
+                    activeParameter = sig.activeParameter ?? undefined;
                 }
             }
         }

@@ -23,7 +23,6 @@ import { isArray } from '../common/core';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { rangesAreEqual } from '../common/textRange';
-import { Uri } from '../common/uri/uri';
 import { NameNode } from '../parser/parseNodes';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { parseAndGetTestState, TestState } from './harness/fourslash/testState';
@@ -427,7 +426,7 @@ test('getRelativeModuleName over fake file', () => {
     `;
 
     const state = parseAndGetTestState(code).state;
-    const dest = Uri.file(state.getMarkerByName('dest')!.fileName);
+    const dest = state.getMarkerByName('dest')!.fileUri;
 
     assert.strictEqual(
         getRelativeModuleName(
@@ -514,8 +513,8 @@ test('resolve alias of not needed file', () => {
 
 function testRelativeModuleName(code: string, expected: string | undefined, ignoreFolderStructure = false) {
     const state = parseAndGetTestState(code).state;
-    const src = Uri.file(state.getMarkerByName('src')!.fileName);
-    const dest = Uri.file(state.getMarkerByName('dest')!.fileName);
+    const src = state.getMarkerByName('src')!.fileUri;
+    const dest = state.getMarkerByName('dest')!.fileUri;
 
     assert.strictEqual(
         getRelativeModuleName(state.fs, src, dest, state.configOptions, ignoreFolderStructure),
@@ -531,7 +530,7 @@ function testAddition(
 ) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName(markerName)!;
-    const parseResults = state.program.getBoundSourceFile(Uri.file(marker!.fileName))!.getParseResults()!;
+    const parseResults = state.program.getBoundSourceFile(marker!.fileUri)!.getParseResults()!;
 
     const importStatement = getTopLevelImports(parseResults.parseTree).orderedImports.find(
         (i) => i.moduleName === moduleName
@@ -551,7 +550,7 @@ function testInsertions(
 ) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName(markerName)!;
-    const parseResults = state.program.getBoundSourceFile(Uri.file(marker!.fileName))!.getParseResults()!;
+    const parseResults = state.program.getBoundSourceFile(marker!.fileUri)!.getParseResults()!;
 
     const importStatements = getTopLevelImports(parseResults.parseTree);
     const edits = getTextEditsForAutoImportInsertions(

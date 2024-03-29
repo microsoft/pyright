@@ -532,6 +532,7 @@
         "typeVarUsedByOuterScope": "TypeVar \"{name}\" ya está en uso por un ámbito externo",
         "typeVarUsedOnlyOnce": "TypeVar \"{name}\" solo aparece una vez en la firma de la función genérica",
         "typeVarVariance": "TypeVar no puede ser covariante y contravariante",
+        "typeVarWithDefaultFollowsVariadic": "TypeVar \"{typeVarName}\" tiene un valor predeterminado y no puede seguir a TypeVarTuple \"{variadicName}\"",
         "typeVarWithoutDefault": "\"{name}\" no puede aparecer después de \"{other}\" en la lista de parámetros de tipo porque no tiene ningún tipo predeterminado",
         "typeVarsNotInGenericOrProtocol": "Generic[] o Protocol[] deben incluir todas las variables de tipo",
         "typedDictAccess": "No se ha podido acceder al elemento en TypedDict",

@@ -138,6 +138,7 @@ export function createNamedTupleType(
     const classTypeVar = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ true);
     const constructorType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
     constructorType.details.declaredReturnType = convertToInstance(classTypeVar);
+    constructorType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
     if (ParseTreeUtils.isAssignmentToDefaultsFollowingNamedTuple(errorNode)) {
         constructorType.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
     }
@@ -376,6 +377,7 @@ export function createNamedTupleType(
     FunctionType.addParameter(initType, selfParameter);
     FunctionType.addDefaultParameters(initType);
     initType.details.declaredReturnType = evaluator.getNoneType();
+    initType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
 
     classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
     classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));

@@ -224,13 +224,13 @@ export class Checker extends ParseTreeWalker {
     constructor(
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
-        private _parseResults: ParseResults,
+        parseResults: ParseResults,
         private _sourceMapper: SourceMapper,
         private _dependentFiles?: ParseResults[]
     ) {
         super();
 
-        this._moduleNode = _parseResults.parseTree;
+        this._moduleNode = parseResults.parseTree;
         this._fileInfo = AnalyzerNodeInfo.getFileInfo(this._moduleNode)!;
     }
 
@@ -4858,6 +4858,7 @@ export class Checker extends ParseTreeWalker {
             this._evaluator,
             node.name,
             classType,
+            /* diag */ undefined,
             MemberAccessFlags.SkipObjectBaseClass
         );
 
@@ -4872,6 +4873,7 @@ export class Checker extends ParseTreeWalker {
             this._evaluator,
             node.name,
             ClassType.cloneAsInstance(classType),
+            /* diag */ undefined,
             MemberAccessFlags.SkipObjectBaseClass
         );
 
@@ -6217,6 +6219,11 @@ export class Checker extends ParseTreeWalker {
         // If the declaration for the override function is not the same as the
         // declaration for the symbol, the function was probably replaced by a decorator.
         if (!symbol.getDeclarations().some((decl) => decl === overrideFunction!.details.declaration)) {
+            return;
+        }
+
+        // If the base class is unknown, don't report a missing decorator.
+        if (isAnyOrUnknown(baseMember.classType)) {
             return;
         }
 

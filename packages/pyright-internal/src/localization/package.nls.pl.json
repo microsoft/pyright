@@ -532,6 +532,7 @@
         "typeVarUsedByOuterScope": "Argument TypeVar „{name}” jest już używany przez zakres zewnętrzny",
         "typeVarUsedOnlyOnce": "Typ TypeVar „{name}” pojawia się tylko raz w sygnaturze funkcji ogólnej",
         "typeVarVariance": "Zmienna typu TypeVar nie może być jednocześnie kowariantna i kontrawariantna",
+        "typeVarWithDefaultFollowsVariadic": "Wartość TypeVar „{typeVarName}” ma wartość domyślną i nie może następować po wartości TypeVarTuple „{variadicName}”.",
         "typeVarWithoutDefault": "Element „{name}” nie może występować po elemencie „{other}” na liście parametrów typu, ponieważ nie ma typu domyślnego",
         "typeVarsNotInGenericOrProtocol": "Elementy Generic[] lub Protocol[] muszą zawierać wszystkie zmienne typu",
         "typedDictAccess": "Nie można uzyskać dostępu do elementu w TypedDict",

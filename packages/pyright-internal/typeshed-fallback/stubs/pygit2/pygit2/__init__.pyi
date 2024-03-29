@@ -1,9 +1,15 @@
 from _typeshed import StrOrBytesPath, SupportsAllComparisons
 from collections.abc import Callable
 
+# This is intentionally duplicated and placed above the _pygit2
+# star-import to workaround mypy issue #16972, so that consumers
+# of the stubs see the correct, wrapped type for the name
+# "Repository".
+from .repository import Repository as Repository  # isort: skip
+
 from . import enums
 from ._build import __version__ as __version__
-from ._pygit2 import *
+from ._pygit2 import *  # type: ignore[assignment]
 from .blame import Blame as Blame, BlameHunk as BlameHunk
 from .blob import BlobIO as BlobIO
 from .callbacks import (
@@ -21,7 +27,7 @@ from .index import Index as Index, IndexEntry as IndexEntry
 from .legacyenums import *
 from .packbuilder import PackBuilder as PackBuilder
 from .remotes import Remote as Remote
-from .repository import Repository  # type: ignore[assignment]
+from .repository import Repository as Repository  # noqa: F811 # intentional workaround
 from .settings import Settings
 from .submodules import Submodule as Submodule
 

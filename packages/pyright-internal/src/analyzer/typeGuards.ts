@@ -2497,6 +2497,14 @@ export function enumerateLiteralsForType(evaluator: TypeEvaluator, type: ClassTy
     }
 
     if (ClassType.isEnumClass(type)) {
+        // Enum expansion doesn't apply to enum classes that derive
+        // from enum.Flag.
+        if (
+            type.details.baseClasses.some((baseClass) => isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'Flag'))
+        ) {
+            return undefined;
+        }
+
         // Enumerate all of the values in this enumeration.
         const enumList: ClassType[] = [];
         const fields = type.details.fields;

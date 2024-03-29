@@ -15,7 +15,7 @@ import {
     normalizePath,
     normalizeSlashes,
 } from '../../../common/pathUtils';
-import { Uri } from '../../../common/uri/uri';
+import { UriEx } from '../../../common/uri/uriUtils';
 import { distlibFolder, libFolder } from '../vfs/factory';
 import {
     FourSlashData,
@@ -81,7 +81,15 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
             );
         }
 
-        const file = parseFileContent(currentFileContent, currentFileName, markerPositions, markers, ranges);
+        const ignoreCase = toBoolean(globalOptions[GlobalMetadataOptionNames.ignoreCase]);
+        const file = parseFileContent(
+            currentFileContent,
+            currentFileName,
+            ignoreCase,
+            markerPositions,
+            markers,
+            ranges
+        );
         file.fileOptions = currentFileOptions;
 
         // Store result file
@@ -179,6 +187,7 @@ function reportError(fileName: string, line: number, col: number, message: strin
 
 function recordObjectMarker(
     fileName: string,
+    ignoreCase: boolean,
     location: LocationInformation,
     text: string,
     markerMap: Map<string, Marker>,
@@ -199,7 +208,7 @@ function recordObjectMarker(
 
     const marker: Marker = {
         fileName,
-        fileUri: Uri.file(fileName),
+        fileUri: UriEx.file(fileName, !ignoreCase),
         position: location.position,
         data: markerValue,
     };
@@ -216,6 +225,7 @@ function recordObjectMarker(
 
 function recordMarker(
     fileName: string,
+    ignoreCase: boolean,
     location: LocationInformation,
     name: string,
     markerMap: Map<string, Marker>,
@@ -223,7 +233,7 @@ function recordMarker(
 ): Marker | undefined {
     const marker: Marker = {
         fileName,
-        fileUri: Uri.file(fileName),
+        fileUri: UriEx.file(fileName, !ignoreCase),
         position: location.position,
     };
 
@@ -242,6 +252,7 @@ function recordMarker(
 function parseFileContent(
     content: string,
     fileName: string,
+    ignoreCase: boolean,
     markerMap: Map<string, Marker>,
     markers: Marker[],
     ranges: Range[]
@@ -312,7 +323,7 @@ function parseFileContent(
 
                         const range: Range = {
                             fileName,
-                            fileUri: Uri.file(fileName),
+                            fileUri: UriEx.file(fileName, !ignoreCase),
                             pos: rangeStart!.position,
                             end: i - 1 - difference,
                             marker: rangeStart!.marker,
@@ -352,6 +363,7 @@ function parseFileContent(
                         const objectMarkerNameText = content.substring(openMarker!.sourcePosition + 2, i - 1).trim();
                         const marker = recordObjectMarker(
                             fileName,
+                            ignoreCase,
                             openMarker!,
                             objectMarkerNameText,
                             markerMap,
@@ -377,7 +389,14 @@ function parseFileContent(
                         // Record the marker
                         // start + 2 to ignore the */, -1 on the end to ignore the * (/ is next)
                         const markerNameText = content.substring(openMarker!.sourcePosition + 2, i - 1).trim();
-                        const marker = recordMarker(fileName, openMarker!, markerNameText, markerMap, markers);
+                        const marker = recordMarker(
+                            fileName,
+                            ignoreCase,
+                            openMarker!,
+                            markerNameText,
+                            markerMap,
+                            markers
+                        );
 
                         if (openRanges.length > 0) {
                             openRanges[openRanges.length - 1].marker = marker;
@@ -444,6 +463,7 @@ function parseFileContent(
         fileOptions: {},
         version: 0,
         fileName,
+        fileUri: UriEx.file(fileName, !ignoreCase),
     };
 }
 

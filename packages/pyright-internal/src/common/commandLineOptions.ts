@@ -11,6 +11,7 @@
 
 import { TaskListToken } from './diagnostic';
 import { PythonVersion } from './pythonVersion';
+import { Uri } from './uri/uri';
 
 export const enum DiagnosticSeverityOverrides {
     Error = 'error',
@@ -90,7 +91,7 @@ export class CommandLineOptions {
     stubPath?: string | undefined;
 
     // Absolute execution root (current working directory).
-    executionRoot: string;
+    executionRoot: string | Uri | undefined;
 
     // Type stub import target (for creation of type stubs).
     typeStubTargetImportName?: string | undefined;
@@ -150,7 +151,7 @@ export class CommandLineOptions {
     // Disable reporting of hint diagnostics with tags?
     disableTaggedHints?: boolean;
 
-    constructor(executionRoot: string, fromVsCodeExtension: boolean) {
+    constructor(executionRoot: string | Uri | undefined, fromVsCodeExtension: boolean) {
         this.executionRoot = executionRoot;
         this.fromVsCodeExtension = fromVsCodeExtension;
     }

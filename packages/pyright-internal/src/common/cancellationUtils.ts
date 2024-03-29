@@ -11,6 +11,7 @@ import { CancellationToken, Disposable, LSPErrorCodes, ResponseError } from 'vsc
 
 import { isDebugMode } from './core';
 import { Uri } from './uri/uri';
+import { UriEx } from './uri/uriUtils';
 
 export interface CancellationProvider {
     createCancellationTokenSource(): AbstractCancellationTokenSource;
@@ -98,7 +99,7 @@ export class FileBasedToken implements CancellationToken {
     private _emitter: Emitter<any> | undefined;
 
     constructor(cancellationId: string, private _fs: { statSync(fileUri: Uri): void }) {
-        this.cancellationFilePath = Uri.file(cancellationId);
+        this.cancellationFilePath = UriEx.file(cancellationId);
     }
 
     get id(): string {

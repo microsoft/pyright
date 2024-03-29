@@ -24,6 +24,7 @@ export interface CacheOwner {
 export class CacheManager {
     private _pausedCount = 0;
     private readonly _cacheOwners: CacheOwner[] = [];
+    private _lastHeapStats = Date.now();
 
     registerCacheOwner(provider: CacheOwner) {
         this._cacheOwners.push(provider);
@@ -82,7 +83,9 @@ export class CacheManager {
     getUsedHeapRatio(console?: ConsoleInterface) {
         const heapStats = getHeapStatistics();
 
-        if (console) {
+        if (console && Date.now() - this._lastHeapStats > 1000) {
+            // This can fill up the user's console, so we only do it once per second.
+            this._lastHeapStats = Date.now();
             console.info(
                 `Heap stats: ` +
                     `total_heap_size=${this._convertToMB(heapStats.total_heap_size)}, ` +

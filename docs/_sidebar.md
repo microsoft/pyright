@@ -13,7 +13,7 @@
     - [Execution Environments](configuration.md#execution-environment-options)
     - [Sample pyrightconfig.json](configuration.md#sample-config-file)
     - [Sample pyproject.toml](configuration.md#sample-pyprojecttoml-file)
-    - [Diagnostic Rule Defaults](configuration.md#diagnostic-rule-defaults)
+    - [Diagnostic Settings Defaults](configuration.md#diagnostic-settings-defaults)
     - [Locale Configuration](configuration.md#locale-configuration)
   - [Language Server Settings](settings.md)
   - [Command Line Interface](command-line.md)
