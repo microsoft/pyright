@@ -5080,7 +5080,7 @@ export class Parser {
         if (nextToken.type === TokenType.Keyword) {
             const keywordType = this._peekKeywordType();
             if (softKeywords.find((type) => type === keywordType)) {
-                const keywordText = this._fileContents!.substr(nextToken.start, nextToken.length);
+                const keywordText = this._fileContents!.slice(nextToken.start, nextToken.length);
                 this._getNextToken();
                 return IdentifierToken.create(nextToken.start, nextToken.length, keywordText, nextToken.comments);
             }

@@ -687,7 +687,7 @@ export class SourceFile {
                     importedModules: [],
                     futureImports: new Set<string>(),
                     tokenizerOutput: {
-                        tokens: new TokenCollection([]),
+                        tokens: new TokenCollection('', []),
                         lines: new TextRangeCollection<TextRange>([]),
                         typeIgnoreAll: undefined,
                         typeIgnoreLines: new Map<number, IgnoreComment>(),

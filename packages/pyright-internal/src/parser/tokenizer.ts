@@ -357,7 +357,7 @@ export class Tokenizer {
         }
 
         return {
-            tokens: new TokenCollection(this._tokens),
+            tokens: new TokenCollection(text, this._tokens),
             lines: new TextRangeCollection(this._lineRanges),
             typeIgnoreLines: this._typeIgnoreLines,
             typeIgnoreAll: this._typeIgnoreAll,

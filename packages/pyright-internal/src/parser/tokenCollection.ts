@@ -139,7 +139,7 @@ export class TokenCollection implements ITokenCollection {
     length!: number;
     count!: number;
     private _secondImpl?: TokenCollectionSlim;
-    constructor(tokens: Token[]) {
+    constructor(private _content: string, tokens: Token[]) {
         // Start out with the faster implementation.
         this._assignImpl(new TokenCollectionFast(tokens));
     }
@@ -157,6 +157,7 @@ export class TokenCollection implements ITokenCollection {
         // Switch to the slower but more memory efficient implementation.
         if (this._impl instanceof TokenCollectionFast && !this._secondImpl) {
             this._secondImpl = new TokenCollectionSlim((this._impl as TokenCollectionFast).toArray());
+            //this._assignImpl(new TokenCollectionSlim((this._impl as TokenCollectionFast).toArray()));
         }
     }
 
