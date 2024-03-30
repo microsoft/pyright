@@ -1188,13 +1188,27 @@ export function isLiteralType(type: ClassType): boolean {
     return TypeBase.isInstance(type) && type.literalValue !== undefined;
 }
 
-export function isLiteralTypeOrUnion(type: Type): boolean {
+export function isLiteralTypeOrUnion(type: Type, allowNone = false): boolean {
     if (isClassInstance(type)) {
+        if (allowNone && isNoneInstance(type)) {
+            return true;
+        }
+
         return type.literalValue !== undefined;
     }
 
     if (isUnion(type)) {
-        return !findSubtype(type, (subtype) => !isClassInstance(subtype) || subtype.literalValue === undefined);
+        return !findSubtype(type, (subtype) => {
+            if (!isClassInstance(subtype)) {
+                return true;
+            }
+
+            if (isNoneInstance(subtype)) {
+                return !allowNone;
+            }
+
+            return subtype.literalValue === undefined;
+        });
     }
 
     return false;

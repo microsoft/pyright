@@ -459,19 +459,21 @@ export function getTypeNarrowingCallback(
                 const rightType = rightTypeResult.type;
                 const memberName = testExpression.leftExpression.memberName;
 
-                if (isClassInstance(rightType) && rightType.literalValue !== undefined) {
-                    return (type: Type) => {
-                        return {
-                            type: narrowTypeForDiscriminatedLiteralFieldComparison(
-                                evaluator,
-                                type,
-                                memberName.value,
-                                rightType,
-                                adjIsPositiveTest
-                            ),
-                            isIncomplete: !!rightTypeResult.isIncomplete,
+                if (isClassInstance(rightType)) {
+                    if (rightType.literalValue !== undefined || isNoneInstance(rightType)) {
+                        return (type: Type) => {
+                            return {
+                                type: narrowTypeForDiscriminatedLiteralFieldComparison(
+                                    evaluator,
+                                    type,
+                                    memberName.value,
+                                    rightType,
+                                    adjIsPositiveTest
+                                ),
+                                isIncomplete: !!rightTypeResult.isIncomplete,
+                            };
                         };
-                    };
+                    }
                 }
             }
 
@@ -2281,7 +2283,7 @@ export function narrowTypeForDiscriminatedLiteralFieldComparison(
                 }
             }
 
-            if (isLiteralTypeOrUnion(memberType)) {
+            if (isLiteralTypeOrUnion(memberType, /* allowNone */ true)) {
                 if (isPositiveTest) {
                     return evaluator.assignType(memberType, literalType) ? subtype : undefined;
                 } else {
