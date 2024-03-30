@@ -3120,12 +3120,21 @@ export class Binder extends ParseTreeWalker {
 
                 // Look for "X in Y" or "X not in Y".
                 if (expression.operator === OperatorType.In || expression.operator === OperatorType.NotIn) {
-                    return this._isNarrowingExpression(
+                    const isLeftNarrowable = this._isNarrowingExpression(
                         expression.leftExpression,
                         expressionList,
                         filterForNeverNarrowing,
                         /* isComplexExpression */ true
                     );
+
+                    const isRightNarrowable = this._isNarrowingExpression(
+                        expression.rightExpression,
+                        expressionList,
+                        filterForNeverNarrowing,
+                        /* isComplexExpression */ true
+                    );
+
+                    return isLeftNarrowable || isRightNarrowable;
                 }
 
                 return false;
