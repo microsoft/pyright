@@ -14239,7 +14239,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (elementTypeResult.typeErrors) {
             typeErrors = true;
         }
-        const elementType = elementTypeResult.type;
+        let elementType = elementTypeResult.type;
+
+        if (!inferenceContext?.expectedType || !containsLiteralType(inferenceContext.expectedType)) {
+            elementType = stripLiteralValue(elementType);
+        }
 
         const builtInIteratorType = getTypingType(node, isAsync ? 'AsyncGenerator' : 'Generator');
 

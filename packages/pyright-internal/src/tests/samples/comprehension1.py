@@ -37,11 +37,17 @@ def generate():
 s = generate()
 s.close()
 
-# verify that literals are handled correctly.
+# Verify that literals are handled correctly.
 FooOrBar = Literal["foo", "bar"]
 
 
 def to_list(values: Iterable[FooOrBar]) -> list[FooOrBar]:
+    x = [value for value in values]
+    reveal_type(x, expected_text="list[str]")
+
+    y = list(value for value in values)
+    reveal_type(y, expected_text="list[str]")
+
     return [value for value in values]
 
 x = 3

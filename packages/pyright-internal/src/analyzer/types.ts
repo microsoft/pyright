@@ -854,6 +854,11 @@ export namespace ClassType {
     export function cloneWithLiteral(classType: ClassType, value: LiteralValue | undefined): ClassType {
         const newClassType = TypeBase.cloneType(classType);
         newClassType.literalValue = value;
+
+        // Remove type alias information because the type will no longer match
+        // that of the type alias definition if we change the literal type.
+        delete newClassType.typeAliasInfo;
+
         return newClassType;
     }
 
