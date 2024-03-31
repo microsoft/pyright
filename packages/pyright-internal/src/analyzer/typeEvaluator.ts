@@ -13756,7 +13756,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const specializedListOrSet = applySolvedTypeVars(expectedClassType, typeVarContext) as ClassType;
-        if (!specializedListOrSet.typeArguments || specializedListOrSet.typeArguments.length !== 1) {
+        if (!specializedListOrSet.typeArguments) {
             return undefined;
         }
 
@@ -14227,11 +14227,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isAsync = true;
         }
 
-        const expectedEntryType = getExpectedEntryTypeForIterable(
-            node,
-            getTypingType(node, 'Iterable'),
-            inferenceContext
-        );
+        const builtInIteratorType = getTypingType(node, isAsync ? 'AsyncGenerator' : 'Generator');
+
+        const expectedEntryType = getExpectedEntryTypeForIterable(node, builtInIteratorType, inferenceContext);
         const elementTypeResult = getElementTypeFromListComprehension(node, expectedEntryType);
         if (elementTypeResult.isIncomplete) {
             isIncomplete = true;
@@ -14239,9 +14237,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (elementTypeResult.typeErrors) {
             typeErrors = true;
         }
-        const elementType = elementTypeResult.type;
+        let elementType = elementTypeResult.type;
 
-        const builtInIteratorType = getTypingType(node, isAsync ? 'AsyncGenerator' : 'Generator');
+        if (!expectedEntryType || !containsLiteralType(expectedEntryType)) {
+            elementType = stripLiteralValue(elementType);
+        }
 
         if (builtInIteratorType && isInstantiableClass(builtInIteratorType)) {
             type = ClassType.cloneAsInstance(
