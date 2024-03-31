@@ -3702,7 +3702,7 @@ export class Binder extends ParseTreeWalker {
                     }
 
                     // Is this annotation indicating that the variable is a "ClassVar"?
-                    let classVarInfo = this._isAnnotationClassVar(typeAnnotation);
+                    const classVarInfo = this._isAnnotationClassVar(typeAnnotation);
 
                     if (classVarInfo.isClassVar) {
                         if (!classVarInfo.classVarTypeNode) {
@@ -3711,7 +3711,10 @@ export class Binder extends ParseTreeWalker {
                     }
 
                     // PEP 591 indicates that a Final variable initialized within a class
-                    // body should also be considered a ClassVar.
+                    // body should also be considered a ClassVar unless it's in a dataclass.
+                    // We can't tell at this stage whether it's a dataclass, so we'll simply
+                    // record whether it's a Final assigned in a class body.
+                    let isFinalAssignedInClassBody = false;
                     if (finalInfo.isFinal) {
                         const containingClass = ParseTreeUtils.getEnclosingClassOrFunction(target);
                         if (containingClass && containingClass.nodeType === ParseNodeType.Class) {
@@ -3720,10 +3723,7 @@ export class Binder extends ParseTreeWalker {
                                 target.parent?.nodeType === ParseNodeType.Assignment ||
                                 target.parent?.parent?.nodeType === ParseNodeType.Assignment
                             ) {
-                                classVarInfo = {
-                                    isClassVar: true,
-                                    classVarTypeNode: undefined,
-                                };
+                                isFinalAssignedInClassBody = true;
                             }
                         }
                     }
@@ -3743,9 +3743,13 @@ export class Binder extends ParseTreeWalker {
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
 
+                    if (isFinalAssignedInClassBody) {
+                        symbolWithScope.symbol.setIsFinalVarInClassBody();
+                    }
+
                     if (classVarInfo.isClassVar) {
                         symbolWithScope.symbol.setIsClassVar();
-                    } else {
+                    } else if (!isFinalAssignedInClassBody) {
                         symbolWithScope.symbol.setIsInstanceMember();
                     }
 

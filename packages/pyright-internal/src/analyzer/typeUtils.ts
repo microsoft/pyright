@@ -12,7 +12,7 @@ import { assert } from '../common/debug';
 import { ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
-import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
+import { isEffectivelyClassVar, isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import {
     AnyType,
     ClassType,
@@ -1645,7 +1645,7 @@ export function getProtocolSymbolsRecursive(
                 classType,
                 isInstanceMember: symbol.isInstanceMember(),
                 isClassMember: symbol.isClassMember(),
-                isClassVar: symbol.isClassVar(),
+                isClassVar: isEffectivelyClassVar(symbol, /* isDataclass */ false),
                 isTypeDeclared: symbol.hasTypedDeclarations(),
                 skippedUndeclaredType: false,
             });
@@ -1807,7 +1807,7 @@ export function* getClassMemberIterator(
                             symbol,
                             isInstanceMember: true,
                             isClassMember: symbol.isClassMember(),
-                            isClassVar: symbol.isClassVar(),
+                            isClassVar: isEffectivelyClassVar(symbol, ClassType.isDataClass(specializedMroClass)),
                             classType: specializedMroClass,
                             isTypeDeclared: hasDeclaredType,
                             skippedUndeclaredType,
@@ -1847,7 +1847,7 @@ export function* getClassMemberIterator(
                             symbol,
                             isInstanceMember,
                             isClassMember,
-                            isClassVar: symbol.isClassVar(),
+                            isClassVar: isEffectivelyClassVar(symbol, isDataclass),
                             classType: specializedMroClass,
                             isTypeDeclared: hasDeclaredType,
                             skippedUndeclaredType,
@@ -1942,7 +1942,7 @@ export function getClassFieldsRecursive(classType: ClassType): Map<string, Class
                         symbol,
                         isInstanceMember: symbol.isInstanceMember(),
                         isClassMember: symbol.isClassMember(),
-                        isClassVar: symbol.isClassVar(),
+                        isClassVar: isEffectivelyClassVar(symbol, ClassType.isDataClass(specializedMroClass)),
                         isTypeDeclared: true,
                         skippedUndeclaredType: false,
                     });
