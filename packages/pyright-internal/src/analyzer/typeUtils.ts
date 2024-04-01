@@ -4279,13 +4279,8 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                     }
                 }
 
-                if (
-                    isTypeVar(replacement) &&
-                    typeVar.isVariadicInUnion &&
-                    replacement.details.isVariadic &&
-                    !replacement.isVariadicInUnion
-                ) {
-                    return TypeVarType.cloneForUnpacked(replacement, /* isInUnion */ true);
+                if (isTypeVar(replacement) && typeVar.isVariadicUnpacked && replacement.details.isVariadic) {
+                    return TypeVarType.cloneForUnpacked(replacement, typeVar.isVariadicInUnion);
                 }
 
                 return replacement;
