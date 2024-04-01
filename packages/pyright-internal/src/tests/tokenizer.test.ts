@@ -42,7 +42,7 @@ const _implicitTokenCountNoImplicitNewLine = 1;
             const t = new Tokenizer();
             const results = t.tokenize(code);
             if (minimizeResults) {
-                results.tokens.minimize();
+                results.tokens.compress();
             }
             return results;
         }

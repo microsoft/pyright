@@ -808,7 +808,7 @@ export class SourceFile {
                 this._writableData.isBindingNeeded = false;
 
                 // Clear up some memory in the parser.
-                this._writableData.parseResults?.tokenizerOutput.tokens.minimize();
+                this._writableData.parseResults?.tokenizerOutput.tokens.compress();
 
                 this._recomputeDiagnostics(configOptions);
             }

@@ -183,8 +183,6 @@ export const enum CommentType {
     IPythonCellShellEscape,
 }
 
-export type TokenPrimitive = string | number | bigint;
-
 export interface Comment extends TextRange {
     readonly type: CommentType;
     readonly value: string;
@@ -193,6 +191,7 @@ export interface Comment extends TextRange {
 }
 
 export namespace Comment {
+    // NOTE: Start + Length is just where in the original string the comment value is
     export function create(start: number, length: number, value: string, type = CommentType.Regular) {
         const comment: Comment = {
             type,
@@ -204,20 +203,29 @@ export namespace Comment {
         return comment;
     }
 
-    export function toArray(comments: Comment[] | undefined) {
-        const commentsArray = comments?.map((c) => [c.type, c.start, c.length, c.value]) || [];
+    export function toCompressed(comments: Comment[] | undefined): number[] {
+        // String value isn't necessary to save because start + length encapsulates where in the
+        // original text the comment was.
+        const commentsArray = comments?.map((c) => [c.type, c.start, c.length]) || [];
         return commentsArray.flat();
     }
 
-    export function fromArray(data: TokenPrimitive[], start: number, length: number): Comment[] | undefined {
+    export function fromCompressed(
+        data: Int32Array,
+        base: string,
+        start: number,
+        length: number
+    ): Comment[] | undefined {
         const commentsArray: Comment[] = [];
         for (let i = 0; i < length; i++) {
             const sliceIndex = start + i * 4;
+            const commentStart = data[sliceIndex + 1];
+            const commentLength = data[sliceIndex + 2];
             commentsArray.push(
                 create(
-                    data[sliceIndex + 1] as number,
-                    data[sliceIndex + 2] as number,
-                    data[sliceIndex + 3] as string,
+                    commentStart,
+                    commentLength,
+                    base.slice(commentStart, commentStart + commentLength),
                     data[sliceIndex] as CommentType
                 )
             );
@@ -247,85 +255,85 @@ export namespace Token {
         return token;
     }
 
-    export function extractTokenType(data: TokenPrimitive): TokenType {
-        return (data as number) & 0xffff;
+    export function extractTokenType(data: number): TokenType {
+        return data & 0xffff;
     }
 
-    export function extractCommentLength(data: TokenPrimitive) {
-        return (data as number) >> 16;
+    export function extractCommentLength(data: number) {
+        return data >> 16;
     }
 
-    export function combineTypeAndLength(type: TokenType, comments: Comment[] | undefined): TokenPrimitive {
+    export function combineTypeAndLength(type: TokenType, comments: Comment[] | undefined): number {
         const commentLength = comments?.length || 0;
         return (type & 0xffff) | (commentLength << 16);
     }
 
-    export function toArray(token: Token): TokenPrimitive[] {
+    export function toCompressed(token: Token, numberData: (number | bigint)[]): number[] {
         switch (token.type) {
             case TokenType.Indent:
-                return IndentToken.toArray(token as IndentToken);
+                return IndentToken.toCompressed(token as IndentToken);
             case TokenType.Dedent:
-                return DedentToken.toArray(token as DedentToken);
+                return DedentToken.toCompressed(token as DedentToken);
             case TokenType.NewLine:
-                return NewLineToken.toArray(token as NewLineToken);
+                return NewLineToken.toCompressed(token as NewLineToken);
             case TokenType.Keyword:
-                return KeywordToken.toArray(token as KeywordToken);
+                return KeywordToken.toCompressed(token as KeywordToken);
             case TokenType.String:
-                return StringToken.toArray(token as StringToken);
+                return StringToken.toCompressed(token as StringToken);
             case TokenType.FStringStart:
-                return FStringStartToken.toArray(token as FStringStartToken);
+                return FStringStartToken.toCompressed(token as FStringStartToken);
             case TokenType.FStringMiddle:
-                return FStringMiddleToken.toArray(token as FStringMiddleToken);
+                return FStringMiddleToken.toCompressed(token as FStringMiddleToken);
             case TokenType.FStringEnd:
-                return FStringEndToken.toArray(token as FStringEndToken);
+                return FStringEndToken.toCompressed(token as FStringEndToken);
             case TokenType.Number:
-                return NumberToken.toArray(token as NumberToken);
+                return NumberToken.toCompressed(token as NumberToken, numberData);
             case TokenType.Operator:
-                return OperatorToken.toArray(token as OperatorToken);
+                return OperatorToken.toCompressed(token as OperatorToken);
             case TokenType.Identifier:
-                return IdentifierToken.toArray(token as IdentifierToken);
+                return IdentifierToken.toCompressed(token as IdentifierToken);
             default:
                 // Type and comments length are merged. Assuming less than 32k comments.
                 return [
                     combineTypeAndLength(token.type, token.comments),
                     token.start,
                     token.length,
-                    ...Comment.toArray(token.comments),
+                    ...Comment.toCompressed(token.comments),
                 ];
         }
     }
 
-    export function fromArray(data: TokenPrimitive[], start: number) {
+    export function fromCompressed(data: Int32Array, start: number, base: string, numberData: (number | bigint)[]) {
         const tokenType = extractTokenType(data[start]);
         switch (tokenType) {
             case TokenType.Indent:
-                return IndentToken.fromArray(data, start);
+                return IndentToken.fromCompressed(data, start, base);
             case TokenType.Dedent:
-                return DedentToken.fromArray(data, start);
+                return DedentToken.fromCompressed(data, start, base);
             case TokenType.NewLine:
-                return NewLineToken.fromArray(data, start);
+                return NewLineToken.fromCompressed(data, start, base);
             case TokenType.Keyword:
-                return KeywordToken.fromArray(data, start);
+                return KeywordToken.fromCompressed(data, start, base);
             case TokenType.String:
-                return StringToken.fromArray(data, start);
+                return StringToken.fromCompressed(data, start, base);
             case TokenType.FStringStart:
-                return FStringStartToken.fromArray(data, start);
+                return FStringStartToken.fromCompressed(data, start, base);
             case TokenType.FStringMiddle:
-                return FStringMiddleToken.fromArray(data, start);
+                return FStringMiddleToken.fromCompressed(data, start, base);
             case TokenType.FStringEnd:
-                return FStringEndToken.fromArray(data, start);
+                return FStringEndToken.fromCompressed(data, start);
             case TokenType.Number:
-                return NumberToken.fromArray(data, start);
+                return NumberToken.fromCompressed(data, start, base, numberData);
             case TokenType.Operator:
-                return OperatorToken.fromArray(data, start);
+                return OperatorToken.fromCompressed(data, start, base);
             case TokenType.Identifier:
-                return IdentifierToken.fromArray(data, start);
+                return IdentifierToken.fromCompressed(data, start, base);
             default:
                 return create(
                     tokenType,
-                    data[start + 1] as number,
-                    data[start + 2] as number,
-                    Comment.fromArray(data, start + 3, extractCommentLength(data[start]))
+                    data[start + 1],
+                    data[start + 2],
+                    Comment.fromCompressed(data, base, start + 3, extractCommentLength(data[start]))
                 );
         }
     }
@@ -357,24 +365,24 @@ export namespace IndentToken {
         return token;
     }
 
-    export function toArray(token: IndentToken): TokenPrimitive[] {
+    export function toCompressed(token: IndentToken): number[] {
         return [
             Token.combineTypeAndLength(token.type, token.comments),
             token.start,
             token.length,
             token.indentAmount,
             token.isIndentAmbiguous ? 1 : 0,
-            ...Comment.toArray(token.comments),
+            ...Comment.toCompressed(token.comments),
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[], start: number) {
+    export function fromCompressed(data: Int32Array, start: number, base: string) {
         return create(
-            data[start + 1] as number,
-            data[start + 2] as number,
-            data[start + 3] as number,
+            data[start + 1],
+            data[start + 2],
+            data[start + 3],
             data[start + 4] ? true : false,
-            Comment.fromArray(data, start + 5, Token.extractCommentLength(data[start]))
+            Comment.fromCompressed(data, base, start + 5, Token.extractCommentLength(data[start]))
         );
     }
 }
@@ -408,7 +416,7 @@ export namespace DedentToken {
         return token;
     }
 
-    export function toArray(token: DedentToken): TokenPrimitive[] {
+    export function toCompressed(token: DedentToken): number[] {
         return [
             Token.combineTypeAndLength(token.type, token.comments),
             token.start,
@@ -416,18 +424,18 @@ export namespace DedentToken {
             token.indentAmount,
             token.matchesIndent ? 1 : 0,
             token.isDedentAmbiguous ? 1 : 0,
-            ...Comment.toArray(token.comments),
+            ...Comment.toCompressed(token.comments),
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[], start: number) {
+    export function fromCompressed(data: Int32Array, start: number, base: string) {
         return create(
-            data[start + 1] as number,
-            data[start + 2] as number,
-            data[start + 3] as number,
+            data[start + 1],
+            data[start + 2],
+            data[start + 3],
             data[start + 4] ? true : false,
             data[start + 5] ? true : false,
-            Comment.fromArray(data, start + 6, Token.extractCommentLength(data[start]))
+            Comment.fromCompressed(data, base, start + 6, Token.extractCommentLength(data[start]))
         );
     }
 }
@@ -450,22 +458,22 @@ export namespace NewLineToken {
         return token;
     }
 
-    export function toArray(token: NewLineToken): TokenPrimitive[] {
+    export function toCompressed(token: NewLineToken): number[] {
         return [
             Token.combineTypeAndLength(token.type, token.comments),
             token.start,
             token.length,
             token.newLineType,
-            ...Comment.toArray(token.comments),
+            ...Comment.toCompressed(token.comments),
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[], start: number) {
+    export function fromCompressed(data: Int32Array, start: number, base: string) {
         return create(
             data[start + 1] as number,
             data[start + 2] as number,
             data[start + 3] as NewLineType,
-            Comment.fromArray(data, start + 4, Token.extractCommentLength(data[start]))
+            Comment.fromCompressed(data, base, start + 4, Token.extractCommentLength(data[start]))
         );
     }
 }
@@ -488,22 +496,22 @@ export namespace KeywordToken {
         return token;
     }
 
-    export function toArray(token: KeywordToken): TokenPrimitive[] {
+    export function toCompressed(token: KeywordToken): number[] {
         return [
             Token.combineTypeAndLength(token.type, token.comments),
             token.start,
             token.length,
             token.keywordType,
-            ...Comment.toArray(token.comments),
+            ...Comment.toCompressed(token.comments),
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[], start: number) {
+    export function fromCompressed(data: Int32Array, start: number, base: string) {
         return create(
             data[start + 1] as number,
             data[start + 2] as number,
             data[start + 3] as KeywordType,
-            Comment.fromArray(data, start + 4, Token.extractCommentLength(data[start]))
+            Comment.fromCompressed(data, base, start + 4, Token.extractCommentLength(data[start]))
         );
     }
 }
@@ -525,6 +533,7 @@ export interface StringToken extends Token {
 }
 
 export namespace StringToken {
+    // Escaped value is usually off by the quote mark length.
     export function create(
         start: number,
         length: number,
@@ -547,26 +556,29 @@ export namespace StringToken {
         return token;
     }
 
-    export function toArray(token: StringToken): TokenPrimitive[] {
+    export function toCompressed(token: StringToken): number[] {
+        // Start + length is the slice of the original base string, so no
+        // need to store the escaped value in the int32 array.
         return [
             Token.combineTypeAndLength(token.type, token.comments),
             token.start,
             token.length,
             token.flags,
-            token.escapedValue,
             token.prefixLength,
-            ...Comment.toArray(token.comments),
+            ...Comment.toCompressed(token.comments),
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[], start: number): StringToken {
+    export function fromCompressed(data: Int32Array, start: number, base: string): StringToken {
+        const stringStart = data[start + 1];
+        const stringLength = data[start + 2];
         return create(
-            data[start + 1] as number,
-            data[start + 2] as number,
+            stringStart,
+            stringLength,
             data[start + 3] as StringTokenFlags,
-            data[start + 4] as string,
-            data[start + 5] as number,
-            Comment.fromArray(data, start + 6, Token.extractCommentLength(data[start]))
+            base.slice(stringStart, stringStart + stringLength),
+            data[start + 4],
+            Comment.fromCompressed(data, base, start + 5, Token.extractCommentLength(data[start]))
         );
     }
 }
@@ -605,24 +617,24 @@ export namespace FStringStartToken {
         return token;
     }
 
-    export function toArray(token: FStringStartToken): TokenPrimitive[] {
+    export function toCompressed(token: FStringStartToken): number[] {
         return [
             Token.combineTypeAndLength(token.type, token.comments),
             token.start,
             token.length,
             token.flags,
             token.prefixLength,
-            ...Comment.toArray(token.comments),
+            ...Comment.toCompressed(token.comments),
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[], start: number): FStringStartToken {
+    export function fromCompressed(data: Int32Array, start: number, base: string): FStringStartToken {
         return create(
             data[start + 1] as number,
             data[start + 2] as number,
             data[start + 3] as StringTokenFlags,
             data[start + 4] as number,
-            Comment.fromArray(data, start + 5, Token.extractCommentLength(data[start]))
+            Comment.fromCompressed(data, base, start + 5, Token.extractCommentLength(data[start]))
         );
     }
 }
@@ -636,6 +648,7 @@ export interface FStringMiddleToken extends Token {
 }
 
 export namespace FStringMiddleToken {
+    // Escaped value is start of token
     export function create(start: number, length: number, flags: StringTokenFlags, escapedValue: string) {
         const token: FStringMiddleToken = {
             start,
@@ -648,22 +661,20 @@ export namespace FStringMiddleToken {
         return token;
     }
 
-    export function toArray(token: FStringMiddleToken): TokenPrimitive[] {
-        return [
-            Token.combineTypeAndLength(token.type, undefined),
-            token.start,
-            token.length,
-            token.flags,
-            token.escapedValue,
-        ];
+    export function toCompressed(token: FStringMiddleToken): number[] {
+        // Start + length in the original string describe the escaped value so no need
+        // to return it.
+        return [Token.combineTypeAndLength(token.type, undefined), token.start, token.length, token.flags];
     }
 
-    export function fromArray(data: TokenPrimitive[], start: number): FStringMiddleToken {
+    export function fromCompressed(data: Int32Array, start: number, base: string): FStringMiddleToken {
+        const stringStart = data[start + 1];
+        const stringLength = data[start + 2];
         return create(
-            data[start + 1] as number,
-            data[start + 2] as number,
+            stringStart,
+            stringLength,
             data[start + 3] as StringTokenFlags,
-            data[start + 4] as string
+            base.slice(stringStart, stringStart + stringLength)
         );
     }
 }
@@ -685,11 +696,11 @@ export namespace FStringEndToken {
         return token;
     }
 
-    export function toArray(token: FStringEndToken): TokenPrimitive[] {
+    export function toCompressed(token: FStringEndToken): number[] {
         return [Token.combineTypeAndLength(token.type, undefined), token.start, token.length, token.flags];
     }
 
-    export function fromArray(data: TokenPrimitive[], start: number): FStringEndToken {
+    export function fromCompressed(data: Int32Array, start: number): FStringEndToken {
         return create(data[start + 1] as number, data[start + 2] as number, data[start + 3] as StringTokenFlags);
     }
 }
@@ -723,26 +734,34 @@ export namespace NumberToken {
         return token;
     }
 
-    export function toArray(token: NumberToken): TokenPrimitive[] {
+    export function toCompressed(token: NumberToken, numberData: (number | bigint)[]): number[] {
+        const numberDataPosition = numberData.length;
+        numberData.push(token.value);
         return [
             Token.combineTypeAndLength(token.type, token.comments),
             token.start,
             token.length,
-            token.value,
+            numberDataPosition,
             token.isInteger ? 1 : 0,
             token.isImaginary ? 1 : 0,
-            ...Comment.toArray(token.comments),
+            ...Comment.toCompressed(token.comments),
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[], start: number): NumberToken {
+    export function fromCompressed(
+        data: Int32Array,
+        start: number,
+        base: string,
+        numberData: (number | bigint)[]
+    ): NumberToken {
+        const numberDataPosition = data[start + 3];
         return create(
             data[start + 1] as number,
             data[start + 2] as number,
-            data[start + 3] as number | bigint,
+            numberData[numberDataPosition],
             data[start + 4] ? true : false,
             data[start + 5] ? true : false,
-            Comment.fromArray(data, start + 6, Token.extractCommentLength(data[start]))
+            Comment.fromCompressed(data, base, start + 6, Token.extractCommentLength(data[start]))
         );
     }
 }
@@ -765,22 +784,22 @@ export namespace OperatorToken {
         return token;
     }
 
-    export function toArray(token: OperatorToken): TokenPrimitive[] {
+    export function toCompressed(token: OperatorToken): number[] {
         return [
             Token.combineTypeAndLength(token.type, token.comments),
             token.start,
             token.length,
             token.operatorType,
-            ...Comment.toArray(token.comments),
+            ...Comment.toCompressed(token.comments),
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[], start: number): OperatorToken {
+    export function fromCompressed(data: Int32Array, start: number, base: string): OperatorToken {
         return create(
             data[start + 1] as number,
             data[start + 2] as number,
             data[start + 3] as OperatorType,
-            Comment.fromArray(data, start + 4, Token.extractCommentLength(data[start]))
+            Comment.fromCompressed(data, base, start + 4, Token.extractCommentLength(data[start]))
         );
     }
 }
@@ -791,6 +810,8 @@ export interface IdentifierToken extends Token {
 }
 
 export namespace IdentifierToken {
+    // Value may or may not point to the actual contents of the file. If empty it doesn't. Could use -1 to
+    // hold that case.
     export function create(start: number, length: number, value: string, comments: Comment[] | undefined) {
         // Perform "NFKC normalization", as per the Python lexical spec.
         const normalizedValue = value.normalize('NFKC');
@@ -806,22 +827,27 @@ export namespace IdentifierToken {
         return token;
     }
 
-    export function toArray(token: IdentifierToken): TokenPrimitive[] {
+    export function toCompressed(token: IdentifierToken): number[] {
+        // Value usually comes from the base string. If it's empty it won't. Use a - as
+        // a flag to indicate this case.
+        const minimizedLength = token.value ? token.length : -token.length;
         return [
             Token.combineTypeAndLength(token.type, token.comments),
             token.start,
-            token.length,
-            token.value,
-            ...Comment.toArray(token.comments),
+            minimizedLength,
+            ...Comment.toCompressed(token.comments),
         ];
     }
 
-    export function fromArray(data: TokenPrimitive[], start: number): IdentifierToken {
+    export function fromCompressed(data: Int32Array, start: number, base: string): IdentifierToken {
+        const stringStart = data[start + 1];
+        const stringLength = data[start + 2];
+        const value = stringLength < 0 ? '' : base.slice(stringStart, stringStart + stringLength);
         return create(
-            data[start + 1] as number,
-            data[start + 2] as number,
-            data[start + 3] as string,
-            Comment.fromArray(data, start + 4, Token.extractCommentLength(data[start]))
+            stringStart,
+            Math.abs(stringLength),
+            value,
+            Comment.fromCompressed(data, base, start + 4, Token.extractCommentLength(data[start]))
         );
     }
 }

@@ -7,7 +7,7 @@
  */
 
 import { TextRangeCollection } from '../common/textRangeCollection';
-import { Token, TokenPrimitive } from './tokenizerTypes';
+import { Token } from './tokenizerTypes';
 
 // Interface implemented by a TokenCollection
 interface ITokenCollection {
@@ -30,23 +30,30 @@ class TokenCollectionFast extends TextRangeCollection<Token> implements ITokenCo
     }
 }
 
+function* generateCompressedData(
+    tokens: Token[],
+    tokenPositions: Int32Array,
+    numberData: (number | bigint)[]
+): Generator<number, void, undefined> {
+    let currentPosition = 0;
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        const tokenArray = Token.toCompressed(token, numberData);
+        tokenPositions[i] = currentPosition;
+        currentPosition += tokenArray.length;
+        yield* tokenArray;
+    }
+}
+
 // Special TokenCollection that is optimized for memory usage but is a lot
 // slower to fetch actual tokens.
-export class TokenCollectionSlim implements ITokenCollection {
-    private _tokenData: TokenPrimitive[] = [];
+export class TokenCollectionCompressed implements ITokenCollection {
+    private _tokenData: Int32Array;
+    private _numberData: (number | bigint)[] = [];
     private _tokenPositions: Int32Array;
-    constructor(tokens: Token[]) {
+    constructor(tokens: Token[], private readonly _content: string) {
         this._tokenPositions = new Int32Array(tokens.length);
-        tokens.forEach((t, i) => {
-            // Turn each token into a flat array.
-            const array = Token.toArray(t);
-
-            // Remember the position of this token for quicker lookup later.
-            this._tokenPositions[i] = this._tokenData.length;
-
-            // Store the flat array in the collection.
-            this._tokenData.push(...array);
-        });
+        this._tokenData = Int32Array.from(generateCompressedData(tokens, this._tokenPositions, this._numberData));
     }
 
     get start(): number {
@@ -82,7 +89,7 @@ export class TokenCollectionSlim implements ITokenCollection {
             throw new Error('index is out of range');
         }
         const position = this._tokenPositions[index];
-        return Token.fromArray(this._tokenData, position);
+        return Token.fromCompressed(this._tokenData, position, this._content, this._numberData);
     }
 
     getItemStart(index: number): number {
@@ -138,7 +145,7 @@ export class TokenCollection implements ITokenCollection {
     end!: number;
     length!: number;
     count!: number;
-    private _secondImpl?: TokenCollectionSlim;
+    private _secondImpl?: TokenCollectionCompressed;
     constructor(private _content: string, tokens: Token[]) {
         // Start out with the faster implementation.
         this._assignImpl(new TokenCollectionFast(tokens));
@@ -153,10 +160,13 @@ export class TokenCollection implements ITokenCollection {
         return this._impl.getItemAtPosition(position);
     }
 
-    minimize() {
+    compress() {
         // Switch to the slower but more memory efficient implementation.
         if (this._impl instanceof TokenCollectionFast && !this._secondImpl) {
-            this._secondImpl = new TokenCollectionSlim((this._impl as TokenCollectionFast).toArray());
+            this._secondImpl = new TokenCollectionCompressed(
+                (this._impl as TokenCollectionFast).toArray(),
+                this._content
+            );
             //this._assignImpl(new TokenCollectionSlim((this._impl as TokenCollectionFast).toArray()));
         }
     }
