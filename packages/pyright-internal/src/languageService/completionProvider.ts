@@ -1314,10 +1314,9 @@ export class CompletionProvider {
         return undefined;
     }
 
-    // This method will return false if it wants1
-    // caller to walk up the tree. it will return
-    // CompletionResults or undefined if it wants caller
-    // to return.
+    // This method returns false if it wants the caller to walk up the
+    // tree. It returns CompletionResults or undefined if it wants the
+    // caller to return.
     private _tryGetNameCompletions(
         curNode: NameNode,
         offset: number,

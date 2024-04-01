@@ -755,6 +755,7 @@
         "typedDictFieldTypeMismatch": "Type \"{type}\" is not assignable to item \"{name}\"",
         "typedDictFieldUndefined": "\"{name}\" is an undefined item in type \"{type}\"",
         "typedDictFinalMismatch": "\"{sourceType}\" is incompatible with \"{destType}\" because of a @final mismatch",
+        "typedDictKeyAccess": "Use [\"{name}\"] to reference item in TypedDict",
         "typedDictNotAllowed": "TypedDict cannot be used for instance or class checks",
         "typeIncompatible": "\"{sourceType}\" is incompatible with \"{destType}\"",
         "typeNotClass": "\"{type}\" is not a class",

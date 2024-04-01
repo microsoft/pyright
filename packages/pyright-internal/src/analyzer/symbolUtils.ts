@@ -38,3 +38,15 @@ export function isTypedDictMemberAccessedThroughIndex(symbol: Symbol): boolean {
 export function isVisibleExternally(symbol: Symbol) {
     return !symbol.isExternallyHidden() && !symbol.isPrivatePyTypedImport();
 }
+
+export function isEffectivelyClassVar(symbol: Symbol, isInDataclass: boolean) {
+    if (symbol.isClassVar()) {
+        return true;
+    }
+
+    if (symbol.isFinalVarInClassBody()) {
+        return !isInDataclass;
+    }
+
+    return false;
+}

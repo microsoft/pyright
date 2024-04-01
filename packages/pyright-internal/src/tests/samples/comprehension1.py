@@ -1,6 +1,6 @@
 # This sample tests type checking for list comprehensions.
 
-from typing import Generator, Iterable, Literal
+from typing import Any, Generator, Iterable, Literal
 
 a = [1, 2, 3, 4]
 
@@ -37,11 +37,26 @@ def generate():
 s = generate()
 s.close()
 
-# verify that literals are handled correctly.
+# Verify that literals are handled correctly.
 FooOrBar = Literal["foo", "bar"]
 
 
 def to_list(values: Iterable[FooOrBar]) -> list[FooOrBar]:
+    a = [value for value in values]
+    reveal_type(a, expected_text="list[str]")
+
+    b: list[FooOrBar] = [value for value in values]
+
+    c = list(value for value in values)
+    reveal_type(c, expected_text="list[str]")
+
+    d: list[FooOrBar] = list(value for value in values)
+
+    e = (value for value in values)
+    reveal_type(e, expected_text="Generator[str, None, None]")
+
+    f: Generator[FooOrBar, Any, Any] = (value for value in values)
+
     return [value for value in values]
 
 x = 3
