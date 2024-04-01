@@ -663,7 +663,6 @@ export interface FStringMiddleToken extends Token {
 }
 
 export namespace FStringMiddleToken {
-    // Escaped value is start of token
     export function create(start: number, length: number, flags: StringTokenFlags, escapedValue: string) {
         const token: FStringMiddleToken = {
             start,
