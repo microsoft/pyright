@@ -860,7 +860,7 @@ export namespace IdentifierToken {
             stringStart,
             Math.abs(stringLength),
             value,
-            Comment.fromCompressed(data, base, start + 4, Token.extractCommentLength(data[start]))
+            Comment.fromCompressed(data, base, start + 3, Token.extractCommentLength(data[start]))
         );
     }
 }
