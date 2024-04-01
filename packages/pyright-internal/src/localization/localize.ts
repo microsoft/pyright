@@ -1510,6 +1510,8 @@ export namespace Localizer {
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.typedDictFinalMismatch')
             );
+        export const typedDictKeyAccess = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typedDictKeyAccess'));
         export const typedDictNotAllowed = () => getRawString('DiagnosticAddendum.typedDictNotAllowed');
         export const typeIncompatible = () =>
             new ParameterizedString<{ sourceType: string; destType: string }>(

@@ -5528,6 +5528,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     diag = usage.setExpectedTypeDiag;
                 }
 
+                // If the class is a TypedDict, and there's a key with the same name,
+                // suggest that they user want to use ["key"] name instead.
+                if (isClass(baseType) && baseType.details.typedDictEntries) {
+                    const tdKey = baseType.details.typedDictEntries.knownItems.get(memberName);
+                    if (tdKey) {
+                        const subDiag = new DiagnosticAddendum();
+                        subDiag.addMessage(LocAddendum.typedDictKeyAccess().format({ name: memberName }));
+                        diag.addAddendum(subDiag);
+                    }
+                }
+
                 const rule = isFunctionRule
                     ? DiagnosticRule.reportFunctionMemberAccess
                     : DiagnosticRule.reportAttributeAccessIssue;
