@@ -6,6 +6,7 @@
  * Stores a stream of tokens from a python file.
  */
 
+import { assert } from '../common/debug';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Token } from './tokenizerTypes';
 
@@ -162,16 +163,27 @@ export class TokenCollection implements ITokenCollection {
 
     compress() {
         // Switch to the slower but more memory efficient implementation.
-        if (this._impl instanceof TokenCollectionFast && !this._secondImpl) {
-            this._secondImpl = new TokenCollectionCompressed(
-                (this._impl as TokenCollectionFast).toArray(),
-                this._content
+        if (this._impl instanceof TokenCollectionFast) {
+            // && !this._secondImpl) {
+            // this._secondImpl = new TokenCollectionCompressed(
+            //     (this._impl as TokenCollectionFast).toArray(),
+            //     this._content
+            // );
+            this._assignImpl(
+                new TokenCollectionCompressed((this._impl as TokenCollectionFast).toArray(), this._content)
             );
-            //this._assignImpl(new TokenCollectionSlim((this._impl as TokenCollectionFast).toArray()));
         }
     }
 
     private _assignImpl(impl: ITokenCollection) {
+        // If we already have an impl, make sure values are the same.
+        if (this._impl) {
+            assert(this._impl.start === impl.start);
+            assert(this._impl.end === impl.end);
+            assert(this._impl.length === impl.length);
+            assert(this._impl.count === impl.count);
+        }
+
         this._impl = impl;
         this.start = impl.start;
         this.end = impl.end;

@@ -191,7 +191,6 @@ export interface Comment extends TextRange {
 }
 
 export namespace Comment {
-    // NOTE: Start + Length is just where in the original string the comment value is
     export function create(start: number, length: number, value: string, type = CommentType.Regular) {
         const comment: Comment = {
             type,
@@ -533,7 +532,6 @@ export interface StringToken extends Token {
 }
 
 export namespace StringToken {
-    // Escaped value is usually off by the quote mark length.
     export function create(
         start: number,
         length: number,
@@ -557,8 +555,8 @@ export namespace StringToken {
     }
 
     export function toCompressed(token: StringToken): number[] {
-        // Start + length is the slice of the original base string, so no
-        // need to store the escaped value in the int32 array.
+        // Start + length + prefixLength and flags can be used to generate the string
+        // from the original string, so no need to store the original string.
         return [
             Token.combineTypeAndLength(token.type, token.comments),
             token.start,
@@ -569,15 +567,32 @@ export namespace StringToken {
         ];
     }
 
+    export function computeEscapedString(
+        base: string,
+        tokenStart: number,
+        tokenLength: number,
+        prefixLength: number,
+        flags: StringTokenFlags
+    ): string {
+        const stringOffset = prefixLength + (flags & StringTokenFlags.Triplicate ? 3 : 1);
+        const stringLength =
+            tokenLength -
+            stringOffset -
+            (flags & StringTokenFlags.Unterminated ? 0 : flags & StringTokenFlags.Triplicate ? 3 : 1);
+        return base.slice(tokenStart + stringOffset, tokenStart + stringOffset + stringLength);
+    }
+
     export function fromCompressed(data: Int32Array, start: number, base: string): StringToken {
-        const stringStart = data[start + 1];
-        const stringLength = data[start + 2];
+        const tokenStart = data[start + 1];
+        const tokenLength = data[start + 2];
+        const flags = data[start + 3] as StringTokenFlags;
+        const prefixLength = data[start + 4];
         return create(
-            stringStart,
-            stringLength,
-            data[start + 3] as StringTokenFlags,
-            base.slice(stringStart, stringStart + stringLength),
-            data[start + 4],
+            tokenStart,
+            tokenLength,
+            flags,
+            StringToken.computeEscapedString(base, tokenStart, tokenLength, prefixLength, flags),
+            prefixLength,
             Comment.fromCompressed(data, base, start + 5, Token.extractCommentLength(data[start]))
         );
     }
@@ -810,8 +825,6 @@ export interface IdentifierToken extends Token {
 }
 
 export namespace IdentifierToken {
-    // Value may or may not point to the actual contents of the file. If empty it doesn't. Could use -1 to
-    // hold that case.
     export function create(start: number, length: number, value: string, comments: Comment[] | undefined) {
         // Perform "NFKC normalization", as per the Python lexical spec.
         const normalizedValue = value.normalize('NFKC');
