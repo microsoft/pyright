@@ -30,7 +30,7 @@ import {
     ParseNode,
     ParseNodeType,
 } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import { appendArray, getOrAdd, removeArrayElements } from './collectionUtils';
 import * as debug from './debug';
 import { FileEditAction } from './editAction';
@@ -39,7 +39,7 @@ import { doesRangeContain, doRangesIntersect, extendRange, Range, TextRange } fr
 import { Uri } from './uri/uri';
 
 export class TextEditTracker {
-    private readonly _nodesRemoved: Map<ParseNode, ParseResults> = new Map<ParseNode, ParseResults>();
+    private readonly _nodesRemoved: Map<ParseNode, ParseFileResults> = new Map<ParseNode, ParseFileResults>();
     private readonly _results = new Map<string, FileEditAction[]>();
 
     private readonly _pendingNodeToRemove: NodeToRemove[] = [];
@@ -73,19 +73,19 @@ export class TextEditTracker {
         edits.push({ fileUri: fileUri, range, replacementText });
     }
 
-    addEditWithTextRange(parseResults: ParseResults, range: TextRange, replacementText: string) {
-        const filePath = getFileInfo(parseResults.parseTree).fileUri;
+    addEditWithTextRange(parseFileResults: ParseFileResults, range: TextRange, replacementText: string) {
+        const filePath = getFileInfo(parseFileResults.parserOutput.parseTree).fileUri;
 
-        const existing = parseResults.text.substr(range.start, range.length);
+        const existing = parseFileResults.text.substr(range.start, range.length);
         if (existing === replacementText) {
             // No change. Return as it is.
             return;
         }
 
-        this.addEdit(filePath, convertTextRangeToRange(range, parseResults.tokenizerOutput.lines), replacementText);
+        this.addEdit(filePath, convertTextRangeToRange(range, parseFileResults.tokenizerOutput.lines), replacementText);
     }
 
-    deleteImportName(parseResults: ParseResults, importToDelete: ImportFromAsNode | ImportAsNode) {
+    deleteImportName(parseFileResults: ParseFileResults, importToDelete: ImportFromAsNode | ImportAsNode) {
         // TODO: remove all these manual text handling and merge it to _processNodeRemoved that is
         //       used by remove unused imports.
         const imports: ImportFromAsNode[] | ImportAsNode[] =
@@ -93,16 +93,16 @@ export class TextEditTracker {
                 ? (importToDelete.parent as ImportNode).list
                 : (importToDelete.parent as ImportFromNode).imports;
 
-        const filePath = getFileInfo(parseResults.parseTree).fileUri;
+        const filePath = getFileInfo(parseFileResults.parserOutput.parseTree).fileUri;
         const ranges = getTextRangeForImportNameDeletion(
-            parseResults,
+            parseFileResults,
             imports,
             imports.findIndex((v) => v === importToDelete)
         );
 
-        ranges.forEach((r) => this.addEditWithTextRange(parseResults, r, ''));
+        ranges.forEach((r) => this.addEditWithTextRange(parseFileResults, r, ''));
 
-        this._markNodeRemoved(importToDelete, parseResults);
+        this._markNodeRemoved(importToDelete, parseFileResults);
 
         // Check whether we have deleted all trailing import names.
         // If either no trailing import is deleted or handled properly
@@ -125,19 +125,19 @@ export class TextEditTracker {
             // ex) [from x import a, b, c] or [import a]
             const importStatement = importToDelete.parent;
             if (importStatement) {
-                this.addEdit(filePath, ParseTreeUtils.getFullStatementRange(importStatement, parseResults), '');
+                this.addEdit(filePath, ParseTreeUtils.getFullStatementRange(importStatement, parseFileResults), '');
             }
         } else if (lastImportIndexNotDeleted >= 0 && lastImportIndexNotDeleted < imports.length - 2) {
             // We need to delete trailing comma
             // ex) from x import a, [b, c]
             const start = TextRange.getEnd(imports[lastImportIndexNotDeleted]);
             const length = TextRange.getEnd(imports[lastImportIndexNotDeleted + 1]) - start;
-            this.addEditWithTextRange(parseResults, { start, length }, '');
+            this.addEditWithTextRange(parseFileResults, { start, length }, '');
         }
     }
 
     addOrUpdateImport(
-        parseResults: ParseResults,
+        parseFileResults: ParseFileResults,
         importStatements: ImportStatements,
         moduleNameInfo: ModuleNameInfo,
         importGroup: ImportGroup,
@@ -151,15 +151,15 @@ export class TextEditTracker {
         //       used by remove unused imports.
         if (
             importNameInfo &&
-            this._tryUpdateImport(parseResults, importStatements, moduleNameInfo, importNameInfo, updateOptions)
+            this._tryUpdateImport(parseFileResults, importStatements, moduleNameInfo, importNameInfo, updateOptions)
         ) {
             return;
         }
 
-        this._addImport(parseResults, importStatements, moduleNameInfo, importGroup, importNameInfo);
+        this._addImport(parseFileResults, importStatements, moduleNameInfo, importGroup, importNameInfo);
     }
 
-    removeNodes(...nodes: { node: ParseNode; parseResults: ParseResults }[]) {
+    removeNodes(...nodes: { node: ParseNode; parseFileResults: ParseFileResults }[]) {
         this._pendingNodeToRemove.push(...nodes);
     }
 
@@ -177,13 +177,13 @@ export class TextEditTracker {
     }
 
     private _addImport(
-        parseResults: ParseResults,
+        parseFileResults: ParseFileResults,
         importStatements: ImportStatements,
         moduleNameInfo: ModuleNameInfo,
         importGroup: ImportGroup,
         importNameInfo?: ImportNameInfo[]
     ) {
-        const fileUri = getFileInfo(parseResults.parseTree).fileUri;
+        const fileUri = getFileInfo(parseFileResults.parserOutput.parseTree).fileUri;
 
         this.addEdits(
             ...getTextEditsForAutoImportInsertion(
@@ -191,14 +191,17 @@ export class TextEditTracker {
                 moduleNameInfo,
                 importStatements,
                 importGroup,
-                parseResults,
-                convertOffsetToPosition(parseResults.parseTree.length, parseResults.tokenizerOutput.lines)
+                parseFileResults,
+                convertOffsetToPosition(
+                    parseFileResults.parserOutput.parseTree.length,
+                    parseFileResults.tokenizerOutput.lines
+                )
             ).map((e) => ({ fileUri, range: e.range, replacementText: e.replacementText }))
         );
     }
 
     private _tryUpdateImport(
-        parseResults: ParseResults,
+        parseFileResults: ParseFileResults,
         importStatements: ImportStatements,
         moduleNameInfo: ModuleNameInfo,
         importNameInfo: ImportNameInfo[],
@@ -220,9 +223,9 @@ export class TextEditTracker {
             return false;
         }
 
-        const fileUri = getFileInfo(parseResults.parseTree).fileUri;
+        const fileUri = getFileInfo(parseFileResults.parserOutput.parseTree).fileUri;
 
-        const edits = getTextEditsForAutoImportSymbolAddition(importNameInfo, imported, parseResults);
+        const edits = getTextEditsForAutoImportSymbolAddition(importNameInfo, imported, parseFileResults);
         if (imported.node !== updateOptions.currentFromImport) {
             // Add what we want to the existing "import from" statement as long as it is not the same import
             // node we are working on.
@@ -272,7 +275,7 @@ export class TextEditTracker {
 
         this.addEdit(
             fileUri,
-            convertTextRangeToRange(importName.name, parseResults.tokenizerOutput.lines),
+            convertTextRangeToRange(importName.name, parseFileResults.tokenizerOutput.lines),
             newLastModuleName
         );
 
@@ -342,7 +345,7 @@ export class TextEditTracker {
                 // As a default behavior, we will just remove the node
                 this._pendingNodeToRemove.pop();
 
-                const info = getFileInfo(peekNodeToRemove.parseResults.parseTree);
+                const info = getFileInfo(peekNodeToRemove.parseFileResults.parserOutput.parseTree);
                 this.addEdit(info.fileUri, convertTextRangeToRange(peekNodeToRemove.node, info.lines), '');
             }
         }
@@ -354,7 +357,7 @@ export class TextEditTracker {
             return false;
         }
 
-        const module = nodeToRemove.parseResults.parseTree;
+        const module = nodeToRemove.parseFileResults.parserOutput.parseTree;
         const info = getFileInfo(module);
         const importNode = getContainingImportStatement(ParseTreeUtils.findNodeByOffset(module, node.start), token);
         if (!importNode) {
@@ -370,7 +373,11 @@ export class TextEditTracker {
         );
 
         if (nameNodes.length === nodesRemoved.length) {
-            this.addEdit(info.fileUri, ParseTreeUtils.getFullStatementRange(importNode, nodeToRemove.parseResults), '');
+            this.addEdit(
+                info.fileUri,
+                ParseTreeUtils.getFullStatementRange(importNode, nodeToRemove.parseFileResults),
+                ''
+            );
 
             // Remove nodes that are handled from queue.
             this._removeNodesHandled(nodesRemoved);
@@ -392,7 +399,7 @@ export class TextEditTracker {
             return false;
         }
 
-        const editSpans = getTextRangeForImportNameDeletion(nodeToRemove.parseResults, nameNodes, ...indices);
+        const editSpans = getTextRangeForImportNameDeletion(nodeToRemove.parseFileResults, nameNodes, ...indices);
         editSpans.forEach((e) => this.addEdit(info.fileUri, convertTextRangeToRange(e, info.lines), ''));
 
         this._removeNodesHandled(nodesRemoved);
@@ -400,23 +407,23 @@ export class TextEditTracker {
     }
 
     private _removeNodesHandled(nodesRemoved: NodeToRemove[]) {
-        nodesRemoved.forEach((n) => this._markNodeRemoved(n.node, n.parseResults));
+        nodesRemoved.forEach((n) => this._markNodeRemoved(n.node, n.parseFileResults));
         removeArrayElements(this._pendingNodeToRemove, (n) => this._nodesRemoved.has(n.node));
     }
 
-    private _markNodeRemoved(nodeToDelete: ParseNode, parseResults: ParseResults) {
+    private _markNodeRemoved(nodeToDelete: ParseNode, parseFileResults: ParseFileResults) {
         // Mark that we don't need to process these node again later.
-        this._nodesRemoved.set(nodeToDelete, parseResults);
+        this._nodesRemoved.set(nodeToDelete, parseFileResults);
         if (nodeToDelete.nodeType === ParseNodeType.ImportAs) {
-            this._nodesRemoved.set(nodeToDelete.module, parseResults);
-            nodeToDelete.module.nameParts.forEach((n) => this._nodesRemoved.set(n, parseResults));
+            this._nodesRemoved.set(nodeToDelete.module, parseFileResults);
+            nodeToDelete.module.nameParts.forEach((n) => this._nodesRemoved.set(n, parseFileResults));
             if (nodeToDelete.alias) {
-                this._nodesRemoved.set(nodeToDelete.alias, parseResults);
+                this._nodesRemoved.set(nodeToDelete.alias, parseFileResults);
             }
         } else if (nodeToDelete.nodeType === ParseNodeType.ImportFromAs) {
-            this._nodesRemoved.set(nodeToDelete.name, parseResults);
+            this._nodesRemoved.set(nodeToDelete.name, parseFileResults);
             if (nodeToDelete.alias) {
-                this._nodesRemoved.set(nodeToDelete.alias, parseResults);
+                this._nodesRemoved.set(nodeToDelete.alias, parseFileResults);
             }
         }
     }
@@ -429,5 +436,5 @@ interface UpdateOption {
 
 interface NodeToRemove {
     node: ParseNode;
-    parseResults: ParseResults;
+    parseFileResults: ParseFileResults;
 }

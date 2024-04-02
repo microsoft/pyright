@@ -18,7 +18,7 @@ import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { Diagnostic } from '../common/diagnostic';
 import { ServerSettings } from '../common/languageServerInterface';
 import { ParseNode } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults, ParserOutput } from '../parser/parser';
 import { ConfigOptions } from './configOptions';
 import { ConsoleInterface } from './console';
 import { ReadOnlyFileSystem } from './fileSystem';
@@ -85,7 +85,8 @@ export interface ProgramView {
 
     owns(uri: Uri): boolean;
     getSourceFileInfoList(): readonly SourceFileInfo[];
-    getParseResults(fileUri: Uri): ParseResults | undefined;
+    getParserOutput(fileUri: Uri): ParserOutput | undefined;
+    getParseResults(fileUri: Uri): ParseFileResults | undefined;
     getSourceFileInfo(fileUri: Uri): SourceFileInfo | undefined;
     getChainedUri(fileUri: Uri): Uri | undefined;
     getSourceMapper(fileUri: Uri, token: CancellationToken, mapCompiled?: boolean, preferStubs?: boolean): SourceMapper;

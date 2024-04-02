@@ -42,6 +42,7 @@ import * as debug from '../../../common/debug';
 import { DiagnosticCategory } from '../../../common/diagnostic';
 import { FileEditAction } from '../../../common/editAction';
 import { ReadOnlyFileSystem } from '../../../common/fileSystem';
+import { LanguageServerInterface } from '../../../common/languageServerInterface';
 import { getFileExtension, normalizePath, normalizeSlashes } from '../../../common/pathUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../../../common/positionUtils';
 import { ServiceProvider } from '../../../common/serviceProvider';
@@ -52,7 +53,6 @@ import { TextRangeCollection } from '../../../common/textRangeCollection';
 import { Uri } from '../../../common/uri/uri';
 import { UriEx, getFileSpec } from '../../../common/uri/uriUtils';
 import { convertToWorkspaceEdit } from '../../../common/workspaceEditUtils';
-import { LanguageServerInterface } from '../../../common/languageServerInterface';
 import { CallHierarchyProvider } from '../../../languageService/callHierarchyProvider';
 import { CompletionOptions, CompletionProvider } from '../../../languageService/completionProvider';
 import {
@@ -68,7 +68,7 @@ import { ReferencesProvider } from '../../../languageService/referencesProvider'
 import { RenameProvider } from '../../../languageService/renameProvider';
 import { SignatureHelpProvider } from '../../../languageService/signatureHelpProvider';
 import { ParseNode } from '../../../parser/parseNodes';
-import { ParseResults } from '../../../parser/parser';
+import { ParseFileResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
 import { PyrightFileSystem } from '../../../pyrightFileSystem';
 import {
@@ -666,7 +666,7 @@ export class TestState {
                 string,
                 {
                     fileUri: Uri;
-                    parseResults: ParseResults | undefined;
+                    parseResults: ParseFileResults | undefined;
                     errors: Diagnostic[];
                     warnings: Diagnostic[];
                 }
@@ -1177,7 +1177,7 @@ export class TestState {
                 references: DocumentRange[];
             };
         },
-        createDocumentRange?: (fileUri: Uri, result: CollectionResult, parseResults: ParseResults) => DocumentRange,
+        createDocumentRange?: (fileUri: Uri, result: CollectionResult, parseResults: ParseFileResults) => DocumentRange,
         convertToLocation?: (fs: ReadOnlyFileSystem, ranges: DocumentRange) => Location | undefined
     ) {
         this.analyze();
@@ -1725,16 +1725,16 @@ export class TestState {
         return configOptions;
     }
 
-    private _getParseResult(fileName: string) {
+    private _getParserOutput(fileName: string) {
         const file = this.program.getBoundSourceFile(Uri.file(fileName, this.serviceProvider))!;
         return file?.getParseResults();
     }
 
     private _getTextRangeCollection(fileName: string): TextRangeCollection<TextRange> {
         if (this.files.includes(fileName)) {
-            const parseResults = this._getParseResult(fileName);
-            if (parseResults) {
-                return parseResults.tokenizerOutput.lines;
+            const tokenizerOutput = this._getParserOutput(fileName)?.tokenizerOutput;
+            if (tokenizerOutput) {
+                return tokenizerOutput.lines;
             }
         }
 
@@ -2110,7 +2110,7 @@ export function getNodeAtMarker(codeOrState: string | TestState, markerName = 'm
     const parserResults = sourceFile.getParseResults();
     assert(parserResults);
 
-    const node = findNodeByOffset(parserResults.parseTree, marker.position);
+    const node = findNodeByOffset(parserResults.parserOutput.parseTree, marker.position);
     assert(node);
 
     return node;

@@ -19,18 +19,18 @@ import * as TestUtils from './testUtils';
 
 test('Empty', () => {
     const diagSink = new DiagnosticSink();
-    const parseResults = TestUtils.parseText('', diagSink);
+    const parserOutput = TestUtils.parseText('', diagSink).parserOutput;
 
     assert.equal(diagSink.fetchAndClear().length, 0);
-    assert.equal(parseResults.parseTree.statements.length, 0);
+    assert.equal(parserOutput.parseTree.statements.length, 0);
 });
 
 test('Sample1', () => {
     const diagSink = new DiagnosticSink();
-    const parseInfo = TestUtils.parseSampleFile('sample1.py', diagSink);
+    const parserOutput = TestUtils.parseSampleFile('sample1.py', diagSink).parserOutput;
 
     assert.equal(diagSink.fetchAndClear().length, 0);
-    assert.equal(parseInfo.parseResults.parseTree.statements.length, 4);
+    assert.equal(parserOutput.parseTree.statements.length, 4);
 });
 
 test('FStringEmptyTuple', () => {
@@ -60,13 +60,13 @@ test('SuiteExpectedColon3', () => {
 
 test('ExpressionWrappedInParens', () => {
     const diagSink = new DiagnosticSink();
-    const parseResults = TestUtils.parseText('(str)', diagSink);
+    const parserOutput = TestUtils.parseText('(str)', diagSink).parserOutput;
 
     assert.equal(diagSink.fetchAndClear().length, 0);
-    assert.equal(parseResults.parseTree.statements.length, 1);
-    assert.equal(parseResults.parseTree.statements[0].nodeType, ParseNodeType.StatementList);
+    assert.equal(parserOutput.parseTree.statements.length, 1);
+    assert.equal(parserOutput.parseTree.statements[0].nodeType, ParseNodeType.StatementList);
 
-    const statementList = parseResults.parseTree.statements[0] as StatementListNode;
+    const statementList = parserOutput.parseTree.statements[0] as StatementListNode;
     assert.equal(statementList.statements.length, 1);
 
     // length of node should include parens
@@ -101,27 +101,27 @@ test('ModuleName range', () => {
 
 test('ParserRecovery1', () => {
     const diagSink = new DiagnosticSink();
-    const parseResults = TestUtils.parseSampleFile('parserRecovery1.py', diagSink).parseResults;
+    const parseResults = TestUtils.parseSampleFile('parserRecovery1.py', diagSink);
 
-    const node = findNodeByOffset(parseResults.parseTree, parseResults.text.length - 2);
+    const node = findNodeByOffset(parseResults.parserOutput.parseTree, parseResults.text.length - 2);
     const functionNode = getFirstAncestorOrSelfOfKind(node, ParseNodeType.Function);
     assert.equal(functionNode!.parent!.nodeType, ParseNodeType.Module);
 });
 
 test('ParserRecovery2', () => {
     const diagSink = new DiagnosticSink();
-    const parseResults = TestUtils.parseSampleFile('parserRecovery2.py', diagSink).parseResults;
+    const parseResults = TestUtils.parseSampleFile('parserRecovery2.py', diagSink);
 
-    const node = findNodeByOffset(parseResults.parseTree, parseResults.text.length - 2);
+    const node = findNodeByOffset(parseResults.parserOutput.parseTree, parseResults.text.length - 2);
     const functionNode = getFirstAncestorOrSelfOfKind(node, ParseNodeType.Function);
     assert.equal(functionNode!.parent!.nodeType, ParseNodeType.Suite);
 });
 
 test('ParserRecovery3', () => {
     const diagSink = new DiagnosticSink();
-    const parseResults = TestUtils.parseSampleFile('parserRecovery3.py', diagSink).parseResults;
+    const parseResults = TestUtils.parseSampleFile('parserRecovery3.py', diagSink);
 
-    const node = findNodeByOffset(parseResults.parseTree, parseResults.text.length - 2);
+    const node = findNodeByOffset(parseResults.parserOutput.parseTree, parseResults.text.length - 2);
     const functionNode = getFirstAncestorOrSelfOfKind(node, ParseNodeType.Function);
     assert.equal(functionNode!.parent!.nodeType, ParseNodeType.Module);
 });

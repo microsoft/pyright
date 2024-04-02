@@ -77,7 +77,7 @@ function checkSignatureHelp(code: string, expects: boolean) {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName('marker');
 
-    const parseResults = state.workspace.service.getParseResult(marker.fileUri)!;
+    const parseResults = state.workspace.service.getParseResults(marker.fileUri)!;
     const position = convertOffsetToPosition(marker.position, parseResults.tokenizerOutput.lines);
 
     const actual = new SignatureHelpProvider(

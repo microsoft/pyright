@@ -44,7 +44,7 @@ import {
     TypeParameterScopeNode,
     isExpressionNode,
 } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import { TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
@@ -1855,8 +1855,8 @@ export function getIndexOfTokenOverlapping(tokens: TextRangeCollection<Token>, p
     return TextRange.overlaps(token, position) ? index : -1;
 }
 
-export function findTokenAfter(parseResults: ParseResults, offset: number, predicate: (t: Token) => boolean) {
-    const tokens = parseResults.tokenizerOutput.tokens;
+export function findTokenAfter(tokenizerOutput: TokenizerOutput, offset: number, predicate: (t: Token) => boolean) {
+    const tokens = tokenizerOutput.tokens;
 
     const index = tokens.getItemAtPosition(offset);
     if (index < 0) {
@@ -2482,13 +2482,16 @@ export function getStringValueRange(token: StringToken) {
 
 export function getFullStatementRange(
     statementNode: ParseNode,
-    parseResults: ParseResults,
+    parseFileResults: ParseFileResults,
     options?: { includeTrailingBlankLines: boolean }
 ): Range {
-    const tokenizerOutput = parseResults.tokenizerOutput;
-    const range = convertTextRangeToRange(statementNode, tokenizerOutput.lines);
+    const range = convertTextRangeToRange(statementNode, parseFileResults.tokenizerOutput.lines);
 
-    const start = _getStartPositionIfMultipleStatementsAreOnSameLine(range, statementNode.start, tokenizerOutput) ?? {
+    const start = _getStartPositionIfMultipleStatementsAreOnSameLine(
+        range,
+        statementNode.start,
+        parseFileResults.tokenizerOutput
+    ) ?? {
         line: range.start.line,
         character: 0,
     };
@@ -2497,7 +2500,7 @@ export function getFullStatementRange(
     const end = _getEndPositionIfMultipleStatementsAreOnSameLine(
         range,
         TextRange.getEnd(statementNode),
-        tokenizerOutput
+        parseFileResults.tokenizerOutput
     );
 
     if (end) {
@@ -2505,15 +2508,15 @@ export function getFullStatementRange(
     }
 
     // If not, delete the whole line.
-    if (range.end.line === tokenizerOutput.lines.count - 1) {
+    if (range.end.line === parseFileResults.tokenizerOutput.lines.count - 1) {
         return { start, end: range.end };
     }
 
     let lineDeltaToAdd = 1;
     if (options) {
         if (options.includeTrailingBlankLines) {
-            for (let i = lineDeltaToAdd; range.end.line + i < tokenizerOutput.lines.count; i++) {
-                if (!isBlankLine(parseResults, range.end.line + i)) {
+            for (let i = lineDeltaToAdd; range.end.line + i < parseFileResults.tokenizerOutput.lines.count; i++) {
+                if (!isBlankLine(parseFileResults.tokenizerOutput, parseFileResults.text, range.end.line + i)) {
                     lineDeltaToAdd = i;
                     break;
                 }
@@ -2524,9 +2527,9 @@ export function getFullStatementRange(
     return { start, end: { line: range.end.line + lineDeltaToAdd, character: 0 } };
 }
 
-export function isBlankLine(parseResults: ParseResults, line: number) {
-    const span = parseResults.tokenizerOutput.lines.getItemAt(line);
-    return containsOnlyWhitespace(parseResults.text, span);
+export function isBlankLine(tokenizerOutput: TokenizerOutput, text: string, line: number) {
+    const span = tokenizerOutput.lines.getItemAt(line);
+    return containsOnlyWhitespace(text, span);
 }
 
 export function isUnannotatedFunction(node: FunctionNode) {

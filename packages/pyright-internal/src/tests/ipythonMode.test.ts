@@ -12,9 +12,9 @@ import { CompletionItemKind, MarkupKind } from 'vscode-languageserver-types';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
+import { LocMessage } from '../localization/localize';
 import { Comment, CommentType, Token } from '../parser/tokenizerTypes';
 import { parseAndGetTestState } from './harness/fourslash/testState';
-import { LocMessage } from '../localization/localize';
 
 test('regular mode', () => {
     const code = `

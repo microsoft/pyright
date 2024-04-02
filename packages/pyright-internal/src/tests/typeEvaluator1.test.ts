@@ -201,7 +201,7 @@ test('Builtins1', () => {
         'ellipsis',
     ];
 
-    const moduleScope = AnalyzerNodeInfo.getScope(analysisResults[0].parseResults!.parseTree)!;
+    const moduleScope = AnalyzerNodeInfo.getScope(analysisResults[0].parseResults!.parserOutput.parseTree)!;
     assert.notStrictEqual(moduleScope, undefined);
 
     const builtinsScope = moduleScope.parent!;

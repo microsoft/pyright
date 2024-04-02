@@ -175,7 +175,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         this._lineEnd = parseResults.tokenizerOutput.predominantEndOfLineSequence;
         this._tab = parseResults.tokenizerOutput.predominantTabSequence;
 
-        this.walk(parseResults.parseTree);
+        this.walk(parseResults.parserOutput.parseTree);
 
         this._writeFile();
     }

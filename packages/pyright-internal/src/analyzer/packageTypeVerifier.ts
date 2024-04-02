@@ -283,7 +283,7 @@ export class PackageTypeVerifier {
                     isExported: true,
                 };
 
-                const parseTree = sourceFile.getParseResults()!.parseTree;
+                const parseTree = sourceFile.getParserOutput()!.parseTree;
                 const moduleScope = getScopeForNode(parseTree)!;
 
                 this._getPublicSymbolsInSymbolTable(
@@ -396,7 +396,7 @@ export class PackageTypeVerifier {
             const sourceFile = this._program.getBoundSourceFile(modulePath);
 
             if (sourceFile) {
-                const parseTree = sourceFile.getParseResults()!.parseTree;
+                const parseTree = sourceFile.getParserOutput()!.parseTree;
                 const moduleScope = getScopeForNode(parseTree)!;
 
                 this._getTypeKnownStatusForSymbolTable(

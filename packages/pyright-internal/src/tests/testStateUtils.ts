@@ -17,13 +17,13 @@ import { isArray } from '../common/core';
 import { assertNever } from '../common/debug';
 import { FileEditAction, FileEditActions } from '../common/editAction';
 import { TextRange, rangesAreEqual } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
 import { isFile } from '../common/uri/uriUtils';
 import { applyTextEditsToString } from '../common/workspaceEditUtils';
 import { DocumentSymbolCollector } from '../languageService/documentSymbolCollector';
 import { NameNode } from '../parser/parseNodes';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { TestState } from './harness/fourslash/testState';
-import { Uri } from '../common/uri/uri';
 
 export function convertFileEditActionToString(edit: FileEditAction): string {
     return `'${edit.replacementText.replace(/\n/g, '!n!')}'@'${edit.fileUri}:(${edit.range.start.line},${
@@ -155,7 +155,7 @@ export function verifyReferencesAtPosition(
     const sourceFile = program.getBoundSourceFile(Uri.file(fileName, program.serviceProvider));
     assert(sourceFile);
 
-    const node = findNodeByOffset(sourceFile.getParseResults()!.parseTree, position);
+    const node = findNodeByOffset(sourceFile.getParseResults()!.parserOutput.parseTree, position);
     const decls = DocumentSymbolCollector.getDeclarationsForNode(
         program,
         node as NameNode,
@@ -169,7 +169,9 @@ export function verifyReferencesAtPosition(
             program,
             isArray(symbolNames) ? symbolNames : [symbolNames],
             decls,
-            program.getBoundSourceFile(Uri.file(rangeFileName, program.serviceProvider))!.getParseResults()!.parseTree,
+            program
+                .getBoundSourceFile(Uri.file(rangeFileName, program.serviceProvider))!
+                .getParseResults()!.parserOutput.parseTree,
             CancellationToken.None,
             {
                 treatModuleInImportAndFromImportSame: true,

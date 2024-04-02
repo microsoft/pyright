@@ -27,8 +27,8 @@ import { ReadOnlyFileSystem } from './fileSystem';
 import { convertRangeToTextRange, convertTextRangeToRange } from './positionUtils';
 import { TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
-import { encodeUri } from './uri/uriUtils';
 import { Uri } from './uri/uri';
+import { encodeUri } from './uri/uriUtils';
 
 export function convertToTextEdits(editActions: TextEditAction[]): TextEdit[] {
     return editActions.map((editAction) => ({
@@ -187,7 +187,7 @@ export function generateWorkspaceEdit(
 
         edits.changes![encodeUri(fs, uri)] = [
             {
-                range: convertTextRangeToRange(parseResults.parseTree, parseResults.tokenizerOutput.lines),
+                range: convertTextRangeToRange(parseResults.parserOutput.parseTree, parseResults.tokenizerOutput.lines),
                 newText: final.getFileContent() ?? '',
             },
         ];

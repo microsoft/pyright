@@ -26,11 +26,11 @@ import {
 } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { isNumber, isString } from '../common/core';
+import { LanguageServerInterface } from '../common/languageServerInterface';
 import { convertOffsetToPosition, convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Uri } from '../common/uri/uri';
-import { LanguageServerInterface } from '../common/languageServerInterface';
 import {
     ArgumentCategory,
     ArgumentNode,
@@ -119,7 +119,7 @@ import {
     YieldNode,
     isExpressionNode,
 } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import { KeywordType, NewLineType, OperatorType, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { ServerCommand } from './commandController';
 
@@ -137,7 +137,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
         const kind = params.arguments[1];
 
         const workspace = await this._ls.getWorkspaceForFile(fileUri);
-        const parseResults = workspace.service.getParseResult(workspace.service.fs.realCasePath(fileUri));
+        const parseResults = workspace.service.getParseResults(workspace.service.fs.realCasePath(fileUri));
         if (!parseResults) {
             return [];
         }
@@ -176,7 +176,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
                 collectingConsole.info(`* Node info`);
 
                 const dumper = new TreeDumper(fileUri, parseResults.tokenizerOutput.lines);
-                dumper.walk(parseResults.parseTree);
+                dumper.walk(parseResults.parserOutput.parseTree);
 
                 collectingConsole.info(dumper.output);
                 break;
@@ -212,7 +212,7 @@ export class DumpFileDebugInfoCommand implements ServerCommand {
                 if (!evaluator || offset === undefined) {
                     return [];
                 }
-                const node = findNodeByOffset(parseResults.parseTree, offset);
+                const node = findNodeByOffset(parseResults.parserOutput.parseTree, offset);
                 if (!node) {
                     return [];
                 }
@@ -240,13 +240,15 @@ function stringify(value: any, replacer: (this: any, key: string, value: any) =>
 function getTypeEvaluatorString(
     uri: Uri,
     evaluator: TypeEvaluator,
-    results: ParseResults,
+    results: ParseFileResults,
     start: number,
     end: number,
     cacheOnly?: boolean
 ) {
     const dumper = new TreeDumper(uri, results.tokenizerOutput.lines);
-    const node = findNodeByOffset(results.parseTree, start) ?? findNodeByOffset(results.parseTree, end);
+    const node =
+        findNodeByOffset(results.parserOutput.parseTree, start) ??
+        findNodeByOffset(results.parserOutput.parseTree, end);
     if (!node) {
         return 'N/A';
     }

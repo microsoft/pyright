@@ -108,7 +108,7 @@ import {
     StringNode,
     TypeAnnotationNode,
 } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import {
     FStringStartToken,
     OperatorToken,
@@ -278,7 +278,7 @@ export class CompletionProvider {
     private _stringLiteralContainer: StringToken | FStringStartToken | undefined = undefined;
 
     protected readonly execEnv: ExecutionEnvironment;
-    protected readonly parseResults: ParseResults;
+    protected readonly parseResults: ParseFileResults;
     protected readonly sourceMapper: SourceMapper;
 
     // If we're being asked to resolve a completion item, we run the
@@ -1087,7 +1087,7 @@ export class CompletionProvider {
             return undefined;
         }
 
-        let node = ParseTreeUtils.findNodeByOffset(this.parseResults.parseTree, offset);
+        let node = ParseTreeUtils.findNodeByOffset(this.parseResults.parserOutput.parseTree, offset);
 
         // See if we're inside a string literal or an f-string statement.
         const token = ParseTreeUtils.getTokenOverlapping(this.parseResults.tokenizerOutput.tokens, offset);
@@ -1130,7 +1130,7 @@ export class CompletionProvider {
                     sawComma = true;
                 }
 
-                const curNode = ParseTreeUtils.findNodeByOffset(this.parseResults.parseTree, curOffset);
+                const curNode = ParseTreeUtils.findNodeByOffset(this.parseResults.parserOutput.parseTree, curOffset);
                 if (curNode && curNode !== initialNode) {
                     if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
                         node = curNode;
@@ -1551,7 +1551,10 @@ export class CompletionProvider {
                     }
 
                     const previousOffset = TextRange.getEnd(prevToken);
-                    const previousNode = ParseTreeUtils.findNodeByOffset(this.parseResults.parseTree, previousOffset);
+                    const previousNode = ParseTreeUtils.findNodeByOffset(
+                        this.parseResults.parserOutput.parseTree,
+                        previousOffset
+                    );
                     if (
                         previousNode?.nodeType !== ParseNodeType.Error ||
                         previousNode.category !== ErrorExpressionCategory.MissingMemberAccessName
@@ -2769,7 +2772,7 @@ export class CompletionProvider {
             return completionMap;
         }
 
-        const symbolTable = AnalyzerNodeInfo.getScope(parseResults.parseTree)?.symbolTable;
+        const symbolTable = AnalyzerNodeInfo.getScope(parseResults.parserOutput.parseTree)?.symbolTable;
         if (!symbolTable) {
             return completionMap;
         }

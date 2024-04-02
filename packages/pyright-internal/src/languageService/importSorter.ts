@@ -19,23 +19,22 @@ import {
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { Range } from '../common/textRange';
-import { TextRange } from '../common/textRange';
+import { Range, TextRange } from '../common/textRange';
 import { ImportAsNode, ImportFromAsNode, ImportFromNode, ParseNodeType } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 
 // We choose a line length that matches the default for the popular
 // "black" formatter used in many Python projects.
 const _maxLineLength = 88;
 
 export class ImportSorter {
-    constructor(private _parseResults: ParseResults, private _cancellationToken: CancellationToken) {}
+    constructor(private _parseResults: ParseFileResults, private _cancellationToken: CancellationToken) {}
 
     sort(): TextEditAction[] {
         throwIfCancellationRequested(this._cancellationToken);
 
         const actions: TextEditAction[] = [];
-        const importStatements = getTopLevelImports(this._parseResults.parseTree);
+        const importStatements = getTopLevelImports(this._parseResults.parserOutput.parseTree);
 
         const sortedStatements = importStatements.orderedImports
             .map((s) => s)
