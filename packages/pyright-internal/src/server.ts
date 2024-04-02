@@ -22,9 +22,10 @@ import { isPythonBinary } from './analyzer/pythonPathUtils';
 import { BackgroundAnalysis } from './backgroundAnalysis';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
+import { getCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions, SignatureDisplayType } from './common/configOptions';
 import { ConsoleWithLogLevel, LogLevel, convertLogLevel } from './common/console';
-import { isDefined, isString } from './common/core';
+import { isDebugMode, isDefined, isString } from './common/core';
 import { resolvePathWithEnvVariables } from './common/envVarUtils';
 import { FileBasedCancellationProvider } from './common/fileBasedCancellationUtils';
 import { FileSystem } from './common/fileSystem';
@@ -215,11 +216,11 @@ export class PyrightServer extends LanguageServerBase {
     }
 
     createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined {
-        // if (isDebugMode() || !getCancellationFolderName()) {
-        //     // Don't do background analysis if we're in debug mode or an old client
-        //     // is used where cancellation is not supported.
-        //     return undefined;
-        // }
+        if (isDebugMode() || !getCancellationFolderName()) {
+            // Don't do background analysis if we're in debug mode or an old client
+            // is used where cancellation is not supported.
+            return undefined;
+        }
 
         return new BackgroundAnalysis(this.serverOptions.serviceProvider);
     }
