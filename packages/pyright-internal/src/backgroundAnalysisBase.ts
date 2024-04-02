@@ -326,6 +326,10 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
     protected onMessage(msg: AnalysisRequest) {
         switch (msg.requestType) {
+            case 'cacheUsageBuffer': {
+                this.serviceProvider.cacheManager()?.handleCachedUsageBufferMessage(msg);
+                break;
+            }
             case 'analyze': {
                 const port = msg.port!;
                 const data = deserialize(msg.data);
@@ -740,12 +744,14 @@ export type AnalysisRequestKind =
     | 'setImportResolver'
     | 'shutdown'
     | 'addInterimFile'
-    | 'analyzeFile';
+    | 'analyzeFile'
+    | 'cacheUsageBuffer';
 
 export interface AnalysisRequest {
     requestType: AnalysisRequestKind;
     data: string | null;
     port?: MessagePort | undefined;
+    sharedUsageBuffer?: SharedArrayBuffer;
 }
 
 export type AnalysisResponseKind = 'log' | 'analysisResult' | 'analysisPaused' | 'analysisDone';

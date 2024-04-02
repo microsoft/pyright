@@ -22,33 +22,32 @@ import { isPythonBinary } from './analyzer/pythonPathUtils';
 import { BackgroundAnalysis } from './backgroundAnalysis';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
-import { getCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions, SignatureDisplayType } from './common/configOptions';
 import { ConsoleWithLogLevel, LogLevel, convertLogLevel } from './common/console';
-import { isDebugMode, isDefined, isString } from './common/core';
+import { isDefined, isString } from './common/core';
 import { resolvePathWithEnvVariables } from './common/envVarUtils';
 import { FileBasedCancellationProvider } from './common/fileBasedCancellationUtils';
 import { FileSystem } from './common/fileSystem';
 import { FullAccessHost } from './common/fullAccessHost';
 import { Host } from './common/host';
+import { ServerSettings } from './common/languageServerInterface';
 import { ProgressReporter } from './common/progressReporter';
 import { RealTempFile, WorkspaceFileWatcherProvider, createFromRealFileSystem } from './common/realFileSystem';
 import { ServiceProvider } from './common/serviceProvider';
 import { createServiceProvider } from './common/serviceProviderExtensions';
 import { Uri } from './common/uri/uri';
 import { getRootUri } from './common/uri/uriUtils';
-import { ServerSettings } from './common/languageServerInterface';
+import { LanguageServerBase } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 import { PyrightFileSystem } from './pyrightFileSystem';
 import { WellKnownWorkspaceKinds, Workspace } from './workspaceFactory';
-import { LanguageServerBase } from './languageServerBase';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
 
 export class PyrightServer extends LanguageServerBase {
     private _controller: CommandController;
 
-    constructor(connection: Connection, realFileSystem?: FileSystem) {
+    constructor(connection: Connection, maxWorkers: number, realFileSystem?: FileSystem) {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const version = require('../package.json').version || '';
 
@@ -57,7 +56,7 @@ export class PyrightServer extends LanguageServerBase {
         const fileWatcherProvider = new WorkspaceFileWatcherProvider();
         const fileSystem = realFileSystem ?? createFromRealFileSystem(tempFile, console, fileWatcherProvider);
         const pyrightFs = new PyrightFileSystem(fileSystem);
-        const cacheManager = new CacheManager();
+        const cacheManager = new CacheManager(maxWorkers);
 
         const serviceProvider = createServiceProvider(pyrightFs, tempFile, console, cacheManager);
 
@@ -216,11 +215,11 @@ export class PyrightServer extends LanguageServerBase {
     }
 
     createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined {
-        if (isDebugMode() || !getCancellationFolderName()) {
-            // Don't do background analysis if we're in debug mode or an old client
-            // is used where cancellation is not supported.
-            return undefined;
-        }
+        // if (isDebugMode() || !getCancellationFolderName()) {
+        //     // Don't do background analysis if we're in debug mode or an old client
+        //     // is used where cancellation is not supported.
+        //     return undefined;
+        // }
 
         return new BackgroundAnalysis(this.serverOptions.serviceProvider);
     }

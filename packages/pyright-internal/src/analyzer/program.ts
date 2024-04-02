@@ -22,9 +22,9 @@ import { FileEditAction } from '../common/editAction';
 import { EditableProgram, ProgramView } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
 import { convertRangeToTextRange } from '../common/positionUtils';
+import { ServiceKeys } from '../common/serviceKeys';
 import { ServiceProvider } from '../common/serviceProvider';
 import '../common/serviceProviderExtensions';
-import { ServiceKeys } from '../common/serviceKeys';
 import { Range, doRangesIntersect } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
@@ -37,6 +37,7 @@ import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getDocString } from './parseTreeUtils';
+import { ISourceFileFactory } from './programTypes';
 import { Scope } from './scope';
 import { IPythonMode, SourceFile } from './sourceFile';
 import { SourceFileInfo } from './sourceFileInfo';
@@ -49,7 +50,6 @@ import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
 import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
-import { ISourceFileFactory } from './programTypes';
 
 const _maxImportDepth = 256;
 
@@ -989,14 +989,16 @@ export class Program {
 
     private _handleMemoryHighUsage() {
         const cacheUsage = this._cacheManager.getCacheUsage();
+        const usedHeapRatio = this._cacheManager.getUsedHeapRatio(
+            this._configOptions.verboseOutput ? this._console : undefined
+        );
 
         // If the total cache has exceeded 75%, determine whether we should empty
-        // the cache.
-        if (cacheUsage > 0.75) {
-            const usedHeapRatio = this._cacheManager.getUsedHeapRatio(
-                this._configOptions.verboseOutput ? this._console : undefined
-            );
-
+        // the cache. If the usedHeapRatio has exceeded 90%, we should definitely
+        // empty the cache. This can happen before the cacheUsage maxes out because
+        // we might be on the background thread and a bunch of the cacheUsage is on the main
+        // thread.
+        if (cacheUsage > 0.75 || usedHeapRatio > 0.9) {
             // The type cache uses a Map, which has an absolute limit of 2^24 entries
             // before it will fail. If we cross the 95% mark, we'll empty the cache.
             const absoluteMaxCacheEntryCount = (1 << 24) * 0.9;

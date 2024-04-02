@@ -137,7 +137,7 @@ class TestServer extends PyrightServer {
         fs: FileSystem,
         private readonly _supportsBackgroundAnalysis: boolean | undefined
     ) {
-        super(connection, fs);
+        super(connection, _supportsBackgroundAnalysis ? 1 : 0, fs);
     }
 
     test_onDidChangeWatchedFiles(params: any) {
