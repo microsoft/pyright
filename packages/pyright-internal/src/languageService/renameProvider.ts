@@ -19,10 +19,10 @@ import { Position, Range } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { convertToWorkspaceEdit } from '../common/workspaceEditUtils';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 
 export class RenameProvider {
-    private readonly _parseResults: ParseResults | undefined;
+    private readonly _parseResults: ParseFileResults | undefined;
 
     constructor(
         private _program: ProgramView,

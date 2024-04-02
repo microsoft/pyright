@@ -178,14 +178,18 @@ export class ParseOptions {
     }
 }
 
-export interface ParseResults {
-    text: string;
+export interface ParserOutput {
     parseTree: ModuleNode;
     importedModules: ModuleImport[];
     futureImports: Set<string>;
-    tokenizerOutput: TokenizerOutput;
     containsWildcardImport: boolean;
     typingSymbolAliases: Map<string, string>;
+}
+
+export interface ParseFileResults {
+    text: string;
+    parserOutput: ParserOutput;
+    tokenizerOutput: TokenizerOutput;
 }
 
 export interface ParseExpressionTextResults {
@@ -238,7 +242,7 @@ export class Parser {
     private _typingImportAliases: string[] = [];
     private _typingSymbolAliases: Map<string, string> = new Map<string, string>();
 
-    parseSourceFile(fileContents: string, parseOptions: ParseOptions, diagSink: DiagnosticSink): ParseResults {
+    parseSourceFile(fileContents: string, parseOptions: ParseOptions, diagSink: DiagnosticSink): ParseFileResults {
         timingStats.tokenizeFileTime.timeOperation(() => {
             this._startNewParse(fileContents, 0, fileContents.length, parseOptions, diagSink);
         });
@@ -275,12 +279,14 @@ export class Parser {
         assert(this._tokenizerOutput !== undefined);
         return {
             text: fileContents,
-            parseTree: moduleNode,
-            importedModules: this._importedModules,
-            futureImports: this._futureImports,
+            parserOutput: {
+                parseTree: moduleNode,
+                importedModules: this._importedModules,
+                futureImports: this._futureImports,
+                containsWildcardImport: this._containsWildcardImport,
+                typingSymbolAliases: this._typingSymbolAliases,
+            },
             tokenizerOutput: this._tokenizerOutput!,
-            containsWildcardImport: this._containsWildcardImport,
-            typingSymbolAliases: this._typingSymbolAliases,
         };
     }
 

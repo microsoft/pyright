@@ -493,8 +493,8 @@ test('resolve alias of not needed file', () => {
     state.openFile(marker.fileName);
 
     const markerUri = marker.fileUri;
-    const parseResults = state.workspace.service.getParseResult(markerUri)!;
-    const nameNode = findNodeByOffset(parseResults.parseTree, marker.position) as NameNode;
+    const parseResults = state.workspace.service.getParseResults(markerUri)!;
+    const nameNode = findNodeByOffset(parseResults.parserOutput.parseTree, marker.position) as NameNode;
     const aliasDecls = evaluator.getDeclarationsForNameNode(nameNode)!;
 
     // Unroot the file. we can't explicitly close the file since it will unload the file from test program.
@@ -532,7 +532,7 @@ function testAddition(
     const marker = state.getMarkerByName(markerName)!;
     const parseResults = state.program.getBoundSourceFile(marker!.fileUri)!.getParseResults()!;
 
-    const importStatement = getTopLevelImports(parseResults.parseTree).orderedImports.find(
+    const importStatement = getTopLevelImports(parseResults.parserOutput.parseTree).orderedImports.find(
         (i) => i.moduleName === moduleName
     )!;
     const edits = getTextEditsForAutoImportSymbolAddition(importNameInfo, importStatement, parseResults);
@@ -552,7 +552,7 @@ function testInsertions(
     const marker = state.getMarkerByName(markerName)!;
     const parseResults = state.program.getBoundSourceFile(marker!.fileUri)!.getParseResults()!;
 
-    const importStatements = getTopLevelImports(parseResults.parseTree);
+    const importStatements = getTopLevelImports(parseResults.parserOutput.parseTree);
     const edits = getTextEditsForAutoImportInsertions(
         importNameInfo,
         importStatements,

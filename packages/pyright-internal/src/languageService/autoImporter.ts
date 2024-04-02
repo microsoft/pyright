@@ -36,7 +36,7 @@ import * as StringUtils from '../common/stringUtils';
 import { Position } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import { CompletionMap } from './completionProvider';
 import { IndexAliasData } from './symbolIndexer';
 
@@ -165,13 +165,16 @@ export class AutoImporter {
     constructor(
         protected readonly execEnvironment: ExecutionEnvironment,
         protected readonly importResolver: ImportResolver,
-        protected readonly parseResults: ParseResults,
+        protected readonly parseResults: ParseFileResults,
         private readonly _invocationPosition: Position,
         private readonly _excludes: CompletionMap,
         protected readonly moduleSymbolMap: ModuleSymbolMap,
         protected readonly options: AutoImportOptions
     ) {
-        this._importStatements = getTopLevelImports(this.parseResults.parseTree, /* includeImplicitImports */ true);
+        this._importStatements = getTopLevelImports(
+            this.parseResults.parserOutput.parseTree,
+            /* includeImplicitImports */ true
+        );
     }
 
     getAutoImportCandidates(

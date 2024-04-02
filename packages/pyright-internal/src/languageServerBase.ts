@@ -82,6 +82,7 @@ import { IPythonMode } from './analyzer/sourceFile';
 import type { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
 import { CancelAfter, CancellationProvider } from './common/cancellationUtils';
+import { CaseSensitivityDetector } from './common/caseSensitivityDetector';
 import { getNestedProperty } from './common/collectionUtils';
 import { DiagnosticSeverityOverrides, getDiagnosticSeverityOverrides } from './common/commandLineOptions';
 import { ConfigOptions, getDiagLevelDiagnosticRules, parseDiagLevel } from './common/configOptions';
@@ -92,8 +93,10 @@ import { FileDiagnostics } from './common/diagnosticSink';
 import { FileSystem, ReadOnlyFileSystem } from './common/fileSystem';
 import { FileWatcherEventType, FileWatcherHandler } from './common/fileWatcher';
 import { Host } from './common/host';
+import { LanguageServerInterface, ServerSettings } from './common/languageServerInterface';
 import { fromLSPAny } from './common/lspUtils';
 import { ProgressReportTracker, ProgressReporter } from './common/progressReporter';
+import { ServiceKeys } from './common/serviceKeys';
 import { ServiceProvider } from './common/serviceProvider';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { Uri } from './common/uri/uri';
@@ -112,11 +115,8 @@ import { RenameProvider } from './languageService/renameProvider';
 import { SignatureHelpProvider } from './languageService/signatureHelpProvider';
 import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvider';
 import { Localizer, setLocaleOverride } from './localization/localize';
-import { ParseResults } from './parser/parser';
+import { ParseFileResults } from './parser/parser';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
-import { ServiceKeys } from './common/serviceKeys';
-import { LanguageServerInterface, ServerSettings } from './common/languageServerInterface';
-import { CaseSensitivityDetector } from './common/caseSensitivityDetector';
 
 export interface ServerOptions {
     productName: string;
@@ -807,7 +807,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         token: CancellationToken,
         workDoneReporter: WorkDoneProgressReporter,
         resultReporter: ResultProgressReporter<Location[]> | undefined,
-        createDocumentRange?: (uri: Uri, result: CollectionResult, parseResults: ParseResults) => DocumentRange,
+        createDocumentRange?: (uri: Uri, result: CollectionResult, parseResults: ParseFileResults) => DocumentRange,
         convertToLocation?: (fs: ReadOnlyFileSystem, ranges: DocumentRange) => Location | undefined
     ): Promise<Location[] | null | undefined> {
         if (this._pendingFindAllRefsCancellationSource) {
@@ -1474,9 +1474,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                     case TaskListPriority.High:
                         (vsDiag as any)._vs_diagnosticRank = VSDiagnosticRank.High;
                         break;
+
                     case TaskListPriority.Normal:
                         (vsDiag as any)._vs_diagnosticRank = VSDiagnosticRank.Default;
                         break;
+
                     case TaskListPriority.Low:
                         (vsDiag as any)._vs_diagnosticRank = VSDiagnosticRank.Low;
                         break;

@@ -16,7 +16,7 @@ import { ProgramView } from '../common/extensibility';
 import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { Uri } from '../common/uri/uri';
 import { encodeUri } from '../common/uri/uriUtils';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import { IndexOptions, IndexSymbolData, SymbolIndexer } from './symbolIndexer';
 
 export function convertToFlatSymbols(
@@ -34,7 +34,7 @@ export function convertToFlatSymbols(
 }
 
 export class DocumentSymbolProvider {
-    private _parseResults: ParseResults | undefined;
+    private _parseResults: ParseFileResults | undefined;
 
     constructor(
         protected readonly program: ProgramView,
@@ -66,7 +66,7 @@ export class DocumentSymbolProvider {
             return symbolList;
         }
 
-        const fileInfo = getFileInfo(parseResults.parseTree);
+        const fileInfo = getFileInfo(parseResults.parserOutput.parseTree);
         if (!fileInfo) {
             return symbolList;
         }

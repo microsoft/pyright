@@ -18,7 +18,7 @@ import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positi
 import { Range } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import { convertSymbolKindToCompletionItemKind } from './autoImporter';
 
 export interface IndexOptions {
@@ -46,7 +46,7 @@ export interface IndexSymbolData {
 export class SymbolIndexer {
     static indexSymbols(
         fileInfo: AnalyzerFileInfo,
-        parseResults: ParseResults,
+        parseResults: ParseFileResults,
         indexOptions: IndexOptions,
         token: CancellationToken
     ): IndexSymbolData[] {
@@ -58,7 +58,14 @@ export class SymbolIndexer {
         //    __all__ to make sure we don't include too many symbols in the index.
 
         const indexSymbolData: IndexSymbolData[] = [];
-        collectSymbolIndexData(fileInfo, parseResults, parseResults.parseTree, indexOptions, indexSymbolData, token);
+        collectSymbolIndexData(
+            fileInfo,
+            parseResults,
+            parseResults.parserOutput.parseTree,
+            indexOptions,
+            indexSymbolData,
+            token
+        );
 
         return indexSymbolData;
     }
@@ -66,7 +73,7 @@ export class SymbolIndexer {
 
 function collectSymbolIndexData(
     fileInfo: AnalyzerFileInfo,
-    parseResults: ParseResults,
+    parseResults: ParseFileResults,
     node: AnalyzerNodeInfo.ScopedNode,
     indexOptions: IndexOptions,
     indexSymbolData: IndexSymbolData[],
@@ -118,7 +125,7 @@ function collectSymbolIndexData(
 
 function collectSymbolIndexDataForName(
     fileInfo: AnalyzerFileInfo,
-    parseResults: ParseResults,
+    parseResults: ParseFileResults,
     declaration: Declaration,
     indexOptions: IndexOptions,
     externallyVisible: boolean,

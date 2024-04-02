@@ -114,9 +114,9 @@ function verifyRemoveNodes(code: string) {
     const ranges = state.getRanges();
     const changeRanges = _getChangeRanges(ranges);
     for (const range of changeRanges) {
-        const parseResults = state.program.getParseResults(range.fileUri)!;
-        const node = findNodeByOffset(parseResults.parseTree, range.pos)!;
-        tracker.removeNodes({ node, parseResults });
+        const parseFileResults = state.program.getParseResults(range.fileUri)!;
+        const node = findNodeByOffset(parseFileResults.parserOutput.parseTree, range.pos)!;
+        tracker.removeNodes({ node, parseFileResults });
     }
 
     const edits = tracker.getEdits(CancellationToken.None);

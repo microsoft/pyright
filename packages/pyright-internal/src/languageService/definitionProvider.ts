@@ -33,7 +33,7 @@ import { ServiceKeys } from '../common/serviceKeys';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 
 export enum DefinitionFilter {
     All = 'all',
@@ -285,7 +285,7 @@ export class TypeDefinitionProvider extends DefinitionProviderBase {
     }
 }
 
-function _tryGetNode(parseResults: ParseResults | undefined, position: Position) {
+function _tryGetNode(parseResults: ParseFileResults | undefined, position: Position) {
     if (!parseResults) {
         return { node: undefined, offset: 0 };
     }
@@ -295,7 +295,7 @@ function _tryGetNode(parseResults: ParseResults | undefined, position: Position)
         return { node: undefined, offset: 0 };
     }
 
-    return { node: ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset), offset };
+    return { node: ParseTreeUtils.findNodeByOffset(parseResults.parserOutput.parseTree, offset), offset };
 }
 
 function _createModuleEntry(uri: Uri): DocumentRange {

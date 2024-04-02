@@ -29,7 +29,7 @@ import { ServiceKeys } from '../common/serviceKeys';
 import { DocumentRange, Position, TextRange, doesRangeContain } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import { CollectionResult, DocumentSymbolCollector } from './documentSymbolCollector';
 import { convertDocumentRangesToLocation } from './navigationUtils';
 
@@ -100,7 +100,7 @@ export class ReferencesResult {
 }
 
 export class FindReferencesTreeWalker {
-    private _parseResults: ParseResults | undefined;
+    private _parseResults: ParseFileResults | undefined;
 
     constructor(
         private _program: ProgramView,
@@ -111,13 +111,13 @@ export class FindReferencesTreeWalker {
         private readonly _createDocumentRange: (
             fileUri: Uri,
             result: CollectionResult,
-            parseResults: ParseResults
+            parseResults: ParseFileResults
         ) => DocumentRange = FindReferencesTreeWalker.createDocumentRange
     ) {
         this._parseResults = this._program.getParseResults(this._fileUri);
     }
 
-    findReferences(rootNode = this._parseResults?.parseTree) {
+    findReferences(rootNode = this._parseResults?.parserOutput.parseTree) {
         const results: DocumentRange[] = [];
         if (!this._parseResults) {
             return results;
@@ -147,7 +147,7 @@ export class FindReferencesTreeWalker {
         return results;
     }
 
-    static createDocumentRange(fileUri: Uri, result: CollectionResult, parseResults: ParseResults): DocumentRange {
+    static createDocumentRange(fileUri: Uri, result: CollectionResult, parseResults: ParseFileResults): DocumentRange {
         return {
             uri: fileUri,
             range: {
@@ -165,7 +165,7 @@ export class ReferencesProvider {
         private readonly _createDocumentRange?: (
             fileUri: Uri,
             result: CollectionResult,
-            parseResults: ParseResults
+            parseResults: ParseFileResults
         ) => DocumentRange,
         private readonly _convertToLocation?: (fs: ReadOnlyFileSystem, ranges: DocumentRange) => Location | undefined
     ) {
@@ -374,7 +374,7 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        const node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
+        const node = ParseTreeUtils.findNodeByOffset(parseResults.parserOutput.parseTree, offset);
         if (node === undefined) {
             return undefined;
         }

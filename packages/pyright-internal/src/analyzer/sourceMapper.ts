@@ -70,12 +70,12 @@ export class SourceMapper {
 
         return sourceFiles
             .filter(isDefined)
-            .map((sf) => sf.getParseResults()?.parseTree)
+            .map((sf) => sf.getParserOutput()?.parseTree)
             .filter(isDefined);
     }
 
     getModuleNode(fileUri: Uri): ModuleNode | undefined {
-        return this._boundSourceGetter(fileUri)?.sourceFile.getParseResults()?.parseTree;
+        return this._boundSourceGetter(fileUri)?.sourceFile.getParserOutput()?.parseTree;
     }
 
     findDeclarations(stubDecl: Declaration): Declaration[] {
@@ -350,7 +350,7 @@ export class SourceMapper {
 
         recursiveDeclCache.add(uniqueId);
 
-        const moduleNode = sourceFile.getParseResults()?.parseTree;
+        const moduleNode = sourceFile.getParserOutput()?.parseTree;
         if (!moduleNode) {
             // Don't bother deleting from the cache; we'll never get any info from this
             // file if it has no tree.
@@ -384,7 +384,7 @@ export class SourceMapper {
 
         recursiveDeclCache.add(uniqueId);
 
-        const moduleNode = sourceFile.getParseResults()?.parseTree;
+        const moduleNode = sourceFile.getParserOutput()?.parseTree;
         if (!moduleNode) {
             // Don't bother deleting from the cache; we'll never get any info from this
             // file if it has no tree.
@@ -412,7 +412,7 @@ export class SourceMapper {
         let classDecls: ClassOrFunctionOrVariableDeclaration[] = [];
 
         // fullClassName is period delimited, for example: 'OuterClass.InnerClass'
-        const parentNode = sourceFile.getParseResults()?.parseTree;
+        const parentNode = sourceFile.getParserOutput()?.parseTree;
         if (parentNode) {
             let classNameParts = fullClassName.split('.');
             if (classNameParts.length > 0) {
@@ -669,7 +669,7 @@ export class SourceMapper {
 
                 const sourceFiles = this._getSourceFiles(decl.uri);
                 for (const sourceFile of sourceFiles) {
-                    const moduleNode = sourceFile.getParseResults()?.parseTree;
+                    const moduleNode = sourceFile.getParserOutput()?.parseTree;
                     if (!moduleNode) {
                         continue;
                     }
