@@ -241,8 +241,6 @@ export function getBackgroundWaiter<T>(port: MessagePort, deserializer = deseria
     });
 }
 
-export const BackgroundThreadIndex = 1;
-
 export interface InitializationData {
     rootUri: string;
     cancellationFolderName: string | undefined;

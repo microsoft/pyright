@@ -8,7 +8,7 @@
  * if memory usage approaches the max heap space.
  */
 
-import { HeapInfo } from 'v8';
+import type { HeapInfo } from 'v8';
 import { Worker } from 'worker_threads';
 import { AnalysisRequest } from '../backgroundAnalysisBase';
 import { ConsoleInterface } from '../common/console';
@@ -55,6 +55,8 @@ export class CacheManager {
         if (msg.requestType === 'cacheUsageBuffer') {
             const index = parseInt(msg.data || '0');
             const buffer = msg.sharedUsageBuffer;
+            // Index of zero is reserved for the main thread so if
+            // the index isn't passed, don't save the shared buffer.
             if (buffer && index) {
                 this._sharedUsageBuffer = buffer;
                 this._sharedUsagePosition = index;

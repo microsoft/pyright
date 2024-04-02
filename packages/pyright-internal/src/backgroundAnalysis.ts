@@ -10,7 +10,7 @@ import { Worker } from 'worker_threads';
 
 import { ImportResolver } from './analyzer/importResolver';
 import { BackgroundAnalysisBase, BackgroundAnalysisRunnerBase } from './backgroundAnalysisBase';
-import { BackgroundThreadIndex, InitializationData } from './backgroundThreadBase';
+import { InitializationData } from './backgroundThreadBase';
 import { getCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
 import { FullAccessHost } from './common/fullAccessHost';
@@ -19,14 +19,16 @@ import { ServiceProvider } from './common/serviceProvider';
 import { getRootUri } from './common/uri/uriUtils';
 
 export class BackgroundAnalysis extends BackgroundAnalysisBase {
-    constructor(serviceProvider: ServiceProvider, workerIndex = BackgroundThreadIndex) {
+    private static _workerIndex = 0;
+
+    constructor(serviceProvider: ServiceProvider) {
         super(serviceProvider.console());
 
         const initialData: InitializationData = {
             rootUri: getRootUri(serviceProvider)?.toString() ?? '',
             cancellationFolderName: getCancellationFolderName(),
             runner: undefined,
-            workerIndex,
+            workerIndex: ++BackgroundAnalysis._workerIndex,
         };
 
         // this will load this same file in BG thread and start listener
@@ -34,7 +36,7 @@ export class BackgroundAnalysis extends BackgroundAnalysisBase {
         this.setup(worker);
 
         // Tell the cacheManager we have a worker that needs to share data.
-        serviceProvider.cacheManager()?.addWorker(workerIndex, worker);
+        serviceProvider.cacheManager()?.addWorker(initialData.workerIndex, worker);
     }
 }
 
