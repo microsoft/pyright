@@ -29,7 +29,7 @@ import { Range, doRangesIntersect } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import { makeDirectories } from '../common/uri/uriUtils';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults, ParserOutput } from '../parser/parser';
 import { AbsoluteModuleDescriptor, ImportLookupResult, LookupImportOptions } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CacheManager } from './cacheManager';
@@ -73,7 +73,7 @@ interface UpdateImportInfo {
     isPyTypedPresent: boolean;
 }
 
-export type PreCheckCallback = (parseResults: ParseResults, evaluator: TypeEvaluator) => void;
+export type PreCheckCallback = (parserOutput: ParserOutput, evaluator: TypeEvaluator) => void;
 
 export interface OpenFileOptions {
     isTracked: boolean;
@@ -694,7 +694,15 @@ export class Program {
         return this._createSourceMapper(execEnv, token, sourceFileInfo, mapCompiled, preferStubs);
     }
 
-    getParseResults(fileUri: Uri): ParseResults | undefined {
+    getParserOutput(fileUri: Uri): ParserOutput | undefined {
+        return this.getBoundSourceFileInfo(
+            fileUri,
+            /* content */ undefined,
+            /* force */ true
+        )?.sourceFile.getParserOutput();
+    }
+
+    getParseResults(fileUri: Uri): ParseFileResults | undefined {
         return this.getBoundSourceFileInfo(
             fileUri,
             /* content */ undefined,
@@ -855,8 +863,8 @@ export class Program {
         return this._runEvaluatorWithCancellationToken(token, () => {
             this._parseFile(sourceFileInfo);
 
-            const parseTree = sourceFile.getParseResults()!;
-            const textRange = convertRangeToTextRange(range, parseTree.tokenizerOutput.lines);
+            const parseResults = sourceFile.getParseResults()!;
+            const textRange = convertRangeToTextRange(range, parseResults.tokenizerOutput.lines);
             if (!textRange) {
                 return undefined;
             }
@@ -1729,7 +1737,7 @@ export class Program {
                 return undefined;
             }
 
-            const parseResults = fileInfo.sourceFile.getParseResults();
+            const parseResults = fileInfo.sourceFile.getParserOutput();
             if (!parseResults) {
                 return undefined;
             }
@@ -1753,7 +1761,7 @@ export class Program {
                 getScopeIfAvailable(fileToAnalyze.builtinsImport);
         }
 
-        let futureImports = fileToAnalyze.sourceFile.getParseResults()!.futureImports;
+        let futureImports = fileToAnalyze.sourceFile.getParserOutput()!.futureImports;
         if (fileToAnalyze.chainedSourceFile) {
             futureImports = this._getEffectiveFutureImports(futureImports, fileToAnalyze.chainedSourceFile);
         }
@@ -1840,7 +1848,7 @@ export class Program {
             return undefined;
         }
 
-        const parseResults = sourceFileInfo.sourceFile.getParseResults();
+        const parseResults = sourceFileInfo.sourceFile.getParserOutput();
         const moduleNode = parseResults!.parseTree;
         const fileInfo = AnalyzerNodeInfo.getFileInfo(moduleNode);
 
@@ -1909,7 +1917,7 @@ export class Program {
                 const dependentFiles = this._checkDependentFiles(fileToCheck, chainedByList, token);
 
                 if (this._preCheckCallback) {
-                    const parseResults = fileToCheck.sourceFile.getParseResults();
+                    const parseResults = fileToCheck.sourceFile.getParserOutput();
                     if (parseResults) {
                         this._preCheckCallback(parseResults, this._evaluator!);
                     }
@@ -2007,7 +2015,7 @@ export class Program {
         const dependentFiles = [];
         for (let i = startIndex; i < chainedByList.length; i++) {
             const file = chainedByList[i];
-            const parseResults = file?.sourceFile.getParseResults();
+            const parseResults = file?.sourceFile.getParserOutput();
             if (!parseResults) {
                 continue;
             }

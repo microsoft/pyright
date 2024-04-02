@@ -17,11 +17,11 @@ import { convertOffsetsToRange, convertPositionToOffset } from '../common/positi
 import { Position, TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 
 export class DocumentHighlightProvider {
-    private readonly _parseResults: ParseResults | undefined;
+    private readonly _parseResults: ParseFileResults | undefined;
 
     constructor(
         private _program: ProgramView,
@@ -43,7 +43,7 @@ export class DocumentHighlightProvider {
             return undefined;
         }
 
-        const node = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, offset);
+        const node = ParseTreeUtils.findNodeByOffset(this._parseResults.parserOutput.parseTree, offset);
         if (node === undefined) {
             return undefined;
         }
@@ -56,7 +56,7 @@ export class DocumentHighlightProvider {
             this._program,
             node,
             this._token,
-            this._parseResults.parseTree,
+            this._parseResults.parserOutput.parseTree,
             {
                 treatModuleInImportAndFromImportSame: true,
                 useCase: ReferenceUseCase.References,

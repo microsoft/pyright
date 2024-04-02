@@ -33,16 +33,16 @@ import { getSymbolKind } from '../common/lspUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceKeys';
 import { Position, rangesAreEqual } from '../common/textRange';
+import { Uri } from '../common/uri/uri';
 import { encodeUri } from '../common/uri/uriUtils';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { CallNode, MemberAccessNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { canNavigateToFile } from './navigationUtils';
-import { Uri } from '../common/uri/uri';
 
 export class CallHierarchyProvider {
-    private readonly _parseResults: ParseResults | undefined;
+    private readonly _parseResults: ParseFileResults | undefined;
 
     constructor(
         private _program: ProgramView,
@@ -291,7 +291,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
     constructor(
         private _fs: ReadOnlyFileSystem,
         private _parseRoot: ParseNode,
-        private _parseResults: ParseResults,
+        private _parseResults: ParseFileResults,
         private _evaluator: TypeEvaluator,
         private _cancellationToken: CancellationToken
     ) {
@@ -423,7 +423,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
     private readonly _declarations: Declaration[] = [];
 
     private readonly _usageProviders: SymbolUsageProvider[];
-    private readonly _parseResults: ParseResults;
+    private readonly _parseResults: ParseFileResults;
 
     constructor(
         private readonly _program: ProgramView,
@@ -446,7 +446,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
     }
 
     findCalls(): CallHierarchyIncomingCall[] {
-        this.walk(this._parseResults.parseTree);
+        this.walk(this._parseResults.parserOutput.parseTree);
         return this._incomingCalls;
     }
 

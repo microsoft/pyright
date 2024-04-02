@@ -90,7 +90,7 @@ function _parseAllOpenCells(program: ProgramView): void {
             continue;
         }
 
-        program.getParseResults(file.sourceFile.getUri());
+        program.getParserOutput(file.sourceFile.getUri());
         program.handleMemoryHighUsage();
     }
 }

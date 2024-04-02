@@ -89,7 +89,7 @@ import {
     YieldNode,
     isExpressionNode,
 } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParserOutput } from '../parser/parser';
 import { UnescapeError, UnescapeErrorType, getUnescapedString } from '../parser/stringTokenUtils';
 import { OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -224,9 +224,9 @@ export class Checker extends ParseTreeWalker {
     constructor(
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
-        parseResults: ParseResults,
+        parseResults: ParserOutput,
         private _sourceMapper: SourceMapper,
-        private _dependentFiles?: ParseResults[]
+        private _dependentFiles?: ParserOutput[]
     ) {
         super();
 

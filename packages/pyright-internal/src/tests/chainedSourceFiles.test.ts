@@ -19,13 +19,13 @@ import { normalizeSlashes } from '../common/pathUtils';
 import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positionUtils';
 import { ServiceProvider } from '../common/serviceProvider';
 import { Uri } from '../common/uri/uri';
+import { UriEx } from '../common/uri/uriUtils';
 import { CompletionProvider } from '../languageService/completionProvider';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { TestAccessHost } from './harness/testAccessHost';
 import * as host from './harness/testHost';
 import { createFromFileSystem, distlibFolder, libFolder } from './harness/vfs/factory';
 import * as vfs from './harness/vfs/filesystem';
-import { UriEx } from '../common/uri/uriUtils';
 
 test('check chained files', () => {
     const code = `
@@ -48,7 +48,7 @@ test('check chained files', () => {
     const marker = data.markerPositions.get('marker')!;
     const markerUri = marker.fileUri;
 
-    const parseResult = service.getParseResult(markerUri)!;
+    const parseResult = service.getParseResults(markerUri)!;
     const result = new CompletionProvider(
         service.test_program,
         markerUri,
@@ -88,7 +88,7 @@ test('modify chained files', () => {
     // Make sure files are all realized.
     const marker = data.markerPositions.get('marker')!;
     const markerUri = marker.fileUri;
-    const parseResult = service.getParseResult(markerUri)!;
+    const parseResult = service.getParseResults(markerUri)!;
 
     // Close file in the middle of the chain
     service.setFileClosed(data.markerPositions.get('delete')!.fileUri);
@@ -138,7 +138,7 @@ test('modify chained files', async () => {
     const markerUri = marker.fileUri;
     const range = data.ranges.find((r) => r.marker === marker)!;
 
-    const parseResults = service.getParseResult(markerUri)!;
+    const parseResults = service.getParseResults(markerUri)!;
     analyze(service.test_program);
 
     // Initially, there should be no error.
@@ -187,7 +187,7 @@ test('chained files with 1000s of files', async () => {
     const markerUri = marker.fileUri;
     const range = data.ranges.find((r) => r.marker === marker)!;
 
-    const parseResults = service.getParseResult(markerUri)!;
+    const parseResults = service.getParseResults(markerUri)!;
     analyze(service.test_program);
 
     // There should be no error as it should find the foo1 in the first chained file.
@@ -217,7 +217,7 @@ test('imported by files', async () => {
     const markerUri = marker.fileUri;
     const range = data.ranges.find((r) => r.marker === marker)!;
 
-    const parseResults = service.getParseResult(markerUri)!;
+    const parseResults = service.getParseResults(markerUri)!;
     const diagnostics = await service.getDiagnosticsForRange(
         markerUri,
         convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),
@@ -251,7 +251,7 @@ test('re ordering cells', async () => {
     service.updateChainedUri(markerUri, bottomUri);
     analyze(service.test_program);
 
-    const parseResults = service.getParseResult(markerUri)!;
+    const parseResults = service.getParseResults(markerUri)!;
     const diagnostics = await service.getDiagnosticsForRange(
         markerUri,
         convertOffsetsToRange(range.pos, range.end, parseResults.tokenizerOutput.lines),

@@ -216,7 +216,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             // Add declarations from files that implicitly import the target file.
             const implicitlyImportedBy = collectImportedByCells(program, sourceFileInfo);
             implicitlyImportedBy.forEach((implicitImport) => {
-                const parseTree = program.getParseResults(implicitImport.sourceFile.getUri())?.parseTree;
+                const parseTree = program.getParseResults(implicitImport.sourceFile.getUri())?.parserOutput.parseTree;
                 if (parseTree) {
                     const scope = AnalyzerNodeInfo.getScope(parseTree);
                     const symbol = scope?.lookUpSymbol(node.value);

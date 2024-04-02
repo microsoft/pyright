@@ -42,7 +42,7 @@ import { convertOffsetToPosition, convertPositionToOffset } from '../common/posi
 import { Position, Range, TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ExpressionNode, NameNode, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import {
     getClassAndConstructorTypes,
     getConstructorTooltip,
@@ -152,7 +152,7 @@ export function getVariableTypeText(
 }
 
 export class HoverProvider {
-    private readonly _parseResults: ParseResults | undefined;
+    private readonly _parseResults: ParseFileResults | undefined;
     private readonly _sourceMapper: SourceMapper;
 
     constructor(
@@ -214,7 +214,7 @@ export class HoverProvider {
             return null;
         }
 
-        const node = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, offset);
+        const node = ParseTreeUtils.findNodeByOffset(this._parseResults.parserOutput.parseTree, offset);
         if (node === undefined) {
             return null;
         }
