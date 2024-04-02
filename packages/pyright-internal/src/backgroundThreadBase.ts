@@ -8,6 +8,7 @@
 
 import { MessagePort, parentPort, TransferListItem } from 'worker_threads';
 
+import { CacheManager } from './analyzer/cacheManager';
 import { OperationCanceledException, setCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, LogLevel } from './common/console';
@@ -15,9 +16,9 @@ import { isThenable } from './common/core';
 import * as debug from './common/debug';
 import { PythonVersion } from './common/pythonVersion';
 import { createFromRealFileSystem, RealTempFile } from './common/realFileSystem';
+import { ServiceKeys } from './common/serviceKeys';
 import { ServiceProvider } from './common/serviceProvider';
 import './common/serviceProviderExtensions';
-import { ServiceKeys } from './common/serviceKeys';
 import { Uri } from './common/uri/uri';
 
 export class BackgroundConsole implements ConsoleInterface {
@@ -74,6 +75,9 @@ export class BackgroundThreadBase {
                     this.getConsole()
                 )
             );
+        }
+        if (!this._serviceProvider.tryGet(ServiceKeys.cacheManager)) {
+            this._serviceProvider.add(ServiceKeys.cacheManager, new CacheManager());
         }
 
         // Stash the base directory into a global variable.
@@ -242,6 +246,7 @@ export interface InitializationData {
     cancellationFolderName: string | undefined;
     runner: string | undefined;
     title?: string;
+    workerIndex: number;
 }
 
 export interface RequestResponse {

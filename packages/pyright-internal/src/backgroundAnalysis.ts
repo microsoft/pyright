@@ -19,6 +19,8 @@ import { ServiceProvider } from './common/serviceProvider';
 import { getRootUri } from './common/uri/uriUtils';
 
 export class BackgroundAnalysis extends BackgroundAnalysisBase {
+    private static _workerIndex = 0;
+
     constructor(serviceProvider: ServiceProvider) {
         super(serviceProvider.console());
 
@@ -26,11 +28,15 @@ export class BackgroundAnalysis extends BackgroundAnalysisBase {
             rootUri: getRootUri(serviceProvider)?.toString() ?? '',
             cancellationFolderName: getCancellationFolderName(),
             runner: undefined,
+            workerIndex: ++BackgroundAnalysis._workerIndex,
         };
 
         // this will load this same file in BG thread and start listener
         const worker = new Worker(__filename, { workerData: initialData });
         this.setup(worker);
+
+        // Tell the cacheManager we have a worker that needs to share data.
+        serviceProvider.cacheManager()?.addWorker(initialData.workerIndex, worker);
     }
 }
 

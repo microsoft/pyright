@@ -25,6 +25,7 @@ declare module './serviceProvider' {
         tmp(): TempFile | undefined;
         sourceFileFactory(): ISourceFileFactory;
         partialStubs(): SupportPartialStubs;
+        cacheManager(): CacheManager | undefined;
     }
 }
 
@@ -73,6 +74,11 @@ ServiceProvider.prototype.tmp = function () {
 ServiceProvider.prototype.sourceFileFactory = function () {
     const result = this.tryGet(ServiceKeys.sourceFileFactory);
     return result || DefaultSourceFileFactory;
+};
+
+ServiceProvider.prototype.cacheManager = function () {
+    const result = this.tryGet(ServiceKeys.cacheManager);
+    return result;
 };
 
 const DefaultSourceFileFactory: ISourceFileFactory = {
