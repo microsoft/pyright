@@ -49,7 +49,6 @@ export interface AnalyzerFileInfo {
     diagnosticSink: TextRangeDiagnosticSink;
     executionEnvironment: ExecutionEnvironment;
     diagnosticRuleSet: DiagnosticRuleSet;
-    fileContents: string;
     lines: TextRangeCollection<TextRange>;
     typingSymbolAliases: Map<string, string>;
     definedConstants: Map<string, boolean | string>;
