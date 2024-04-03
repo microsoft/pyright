@@ -17978,7 +17978,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 const typeVarContext = buildTypeVarContextFromSpecializedClass(
                                     baseClassMemberInfo.classType
                                 );
-                                inferredParamType = applySolvedTypeVars(inferredParamType, typeVarContext);
+
+                                // Add the scope of the method to handle any function-scoped TypeVars.
+                                typeVarContext.addSolveForScope(ParseTreeUtils.getScopeIdForNode(baseClassMethodNode));
+
+                                // Replace any unsolved TypeVars with Unknown (including all function-scoped TypeVars).
+                                inferredParamType = applySolvedTypeVars(inferredParamType, typeVarContext, {
+                                    unknownIfNotFound: true,
+                                });
                             }
 
                             const fileInfo = AnalyzerNodeInfo.getFileInfo(functionNode);
