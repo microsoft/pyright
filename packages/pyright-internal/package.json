@@ -2,7 +2,7 @@
     "name": "pyright-internal",
     "displayName": "pyright",
     "description": "Type checker for the Python language",
-    "version": "1.1.356",
+    "version": "1.1.357",
     "license": "MIT",
     "private": true,
     "files": [
