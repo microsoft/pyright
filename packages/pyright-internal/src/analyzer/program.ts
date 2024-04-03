@@ -1803,7 +1803,7 @@ export class Program {
 
             if (importResult.isImportFound && !importResult.isNativeLib && importResult.resolvedUris.length > 0) {
                 const resolvedPath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
-                if (resolvedPath) {
+                if (!resolvedPath.isEmpty()) {
                     // See if the source file already exists in the program.
                     sourceFileInfo = this.getSourceFileInfo(resolvedPath);
 
