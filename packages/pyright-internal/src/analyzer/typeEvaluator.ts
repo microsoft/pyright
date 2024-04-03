@@ -26687,13 +26687,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             valueOffset += node.strings[0].token.prefixLength + node.strings[0].token.quoteMarkLength;
         }
 
+        // Construct a temporary dummy string with the text value at the appropriate
+        // offset so as to mimic the original file. This will keep all of the token
+        // and diagnostic offsets correct.
+        const dummyFileContents = ' '.repeat(valueOffset) + textValue;
+
         const parseOptions = new ParseOptions();
         parseOptions.isStubFile = fileInfo.isStubFile;
         parseOptions.pythonVersion = fileInfo.executionEnvironment.pythonVersion;
         parseOptions.reportErrorsForParsedStringContents = true;
 
         const parseResults = parser.parseTextExpression(
-            fileInfo.fileContents,
+            dummyFileContents,
             valueOffset,
             textValue.length,
             parseOptions,

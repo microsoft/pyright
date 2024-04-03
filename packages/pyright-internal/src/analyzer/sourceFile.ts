@@ -1285,7 +1285,6 @@ export class SourceFile {
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._uri),
             diagnosticRuleSet: this._diagnosticRuleSet,
-            fileContents,
             lines: this._writableData.tokenizerLines!,
             typingSymbolAliases: this._writableData.parserOutput!.typingSymbolAliases,
             definedConstants: configOptions.defineConstant,
