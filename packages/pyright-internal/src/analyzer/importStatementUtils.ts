@@ -646,7 +646,7 @@ function _processImportNode(node: ImportNode, localImports: ImportStatements, fo
         localImports.orderedImports.push(localImport);
 
         // Add it to the map.
-        if (resolvedPath) {
+        if (resolvedPath && !resolvedPath.isEmpty()) {
             // Don't overwrite existing import or import from statements
             // because we always want to prefer 'import from' over 'import'
             // in the map.
@@ -692,7 +692,7 @@ function _processImportFromNode(
     localImports.orderedImports.push(localImport);
 
     // Add it to the map.
-    if (resolvedPath) {
+    if (resolvedPath && !resolvedPath.isEmpty()) {
         const prevEntry = localImports.mapByFilePath.get(resolvedPath.key);
         // Overwrite existing import statements because we always want to prefer
         // 'import from' over 'import'. Also, overwrite existing 'import from' if

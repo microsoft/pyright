@@ -1489,7 +1489,7 @@ export class PackageTypeVerifier {
                 ? resolvedPath.getDirectory()
                 : importResult.packageDirectory ?? Uri.empty();
             let isModuleSingleFile = false;
-            if (resolvedPath && stripFileExtension(resolvedPath.fileName) !== '__init__') {
+            if (resolvedPath && !resolvedPath.isEmpty() && stripFileExtension(resolvedPath.fileName) !== '__init__') {
                 isModuleSingleFile = true;
             }
 
