@@ -19,7 +19,7 @@ import {
     isNodeContainedWithin,
 } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
-import { isSingleDunderName } from './symbolNameUtils';
+import { isPrivateName, isSingleDunderName } from './symbolNameUtils';
 import { FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
 import { MemberAccessFlags, computeMroLinearization, lookUpClassMember, makeInferenceContext } from './typeUtils';
@@ -363,6 +363,11 @@ export function transformTypeForPossibleEnumClass(
 
     // The spec excludes descriptors.
     if (isClassInstance(valueType) && valueType.details.fields.get('__get__')) {
+        return undefined;
+    }
+
+    // The spec excludes private (mangled) names.
+    if (isPrivateName(nameNode.value)) {
         return undefined;
     }
 

@@ -240,3 +240,12 @@ class TestEnum17(IntEnum):
 class TestEnum18(TestEnum17):
     A = (1, "A")
     B = (2, "B")
+
+
+class TestEnum19(Enum):
+    A = 1
+    __B = 2
+
+
+reveal_type(TestEnum19.A, expected_text="Literal[TestEnum19.A]")
+reveal_type(TestEnum19.__B, expected_text="Literal[2]")
