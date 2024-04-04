@@ -396,6 +396,7 @@ interface AliasMapEntry {
     alias: string;
     module: 'builtins' | 'collections' | 'self';
     isSpecialForm?: boolean;
+    typeParamVariance?: Variance;
 }
 
 interface AssignClassToSelfInfo {
@@ -15547,6 +15548,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             specialClassType.details.flags |= ClassTypeFlags.SpecialFormClass;
         }
 
+        // Synthesize a single type parameter with the specified variance if
+        // specified in the alias map entry.
+        if (aliasMapEntry.typeParamVariance !== undefined) {
+            let typeParam = TypeVarType.createInstance('T');
+            typeParam = TypeVarType.cloneForScopeId(
+                typeParam,
+                ParseTreeUtils.getScopeIdForNode(node),
+                assignedName,
+                TypeVarScopeType.Class
+            );
+            typeParam.details.declaredVariance = aliasMapEntry.typeParamVariance;
+            specialClassType.details.typeParameters.push(typeParam);
+        }
+
         const specialBuiltInClassDeclaration = (AnalyzerNodeInfo.getDeclaration(node) ??
             (node.parent ? AnalyzerNodeInfo.getDeclaration(node.parent) : undefined)) as
             | SpecialBuiltInClassDeclaration
@@ -15629,7 +15644,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['Annotated', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['TypeAlias', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Concatenate', { alias: '', module: 'builtins', isSpecialForm: true }],
-            ['TypeGuard', { alias: '', module: 'builtins', isSpecialForm: true }],
+            [
+                'TypeGuard',
+                { alias: '', module: 'builtins', isSpecialForm: true, typeParamVariance: Variance.Covariant },
+            ],
             ['Unpack', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Required', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['NotRequired', { alias: '', module: 'builtins', isSpecialForm: true }],
@@ -15638,7 +15656,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ['Never', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['LiteralString', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['ReadOnly', { alias: '', module: 'builtins', isSpecialForm: true }],
-            ['TypeIs', { alias: '', module: 'builtins', isSpecialForm: true }],
+            ['TypeIs', { alias: '', module: 'builtins', isSpecialForm: true, typeParamVariance: Variance.Invariant }],
         ]);
 
         const aliasMapEntry = specialTypes.get(assignedName);
@@ -23522,7 +23540,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return !isLiteral;
                 }
             } else if (ClassType.isBuiltIn(destType, ['TypeGuard', 'TypeIs'])) {
-                // All the source to be a "bool".
+                // Allow the source to be a "bool".
                 if ((originalFlags & AssignTypeFlags.AllowBoolTypeGuard) !== 0) {
                     if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'bool')) {
                         return true;

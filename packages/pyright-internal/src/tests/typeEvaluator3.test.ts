@@ -1013,7 +1013,7 @@ test('EnumGenNextValue1', () => {
 test('TypeGuard1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard1.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypeGuard2', () => {
@@ -1029,7 +1029,7 @@ test('TypeGuard3', () => {
 
 test('TypeIs1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIs1.py']);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Never1', () => {
