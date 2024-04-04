@@ -479,3 +479,12 @@ def test_unbounded_tuple(
             reveal_type(x, expected_text="int")
             reveal_type(y, expected_text="str")
             reveal_type(z, expected_text="complex")
+
+
+def test_unbounded_tuple_2(subj: tuple[int, str, Unpack[tuple[range, ...]]]) -> None:
+    match subj:
+        case [1, *ts1]:
+            reveal_type(ts1, expected_text="list[str | range]")
+
+        case [1, "", *ts2]:
+            reveal_type(ts2, expected_text="list[range]")
