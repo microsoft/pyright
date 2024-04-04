@@ -1075,6 +1075,12 @@ export function assignTypedDictToTypedDict(
     const extraSrcEntries = srcEntries.extraItems ?? getEffectiveExtraItemsEntryType(evaluator, srcType);
 
     destEntries.knownItems.forEach((destEntry, name) => {
+        // If we've already determined that the types are inconsistent and
+        // the caller isn't interested in detailed diagnostics, skip the remainder.
+        if (!typesAreConsistent && !diag) {
+            return;
+        }
+
         const srcEntry = srcEntries.knownItems.get(name);
         if (!srcEntry) {
             if (destEntry.isRequired || !destEntry.isReadOnly) {
@@ -1146,6 +1152,12 @@ export function assignTypedDictToTypedDict(
             }
         }
     });
+
+    // If the types are not consistent and the caller isn't interested
+    // in detailed diagnostics, don't do additional work.
+    if (!typesAreConsistent && !diag) {
+        return false;
+    }
 
     // If the destination TypedDict is closed, check any extra entries in the source
     // TypedDict to ensure that they don't violate the "extra items" type.
