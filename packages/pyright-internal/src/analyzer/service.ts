@@ -1131,7 +1131,7 @@ export class AnalyzerService {
     }
 
     private _matchFiles(include: FileSpec[], exclude: FileSpec[]): Uri[] {
-        const envMarkers = [['bin', 'activate'], ['Scripts', 'activate'], ['pyvenv.cfg']];
+        const envMarkers = [['bin', 'activate'], ['Scripts', 'activate'], ['pyvenv.cfg'], ['conda-meta']];
         const results: Uri[] = [];
         const startTime = Date.now();
         const longOperationLimitInSec = 10;
