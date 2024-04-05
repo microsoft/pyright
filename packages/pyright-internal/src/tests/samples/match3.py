@@ -87,3 +87,13 @@ def func6(a: int | str, b: int | str) -> None:
             reveal_type(y, expected_text="Never")
             reveal_type(a, expected_text="Never")
             reveal_type(b, expected_text="Never")
+
+
+def func7(a: str | None, b: str | None) -> None:
+    match (a, b):
+        case (_, None):
+            return
+        case (None, _):
+            return
+    reveal_type(a, expected_text="str")
+    reveal_type(b, expected_text="str")

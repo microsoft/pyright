@@ -131,6 +131,7 @@ export interface FlowNarrowForPattern extends FlowNode {
 // (i.e. the narrowed type of the subject expression is Never at the bottom).
 export interface FlowExhaustedMatch extends FlowNode {
     node: MatchNode;
+    subjectExpression: ExpressionNode;
     antecedent: FlowNode;
 }
 
