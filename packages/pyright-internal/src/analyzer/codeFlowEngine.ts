@@ -734,12 +734,35 @@ export function getCodeFlowEngine(
                         });
 
                         // If the narrowed type is "never", don't allow further exploration.
-                        if (narrowedTypeResult && isNever(narrowedTypeResult.type)) {
-                            return setCacheEntry(
-                                curFlowNode,
-                                narrowedTypeResult.type,
-                                !!narrowedTypeResult.isIncomplete
-                            );
+                        if (narrowedTypeResult) {
+                            if (isNever(narrowedTypeResult.type)) {
+                                return setCacheEntry(
+                                    curFlowNode,
+                                    narrowedTypeResult.type,
+                                    !!narrowedTypeResult.isIncomplete
+                                );
+                            }
+
+                            if (reference) {
+                                // See if the reference is a subexpression within the subject expression.
+                                const typeNarrowingCallback = getPatternSubtypeNarrowingCallback(
+                                    evaluator,
+                                    reference,
+                                    exhaustedMatchFlowNode.subjectExpression
+                                );
+
+                                if (typeNarrowingCallback) {
+                                    const subexpressionTypeResult = typeNarrowingCallback(narrowedTypeResult.type);
+
+                                    if (subexpressionTypeResult) {
+                                        return setCacheEntry(
+                                            curFlowNode,
+                                            subexpressionTypeResult.type,
+                                            !!narrowedTypeResult.isIncomplete || !!subexpressionTypeResult.isIncomplete
+                                        );
+                                    }
+                                }
+                            }
                         }
 
                         curFlowNode = exhaustedMatchFlowNode.antecedent;

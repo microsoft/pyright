@@ -3361,6 +3361,7 @@ export class Binder extends ParseTreeWalker {
                 id: this._getUniqueFlowNodeId(),
                 node,
                 antecedent: this._currentFlowNode!,
+                subjectExpression: node.subjectExpression,
             };
 
             this._currentFlowNode = flowNode;
