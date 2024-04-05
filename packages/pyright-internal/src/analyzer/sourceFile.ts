@@ -96,7 +96,6 @@ class WriteableData {
     parseTreeNeedsCleaning = false;
 
     parserOutput: ParserOutput | undefined;
-    parsedFileContents: string | undefined;
     tokenizerLines: TextRangeCollection<TextRange> | undefined;
     tokenizerOutput: TokenizerOutput | undefined;
 
@@ -408,7 +407,6 @@ export class SourceFile {
         this._writableData.parserOutput = undefined;
         this._writableData.tokenizerLines = undefined;
         this._writableData.tokenizerOutput = undefined;
-        this._writableData.parsedFileContents = undefined;
         this._writableData.moduleSymbolTable = undefined;
         this._writableData.isBindingNeeded = true;
     }
@@ -550,17 +548,36 @@ export class SourceFile {
             return undefined;
         }
 
-        assert(this._writableData.parserOutput !== undefined && this._writableData.parsedFileContents !== undefined);
+        assert(this._writableData.parserOutput !== undefined);
+
+        let fileContents = this._writableData.clientDocumentContents;
+
+        if (fileContents === undefined) {
+            // Read the file contents from disk since we don't have them cached.
+            fileContents = this.getFileContent();
+            if (fileContents === undefined) {
+                return undefined;
+            }
+
+            // If the on-disk contents changed since we last tokenized and
+            // parsed the file, we need to mark it as dirty.
+            if (
+                this._writableData.lastFileContentLength !== fileContents.length ||
+                this._writableData.lastFileContentHash !== StringUtils.hashString(fileContents)
+            ) {
+                this.markDirty();
+                return undefined;
+            }
+        }
 
         // If we've cached the tokenizer output, use the cached version.
         // Otherwise re-tokenize the contents on demand.
-        const tokenizerOutput =
-            this._writableData.tokenizerOutput ?? this._tokenizeContents(this._writableData.parsedFileContents);
+        const tokenizerOutput = this._writableData.tokenizerOutput ?? this._tokenizeContents(fileContents);
 
         return {
             parserOutput: this._writableData.parserOutput,
             tokenizerOutput,
-            text: this._writableData.parsedFileContents,
+            text: fileContents,
         };
     }
 
@@ -655,7 +672,6 @@ export class SourceFile {
                 assert(parseFileResults !== undefined && parseFileResults.tokenizerOutput !== undefined);
                 this._writableData.parserOutput = parseFileResults.parserOutput;
                 this._writableData.tokenizerLines = parseFileResults.tokenizerOutput.lines;
-                this._writableData.parsedFileContents = fileContents;
                 this._writableData.typeIgnoreLines = parseFileResults.tokenizerOutput.typeIgnoreLines;
                 this._writableData.typeIgnoreAll = parseFileResults.tokenizerOutput.typeIgnoreAll;
                 this._writableData.pyrightIgnoreLines = parseFileResults.tokenizerOutput.pyrightIgnoreLines;
@@ -725,8 +741,6 @@ export class SourceFile {
                 );
 
                 // Create dummy parse results.
-                this._writableData.parsedFileContents = '';
-
                 this._writableData.parserOutput = {
                     parseTree: ModuleNode.create({ start: 0, length: 0 }),
                     importedModules: [],
@@ -796,13 +810,7 @@ export class SourceFile {
                 timingStats.bindTime.timeOperation(() => {
                     this._cleanParseTreeIfRequired();
 
-                    const fileInfo = this._buildFileInfo(
-                        configOptions,
-                        this._writableData.parsedFileContents!,
-                        importLookup,
-                        builtinsScope,
-                        futureImports
-                    );
+                    const fileInfo = this._buildFileInfo(configOptions, importLookup, builtinsScope, futureImports);
                     AnalyzerNodeInfo.setFileInfo(this._writableData.parserOutput!.parseTree, fileInfo);
 
                     const binder = new Binder(fileInfo, configOptions.indexGenerationMode);
@@ -1270,7 +1278,6 @@ export class SourceFile {
 
     private _buildFileInfo(
         configOptions: ConfigOptions,
-        fileContents: string,
         importLookup: ImportLookup,
         builtinsScope: Scope | undefined,
         futureImports: Set<string>
