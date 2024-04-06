@@ -615,7 +615,6 @@ interface ClassDetails {
     dataClassEntries?: DataClassEntry[] | undefined;
     dataClassBehaviors?: DataClassBehaviors | undefined;
     typedDictEntries?: TypedDictEntries | undefined;
-    inheritedSlotsNames?: string[];
     localSlotsNames?: string[];
 
     // A cache of protocol classes (indexed by the class full name)
@@ -635,6 +634,13 @@ interface ClassDetails {
     // A cached value that indicates whether an instance of this class
     // is hashable (i.e. does not override "__hash__" with None).
     isInstanceHashable?: boolean;
+
+    // Callback for deferred synthesis of methods in symbol table.
+    synthesizeMethodsDeferred?: () => void;
+
+    // Callback for calculating inherited slots names.
+    calculateInheritedSlotsNamesDeferred?: () => void;
+    inheritedSlotsNamesCached?: string[];
 }
 
 export interface TupleTypeArgument {
@@ -1136,6 +1142,8 @@ export namespace ClassType {
     }
 
     export function getDataClassEntries(classType: ClassType): DataClassEntry[] {
+        classType.details.synthesizeMethodsDeferred?.();
+
         return classType.details.dataClassEntries || [];
     }
 
@@ -1172,7 +1180,19 @@ export namespace ClassType {
     }
 
     export function getSymbolTable(classType: ClassType) {
+        classType.details.synthesizeMethodsDeferred?.();
+
         return classType.details.fields;
+    }
+
+    export function getInheritedSlotsNames(classType: ClassType) {
+        // First synthesize methods if needed. The slots entries
+        // can depend on synthesized methods.
+        classType.details.synthesizeMethodsDeferred?.();
+
+        classType.details.calculateInheritedSlotsNamesDeferred?.();
+
+        return classType.details.inheritedSlotsNamesCached;
     }
 
     // Similar to isPartiallyEvaluated except that it also looks at all of the

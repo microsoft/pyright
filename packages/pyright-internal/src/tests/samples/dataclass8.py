@@ -2,6 +2,7 @@
 # circular type references within dataclass definitions.
 
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass
@@ -20,3 +21,10 @@ class ClassB:
 
     def method1(self):
         ChildA(b=self)
+
+
+@dataclass()
+class ClassC:
+    name: str = "sample"
+    dir_a: Path = Path.home().joinpath(f"source/{name}")
+    dir_b: Path = dir_a.joinpath("path/to/b")

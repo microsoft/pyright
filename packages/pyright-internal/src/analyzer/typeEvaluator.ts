@@ -3490,13 +3490,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // Check for an attempt to write to an instance variable that is
                 // not defined by __slots__.
-                if (isThisClass && isInstanceMember) {
-                    if (memberClass?.details.inheritedSlotsNames && memberClass.details.localSlotsNames) {
+                if (isThisClass && isInstanceMember && memberClass) {
+                    const inheritedSlotsNames = ClassType.getInheritedSlotsNames(memberClass);
+
+                    if (inheritedSlotsNames && memberClass.details.localSlotsNames) {
                         // Skip this check if the local slots is specified but empty because this pattern
                         // is used in a legitimate manner for mix-in classes.
                         if (
                             memberClass.details.localSlotsNames.length > 0 &&
-                            !memberClass.details.inheritedSlotsNames.some((name) => name === memberName)
+                            !inheritedSlotsNames.some((name) => name === memberName)
                         ) {
                             // Determine whether the assignment corresponds to a descriptor
                             // that was assigned as a class variable. If so, then slots will not
@@ -16186,6 +16188,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // all of the type parameters in the specified order.
             let genericTypeParameters: TypeVarType[] | undefined;
             let protocolTypeParameters: TypeVarType[] | undefined;
+            let isNamedTupleSubclass = false;
 
             const initSubclassArgs: FunctionArgument[] = [];
             let metaclassNode: ExpressionNode | undefined;
@@ -16279,6 +16282,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // newer), it's considered a (read-only) dataclass.
                             if (fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_6)) {
                                 if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
+                                    isNamedTupleSubclass = true;
                                     classType.details.flags |=
                                         ClassTypeFlags.DataClass |
                                         ClassTypeFlags.SkipSynthesizedDataClassEq |
@@ -16787,59 +16791,77 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // See if there's already a non-synthesized __init__ method.
                 // We shouldn't override it.
                 if (!skipSynthesizedInit) {
-                    const initSymbol = lookUpClassMember(classType, '__init__', MemberAccessFlags.SkipBaseClasses);
-                    if (initSymbol) {
+                    const initSymbol = classType.details.fields.get('__init__');
+                    if (initSymbol && initSymbol.isClassMember()) {
                         hasExistingInitMethod = true;
                     }
                 }
 
                 let skipSynthesizeHash = false;
-                const hashSymbol = lookUpClassMember(classType, '__hash__', MemberAccessFlags.SkipBaseClasses);
+                const hashSymbol = classType.details.fields.get('__hash__');
 
                 // If there is a hash symbol defined in the class (i.e. one that we didn't
                 // synthesize above), then we shouldn't synthesize a new one for the dataclass.
-                if (hashSymbol && !hashSymbol.symbol.getSynthesizedType()) {
+                if (hashSymbol && hashSymbol.isClassMember() && !hashSymbol.getSynthesizedType()) {
                     skipSynthesizeHash = true;
                 }
 
-                synthesizeDataClassMethods(
-                    evaluatorInterface,
-                    node,
-                    classType,
-                    skipSynthesizedInit,
-                    hasExistingInitMethod,
-                    skipSynthesizeHash
-                );
+                const synthesizeMethods = () =>
+                    synthesizeDataClassMethods(
+                        evaluatorInterface,
+                        node,
+                        classType,
+                        skipSynthesizedInit,
+                        hasExistingInitMethod,
+                        skipSynthesizeHash
+                    );
+
+                // If this is a NamedTuple subclass, immediately synthesize dataclass methods
+                // because we also need to update the MRO classes in this case. For regular
+                // dataclasses, we'll defer the  method synthesis to avoid circular dependencies.
+                if (isNamedTupleSubclass) {
+                    synthesizeMethods();
+                } else {
+                    classType.details.synthesizeMethodsDeferred = () => {
+                        delete classType.details.synthesizeMethodsDeferred;
+                        synthesizeMethods();
+                    };
+                }
             }
 
             // Build a complete list of all slots names defined by the class hierarchy.
             // This needs to be done after dataclass processing.
-            if (classType.details.localSlotsNames) {
-                let isLimitedToSlots = true;
-                const extendedSlotsNames = Array.from(classType.details.localSlotsNames);
+            classType.details.calculateInheritedSlotsNamesDeferred = () => {
+                delete classType.details.calculateInheritedSlotsNamesDeferred;
 
-                classType.details.baseClasses.forEach((baseClass) => {
-                    if (isInstantiableClass(baseClass)) {
-                        if (
-                            !ClassType.isBuiltIn(baseClass, 'object') &&
-                            !ClassType.isBuiltIn(baseClass, 'type') &&
-                            !ClassType.isBuiltIn(baseClass, 'Generic')
-                        ) {
-                            if (baseClass.details.inheritedSlotsNames === undefined) {
-                                isLimitedToSlots = false;
-                            } else {
-                                appendArray(extendedSlotsNames, baseClass.details.inheritedSlotsNames);
+                if (classType.details.localSlotsNames) {
+                    let isLimitedToSlots = true;
+                    const extendedSlotsNames = Array.from(classType.details.localSlotsNames);
+
+                    classType.details.baseClasses.forEach((baseClass) => {
+                        if (isInstantiableClass(baseClass)) {
+                            if (
+                                !ClassType.isBuiltIn(baseClass, 'object') &&
+                                !ClassType.isBuiltIn(baseClass, 'type') &&
+                                !ClassType.isBuiltIn(baseClass, 'Generic')
+                            ) {
+                                const inheritedSlotsNames = ClassType.getInheritedSlotsNames(baseClass);
+                                if (inheritedSlotsNames) {
+                                    appendArray(extendedSlotsNames, inheritedSlotsNames);
+                                } else {
+                                    isLimitedToSlots = false;
+                                }
                             }
+                        } else {
+                            isLimitedToSlots = false;
                         }
-                    } else {
-                        isLimitedToSlots = false;
-                    }
-                });
+                    });
 
-                if (isLimitedToSlots) {
-                    classType.details.inheritedSlotsNames = extendedSlotsNames;
+                    if (isLimitedToSlots) {
+                        classType.details.inheritedSlotsNamesCached = extendedSlotsNames;
+                    }
                 }
-            }
+            };
 
             // Update the undecorated class type.
             writeTypeCache(node.name, { type: classType }, EvaluatorFlags.None);
