@@ -129,7 +129,7 @@ export function synthesizeDataClassMethods(
     const localEntryTypeEvaluator: { entry: DataClassEntry; evaluator: EntryTypeEvaluator }[] = [];
     let sawKeywordOnlySeparator = false;
 
-    classType.details.fields.forEach((symbol, name) => {
+    ClassType.getSymbolTable(classType).forEach((symbol, name) => {
         if (symbol.isIgnoredForProtocolMatch()) {
             return;
         }
@@ -322,7 +322,7 @@ export function synthesizeDataClassMethods(
 
                 // Don't include class vars. PEP 557 indicates that they shouldn't
                 // be considered data class entries.
-                const variableSymbol = classType.details.fields.get(variableName);
+                const variableSymbol = ClassType.getSymbolTable(classType).get(variableName);
 
                 if (variableSymbol?.isClassVar() && !variableSymbol?.isFinalVarInClassBody()) {
                     // If an ancestor class declared an instance variable but this dataclass
@@ -462,7 +462,7 @@ export function synthesizeDataClassMethods(
         entryEvaluator.entry.type = entryEvaluator.evaluator();
     });
 
-    const symbolTable = classType.details.fields;
+    const symbolTable = ClassType.getSymbolTable(classType);
     const keywordOnlyParams: FunctionParameter[] = [];
 
     if (!skipSynthesizeInit && !hasExistingInitMethod) {
@@ -868,7 +868,7 @@ function getDescriptorForConverterField(
     descriptorClass.details.baseClasses.push(evaluator.getBuiltInType(dataclassNode, 'object'));
     computeMroLinearization(descriptorClass);
 
-    const fields = descriptorClass.details.fields;
+    const fields = ClassType.getSymbolTable(descriptorClass);
     const selfType = synthesizeTypeVarForSelfCls(descriptorClass, /* isClsParam */ false);
 
     const setFunction = FunctionType.createSynthesizedInstance('__set__');

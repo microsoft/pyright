@@ -328,7 +328,7 @@ function _getPropertyDocStringInherited(
             continue;
         }
 
-        const symbol = mroClass.details.fields.get(fieldName);
+        const symbol = ClassType.getSymbolTable(mroClass).get(fieldName);
         // Get both the setter and getter declarations
         const decls = symbol?.getDeclarations();
         if (decls) {

@@ -57,7 +57,7 @@ export function isEnumClassWithMembers(evaluator: TypeEvaluator, classType: Clas
     // Determine whether the enum class defines a member.
     let definesValue = false;
 
-    classType.details.fields.forEach((symbol) => {
+    ClassType.getSymbolTable(classType).forEach((symbol) => {
         const symbolType = evaluator.getEffectiveTypeOfSymbol(symbol);
         if (isClassInstance(symbolType) && ClassType.isSameGenericClass(symbolType, classType)) {
             definesValue = true;
@@ -105,7 +105,7 @@ export function createEnumType(
     classType.details.baseClasses.push(enumClass);
     computeMroLinearization(classType);
 
-    const classFields = classType.details.fields;
+    const classFields = ClassType.getSymbolTable(classType);
     classFields.set(
         '__class__',
         Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.IgnoredForProtocolMatch, classType)
@@ -362,7 +362,7 @@ export function transformTypeForPossibleEnumClass(
     }
 
     // The spec excludes descriptors.
-    if (isClassInstance(valueType) && valueType.details.fields.get('__get__')) {
+    if (isClassInstance(valueType) && ClassType.getSymbolTable(valueType).get('__get__')) {
         return undefined;
     }
 

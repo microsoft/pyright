@@ -129,7 +129,7 @@ export function createNamedTupleType(
     classType.details.baseClasses.push(namedTupleType);
     classType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode);
 
-    const classFields = classType.details.fields;
+    const classFields = ClassType.getSymbolTable(classType);
     classFields.set(
         '__class__',
         Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.IgnoredForProtocolMatch, classType)

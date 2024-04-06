@@ -2908,7 +2908,7 @@ export class CompletionProvider {
                         classType.classType.details.mro.forEach((baseClass, index) => {
                             if (isInstantiableClass(baseClass)) {
                                 this._addSymbolsForSymbolTable(
-                                    baseClass.details.fields,
+                                    ClassType.getSymbolTable(baseClass),
                                     (symbol) => {
                                         if (!symbol.isClassMember()) {
                                             return false;

@@ -1330,11 +1330,11 @@ export function isMaybeDescriptorInstance(type: Type, requireSetter = false): bo
         return false;
     }
 
-    if (!type.details.fields.has('__get__')) {
+    if (!ClassType.getSymbolTable(type).has('__get__')) {
         return false;
     }
 
-    if (requireSetter && !type.details.fields.has('__set__')) {
+    if (requireSetter && !ClassType.getSymbolTable(type).has('__set__')) {
         return false;
     }
 
@@ -1638,7 +1638,7 @@ export function getProtocolSymbolsRecursive(
         }
     });
 
-    classType.details.fields.forEach((symbol, name) => {
+    ClassType.getSymbolTable(classType).forEach((symbol, name) => {
         if (!symbol.isIgnoredForProtocolMatch()) {
             symbolMap.set(name, {
                 symbol,
@@ -1795,7 +1795,7 @@ export function* getClassMemberIterator(
                 continue;
             }
 
-            const memberFields = specializedMroClass.details.fields;
+            const memberFields = ClassType.getSymbolTable(specializedMroClass);
 
             // Look at instance members first if requested.
             if ((flags & MemberAccessFlags.SkipInstanceMembers) === 0) {
@@ -1935,7 +1935,7 @@ export function getClassFieldsRecursive(classType: ClassType): Map<string, Class
         const specializedMroClass = partiallySpecializeType(mroClass, classType);
 
         if (isClass(specializedMroClass)) {
-            specializedMroClass.details.fields.forEach((symbol, name) => {
+            ClassType.getSymbolTable(specializedMroClass).forEach((symbol, name) => {
                 if (!symbol.isIgnoredForProtocolMatch() && symbol.hasTypedDeclarations()) {
                     memberMap.set(name, {
                         classType: specializedMroClass,
@@ -2598,7 +2598,7 @@ export function getMembersForClass(classType: ClassType, symbolTable: SymbolTabl
         if (isInstantiableClass(mroClass)) {
             // Add any new member variables from this class.
             const isClassTypedDict = ClassType.isTypedDictClass(mroClass);
-            mroClass.details.fields.forEach((symbol, name) => {
+            ClassType.getSymbolTable(mroClass).forEach((symbol, name) => {
                 if (symbol.isClassMember() || (includeInstanceVars && symbol.isInstanceMember())) {
                     if (!isClassTypedDict || !isTypedDictMemberAccessedThroughIndex(symbol)) {
                         if (!symbol.isInitVar()) {
@@ -2624,7 +2624,7 @@ export function getMembersForClass(classType: ClassType, symbolTable: SymbolTabl
         if (metaclass && isInstantiableClass(metaclass)) {
             for (const mroClass of metaclass.details.mro) {
                 if (isInstantiableClass(mroClass)) {
-                    mroClass.details.fields.forEach((symbol, name) => {
+                    ClassType.getSymbolTable(mroClass).forEach((symbol, name) => {
                         const existingSymbol = symbolTable.get(name);
 
                         if (!existingSymbol) {

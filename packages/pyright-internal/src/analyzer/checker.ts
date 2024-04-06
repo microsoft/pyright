@@ -4805,7 +4805,7 @@ export class Checker extends ParseTreeWalker {
     // Validates that any overridden member variables are not marked
     // as Final in parent classes.
     private _validateFinalMemberOverrides(classType: ClassType) {
-        classType.details.fields.forEach((localSymbol, name) => {
+        ClassType.getSymbolTable(classType).forEach((localSymbol, name) => {
             const parentSymbol = lookUpClassMember(classType, name, MemberAccessFlags.SkipOriginalClass);
             if (parentSymbol && isInstantiableClass(parentSymbol.classType) && !SymbolNameUtils.isPrivateName(name)) {
                 // Did the parent class explicitly declare the variable as final?
@@ -4884,7 +4884,7 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        classType.details.fields.forEach((symbol, name) => {
+        ClassType.getSymbolTable(classType).forEach((symbol, name) => {
             // Enum members don't have type annotations.
             if (symbol.getTypedDeclarations().length > 0) {
                 return;
@@ -4996,7 +4996,7 @@ export class Checker extends ParseTreeWalker {
         const initOnlySymbolMap = new Map<string, Symbol>();
         ClassType.getReverseMro(classType).forEach((mroClass) => {
             if (isClass(mroClass) && ClassType.isDataClass(mroClass)) {
-                mroClass.details.fields.forEach((symbol, name) => {
+                ClassType.getSymbolTable(mroClass).forEach((symbol, name) => {
                     if (symbol.isInitVar()) {
                         initOnlySymbolMap.set(name, symbol);
                     }
@@ -5158,7 +5158,7 @@ export class Checker extends ParseTreeWalker {
             getProtocolSymbolsRecursive(classType, abstractSymbols, ClassTypeFlags.SupportsAbstractMethods);
         }
 
-        classType.details.fields.forEach((localSymbol, name) => {
+        ClassType.getSymbolTable(classType).forEach((localSymbol, name) => {
             abstractSymbols.delete(name);
 
             // This applies only to instance members.
@@ -5377,7 +5377,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        classType.details.fields.forEach((symbol, name) => {
+        ClassType.getSymbolTable(classType).forEach((symbol, name) => {
             const decls = symbol.getDeclarations();
             const isDefinedBySlots = decls.some(
                 (decl) => decl.type === DeclarationType.Variable && decl.isDefinedBySlots
@@ -5759,7 +5759,7 @@ export class Checker extends ParseTreeWalker {
         let overrideType = this._evaluator.getEffectiveTypeOfSymbol(overrideSymbol);
         overrideType = partiallySpecializeType(overrideType, overrideClassAndSymbol.classType);
 
-        const childOverrideSymbol = childClassType.details.fields.get(memberName);
+        const childOverrideSymbol = ClassType.getSymbolTable(childClassType).get(memberName);
         const childOverrideType = childOverrideSymbol
             ? this._evaluator.getEffectiveTypeOfSymbol(childOverrideSymbol)
             : undefined;
@@ -5943,7 +5943,7 @@ export class Checker extends ParseTreeWalker {
     // are decorated. For example, if the first overload is not marked @final
     // but subsequent ones are, an error should be reported.
     private _validateOverloadDecoratorConsistency(classType: ClassType) {
-        classType.details.fields.forEach((symbol, name) => {
+        ClassType.getSymbolTable(classType).forEach((symbol, name) => {
             const primaryDecl = getLastTypedDeclaredForSymbol(symbol);
 
             if (!primaryDecl || primaryDecl.type !== DeclarationType.Function) {
@@ -6122,7 +6122,7 @@ export class Checker extends ParseTreeWalker {
     // types as the original method. Also marks the class as abstract if one
     // or more abstract methods are not overridden.
     private _validateBaseClassOverrides(classType: ClassType) {
-        classType.details.fields.forEach((symbol, name) => {
+        ClassType.getSymbolTable(classType).forEach((symbol, name) => {
             // Private symbols do not need to match in type since their
             // names are mangled, and subclasses can't access the value in
             // the parent class.

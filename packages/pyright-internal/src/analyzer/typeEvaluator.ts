@@ -3417,7 +3417,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Assignments to instance or class variables through "self" or "cls" is not
                     // allowed for protocol classes unless it is also declared within the class.
                     if (ClassType.isProtocolClass(classTypeResults.classType)) {
-                        const memberSymbol = classTypeResults.classType.details.fields.get(target.memberName.value);
+                        const memberSymbol = ClassType.getSymbolTable(classTypeResults.classType).get(
+                            target.memberName.value
+                        );
                         if (memberSymbol) {
                             const classLevelDecls = memberSymbol.getDeclarations().filter((decl) => {
                                 return !ParseTreeUtils.getEnclosingFunction(decl.node);
@@ -3479,7 +3481,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 isInstanceMember ? MemberAccessFlags.Default : MemberAccessFlags.SkipInstanceMembers
             );
 
-            const memberFields = classTypeInfo.classType.details.fields;
+            const memberFields = ClassType.getSymbolTable(classTypeInfo.classType);
             if (memberInfo) {
                 // Are we accessing an existing member on this class, or is
                 // it a member on a parent class?
@@ -9457,7 +9459,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getAbstractSymbolInfo(classType: ClassType, symbolName: string): AbstractSymbol | undefined {
         const isProtocolClass = ClassType.isProtocolClass(classType);
 
-        const symbol = classType.details.fields.get(symbolName);
+        const symbol = ClassType.getSymbolTable(classType).get(symbolName);
         if (!symbol) {
             return undefined;
         }
@@ -12857,7 +12859,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 hasDeclaredType: true,
             });
             initType.details.declaredReturnType = getNoneType();
-            classType.details.fields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
+            ClassType.getSymbolTable(classType).set(
+                '__init__',
+                Symbol.createWithType(SymbolFlags.ClassMember, initType)
+            );
 
             // Synthesize a trivial __new__ method.
             const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
@@ -12870,7 +12875,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             FunctionType.addDefaultParameters(newType);
             newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
             newType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
-            classType.details.fields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
+            ClassType.getSymbolTable(classType).set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
         }
 
         return classType;
@@ -22298,7 +22303,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // as though all TypeParameters are invariant.
             assignClassToSelfStack.push({ class: destType, assumedVariance });
 
-            destType.details.fields.forEach((symbol, name) => {
+            ClassType.getSymbolTable(destType).forEach((symbol, name) => {
                 if (!isAssignable || symbol.isIgnoredForProtocolMatch()) {
                     return;
                 }
@@ -24543,12 +24548,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // a normal function wouldn't be compatible with.
         for (const mroClass of objType.details.mro) {
             if (isClass(mroClass) && ClassType.isProtocolClass(mroClass)) {
-                for (const field of mroClass.details.fields) {
+                for (const field of ClassType.getSymbolTable(mroClass)) {
                     if (field[0] !== '__call__' && !field[1].isIgnoredForProtocolMatch()) {
                         let fieldIsPartOfFunction = false;
 
                         if (functionObj && isClass(functionObj)) {
-                            if (functionObj.details.fields.has(field[0])) {
+                            if (ClassType.getSymbolTable(functionObj).has(field[0])) {
                                 fieldIsPartOfFunction = true;
                             }
                         }
@@ -26343,7 +26348,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // See if this class is introducing a new abstract symbol that has not been
                 // introduced previously or if it is overriding an abstract symbol with
                 // a non-abstract one.
-                mroClass.details.fields.forEach((symbol, symbolName) => {
+                ClassType.getSymbolTable(mroClass).forEach((symbol, symbolName) => {
                     const abstractSymbolInfo = getAbstractSymbolInfo(mroClass, symbolName);
 
                     if (abstractSymbolInfo) {

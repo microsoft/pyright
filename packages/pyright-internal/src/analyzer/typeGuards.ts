@@ -2509,7 +2509,7 @@ export function enumerateLiteralsForType(evaluator: TypeEvaluator, type: ClassTy
 
         // Enumerate all of the values in this enumeration.
         const enumList: ClassType[] = [];
-        const fields = type.details.fields;
+        const fields = ClassType.getSymbolTable(type);
         fields.forEach((symbol) => {
             if (!symbol.isIgnoredForProtocolMatch()) {
                 const symbolType = evaluator.getEffectiveTypeOfSymbol(symbol);
@@ -2601,7 +2601,7 @@ function narrowTypeForCallable(
                         FunctionType.addParameter(callMethod, selfParam);
                         FunctionType.addDefaultParameters(callMethod);
                         callMethod.details.declaredReturnType = UnknownType.create();
-                        newClassType.details.fields.set(
+                        ClassType.getSymbolTable(newClassType).set(
                             '__call__',
                             Symbol.createWithType(SymbolFlags.ClassMember, callMethod)
                         );

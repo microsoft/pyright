@@ -331,7 +331,7 @@ export class PackageTypeVerifier {
                                     alternateSymbolNames,
                                     module,
                                     fullName,
-                                    symbolType.details.fields,
+                                    ClassType.getSymbolTable(symbolType),
                                     ScopeType.Class
                                 );
                             }
@@ -1149,7 +1149,7 @@ export class PackageTypeVerifier {
         const symbolTableTypeKnownStatus = this._getTypeKnownStatusForSymbolTable(
             report,
             type.details.fullName,
-            type.details.fields,
+            ClassType.getSymbolTable(type),
             ScopeType.Class,
             publicSymbols,
             (name: string, symbol: Symbol) => {
@@ -1159,7 +1159,7 @@ export class PackageTypeVerifier {
                 if (!symbol.hasTypedDeclarations()) {
                     for (const mroClass of type.details.mro.slice(1)) {
                         if (isClass(mroClass)) {
-                            const overrideSymbol = mroClass.details.fields.get(name);
+                            const overrideSymbol = ClassType.getSymbolTable(mroClass).get(name);
                             if (overrideSymbol && overrideSymbol.hasTypedDeclarations()) {
                                 return overrideSymbol;
                             }

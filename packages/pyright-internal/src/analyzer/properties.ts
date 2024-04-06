@@ -78,8 +78,8 @@ export function createProperty(
     computeMroLinearization(propertyClass);
 
     // Clone the symbol table of the old class type.
-    const fields = propertyClass.details.fields;
-    decoratorType.details.fields.forEach((symbol, name) => {
+    const fields = ClassType.getSymbolTable(propertyClass);
+    ClassType.getSymbolTable(decoratorType).forEach((symbol, name) => {
         const ignoredMethods = ['__get__', '__set__', '__delete__'];
 
         if (!symbol.isIgnoredForProtocolMatch()) {
@@ -184,8 +184,8 @@ export function clonePropertyWithSetter(
     const propertyObject = ClassType.cloneAsInstance(propertyClass);
 
     // Clone the symbol table of the old class type.
-    const fields = propertyClass.details.fields;
-    classType.details.fields.forEach((symbol, name) => {
+    const fields = ClassType.getSymbolTable(propertyClass);
+    ClassType.getSymbolTable(classType).forEach((symbol, name) => {
         if (!symbol.isIgnoredForProtocolMatch()) {
             fields.set(name, symbol);
         }
@@ -243,8 +243,8 @@ export function clonePropertyWithDeleter(
     propertyClass.isAsymmetricDescriptor = classType.isAsymmetricDescriptor ?? false;
 
     // Clone the symbol table of the old class type.
-    const fields = propertyClass.details.fields;
-    classType.details.fields.forEach((symbol, name) => {
+    const fields = ClassType.getSymbolTable(propertyClass);
+    ClassType.getSymbolTable(classType).forEach((symbol, name) => {
         if (!symbol.isIgnoredForProtocolMatch()) {
             fields.set(name, symbol);
         }
@@ -269,7 +269,7 @@ export function clonePropertyWithDeleter(
 }
 
 function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObject: ClassType, fget: FunctionType) {
-    const fields = propertyObject.details.fields;
+    const fields = ClassType.getSymbolTable(propertyObject);
 
     // The first overload is for accesses through a class object (where
     // the instance argument is None).
@@ -348,7 +348,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
 }
 
 function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObject: ClassType, fset: FunctionType) {
-    const fields = propertyObject.details.fields;
+    const fields = ClassType.getSymbolTable(propertyObject);
 
     const setFunction = FunctionType.createSynthesizedInstance('__set__');
     FunctionType.addParameter(setFunction, {
@@ -397,7 +397,7 @@ function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
 }
 
 function addDelMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObject: ClassType, fdel: FunctionType) {
-    const fields = propertyObject.details.fields;
+    const fields = ClassType.getSymbolTable(propertyObject);
 
     const delFunction = FunctionType.createSynthesizedInstance('__delete__');
     FunctionType.addParameter(delFunction, {
@@ -447,7 +447,7 @@ function updateGetSetDelMethodForClonedProperty(evaluator: TypeEvaluator, proper
 }
 
 function addDecoratorMethodsToPropertySymbolTable(propertyObject: ClassType) {
-    const fields = propertyObject.details.fields;
+    const fields = ClassType.getSymbolTable(propertyObject);
 
     // Fill in the getter, setter and deleter methods.
     ['getter', 'setter', 'deleter'].forEach((accessorName) => {

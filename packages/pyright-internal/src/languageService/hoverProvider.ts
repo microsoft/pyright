@@ -431,7 +431,7 @@ export class HoverProvider {
                     const text = '(key) ' + node.value + ': ' + this._evaluator.printType(entry.valueType);
                     this._addResultsPart(parts, text, /* python */ true);
 
-                    const declarations = subtype.details.fields.get(node.value)?.getDeclarations();
+                    const declarations = ClassType.getSymbolTable(subtype).get(node.value)?.getDeclarations();
                     if (declarations !== undefined && declarations?.length !== 0) {
                         // As we are just interested in the docString we don't have to worry about
                         // anything other than the first declaration. There also shouldn't be more

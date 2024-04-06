@@ -131,7 +131,7 @@ function applyPartialTransform(
 
         // Create a new copy of the functools.partial class that overrides the __call__ method.
         const newPartialClass = ClassType.cloneForSymbolTableUpdate(result.returnType);
-        newPartialClass.details.fields.set(
+        ClassType.getSymbolTable(newPartialClass).set(
             '__call__',
             Symbol.createWithType(SymbolFlags.ClassMember, transformResult.returnType)
         );
@@ -196,7 +196,7 @@ function applyPartialTransform(
             );
         }
 
-        newPartialClass.details.fields.set(
+        ClassType.getSymbolTable(newPartialClass).set(
             '__call__',
             Symbol.createWithType(SymbolFlags.ClassMember, synthesizedCallType)
         );

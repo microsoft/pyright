@@ -180,7 +180,7 @@ export function isMethodOnlyProtocol(classType: ClassType): boolean {
         }
     }
 
-    for (const [, symbol] of classType.details.fields) {
+    for (const [, symbol] of ClassType.getSymbolTable(classType)) {
         if (symbol.isIgnoredForProtocolMatch()) {
             continue;
         }
@@ -209,7 +209,7 @@ export function isProtocolUnsafeOverlap(evaluator: TypeEvaluator, protocol: Clas
             return;
         }
 
-        mroClass.details.fields.forEach((destSymbol, name) => {
+        ClassType.getSymbolTable(mroClass).forEach((destSymbol, name) => {
             if (!isUnsafeOverlap || !destSymbol.isClassMember() || destSymbol.isIgnoredForProtocolMatch()) {
                 return;
             }
@@ -354,7 +354,7 @@ function assignClassToProtocolInternal(
             return;
         }
 
-        mroClass.details.fields.forEach((destSymbol, name) => {
+        ClassType.getSymbolTable(mroClass).forEach((destSymbol, name) => {
             // If we've already determined that the types are not consistent and the caller
             // hasn't requested detailed diagnostic output, we can shortcut the remainder.
             if (!typesAreConsistent && !diag) {
