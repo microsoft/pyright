@@ -1,7 +1,7 @@
 # This sample tests the TypeVar matching logic related to
 # variadic type variables.
 
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Literal, TypeVar, overload
 from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
     TypeVarTuple,
     Unpack,
@@ -85,3 +85,15 @@ def func2(p1: tuple[str, int], p2: list[str]):
 def func3(x: Array[Unpack[_Xs]]) -> Array[Unpack[_Xs]]:
     y: Array[Unpack[tuple[Any, ...]]] = x
     return x
+
+
+@overload
+def func4(signal: Array[*_Xs], *args: *_Xs) -> None: ...
+@overload
+def func4(signal: str, *args: Any) -> None: ...
+def func4(signal: Array[*_Xs] | str, *args: *_Xs) -> None: ...
+
+
+def func5(a1: Array[Literal["a", "b"]], a2: Array[Literal["a"], Literal["b"]]):
+    func4(a1, "a")
+    func4(a2, "a", "b")
