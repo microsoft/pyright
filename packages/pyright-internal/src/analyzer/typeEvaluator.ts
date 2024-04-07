@@ -11541,9 +11541,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
         specializedReturnType = adjustCallableReturnType(
             type,
             specializedReturnType,
+            liveTypeVarScopes,
             signatureTracker.getTrackedSignatures()
         );
 
@@ -11612,10 +11614,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function adjustCallableReturnType(
         callableType: FunctionType,
         returnType: Type,
+        liveTypeVarScopes: TypeVarScopeId[],
         trackedSignatures?: SignatureWithOffsets[]
     ): Type {
         if (isFunction(returnType) && !returnType.details.name && callableType.details.typeVarScopeId) {
-            const typeVarsInReturnType = getTypeVarArgumentsRecursive(returnType);
+            // What type variables are referenced in the callable return type? Do not include any live type variables.
+            const typeVarsInReturnType = getTypeVarArgumentsRecursive(returnType).filter(
+                (t) => !liveTypeVarScopes.some((scopeId) => t.scopeId === scopeId)
+            );
 
             // If there are no unsolved type variables, we're done. If there are
             // unsolved type variables, treat them as though they are rescoped
@@ -21727,7 +21733,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ) {
         const specializedReturnType = FunctionType.getSpecializedReturnType(type, /* includeInferred */ false);
         if (specializedReturnType && !isUnknown(specializedReturnType)) {
-            return adjustCallableReturnType(type, specializedReturnType, /* trackedSignatures */ undefined);
+            return adjustCallableReturnType(type, specializedReturnType, /* liveTypeVarScopes */ []);
         }
 
         if (inferTypeIfNeeded) {
