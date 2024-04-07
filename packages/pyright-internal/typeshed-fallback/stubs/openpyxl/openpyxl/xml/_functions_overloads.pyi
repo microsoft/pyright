@@ -108,7 +108,7 @@ def tostring(
     doctype: str = ...,
     exclusive: bool = ...,
     with_comments: bool = ...,
-    inclusive_ns_prefixes: Incomplete = ...,
+    inclusive_ns_prefixes=...,
 ) -> bytes: ...
 
 # from xml.etree.ElementTree import iterparse

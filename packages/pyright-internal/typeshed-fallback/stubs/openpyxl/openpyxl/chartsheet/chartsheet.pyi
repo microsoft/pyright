@@ -1,4 +1,4 @@
-from _typeshed import Incomplete, Unused
+from _typeshed import Unused
 from typing import ClassVar, Literal
 
 from openpyxl import _Decodable, _VisibilityType
@@ -12,6 +12,7 @@ from openpyxl.descriptors.base import Alias, Set, Typed
 from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.workbook.child import _WorkbookChild
+from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.drawing import Drawing
 from openpyxl.worksheet.header_footer import HeaderFooter as _HeaderFooter
 from openpyxl.worksheet.page import PageMargins, PrintPageSetup
@@ -50,7 +51,7 @@ class Chartsheet(_WorkbookChild, Serialisable):
         picture: SheetBackgroundPicture | None = None,
         webPublishItems: WebPublishItems | None = None,
         extLst: Unused = None,
-        parent: Incomplete | None = None,
+        parent: Workbook | None = None,
         title: str | _Decodable | None = "",
         sheet_state: _VisibilityType = "visible",
     ) -> None: ...

@@ -15,6 +15,7 @@ from .hyperlink import HyperlinkList
 from .pagebreak import ColBreak, RowBreak
 from .protection import SheetProtection
 from .table import TablePartList
+from .worksheet import Worksheet
 
 CELL_TAG: Final[str]
 VALUE_TAG: Final[str]
@@ -100,11 +101,11 @@ class WorkSheetParser:
     def parse_custom_views(self, element: Unused) -> None: ...
 
 class WorksheetReader:
-    ws: Incomplete
+    ws: Worksheet
     parser: WorkSheetParser
     tables: list[Incomplete]
     def __init__(
-        self, ws, xml_source: _FileRead, shared_strings: SupportsGetItem[int, str], data_only: bool, rich_text: bool
+        self, ws: Worksheet, xml_source: _FileRead, shared_strings: SupportsGetItem[int, str], data_only: bool, rich_text: bool
     ) -> None: ...
     def bind_cells(self) -> None: ...
     def bind_formatting(self) -> None: ...

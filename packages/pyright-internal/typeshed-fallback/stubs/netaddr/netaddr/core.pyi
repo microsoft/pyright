@@ -1,4 +1,4 @@
-from _typeshed import Incomplete, SupportsWrite
+from _typeshed import SupportsWrite
 from collections.abc import Iterator, Mapping
 from typing import Final
 
@@ -13,7 +13,7 @@ class AddrConversionError(Exception): ...
 class NotRegisteredError(Exception): ...
 
 class Subscriber:
-    def update(self, data: Incomplete) -> None: ...
+    def update(self, data) -> None: ...
 
 class PrettyPrinter(Subscriber):
     fh: SupportsWrite[str]

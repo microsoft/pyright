@@ -1,9 +1,11 @@
-from _typeshed import ConvertibleToInt, Incomplete, Unused
+from _typeshed import ConvertibleToInt, Unused
 from collections.abc import Generator
 from typing import Literal, overload
 
 from openpyxl.descriptors import Strict
 from openpyxl.descriptors.base import MinMax, String
+from openpyxl.workbook.child import _WorkbookChild
+from openpyxl.worksheet._read_only import ReadOnlyWorksheet
 
 class DummyWorksheet:
     title: str
@@ -15,12 +17,12 @@ class Reference(Strict):
     min_col: MinMax[int, Literal[False]]
     max_col: MinMax[int, Literal[False]]
     range_string: String[Literal[True]]
-    worksheet: Incomplete | None
+    worksheet: _WorkbookChild | ReadOnlyWorksheet | DummyWorksheet
     @overload
     def __init__(
         self,
         *,
-        worksheet: Unused = None,
+        worksheet: _WorkbookChild | ReadOnlyWorksheet | DummyWorksheet | None = None,
         min_col: Unused = None,
         min_row: Unused = None,
         max_col: Unused = None,
@@ -30,7 +32,7 @@ class Reference(Strict):
     @overload
     def __init__(
         self,
-        worksheet: Incomplete | None,
+        worksheet: _WorkbookChild | ReadOnlyWorksheet,
         min_col: ConvertibleToInt,
         min_row: ConvertibleToInt,
         max_col: ConvertibleToInt | None = None,

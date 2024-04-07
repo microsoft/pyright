@@ -8,8 +8,9 @@ from openpyxl.comments.comments import Comment
 from openpyxl.compat.numbers import NUMERIC_TYPES as NUMERIC_TYPES  # cell numeric types
 from openpyxl.styles.cell_style import StyleArray
 from openpyxl.styles.styleable import StyleableObject
+from openpyxl.workbook.child import _WorkbookChild
+from openpyxl.worksheet._read_only import ReadOnlyWorksheet
 from openpyxl.worksheet.hyperlink import Hyperlink
-from openpyxl.worksheet.worksheet import Worksheet
 
 __docformat__: Final = "restructuredtext en"
 TIME_TYPES: Final[tuple[type, ...]]
@@ -41,7 +42,7 @@ class Cell(StyleableObject):
     # row and column are never meant to be None and would lead to errors
     def __init__(
         self,
-        worksheet: Worksheet,
+        worksheet: _WorkbookChild | ReadOnlyWorksheet,
         row: int,
         column: int,
         value: str | float | datetime | None = None,
@@ -86,10 +87,13 @@ class MergedCell(StyleableObject):
     hyperlink: Hyperlink | None
     row: int | None
     column: int | None
-    def __init__(self, worksheet: Worksheet, row: int | None = None, column: int | None = None) -> None: ...
+    def __init__(
+        self, worksheet: _WorkbookChild | ReadOnlyWorksheet, row: int | None = None, column: int | None = None
+    ) -> None: ...
     # Same as Cell.coordinate
+    # https://github.com/python/mypy/issues/6700
     @property
     def coordinate(self) -> str: ...
     value: str | float | int | datetime | None
 
-def WriteOnlyCell(ws: Worksheet | None = None, value: str | float | datetime | None = None) -> Cell: ...
+def WriteOnlyCell(ws: _WorkbookChild | ReadOnlyWorksheet, value: str | float | datetime | None = None) -> Cell: ...

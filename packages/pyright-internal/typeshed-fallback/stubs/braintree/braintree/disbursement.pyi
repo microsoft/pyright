@@ -1,16 +1,16 @@
-from typing import Any
+from decimal import Decimal
+from typing import Final
 
-from braintree.merchant_account import MerchantAccount as MerchantAccount
-from braintree.resource import Resource as Resource
-from braintree.transaction_search import TransactionSearch as TransactionSearch
+from braintree.merchant_account import MerchantAccount
+from braintree.resource import Resource
 
 class Disbursement(Resource):
     class Type:
-        Credit: str
-        Debit: str
+        Credit: Final = "credit"
+        Debit: Final = "debit"
 
-    amount: Any
-    merchant_account: Any
+    amount: Decimal
+    merchant_account: MerchantAccount
     def __init__(self, gateway, attributes) -> None: ...
     def transactions(self): ...
     def is_credit(self): ...

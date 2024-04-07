@@ -3,12 +3,15 @@
 # (https://sourceware.org/gdb/onlinedocs/gdb/Python-API.html).
 
 import _typeshed
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager
-from typing import Literal, Protocol, final, overload
-from typing_extensions import TypeAlias
+from typing import Any, Generic, Literal, Protocol, TypeVar, final, overload
+from typing_extensions import TypeAlias, deprecated
 
+import gdb.FrameDecorator
 import gdb.types
+import gdb.unwinder
+import gdb.xmethod
 
 # The following submodules are automatically imported
 from . import events as events, printing as printing, prompt as prompt, types as types
@@ -16,6 +19,8 @@ from . import events as events, printing as printing, prompt as prompt, types as
 # Basic
 
 VERSION: str
+HOST_CONFIG: str
+TARGET_CONFIG: str
 
 PYTHONDIR: str
 
@@ -51,9 +56,10 @@ def target_wide_charset() -> str: ...
 def host_charset() -> str: ...
 def solib_name(addr: int) -> str | None: ...
 def decode_line(expression: str = ..., /) -> tuple[str | None, tuple[Symtab_and_line, ...] | None]: ...
-def prompt_hook(current_prompt: str) -> str: ...
 def architecture_names() -> list[str]: ...
 def connections() -> list[TargetConnection]: ...
+
+prompt_hook: Callable[[str], str | None]
 
 # Exceptions
 
@@ -63,7 +69,7 @@ class GdbError(Exception): ...
 
 # Values
 
-_ValueOrNative: TypeAlias = bool | float | str | Value
+_ValueOrNative: TypeAlias = bool | int | float | str | Value | LazyString
 _ValueOrInt: TypeAlias = Value | int
 
 class Value:
@@ -72,26 +78,28 @@ class Value:
     type: Type
     dynamic_type: Type
     is_lazy: bool
+    bytes: bytes
 
     def __index__(self) -> int: ...
     def __int__(self) -> int: ...
     def __float__(self) -> float: ...
-    def __add__(self, other: _ValueOrInt) -> Value: ...
-    def __sub__(self, other: _ValueOrInt) -> Value: ...
-    def __mul__(self, other: _ValueOrInt) -> Value: ...
-    def __truediv__(self, other: _ValueOrInt) -> Value: ...
-    def __mod__(self, other: _ValueOrInt) -> Value: ...
-    def __and__(self, other: _ValueOrInt) -> Value: ...
-    def __or__(self, other: _ValueOrInt) -> Value: ...
-    def __xor__(self, other: _ValueOrInt) -> Value: ...
-    def __lshift__(self, other: _ValueOrInt) -> Value: ...
-    def __rshift__(self, other: _ValueOrInt) -> Value: ...
-    def __eq__(self, other: _ValueOrInt) -> bool: ...  # type: ignore[override]
-    def __ne__(self, other: _ValueOrInt) -> bool: ...  # type: ignore[override]
-    def __lt__(self, other: _ValueOrInt) -> bool: ...
-    def __le__(self, other: _ValueOrInt) -> bool: ...
-    def __gt__(self, other: _ValueOrInt) -> bool: ...
-    def __ge__(self, other: _ValueOrInt) -> bool: ...
+    def __add__(self, other: _ValueOrNative) -> Value: ...
+    def __sub__(self, other: _ValueOrNative) -> Value: ...
+    def __mul__(self, other: _ValueOrNative) -> Value: ...
+    def __truediv__(self, other: _ValueOrNative) -> Value: ...
+    def __mod__(self, other: _ValueOrNative) -> Value: ...
+    def __pow__(self, other: _ValueOrNative, mod: None = None) -> Value: ...
+    def __and__(self, other: _ValueOrNative) -> Value: ...
+    def __or__(self, other: _ValueOrNative) -> Value: ...
+    def __xor__(self, other: _ValueOrNative) -> Value: ...
+    def __lshift__(self, other: _ValueOrNative) -> Value: ...
+    def __rshift__(self, other: _ValueOrNative) -> Value: ...
+    def __eq__(self, other: _ValueOrNative) -> bool: ...  # type: ignore[override]
+    def __ne__(self, other: _ValueOrNative) -> bool: ...  # type: ignore[override]
+    def __lt__(self, other: _ValueOrNative) -> bool: ...
+    def __le__(self, other: _ValueOrNative) -> bool: ...
+    def __gt__(self, other: _ValueOrNative) -> bool: ...
+    def __ge__(self, other: _ValueOrNative) -> bool: ...
     def __getitem__(self, key: int | str | Field) -> Value: ...
     def __call__(self, *args: _ValueOrNative) -> Value: ...
     def __init__(self, val: _ValueOrNative) -> None: ...
@@ -99,6 +107,7 @@ class Value:
     def dereference(self) -> Value: ...
     def referenced_value(self) -> Value: ...
     def reference_value(self) -> Value: ...
+    def rvalue_reference_value(self) -> Value: ...
     def const_value(self) -> Value: ...
     def dynamic_cast(self, type: Type) -> Value: ...
     def reinterpret_cast(self, type: Type) -> Value: ...
@@ -127,7 +136,7 @@ class Value:
 
 def lookup_type(name: str, block: Block = ...) -> Type: ...
 @final
-class Type:
+class Type(Mapping[str, Field]):
     alignof: int
     code: int
     dynamic: bool
@@ -135,10 +144,17 @@ class Type:
     sizeof: int
     tag: str | None
     objfile: Objfile | None
+    is_scalar: bool
+    is_signed: bool
+    is_array_like: bool
+    is_string_like: bool
 
     def fields(self) -> list[Field]: ...
     def array(self, n1: int | Value, n2: int | Value = ...) -> Type: ...
     def vector(self, n1: int, n2: int = ...) -> Type: ...
+    def iteritems(self) -> TypeIterator[tuple[str, Field]]: ...
+    def iterkeys(self) -> TypeIterator[str]: ...
+    def itervalues(self) -> TypeIterator[Field]: ...
     def const(self) -> Type: ...
     def volatile(self) -> Type: ...
     def unqualified(self) -> Type: ...
@@ -149,16 +165,27 @@ class Type:
     def target(self) -> Type: ...
     def template_argument(self, n: int, block: Block = ...) -> Type: ...
     def optimized_out(self) -> Value: ...
+    def get(self, key: str, default: Any = ...) -> Field | Any: ...
+    def has_key(self, key: str) -> bool: ...
+    def __len__(self) -> int: ...
+    def __getitem__(self, key: str) -> Field: ...
+    def __iter__(self) -> TypeIterator[str]: ...
+
+_T = TypeVar("_T")
+
+@final
+class TypeIterator(Iterator[_T]):
+    def __next__(self) -> _T: ...
 
 @final
 class Field:
-    bitpos: int
+    bitpos: int | None
     enumval: int
     name: str | None
     artificial: bool
     is_base_class: bool
     bitsize: int
-    type: Type
+    type: Type | None
     parent_type: Type
 
 TYPE_CODE_PTR: int
@@ -207,6 +234,7 @@ def default_visualizer(value: Value, /) -> _PrettyPrinter | None: ...
 # Selecting Pretty-Printers
 
 pretty_printers: list[_PrettyPrinterLookupFunction]
+type_printers: list[gdb.types._TypePrinter]
 
 # Filtering Frames
 
@@ -215,23 +243,9 @@ class _FrameFilter(Protocol):
     enabled: bool
     priority: int
 
-    def filter(self, iterator: Iterator[_FrameDecorator]) -> Iterator[_FrameDecorator]: ...
+    def filter(self, iterator: Iterator[gdb.FrameDecorator.FrameDecorator]) -> Iterator[gdb.FrameDecorator.FrameDecorator]: ...
 
-# Decorating Frames
-
-class _SymValueWrapper(Protocol):
-    def symbol(self) -> Symbol | str: ...
-    def value(self) -> _ValueOrNative | None: ...
-
-class _FrameDecorator(Protocol):
-    def elided(self) -> Iterator[Frame] | None: ...
-    def function(self) -> str | None: ...
-    def address(self) -> int | None: ...
-    def filename(self) -> str | None: ...
-    def line(self) -> int | None: ...
-    def frame_args(self) -> Iterator[_SymValueWrapper] | None: ...
-    def frame_locals(self) -> Iterator[_SymValueWrapper] | None: ...
-    def inferior_frame(self) -> Frame: ...
+frame_filters: dict[str, _FrameFilter]
 
 # Unwinding Frames
 
@@ -245,13 +259,7 @@ class PendingFrame:
 class UnwindInfo:
     def add_saved_register(self, reg: str | RegisterDescriptor | int, value: Value, /) -> None: ...
 
-class Unwinder:
-    name: str
-    enabled: bool
-
-    def __call__(self, pending_frame: Frame) -> UnwindInfo | None: ...
-
-# Xmethods: the API is defined in the "xmethod" module
+frame_unwinders: list[gdb.unwinder.Unwinder]
 
 # Inferiors
 
@@ -263,7 +271,8 @@ _BufferType: TypeAlias = _typeshed.ReadableBuffer
 @final
 class Inferior:
     num: int
-    connection_num: int
+    connection: TargetConnection | None
+    connection_num: int | None
     pid: int
     was_attached: bool
     progspace: Progspace
@@ -275,6 +284,8 @@ class Inferior:
     def write_memory(self, address: _ValueOrInt, buffer: _BufferType, length: int = ...) -> memoryview: ...
     def search_memory(self, address: _ValueOrInt, length: int, pattern: _BufferType) -> int | None: ...
     def thread_from_handle(self, handle: Value) -> InferiorThread: ...
+    @deprecated("Use gdb.thread_from_handle() instead.")
+    def thread_from_thread_handle(self, handle: Value) -> InferiorThread: ...
 
 # Threads
 
@@ -282,6 +293,7 @@ def selected_thread() -> InferiorThread: ...
 @final
 class InferiorThread:
     name: str | None
+    details: str | None
     num: int
     global_num: int
     ptid: tuple[int, int, int]
@@ -415,7 +427,8 @@ class Progspace:
     filename: str
     pretty_printers: list[_PrettyPrinterLookupFunction]
     type_printers: list[gdb.types._TypePrinter]
-    frame_filters: list[_FrameFilter]
+    frame_filters: dict[str, _FrameFilter]
+    frame_unwinders: list[gdb.unwinder.Unwinder]
 
     def block_for_pc(self, pc: int, /) -> Block | None: ...
     def find_pc_line(self, pc: int, /) -> Symtab_and_line: ...
@@ -434,15 +447,16 @@ class Objfile:
     username: str | None
     owner: Objfile | None
     build_id: str | None
-    progspace: Progspace
+    progspace: Progspace | None
     pretty_printers: list[_PrettyPrinterLookupFunction]
     type_printers: list[gdb.types._TypePrinter]
-    frame_filters: list[_FrameFilter]
+    frame_filters: dict[str, _FrameFilter]
+    frame_unwinders: list[gdb.unwinder.Unwinder]
 
     def is_valid(self) -> bool: ...
     def add_separate_debug_file(self, file: str) -> None: ...
     def lookup_global_symbol(self, name: str, domain: int = ...) -> Symbol | None: ...
-    def lookup_static_method(self, name: str, domain: int = ...) -> Symbol | None: ...
+    def lookup_static_symbol(self, name: str, domain: int = ...) -> Symbol | None: ...
 
 # Frames
 
@@ -452,6 +466,7 @@ def frame_stop_reason_string(code: int, /) -> str: ...
 def invalidate_cached_frames() -> None: ...
 
 NORMAL_FRAME: int
+DUMMY_FRAME: int
 INLINE_FRAME: int
 TAILCALL_FRAME: int
 SIGTRAMP_FRAME: int
@@ -466,7 +481,6 @@ FRAME_UNWIND_INNER_ID: int
 FRAME_UNWIND_SAME_ID: int
 FRAME_UNWIND_NO_SAVED_PC: int
 FRAME_UNWIND_MEMORY_ERROR: int
-FRAME_UNWIND_FIRST_ERROR: int
 
 @final
 class Frame:
@@ -540,6 +554,11 @@ SYMBOL_LABEL_DOMAIN: int
 SYMBOL_MODULE_DOMAIN: int
 SYMBOL_COMMON_BLOCK_DOMAIN: int
 
+# The constants were never correct. Use gdb.SYMBOL_VAR_DOMAIN instead.
+SYMBOL_VARIABLES_DOMAIN: int
+SYMBOL_FUNCTIONS_DOMAIN: int
+SYMBOL_TYPES_DOMAIN: int
+
 SYMBOL_LOC_UNDEF: int
 SYMBOL_LOC_CONST: int
 SYMBOL_LOC_STATIC: int
@@ -588,12 +607,17 @@ class LineTableEntry:
     pc: int
 
 @final
-class LineTable(Iterator[LineTableEntry]):
-    def __iter__(self: _typeshed.Self) -> _typeshed.Self: ...
+class LineTableIterator(Iterator[LineTableEntry]):
     def __next__(self) -> LineTableEntry: ...
+    def is_valid(self) -> bool: ...
+
+@final
+class LineTable:
+    def __iter__(self) -> LineTableIterator: ...
     def line(self, line: int, /) -> tuple[LineTableEntry, ...]: ...
     def has_line(self, line: int, /) -> bool: ...
-    def source_lnes(self) -> list[int]: ...
+    def source_lines(self) -> list[int]: ...
+    def is_valid(self) -> bool: ...
 
 # Breakpoints
 
@@ -633,6 +657,7 @@ class Breakpoint:
     condition: str | None
     commands: str | None
 
+BP_NONE: int
 BP_BREAKPOINT: int
 BP_HARDWARE_BREAKPOINT: int
 BP_WATCHPOINT: int
@@ -675,16 +700,20 @@ class Architecture:
 
 # Registers
 
+@final
 class RegisterDescriptor:
     name: str
 
+@final
 class RegisterDescriptorIterator(Iterator[RegisterDescriptor]):
     def __next__(self) -> RegisterDescriptor: ...
     def find(self, name: str) -> RegisterDescriptor | None: ...
 
+@final
 class RegisterGroup:
     name: str
 
+@final
 class RegisterGroupsIterator(Iterator[RegisterGroup]):
     def __next__(self) -> RegisterGroup: ...
 
@@ -698,6 +727,7 @@ class TargetConnection:
     description: str
     details: str | None
 
+@final
 class RemoteTargetConnection(TargetConnection):
     def send_packet(self, packet: str | bytes) -> bytes: ...
 
@@ -720,3 +750,69 @@ class _Window(Protocol):
     def hscroll(self, num: int) -> None: ...
     def vscroll(self, num: int) -> None: ...
     def click(self, x: int, y: int, button: int) -> None: ...
+
+# Events
+class Event: ...
+
+class ThreadEvent(Event):
+    inferior_thread: InferiorThread
+
+class ContinueEvent(ThreadEvent): ...
+
+class ExitedEvent(Event):
+    exit_code: int
+    inferior: Inferior
+
+class StopEvent(ThreadEvent): ...
+
+class BreakpointEvent(StopEvent):
+    breakpoints: Sequence[Breakpoint]
+    breakpoint: Breakpoint
+
+class NewObjFileEvent(Event):
+    new_objfile: Objfile
+
+class ClearObjFilesEvent(Event):
+    progspace: Progspace
+
+class SignalEvent(StopEvent):
+    stop_signal: str
+
+class _InferiorCallEvent(Event): ...
+
+class InferiorCallPreEvent(_InferiorCallEvent):
+    ptid: InferiorThread
+    address: Value
+
+class InferiorCallPostEvent(_InferiorCallEvent):
+    ptid: InferiorThread
+    address: Value
+
+class MemoryChangedEvent(Event):
+    address: Value
+    length: int
+
+class RegisterChangedEvent(Event):
+    frame: Frame
+    regnum: str
+
+class NewInferiorEvent(Event):
+    inferior: Inferior
+
+class InferiorDeletedEvent(Event):
+    inferior: Inferior
+
+class NewThreadEvent(ThreadEvent): ...
+
+class GdbExitingEvent(Event):
+    exit_code: int
+
+class ConnectionEvent(Event):
+    connection: TargetConnection
+
+_ET = TypeVar("_ET", bound=Event | Breakpoint | None)
+
+@final
+class EventRegistry(Generic[_ET]):
+    def connect(self, object: Callable[[_ET], object], /) -> None: ...
+    def disconnect(self, object: Callable[[_ET], object], /) -> None: ...

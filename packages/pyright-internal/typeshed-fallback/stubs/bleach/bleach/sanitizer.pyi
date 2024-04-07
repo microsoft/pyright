@@ -1,4 +1,3 @@
-from _typeshed import Incomplete
 from collections.abc import Callable, Container, Iterable, Iterator
 from re import Pattern
 from typing import Final, Protocol
@@ -25,7 +24,7 @@ class NoCssSanitizerWarning(UserWarning): ...
 
 # A html5lib Filter class
 class _Filter(Protocol):
-    def __call__(self, *, source: BleachSanitizerFilter) -> Incomplete: ...
+    def __call__(self, *, source: BleachSanitizerFilter): ...
 
 _AttributeFilter: TypeAlias = Callable[[str, str, str], bool]
 _AttributeDict: TypeAlias = dict[str, list[str] | _AttributeFilter] | dict[str, list[str]] | dict[str, _AttributeFilter]

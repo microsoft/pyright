@@ -1,5 +1,5 @@
 import optparse
-from _typeshed import Incomplete, StrPath, SupportsWrite, Unused
+from _typeshed import StrPath, SupportsWrite, Unused
 from collections.abc import Callable, Iterable, Mapping
 from re import Pattern
 from typing import Any, Literal, TypeVar
@@ -69,47 +69,22 @@ class Reporter:
         *children: nodes.Node,
         base_node: nodes.Node = ...,
         source: str = ...,
-        **kwargs: Incomplete,
+        **kwargs,
     ) -> nodes.system_message: ...
     def debug(
-        self,
-        message: str | Exception,
-        *children: nodes.Node,
-        base_node: nodes.Node = ...,
-        source: str = ...,
-        **kwargs: Incomplete,
+        self, message: str | Exception, *children: nodes.Node, base_node: nodes.Node = ..., source: str = ..., **kwargs
     ) -> nodes.system_message: ...
     def info(
-        self,
-        message: str | Exception,
-        *children: nodes.Node,
-        base_node: nodes.Node = ...,
-        source: str = ...,
-        **kwargs: Incomplete,
+        self, message: str | Exception, *children: nodes.Node, base_node: nodes.Node = ..., source: str = ..., **kwargs
     ) -> nodes.system_message: ...
     def warning(
-        self,
-        message: str | Exception,
-        *children: nodes.Node,
-        base_node: nodes.Node = ...,
-        source: str = ...,
-        **kwargs: Incomplete,
+        self, message: str | Exception, *children: nodes.Node, base_node: nodes.Node = ..., source: str = ..., **kwargs
     ) -> nodes.system_message: ...
     def error(
-        self,
-        message: str | Exception,
-        *children: nodes.Node,
-        base_node: nodes.Node = ...,
-        source: str = ...,
-        **kwargs: Incomplete,
+        self, message: str | Exception, *children: nodes.Node, base_node: nodes.Node = ..., source: str = ..., **kwargs
     ) -> nodes.system_message: ...
     def severe(
-        self,
-        message: str | Exception,
-        *children: nodes.Node,
-        base_node: nodes.Node = ...,
-        source: str = ...,
-        **kwargs: Incomplete,
+        self, message: str | Exception, *children: nodes.Node, base_node: nodes.Node = ..., source: str = ..., **kwargs
     ) -> nodes.system_message: ...
 
 class SystemMessage(ApplicationError):

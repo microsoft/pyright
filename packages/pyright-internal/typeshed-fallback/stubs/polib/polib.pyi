@@ -83,7 +83,7 @@ class _BaseEntry:
 class POEntry(_BaseEntry):
     comment: str
     tcomment: str
-    occurrences: list[tuple[str, int]]
+    occurrences: list[tuple[str, str]]
     flags: list[str]
     previous_msgctxt: str | None
     previous_msgid: str | None
@@ -109,7 +109,7 @@ class POEntry(_BaseEntry):
 class MOEntry(_BaseEntry):
     comment: str
     tcomment: str
-    occurrences: list[tuple[str, int]]
+    occurrences: list[tuple[str, str]]
     flags: list[str]
     previous_msgctxt: str | None
     previous_msgid: str | None

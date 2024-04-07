@@ -1,4 +1,3 @@
-from _typeshed import Incomplete
 from collections.abc import Hashable
 from typing import TypeVar
 
@@ -22,4 +21,4 @@ _Y = TypeVar("_Y", bound=Hashable, covariant=True)
 @_dispatch
 def compose(G: DiGraph[_X], H: DiGraph[_Y]) -> DiGraph[_X | _Y]: ...
 @_dispatch
-def union(G: DiGraph[_X], H: DiGraph[_Y], rename: Incomplete = ()) -> DiGraph[_X | _Y]: ...
+def union(G: DiGraph[_X], H: DiGraph[_Y], rename=()) -> DiGraph[_X | _Y]: ...

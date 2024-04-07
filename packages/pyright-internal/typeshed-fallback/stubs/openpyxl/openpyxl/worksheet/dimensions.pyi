@@ -24,6 +24,9 @@ class Dimension(Strict, StyleableObject):
     collapsed: Bool[Literal[False]]
     style: Alias  # type: ignore[assignment]
 
+    # Dimensions are only meant to be used on Worksheet objects
+    parent: Worksheet
+
     def __init__(
         self,
         index: ConvertibleToInt,
