@@ -62,7 +62,6 @@ import {
     UnionType,
     UnknownType,
     Variance,
-    WildcardTypeVarScopeId,
 } from './types';
 import { TypeVarContext, TypeVarSignatureContext } from './typeVarContext';
 import { TypeWalker } from './typeWalker';
@@ -1060,7 +1059,7 @@ export function getTypeVarScopeId(type: Type): TypeVarScopeId | undefined {
 
 // This is similar to getTypeVarScopeId except that it includes
 // the secondary scope IDs for functions.
-export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] | TypeVarScopeId | undefined {
+export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] | undefined {
     const scopeIds: TypeVarScopeId[] = [];
 
     const scopeId = getTypeVarScopeId(type);
@@ -1073,8 +1072,8 @@ export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] | TypeVarScopeI
             scopeIds.push(type.details.constructorTypeVarScopeId);
         }
 
-        if (type.details.paramSpecTypeVarScopeId) {
-            scopeIds.push(type.details.paramSpecTypeVarScopeId);
+        if (type.details.higherOrderTypeVarScopeIds) {
+            scopeIds.push(...type.details.higherOrderTypeVarScopeIds);
         }
     }
 
@@ -3431,7 +3430,12 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
                 type: FunctionType.getEffectiveParameterType(type, index),
             });
         });
-        newFunction.details.typeVarScopeId = type.details.paramSpecTypeVarScopeId;
+
+        if (type.details.higherOrderTypeVarScopeIds) {
+            newFunction.details.higherOrderTypeVarScopeIds = [...type.details.higherOrderTypeVarScopeIds];
+            newFunction.details.typeVarScopeId = newFunction.details.higherOrderTypeVarScopeIds.pop();
+        }
+
         newFunction.details.paramSpec = type.details.paramSpec;
         return newFunction;
     }
@@ -3459,7 +3463,8 @@ export function convertParamSpecValueToType(paramSpecValue: FunctionType, omitPa
             '',
             FunctionTypeFlags.ParamSpecValue | paramSpecValue.details.flags
         );
-        functionType.details.paramSpecTypeVarScopeId = paramSpecValue.details.typeVarScopeId;
+
+        FunctionType.addHigherOrderTypeVarScopeIds(functionType, paramSpecValue.details.typeVarScopeId);
 
         paramSpecValue.details.parameters.forEach((entry) => {
             FunctionType.addParameter(functionType, {
@@ -4290,7 +4295,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             // var map doesn't contain any entry for it, replace with the
             // default or Unknown.
             let useDefaultOrUnknown = false;
-            if (this._options.unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
+            if (this._options.unknownIfNotFound) {
                 const exemptTypeVars = this._options.unknownExemptTypeVars ?? [];
                 const typeVarInstance = TypeBase.isInstance(typeVar) ? typeVar : TypeVarType.cloneAsInstance(typeVar);
                 if (!exemptTypeVars.some((t) => isTypeSame(t, typeVarInstance))) {
@@ -4417,7 +4422,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         }
 
         let useDefaultOrUnknown = false;
-        if (this._options.unknownIfNotFound && !this._typeVarContext.hasSolveForScope(WildcardTypeVarScopeId)) {
+        if (this._options.unknownIfNotFound) {
             const exemptTypeVars = this._options.unknownExemptTypeVars ?? [];
             if (!exemptTypeVars.some((t) => isTypeSame(t, paramSpec, { ignoreTypeFlags: true }))) {
                 useDefaultOrUnknown = true;

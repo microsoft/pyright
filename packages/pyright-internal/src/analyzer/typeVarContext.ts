@@ -23,7 +23,6 @@ import {
     TypeCategory,
     TypeVarScopeId,
     TypeVarType,
-    WildcardTypeVarScopeId,
 } from './types';
 
 // The maximum number of signature contexts that can be associated
@@ -410,7 +409,7 @@ export class TypeVarContext {
         return (
             scopeId !== undefined &&
             this._solveForScopes !== undefined &&
-            this._solveForScopes.some((s) => s === scopeId || s === WildcardTypeVarScopeId)
+            this._solveForScopes.some((s) => s === scopeId)
         );
     }
 

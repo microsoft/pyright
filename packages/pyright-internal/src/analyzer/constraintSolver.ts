@@ -940,7 +940,7 @@ function assignTypeToParamSpec(
             });
             newFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
             newFunction.details.constructorTypeVarScopeId = srcType.details.constructorTypeVarScopeId;
-            newFunction.details.paramSpecTypeVarScopeId = srcType.details.paramSpecTypeVarScopeId;
+            FunctionType.addHigherOrderTypeVarScopeIds(newFunction, srcType.details.higherOrderTypeVarScopeIds);
             newFunction.details.docString = srcType.details.docString;
             newFunction.details.deprecatedMessage = srcType.details.deprecatedMessage;
             newFunction.details.paramSpec = srcType.details.paramSpec;

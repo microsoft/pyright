@@ -320,7 +320,6 @@ import {
     UnionType,
     UnknownType,
     Variance,
-    WildcardTypeVarScopeId,
     combineTypes,
     findSubtype,
     isAny,
@@ -10093,10 +10092,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // function nested within another function that defines the param
                 // spec? We need to handle these two cases differently.
                 const paramSpecScopeId = varArgListParam.type.scopeId;
-                if (
-                    paramSpecScopeId === typeResult.type.details.typeVarScopeId ||
-                    paramSpecScopeId === typeResult.type.details.constructorTypeVarScopeId
-                ) {
+
+                if (getTypeVarScopeIds(typeResult.type)?.some((id) => id === paramSpecScopeId)) {
                     paramSpecArgList = [];
                     paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParam.type, /* access */ undefined);
                 } else {
@@ -10105,11 +10102,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         } else if (typeResult.type.details.paramSpec) {
             const paramSpecScopeId = typeResult.type.details.paramSpec.scopeId;
-            if (
-                typeResult.type.details.typeVarScopeId === WildcardTypeVarScopeId ||
-                paramSpecScopeId === typeResult.type.details.typeVarScopeId ||
-                paramSpecScopeId === typeResult.type.details.constructorTypeVarScopeId
-            ) {
+
+            if (getTypeVarScopeIds(typeResult.type)?.some((id) => id === paramSpecScopeId)) {
                 hasParamSpecArgsKwargs = true;
                 paramSpecArgList = [];
                 paramSpecTarget = TypeVarType.cloneForParamSpecAccess(
@@ -11478,11 +11472,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the function is returning a callable, don't eliminate unsolved
         // type vars within a union. There are legit uses for unsolved type vars
         // within a callable.
-        if (
-            isFunction(returnType) ||
-            isOverloadedFunction(returnType) ||
-            type.details.typeVarScopeId === WildcardTypeVarScopeId
-        ) {
+        if (isFunction(returnType) || isOverloadedFunction(returnType)) {
             eliminateUnsolvedInUnions = false;
         }
 
@@ -11552,6 +11542,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         specializedReturnType = adjustCallableReturnType(
+            type,
             specializedReturnType,
             signatureTracker.getTrackedSignatures()
         );
@@ -11609,26 +11600,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // If the return type includes a generic Callable type, set the type var
-    // scope to a wildcard to allow these type vars to be solved. This won't
-    // work with overloads or unions of callables. It's intended for a
-    // specific use case. We may need to make this more sophisticated in
-    // the future.
+    // scope to the scope of the function it was originally associated with
+    // to allow these type vars to be solved. This won't work with overloads
+    // or unions of callables. It's intended for a specific use case. We may
+    // need to make this more sophisticated in the future.
     // The trackedSignatures parameter supplies a list of function signatures
     // that were used for the function and the arguments passed to it. This is
     // important because the callable return value may be called again with
     // one of these signatures, so we may need to "uniquify" the type parameters
     // to avoid conflicts.
-    function adjustCallableReturnType(returnType: Type, trackedSignatures?: SignatureWithOffsets[]): Type {
-        if (isFunction(returnType) && !returnType.details.name) {
+    function adjustCallableReturnType(
+        callableType: FunctionType,
+        returnType: Type,
+        trackedSignatures?: SignatureWithOffsets[]
+    ): Type {
+        if (isFunction(returnType) && !returnType.details.name && callableType.details.typeVarScopeId) {
             const typeVarsInReturnType = getTypeVarArgumentsRecursive(returnType);
 
             // If there are no unsolved type variables, we're done. If there are
-            // unsolved type parameters, treat them as though they are rescoped
+            // unsolved type variables, treat them as though they are rescoped
             // to the callable.
             if (typeVarsInReturnType.length > 0) {
                 return FunctionType.cloneWithNewTypeVarScopeId(
                     returnType,
-                    WildcardTypeVarScopeId,
+                    callableType.details.typeVarScopeId,
                     typeVarsInReturnType,
                     trackedSignatures
                 );
@@ -12336,7 +12331,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function verifyTypeVarDefaultIsCompatible(typeVar: TypeVarType, defaultValueNode: ExpressionNode) {
         assert(typeVar.details.isDefaultExplicit);
 
-        const typeVarContext = new TypeVarContext(WildcardTypeVarScopeId);
+        const typeVarContext = new TypeVarContext(typeVar.scopeId);
         const concreteDefaultType = makeTopLevelTypeVarsConcrete(
             applySolvedTypeVars(typeVar.details.defaultType, typeVarContext, {
                 unknownIfNotFound: true,
@@ -21732,7 +21727,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ) {
         const specializedReturnType = FunctionType.getSpecializedReturnType(type, /* includeInferred */ false);
         if (specializedReturnType && !isUnknown(specializedReturnType)) {
-            return adjustCallableReturnType(specializedReturnType, /* trackedSignatures */ undefined);
+            return adjustCallableReturnType(type, specializedReturnType, /* trackedSignatures */ undefined);
         }
 
         if (inferTypeIfNeeded) {
@@ -25372,6 +25367,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         FunctionType.addParameter(remainingFunction, param);
                     });
                     remainingFunction.details.paramSpec = srcParamSpec ? convertToInstance(srcParamSpec) : undefined;
+                    FunctionType.addHigherOrderTypeVarScopeIds(
+                        remainingFunction,
+                        effectiveSrcType.details.higherOrderTypeVarScopeIds
+                    );
 
                     if (
                         !assignType(
