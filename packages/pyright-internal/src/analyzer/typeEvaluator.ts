@@ -2210,6 +2210,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 classType: memberInfo.classType,
                 isIncomplete: !!memberInfo.isTypeIncomplete,
                 isAsymmetricAccessor: memberInfo.isAsymmetricAccessor,
+                narrowedTypeForSet: memberInfo.narrowedTypeForSet,
                 memberAccessDeprecationInfo: memberInfo.memberAccessDeprecationInfo,
                 typeErrors: memberInfo.isDescriptorError,
             };
@@ -3449,7 +3450,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const resultToCache: TypeResult = {
-            type,
+            type: setTypeResult.narrowedTypeForSet ?? type,
             isIncomplete: isTypeIncomplete,
             memberAccessDeprecationInfo: setTypeResult.memberAccessDeprecationInfo,
         };
@@ -5195,6 +5196,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let diag = new DiagnosticAddendum();
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         let type: Type | undefined;
+        let narrowedTypeForSet: Type | undefined;
         let isIncomplete = !!baseTypeResult.isIncomplete;
         let isAsymmetricAccessor: boolean | undefined;
         const isRequired = false;
@@ -5323,6 +5325,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         getTypeCondition(baseType),
                         /* skipSelfCondition */ true
                     );
+
+                    if (typeResult.narrowedTypeForSet) {
+                        narrowedTypeForSet = addConditionToType(
+                            typeResult.narrowedTypeForSet,
+                            getTypeCondition(baseType),
+                            /* skipSelfCondition */ true
+                        );
+                    }
 
                     if (typeResult.isIncomplete) {
                         isIncomplete = true;
@@ -5565,7 +5575,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             reportUseOfTypeCheckOnly(type, node.memberName);
         }
 
-        return { type, isIncomplete, isAsymmetricAccessor, isRequired, isNotRequired, memberAccessDeprecationInfo };
+        return {
+            type,
+            isIncomplete,
+            isAsymmetricAccessor,
+            narrowedTypeForSet,
+            isRequired,
+            isNotRequired,
+            memberAccessDeprecationInfo,
+        };
     }
 
     function getTypeOfClassMemberName(
@@ -5615,6 +5633,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let type: Type | undefined;
         let isTypeIncomplete = false;
+        let narrowedTypeForSet: Type | undefined;
 
         if (memberInfo.symbol.isInitVar()) {
             diag?.addMessage(LocAddendum.memberIsInitVar().format({ name: memberName }));
@@ -5830,6 +5849,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         if (!isDescriptorError && usage.method === 'set' && usage.setType) {
+            if (errorNode && memberInfo.symbol.hasTypedDeclarations()) {
+                // This is an assignment to a member with a declared type. Apply
+                // narrowing logic based on the assigned type. Skip this for
+                // descriptor-based accesses.
+                narrowedTypeForSet = isDescriptorApplied
+                    ? usage.setType.type
+                    : narrowTypeBasedOnAssignment(errorNode, type, usage.setType.type);
+            }
+
             // Verify that the assigned type is compatible.
             if (!assignType(type, usage.setType.type, diag?.createAddendum())) {
                 if (!usage.setType.isIncomplete) {
@@ -5869,6 +5897,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isClassVar: memberInfo.isClassVar,
             classType: memberInfo.classType,
             isAsymmetricAccessor,
+            narrowedTypeForSet,
             memberAccessDeprecationInfo,
         };
     }
