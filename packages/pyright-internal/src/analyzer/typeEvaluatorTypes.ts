@@ -205,6 +205,10 @@ export interface TypeResult<T extends Type = Type> {
     // corresponding __getattr__?
     isAsymmetricAccessor?: boolean;
 
+    // For member access operations that are 'set', this is the narrowed
+    // type when considering the declared type of the member.
+    narrowedTypeForSet?: Type | undefined;
+
     // Is the type wrapped in a "Required", "NotRequired" or "ReadOnly" class?
     isRequired?: boolean;
     isNotRequired?: boolean;
@@ -411,6 +415,10 @@ export interface ClassMemberLookup {
     // Is member a descriptor object that is asymmetric with respect
     // to __get__ and __set__ types?
     isAsymmetricAccessor: boolean;
+
+    // For member access operations that are 'set', this is the narrowed
+    // type when considering the declared type of the member.
+    narrowedTypeForSet?: Type;
 
     // Deprecation messages related to magic methods invoked via the member access.
     memberAccessDeprecationInfo?: MemberAccessDeprecationInfo;
