@@ -1517,12 +1517,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (node.typeAnnotation) {
                 typeResult = getTypeOfExpression(node.typeAnnotation, updatedFlags);
             } else if (!node.typeAnnotation && node.strings.length === 1) {
-                // We didn't know at parse time that this string node was going
-                // to be evaluated as a forward-referenced type. We need
-                // to re-invoke the parser at this stage.
-                const expr = parseStringAsTypeAnnotation(node);
-                if (expr) {
-                    typeResult = getTypeOfExpression(expr, updatedFlags);
+                const tokenFlags = node.strings[0].token.flags;
+
+                if (tokenFlags & StringTokenFlags.Bytes) {
+                    addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.annotationBytesString(), node);
+                    typeResult = { type: UnknownType.create() };
+                } else if (tokenFlags & StringTokenFlags.Raw) {
+                    addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.annotationRawString(), node);
+                    typeResult = { type: UnknownType.create() };
+                } else if (tokenFlags & StringTokenFlags.Format) {
+                    addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.annotationFormatString(), node);
+                    typeResult = { type: UnknownType.create() };
+                } else {
+                    // We didn't know at parse time that this string node was going
+                    // to be evaluated as a forward-referenced type. We need
+                    // to re-invoke the parser at this stage.
+                    const expr = parseStringAsTypeAnnotation(node);
+                    if (expr) {
+                        typeResult = getTypeOfExpression(expr, updatedFlags);
+                    }
                 }
             }
 

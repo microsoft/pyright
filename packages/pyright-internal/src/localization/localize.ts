@@ -195,8 +195,10 @@ export namespace Localizer {
                 getRawString('Diagnostic.annotatedParamCountMismatch')
             );
         export const annotatedTypeArgMissing = () => getRawString('Diagnostic.annotatedTypeArgMissing');
+        export const annotationBytesString = () => getRawString('Diagnostic.annotationBytesString');
         export const annotationFormatString = () => getRawString('Diagnostic.annotationFormatString');
         export const annotationNotSupported = () => getRawString('Diagnostic.annotationNotSupported');
+        export const annotationRawString = () => getRawString('Diagnostic.annotationRawString');
         export const annotationSpansStrings = () => getRawString('Diagnostic.annotationSpansStrings');
         export const annotationStringEscape = () => getRawString('Diagnostic.annotationStringEscape');
         export const argAssignment = () =>
