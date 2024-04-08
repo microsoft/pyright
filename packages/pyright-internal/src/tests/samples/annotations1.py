@@ -138,3 +138,13 @@ x9: type[func11]
 # This should generate an error because a Callable isn't allowed
 # in a "type".
 x10: type[Callable[..., Any]]
+
+# This should generate an error because raw strings aren't allowed.
+x11: r"int"
+
+# This should generate an error because bytes strings aren't allowed.
+x12: b"int"
+
+# This should generate an error because format strings aren't allowed.
+x13: f"int"
+

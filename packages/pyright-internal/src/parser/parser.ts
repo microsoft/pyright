@@ -4900,7 +4900,10 @@ export class Parser {
                     if (this._isParsingQuotedText) {
                         this._addSyntaxError(LocMessage.annotationStringEscape(), stringNode);
                     }
-                } else {
+                } else if (
+                    (stringToken.flags & (StringTokenFlags.Raw | StringTokenFlags.Bytes | StringTokenFlags.Format)) ===
+                    0
+                ) {
                     const parser = new Parser();
                     const parseResults = parser.parseTextExpression(
                         this._fileContents!,
