@@ -21,12 +21,17 @@ export function getPyTypedInfo(fileSystem: FileSystem, dirPath: Uri): PyTypedInf
         return undefined;
     }
 
-    let isPartiallyTyped = false;
     const pyTypedPath = dirPath.pytypedUri;
 
     if (!fileSystem.existsSync(pyTypedPath) || !isFile(fileSystem, pyTypedPath)) {
         return undefined;
     }
+
+    return getPyTypedInfoUnsafe(fileSystem, pyTypedPath);
+}
+
+export function getPyTypedInfoUnsafe(fileSystem: FileSystem, pyTypedPath: Uri) {
+    let isPartiallyTyped = false;
 
     // Read the contents of the file as text.
     const fileStats = fileSystem.statSync(pyTypedPath);
