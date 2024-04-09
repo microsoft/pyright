@@ -16,8 +16,8 @@ import { Host } from '../common/host';
 import { stubsSuffix } from '../common/pathConsts';
 import { stripFileExtension } from '../common/pathUtils';
 import { PythonVersion, pythonVersion3_0 } from '../common/pythonVersion';
-import { ServiceProvider } from '../common/serviceProvider';
 import { ServiceKeys } from '../common/serviceKeys';
+import { ServiceProvider } from '../common/serviceProvider';
 import * as StringUtils from '../common/stringUtils';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import { Uri } from '../common/uri/uri';
@@ -26,7 +26,7 @@ import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';
 import { ImportPath, ParentDirectoryCache } from './parentDirectoryCache';
-import { PyTypedInfo, getPyTypedInfo } from './pyTypedUtils';
+import { PyTypedInfo, getPyTypedInfoForPyTypedFile } from './pyTypedUtils';
 import * as PythonPathUtils from './pythonPathUtils';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { isDunderName } from './symbolNameUtils';
@@ -2708,7 +2708,8 @@ export class ImportResolver {
         if (!this.fileExistsCached(filePath.pytypedUri)) {
             return undefined;
         }
-        return getPyTypedInfo(this.fileSystem, filePath);
+
+        return getPyTypedInfoForPyTypedFile(this.fileSystem, filePath.pytypedUri);
     }
 
     private _resolveNativeModuleStub(
