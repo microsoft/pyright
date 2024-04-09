@@ -26,7 +26,7 @@ import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { getDirectoryLeadingDotsPointsTo } from './importStatementUtils';
 import { ImportPath, ParentDirectoryCache } from './parentDirectoryCache';
-import { PyTypedInfo, getPyTypedInfoUnsafe } from './pyTypedUtils';
+import { PyTypedInfo, getPyTypedInfoForPyTypedFile } from './pyTypedUtils';
 import * as PythonPathUtils from './pythonPathUtils';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { isDunderName } from './symbolNameUtils';
@@ -2709,7 +2709,7 @@ export class ImportResolver {
             return undefined;
         }
 
-        return getPyTypedInfoUnsafe(this.fileSystem, filePath.pytypedUri);
+        return getPyTypedInfoForPyTypedFile(this.fileSystem, filePath.pytypedUri);
     }
 
     private _resolveNativeModuleStub(

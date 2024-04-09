@@ -16,6 +16,9 @@ export interface PyTypedInfo {
     isPartiallyTyped: boolean;
 }
 
+/**
+ * Retrieves information about a py.typed file, if it exists, under the given path.
+ */
 export function getPyTypedInfo(fileSystem: FileSystem, dirPath: Uri): PyTypedInfo | undefined {
     if (!fileSystem.existsSync(dirPath) || !isDirectory(fileSystem, dirPath)) {
         return undefined;
@@ -26,10 +29,13 @@ export function getPyTypedInfo(fileSystem: FileSystem, dirPath: Uri): PyTypedInf
         return undefined;
     }
 
-    return getPyTypedInfoUnsafe(fileSystem, pyTypedPath);
+    return getPyTypedInfoForPyTypedFile(fileSystem, pyTypedPath);
 }
 
-export function getPyTypedInfoUnsafe(fileSystem: FileSystem, pyTypedPath: Uri) {
+/**
+ * Retrieves information about a py.typed file. The pyTypedPath provided must be a valid path.
+ */
+export function getPyTypedInfoForPyTypedFile(fileSystem: FileSystem, pyTypedPath: Uri) {
     let isPartiallyTyped = false;
 
     // Read the contents of the file as text.
