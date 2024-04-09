@@ -22,7 +22,6 @@ export function getPyTypedInfo(fileSystem: FileSystem, dirPath: Uri): PyTypedInf
     }
 
     const pyTypedPath = dirPath.pytypedUri;
-
     if (!fileSystem.existsSync(pyTypedPath) || !isFile(fileSystem, pyTypedPath)) {
         return undefined;
     }

@@ -2709,7 +2709,7 @@ export class ImportResolver {
             return undefined;
         }
 
-        return getPyTypedInfoUnsafe(this.fileSystem, filePath);
+        return getPyTypedInfoUnsafe(this.fileSystem, filePath.pytypedUri);
     }
 
     private _resolveNativeModuleStub(
