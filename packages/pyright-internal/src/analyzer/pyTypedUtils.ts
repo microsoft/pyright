@@ -36,6 +36,10 @@ export function getPyTypedInfo(fileSystem: FileSystem, dirPath: Uri): PyTypedInf
  * Retrieves information about a py.typed file. The pyTypedPath provided must be a valid path.
  */
 export function getPyTypedInfoForPyTypedFile(fileSystem: FileSystem, pyTypedPath: Uri) {
+    // This function intentionally doesn't check whether the given py.typed path exists or not,
+    // as filesystem access is expensive if done repeatedly.
+    // The caller should verify the file's validity before calling this method and use a cache if possible
+    // to avoid high filesystem access costs.
     let isPartiallyTyped = false;
 
     // Read the contents of the file as text.
