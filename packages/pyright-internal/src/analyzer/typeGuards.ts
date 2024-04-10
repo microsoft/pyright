@@ -132,6 +132,12 @@ export function getTypeNarrowingCallback(
             testExpression.operator === OperatorType.Is || testExpression.operator === OperatorType.IsNot;
         const equalsOrNotEqualsOperator =
             testExpression.operator === OperatorType.Equals || testExpression.operator === OperatorType.NotEquals;
+        const comparisonOperator =
+            equalsOrNotEqualsOperator ||
+            testExpression.operator === OperatorType.LessThan ||
+            testExpression.operator === OperatorType.LessThanOrEqual ||
+            testExpression.operator === OperatorType.GreaterThan ||
+            testExpression.operator === OperatorType.GreaterThanOrEqual;
 
         if (isOrIsNotOperator || equalsOrNotEqualsOperator) {
             // Invert the "isPositiveTest" value if this is an "is not" operation.
@@ -412,43 +418,6 @@ export function getTypeNarrowingCallback(
                 }
             }
 
-            // Look for len(x) == <literal> or len(x) != <literal>
-            if (
-                equalsOrNotEqualsOperator &&
-                testExpression.leftExpression.nodeType === ParseNodeType.Call &&
-                testExpression.leftExpression.arguments.length === 1
-            ) {
-                const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
-
-                if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                    const callTypeResult = evaluator.getTypeOfExpression(
-                        testExpression.leftExpression.leftExpression,
-                        EvaluatorFlags.CallBaseDefaults
-                    );
-                    const callType = callTypeResult.type;
-
-                    if (isFunction(callType) && callType.details.fullName === 'builtins.len') {
-                        const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
-                        const rightType = rightTypeResult.type;
-
-                        if (
-                            isClassInstance(rightType) &&
-                            typeof rightType.literalValue === 'number' &&
-                            rightType.literalValue >= 0
-                        ) {
-                            const tupleLength = rightType.literalValue;
-
-                            return (type: Type) => {
-                                return {
-                                    type: narrowTypeForTupleLength(evaluator, type, tupleLength, adjIsPositiveTest),
-                                    isIncomplete: !!callTypeResult.isIncomplete || !!rightTypeResult.isIncomplete,
-                                };
-                            };
-                        }
-                    }
-                }
-            }
-
             // Look for X.Y == <literal> or X.Y != <literal>
             if (
                 equalsOrNotEqualsOperator &&
@@ -527,6 +496,70 @@ export function getTypeNarrowingCallback(
                         isIncomplete: false,
                     };
                 };
+            }
+        }
+
+        // Look for len(x) == <literal>, len(x) != <literal>, len(x) < <literal>, etc.
+        if (
+            comparisonOperator &&
+            testExpression.leftExpression.nodeType === ParseNodeType.Call &&
+            testExpression.leftExpression.arguments.length === 1
+        ) {
+            const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
+
+            if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
+                const callTypeResult = evaluator.getTypeOfExpression(
+                    testExpression.leftExpression.leftExpression,
+                    EvaluatorFlags.CallBaseDefaults
+                );
+                const callType = callTypeResult.type;
+
+                if (isFunction(callType) && callType.details.fullName === 'builtins.len') {
+                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                    const rightType = rightTypeResult.type;
+
+                    if (
+                        isClassInstance(rightType) &&
+                        typeof rightType.literalValue === 'number' &&
+                        rightType.literalValue >= 0
+                    ) {
+                        let tupleLength = rightType.literalValue;
+
+                        // We'll treat <, <= and == as positive tests with >=, > and != as
+                        // their negative counterparts.
+                        const isLessOrEqual =
+                            testExpression.operator === OperatorType.Equals ||
+                            testExpression.operator === OperatorType.LessThan ||
+                            testExpression.operator === OperatorType.LessThanOrEqual;
+
+                        const adjIsPositiveTest = isLessOrEqual ? isPositiveTest : !isPositiveTest;
+
+                        // For <= (or its negative counterpart >), adjust the tuple length by 1.
+                        if (
+                            testExpression.operator === OperatorType.LessThanOrEqual ||
+                            testExpression.operator === OperatorType.GreaterThan
+                        ) {
+                            tupleLength++;
+                        }
+
+                        const isEqualityCheck =
+                            testExpression.operator === OperatorType.Equals ||
+                            testExpression.operator === OperatorType.NotEquals;
+
+                        return (type: Type) => {
+                            return {
+                                type: narrowTypeForTupleLength(
+                                    evaluator,
+                                    type,
+                                    tupleLength,
+                                    adjIsPositiveTest,
+                                    !isEqualityCheck
+                                ),
+                                isIncomplete: !!callTypeResult.isIncomplete || !!rightTypeResult.isIncomplete,
+                            };
+                        };
+                    }
+                }
             }
         }
 
@@ -1897,7 +1930,8 @@ function narrowTypeForTupleLength(
     evaluator: TypeEvaluator,
     referenceType: Type,
     lengthValue: number,
-    isPositiveTest: boolean
+    isPositiveTest: boolean,
+    isLessThanCheck: boolean
 ) {
     return mapSubtypes(referenceType, (subtype) => {
         const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
@@ -1918,7 +1952,10 @@ function narrowTypeForTupleLength(
 
         // If the tuple contains no unbounded elements, then we know its length exactly.
         if (!concreteSubtype.tupleTypeArguments.some((typeArg) => typeArg.isUnbounded)) {
-            const tupleLengthMatches = concreteSubtype.tupleTypeArguments.length === lengthValue;
+            const tupleLengthMatches = isLessThanCheck
+                ? concreteSubtype.tupleTypeArguments.length < lengthValue
+                : concreteSubtype.tupleTypeArguments.length === lengthValue;
+
             return tupleLengthMatches === isPositiveTest ? subtype : undefined;
         }
 
@@ -1926,29 +1963,66 @@ function narrowTypeForTupleLength(
         // necessary to match the lengthValue.
         const elementsToAdd = lengthValue - concreteSubtype.tupleTypeArguments.length + 1;
 
-        // If the specified length is smaller than the minimum length of this tuple,
-        // we can rule it out for a positive test.
-        if (elementsToAdd < 0) {
-            return isPositiveTest ? undefined : subtype;
+        if (!isLessThanCheck) {
+            // If the specified length is smaller than the minimum length of this tuple,
+            // we can rule it out for a positive test and rule it in for a negative test.
+            if (elementsToAdd < 0) {
+                return isPositiveTest ? undefined : subtype;
+            }
+
+            if (!isPositiveTest) {
+                return subtype;
+            }
+
+            return expandUnboundedTupleElement(concreteSubtype, elementsToAdd, /* keepUnbounded */ false);
         }
 
-        if (!isPositiveTest) {
+        // Place an upper limit on the number of union subtypes we
+        // will expand the tuple to.
+        const maxTupleUnionExpansion = 32;
+        if (elementsToAdd > maxTupleUnionExpansion) {
             return subtype;
         }
 
-        const tupleTypeArgs: TupleTypeArgument[] = [];
-        concreteSubtype.tupleTypeArguments.forEach((typeArg) => {
-            if (!typeArg.isUnbounded) {
-                tupleTypeArgs.push(typeArg);
-            } else {
-                for (let i = 0; i < elementsToAdd; i++) {
-                    tupleTypeArgs.push({ isUnbounded: false, type: typeArg.type });
-                }
+        if (isPositiveTest) {
+            if (elementsToAdd < 1) {
+                return undefined;
             }
-        });
 
-        return specializeTupleClass(concreteSubtype, tupleTypeArgs);
+            const typesToCombine: Type[] = [];
+
+            for (let i = 0; i < elementsToAdd; i++) {
+                typesToCombine.push(expandUnboundedTupleElement(concreteSubtype, i, /* keepUnbounded */ false));
+            }
+
+            return combineTypes(typesToCombine);
+        }
+
+        return expandUnboundedTupleElement(concreteSubtype, elementsToAdd, /* keepUnbounded */ true);
     });
+}
+
+// Expands a tuple type that contains an unbounded element to include
+// multiple bounded elements of that same type in place of (or in addition
+// to) the unbounded element.
+function expandUnboundedTupleElement(tupleType: ClassType, elementsToAdd: number, keepUnbounded: boolean) {
+    const tupleTypeArgs: TupleTypeArgument[] = [];
+
+    tupleType.tupleTypeArguments!.forEach((typeArg) => {
+        if (!typeArg.isUnbounded) {
+            tupleTypeArgs.push(typeArg);
+        } else {
+            for (let i = 0; i < elementsToAdd; i++) {
+                tupleTypeArgs.push({ isUnbounded: false, type: typeArg.type });
+            }
+
+            if (keepUnbounded) {
+                tupleTypeArgs.push(typeArg);
+            }
+        }
+    });
+
+    return specializeTupleClass(tupleType, tupleTypeArgs);
 }
 
 // Attempts to narrow a type (make it more constrained) based on an "in" binary operator.

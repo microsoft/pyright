@@ -3100,7 +3100,30 @@ export class Binder extends ParseTreeWalker {
 
                     // Look for "X is Y" or "X is not Y".
                     // Look for X == <literal> or X != <literal>
+                    // Look for len(X) == <literal> or len(X) != <literal>
                     return isLeftNarrowing;
+                }
+
+                // Look for len(X) < <literal>, len(X) <= <literal>, len(X) > <literal>, len(X) >= <literal>.
+                if (
+                    expression.rightExpression.nodeType === ParseNodeType.Number &&
+                    expression.rightExpression.isInteger
+                ) {
+                    if (
+                        expression.operator === OperatorType.LessThan ||
+                        expression.operator === OperatorType.LessThanOrEqual ||
+                        expression.operator === OperatorType.GreaterThan ||
+                        expression.operator === OperatorType.GreaterThanOrEqual
+                    ) {
+                        const isLeftNarrowing = this._isNarrowingExpression(
+                            expression.leftExpression,
+                            expressionList,
+                            filterForNeverNarrowing,
+                            /* isComplexExpression */ true
+                        );
+
+                        return isLeftNarrowing;
+                    }
                 }
 
                 // Look for "<string> in Y" or "<string> not in Y".

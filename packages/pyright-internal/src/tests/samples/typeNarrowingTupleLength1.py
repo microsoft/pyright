@@ -49,11 +49,13 @@ def func4(val: _T1 | _T2) -> _T1 | _T2:
 
 
 def func5(
-    val: tuple[int, ...]
-    | tuple[str]
-    | tuple[str, str, str]
-    | tuple[int, *tuple[str, ...], str]
-    | tuple[int, *tuple[float, ...]],
+    val: (
+        tuple[int, ...]
+        | tuple[str]
+        | tuple[str, str, str]
+        | tuple[int, *tuple[str, ...], str]
+        | tuple[int, *tuple[float, ...]]
+    ),
     length: Literal[2],
 ):
     if len(val) == length:
@@ -65,3 +67,66 @@ def func5(
             val,
             expected_text="tuple[int, ...] | tuple[str] | tuple[str, str, str] | tuple[int, *tuple[str, ...], str] | tuple[int, *tuple[float, ...]]",
         )
+
+
+def func10(t: tuple[()] | tuple[int] | tuple[int, int] | tuple[int, int, int]):
+    if len(t) >= 2:
+        reveal_type(t, expected_text="tuple[int, int] | tuple[int, int, int]")
+    else:
+        reveal_type(t, expected_text="tuple[()] | tuple[int]")
+
+
+def func11(t: tuple[()] | tuple[int] | tuple[int, int] | tuple[int, int, int]):
+    if len(t) > 1:
+        reveal_type(t, expected_text="tuple[int, int] | tuple[int, int, int]")
+    else:
+        reveal_type(t, expected_text="tuple[()] | tuple[int]")
+
+
+def func12(t: tuple[()] | tuple[int] | tuple[int, int]):
+    if len(t) >= 0:
+        reveal_type(t, expected_text="tuple[()] | tuple[int] | tuple[int, int]")
+    else:
+        reveal_type(t, expected_text="Never")
+
+
+def func20(t: tuple[int, ...]):
+    if len(t) >= 2:
+        reveal_type(t, expected_text="tuple[int, int, *tuple[int, ...]]")
+    else:
+        reveal_type(t, expected_text="tuple[()] | tuple[int]")
+
+
+def func21(t: tuple[int, ...]):
+    if len(t) > 0:
+        reveal_type(t, expected_text="tuple[int, *tuple[int, ...]]")
+    else:
+        reveal_type(t, expected_text="tuple[()]")
+
+
+def func22(t: tuple[str, *tuple[int, ...], str]):
+    if len(t) < 3:
+        reveal_type(t, expected_text="tuple[str, str]")
+    else:
+        reveal_type(t, expected_text="tuple[str, int, *tuple[int, ...], str]")
+
+
+def func23(t: tuple[str, *tuple[int, ...], str]):
+    if len(t) <= 3:
+        reveal_type(t, expected_text="tuple[str, str] | tuple[str, int, str]")
+    else:
+        reveal_type(t, expected_text="tuple[str, int, int, *tuple[int, ...], str]")
+
+
+def func24(t: tuple[str, *tuple[int, ...], str]):
+    if len(t) <= 34:
+        reveal_type(t, expected_text="tuple[str, *tuple[int, ...], str]")
+    else:
+        reveal_type(t, expected_text="tuple[str, *tuple[int, ...], str]")
+
+
+def func25(t: tuple[str, *tuple[int, ...], str]):
+    if len(t) < 2:
+        reveal_type(t, expected_text="Never")
+    else:
+        reveal_type(t, expected_text="tuple[str, *tuple[int, ...], str]")
