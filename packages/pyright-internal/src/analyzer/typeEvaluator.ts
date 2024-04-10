@@ -165,7 +165,7 @@ import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags, indeterminateSymbolId } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
-import { getLastTypedDeclaredForSymbol, isEffectivelyClassVar } from './symbolUtils';
+import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbolUtils';
 import { SpeculativeModeOptions, SpeculativeTypeTracker } from './typeCacheUtils';
 import {
     AbstractSymbol,
@@ -4378,7 +4378,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (typeParamSymbol) {
             symbol = typeParamSymbol;
             assert(symbol.getDeclarations().length === 1);
-            const decl = getLastTypedDeclaredForSymbol(symbol);
+            const decl = getLastTypedDeclarationForSymbol(symbol);
             assert(decl?.type === DeclarationType.TypeParameter);
             type = getTypeOfTypeParameter(decl.node);
             setSymbolAccessed(fileInfo, symbol, node);
@@ -9514,7 +9514,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const lastDecl = getLastTypedDeclaredForSymbol(symbol);
+        const lastDecl = getLastTypedDeclarationForSymbol(symbol);
         if (!lastDecl) {
             return undefined;
         }

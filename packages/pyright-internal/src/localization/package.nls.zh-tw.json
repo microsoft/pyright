@@ -784,6 +784,7 @@
         "typedDictFieldTypeMismatch": "型別 \"{type}\" 無法指派給項目 \"{name}\"",
         "typedDictFieldUndefined": "\"{name}\" 是型別 \"{type}\" 中未定義的項目",
         "typedDictFinalMismatch": "\"{sourceType}\" 與 \"{destType}\" 不相容，因為@final 不符",
+        "typedDictKeyAccess": "使用 [\"{name}\"] 參考 TypedDict 中的項目",
         "typedDictNotAllowed": "執行個體或類別檢查無法使用 TypedDict",
         "unhashableType": "型別 \"{type}\" 無法雜湊",
         "uninitializedAbstractVariable": "執行個體變數 \"{name}\" 在抽象基底類別 \"{classType}\" 中定義，但未初始化",

@@ -26,7 +26,7 @@
         "chokidar": "^3.6.0",
         "command-line-args": "^5.2.1",
         "jsonc-parser": "^3.2.1",
-        "leven": "^3.1.0",
+        "leven": "3.1.0",
         "source-map-support": "^0.5.21",
         "tmp": "^0.2.1",
         "vscode-jsonrpc": "^9.0.0-next.2",

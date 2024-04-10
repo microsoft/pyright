@@ -784,6 +784,7 @@
         "typedDictFieldTypeMismatch": "Typ {type} se nedá přiřadit k položce {name}",
         "typedDictFieldUndefined": "{name} je nedefinovaná položka v typu {type}",
         "typedDictFinalMismatch": "{sourceType} není kompatibilní s {destType} z důvodu neshody @final",
+        "typedDictKeyAccess": "Použít [\"{name}\"] k odkazování na položku v TypedDict",
         "typedDictNotAllowed": "TypedDict se nedá použít pro kontroly instancí nebo tříd.",
         "unhashableType": "Typ „{type}“ nejde zatřiďovat",
         "uninitializedAbstractVariable": "Proměnná instance {name} je definovaná v abstraktní základní třídě {classType}, ale neinicializovala se",

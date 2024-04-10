@@ -108,7 +108,7 @@ export class BackgroundThreadBase {
 
 // Function used to serialize specific types that can't automatically be serialized.
 // Exposed here so it can be reused by a caller that wants to add more cases.
-export function serializeReplacer(key: string, value: any) {
+export function serializeReplacer(value: any) {
     if (Uri.is(value) && value.toJsonObj !== undefined) {
         return { __serialized_uri_val: value.toJsonObj() };
     }
@@ -134,10 +134,10 @@ export function serializeReplacer(key: string, value: any) {
 
 export function serialize(obj: any): string {
     // Convert the object to a string so it can be sent across a message port.
-    return JSON.stringify(obj, serializeReplacer);
+    return JSON.stringify(obj, (k, v) => serializeReplacer(v));
 }
 
-export function deserializeReviver(key: string, value: any) {
+export function deserializeReviver(value: any) {
     if (value && typeof value === 'object') {
         if (value.__serialized_uri_val !== undefined) {
             return Uri.fromJsonObj(value.__serialized_uri_val);
@@ -168,7 +168,7 @@ export function deserialize<T = any>(json: string | null): T {
         return undefined as any;
     }
     // Convert the string back to an object.
-    return JSON.parse(json, deserializeReviver);
+    return JSON.parse(json, (k, v) => deserializeReviver(v));
 }
 
 export interface MessagePoster {
@@ -176,13 +176,9 @@ export interface MessagePoster {
 }
 
 export function run<T = any>(code: () => Promise<T>, port: MessagePoster): Promise<void>;
-export function run<T = any>(
-    code: () => Promise<T>,
-    port: MessagePoster,
-    serializer: (obj: any) => string
-): Promise<void>;
+export function run<T = any>(code: () => Promise<T>, port: MessagePoster, serializer: (obj: any) => any): Promise<void>;
 export function run<T = any>(code: () => T, port: MessagePoster): void;
-export function run<T = any>(code: () => T, port: MessagePoster, serializer: (obj: any) => string): void;
+export function run<T = any>(code: () => T, port: MessagePoster, serializer: (obj: any) => any): void;
 export function run<T = any>(
     code: () => T | Promise<T>,
     port: MessagePoster,
@@ -218,7 +214,7 @@ export function run<T = any>(
     }
 }
 
-export function getBackgroundWaiter<T>(port: MessagePort, deserializer = deserialize): Promise<T> {
+export function getBackgroundWaiter<T>(port: MessagePort, deserializer: (v: any) => T = deserialize): Promise<T> {
     return new Promise((resolve, reject) => {
         port.on('message', (m: RequestResponse) => {
             switch (m.kind) {

@@ -569,7 +569,9 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected handleEnsurePartialStubPackages(executionRoot: string | undefined) {
-        const execEnv = this._configOptions.getExecutionEnvironments().find((e) => e.root === executionRoot);
+        const execEnv = this._configOptions
+            .getExecutionEnvironments()
+            .find((e) => e.root?.toString() === executionRoot);
         if (execEnv) {
             this.importResolver.ensurePartialStubPackages(execEnv);
         }
