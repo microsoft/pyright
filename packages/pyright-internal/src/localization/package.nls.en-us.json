@@ -263,6 +263,7 @@
         "listAssignmentMismatch": "Expression with type \"{type}\" cannot be assigned to target list",
         "listInAnnotation": "List expression not allowed in type annotation",
         "literalUnsupportedType": "Type arguments for \"Literal\" must be None, a literal value (int, bool, str, or bytes), or an enum value",
+        "literalNamedUnicodeEscape": "Named unicode escape sequences are not supported in \"Literal\" string annotations",
         "literalEmptyArgs": "Expected one or more type arguments after \"Literal\"",
         "literalNotAllowed": "\"Literal\" cannot be used in this context without a type argument",
         "literalNotCallable": "Literal type cannot be instantiated",

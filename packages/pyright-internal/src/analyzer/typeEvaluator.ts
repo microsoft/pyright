@@ -14775,6 +14775,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     type = cloneBuiltinClassWithLiteral(node, classType, 'str', value);
                 }
+
+                itemExpr.strings.forEach((stringNode) => {
+                    if ((stringNode.token.flags & StringTokenFlags.NamedUnicodeEscape) !== 0) {
+                        addDiagnostic(
+                            DiagnosticRule.reportInvalidTypeForm,
+                            LocMessage.literalNamedUnicodeEscape(),
+                            stringNode
+                        );
+                    }
+                });
             } else if (itemExpr.nodeType === ParseNodeType.Number) {
                 if (!itemExpr.isImaginary && itemExpr.isInteger) {
                     type = cloneBuiltinClassWithLiteral(node, classType, 'int', itemExpr.value);

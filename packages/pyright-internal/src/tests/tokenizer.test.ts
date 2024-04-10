@@ -1166,7 +1166,7 @@ test('Strings: good name escapes', () => {
     const stringToken0 = results.tokens.getItemAt(0) as StringToken;
     const unescapedValue0 = StringTokenUtils.getUnescapedString(stringToken0);
     assert.equal(stringToken0.type, TokenType.String);
-    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote);
+    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.NamedUnicodeEscape);
     assert.equal(stringToken0.length, 23);
     assert.equal(stringToken0.escapedValue, '\\N{caret escape blah}');
     assert.equal(unescapedValue0.value, '-');
@@ -1174,7 +1174,7 @@ test('Strings: good name escapes', () => {
     const stringToken1 = results.tokens.getItemAt(1) as StringToken;
     const unescapedValue1 = StringTokenUtils.getUnescapedString(stringToken1);
     assert.equal(stringToken1.type, TokenType.String);
-    assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote);
+    assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.NamedUnicodeEscape);
     assert.equal(stringToken1.length, 10);
     assert.equal(stringToken1.escapedValue, 'a\\N{A9}a');
     assert.equal(unescapedValue1.value, 'a-a');
@@ -1188,7 +1188,7 @@ test('Strings: bad name escapes', () => {
     const stringToken0 = results.tokens.getItemAt(0) as StringToken;
     const unescapedValue0 = StringTokenUtils.getUnescapedString(stringToken0);
     assert.equal(stringToken0.type, TokenType.String);
-    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote);
+    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.NamedUnicodeEscape);
     assert.equal(unescapedValue0.unescapeErrors.length, 1);
     assert.equal(stringToken0.length, 10);
     assert.equal(stringToken0.escapedValue, '\\N{caret');
@@ -1197,7 +1197,7 @@ test('Strings: bad name escapes', () => {
     const stringToken1 = results.tokens.getItemAt(1) as StringToken;
     const unescapedValue1 = StringTokenUtils.getUnescapedString(stringToken1);
     assert.equal(stringToken1.type, TokenType.String);
-    assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote);
+    assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.NamedUnicodeEscape);
     assert.equal(unescapedValue1.unescapeErrors.length, 1);
     assert.equal(stringToken1.length, 9);
     assert.equal(stringToken1.escapedValue, '\\N{.A9}');

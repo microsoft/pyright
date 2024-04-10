@@ -601,6 +601,7 @@ export namespace Localizer {
         export const listAssignmentMismatch = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.listAssignmentMismatch'));
         export const listInAnnotation = () => getRawString('Diagnostic.listInAnnotation');
+        export const literalNamedUnicodeEscape = () => getRawString('Diagnostic.literalNamedUnicodeEscape');
         export const literalUnsupportedType = () => getRawString('Diagnostic.literalUnsupportedType');
         export const literalEmptyArgs = () => getRawString('Diagnostic.literalEmptyArgs');
         export const literalNotAllowed = () => getRawString('Diagnostic.literalNotAllowed');

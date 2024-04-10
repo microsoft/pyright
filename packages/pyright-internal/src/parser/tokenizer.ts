@@ -1593,6 +1593,7 @@ export class Tokenizer {
                     this._cs.getCurrentChar() === Char.N &&
                     this._cs.nextChar === Char.OpenBrace
                 ) {
+                    flags |= StringTokenFlags.NamedUnicodeEscape;
                     isInNamedUnicodeEscape = true;
                 } else {
                     // If this is an f-string, the only escapes that are allowed is for
