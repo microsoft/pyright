@@ -815,8 +815,8 @@ export class TestState {
         return commandResult;
     }
 
-    verifyWorkspaceEdit(expected: WorkspaceEdit, actual: WorkspaceEdit) {
-        return verifyWorkspaceEdit(expected, actual);
+    verifyWorkspaceEdit(expected: WorkspaceEdit, actual: WorkspaceEdit, marker?: string) {
+        return verifyWorkspaceEdit(expected, actual, marker);
     }
 
     async verifyInvokeCodeAction(

@@ -11,7 +11,7 @@ import { CancellationToken, CompletionItemKind, SymbolKind } from 'vscode-langua
 import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType } from '../analyzer/declaration';
-import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
+import { getLastTypedDeclarationForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { getSymbolKind } from '../common/lspUtils';
 import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
@@ -93,7 +93,7 @@ function collectSymbolIndexData(
         }
 
         // Prefer declarations with a defined type.
-        let declaration = getLastTypedDeclaredForSymbol(symbol);
+        let declaration = getLastTypedDeclarationForSymbol(symbol);
 
         // Fall back to declarations without a type.
         if (!declaration && symbol.hasDeclarations()) {

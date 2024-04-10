@@ -184,7 +184,9 @@ export function getTextEditsForAutoImportSymbolAddition(
     importNameInfo = (Array.isArray(importNameInfo) ? importNameInfo : [importNameInfo]).filter(
         (info) =>
             !!info.name &&
-            !importFrom.imports.some((importAs) => importAs.name.value === info.name && importAs.alias === info.alias)
+            !importFrom.imports.some(
+                (importAs) => importAs.name.value === info.name && importAs.alias?.value === info.alias
+            )
     );
 
     if (importNameInfo.length === 0) {

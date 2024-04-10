@@ -10,7 +10,7 @@
 import { Declaration, DeclarationType } from './declaration';
 import { Symbol } from './symbol';
 
-export function getLastTypedDeclaredForSymbol(symbol: Symbol): Declaration | undefined {
+export function getLastTypedDeclarationForSymbol(symbol: Symbol): Declaration | undefined {
     const typedDecls = symbol.getTypedDeclarations();
 
     if (typedDecls.length > 0) {

@@ -39,7 +39,7 @@ import { getScopeForNode } from '../analyzer/scopeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
-import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
+import { getLastTypedDeclarationForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { getTypedDictMembersForClass } from '../analyzer/typedDicts';
 import { getModuleDocStringFromUris } from '../analyzer/typeDocStringUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
@@ -405,30 +405,6 @@ export class CompletionProvider {
         return this.program.configOptions;
     }
 
-    protected isSimpleDefault(node: ExpressionNode): boolean {
-        switch (node.nodeType) {
-            case ParseNodeType.Number:
-            case ParseNodeType.Constant:
-            case ParseNodeType.MemberAccess:
-                return true;
-
-            case ParseNodeType.String:
-                return (node.token.flags & StringTokenFlags.Format) === 0;
-
-            case ParseNodeType.StringList:
-                return node.strings.every(this.isSimpleDefault);
-
-            case ParseNodeType.UnaryOperation:
-                return this.isSimpleDefault(node.expression);
-
-            case ParseNodeType.BinaryOperation:
-                return this.isSimpleDefault(node.leftExpression) && this.isSimpleDefault(node.rightExpression);
-
-            default:
-                return false;
-        }
-    }
-
     protected getMethodOverrideCompletions(
         priorWord: string,
         partialName: NameNode,
@@ -452,13 +428,13 @@ export class CompletionProvider {
             }
         }
 
-        const staticmethod = decorators?.some((d) => this.checkDecorator(d, 'staticmethod')) ?? false;
-        const classmethod = decorators?.some((d) => this.checkDecorator(d, 'classmethod')) ?? false;
+        const staticmethod = decorators?.some((d) => ParseTreeUtils.checkDecorator(d, 'staticmethod')) ?? false;
+        const classmethod = decorators?.some((d) => ParseTreeUtils.checkDecorator(d, 'classmethod')) ?? false;
 
         const completionMap = new CompletionMap();
 
         symbolTable.forEach((symbol, name) => {
-            let decl = getLastTypedDeclaredForSymbol(symbol);
+            let decl = getLastTypedDeclarationForSymbol(symbol);
             if (decl && decl.type === DeclarationType.Function) {
                 if (StringUtils.isPatternInSymbol(partialName.value, name)) {
                     const declaredType = this.evaluator.getTypeForDeclaration(decl)?.type;
@@ -636,7 +612,7 @@ export class CompletionProvider {
         // Make sure we don't crash due to OOM.
         this.program.handleMemoryHighUsage();
 
-        let primaryDecl = getLastTypedDeclaredForSymbol(symbol);
+        let primaryDecl = getLastTypedDeclarationForSymbol(symbol);
         if (!primaryDecl) {
             const declarations = symbol.getDeclarations();
             if (declarations.length > 0) {
@@ -891,10 +867,6 @@ export class CompletionProvider {
                 );
             }
         }
-    }
-
-    protected checkDecorator(node: DecoratorNode, value: string): boolean {
-        return node.expression.nodeType === ParseNodeType.Name && node.expression.value === value;
     }
 
     protected addExtraCommitChar(item: CompletionItem) {
@@ -1618,7 +1590,7 @@ export class CompletionProvider {
     }
 
     private _isOverload(node: DecoratorNode): boolean {
-        return this.checkDecorator(node, 'overload');
+        return ParseTreeUtils.checkDecorator(node, 'overload');
     }
 
     private _createSingleKeywordCompletion(keyword: string): CompletionMap {
@@ -1789,7 +1761,7 @@ export class CompletionProvider {
 
         const enclosingFunc = ParseTreeUtils.getEnclosingFunction(partialName);
         symbolTable.forEach((symbol, name) => {
-            const decl = getLastTypedDeclaredForSymbol(symbol);
+            const decl = getLastTypedDeclarationForSymbol(symbol);
             if (!decl || decl.type !== DeclarationType.Function) {
                 return;
             }
@@ -1885,7 +1857,7 @@ export class CompletionProvider {
                 if (param.defaultValue) {
                     paramString += paramTypeAnnotation ? ' = ' : '=';
 
-                    const useEllipsis = ellipsisForDefault ?? !this.isSimpleDefault(param.defaultValue);
+                    const useEllipsis = ellipsisForDefault ?? !ParseTreeUtils.isSimpleDefault(param.defaultValue);
                     paramString += useEllipsis ? '...' : ParseTreeUtils.printExpression(param.defaultValue, printFlags);
                 }
 

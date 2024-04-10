@@ -15,7 +15,7 @@ import { assignTypeToTypeVar } from './constraintSolver';
 import { DeclarationType } from './declaration';
 import { assignProperty } from './properties';
 import { Symbol } from './symbol';
-import { getLastTypedDeclaredForSymbol, isEffectivelyClassVar } from './symbolUtils';
+import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbolUtils';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
@@ -664,8 +664,8 @@ function assignClassToProtocolInternal(
                 }
             }
 
-            const destPrimaryDecl = getLastTypedDeclaredForSymbol(destSymbol);
-            const srcPrimaryDecl = getLastTypedDeclaredForSymbol(srcSymbol);
+            const destPrimaryDecl = getLastTypedDeclarationForSymbol(destSymbol);
+            const srcPrimaryDecl = getLastTypedDeclarationForSymbol(srcSymbol);
 
             if (
                 destPrimaryDecl?.type === DeclarationType.Variable &&

@@ -2811,3 +2811,31 @@ export function getTypeVarScopesForNode(node: ParseNode): TypeVarScopeId[] {
 
     return scopeIds;
 }
+
+export function checkDecorator(node: DecoratorNode, value: string): boolean {
+    return node.expression.nodeType === ParseNodeType.Name && node.expression.value === value;
+}
+
+export function isSimpleDefault(node: ExpressionNode): boolean {
+    switch (node.nodeType) {
+        case ParseNodeType.Number:
+        case ParseNodeType.Constant:
+        case ParseNodeType.MemberAccess:
+            return true;
+
+        case ParseNodeType.String:
+            return (node.token.flags & StringTokenFlags.Format) === 0;
+
+        case ParseNodeType.StringList:
+            return node.strings.every(isSimpleDefault);
+
+        case ParseNodeType.UnaryOperation:
+            return isSimpleDefault(node.expression);
+
+        case ParseNodeType.BinaryOperation:
+            return isSimpleDefault(node.leftExpression) && isSimpleDefault(node.rightExpression);
+
+        default:
+            return false;
+    }
+}
