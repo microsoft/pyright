@@ -355,3 +355,19 @@ test('verify can serialize config options', () => {
     assert.deepEqual(config, deserialized);
     assert.ok(deserialized.findExecEnvironment(UriEx.file('foo/bar.py')));
 });
+
+test('extra paths on undefined execution root/default workspace', () => {
+    const nullConsole = new NullConsole();
+    const service = createAnalyzer(nullConsole);
+    const commandLineOptions = new CommandLineOptions(undefined, /* fromVsCodeExtension */ false);
+    commandLineOptions.extraPaths = ['/extraPaths'];
+
+    service.setOptions(commandLineOptions);
+    const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+    const expectedExtraPaths = [Uri.file('/extraPaths', service.serviceProvider)];
+    assert.deepStrictEqual(
+        configOptions.defaultExtraPaths?.map((u) => u.getFilePath()),
+        expectedExtraPaths.map((u) => u.getFilePath())
+    );
+});
