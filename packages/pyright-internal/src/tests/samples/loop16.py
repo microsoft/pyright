@@ -273,16 +273,16 @@ def get_ipv4():
                 continue
             elif ip1 == 13 and ip2 == 107 and ip3 == 6 and ip4 == 152:
                 continue
-            elif ip1 == 13 and ip2 == 107 and ip3 == 18 and ip4 == 10:
-                continue
-            elif ip1 == 13 and ip2 == 107 and ip3 == 128 and ip4 == 0:
-                continue
-            elif ip1 == 23 and ip2 == 103 and ip3 == 160 and ip4 == 0:
-                continue
-            elif ip1 == 40 and ip2 == 96 and ip3 == 0 and ip4 == 0:
-                continue
-            elif ip1 == 40 and ip2 == 104 and ip3 == 0 and ip4 == 0:
-                continue
+            # elif ip1 == 13 and ip2 == 107 and ip3 == 18 and ip4 == 10:
+            #     continue
+            # elif ip1 == 13 and ip2 == 107 and ip3 == 128 and ip4 == 0:
+            #     continue
+            # elif ip1 == 23 and ip2 == 103 and ip3 == 160 and ip4 == 0:
+            #     continue
+            # elif ip1 == 40 and ip2 == 96 and ip3 == 0 and ip4 == 0:
+            #     continue
+            # elif ip1 == 40 and ip2 == 104 and ip3 == 0 and ip4 == 0:
+            #     continue
             # elif ip1 == 52 and ip2 == 96 and ip3 == 0 and ip4 == 0:
             #     continue
             # elif ip1 == 131 and ip2 == 253 and ip3 == 33 and ip4 == 215:
