@@ -944,6 +944,7 @@ function assignTypeToParamSpec(
             newFunction.details.docString = srcType.details.docString;
             newFunction.details.deprecatedMessage = srcType.details.deprecatedMessage;
             newFunction.details.paramSpec = srcType.details.paramSpec;
+            newFunction.details.methodClass = srcType.details.methodClass;
 
             let updateContextWithNewFunction = false;
 
