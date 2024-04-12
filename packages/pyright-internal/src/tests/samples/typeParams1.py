@@ -3,58 +3,64 @@
 
 T1 = 0
 
-class ClassA[T1]:
-    ...
 
-def func1[T1]():
-    ...
+class ClassA[T1]: ...
+
+
+def func1[T1](): ...
 
 
 T2: str
 
-class ClassB[T2]:
-    ...
 
-def func2[T2]():
-    ...
+class ClassB[T2]: ...
 
 
-# This should generate an error because T3 is duplicated.
-class ClassC[T3, S1, T3]:
-    ...
+def func2[T2](): ...
 
 
 # This should generate an error because T3 is duplicated.
-def func3[T3, S1, T3]():
-    ...
+class ClassC[T3, S1, T3]: ...
 
-def func4[T4](T4: int):
-    ...
+
+# This should generate an error because T3 is duplicated.
+def func3[T3, S1, T3](): ...
+
+
+def func4[T4](T4: int): ...
+
 
 def func5[T5](a: int):
     # This should generate an error because T5 is already in use.
-    class ClassA[T5]:
-        ...
+    class ClassA[T5]: ...
 
     # This should generate an error because T5 is already in use.
-    def inner_func1[T5]():
-        ...
+    def inner_func1[T5](): ...
+
 
 def func6[T6](T7: int):
-    class ClassA[T7]:
-        ...
+    class ClassA[T7]: ...
 
-    def inner_func1[T7]():
-        ...
+    def inner_func1[T7](): ...
 
     global T2
 
     class ClassB[T2]:
         global T2
 
-
     class ClassC[T3]:
         T3 = 4
 
     T3 = 4
 
+
+def func7[T8: ForwardRefClass[str], T9: "ForwardRefClass[int]"]():
+    pass
+
+
+def func8[T10: (ForwardRefClass[str], "ForwardRefClass[int]")]():
+    pass
+
+
+class ForwardRefClass[T]:
+    pass

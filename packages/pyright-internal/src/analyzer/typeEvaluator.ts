@@ -12471,7 +12471,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (paramName === 'default') {
                     const expr = argList[i].valueExpression;
                     if (expr) {
-                        const defaultType = getTypeVarTupleDefaultType(expr);
+                        const defaultType = getTypeVarTupleDefaultType(expr, /* isPep695Syntax */ false);
                         if (defaultType) {
                             typeVar.details.defaultType = defaultType;
                             typeVar.details.isDefaultExplicit = true;
@@ -12500,10 +12500,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return typeVar;
     }
 
-    function getTypeVarTupleDefaultType(node: ExpressionNode): Type | undefined {
+    function getTypeVarTupleDefaultType(node: ExpressionNode, isPep695Syntax: boolean): Type | undefined {
         const argType = getTypeOfExpressionExpectingType(node, {
             allowUnpackedTuple: true,
             allowTypeVarsWithoutScopeId: true,
+            allowForwardReference: isPep695Syntax,
         }).type;
         const isUnpackedTuple = isClass(argType) && isTupleClass(argType) && argType.isUnpacked;
         const isUnpackedTypeVarTuple = isUnpackedVariadicTypeVar(argType);
@@ -12550,7 +12551,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (paramName === 'default') {
                     const expr = argList[i].valueExpression;
                     if (expr) {
-                        const defaultType = getParamSpecDefaultType(expr);
+                        const defaultType = getParamSpecDefaultType(expr, /* isPep695Syntax */ false);
                         if (defaultType) {
                             paramSpec.details.defaultType = defaultType;
                             paramSpec.details.isDefaultExplicit = true;
@@ -12580,7 +12581,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return paramSpec;
     }
 
-    function getParamSpecDefaultType(node: ExpressionNode): Type | undefined {
+    function getParamSpecDefaultType(node: ExpressionNode, isPep695Syntax: boolean): Type | undefined {
         const functionType = FunctionType.createSynthesizedInstance(
             '',
             FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck | FunctionTypeFlags.ParamSpecValue
@@ -12593,7 +12594,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (node.nodeType === ParseNodeType.List) {
             node.entries.forEach((paramExpr, index) => {
-                const typeResult = getTypeOfExpressionExpectingType(paramExpr, { allowTypeVarsWithoutScopeId: true });
+                const typeResult = getTypeOfExpressionExpectingType(paramExpr, {
+                    allowTypeVarsWithoutScopeId: true,
+                    allowForwardReference: isPep695Syntax,
+                });
 
                 FunctionType.addParameter(functionType, {
                     category: ParameterCategory.Simple,
@@ -19306,6 +19310,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else {
                         break;
                     }
+                } else if (parent.nodeType === ParseNodeType.TypeParameter) {
+                    // If this is a bound or default expression in a type parameter list,
+                    // we need to evaluate it in the context of the type parameter.
+                    if (node === parent.boundExpression || node === parent.defaultExpression) {
+                        getTypeOfTypeParameter(parent);
+                        return;
+                    }
+
+                    break;
                 } else {
                     break;
                 }
@@ -20964,6 +20977,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const constraints = node.boundExpression.expressions.map((constraint) => {
                     const constraintType = getTypeOfExpressionExpectingType(constraint, {
                         disallowProtocolAndTypedDict: true,
+                        allowForwardReference: true,
                     }).type;
 
                     if (
@@ -20990,6 +21004,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else {
                 const boundType = getTypeOfExpressionExpectingType(node.boundExpression, {
                     disallowProtocolAndTypedDict: true,
+                    allowForwardReference: true,
                 }).type;
 
                 if (requiresSpecialization(boundType, { ignorePseudoGeneric: true })) {
@@ -21003,7 +21018,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (node.typeParamCategory === TypeParameterCategory.ParamSpec) {
-            const defaultType = node.defaultExpression ? getParamSpecDefaultType(node.defaultExpression) : undefined;
+            const defaultType = node.defaultExpression
+                ? getParamSpecDefaultType(node.defaultExpression, /* isPep695Syntax */ true)
+                : undefined;
 
             if (defaultType) {
                 typeVar.details.defaultType = defaultType;
@@ -21012,7 +21029,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeVar.details.defaultType = getUnknownTypeForParamSpec();
             }
         } else if (node.typeParamCategory === TypeParameterCategory.TypeVarTuple) {
-            const defaultType = node.defaultExpression ? getTypeVarTupleDefaultType(node.defaultExpression) : undefined;
+            const defaultType = node.defaultExpression
+                ? getTypeVarTupleDefaultType(node.defaultExpression, /* isPep695Syntax */ true)
+                : undefined;
 
             if (defaultType) {
                 typeVar.details.defaultType = defaultType;
@@ -21022,7 +21041,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         } else {
             const defaultType = node.defaultExpression
-                ? convertToInstance(getTypeOfExpressionExpectingType(node.defaultExpression).type)
+                ? convertToInstance(
+                      getTypeOfExpressionExpectingType(node.defaultExpression, { allowForwardReference: true }).type
+                  )
                 : undefined;
 
             if (defaultType) {
