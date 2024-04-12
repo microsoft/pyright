@@ -1821,6 +1821,7 @@ export namespace FunctionType {
             FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.details.higherOrderTypeVarScopeIds);
 
             newFunction.details.paramSpec = paramSpecValue.details.paramSpec;
+            newFunction.details.methodClass = paramSpecValue.details.methodClass;
         }
 
         return newFunction;
