@@ -5210,6 +5210,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
         let type: Type | undefined;
         let narrowedTypeForSet: Type | undefined;
+        let typeErrors = false;
         let isIncomplete = !!baseTypeResult.isIncomplete;
         let isAsymmetricAccessor: boolean | undefined;
         const isRequired = false;
@@ -5332,12 +5333,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 }
 
-                if (typeResult && !typeResult.typeErrors) {
-                    type = addConditionToType(
-                        typeResult.type,
-                        getTypeCondition(baseType),
-                        /* skipSelfCondition */ true
-                    );
+                if (typeResult) {
+                    if (!typeResult.typeErrors) {
+                        type = addConditionToType(
+                            typeResult.type,
+                            getTypeCondition(baseType),
+                            /* skipSelfCondition */ true
+                        );
+                    } else {
+                        typeErrors = true;
+                    }
+
+                    if (typeResult.isAsymmetricAccessor) {
+                        isAsymmetricAccessor = true;
+                    }
+
+                    if (typeResult.isIncomplete) {
+                        isIncomplete = true;
+                    }
 
                     if (typeResult.narrowedTypeForSet) {
                         narrowedTypeForSet = addConditionToType(
@@ -5345,14 +5358,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             getTypeCondition(baseType),
                             /* skipSelfCondition */ true
                         );
-                    }
-
-                    if (typeResult.isIncomplete) {
-                        isIncomplete = true;
-                    }
-
-                    if (typeResult.isAsymmetricAccessor) {
-                        isAsymmetricAccessor = true;
                     }
 
                     if (typeResult.memberAccessDeprecationInfo) {
@@ -5496,8 +5501,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isIncomplete = true;
                     }
 
-                    if (typeResult?.memberAccessDeprecationInfo) {
+                    if (typeResult.memberAccessDeprecationInfo) {
                         memberAccessDeprecationInfo = typeResult.memberAccessDeprecationInfo;
+                    }
+
+                    if (typeResult.typeErrors) {
+                        typeErrors = true;
                     }
 
                     return typeResult.type;
@@ -5596,6 +5605,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             isRequired,
             isNotRequired,
             memberAccessDeprecationInfo,
+            typeErrors,
         };
     }
 
@@ -5883,6 +5893,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 }
 
+                // Do not narrow the type in this case. Assume the declared type.
+                narrowedTypeForSet = type;
                 isDescriptorError = true;
             }
 
