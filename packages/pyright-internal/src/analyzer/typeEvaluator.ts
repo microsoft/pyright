@@ -11303,13 +11303,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            // Some typeshed stubs use specialized type annotations in the "self" parameter
-            // of an overloaded __init__ method to specify which specialized type should
-            // be constructed. Although this isn't part of the official Python spec, other
-            // type checkers appear to honor it.
+            // The type annotation for the "self" parameter in an __init__ method to
+            // can incluence the type being constructed.
             if (
                 type.details.name === '__init__' &&
-                FunctionType.isOverloaded(type) &&
                 type.strippedFirstParamType &&
                 type.boundToType &&
                 isClassInstance(type.strippedFirstParamType) &&
