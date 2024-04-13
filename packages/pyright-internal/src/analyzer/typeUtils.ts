@@ -4267,21 +4267,21 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                     // it represents an instance of a type. If the replacement includes
                     // a generic class that has not been specialized, specialize it
                     // now with default type arguments.
-                    if (this._options.unknownIfNotFound) {
-                        replacement = mapSubtypes(replacement, (subtype) => {
-                            if (isClassInstance(subtype)) {
-                                // If the includeSubclasses wasn't set, force it to be set by
-                                // converting to/from an instantiable.
-                                if (!subtype.includeSubclasses) {
-                                    subtype = ClassType.cloneAsInstance(ClassType.cloneAsInstantiable(subtype));
-                                }
-
-                                return specializeWithDefaultTypeArgs(subtype);
+                    replacement = mapSubtypes(replacement, (subtype) => {
+                        if (isClassInstance(subtype)) {
+                            // If the includeSubclasses wasn't set, force it to be set by
+                            // converting to/from an instantiable.
+                            if (!subtype.includeSubclasses) {
+                                subtype = ClassType.cloneAsInstance(ClassType.cloneAsInstantiable(subtype));
                             }
 
-                            return subtype;
-                        });
-                    }
+                            if (this._options.unknownIfNotFound) {
+                                return specializeWithDefaultTypeArgs(subtype);
+                            }
+                        }
+
+                        return subtype;
+                    });
                 }
 
                 if (isTypeVar(replacement) && typeVar.isVariadicUnpacked && replacement.details.isVariadic) {
