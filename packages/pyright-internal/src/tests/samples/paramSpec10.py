@@ -29,17 +29,14 @@ class MyClass:
         self._lock = RLock()
 
     @with_lock
-    def test_1(self, param1: int) -> str:
-        ...
+    def test_1(self, param1: int) -> str: ...
 
     @with_lock
-    def test_2(self) -> str:
-        ...
+    def test_2(self) -> str: ...
 
 
 @with_lock
-def test_3(cls: MyClass, param1: int) -> str:
-    ...
+def test_3(cls: MyClass, param1: int) -> str: ...
 
 
 testClass = MyClass()
@@ -54,4 +51,4 @@ res3 = test_3(testClass, 42)
 reveal_type(res3, expected_text="str")
 
 res4: Callable[[MyClass, int], str] = with_lock(test_3)
-reveal_type(res4, expected_text="(MyClass, param1: int) -> str")
+reveal_type(res4, expected_text="(MyClass, int) -> str")
