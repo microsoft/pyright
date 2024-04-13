@@ -559,6 +559,7 @@ export namespace Localizer {
             );
         export const inconsistentIndent = () => getRawString('Diagnostic.inconsistentIndent');
         export const inconsistentTabs = () => getRawString('Diagnostic.inconsistentTabs');
+        export const initMethodSelfParamTypeVar = () => getRawString('Diagnostic.initMethodSelfParamTypeVar');
         export const initMustReturnNone = () => getRawString('Diagnostic.initMustReturnNone');
         export const initSubclassClsParam = () => getRawString('Diagnostic.initSubclassClsParam');
         export const initSubclassCallFailed = () => getRawString('Diagnostic.initSubclassCallFailed');

@@ -79,3 +79,9 @@ class Class2(Generic[_T3, _T4]):
 
 
 reveal_type(Class2(0, ""), expected_text="Class2[str, int]")
+
+
+class Class3(Generic[_T3, _T4]):
+    # This should generate an error because class-scoped TypeVars are not
+    # allowed in the "self" type annotation for an __init__ method.
+    def __init__(self: "Class3[_T3, _T4]", value1: _T3, value2: _T4) -> None: ...

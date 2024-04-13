@@ -6936,6 +6936,23 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // If this is an __init__ method, we need to specifically check for the
+        // use of class-scoped TypeVars, which are not allowed in this context
+        // according to the typing spec.
+        if (functionType.details.name === '__init__' && functionType.details.methodClass) {
+            const typeVars = getTypeVarArgumentsRecursive(paramInfo.type);
+
+            if (
+                typeVars.some((typeVar) => typeVar.scopeId === functionType.details.methodClass?.details.typeVarScopeId)
+            ) {
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.initMethodSelfParamTypeVar(),
+                    paramInfo.typeAnnotation
+                );
+            }
+        }
+
         // If this is a protocol class, the self and cls parameters can be bound
         // to something other than the class.
         if (ClassType.isProtocolClass(classType)) {

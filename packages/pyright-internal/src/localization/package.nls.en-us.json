@@ -238,6 +238,7 @@
         "inconsistentIndent": "Unindent amount does not match previous indent",
         "initMustReturnNone": "Return type of \"__init__\" must be None",
         "inconsistentTabs": "Inconsistent use of tabs and spaces in indentation",
+        "initMethodSelfParamTypeVar": "Type annotation for \"self\" parameter of \"__init__\" method cannot contain class-scoped type varaiables",
         "initSubclassClsParam": "__init_subclass__ override should take a \"cls\" parameter",
         "initSubclassCallFailed": "Incorrect keyword arguments for __init_subclass__ method",
         "initVarNotAllowed": "\"InitVar\" is not allowed in this context",
