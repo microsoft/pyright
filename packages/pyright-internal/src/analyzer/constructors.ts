@@ -811,7 +811,11 @@ export function createFunctionFromConstructor(
     }
 
     const fromNew = createFunctionFromNewMethod(evaluator, classType, selfType, recursionCount);
-    return fromNew;
+    if (fromNew) {
+        return fromNew;
+    }
+
+    return createFunctionFromObjectNewMethod(classType);
 }
 
 function createFunctionFromNewMethod(
@@ -829,62 +833,68 @@ function createFunctionFromNewMethod(
             MemberAccessFlags.SkipObjectBaseClass
     );
 
-    if (newInfo) {
-        const newType = evaluator.getTypeOfMember(newInfo);
-
-        const convertNewToConstructor = (newSubtype: FunctionType) => {
-            let constructorFunction = evaluator.bindFunctionToClassOrObject(
-                classType,
-                newSubtype,
-                newInfo && isInstantiableClass(newInfo.classType) ? newInfo.classType : undefined,
-                /* treatConstructorAsClassMethod */ true,
-                selfType,
-                /* diag */ undefined,
-                recursionCount
-            ) as FunctionType | undefined;
-
-            if (constructorFunction) {
-                constructorFunction = FunctionType.clone(constructorFunction);
-                constructorFunction.details.typeVarScopeId = newSubtype.details.typeVarScopeId;
-
-                if (!constructorFunction.details.docString && classType.details.docString) {
-                    constructorFunction.details.docString = classType.details.docString;
-                }
-
-                constructorFunction.details.flags &= ~(
-                    FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod
-                );
-                constructorFunction.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
-            }
-
-            return constructorFunction;
-        };
-
-        if (isFunction(newType)) {
-            return convertNewToConstructor(newType);
-        }
-
-        if (isOverloadedFunction(newType)) {
-            const newOverloads: FunctionType[] = [];
-            newType.overloads.forEach((overload) => {
-                const converted = convertNewToConstructor(overload);
-                if (converted) {
-                    newOverloads.push(converted);
-                }
-            });
-
-            if (newOverloads.length === 0) {
-                return undefined;
-            }
-
-            if (newOverloads.length === 1) {
-                return newOverloads[0];
-            }
-
-            return OverloadedFunctionType.create(newOverloads);
-        }
+    if (!newInfo) {
+        return undefined;
     }
 
+    const newType = evaluator.getTypeOfMember(newInfo);
+
+    const convertNewToConstructor = (newSubtype: FunctionType) => {
+        let constructorFunction = evaluator.bindFunctionToClassOrObject(
+            classType,
+            newSubtype,
+            newInfo && isInstantiableClass(newInfo.classType) ? newInfo.classType : undefined,
+            /* treatConstructorAsClassMethod */ true,
+            selfType,
+            /* diag */ undefined,
+            recursionCount
+        ) as FunctionType | undefined;
+
+        if (constructorFunction) {
+            constructorFunction = FunctionType.clone(constructorFunction);
+            constructorFunction.details.typeVarScopeId = newSubtype.details.typeVarScopeId;
+
+            if (!constructorFunction.details.docString && classType.details.docString) {
+                constructorFunction.details.docString = classType.details.docString;
+            }
+
+            constructorFunction.details.flags &= ~(
+                FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod
+            );
+            constructorFunction.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+        }
+
+        return constructorFunction;
+    };
+
+    if (isFunction(newType)) {
+        return convertNewToConstructor(newType);
+    }
+
+    if (!isOverloadedFunction(newType)) {
+        return undefined;
+    }
+
+    const newOverloads: FunctionType[] = [];
+    newType.overloads.forEach((overload) => {
+        const converted = convertNewToConstructor(overload);
+        if (converted) {
+            newOverloads.push(converted);
+        }
+    });
+
+    if (newOverloads.length === 0) {
+        return undefined;
+    }
+
+    if (newOverloads.length === 1) {
+        return newOverloads[0];
+    }
+
+    return OverloadedFunctionType.create(newOverloads);
+}
+
+function createFunctionFromObjectNewMethod(classType: ClassType) {
     // Return a fallback constructor based on the object.__new__ method.
     const constructorFunction = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.None);
     constructorFunction.details.declaredReturnType = ClassType.cloneAsInstance(classType);
@@ -917,68 +927,70 @@ function createFunctionFromInitMethod(
             MemberAccessFlags.SkipObjectBaseClass
     );
 
-    if (initInfo) {
-        const initType = evaluator.getTypeOfMember(initInfo);
-        const objectType = ClassType.cloneAsInstance(classType);
-
-        function convertInitToConstructor(initSubtype: FunctionType) {
-            let constructorFunction = evaluator.bindFunctionToClassOrObject(
-                objectType,
-                initSubtype,
-                initInfo && isInstantiableClass(initInfo.classType) ? initInfo.classType : undefined,
-                /* treatConstructorAsClassMethod */ undefined,
-                selfType,
-                /* diag */ undefined,
-                recursionCount
-            ) as FunctionType | undefined;
-
-            if (constructorFunction) {
-                constructorFunction = FunctionType.clone(constructorFunction);
-                constructorFunction.details.declaredReturnType = selfType ?? objectType;
-                constructorFunction.details.name = '';
-                constructorFunction.details.fullName = '';
-
-                if (constructorFunction.specializedTypes) {
-                    constructorFunction.specializedTypes.returnType = selfType ?? objectType;
-                }
-
-                if (!constructorFunction.details.docString && classType.details.docString) {
-                    constructorFunction.details.docString = classType.details.docString;
-                }
-
-                constructorFunction.details.flags &= ~FunctionTypeFlags.StaticMethod;
-                constructorFunction.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
-            }
-
-            return constructorFunction;
-        }
-
-        if (isFunction(initType)) {
-            return convertInitToConstructor(initType);
-        }
-
-        if (isOverloadedFunction(initType)) {
-            const initOverloads: FunctionType[] = [];
-            initType.overloads.forEach((overload) => {
-                const converted = convertInitToConstructor(overload);
-                if (converted) {
-                    initOverloads.push(converted);
-                }
-            });
-
-            if (initOverloads.length === 0) {
-                return undefined;
-            }
-
-            if (initOverloads.length === 1) {
-                return initOverloads[0];
-            }
-
-            return OverloadedFunctionType.create(initOverloads);
-        }
+    if (!initInfo) {
+        return undefined;
     }
 
-    return undefined;
+    const initType = evaluator.getTypeOfMember(initInfo);
+    const objectType = ClassType.cloneAsInstance(classType);
+
+    function convertInitToConstructor(initSubtype: FunctionType) {
+        let constructorFunction = evaluator.bindFunctionToClassOrObject(
+            objectType,
+            initSubtype,
+            initInfo && isInstantiableClass(initInfo.classType) ? initInfo.classType : undefined,
+            /* treatConstructorAsClassMethod */ undefined,
+            selfType,
+            /* diag */ undefined,
+            recursionCount
+        ) as FunctionType | undefined;
+
+        if (constructorFunction) {
+            constructorFunction = FunctionType.clone(constructorFunction);
+            constructorFunction.details.declaredReturnType = selfType ?? objectType;
+            constructorFunction.details.name = '';
+            constructorFunction.details.fullName = '';
+
+            if (constructorFunction.specializedTypes) {
+                constructorFunction.specializedTypes.returnType = selfType ?? objectType;
+            }
+
+            if (!constructorFunction.details.docString && classType.details.docString) {
+                constructorFunction.details.docString = classType.details.docString;
+            }
+
+            constructorFunction.details.flags &= ~FunctionTypeFlags.StaticMethod;
+            constructorFunction.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+        }
+
+        return constructorFunction;
+    }
+
+    if (isFunction(initType)) {
+        return convertInitToConstructor(initType);
+    }
+
+    if (!isOverloadedFunction(initType)) {
+        return undefined;
+    }
+
+    const initOverloads: FunctionType[] = [];
+    initType.overloads.forEach((overload) => {
+        const converted = convertInitToConstructor(overload);
+        if (converted) {
+            initOverloads.push(converted);
+        }
+    });
+
+    if (initOverloads.length === 0) {
+        return undefined;
+    }
+
+    if (initOverloads.length === 1) {
+        return initOverloads[0];
+    }
+
+    return OverloadedFunctionType.create(initOverloads);
 }
 
 // If __new__ returns a type that is not an instance of the class, skip the
