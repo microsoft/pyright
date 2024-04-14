@@ -23,7 +23,7 @@ class ParentA:
 
 @dataclass
 class ChildA(ParentA):
-    prop_2: str
+    prop_2: str = "bye"
 
 
 test = ChildA(prop_2="test", prop_4="hi")
