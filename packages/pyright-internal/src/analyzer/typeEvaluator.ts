@@ -12069,7 +12069,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isFunction(concreteParamType) || isOverloadedFunction(concreteParamType)) {
                 if (isInstantiableClass(argType)) {
                     const constructor = createFunctionFromConstructor(evaluatorInterface, argType);
-                    if (constructor && isOverloadedFunction(constructor)) {
+                    if (constructor) {
                         return {
                             isCompatible,
                             argType,
@@ -23840,6 +23840,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
                 if (constructor) {
                     concreteSrcType = constructor;
+
+                    // The constructor conversion may result in a union of the
+                    // __init__ and __new__ callables.
+                    if (isUnion(concreteSrcType)) {
+                        return assignType(
+                            destType,
+                            concreteSrcType,
+                            diag,
+                            destTypeVarContext,
+                            srcTypeVarContext,
+                            flags,
+                            recursionCount
+                        );
+                    }
                 }
             }
 
