@@ -34,6 +34,7 @@ import {
     isTupleClass,
     lookUpClassMember,
     mapSubtypes,
+    selfSpecializeClass,
     specializeTupleClass,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
@@ -898,8 +899,8 @@ function createFunctionFromNewMethod(
     const newType = evaluator.getTypeOfMember(newInfo);
 
     const convertNewToConstructor = (newSubtype: FunctionType) => {
-        let constructorFunction = evaluator.bindFunctionToClassOrObject(
-            classType,
+        const boundNew = evaluator.bindFunctionToClassOrObject(
+            selfSpecializeClass(classType),
             newSubtype,
             newInfo && isInstantiableClass(newInfo.classType) ? newInfo.classType : undefined,
             /* treatConstructorAsClassMethod */ true,
@@ -908,21 +909,21 @@ function createFunctionFromNewMethod(
             recursionCount
         ) as FunctionType | undefined;
 
-        if (constructorFunction) {
-            constructorFunction = FunctionType.clone(constructorFunction);
-            constructorFunction.details.typeVarScopeId = newSubtype.details.typeVarScopeId;
-
-            if (!constructorFunction.details.docString && classType.details.docString) {
-                constructorFunction.details.docString = classType.details.docString;
-            }
-
-            constructorFunction.details.flags &= ~(
-                FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod
-            );
-            constructorFunction.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+        if (!boundNew) {
+            return undefined;
         }
 
-        return constructorFunction;
+        const convertedNew = FunctionType.clone(boundNew);
+        convertedNew.details.typeVarScopeId = newSubtype.details.typeVarScopeId;
+
+        if (!convertedNew.details.docString && classType.details.docString) {
+            convertedNew.details.docString = classType.details.docString;
+        }
+
+        convertedNew.details.flags &= ~(FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod);
+        convertedNew.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+
+        return convertedNew;
     };
 
     if (isFunction(newType)) {

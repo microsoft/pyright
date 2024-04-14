@@ -11,7 +11,7 @@ V = TypeVar("V")
 @dataclass
 class Registry(Generic[K, V]):
     key: K
-    value: dict[str, V] = field(default_factory=dict)
+    value: dict[str, V] = field(default_factory=dict[str, V])
 
 
 class Base:
