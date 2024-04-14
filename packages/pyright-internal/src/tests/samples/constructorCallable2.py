@@ -10,6 +10,7 @@ from typing import (
     ParamSpec,
     Self,
     TypeVar,
+    overload,
     reveal_type,
 )
 
@@ -101,3 +102,21 @@ class Class6_2:
 r6_2 = accepts_callable(Class6_2)
 reveal_type(r6_2, expected_text="() -> Any")
 reveal_type(r6_2(), expected_text="Any")
+
+
+class Class7(Generic[T]):
+    @overload
+    def __init__(self: "Class7[int]", x: int) -> None: ...
+    @overload
+    def __init__(self: "Class7[str]", x: str) -> None: ...
+    def __init__(self, x: int | str) -> None:
+        pass
+
+
+r7 = accepts_callable(Class7)
+reveal_type(
+    r7, expected_text="Overload[(x: int) -> Class7[int], (x: str) -> Class7[str]]"
+)
+
+reveal_type(r7(0), expected_text="Class7[int]")
+reveal_type(r7(""), expected_text="Class7[str]")
