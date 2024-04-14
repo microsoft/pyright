@@ -25514,11 +25514,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     effectiveFlags |= AssignTypeFlags.RetainLiteralsForTypeVar;
                 }
 
-                if (isNever(srcReturnType)) {
-                    // We'll allow any function that returns NoReturn to match any
-                    // function return type, consistent with other type checkers.
-                    isReturnTypeCompatible = true;
-                } else if (
+                if (
                     assignType(
                         destReturnType,
                         srcReturnType,
