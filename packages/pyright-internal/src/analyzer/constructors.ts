@@ -993,7 +993,7 @@ function createFunctionFromInitMethod(
     const objectType = ClassType.cloneAsInstance(classType);
 
     function convertInitToConstructor(initSubtype: FunctionType) {
-        let constructorFunction = evaluator.bindFunctionToClassOrObject(
+        const boundInit = evaluator.bindFunctionToClassOrObject(
             objectType,
             initSubtype,
             initInfo && isInstantiableClass(initInfo.classType) ? initInfo.classType : undefined,
@@ -1003,25 +1003,27 @@ function createFunctionFromInitMethod(
             recursionCount
         ) as FunctionType | undefined;
 
-        if (constructorFunction) {
-            constructorFunction = FunctionType.clone(constructorFunction);
-            constructorFunction.details.declaredReturnType = selfType ?? objectType;
-            constructorFunction.details.name = '';
-            constructorFunction.details.fullName = '';
-
-            if (constructorFunction.specializedTypes) {
-                constructorFunction.specializedTypes.returnType = selfType ?? objectType;
-            }
-
-            if (!constructorFunction.details.docString && classType.details.docString) {
-                constructorFunction.details.docString = classType.details.docString;
-            }
-
-            constructorFunction.details.flags &= ~FunctionTypeFlags.StaticMethod;
-            constructorFunction.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+        if (!boundInit) {
+            return undefined;
         }
 
-        return constructorFunction;
+        const convertedInit = FunctionType.clone(boundInit);
+        convertedInit.details.declaredReturnType = boundInit.strippedFirstParamType ?? selfType ?? objectType;
+        convertedInit.details.name = '';
+        convertedInit.details.fullName = '';
+
+        if (convertedInit.specializedTypes) {
+            convertedInit.specializedTypes.returnType = selfType ?? objectType;
+        }
+
+        if (!convertedInit.details.docString && classType.details.docString) {
+            convertedInit.details.docString = classType.details.docString;
+        }
+
+        convertedInit.details.flags &= ~FunctionTypeFlags.StaticMethod;
+        convertedInit.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+
+        return convertedInit;
     }
 
     if (isFunction(initType)) {
