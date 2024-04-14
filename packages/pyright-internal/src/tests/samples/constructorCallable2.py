@@ -2,7 +2,16 @@
 # a callable.
 
 
-from typing import Any, Callable, NoReturn, ParamSpec, Self, TypeVar, reveal_type
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    NoReturn,
+    ParamSpec,
+    Self,
+    TypeVar,
+    reveal_type,
+)
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -43,8 +52,6 @@ reveal_type(r3(3), expected_text="Class3")
 
 
 class Class4:
-    """__new__ but no __init__"""
-
     def __new__(cls, x: int) -> int: ...
 
 
@@ -59,12 +66,38 @@ class Meta1(type):
 
 
 class Class5(metaclass=Meta1):
-    """Custom metaclass that overrides type.__call__"""
-
     def __new__(cls, *args: Any, **kwargs: Any) -> Self:
-        """This __new__ is ignored for purposes of conversion"""
         return super().__new__(cls)
 
 
 r5 = accepts_callable(Class5)
 reveal_type(r5, expected_text="(*args: Any, **kwargs: Any) -> NoReturn")
+
+
+class Class6Proxy: ...
+
+
+class Class6:
+    def __new__(cls) -> Class6Proxy:
+        return Class6Proxy.__new__(cls)
+
+    def __init__(self, x: int) -> None:
+        pass
+
+
+r6 = accepts_callable(Class6)
+reveal_type(r6, expected_text="() -> Class6Proxy")
+reveal_type(r6(), expected_text="Class6Proxy")
+
+
+class Class6_2:
+    def __new__(cls) -> Any:
+        return super().__new__(cls)
+
+    def __init__(self, x: int) -> None:
+        pass
+
+
+r6_2 = accepts_callable(Class6_2)
+reveal_type(r6_2, expected_text="() -> Any")
+reveal_type(r6_2(), expected_text="Any")
