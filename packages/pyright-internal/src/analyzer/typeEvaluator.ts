@@ -22712,6 +22712,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const srcTypeArgs = [...(srcType.tupleTypeArguments ?? [])];
 
         if (adjustTupleTypeArgs(destTypeArgs, srcTypeArgs, flags)) {
+            let isCompatible = true;
+
             for (let argIndex = 0; argIndex < srcTypeArgs.length; argIndex++) {
                 const entryDiag = diag?.createAddendum();
 
@@ -22733,8 +22735,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             })
                         );
                     }
-                    return false;
+
+                    isCompatible = false;
                 }
+            }
+
+            if (!isCompatible) {
+                return false;
             }
         } else {
             const isDestIndeterminate = destTypeArgs.some((t) => t.isUnbounded || isVariadicTypeVar(t.type));
