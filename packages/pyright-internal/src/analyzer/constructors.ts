@@ -637,14 +637,12 @@ function validateFallbackConstructorCall(
 
     // It's OK if the argument list consists only of `*args` and `**kwargs`.
     if (argList.length > 0 && argList.some((arg) => arg.argumentCategory === ArgumentCategory.Simple)) {
-        if (!type.includeSubclasses) {
-            evaluator.addDiagnostic(
-                DiagnosticRule.reportCallIssue,
-                LocMessage.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
-                errorNode
-            );
-            reportedErrors = true;
-        }
+        evaluator.addDiagnostic(
+            DiagnosticRule.reportCallIssue,
+            LocMessage.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
+            errorNode
+        );
+        reportedErrors = true;
     }
 
     if (!inferenceContext && type.typeArguments) {
