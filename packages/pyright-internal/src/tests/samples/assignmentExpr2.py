@@ -53,3 +53,15 @@ def func2():
 def func3():
     # This should generate an error.
     yield from y := [1]
+
+def func4():
+    # This should generate an error.
+    v1 = {x := 'a': 0}
+
+    v2 = {(x := 'a'): 0}
+
+    # This should generate an error.
+    v3 = {x := 'a': i for i in range(4)}
+
+    v4 = {(x := 'a'): i for i in range(4)}
+

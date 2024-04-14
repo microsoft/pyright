@@ -4138,7 +4138,7 @@ export class Parser {
             if (this._consumeTokenIfOperator(OperatorType.Power)) {
                 doubleStarExpression = this._parseExpression(/* allowUnpack */ false);
             } else {
-                keyExpression = this._parseTestOrStarExpression(/* allowAssignmentExpression */ true);
+                keyExpression = this._parseTestOrStarExpression(/* allowAssignmentExpression */ false);
 
                 if (this._consumeTokenIfType(TokenType.Colon)) {
                     valueExpression = this._parseTestExpression(/* allowAssignmentExpression */ false);
