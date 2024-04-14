@@ -16,7 +16,7 @@ class Class1(metaclass=MetaClass1):
 
 
 v1 = Class1()
-reveal_type(v1, expected_text="Class1")
+reveal_type(v1, expected_text="NoReturn")
 
 
 class MetaClass2(type):
