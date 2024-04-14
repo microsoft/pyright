@@ -837,7 +837,7 @@ function createFunctionFromNewMethod(
                 classType,
                 newSubtype,
                 newInfo && isInstantiableClass(newInfo.classType) ? newInfo.classType : undefined,
-                /* treatConstructorAsClassMember */ true,
+                /* treatConstructorAsClassMethod */ true,
                 selfType,
                 /* diag */ undefined,
                 recursionCount
@@ -926,7 +926,7 @@ function createFunctionFromInitMethod(
                 objectType,
                 initSubtype,
                 initInfo && isInstantiableClass(initInfo.classType) ? initInfo.classType : undefined,
-                /* treatConstructorAsClassMember */ undefined,
+                /* treatConstructorAsClassMethod */ undefined,
                 selfType,
                 /* diag */ undefined,
                 recursionCount

@@ -545,7 +545,7 @@ export function assignProperty(
                 destObjectToBind,
                 destAccessType,
                 /* memberClass */ undefined,
-                /* treatConstructorAsClassMember */ undefined,
+                /* treatConstructorAsClassMethod */ undefined,
                 /* firstParamType */ undefined,
                 diag?.createAddendum(),
                 recursionCount
@@ -555,7 +555,7 @@ export function assignProperty(
                 srcObjectToBind,
                 srcAccessType,
                 /* memberClass */ undefined,
-                /* treatConstructorAsClassMember */ undefined,
+                /* treatConstructorAsClassMethod */ undefined,
                 /* firstParamType */ undefined,
                 diag?.createAddendum(),
                 recursionCount

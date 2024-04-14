@@ -447,7 +447,7 @@ function assignClassToProtocolInternal(
                                 : ClassType.cloneAsInstance(srcType),
                             srcMemberType,
                             isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
-                            /* treatConstructorAsClassMember */ undefined,
+                            /* treatConstructorAsClassMethod */ undefined,
                             isMemberFromMetaclass ? srcType : selfType,
                             diag?.createAddendum(),
                             recursionCount
@@ -493,7 +493,7 @@ function assignClassToProtocolInternal(
                             ClassType.cloneAsInstance(srcType),
                             destMemberType,
                             isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
-                            /* treatConstructorAsClassMember */ undefined,
+                            /* treatConstructorAsClassMethod */ undefined,
                             isMemberFromMetaclass ? srcType : selfType,
                             diag,
                             recursionCount
@@ -504,7 +504,7 @@ function assignClassToProtocolInternal(
                         ClassType.cloneAsInstance(destType),
                         destMemberType,
                         destType,
-                        /* treatConstructorAsClassMember */ undefined,
+                        /* treatConstructorAsClassMethod */ undefined,
                         /* firstParamType */ undefined,
                         diag,
                         recursionCount

@@ -26481,7 +26481,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // If the memberType is an instance or class method, creates a new
     // version of the function that has the "self" or "cls" parameter bound
-    // to it. If treatConstructorAsClassMember is true, the function is
+    // to it. If treatConstructorAsClassMethod is true, the function is
     // treated like a class method even if it's not marked as such. That's
     // needed to special-case the __new__ magic method when it's invoked as
     // a constructor (as opposed to by name).
@@ -26489,7 +26489,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         baseType: ClassType | undefined,
         memberType: FunctionType | OverloadedFunctionType,
         memberClass?: ClassType,
-        treatConstructorAsClassMember = false,
+        treatConstructorAsClassMethod = false,
         selfType?: ClassType | TypeVarType,
         diag?: DiagnosticAddendum,
         recursionCount = 0
@@ -26511,6 +26511,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ? baseType
                     : ClassType.cloneAsInstance(specializeClassType(baseType));
 
+                let stripFirstParam = false;
+                if (isClassInstance(baseType)) {
+                    stripFirstParam = true;
+                } else if (memberClass && isInstantiableMetaclass(memberClass)) {
+                    stripFirstParam = true;
+                }
+
                 return partiallySpecializeFunctionForBoundClassOrObject(
                     baseType,
                     functionType,
@@ -26518,13 +26525,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     diag,
                     recursionCount,
                     selfType ?? baseObj,
-                    /* stripFirstParam */ isClassInstance(baseType)
+                    stripFirstParam
                 );
             }
 
             if (
                 FunctionType.isClassMethod(functionType) ||
-                (treatConstructorAsClassMember && FunctionType.isConstructorMethod(functionType))
+                (treatConstructorAsClassMethod && FunctionType.isConstructorMethod(functionType))
             ) {
                 const baseClass = isInstantiableClass(baseType) ? baseType : ClassType.cloneAsInstantiable(baseType);
                 const clsType = selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : undefined;
