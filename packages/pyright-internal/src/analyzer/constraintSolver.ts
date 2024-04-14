@@ -954,30 +954,41 @@ function assignTypeToParamSpec(
                 // for comparison purposes.
                 const existingFunction = convertParamSpecValueToType(existingType);
 
-                // Should we narrow the type?
-                if (
-                    evaluator.assignType(
-                        existingFunction,
-                        newFunction,
-                        /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.SkipFunctionReturnTypeCheck,
-                        recursionCount
-                    )
-                ) {
+                const isNewNarrower = evaluator.assignType(
+                    existingFunction,
+                    newFunction,
+                    /* diag */ undefined,
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
+                    AssignTypeFlags.SkipFunctionReturnTypeCheck,
+                    recursionCount
+                );
+
+                const isNewWider = evaluator.assignType(
+                    newFunction,
+                    existingFunction,
+                    /* diag */ undefined,
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
+                    AssignTypeFlags.SkipFunctionReturnTypeCheck,
+                    recursionCount
+                );
+
+                // Should we widen the type?
+                if (isNewNarrower && isNewWider) {
+                    // The new type is both a supertype and a subtype of the existing type.
+                    // That means the two types are the same or one (or both) have the type
+                    // "..." (which is the ParamSpec equivalent of "Any"). If only one has
+                    // the type "...", we'll prefer the other one. This is analogous to
+                    // what we do with regular TypeVars, where we prefer non-Any values.
+                    if (!FunctionType.shouldSkipArgsKwargsCompatibilityCheck(newFunction)) {
+                        updateContextWithNewFunction = true;
+                    } else {
+                        return;
+                    }
+                } else if (isNewWider) {
                     updateContextWithNewFunction = true;
-                } else if (
-                    evaluator.assignType(
-                        newFunction,
-                        existingFunction,
-                        /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.SkipFunctionReturnTypeCheck,
-                        recursionCount
-                    )
-                ) {
+                } else if (isNewNarrower) {
                     // The existing function is already narrower than the new function, so
                     // no need to narrow it further.
                     return;
