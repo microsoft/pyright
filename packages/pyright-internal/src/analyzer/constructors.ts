@@ -30,10 +30,12 @@ import {
     doForEachSignature,
     doForEachSubtype,
     ensureFunctionSignaturesAreUnique,
+    getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
     isTupleClass,
     lookUpClassMember,
     mapSubtypes,
+    selfSpecializeClass,
     specializeTupleClass,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
@@ -898,8 +900,21 @@ function createFunctionFromNewMethod(
     const newType = evaluator.getTypeOfMember(newInfo);
 
     const convertNewToConstructor = (newSubtype: FunctionType) => {
-        let constructorFunction = evaluator.bindFunctionToClassOrObject(
-            classType,
+        // If there are no parameters that include class-scoped type parameters,
+        // self-specialize the class because the type arguments for the class
+        // can't be solved if there are no parameters to supply them.
+        const hasParametersWithTypeVars = newSubtype.details.parameters.some((param, index) => {
+            if (index === 0 || !param.name) {
+                return false;
+            }
+
+            const paramType = FunctionType.getEffectiveParameterType(newSubtype, index);
+            const typeVars = getTypeVarArgumentsRecursive(paramType);
+            return typeVars.some((typeVar) => typeVar.scopeId === getTypeVarScopeId(classType));
+        });
+
+        const boundNew = evaluator.bindFunctionToClassOrObject(
+            hasParametersWithTypeVars ? selfSpecializeClass(classType) : classType,
             newSubtype,
             newInfo && isInstantiableClass(newInfo.classType) ? newInfo.classType : undefined,
             /* treatConstructorAsClassMethod */ true,
@@ -908,21 +923,21 @@ function createFunctionFromNewMethod(
             recursionCount
         ) as FunctionType | undefined;
 
-        if (constructorFunction) {
-            constructorFunction = FunctionType.clone(constructorFunction);
-            constructorFunction.details.typeVarScopeId = newSubtype.details.typeVarScopeId;
-
-            if (!constructorFunction.details.docString && classType.details.docString) {
-                constructorFunction.details.docString = classType.details.docString;
-            }
-
-            constructorFunction.details.flags &= ~(
-                FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod
-            );
-            constructorFunction.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+        if (!boundNew) {
+            return undefined;
         }
 
-        return constructorFunction;
+        const convertedNew = FunctionType.clone(boundNew);
+        convertedNew.details.typeVarScopeId = newSubtype.details.typeVarScopeId;
+
+        if (!convertedNew.details.docString && classType.details.docString) {
+            convertedNew.details.docString = classType.details.docString;
+        }
+
+        convertedNew.details.flags &= ~(FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod);
+        convertedNew.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+
+        return convertedNew;
     };
 
     if (isFunction(newType)) {
