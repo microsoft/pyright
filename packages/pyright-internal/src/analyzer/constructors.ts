@@ -787,11 +787,33 @@ export function createFunctionFromConstructor(
         return fromMetaclassCall;
     }
 
-    const fromInit = createFunctionFromInitMethod(evaluator, classType, selfType, recursionCount);
     const fromNew = createFunctionFromNewMethod(evaluator, classType, selfType, recursionCount);
 
-    if (fromInit) {
-        return fromNew ? combineTypes([fromInit, fromNew]) : fromInit;
+    if (fromNew) {
+        let skipInitMethod = false;
+
+        doForEachSignature(fromNew, (signature) => {
+            const newMethodReturnType = FunctionType.getSpecializedReturnType(signature);
+            if (newMethodReturnType && shouldSkipInitEvaluation(evaluator, classType, newMethodReturnType)) {
+                skipInitMethod = true;
+            }
+        });
+
+        if (skipInitMethod) {
+            return fromNew;
+        }
+    }
+
+    const fromInit = createFunctionFromInitMethod(evaluator, classType, selfType, recursionCount);
+
+    // If there is both a __new__ and __init__ method, return a union
+    // comprised of both resulting function types.
+    if (fromNew && fromInit) {
+        return combineTypes([fromInit, fromNew]);
+    }
+
+    if (fromNew || fromInit) {
+        return fromNew ?? fromInit;
     }
 
     return fromNew ?? createFunctionFromObjectNewMethod(classType);
@@ -1061,7 +1083,7 @@ function shouldSkipInitEvaluation(evaluator: TypeEvaluator, classType: ClassType
 
     let skipInitCheck = false;
     doForEachSubtype(returnType, (subtype) => {
-        if (isAnyOrUnknown(subtype)) {
+        if (isUnknown(subtype)) {
             return;
         }
 
