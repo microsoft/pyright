@@ -386,6 +386,14 @@ export function synthesizeDataClassMethods(
                             dataClassEntry.hasDefault = true;
                             dataClassEntry.defaultValueExpression = oldEntry.defaultValueExpression;
                             hasDefaultValue = true;
+
+                            // Warn the user of this case because it can result in type errors if the
+                            // default value is incompatible with the new type.
+                            evaluator.addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                LocMessage.dataClassFieldInheritedDefault().format({ fieldName: variableName }),
+                                variableNameNode
+                            );
                         }
 
                         fullDataClassEntries[insertIndex] = dataClassEntry;
