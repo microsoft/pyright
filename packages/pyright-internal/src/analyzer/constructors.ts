@@ -27,6 +27,7 @@ import {
     applySolvedTypeVars,
     buildTypeVarContextFromSpecializedClass,
     convertToInstance,
+    doForEachSignature,
     doForEachSubtype,
     ensureFunctionSignaturesAreUnique,
     getTypeVarScopeId,
@@ -46,8 +47,11 @@ import {
     Type,
     TypeVarType,
     UnknownType,
+    combineTypes,
+    findSubtype,
     isAny,
     isAnyOrUnknown,
+    isClass,
     isClassInstance,
     isFunction,
     isInstantiableClass,
@@ -126,20 +130,10 @@ export function validateConstructorArguments(
         const metaclassReturnType = metaclassResult.returnType ?? UnknownType.create();
 
         // If there a custom `__call__` method on the metaclass that returns
-        // something other than Any or an instance of the class, assume that it
+        // something other than an instance of the class, assume that it
         // overrides the normal `type.__call__` logic and don't perform the usual
         // __new__ and __init__ validation.
-        if (
-            metaclassResult.argumentErrors ||
-            isNever(metaclassReturnType) ||
-            !evaluator.assignType(convertToInstance(type), metaclassReturnType)
-        ) {
-            return metaclassResult;
-        }
-
-        // Handle the special case of an enum class, where the __new__ and __init__
-        // methods are replaced at runtime by the metaclass.
-        if (ClassType.isEnumClass(type)) {
+        if (metaclassResult.argumentErrors || shouldSkipNewAndInitEvaluation(evaluator, type, metaclassReturnType)) {
             return metaclassResult;
         }
     }
@@ -804,18 +798,78 @@ export function createFunctionFromConstructor(
     classType: ClassType,
     selfType: ClassType | TypeVarType | undefined = undefined,
     recursionCount = 0
-): FunctionType | OverloadedFunctionType | undefined {
+): Type | undefined {
+    const fromMetaclassCall = createFunctionFromMetaclassCall(evaluator, classType, recursionCount);
+    if (fromMetaclassCall) {
+        return fromMetaclassCall;
+    }
+
     const fromInit = createFunctionFromInitMethod(evaluator, classType, selfType, recursionCount);
-    if (fromInit) {
-        return fromInit;
-    }
-
     const fromNew = createFunctionFromNewMethod(evaluator, classType, selfType, recursionCount);
-    if (fromNew) {
-        return fromNew;
+
+    if (fromInit) {
+        return fromNew ? combineTypes([fromInit, fromNew]) : fromInit;
     }
 
-    return createFunctionFromObjectNewMethod(classType);
+    return fromNew ?? createFunctionFromObjectNewMethod(classType);
+}
+
+function createFunctionFromMetaclassCall(
+    evaluator: TypeEvaluator,
+    classType: ClassType,
+    recursionCount: number
+): FunctionType | OverloadedFunctionType | undefined {
+    const metaclass = classType.details.effectiveMetaclass;
+    if (!metaclass || !isClass(metaclass)) {
+        return undefined;
+    }
+
+    const callInfo = lookUpClassMember(
+        metaclass,
+        '__call__',
+        MemberAccessFlags.SkipInstanceMembers |
+            MemberAccessFlags.SkipTypeBaseClass |
+            MemberAccessFlags.SkipAttributeAccessOverride
+    );
+
+    if (!callInfo) {
+        return undefined;
+    }
+
+    const callType = evaluator.getTypeOfMember(callInfo);
+    if (!isFunction(callType) && !isOverloadedFunction(callType)) {
+        return undefined;
+    }
+
+    const boundCallType = evaluator.bindFunctionToClassOrObject(
+        classType,
+        callType,
+        callInfo && isInstantiableClass(callInfo.classType) ? callInfo.classType : undefined,
+        /* treatConstructorAsClassMethod */ false,
+        ClassType.cloneAsInstantiable(classType),
+        /* diag */ undefined,
+        recursionCount
+    );
+
+    if (!boundCallType) {
+        return undefined;
+    }
+
+    let useMetaclassCall = false;
+
+    // Look at the signatures of all the __call__ methods to determine whether
+    // any of them returns something other than the instance of the class being
+    // constructed.
+    doForEachSignature(boundCallType, (signature) => {
+        if (signature.details.declaredReturnType) {
+            const returnType = FunctionType.getSpecializedReturnType(signature);
+            if (returnType && shouldSkipNewAndInitEvaluation(evaluator, classType, returnType)) {
+                useMetaclassCall = true;
+            }
+        }
+    });
+
+    return useMetaclassCall ? boundCallType : undefined;
 }
 
 function createFunctionFromNewMethod(
@@ -824,7 +878,6 @@ function createFunctionFromNewMethod(
     selfType: ClassType | TypeVarType | undefined,
     recursionCount: number
 ): FunctionType | OverloadedFunctionType | undefined {
-    // Fall back on the __new__ method if __init__ isn't available.
     const newInfo = lookUpClassMember(
         classType,
         '__new__',
@@ -991,6 +1044,30 @@ function createFunctionFromInitMethod(
     }
 
     return OverloadedFunctionType.create(initOverloads);
+}
+
+// If the __call__ method returns a type that is not an instance of the class,
+// skip the __new__ and __init__ method evaluation.
+function shouldSkipNewAndInitEvaluation(
+    evaluator: TypeEvaluator,
+    classType: ClassType,
+    callMethodReturnType: Type
+): boolean {
+    if (
+        !evaluator.assignType(convertToInstance(classType), callMethodReturnType) ||
+        isNever(callMethodReturnType) ||
+        findSubtype(callMethodReturnType, (subtype) => isAny(subtype))
+    ) {
+        return true;
+    }
+
+    // Handle the special case of an enum class, where the __new__ and __init__
+    // methods are replaced at runtime by the metaclass.
+    if (ClassType.isEnumClass(classType)) {
+        return true;
+    }
+
+    return false;
 }
 
 // If __new__ returns a type that is not an instance of the class, skip the
