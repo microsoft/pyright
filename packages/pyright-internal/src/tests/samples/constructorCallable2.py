@@ -120,3 +120,23 @@ reveal_type(
 
 reveal_type(r7(0), expected_text="Class7[int]")
 reveal_type(r7(""), expected_text="Class7[str]")
+
+
+class Class8(Generic[T]):
+    def __new__(cls, x: T, y: list[T]) -> Self:
+        return super().__new__(cls)
+
+
+r8 = accepts_callable(Class8)
+reveal_type(r8, expected_text="(x: T@Class8, y: list[T@Class8]) -> Class8[T@Class8]")
+reveal_type(r8("", [""]), expected_text="Class8[str]")
+
+
+class Class9:
+    def __init__(self, x: list[T], y: list[T]) -> None:
+        pass
+
+
+r9 = accepts_callable(Class9)
+reveal_type(r9, expected_text="(x: list[T@__init__], y: list[T@__init__]) -> Class9")
+reveal_type(r9([""], [""]), expected_text="Class9")
