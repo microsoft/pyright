@@ -6,6 +6,7 @@ from typing import AnyStr, Generic, Iterable, Iterator, Protocol, TypeAlias, Typ
 
 V = TypeVar("V")
 V_co = TypeVar("V_co", covariant=True)
+T = TypeVar("T")
 U = TypeVar("U")
 
 
@@ -30,24 +31,28 @@ def func1(a: ClassA[V], b: ClassA[U], c: bool) -> ClassB[V | U]:
     return r
 
 
-class ClassC(Generic[AnyStr]):
-    ...
+class ClassC(Generic[AnyStr]): ...
 
 
-class ClassD(Iterator[ClassC[AnyStr]], Protocol):
-    ...
+class ClassD(Iterator[ClassC[AnyStr]], Protocol): ...
 
 
 GenericPath: TypeAlias = AnyStr | PathLike[AnyStr]
 
 
-def func2(iter: Iterable[object]) -> bool:
-    ...
+def func2(iter: Iterable[object]) -> bool: ...
 
 
-def func3(path: GenericPath[AnyStr]) -> ClassD[AnyStr]:
-    ...
+def func3(path: GenericPath[AnyStr]) -> ClassD[AnyStr]: ...
 
 
 def func4(val: str):
     func2(func3(val))
+
+
+def func5(a: dict[T, U], b: list[T | U]):
+    pass
+
+
+def func6(a: dict[str, int], b: list[str | int]):
+    func5(a, b)
