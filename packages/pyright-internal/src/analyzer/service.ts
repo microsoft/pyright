@@ -53,7 +53,6 @@ import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor }
 import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import { IPythonMode } from './sourceFile';
-import { TypeEvaluator } from './typeEvaluatorTypes';
 
 export const configFileNames = ['pyrightconfig.json'];
 export const pyprojectTomlName = 'pyproject.toml';
@@ -366,10 +365,6 @@ export class AnalyzerService {
 
     getTextOnRange(fileUri: Uri, range: Range, token: CancellationToken) {
         return this._program.getTextOnRange(fileUri, range, token);
-    }
-
-    getEvaluator(): TypeEvaluator | undefined {
-        return this._program.evaluator;
     }
 
     run<T>(callback: (p: ProgramView) => T, token: CancellationToken): T {
