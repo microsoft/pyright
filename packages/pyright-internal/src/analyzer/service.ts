@@ -518,7 +518,7 @@ export class AnalyzerService {
             ? optionRoot
             : isString(optionRoot)
             ? Uri.file(optionRoot, this.serviceProvider, /* checkRelative */ true)
-            : Uri.empty();
+            : Uri.defaultWorkspace(this.serviceProvider);
 
         const executionRoot = this.fs.realCasePath(executionRootUri);
         let projectRoot = executionRoot;

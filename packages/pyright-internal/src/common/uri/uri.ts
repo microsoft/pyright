@@ -8,15 +8,15 @@
 
 import { URI, Utils } from 'vscode-uri';
 import { CaseSensitivityDetector } from '../caseSensitivityDetector';
+import { isArray } from '../core';
 import { combinePaths, isRootedDiskPath, normalizeSlashes } from '../pathUtils';
+import { ServiceKeys } from '../serviceKeys';
 import { ServiceKey } from '../serviceProvider';
+import { JsonObjType } from './baseUri';
+import { ConstantUri } from './constantUri';
+import { EmptyUri } from './emptyUri';
 import { FileUri, FileUriSchema } from './fileUri';
 import { WebUri } from './webUri';
-import { EmptyUri } from './emptyUri';
-import { JsonObjType } from './baseUri';
-import { isArray } from '../core';
-import { ServiceKeys } from '../serviceKeys';
-import { ConstantUri } from './constantUri';
 
 export const enum UriKinds {
     file,
@@ -232,6 +232,13 @@ export namespace Uri {
 
     export function empty(): Uri {
         return EmptyUri.instance;
+    }
+
+    export function defaultWorkspace(serviceProvider: IServiceProvider): Uri;
+    export function defaultWorkspace(caseSensitivityDetector: CaseSensitivityDetector): Uri;
+    export function defaultWorkspace(arg: IServiceProvider | CaseSensitivityDetector): Uri {
+        arg = CaseSensitivityDetector.is(arg) ? arg : arg.get(ServiceKeys.caseSensitivityDetector);
+        return Uri.file('/<default workspace root>/', arg);
     }
 
     export function fromJsonObj(jsonObj: JsonObjType) {
