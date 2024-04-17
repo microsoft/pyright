@@ -489,7 +489,7 @@ test('resolve alias of not needed file', () => {
     const state = parseAndGetTestState(code).state;
     const marker = state.getMarkerByName('marker')!;
 
-    const evaluator = state.workspace.service.getEvaluator()!;
+    const evaluator = state.workspace.service.test_program.evaluator!;
     state.openFile(marker.fileName);
 
     const markerUri = marker.fileUri;

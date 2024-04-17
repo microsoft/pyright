@@ -12,7 +12,7 @@ import { CacheManager } from './analyzer/cacheManager';
 import { OperationCanceledException, setCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, LogLevel } from './common/console';
-import { isThenable } from './common/core';
+import { Disposable, isThenable } from './common/core';
 import * as debug from './common/debug';
 import { PythonVersion } from './common/pythonVersion';
 import { createFromRealFileSystem, RealTempFile } from './common/realFileSystem';
@@ -101,7 +101,11 @@ export class BackgroundThreadBase {
     }
 
     protected handleShutdown() {
-        this._serviceProvider.tryGet(ServiceKeys.tempFile)?.dispose();
+        const tempFile = this._serviceProvider.tryGet(ServiceKeys.tempFile);
+        if (Disposable.is(tempFile)) {
+            tempFile.dispose();
+        }
+
         parentPort?.close();
     }
 }

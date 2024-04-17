@@ -85,7 +85,6 @@ export interface TempFile {
     // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
     tmpdir(): Uri;
     tmpfile(options?: TmpfileOptions): Uri;
-    dispose(): void;
 }
 
 export namespace FileSystem {
@@ -96,7 +95,7 @@ export namespace FileSystem {
 
 export namespace TempFile {
     export function is(value: any): value is TempFile {
-        return value.tmpdir && value.tmpfile && value.dispose;
+        return value.tmpdir && value.tmpfile;
     }
 }
 

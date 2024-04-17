@@ -215,7 +215,9 @@ class YarnFS extends PosixFS {
 
 const yarnFS = new YarnFS();
 
-class RealFileSystem implements FileSystem {
+// Use `createFromRealFileSystem` instead of `new RealFileSystem`
+// unless you are creating a new file system that inherits from `RealFileSystem`
+export class RealFileSystem implements FileSystem {
     constructor(
         private readonly _caseSensitiveDectector: CaseSensitivityDetector,
         private readonly _console: ConsoleInterface,
