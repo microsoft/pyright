@@ -11,8 +11,7 @@ from typing import Generic, Self, TypeVar, overload
 _ = isinstance(dict(a=0), dict)
 
 
-class ClassA:
-    ...
+class ClassA: ...
 
 
 _T1 = TypeVar("_T1", bound=ClassA | str, covariant=True)
@@ -24,12 +23,10 @@ class ClassB(Generic[_T1]):
         return super().__new__(cls, *args, **kwargs)
 
     @overload
-    def __init__(self: "ClassB[_T1]", arg: _T1) -> None:
-        ...
+    def __init__(self, arg: _T1) -> None: ...
 
     @overload
-    def __init__(self: "ClassB[str]", arg: int) -> None:
-        ...
+    def __init__(self: "ClassB[str]", arg: int) -> None: ...
 
     def __init__(self, arg: int | ClassA | str) -> None:
         pass

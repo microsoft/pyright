@@ -2,7 +2,11 @@
 # on an assignment to a not-required key.
 
 from typing import TypedDict
-from typing_extensions import NotRequired, Required, Unpack
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    NotRequired,
+    Required,
+    Unpack,
+)
 
 
 class TD1(TypedDict):

@@ -43,8 +43,7 @@ class Tree(Generic[X, Y]):
 
 def lift(
     f: Callable[[*Xs], tuple[*Ys]]
-) -> Callable[[Tree[Z, tuple[*Xs]]], Tree[Z, tuple[*Ys]]]:
-    ...
+) -> Callable[[Tree[Z, tuple[*Xs]]], Tree[Z, tuple[*Ys]]]: ...
 
 
 def test(
@@ -69,3 +68,17 @@ def identity(x: X) -> X:
 
 def parallel_identity(*xs: *Xs) -> tuple[*Xs]:
     return xs
+
+
+Shape = TypeVarTuple("Shape")
+DType = TypeVar("DType")
+
+
+class NDArray(Generic[*Shape, DType]): ...
+
+
+def insert(values: NDArray[*Shape, DType]) -> NDArray[int, *Shape, DType]: ...
+
+
+def prepend(values: NDArray[*Shape, DType]) -> NDArray[int, *Shape, DType]:
+    return insert(values)

@@ -53,7 +53,7 @@ class ThemeConfig(mpl.RcParams):
     THEME_GROUPS: list[str]
     def __init__(self) -> None: ...
     def reset(self) -> None: ...
-    def update(self, __other: SupportsKeysAndGetItem[Incomplete, Incomplete] | None = None, **kwds: Incomplete) -> None: ...  # type: ignore[override]
+    def update(self, other: SupportsKeysAndGetItem[Incomplete, Incomplete] | None = None, /, **kwds: Incomplete) -> None: ...  # type: ignore[override]
 
 class DisplayConfig(TypedDict):
     format: Literal["png", "svg"]
@@ -105,7 +105,7 @@ class Plot:
         engine: str | None | Default = ...,
         extent: tuple[float, float, float, float] | Default = ...,
     ) -> Plot: ...
-    def theme(self, __config: dict[str, Any]) -> Plot: ...
+    def theme(self, config: dict[str, Any], /) -> Plot: ...
     # Same signature as Plotter.save
     def save(
         self,

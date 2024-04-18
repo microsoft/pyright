@@ -24,6 +24,9 @@ class Dimension(Strict, StyleableObject):
     collapsed: Bool[Literal[False]]
     style: Alias  # type: ignore[assignment]
 
+    # Dimensions are only meant to be used on Worksheet objects
+    parent: Worksheet
+
     def __init__(
         self,
         index: ConvertibleToInt,
@@ -73,7 +76,7 @@ class ColumnDimension(Dimension):
     width: Float[Literal[False]]
     bestFit: Bool[Literal[False]]
     auto_size: Alias
-    index: String[Literal[False]]  # type:ignore[assignment]
+    index: String[Literal[False]]  # type: ignore[assignment]
     min: Integer[Literal[True]]
     max: Integer[Literal[True]]
     collapsed: Bool[Literal[False]]

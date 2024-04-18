@@ -1,6 +1,7 @@
 # This sample tests the type checker's handling of Enum.
 
 from enum import Enum, EnumMeta, IntEnum
+from typing import Self
 
 
 TestEnum1 = Enum("TestEnum1", "   A   B, , ,C , \t D\t")
@@ -226,3 +227,25 @@ class TestEnum16(Enum):
 
 reveal_type(TestEnum16.D, expected_text="Literal[TestEnum16.C]")
 reveal_type(TestEnum16.D.value, expected_text="Literal[3]")
+
+
+class TestEnum17(IntEnum):
+    def __new__(cls, val: int, doc: str) -> Self:
+        obj = int.__new__(cls, val)
+        obj._value_ = val
+        obj.__doc__ = doc
+        return obj
+
+
+class TestEnum18(TestEnum17):
+    A = (1, "A")
+    B = (2, "B")
+
+
+class TestEnum19(Enum):
+    A = 1
+    __B = 2
+
+
+reveal_type(TestEnum19.A, expected_text="Literal[TestEnum19.A]")
+reveal_type(TestEnum19.__B, expected_text="Literal[2]")

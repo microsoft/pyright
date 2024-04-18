@@ -75,3 +75,25 @@ def func5(token: Token):
             reveal_type(token, expected_text="tuple[Literal['use'], str, int, int]")
         case _:
             reveal_type(token, expected_text="Never")
+
+
+def func6(a: int | str, b: int | str) -> None:
+    match a, b:
+        case (_, _):
+            reveal_type(a, expected_text="int | str")
+            reveal_type(b, expected_text="int | str")
+        case (x, y):
+            reveal_type(x, expected_text="Never")
+            reveal_type(y, expected_text="Never")
+            reveal_type(a, expected_text="Never")
+            reveal_type(b, expected_text="Never")
+
+
+def func7(a: str | None, b: str | None) -> None:
+    match (a, b):
+        case (_, None):
+            return
+        case (None, _):
+            return
+    reveal_type(a, expected_text="str")
+    reveal_type(b, expected_text="str")

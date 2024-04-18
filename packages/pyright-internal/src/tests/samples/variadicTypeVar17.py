@@ -2,29 +2,24 @@
 # expression is matched to an `*args` parameter that has a declared type
 # that includes an unpacked TypeVarTuple.
 
-from typing_extensions import TypeVarTuple
+from typing_extensions import TypeVarTuple  # pyright: ignore[reportMissingModuleSource]
 
 Ts = TypeVarTuple("Ts")
 
 
-def call0(*args: *Ts) -> tuple[*Ts]:
-    ...
+def call0(*args: *Ts) -> tuple[*Ts]: ...
 
 
-def call1(*args: * tuple[int, *Ts]) -> tuple[*Ts]:
-    ...
+def call1(*args: * tuple[int, *Ts]) -> tuple[*Ts]: ...
 
 
-def call2(*args: * tuple[*Ts, float]) -> tuple[*Ts]:
-    ...
+def call2(*args: * tuple[*Ts, float]) -> tuple[*Ts]: ...
 
 
-def call3(*args: * tuple[int, *Ts, float]) -> tuple[*Ts]:
-    ...
+def call3(*args: * tuple[int, *Ts, float]) -> tuple[*Ts]: ...
 
 
-def call4(*args: * tuple[*tuple[int, *tuple[*Ts], float]]) -> tuple[*Ts]:
-    ...
+def call4(*args: * tuple[*tuple[int, *tuple[*Ts], float]]) -> tuple[*Ts]: ...
 
 
 def func1(*args: * tuple[int, str]):

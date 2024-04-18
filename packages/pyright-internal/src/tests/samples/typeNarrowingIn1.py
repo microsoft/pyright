@@ -1,19 +1,16 @@
 # This sample tests type narrowing for the "in" operator.
 
-from typing import Literal, TypedDict
+from typing import Literal, TypeVar, TypedDict
 import random
 
 
-def verify_str(p: str) -> None:
-    ...
+def verify_str(p: str) -> None: ...
 
 
-def verify_int(p: int) -> None:
-    ...
+def verify_int(p: int) -> None: ...
 
 
-def verify_none(p: None) -> None:
-    ...
+def verify_none(p: None) -> None: ...
 
 
 x: str | None
@@ -153,3 +150,13 @@ def func11(x: dict[str, str]):
         reveal_type(x, expected_text="TD1 | TD2")
     else:
         reveal_type(x, expected_text="dict[str, str]")
+
+
+T1 = TypeVar("T1", TD1, TD2)
+
+
+def func12(v: T1):
+    if "x" in v:
+        reveal_type(v, expected_text="TD1*")
+    else:
+        reveal_type(v, expected_text="TD2*")

@@ -64,12 +64,17 @@ export class WorkspaceSymbolProvider {
             return symbolList;
         }
 
-        const fileInfo = getFileInfo(parseResults.parseTree);
+        const fileInfo = getFileInfo(parseResults.parserOutput.parseTree);
         if (!fileInfo) {
             return symbolList;
         }
 
-        const indexSymbolData = SymbolIndexer.indexSymbols(fileInfo, parseResults, this._token);
+        const indexSymbolData = SymbolIndexer.indexSymbols(
+            fileInfo,
+            parseResults,
+            { includeAliases: false },
+            this._token
+        );
         this.appendWorkspaceSymbolsRecursive(indexSymbolData, program, fileUri, '', symbolList);
 
         return symbolList;

@@ -2,7 +2,6 @@
 //@ts-check
 
 const { promises: fsAsync } = require('fs');
-const detectIndent = require('detect-indent');
 
 /**
  * @param {string} filepath
@@ -10,12 +9,12 @@ const detectIndent = require('detect-indent');
  */
 async function modifyJsonInPlace(filepath, modifier) {
     const input = await fsAsync.readFile(filepath, 'utf-8');
-    const indent = detectIndent(input);
     const obj = JSON.parse(input);
 
     modifier(obj);
 
-    let output = JSON.stringify(obj, null, indent.indent);
+    // Always 4 spaces for indent.
+    let output = JSON.stringify(obj, null, 4);
 
     if (input.endsWith('\n')) {
         output += '\n';

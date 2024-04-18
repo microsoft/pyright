@@ -41,7 +41,7 @@ class NoViableAltException(RecognitionException):
     offendingToken: Incomplete
     def __init__(
         self,
-        recognizer: Incomplete,
+        recognizer,
         input: Incomplete | None = None,
         startToken: Incomplete | None = None,
         offendingToken: Incomplete | None = None,

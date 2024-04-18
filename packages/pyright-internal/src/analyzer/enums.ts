@@ -19,10 +19,10 @@ import {
     isNodeContainedWithin,
 } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
-import { isSingleDunderName } from './symbolNameUtils';
+import { isPrivateName, isSingleDunderName } from './symbolNameUtils';
 import { FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
-import { MemberAccessFlags, computeMroLinearization, lookUpClassMember } from './typeUtils';
+import { MemberAccessFlags, computeMroLinearization, lookUpClassMember, makeInferenceContext } from './typeUtils';
 import {
     AnyType,
     ClassType,
@@ -57,7 +57,7 @@ export function isEnumClassWithMembers(evaluator: TypeEvaluator, classType: Clas
     // Determine whether the enum class defines a member.
     let definesValue = false;
 
-    classType.details.fields.forEach((symbol) => {
+    ClassType.getSymbolTable(classType).forEach((symbol) => {
         const symbolType = evaluator.getEffectiveTypeOfSymbol(symbol);
         if (isClassInstance(symbolType) && ClassType.isSameGenericClass(symbolType, classType)) {
             definesValue = true;
@@ -105,7 +105,7 @@ export function createEnumType(
     classType.details.baseClasses.push(enumClass);
     computeMroLinearization(classType);
 
-    const classFields = classType.details.fields;
+    const classFields = ClassType.getSymbolTable(classType);
     classFields.set(
         '__class__',
         Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.IgnoredForProtocolMatch, classType)
@@ -291,7 +291,7 @@ export function transformTypeForPossibleEnumClass(
     evaluator: TypeEvaluator,
     statementNode: ParseNode,
     nameNode: NameNode,
-    getValueType: () => Type
+    getValueType: () => { declaredType?: Type; assignedType?: Type }
 ): Type | undefined {
     // If the node is within a class that derives from the metaclass
     // "EnumMeta", we need to treat assignments differently.
@@ -343,9 +343,11 @@ export function transformTypeForPossibleEnumClass(
         return undefined;
     }
 
-    let valueType: Type;
+    const valueTypeInfo = getValueType();
+    const declaredType = valueTypeInfo.declaredType;
+    let assignedType = valueTypeInfo.assignedType;
 
-    valueType = getValueType();
+    let valueType = declaredType ?? assignedType ?? UnknownType.create();
 
     // If the LHS is an unpacked tuple, we need to handle this as
     // a special case.
@@ -360,7 +362,12 @@ export function transformTypeForPossibleEnumClass(
     }
 
     // The spec excludes descriptors.
-    if (isClassInstance(valueType) && valueType.details.fields.get('__get__')) {
+    if (isClassInstance(valueType) && ClassType.getSymbolTable(valueType).get('__get__')) {
+        return undefined;
+    }
+
+    // The spec excludes private (mangled) names.
+    if (isPrivateName(nameNode.value)) {
         return undefined;
     }
 
@@ -370,18 +377,35 @@ export function transformTypeForPossibleEnumClass(
         return undefined;
     }
 
+    if (!assignedType && statementNode.nodeType === ParseNodeType.Assignment) {
+        assignedType = evaluator.getTypeOfExpression(
+            statementNode.rightExpression,
+            /* flags */ undefined,
+            makeInferenceContext(declaredType)
+        ).type;
+    }
+
     // Handle the Python 3.11 "enum.member()" and "enum.nonmember()" features.
-    if (isClassInstance(valueType) && ClassType.isBuiltIn(valueType)) {
-        if (valueType.details.fullName === 'enum.nonmember') {
-            return valueType.typeArguments && valueType.typeArguments.length > 0
-                ? valueType.typeArguments[0]
-                : UnknownType.create();
+    if (assignedType && isClassInstance(assignedType) && ClassType.isBuiltIn(assignedType)) {
+        if (assignedType.details.fullName === 'enum.nonmember') {
+            const nonMemberType =
+                assignedType.typeArguments && assignedType.typeArguments.length > 0
+                    ? assignedType.typeArguments[0]
+                    : UnknownType.create();
+
+            // If the type of the nonmember is declared and the assigned value has
+            // a compatible type, use the declared type.
+            if (declaredType && evaluator.assignType(declaredType, nonMemberType)) {
+                return declaredType;
+            }
+
+            return nonMemberType;
         }
 
-        if (valueType.details.fullName === 'enum.member') {
+        if (assignedType.details.fullName === 'enum.member') {
             valueType =
-                valueType.typeArguments && valueType.typeArguments.length > 0
-                    ? valueType.typeArguments[0]
+                assignedType.typeArguments && assignedType.typeArguments.length > 0
+                    ? assignedType.typeArguments[0]
                     : UnknownType.create();
             isMemberOfEnumeration = true;
         }
@@ -516,9 +540,14 @@ export function getTypeOfEnumMember(
         // it may implement some magic that computes different values for
         // the "_value_" attribute. If we see a customer __new__ or __init__,
         // we'll assume the value type is what we computed above, or Any.
-        const newMember = lookUpClassMember(classType, '__new__', MemberAccessFlags.SkipBaseClasses);
-        const initMember = lookUpClassMember(classType, '__init__', MemberAccessFlags.SkipBaseClasses);
-        if (newMember || initMember) {
+        const newMember = lookUpClassMember(classType, '__new__', MemberAccessFlags.SkipObjectBaseClass);
+        const initMember = lookUpClassMember(classType, '__init__', MemberAccessFlags.SkipObjectBaseClass);
+
+        if (newMember && isClass(newMember.classType) && !ClassType.isBuiltIn(newMember.classType)) {
+            return { type: valueType ?? AnyType.create(), isIncomplete };
+        }
+
+        if (initMember && isClass(initMember.classType) && !ClassType.isBuiltIn(initMember.classType)) {
             return { type: valueType ?? AnyType.create(), isIncomplete };
         }
 
@@ -576,6 +605,7 @@ export function getEnumAutoValueType(evaluator: TypeEvaluator, node: ExpressionN
             // returning an "Any" type in the typeshed stubs.
             if (
                 memberInfo &&
+                !memberInfo.typeErrors &&
                 isFunction(memberInfo.type) &&
                 memberInfo.classType &&
                 isClass(memberInfo.classType) &&

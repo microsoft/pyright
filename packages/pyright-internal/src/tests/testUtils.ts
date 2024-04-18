@@ -21,10 +21,11 @@ import { fail } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
 import { FullAccessHost } from '../common/fullAccessHost';
-import { createFromRealFileSystem } from '../common/realFileSystem';
+import { RealTempFile, createFromRealFileSystem } from '../common/realFileSystem';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
 import { Uri } from '../common/uri/uri';
-import { ParseOptions, ParseResults, Parser } from '../parser/parser';
+import { UriEx } from '../common/uri/uriUtils';
+import { ParseFileResults, ParseOptions, Parser, ParserOutput } from '../parser/parser';
 
 // This is a bit gross, but it's necessary to allow the fallback typeshed
 // directory to be located when running within the jest environment. This
@@ -34,18 +35,13 @@ import { ParseOptions, ParseResults, Parser } from '../parser/parser';
 
 export interface FileAnalysisResult {
     fileUri: Uri;
-    parseResults?: ParseResults | undefined;
+    parseResults?: ParseFileResults | undefined;
     errors: Diagnostic[];
     warnings: Diagnostic[];
     infos: Diagnostic[];
     unusedCodes: Diagnostic[];
     unreachableCodes: Diagnostic[];
     deprecateds: Diagnostic[];
-}
-
-export interface FileParseResult {
-    fileContents: string;
-    parseResults: ParseResults;
 }
 
 export function resolveSampleFilePath(fileName: string): string {
@@ -67,7 +63,7 @@ export function parseText(
     textToParse: string,
     diagSink: DiagnosticSink,
     parseOptions: ParseOptions = new ParseOptions()
-): ParseResults {
+): ParseFileResults {
     const parser = new Parser();
     return parser.parseSourceFile(textToParse, parseOptions, diagSink);
 }
@@ -77,23 +73,19 @@ export function parseSampleFile(
     diagSink: DiagnosticSink,
     execEnvironment = new ExecutionEnvironment(
         'python',
-        Uri.file('.'),
+        UriEx.file('.'),
         /* defaultPythonVersion */ undefined,
         /* defaultPythonPlatform */ undefined,
         /* defaultExtraPaths */ undefined
     )
-): FileParseResult {
+): ParseFileResults {
     const text = readSampleFile(fileName);
     const parseOptions = new ParseOptions();
     if (fileName.endsWith('pyi')) {
         parseOptions.isStubFile = true;
     }
     parseOptions.pythonVersion = execEnvironment.pythonVersion;
-
-    return {
-        fileContents: text,
-        parseResults: parseText(text, diagSink),
-    };
+    return parseText(text, diagSink);
 }
 
 export function typeAnalyzeSampleFiles(
@@ -104,20 +96,21 @@ export function typeAnalyzeSampleFiles(
     // Always enable "test mode".
     configOptions.internalTestMode = true;
 
-    const fs = createFromRealFileSystem();
-    const serviceProvider = createServiceProvider(fs, console || new NullConsole());
+    const tempFile = new RealTempFile();
+    const fs = createFromRealFileSystem(tempFile);
+    const serviceProvider = createServiceProvider(fs, console || new NullConsole(), tempFile);
     const importResolver = new ImportResolver(serviceProvider, configOptions, new FullAccessHost(serviceProvider));
 
     const program = new Program(importResolver, configOptions, serviceProvider);
-    const fileUris = fileNames.map((name) => Uri.file(resolveSampleFilePath(name)));
+    const fileUris = fileNames.map((name) => UriEx.file(resolveSampleFilePath(name)));
     program.setTrackedFiles(fileUris);
 
     // Set a "pre-check callback" so we can evaluate the types of each NameNode
     // prior to checking the full document. This will exercise the contextual
     // evaluation logic.
-    program.setPreCheckCallback((parseResults: ParseResults, evaluator: TypeEvaluator) => {
+    program.setPreCheckCallback((parserOutput: ParserOutput, evaluator: TypeEvaluator) => {
         const nameTypeWalker = new NameTypeWalker(evaluator);
-        nameTypeWalker.walk(parseResults.parseTree);
+        nameTypeWalker.walk(parserOutput.parseTree);
     });
 
     const results = getAnalysisResults(program, fileUris, configOptions);

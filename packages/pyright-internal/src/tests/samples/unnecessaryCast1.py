@@ -1,6 +1,6 @@
 # This sample tests the type checker's reportUnnecessaryCast feature.
 
-from typing import Never, NoReturn, TypeVar, cast
+from typing import Annotated, Never, NoReturn, TypeVar, cast
 
 
 def func1(a: int):
@@ -52,3 +52,6 @@ def func6(a: type[int], b: int):
     # This should generate an error if
     # reportUnnecessaryCast is enabled.
     v4 = cast(int, b)
+
+
+AnnotatedInt = cast(type[int], Annotated[int, ...])

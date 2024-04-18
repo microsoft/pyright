@@ -4,7 +4,7 @@
 try:
     from typing import TypedDict
 except ImportError:
-    from typing_extensions import TypedDict
+    from typing_extensions import TypedDict  # pyright: ignore[reportMissingModuleSource]
 
 
 class TD1(TypedDict):

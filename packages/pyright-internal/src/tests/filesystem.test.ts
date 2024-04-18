@@ -9,10 +9,10 @@
 import assert from 'assert';
 
 import { combinePaths, normalizeSlashes } from '../common/pathUtils';
-import { Uri } from '../common/uri/uri';
 import * as host from './harness/testHost';
 import * as factory from './harness/vfs/factory';
 import * as vfs from './harness/vfs/filesystem';
+import { UriEx } from '../common/uri/uriUtils';
 
 test('CreateVFS', () => {
     const cwd = normalizeSlashes('/');
@@ -21,7 +21,7 @@ test('CreateVFS', () => {
 });
 
 test('Folders', () => {
-    const cwd = Uri.file(normalizeSlashes('/'));
+    const cwd = UriEx.file(normalizeSlashes('/'));
     const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd: cwd.getFilePath() });
 
     // no such dir exist
@@ -43,7 +43,7 @@ test('Folders', () => {
 });
 
 test('Folders Recursive', () => {
-    const cwd = Uri.file(normalizeSlashes('/'));
+    const cwd = UriEx.file(normalizeSlashes('/'));
     const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd: cwd.getFilePath() });
 
     // no such dir exist
@@ -58,7 +58,7 @@ test('Folders Recursive', () => {
 });
 
 test('Files', () => {
-    const cwd = Uri.file(normalizeSlashes('/'));
+    const cwd = UriEx.file(normalizeSlashes('/'));
     const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd: cwd.getFilePath() });
 
     const uri = cwd.combinePaths('1.txt');
@@ -92,11 +92,11 @@ test('CreateRich', () => {
     // files + directory + root
     assert.equal(entries.length, 10);
 
-    assert.equal(fs.readFileSync(Uri.file(normalizeSlashes('/a/b/c/1.txt')), 'ascii'), 'hello1');
-    assert.equal(fs.readFileSync(Uri.file(normalizeSlashes('/a/b/2.txt')), 'utf8'), 'hello2');
-    assert.equal(fs.readFileSync(Uri.file(normalizeSlashes('/a/3.txt')), 'utf-8'), 'hello3');
-    assert.equal(fs.readFileSync(Uri.file(normalizeSlashes('/4.txt')), 'utf16le'), 'hello4');
-    assert.equal(fs.readFileSync(Uri.file(normalizeSlashes('/a/c/5.txt')), 'ucs2'), 'hello5');
+    assert.equal(fs.readFileSync(UriEx.file(normalizeSlashes('/a/b/c/1.txt')), 'ascii'), 'hello1');
+    assert.equal(fs.readFileSync(UriEx.file(normalizeSlashes('/a/b/2.txt')), 'utf8'), 'hello2');
+    assert.equal(fs.readFileSync(UriEx.file(normalizeSlashes('/a/3.txt')), 'utf-8'), 'hello3');
+    assert.equal(fs.readFileSync(UriEx.file(normalizeSlashes('/4.txt')), 'utf16le'), 'hello4');
+    assert.equal(fs.readFileSync(UriEx.file(normalizeSlashes('/a/c/5.txt')), 'ucs2'), 'hello5');
 });
 
 test('Shadow', () => {
@@ -126,7 +126,7 @@ test('Shadow', () => {
 });
 
 test('Diffing', () => {
-    const cwd = Uri.file(normalizeSlashes('/'));
+    const cwd = UriEx.file(normalizeSlashes('/'));
     const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd: cwd.getFilePath() });
 
     // first snapshot
@@ -176,12 +176,12 @@ test('createFromFileSystem1', () => {
     assert(entries.length > 0);
 
     // confirm file
-    assert.equal(fs.readFileSync(Uri.file(filepath), 'utf8'), content);
+    assert.equal(fs.readFileSync(UriEx.file(filepath), 'utf8'), content);
 });
 
 test('createFromFileSystem2', () => {
     const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ true, { cwd: factory.srcFolder });
-    const entries = fs.readdirSync(Uri.file(factory.typeshedFolder.getFilePath().toUpperCase()));
+    const entries = fs.readdirSync(UriEx.file(factory.typeshedFolder.getFilePath().toUpperCase()));
     assert(entries.length > 0);
 });
 
@@ -202,7 +202,7 @@ test('createFromFileSystemWithMetadata', () => {
         meta: { unused: 'unused' },
     });
 
-    assert(fs.existsSync(Uri.file(factory.srcFolder)));
+    assert(fs.existsSync(UriEx.file(factory.srcFolder)));
 });
 
 function countFile(files: vfs.FileSet): number {

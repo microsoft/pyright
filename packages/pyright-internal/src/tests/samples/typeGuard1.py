@@ -5,8 +5,8 @@
 # pyright: reportMissingModuleSource=false
 
 import os
-from typing import Any, TypeVar
-from typing_extensions import TypeGuard
+from typing import Any, Callable, TypeVar
+from typing_extensions import TypeGuard  # pyright: ignore[reportMissingModuleSource]
 
 _T = TypeVar("_T")
 
@@ -92,8 +92,7 @@ def func3(x: Any):
         reveal_type(x, expected_text="int")
 
 
-def is_int(obj: type) -> TypeGuard[type[int]]:
-    ...
+def is_int(obj: type) -> TypeGuard[type[int]]: ...
 
 
 def func4(typ: type[_T]) -> _T:
@@ -101,3 +100,26 @@ def func4(typ: type[_T]) -> _T:
         raise Exception("Unsupported type")
 
     return typ()
+
+
+def takes_int_typeguard(f: Callable[[object], TypeGuard[int]]) -> None:
+    pass
+
+
+def int_typeguard(val: object) -> TypeGuard[int]:
+    return isinstance(val, int)
+
+
+def bool_typeguard(val: object) -> TypeGuard[bool]:
+    return isinstance(val, bool)
+
+
+def str_typeguard(val: object) -> TypeGuard[str]:
+    return isinstance(val, str)
+
+
+takes_int_typeguard(int_typeguard)
+takes_int_typeguard(bool_typeguard)
+
+# This should generate an error because TypeGuard is covariant.
+takes_int_typeguard(str_typeguard)

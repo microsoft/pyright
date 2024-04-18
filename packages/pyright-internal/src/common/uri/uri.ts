@@ -7,11 +7,24 @@
  */
 
 import { URI, Utils } from 'vscode-uri';
-import { combinePaths, isRootedDiskPath } from '../pathUtils';
-import { EmptyUri } from './emptyUri';
-import { FileUri } from './fileUri';
-import { WebUri } from './webUri';
+import { CaseSensitivityDetector } from '../caseSensitivityDetector';
+import { isArray } from '../core';
+import { combinePaths, isRootedDiskPath, normalizeSlashes } from '../pathUtils';
+import { ServiceKeys } from '../serviceKeys';
+import { ServiceKey } from '../serviceProvider';
 import { JsonObjType } from './baseUri';
+import { ConstantUri } from './constantUri';
+import { EmptyUri } from './emptyUri';
+import { FileUri, FileUriSchema } from './fileUri';
+import { WebUri } from './webUri';
+
+export const enum UriKinds {
+    file,
+    web,
+    empty,
+}
+
+export type SerializedType = [UriKinds, ...any[]];
 
 export interface Uri {
     // Unique key for storing in maps.
@@ -48,10 +61,15 @@ export interface Uri {
     readonly fileNameWithoutExtensions: string;
 
     // Indicates if the underlying file system for this URI is case sensitive or not.
+    // This should never be used to create another Uri.
+    // Use `CaseSensitivityDetector` when creating new Uri using `Uri.parse/file`
     readonly isCaseSensitive: boolean;
 
     // Returns the fragment part of a URI.
     readonly fragment: string;
+
+    // Returns the query part of a URI.
+    readonly query: string;
 
     isEmpty(): boolean;
     toString(): string;
@@ -98,6 +116,7 @@ export interface Uri {
     hasExtension(ext: string): boolean;
     containsExtension(ext: string): boolean;
     withFragment(fragment: string): Uri;
+    withQuery(query: string): Uri;
     toJsonObj(): any;
 }
 
@@ -146,13 +165,23 @@ function normalizeUri(uri: string | URI): { uri: URI; str: string } {
 }
 
 export namespace Uri {
-    export function file(path: string, isCaseSensitive = true, checkRelative = false): Uri {
+    export interface IServiceProvider {
+        get<T>(key: ServiceKey<T>): T;
+    }
+
+    export function file(path: string, serviceProvider: IServiceProvider, checkRelative?: boolean): Uri;
+    export function file(path: string, caseSensitivityDetector: CaseSensitivityDetector, checkRelative?: boolean): Uri;
+    export function file(path: string, arg: IServiceProvider | CaseSensitivityDetector, checkRelative = false): Uri {
+        arg = CaseSensitivityDetector.is(arg) ? arg : arg.get(ServiceKeys.caseSensitivityDetector);
+
         // Fix path if we're checking for relative paths and this is not a rooted path.
         path = checkRelative && !isRootedDiskPath(path) ? combinePaths(process.cwd(), path) : path;
 
         // If this already starts with 'file:', then we can
         // parse it normally. It's actually a uri string. Otherwise parse it as a file path.
-        const normalized = path.startsWith('file:') ? normalizeUri(path) : normalizeUri(URI.file(path));
+        const normalized = path.startsWith('file:')
+            ? normalizeUri(path)
+            : normalizeUri(URI.file(normalizeSlashes(path)));
 
         // Turn the path into a file URI.
         return FileUri.createFileUri(
@@ -160,42 +189,29 @@ export namespace Uri {
             normalized.uri.query,
             normalized.uri.fragment,
             normalized.str,
-            isCaseSensitive
+            arg.isCaseSensitive(normalized.str)
         );
     }
 
-    export function empty(): Uri {
-        return EmptyUri.instance;
-    }
-
-    export function fromJsonObj(jsonObj: JsonObjType) {
-        if (FileUri.isFileUri(jsonObj)) {
-            return FileUri.fromJsonObj(jsonObj);
-        }
-        if (WebUri.isWebUri(jsonObj)) {
-            return WebUri.fromJsonObj(jsonObj);
-        }
-        if (EmptyUri.isEmptyUri(jsonObj)) {
-            return EmptyUri.instance;
-        }
-        return jsonObj;
-    }
-
-    export function parse(value: string | undefined, isCaseSensitive: boolean): Uri {
+    export function parse(value: string | undefined, serviceProvider: IServiceProvider): Uri;
+    export function parse(value: string | undefined, caseSensitivityDetector: CaseSensitivityDetector): Uri;
+    export function parse(value: string | undefined, arg: IServiceProvider | CaseSensitivityDetector): Uri {
         if (!value) {
             return Uri.empty();
         }
 
+        arg = CaseSensitivityDetector.is(arg) ? arg : arg.get(ServiceKeys.caseSensitivityDetector);
+
         // Normalize the value here. This gets rid of '..' and '.' in the path. It also removes any
         // '/' on the end of the path.
         const normalized = normalizeUri(value);
-        if (normalized.uri.scheme === 'file') {
+        if (normalized.uri.scheme === FileUriSchema) {
             return FileUri.createFileUri(
                 getFilePath(normalized.uri),
                 normalized.uri.query,
                 normalized.uri.fragment,
                 normalized.str,
-                isCaseSensitive
+                arg.isCaseSensitive(normalized.str)
             );
         }
 
@@ -210,7 +226,43 @@ export namespace Uri {
         );
     }
 
-    export function isUri(thing: any): thing is Uri {
+    export function constant(markerName: string): Uri {
+        return new ConstantUri(markerName);
+    }
+
+    export function empty(): Uri {
+        return EmptyUri.instance;
+    }
+
+    export function defaultWorkspace(serviceProvider: IServiceProvider): Uri;
+    export function defaultWorkspace(caseSensitivityDetector: CaseSensitivityDetector): Uri;
+    export function defaultWorkspace(arg: IServiceProvider | CaseSensitivityDetector): Uri {
+        arg = CaseSensitivityDetector.is(arg) ? arg : arg.get(ServiceKeys.caseSensitivityDetector);
+        return Uri.file('/<default workspace root>/', arg);
+    }
+
+    export function fromJsonObj(jsonObj: JsonObjType) {
+        if (isArray<SerializedType>(jsonObj)) {
+            // Currently only file uri supports SerializedType.
+            switch (jsonObj[0]) {
+                case UriKinds.file:
+                    return FileUri.fromJsonObj(jsonObj);
+            }
+        }
+
+        if (FileUri.isFileUri(jsonObj)) {
+            return FileUri.fromJsonObj(jsonObj);
+        }
+        if (WebUri.isWebUri(jsonObj)) {
+            return WebUri.fromJsonObj(jsonObj);
+        }
+        if (EmptyUri.isEmptyUri(jsonObj)) {
+            return EmptyUri.instance;
+        }
+        return jsonObj;
+    }
+
+    export function is(thing: any): thing is Uri {
         return !!thing && typeof thing._key === 'string';
     }
 }

@@ -31,12 +31,13 @@ Pyright supports [configuration files](configuration.md) that provide granular c
 * [PEP 681](https://www.python.org/dev/peps/pep-0681/) dataclass transform
 * [PEP 692](https://www.python.org/dev/peps/pep-0692/) TypedDict for kwargs typing
 * [PEP 695](https://www.python.org/dev/peps/pep-0695/) type parameter syntax
-* [PEP 696](https://www.python.org/dev/peps/pep-0696/) (draft) type defaults for TypeVarLikes
+* [PEP 696](https://www.python.org/dev/peps/pep-0696/) type defaults for TypeVarLikes
 * [PEP 698](https://www.python.org/dev/peps/pep-0698/) override decorator for static typing
 * [PEP 702](https://www.python.org/dev/peps/pep-0702/) marking deprecations
-* [PEP 705](https://www.python.org/dev/peps/pep-0705/) (draft) TypedDict: read-only items
+* [PEP 705](https://www.python.org/dev/peps/pep-0705/) TypedDict: read-only items
 * [PEP 712](https://www.python.org/dev/peps/pep-0712/) (draft) converter parameter on dataclasses.field
-* [PEP 724](https://www.python.org/dev/peps/pep-0724/) (draft) stricter type guards
+* [PEP 728](https://www.python.org/dev/peps/pep-0728/) (draft) TypedDict with typed extra items
+* [PEP 742](https://www.python.org/dev/peps/pep-0742/) (draft) narrowing types with TypeIs
 * Type inference for function return values, instance variables, class variables, and globals
 * Type guards that understand conditional code flow constructs like if/else statements
 

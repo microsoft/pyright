@@ -183,3 +183,9 @@ export function containsOnlyWhitespace(text: string, span?: TextRange) {
 
     return /^\s*$/.test(text);
 }
+
+export namespace Disposable {
+    export function is(value: any): value is { dispose(): void } {
+        return value && typeof value.dispose === 'function';
+    }
+}

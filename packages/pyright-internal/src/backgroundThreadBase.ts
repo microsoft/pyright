@@ -8,14 +8,17 @@
 
 import { MessagePort, parentPort, TransferListItem } from 'worker_threads';
 
+import { CacheManager } from './analyzer/cacheManager';
 import { OperationCanceledException, setCancellationFolderName } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface, LogLevel } from './common/console';
+import { Disposable, isThenable } from './common/core';
 import * as debug from './common/debug';
+import { PythonVersion } from './common/pythonVersion';
 import { createFromRealFileSystem, RealTempFile } from './common/realFileSystem';
+import { ServiceKeys } from './common/serviceKeys';
 import { ServiceProvider } from './common/serviceProvider';
 import './common/serviceProviderExtensions';
-import { ServiceKeys } from './common/serviceProviderExtensions';
 import { Uri } from './common/uri/uri';
 
 export class BackgroundConsole implements ConsoleInterface {
@@ -53,21 +56,32 @@ export class BackgroundThreadBase {
         if (!this._serviceProvider.tryGet(ServiceKeys.console)) {
             this._serviceProvider.add(ServiceKeys.console, new BackgroundConsole());
         }
-        if (!this._serviceProvider.tryGet(ServiceKeys.fs)) {
-            this._serviceProvider.add(ServiceKeys.fs, createFromRealFileSystem(this.getConsole()));
-        }
+
+        let tempFile: RealTempFile | undefined = undefined;
         if (!this._serviceProvider.tryGet(ServiceKeys.tempFile)) {
+            tempFile = new RealTempFile();
+            this._serviceProvider.add(ServiceKeys.tempFile, tempFile);
+        }
+
+        if (!this._serviceProvider.tryGet(ServiceKeys.caseSensitivityDetector)) {
+            this._serviceProvider.add(ServiceKeys.caseSensitivityDetector, tempFile ?? new RealTempFile());
+        }
+
+        if (!this._serviceProvider.tryGet(ServiceKeys.fs)) {
             this._serviceProvider.add(
-                ServiceKeys.tempFile,
-                new RealTempFile(this._serviceProvider.fs().isCaseSensitive)
+                ServiceKeys.fs,
+                createFromRealFileSystem(
+                    this._serviceProvider.get(ServiceKeys.caseSensitivityDetector),
+                    this.getConsole()
+                )
             );
+        }
+        if (!this._serviceProvider.tryGet(ServiceKeys.cacheManager)) {
+            this._serviceProvider.add(ServiceKeys.cacheManager, new CacheManager());
         }
 
         // Stash the base directory into a global variable.
-        (global as any).__rootDirectory = Uri.parse(
-            data.rootUri,
-            this._serviceProvider.fs().isCaseSensitive
-        ).getFilePath();
+        (global as any).__rootDirectory = Uri.parse(data.rootUri, this._serviceProvider).getFilePath();
     }
 
     protected get fs() {
@@ -87,16 +101,23 @@ export class BackgroundThreadBase {
     }
 
     protected handleShutdown() {
-        this._serviceProvider.tryGet(ServiceKeys.tempFile)?.dispose();
+        const tempFile = this._serviceProvider.tryGet(ServiceKeys.tempFile);
+        if (Disposable.is(tempFile)) {
+            tempFile.dispose();
+        }
+
         parentPort?.close();
     }
 }
 
 // Function used to serialize specific types that can't automatically be serialized.
 // Exposed here so it can be reused by a caller that wants to add more cases.
-export function serializeReplacer(key: string, value: any) {
-    if (Uri.isUri(value) && value.toJsonObj !== undefined) {
+export function serializeReplacer(value: any) {
+    if (Uri.is(value) && value.toJsonObj !== undefined) {
         return { __serialized_uri_val: value.toJsonObj() };
+    }
+    if (value instanceof PythonVersion) {
+        return { __serialized_version_val: value.toString() };
     }
     if (value instanceof Map) {
         return { __serialized_map_val: [...value] };
@@ -117,13 +138,16 @@ export function serializeReplacer(key: string, value: any) {
 
 export function serialize(obj: any): string {
     // Convert the object to a string so it can be sent across a message port.
-    return JSON.stringify(obj, serializeReplacer);
+    return JSON.stringify(obj, (k, v) => serializeReplacer(v));
 }
 
-export function deserializeReviver(key: string, value: any) {
+export function deserializeReviver(value: any) {
     if (value && typeof value === 'object') {
         if (value.__serialized_uri_val !== undefined) {
             return Uri.fromJsonObj(value.__serialized_uri_val);
+        }
+        if (value.__serialized_version_val) {
+            return PythonVersion.fromString(value.__serialized_version_val);
         }
         if (value.__serialized_map_val) {
             return new Map(value.__serialized_map_val);
@@ -148,17 +172,42 @@ export function deserialize<T = any>(json: string | null): T {
         return undefined as any;
     }
     // Convert the string back to an object.
-    return JSON.parse(json, deserializeReviver);
+    return JSON.parse(json, (k, v) => deserializeReviver(v));
 }
 
 export interface MessagePoster {
     postMessage(value: any, transferList?: ReadonlyArray<TransferListItem>): void;
 }
 
-export function run<T = any>(code: () => T, port: MessagePoster, serializer = serialize) {
+export function run<T = any>(code: () => Promise<T>, port: MessagePoster): Promise<void>;
+export function run<T = any>(code: () => Promise<T>, port: MessagePoster, serializer: (obj: any) => any): Promise<void>;
+export function run<T = any>(code: () => T, port: MessagePoster): void;
+export function run<T = any>(code: () => T, port: MessagePoster, serializer: (obj: any) => any): void;
+export function run<T = any>(
+    code: () => T | Promise<T>,
+    port: MessagePoster,
+    serializer = serialize
+): void | Promise<void> {
     try {
         const result = code();
-        port.postMessage({ kind: 'ok', data: serializer(result) });
+        if (!isThenable(result)) {
+            port.postMessage({ kind: 'ok', data: serializer(result) });
+            return;
+        }
+
+        return result.then(
+            (r) => {
+                port.postMessage({ kind: 'ok', data: serializer(r) });
+            },
+            (e) => {
+                if (OperationCanceledException.is(e)) {
+                    port.postMessage({ kind: 'cancelled', data: e.message });
+                    return;
+                }
+
+                port.postMessage({ kind: 'failed', data: `Exception: ${e.message} in ${e.stack}` });
+            }
+        );
     } catch (e: any) {
         if (OperationCanceledException.is(e)) {
             port.postMessage({ kind: 'cancelled', data: e.message });
@@ -169,7 +218,7 @@ export function run<T = any>(code: () => T, port: MessagePoster, serializer = se
     }
 }
 
-export function getBackgroundWaiter<T>(port: MessagePort, deserializer = deserialize): Promise<T> {
+export function getBackgroundWaiter<T>(port: MessagePort, deserializer: (v: any) => T = deserialize): Promise<T> {
     return new Promise((resolve, reject) => {
         port.on('message', (m: RequestResponse) => {
             switch (m.kind) {
@@ -197,6 +246,7 @@ export interface InitializationData {
     cancellationFolderName: string | undefined;
     runner: string | undefined;
     title?: string;
+    workerIndex: number;
 }
 
 export interface RequestResponse {

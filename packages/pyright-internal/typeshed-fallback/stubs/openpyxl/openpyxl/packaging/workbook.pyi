@@ -60,7 +60,7 @@ class WorkbookPackage(Serialisable):
     properties: Alias
     workbookProtection: Typed[WorkbookProtection, Literal[True]]
     bookViews: Incomplete
-    sheets: Incomplete
+    sheets: Incomplete  # NestedSequence[ChildSheet]
     functionGroups: Typed[FunctionGroupList, Literal[True]]
     externalReferences: Incomplete
     definedNames: Typed[DefinedNameList, Literal[True]]

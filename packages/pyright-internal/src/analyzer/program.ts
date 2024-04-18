@@ -22,14 +22,14 @@ import { FileEditAction } from '../common/editAction';
 import { EditableProgram, ProgramView } from '../common/extensibility';
 import { LogTracker } from '../common/logTracker';
 import { convertRangeToTextRange } from '../common/positionUtils';
+import { ServiceKeys } from '../common/serviceKeys';
 import { ServiceProvider } from '../common/serviceProvider';
 import '../common/serviceProviderExtensions';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Range, doRangesIntersect } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import { makeDirectories } from '../common/uri/uriUtils';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults, ParserOutput } from '../parser/parser';
 import { AbsoluteModuleDescriptor, ImportLookupResult, LookupImportOptions } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CacheManager } from './cacheManager';
@@ -37,8 +37,9 @@ import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getDocString } from './parseTreeUtils';
+import { ISourceFileFactory } from './programTypes';
 import { Scope } from './scope';
-import { IPythonMode, SourceFile, SourceFileEditMode } from './sourceFile';
+import { IPythonMode, SourceFile } from './sourceFile';
 import { SourceFileInfo } from './sourceFileInfo';
 import { createChainedByList, isUserCode, verifyNoCyclesInChainedFiles } from './sourceFileInfoUtils';
 import { SourceMapper } from './sourceMapper';
@@ -72,27 +73,7 @@ interface UpdateImportInfo {
     isPyTypedPresent: boolean;
 }
 
-export type PreCheckCallback = (parseResults: ParseResults, evaluator: TypeEvaluator) => void;
-
-export interface ISourceFileFactory {
-    createSourceFile(
-        serviceProvider: ServiceProvider,
-        fileUri: Uri,
-        moduleName: string,
-        isThirdPartyImport: boolean,
-        isThirdPartyPyTypedPresent: boolean,
-        editMode: SourceFileEditMode,
-        console?: ConsoleInterface,
-        logTracker?: LogTracker,
-        ipythonMode?: IPythonMode
-    ): SourceFile;
-}
-
-export namespace ISourceFileFactory {
-    export function is(obj: any): obj is ISourceFileFactory {
-        return obj.createSourceFile !== undefined;
-    }
-}
+export type PreCheckCallback = (parserOutput: ParserOutput, evaluator: TypeEvaluator) => void;
 
 export interface OpenFileOptions {
     isTracked: boolean;
@@ -713,7 +694,15 @@ export class Program {
         return this._createSourceMapper(execEnv, token, sourceFileInfo, mapCompiled, preferStubs);
     }
 
-    getParseResults(fileUri: Uri): ParseResults | undefined {
+    getParserOutput(fileUri: Uri): ParserOutput | undefined {
+        return this.getBoundSourceFileInfo(
+            fileUri,
+            /* content */ undefined,
+            /* force */ true
+        )?.sourceFile.getParserOutput();
+    }
+
+    getParseResults(fileUri: Uri): ParseFileResults | undefined {
         return this.getBoundSourceFileInfo(
             fileUri,
             /* content */ undefined,
@@ -874,8 +863,8 @@ export class Program {
         return this._runEvaluatorWithCancellationToken(token, () => {
             this._parseFile(sourceFileInfo);
 
-            const parseTree = sourceFile.getParseResults()!;
-            const textRange = convertRangeToTextRange(range, parseTree.tokenizerOutput.lines);
+            const parseResults = sourceFile.getParseResults()!;
+            const textRange = convertRangeToTextRange(range, parseResults.tokenizerOutput.lines);
             if (!textRange) {
                 return undefined;
             }
@@ -884,12 +873,16 @@ export class Program {
         });
     }
 
-    getDiagnostics(options: ConfigOptions): FileDiagnostics[] {
+    getDiagnostics(options: ConfigOptions, reportDeltasOnly = true): FileDiagnostics[] {
         const fileDiagnostics: FileDiagnostics[] = this._removeUnneededFiles();
 
         this._sourceFileList.forEach((sourceFileInfo) => {
             if (this._shouldCheckFile(sourceFileInfo)) {
-                let diagnostics = sourceFileInfo.sourceFile.getDiagnostics(options, sourceFileInfo.diagnosticsVersion);
+                let diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
+                    options,
+                    reportDeltasOnly ? sourceFileInfo.diagnosticsVersion : undefined
+                );
+
                 if (diagnostics !== undefined) {
                     // Filter out all categories that are translated to tagged hints?
                     if (options.disableTaggedHints) {
@@ -1004,14 +997,16 @@ export class Program {
 
     private _handleMemoryHighUsage() {
         const cacheUsage = this._cacheManager.getCacheUsage();
+        const usedHeapRatio = this._cacheManager.getUsedHeapRatio(
+            this._configOptions.verboseOutput ? this._console : undefined
+        );
 
         // If the total cache has exceeded 75%, determine whether we should empty
-        // the cache.
-        if (cacheUsage > 0.75) {
-            const usedHeapRatio = this._cacheManager.getUsedHeapRatio(
-                this._configOptions.verboseOutput ? this._console : undefined
-            );
-
+        // the cache. If the usedHeapRatio has exceeded 90%, we should definitely
+        // empty the cache. This can happen before the cacheUsage maxes out because
+        // we might be on the background thread and a bunch of the cacheUsage is on the main
+        // thread.
+        if (cacheUsage > 0.75 || usedHeapRatio > 0.9) {
             // The type cache uses a Map, which has an absolute limit of 2^24 entries
             // before it will fail. If we cross the 95% mark, we'll empty the cache.
             const absoluteMaxCacheEntryCount = (1 << 24) * 0.9;
@@ -1450,7 +1445,7 @@ export class Program {
                 let importedFileInfo = this.getSourceFileInfo(importInfo.path);
                 if (!importedFileInfo) {
                     const moduleImportInfo = this._getModuleImportInfoForFile(importInfo.path);
-                    const sourceFile = new SourceFile(
+                    const sourceFile = this._sourceFileFactory.createSourceFile(
                         this.serviceProvider,
                         importInfo.path,
                         moduleImportInfo.moduleName,
@@ -1742,7 +1737,7 @@ export class Program {
                 return undefined;
             }
 
-            const parseResults = fileInfo.sourceFile.getParseResults();
+            const parseResults = fileInfo.sourceFile.getParserOutput();
             if (!parseResults) {
                 return undefined;
             }
@@ -1766,7 +1761,7 @@ export class Program {
                 getScopeIfAvailable(fileToAnalyze.builtinsImport);
         }
 
-        let futureImports = fileToAnalyze.sourceFile.getParseResults()!.futureImports;
+        let futureImports = fileToAnalyze.sourceFile.getParserOutput()!.futureImports;
         if (fileToAnalyze.chainedSourceFile) {
             futureImports = this._getEffectiveFutureImports(futureImports, fileToAnalyze.chainedSourceFile);
         }
@@ -1792,7 +1787,7 @@ export class Program {
     ): ImportLookupResult | undefined => {
         let sourceFileInfo: SourceFileInfo | undefined;
 
-        if (Uri.isUri(fileUriOrModule)) {
+        if (Uri.is(fileUriOrModule)) {
             sourceFileInfo = this.getSourceFileInfo(fileUriOrModule);
         } else {
             // Resolve the import.
@@ -1808,7 +1803,7 @@ export class Program {
 
             if (importResult.isImportFound && !importResult.isNativeLib && importResult.resolvedUris.length > 0) {
                 const resolvedPath = importResult.resolvedUris[importResult.resolvedUris.length - 1];
-                if (resolvedPath) {
+                if (!resolvedPath.isEmpty()) {
                     // See if the source file already exists in the program.
                     sourceFileInfo = this.getSourceFileInfo(resolvedPath);
 
@@ -1853,7 +1848,7 @@ export class Program {
             return undefined;
         }
 
-        const parseResults = sourceFileInfo.sourceFile.getParseResults();
+        const parseResults = sourceFileInfo.sourceFile.getParserOutput();
         const moduleNode = parseResults!.parseTree;
         const fileInfo = AnalyzerNodeInfo.getFileInfo(moduleNode);
 
@@ -1905,20 +1900,24 @@ export class Program {
                 return false;
             }
 
+            // Bind the file if necessary even if we're not going to run the checker.
+            // disableChecker means disable semantic errors, not syntax errors. We need to bind again
+            // in order to generate syntax errors.
+            const boundFile = this._bindFile(
+                fileToCheck,
+                undefined,
+                // If binding is required we want to make sure to bind the file, otherwise
+                // the sourceFile.check below will fail.
+                /* skipFileNeededCheck */ fileToCheck.sourceFile.isBindingRequired()
+            );
+
             if (!this._disableChecker) {
                 // For ipython, make sure we check all its dependent files first since
                 // their results can affect this file's result.
                 const dependentFiles = this._checkDependentFiles(fileToCheck, chainedByList, token);
 
-                const boundFile = this._bindFile(
-                    fileToCheck,
-                    undefined,
-                    // If binding is required we want to make sure to bind the file, otherwise
-                    // the sourceFile.check below will fail.
-                    /* skipFileNeededCheck */ fileToCheck.sourceFile.isBindingRequired()
-                );
                 if (this._preCheckCallback) {
-                    const parseResults = fileToCheck.sourceFile.getParseResults();
+                    const parseResults = fileToCheck.sourceFile.getParserOutput();
                     if (parseResults) {
                         this._preCheckCallback(parseResults, this._evaluator!);
                     }
@@ -2016,7 +2015,7 @@ export class Program {
         const dependentFiles = [];
         for (let i = startIndex; i < chainedByList.length; i++) {
             const file = chainedByList[i];
-            const parseResults = file?.sourceFile.getParseResults();
+            const parseResults = file?.sourceFile.getParserOutput();
             if (!parseResults) {
                 continue;
             }

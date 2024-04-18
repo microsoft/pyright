@@ -8,7 +8,7 @@
 
 import { fail } from '../common/debug';
 import { ProgramView, SourceFileInfo } from '../common/extensibility';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
+import { ServiceKeys } from '../common/serviceKeys';
 import { IPythonMode } from './sourceFile';
 
 export function isUserCode(fileInfo: SourceFileInfo | undefined) {
@@ -90,7 +90,7 @@ function _parseAllOpenCells(program: ProgramView): void {
             continue;
         }
 
-        program.getParseResults(file.sourceFile.getUri());
+        program.getParserOutput(file.sourceFile.getUri());
         program.handleMemoryHighUsage();
     }
 }

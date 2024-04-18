@@ -157,3 +157,48 @@ class I:
         local = self.thing
         if local.type == 1:
             reveal_type(local, expected_text="H")
+
+
+class XA:
+    data: int
+    event: Literal["a"]
+
+
+class XB:
+    data: str
+    event: Literal["b"]
+
+
+class XC:
+    data: complex
+    event: Literal["c"]
+
+
+def func1(event: XA | XC | XB) -> None:
+    if event.event == "a":
+        reveal_type(event.data, expected_text="int")
+
+    if event.event == "b":
+        if event.data:
+            reveal_type(event.data, expected_text="str")
+    elif event.event == "c":
+        reveal_type(event.data, expected_text="complex")
+
+
+class XD:
+    event: Literal["d"]
+
+
+class XE:
+    event: None | Literal["e"]
+
+
+def func2(e: XD | XE) -> None:
+    if e.event == None:
+        reveal_type(e, expected_text="XE")
+
+    if e.event == "e":
+        reveal_type(e, expected_text="XE")
+
+    if e.event == "d":
+        reveal_type(e, expected_text="XD")

@@ -7,15 +7,14 @@
 from __future__ import annotations
 
 from typing import Any, Generic, Protocol, TypeVar
-from typing_extensions import Self
+from typing_extensions import Self  # pyright: ignore[reportMissingModuleSource]
 
 T_contra = TypeVar("T_contra", contravariant=True)
 ThingT = TypeVar("ThingT", bound="Thing[Any]")
 
 
 class Callback(Protocol[T_contra]):
-    def __call__(self, message: T_contra, /) -> Any:
-        ...
+    def __call__(self, message: T_contra, /) -> Any: ...
 
 
 class Thing(Generic[T_contra]):

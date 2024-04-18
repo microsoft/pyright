@@ -49,6 +49,7 @@ import {
     isFunction,
     isInstantiableClass,
     isOverloadedFunction,
+    isUnion,
     OverloadedFunctionType,
     TupleTypeArgument,
     Type,
@@ -85,7 +86,9 @@ export function synthesizeDataClassMethods(
 
     const classTypeVar = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ true);
     const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
+    newType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
     const initType = FunctionType.createSynthesizedInstance('__init__');
+    initType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
 
     // Override `__new__` because some dataclasses (such as those that are
     // created by subclassing from NamedTuple) may have their own custom
@@ -127,7 +130,7 @@ export function synthesizeDataClassMethods(
     const localEntryTypeEvaluator: { entry: DataClassEntry; evaluator: EntryTypeEvaluator }[] = [];
     let sawKeywordOnlySeparator = false;
 
-    classType.details.fields.forEach((symbol, name) => {
+    ClassType.getSymbolTable(classType).forEach((symbol, name) => {
         if (symbol.isIgnoredForProtocolMatch()) {
             return;
         }
@@ -320,12 +323,9 @@ export function synthesizeDataClassMethods(
 
                 // Don't include class vars. PEP 557 indicates that they shouldn't
                 // be considered data class entries.
-                const variableSymbol = classType.details.fields.get(variableName);
-                const isFinal = variableSymbol
-                    ?.getDeclarations()
-                    .some((decl) => decl.type === DeclarationType.Variable && decl.isFinal);
+                const variableSymbol = ClassType.getSymbolTable(classType).get(variableName);
 
-                if (variableSymbol?.isClassVar() && !isFinal) {
+                if (variableSymbol?.isClassVar() && !variableSymbol?.isFinalVarInClassBody()) {
                     // If an ancestor class declared an instance variable but this dataclass
                     // declares a ClassVar, delete the older one from the full data class entries.
                     // We exclude final variables here because a Final type annotation is implicitly
@@ -386,6 +386,14 @@ export function synthesizeDataClassMethods(
                             dataClassEntry.hasDefault = true;
                             dataClassEntry.defaultValueExpression = oldEntry.defaultValueExpression;
                             hasDefaultValue = true;
+
+                            // Warn the user of this case because it can result in type errors if the
+                            // default value is incompatible with the new type.
+                            evaluator.addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                LocMessage.dataClassFieldInheritedDefault().format({ fieldName: variableName }),
+                                variableNameNode
+                            );
                         }
 
                         fullDataClassEntries[insertIndex] = dataClassEntry;
@@ -463,7 +471,7 @@ export function synthesizeDataClassMethods(
         entryEvaluator.entry.type = entryEvaluator.evaluator();
     });
 
-    const symbolTable = classType.details.fields;
+    const symbolTable = ClassType.getSymbolTable(classType);
     const keywordOnlyParams: FunctionParameter[] = [];
 
     if (!skipSynthesizeInit && !hasExistingInitMethod) {
@@ -833,7 +841,19 @@ function getConverterAsFunction(
     }
 
     if (isInstantiableClass(converterType)) {
-        return createFunctionFromConstructor(evaluator, converterType);
+        let fromConstructor = createFunctionFromConstructor(evaluator, converterType);
+        if (fromConstructor) {
+            // If conversion to a constructor resulted in a union type, we'll
+            // choose the first of the two subtypes, which typically corresponds
+            // to the __init__ method (rather than the __new__ method).
+            if (isUnion(fromConstructor)) {
+                fromConstructor = fromConstructor.subtypes[0];
+            }
+
+            if (isFunction(fromConstructor) || isOverloadedFunction(fromConstructor)) {
+                return fromConstructor;
+            }
+        }
     }
 
     return undefined;
@@ -869,7 +889,7 @@ function getDescriptorForConverterField(
     descriptorClass.details.baseClasses.push(evaluator.getBuiltInType(dataclassNode, 'object'));
     computeMroLinearization(descriptorClass);
 
-    const fields = descriptorClass.details.fields;
+    const fields = ClassType.getSymbolTable(descriptorClass);
     const selfType = synthesizeTypeVarForSelfCls(descriptorClass, /* isClsParam */ false);
 
     const setFunction = FunctionType.createSynthesizedInstance('__set__');

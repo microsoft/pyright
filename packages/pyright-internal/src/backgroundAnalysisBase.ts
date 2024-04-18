@@ -298,7 +298,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         // Stash the base directory into a global variable.
         const data = workerData as InitializationData;
         this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootUri}`);
-        this._configOptions = new ConfigOptions(Uri.parse(data.rootUri, serviceProvider.fs().isCaseSensitive));
+        this._configOptions = new ConfigOptions(Uri.parse(data.rootUri, serviceProvider));
         this.importResolver = this.createImportResolver(serviceProvider, this._configOptions, this.createHost());
 
         const console = this.getConsole();
@@ -326,6 +326,10 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
     protected onMessage(msg: AnalysisRequest) {
         switch (msg.requestType) {
+            case 'cacheUsageBuffer': {
+                this.serviceProvider.cacheManager()?.handleCachedUsageBufferMessage(msg);
+                break;
+            }
             case 'analyze': {
                 const port = msg.port!;
                 const data = deserialize(msg.data);
@@ -565,7 +569,9 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
     }
 
     protected handleEnsurePartialStubPackages(executionRoot: string | undefined) {
-        const execEnv = this._configOptions.getExecutionEnvironments().find((e) => e.root === executionRoot);
+        const execEnv = this._configOptions
+            .getExecutionEnvironments()
+            .find((e) => e.root?.toString() === executionRoot);
         if (execEnv) {
             this.importResolver.ensurePartialStubPackages(execEnv);
         }
@@ -740,12 +746,14 @@ export type AnalysisRequestKind =
     | 'setImportResolver'
     | 'shutdown'
     | 'addInterimFile'
-    | 'analyzeFile';
+    | 'analyzeFile'
+    | 'cacheUsageBuffer';
 
 export interface AnalysisRequest {
     requestType: AnalysisRequestKind;
     data: string | null;
     port?: MessagePort | undefined;
+    sharedUsageBuffer?: SharedArrayBuffer;
 }
 
 export type AnalysisResponseKind = 'log' | 'analysisResult' | 'analysisPaused' | 'analysisDone';

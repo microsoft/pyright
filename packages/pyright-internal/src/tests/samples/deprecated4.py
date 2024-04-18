@@ -1,7 +1,7 @@
 # This sample tests the handling of deprecated properties and decorators.
 
 from typing import overload
-from typing_extensions import deprecated
+from typing_extensions import deprecated  # pyright: ignore[reportMissingModuleSource]
 
 
 class A:
@@ -11,12 +11,10 @@ class A:
         return ""
 
     @v1.setter
-    def v1(self, value: str) -> None:
-        ...
+    def v1(self, value: str) -> None: ...
 
     @v1.deleter
-    def v1(self) -> None:
-        ...
+    def v1(self) -> None: ...
 
     @property
     def v2(self) -> str:
@@ -24,13 +22,11 @@ class A:
 
     @deprecated("Deprecated v2 setter")
     @v2.setter
-    def v2(self, value: str) -> None:
-        ...
+    def v2(self, value: str) -> None: ...
 
     @v2.deleter
     @deprecated("Deprecated v2 deleter")
-    def v2(self) -> None:
-        ...
+    def v2(self) -> None: ...
 
 
 a = A()
@@ -54,12 +50,10 @@ del a.v2
 class DescB1:
     @overload
     @deprecated("DescB1 __get__")
-    def __get__(self, obj: None, owner: object) -> str:
-        ...
+    def __get__(self, obj: None, owner: object) -> str: ...
 
     @overload
-    def __get__(self, obj: object, owner: object) -> str:
-        ...
+    def __get__(self, obj: object, owner: object) -> str: ...
 
     def __get__(self, obj: object | None, owner: object) -> str:
         return ""
@@ -70,12 +64,10 @@ class DescB2:
         return ""
 
     @deprecated("DescB2 __set__")
-    def __set__(self, obj: object | None, value: str) -> None:
-        ...
+    def __set__(self, obj: object | None, value: str) -> None: ...
 
     @deprecated("DescB2 __delete__")
-    def __delete__(self, obj: object | None) -> None:
-        ...
+    def __delete__(self, obj: object | None) -> None: ...
 
 
 class B:

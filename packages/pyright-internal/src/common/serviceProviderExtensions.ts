@@ -6,20 +6,16 @@
  * Shortcuts to common services.
  */
 import { CacheManager } from '../analyzer/cacheManager';
-import { ISourceFileFactory } from '../analyzer/program';
+import { ISourceFileFactory } from '../analyzer/programTypes';
 import { IPythonMode, SourceFile, SourceFileEditMode } from '../analyzer/sourceFile';
 import { SupportPartialStubs } from '../pyrightFileSystem';
+import { ServiceKeys } from './serviceKeys';
+import { CaseSensitivityDetector } from './caseSensitivityDetector';
 import { ConsoleInterface } from './console';
-import {
-    DebugInfoInspector,
-    ServiceProvider as ReadOnlyServiceProvider,
-    StatusMutationListener,
-    SymbolDefinitionProvider,
-    SymbolUsageProviderFactory,
-} from './extensibility';
+import { ServiceProvider as ReadOnlyServiceProvider } from './extensibility';
 import { FileSystem, TempFile } from './fileSystem';
 import { LogTracker } from './logTracker';
-import { GroupServiceKey, ServiceKey, ServiceProvider } from './serviceProvider';
+import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
 
 declare module './serviceProvider' {
@@ -29,20 +25,8 @@ declare module './serviceProvider' {
         tmp(): TempFile | undefined;
         sourceFileFactory(): ISourceFileFactory;
         partialStubs(): SupportPartialStubs;
+        cacheManager(): CacheManager | undefined;
     }
-}
-
-export namespace ServiceKeys {
-    export const fs = new ServiceKey<FileSystem>();
-    export const console = new ServiceKey<ConsoleInterface>();
-    export const sourceFileFactory = new ServiceKey<ISourceFileFactory>();
-    export const partialStubs = new ServiceKey<SupportPartialStubs>();
-    export const symbolDefinitionProvider = new GroupServiceKey<SymbolDefinitionProvider>();
-    export const symbolUsageProviderFactory = new GroupServiceKey<SymbolUsageProviderFactory>();
-    export const stateMutationListeners = new GroupServiceKey<StatusMutationListener>();
-    export const tempFile = new ServiceKey<TempFile>();
-    export const cacheManager = new ServiceKey<CacheManager>();
-    export const debugInfoInspector = new ServiceKey<DebugInfoInspector>();
 }
 
 export function createServiceProvider(...services: any): ServiceProvider {
@@ -64,6 +48,9 @@ export function createServiceProvider(...services: any): ServiceProvider {
         }
         if (TempFile.is(service)) {
             sp.add(ServiceKeys.tempFile, service);
+        }
+        if (CaseSensitivityDetector.is(service)) {
+            sp.add(ServiceKeys.caseSensitivityDetector, service);
         }
         if (CacheManager.is(service)) {
             sp.add(ServiceKeys.cacheManager, service);
@@ -87,6 +74,11 @@ ServiceProvider.prototype.tmp = function () {
 ServiceProvider.prototype.sourceFileFactory = function () {
     const result = this.tryGet(ServiceKeys.sourceFileFactory);
     return result || DefaultSourceFileFactory;
+};
+
+ServiceProvider.prototype.cacheManager = function () {
+    const result = this.tryGet(ServiceKeys.cacheManager);
+    return result;
 };
 
 const DefaultSourceFileFactory: ISourceFileFactory = {

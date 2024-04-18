@@ -4,7 +4,10 @@
 # pyright: reportMissingModuleSource=false
 
 from typing import Generic, TypeVar, Union
-from typing_extensions import TypeVarTuple, Unpack
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeVarTuple,
+    Unpack,
+)
 
 
 _T = TypeVar("_T")
@@ -16,18 +19,14 @@ class ClassA(Generic[_T, Unpack[_Xs]]):
         reveal_type(args, expected_text="tuple[*_Xs@ClassA]")
 
     # This should generate two errors.
-    def func2(self) -> Union[_Xs]:
-        ...
+    def func2(self) -> Union[_Xs]: ...
 
-    def func3(self) -> tuple[Unpack[_Xs]]:
-        ...
+    def func3(self) -> tuple[Unpack[_Xs]]: ...
 
     # This should generate an error.
-    def func4(self) -> tuple[_Xs]:
-        ...
+    def func4(self) -> tuple[_Xs]: ...
 
-    def func5(self) -> "ClassA[int, str, Unpack[_Xs]]":
-        ...
+    def func5(self) -> "ClassA[int, str, Unpack[_Xs]]": ...
 
     # This should be an error because list doesn't accept a variadic TypeVar.
     x: list[_Xs] = []
@@ -40,8 +39,7 @@ class ClassA(Generic[_T, Unpack[_Xs]]):
 
 
 # This should generate an error.
-class ClassB(Generic[_Xs]):
-    ...
+class ClassB(Generic[_Xs]): ...
 
 
 # This should generate an error.

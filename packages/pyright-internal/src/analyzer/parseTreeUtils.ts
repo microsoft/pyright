@@ -44,7 +44,7 @@ import {
     TypeParameterScopeNode,
     isExpressionNode,
 } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import { TokenizerOutput } from '../parser/tokenizer';
 import { KeywordType, OperatorType, StringToken, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
@@ -277,7 +277,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
             let escapedString = node.token.escapedValue;
             if ((flags & PrintExpressionFlags.DoNotLimitStringLength) === 0) {
                 const maxStringLength = 32;
-                escapedString = escapedString.substring(0, maxStringLength);
+                escapedString = escapedString.slice(0, maxStringLength);
             }
 
             if (node.token.flags & StringTokenFlags.Triplicate) {
@@ -1840,17 +1840,23 @@ export function getTokenAt(tokens: TextRangeCollection<Token>, position: number)
 }
 
 export function getTokenOverlapping(tokens: TextRangeCollection<Token>, position: number) {
+    const index = getIndexOfTokenOverlapping(tokens, position);
+    return getTokenAtIndex(tokens, index);
+}
+
+export function getIndexOfTokenOverlapping(tokens: TextRangeCollection<Token>, position: number) {
     const index = tokens.getItemAtPosition(position);
     if (index < 0) {
-        return undefined;
+        return -1;
     }
 
     const token = tokens.getItemAt(index);
-    return TextRange.overlaps(token, position) ? token : undefined;
+
+    return TextRange.overlaps(token, position) ? index : -1;
 }
 
-export function findTokenAfter(parseResults: ParseResults, offset: number, predicate: (t: Token) => boolean) {
-    const tokens = parseResults.tokenizerOutput.tokens;
+export function findTokenAfter(tokenizerOutput: TokenizerOutput, offset: number, predicate: (t: Token) => boolean) {
+    const tokens = tokenizerOutput.tokens;
 
     const index = tokens.getItemAtPosition(offset);
     if (index < 0) {
@@ -1865,6 +1871,28 @@ export function findTokenAfter(parseResults: ParseResults, offset: number, predi
     }
 
     return undefined;
+}
+
+export function getCommentsAtTokenIndex(tokens: TextRangeCollection<Token>, index: number) {
+    let token = getTokenAtIndex(tokens, index);
+    if (!token) {
+        return undefined;
+    }
+
+    // If the preceding token has the same start offset
+    // (in other words, when tokens have zero length and they're piled on top of each other)
+    // look back through the tokens until we find the first token with that start offset.
+    // That's where the comments (if any) will be.
+    for (let precedingIndex = index - 1; precedingIndex >= 0; --precedingIndex) {
+        const precedingToken = getTokenAtIndex(tokens, precedingIndex);
+        if (precedingToken && precedingToken.start === token.start) {
+            token = precedingToken;
+        } else {
+            break;
+        }
+    }
+
+    return token.comments;
 }
 
 export function printParseNodeType(type: ParseNodeType) {
@@ -2286,7 +2314,7 @@ export function isLastNameOfModuleName(node: NameNode): boolean {
     return module.nameParts[module.nameParts.length - 1] === node;
 }
 
-function* _getAncestorsIncludingSelf(node: ParseNode | undefined) {
+export function* getAncestorsIncludingSelf(node: ParseNode | undefined) {
     while (node !== undefined) {
         yield node;
         node = node.parent;
@@ -2306,7 +2334,7 @@ export function getFirstAncestorOrSelf(
     node: ParseNode | undefined,
     predicate: (node: ParseNode) => boolean
 ): ParseNode | undefined {
-    for (const current of _getAncestorsIncludingSelf(node)) {
+    for (const current of getAncestorsIncludingSelf(node)) {
         if (predicate(current)) {
             return current;
         }
@@ -2454,13 +2482,16 @@ export function getStringValueRange(token: StringToken) {
 
 export function getFullStatementRange(
     statementNode: ParseNode,
-    parseResults: ParseResults,
+    parseFileResults: ParseFileResults,
     options?: { includeTrailingBlankLines: boolean }
 ): Range {
-    const tokenizerOutput = parseResults.tokenizerOutput;
-    const range = convertTextRangeToRange(statementNode, tokenizerOutput.lines);
+    const range = convertTextRangeToRange(statementNode, parseFileResults.tokenizerOutput.lines);
 
-    const start = _getStartPositionIfMultipleStatementsAreOnSameLine(range, statementNode.start, tokenizerOutput) ?? {
+    const start = _getStartPositionIfMultipleStatementsAreOnSameLine(
+        range,
+        statementNode.start,
+        parseFileResults.tokenizerOutput
+    ) ?? {
         line: range.start.line,
         character: 0,
     };
@@ -2469,7 +2500,7 @@ export function getFullStatementRange(
     const end = _getEndPositionIfMultipleStatementsAreOnSameLine(
         range,
         TextRange.getEnd(statementNode),
-        tokenizerOutput
+        parseFileResults.tokenizerOutput
     );
 
     if (end) {
@@ -2477,15 +2508,15 @@ export function getFullStatementRange(
     }
 
     // If not, delete the whole line.
-    if (range.end.line === tokenizerOutput.lines.count - 1) {
+    if (range.end.line === parseFileResults.tokenizerOutput.lines.count - 1) {
         return { start, end: range.end };
     }
 
     let lineDeltaToAdd = 1;
     if (options) {
         if (options.includeTrailingBlankLines) {
-            for (let i = lineDeltaToAdd; range.end.line + i < tokenizerOutput.lines.count; i++) {
-                if (!isBlankLine(parseResults, range.end.line + i)) {
+            for (let i = lineDeltaToAdd; range.end.line + i < parseFileResults.tokenizerOutput.lines.count; i++) {
+                if (!isBlankLine(parseFileResults.tokenizerOutput, parseFileResults.text, range.end.line + i)) {
                     lineDeltaToAdd = i;
                     break;
                 }
@@ -2496,9 +2527,9 @@ export function getFullStatementRange(
     return { start, end: { line: range.end.line + lineDeltaToAdd, character: 0 } };
 }
 
-export function isBlankLine(parseResults: ParseResults, line: number) {
-    const span = parseResults.tokenizerOutput.lines.getItemAt(line);
-    return containsOnlyWhitespace(parseResults.text, span);
+export function isBlankLine(tokenizerOutput: TokenizerOutput, text: string, line: number) {
+    const span = tokenizerOutput.lines.getItemAt(line);
+    return containsOnlyWhitespace(text, span);
 }
 
 export function isUnannotatedFunction(node: FunctionNode) {
@@ -2779,4 +2810,32 @@ export function getTypeVarScopesForNode(node: ParseNode): TypeVarScopeId[] {
     }
 
     return scopeIds;
+}
+
+export function checkDecorator(node: DecoratorNode, value: string): boolean {
+    return node.expression.nodeType === ParseNodeType.Name && node.expression.value === value;
+}
+
+export function isSimpleDefault(node: ExpressionNode): boolean {
+    switch (node.nodeType) {
+        case ParseNodeType.Number:
+        case ParseNodeType.Constant:
+        case ParseNodeType.MemberAccess:
+            return true;
+
+        case ParseNodeType.String:
+            return (node.token.flags & StringTokenFlags.Format) === 0;
+
+        case ParseNodeType.StringList:
+            return node.strings.every(isSimpleDefault);
+
+        case ParseNodeType.UnaryOperation:
+            return isSimpleDefault(node.expression);
+
+        case ParseNodeType.BinaryOperation:
+            return isSimpleDefault(node.leftExpression) && isSimpleDefault(node.rightExpression);
+
+        default:
+            return false;
+    }
 }

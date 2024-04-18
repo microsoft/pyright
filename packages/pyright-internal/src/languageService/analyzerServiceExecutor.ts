@@ -13,8 +13,9 @@ import { AnalyzerService, getNextServiceId } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { LogLevel } from '../common/console';
 import { FileSystem } from '../common/fileSystem';
-import { FileUri } from '../common/uri/fileUri';
-import { LanguageServerInterface, ServerSettings } from '../languageServerBase';
+import { LanguageServerInterface, ServerSettings } from '../common/languageServerInterface';
+import { Uri } from '../common/uri/uri';
+
 import { WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../workspaceFactory';
 
 export interface CloneOptions {
@@ -31,7 +32,7 @@ export class AnalyzerServiceExecutor {
         trackFiles = true
     ): void {
         const commandLineOptions = getEffectiveCommandLineOptions(
-            FileUri.isFileUri(workspace.rootUri) ? workspace.rootUri.getFilePath() : workspace.rootUri.toString(),
+            workspace.rootUri,
             serverSettings,
             trackFiles,
             typeStubTargetImportName,
@@ -39,7 +40,7 @@ export class AnalyzerServiceExecutor {
         );
 
         // Setting options causes the analyzer service to re-analyze everything.
-        workspace.service.setOptions(commandLineOptions, workspace.rootUri);
+        workspace.service.setOptions(commandLineOptions);
     }
 
     static async cloneService(
@@ -87,13 +88,13 @@ export class AnalyzerServiceExecutor {
 }
 
 function getEffectiveCommandLineOptions(
-    workspaceRootPath: string,
+    workspaceRootUri: Uri | undefined,
     serverSettings: ServerSettings,
     trackFiles: boolean,
     typeStubTargetImportName?: string,
     pythonEnvironmentName?: string
 ) {
-    const commandLineOptions = new CommandLineOptions(workspaceRootPath, true);
+    const commandLineOptions = new CommandLineOptions(workspaceRootUri, true);
     commandLineOptions.checkOnlyOpenFiles = serverSettings.openFilesOnly;
     commandLineOptions.useLibraryCodeForTypes = serverSettings.useLibraryCodeForTypes;
     commandLineOptions.typeCheckingMode = serverSettings.typeCheckingMode;

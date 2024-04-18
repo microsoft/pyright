@@ -1,8 +1,10 @@
 # This sample tests the type checker's handling of
 # member assignments.
 
+from not_present import NotPresentClass  # type: ignore
 
-class Foo:
+
+class ClassA:
     def __init__(self):
         self.string_list: list[str] = []
 
@@ -10,7 +12,7 @@ class Foo:
         return ""
 
 
-a = Foo()
+a = ClassA()
 
 a.string_list = ["yep"]
 
@@ -46,13 +48,25 @@ a.do_something = lambda: "hello"
 a.do_something = lambda x: 1
 
 
-Foo.do_something = patch2
+ClassA.do_something = patch2
 
 # This should generate an error because of a param count mismatch
-Foo.do_something = patch1
+ClassA.do_something = patch1
 
 
-class Class1:
+class ClassB:
     # This should generate an error because assignment expressions
     # can't be used within a class.
     [(j := i) for i in range(5)]
+
+
+class ClassC:
+    def __init__(self):
+        self.x = NotPresentClass  # type: int
+        self.y: int
+        self.y = NotPresentClass
+        self.z: int = NotPresentClass
+
+        reveal_type(self.x, expected_text="Unknown | int")
+        reveal_type(self.y, expected_text="Unknown | int")
+        reveal_type(self.z, expected_text="Unknown | int")

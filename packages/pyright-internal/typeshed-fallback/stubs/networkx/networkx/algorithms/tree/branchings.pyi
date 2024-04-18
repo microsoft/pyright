@@ -71,6 +71,7 @@ class ArborescenceIterator:
     class Partition:
         mst_weight: float
         partition_dict: dict[Incomplete, Incomplete]
+
     G: Incomplete
     weight: Incomplete
     minimum: Incomplete

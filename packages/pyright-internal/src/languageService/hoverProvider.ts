@@ -42,7 +42,7 @@ import { convertOffsetToPosition, convertPositionToOffset } from '../common/posi
 import { Position, Range, TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ExpressionNode, NameNode, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import {
     getClassAndConstructorTypes,
     getConstructorTooltip,
@@ -152,7 +152,7 @@ export function getVariableTypeText(
 }
 
 export class HoverProvider {
-    private readonly _parseResults: ParseResults | undefined;
+    private readonly _parseResults: ParseFileResults | undefined;
     private readonly _sourceMapper: SourceMapper;
 
     constructor(
@@ -214,7 +214,7 @@ export class HoverProvider {
             return null;
         }
 
-        const node = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, offset);
+        const node = ParseTreeUtils.findNodeByOffset(this._parseResults.parserOutput.parseTree, offset);
         if (node === undefined) {
             return null;
         }
@@ -419,7 +419,7 @@ export class HoverProvider {
         // with the type of the TypedDict key and its docstring, if available.
         doForEachSubtype(type, (subtype) => {
             if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
-                const entry = subtype.details.typedDictEntries?.get(node.value);
+                const entry = subtype.details.typedDictEntries?.knownItems.get(node.value);
                 if (entry) {
                     // If we have already added parts for another declaration (e.g. for a union of TypedDicts that share the same key)
                     // then we need to add a separator to prevent a visual bug.
@@ -431,7 +431,7 @@ export class HoverProvider {
                     const text = '(key) ' + node.value + ': ' + this._evaluator.printType(entry.valueType);
                     this._addResultsPart(parts, text, /* python */ true);
 
-                    const declarations = subtype.details.fields.get(node.value)?.getDeclarations();
+                    const declarations = ClassType.getSymbolTable(subtype).get(node.value)?.getDeclarations();
                     if (declarations !== undefined && declarations?.length !== 0) {
                         // As we are just interested in the docString we don't have to worry about
                         // anything other than the first declaration. There also shouldn't be more

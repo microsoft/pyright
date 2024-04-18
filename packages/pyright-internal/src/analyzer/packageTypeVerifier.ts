@@ -82,21 +82,27 @@ export class PackageTypeVerifier {
     ) {
         const host = new FullAccessHost(_serviceProvider);
         this._configOptions = new ConfigOptions(Uri.empty());
-
-        this._configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
-        this._configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
-
-        // Make sure we have default python version and platform set if the user didn't
-        // specify these on the command line.
         const console = new NullConsole();
-        this._configOptions.ensureDefaultPythonPlatform(host, console);
-        this._configOptions.ensureDefaultPythonVersion(host, console);
+
+        // Make sure we have a default python platform and version.
+        // Allow the command-line parameters to override the normal defaults.
+        if (commandLineOptions.pythonPlatform) {
+            this._configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
+        } else {
+            this._configOptions.ensureDefaultPythonPlatform(host, console);
+        }
+
+        if (commandLineOptions.pythonVersion) {
+            this._configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
+        } else {
+            this._configOptions.ensureDefaultPythonVersion(host, console);
+        }
 
         if (_ignoreExternal) {
             this._configOptions.evaluateUnknownImportsAsAny = true;
         }
 
-        this._execEnv = this._configOptions.findExecEnvironment(Uri.file('.', _serviceProvider.fs().isCaseSensitive));
+        this._execEnv = this._configOptions.findExecEnvironment(Uri.file('.', _serviceProvider));
         this._importResolver = new ImportResolver(this._serviceProvider, this._configOptions, this._host);
         this._program = new Program(this._importResolver, this._configOptions, this._serviceProvider);
     }
@@ -277,7 +283,7 @@ export class PackageTypeVerifier {
                     isExported: true,
                 };
 
-                const parseTree = sourceFile.getParseResults()!.parseTree;
+                const parseTree = sourceFile.getParserOutput()!.parseTree;
                 const moduleScope = getScopeForNode(parseTree)!;
 
                 this._getPublicSymbolsInSymbolTable(
@@ -325,7 +331,7 @@ export class PackageTypeVerifier {
                                     alternateSymbolNames,
                                     module,
                                     fullName,
-                                    symbolType.details.fields,
+                                    ClassType.getSymbolTable(symbolType),
                                     ScopeType.Class
                                 );
                             }
@@ -390,7 +396,7 @@ export class PackageTypeVerifier {
             const sourceFile = this._program.getBoundSourceFile(modulePath);
 
             if (sourceFile) {
-                const parseTree = sourceFile.getParseResults()!.parseTree;
+                const parseTree = sourceFile.getParserOutput()!.parseTree;
                 const moduleScope = getScopeForNode(parseTree)!;
 
                 this._getTypeKnownStatusForSymbolTable(
@@ -1143,7 +1149,7 @@ export class PackageTypeVerifier {
         const symbolTableTypeKnownStatus = this._getTypeKnownStatusForSymbolTable(
             report,
             type.details.fullName,
-            type.details.fields,
+            ClassType.getSymbolTable(type),
             ScopeType.Class,
             publicSymbols,
             (name: string, symbol: Symbol) => {
@@ -1153,7 +1159,7 @@ export class PackageTypeVerifier {
                 if (!symbol.hasTypedDeclarations()) {
                     for (const mroClass of type.details.mro.slice(1)) {
                         if (isClass(mroClass)) {
-                            const overrideSymbol = mroClass.details.fields.get(name);
+                            const overrideSymbol = ClassType.getSymbolTable(mroClass).get(name);
                             if (overrideSymbol && overrideSymbol.hasTypedDeclarations()) {
                                 return overrideSymbol;
                             }
@@ -1483,7 +1489,7 @@ export class PackageTypeVerifier {
                 ? resolvedPath.getDirectory()
                 : importResult.packageDirectory ?? Uri.empty();
             let isModuleSingleFile = false;
-            if (resolvedPath && stripFileExtension(resolvedPath.fileName) !== '__init__') {
+            if (resolvedPath && !resolvedPath.isEmpty() && stripFileExtension(resolvedPath.fileName) !== '__init__') {
                 isModuleSingleFile = true;
             }
 

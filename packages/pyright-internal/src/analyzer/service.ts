@@ -17,6 +17,7 @@ import { CancellationProvider, DefaultCancellationProvider } from '../common/can
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, matchFileSpecs } from '../common/configOptions';
 import { ConsoleInterface, LogLevel, StandardConsole, log } from '../common/console';
+import { isString } from '../common/core';
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction } from '../common/editAction';
 import { EditableProgram, ProgramView } from '../common/extensibility';
@@ -24,9 +25,9 @@ import { FileSystem } from '../common/fileSystem';
 import { FileWatcher, FileWatcherEventType, ignoredWatchEventFunction } from '../common/fileWatcher';
 import { Host, HostFactory, NoAccessHost } from '../common/host';
 import { defaultStubsDirectory } from '../common/pathConsts';
-import { getFileName, isRootedDiskPath } from '../common/pathUtils';
+import { getFileName, isRootedDiskPath, normalizeSlashes } from '../common/pathUtils';
+import { ServiceKeys } from '../common/serviceKeys';
 import { ServiceProvider } from '../common/serviceProvider';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
 import { Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
@@ -52,7 +53,6 @@ import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor }
 import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import { IPythonMode } from './sourceFile';
-import { TypeEvaluator } from './typeEvaluatorTypes';
 
 export const configFileNames = ['pyrightconfig.json'];
 export const pyprojectTomlName = 'pyproject.toml';
@@ -61,7 +61,13 @@ export const pyprojectTomlName = 'pyproject.toml';
 // the analyzer on any files that have not yet been analyzed?
 const _userActivityBackoffTimeInMs = 250;
 
-const _gitDirectory = '/.git/';
+const _gitDirectory = normalizeSlashes('/.git/');
+
+export interface LibraryReanalysisTimeProvider {
+    (): number;
+    libraryReanalysisStarted?: () => void;
+    libraryUpdated?: (cancelled: boolean) => void;
+}
 
 export interface AnalyzerServiceOptions {
     console?: ConsoleInterface;
@@ -72,7 +78,7 @@ export interface AnalyzerServiceOptions {
     maxAnalysisTime?: MaxAnalysisTime;
     backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory;
     cancellationProvider?: CancellationProvider;
-    libraryReanalysisTimeProvider?: () => number;
+    libraryReanalysisTimeProvider?: LibraryReanalysisTimeProvider;
     serviceId?: string;
     skipScanningUserFiles?: boolean;
     fileSystem?: FileSystem;
@@ -136,8 +142,7 @@ export class AnalyzerService {
         this._options.hostFactory = options.hostFactory ?? (() => new NoAccessHost());
 
         this._options.configOptions =
-            options.configOptions ??
-            new ConfigOptions(Uri.file(process.cwd(), this._serviceProvider.fs().isCaseSensitive));
+            options.configOptions ?? new ConfigOptions(Uri.file(process.cwd(), this._serviceProvider));
         const importResolver = this._options.importResolverFactory(
             this._serviceProvider,
             this._options.configOptions,
@@ -266,11 +271,11 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.setCompletionCallback(callback);
     }
 
-    setOptions(commandLineOptions: CommandLineOptions, newRoot?: Uri): void {
+    setOptions(commandLineOptions: CommandLineOptions): void {
         this._commandLineOptions = commandLineOptions;
 
         const host = this._hostFactory();
-        const configOptions = this._getConfigOptions(host, commandLineOptions, newRoot);
+        const configOptions = this._getConfigOptions(host, commandLineOptions);
 
         if (configOptions.pythonPath) {
             // Make sure we have default python environment set.
@@ -346,7 +351,11 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.addInterimFile(uri);
     }
 
-    getParseResult(uri: Uri) {
+    getParserOutput(uri: Uri) {
+        return this._program.getParserOutput(uri);
+    }
+
+    getParseResults(uri: Uri) {
         return this._program.getParseResults(uri);
     }
 
@@ -356,10 +365,6 @@ export class AnalyzerService {
 
     getTextOnRange(fileUri: Uri, range: Range, token: CancellationToken) {
         return this._program.getTextOnRange(fileUri, range, token);
-    }
-
-    getEvaluator(): TypeEvaluator | undefined {
-        return this._program.evaluator;
     }
 
     run<T>(callback: (p: ProgramView) => T, token: CancellationToken): T {
@@ -507,10 +512,14 @@ export class AnalyzerService {
 
     // Calculates the effective options based on the command-line options,
     // an optional config file, and default values.
-    private _getConfigOptions(host: Host, commandLineOptions: CommandLineOptions, possibleRoot?: Uri): ConfigOptions {
-        const executionRootUri =
-            possibleRoot ??
-            Uri.file(commandLineOptions.executionRoot, this.fs.isCaseSensitive, /* checkRelative */ true);
+    private _getConfigOptions(host: Host, commandLineOptions: CommandLineOptions): ConfigOptions {
+        const optionRoot = commandLineOptions.executionRoot;
+        const executionRootUri = Uri.is(optionRoot)
+            ? optionRoot
+            : isString(optionRoot)
+            ? Uri.file(optionRoot, this.serviceProvider, /* checkRelative */ true)
+            : Uri.defaultWorkspace(this.serviceProvider);
+
         const executionRoot = this.fs.realCasePath(executionRootUri);
         let projectRoot = executionRoot;
         let configFilePath: Uri | undefined;
@@ -522,7 +531,7 @@ export class AnalyzerService {
             // or a file.
             configFilePath = this.fs.realCasePath(
                 isRootedDiskPath(commandLineOptions.configFilePath)
-                    ? Uri.file(commandLineOptions.configFilePath, this.fs.isCaseSensitive, /* checkRelative */ true)
+                    ? Uri.file(commandLineOptions.configFilePath, this.serviceProvider, /* checkRelative */ true)
                     : projectRoot.resolvePaths(commandLineOptions.configFilePath)
             );
             if (!this.fs.existsSync(configFilePath)) {
@@ -583,7 +592,7 @@ export class AnalyzerService {
                 `Setting pythonPath for service "${this._instanceName}": ` + `"${commandLineOptions.pythonPath}"`
             );
             configOptions.pythonPath = this.fs.realCasePath(
-                Uri.file(commandLineOptions.pythonPath, this.fs.isCaseSensitive, /* checkRelative */ true)
+                Uri.file(commandLineOptions.pythonPath, this.serviceProvider, /* checkRelative */ true)
             );
         }
 
@@ -659,7 +668,7 @@ export class AnalyzerService {
                 this._typeCheckingMode,
                 this.serviceProvider,
                 host,
-                commandLineOptions.diagnosticSeverityOverrides
+                commandLineOptions
             );
 
             const configFileDir = this._configFileUri!.getDirectory();
@@ -698,7 +707,7 @@ export class AnalyzerService {
             configOptions.include = [];
             commandLineOptions.includeFileSpecsOverride.forEach((include) => {
                 configOptions.include.push(
-                    getFileSpec(Uri.file(include, this.fs.isCaseSensitive, /* checkRelative */ true), '.')
+                    getFileSpec(Uri.file(include, this.serviceProvider, /* checkRelative */ true), '.')
                 );
             });
         }
@@ -1117,7 +1126,7 @@ export class AnalyzerService {
     }
 
     private _matchFiles(include: FileSpec[], exclude: FileSpec[]): Uri[] {
-        const envMarkers = [['bin', 'activate'], ['Scripts', 'activate'], ['pyvenv.cfg']];
+        const envMarkers = [['bin', 'activate'], ['Scripts', 'activate'], ['pyvenv.cfg'], ['conda-meta']];
         const results: Uri[] = [];
         const startTime = Date.now();
         const longOperationLimitInSec = 10;
@@ -1263,7 +1272,7 @@ export class AnalyzerService {
                         return;
                     }
 
-                    let uri = Uri.file(path, this.fs.isCaseSensitive, /* checkRelative */ true);
+                    let uri = Uri.file(path, this.serviceProvider, /* checkRelative */ true);
 
                     // Make sure path is the true case.
                     uri = this.fs.realCasePath(uri);
@@ -1449,7 +1458,7 @@ export class AnalyzerService {
                         return;
                     }
 
-                    const uri = Uri.file(path, this.fs.isCaseSensitive, /* checkRelative */ true);
+                    const uri = Uri.file(path, this.serviceProvider, /* checkRelative */ true);
 
                     if (!this._shouldHandleLibraryFileWatchChanges(uri, watchList)) {
                         return;
@@ -1505,7 +1514,9 @@ export class AnalyzerService {
         if (this._libraryReanalysisTimer) {
             clearTimeout(this._libraryReanalysisTimer);
             this._libraryReanalysisTimer = undefined;
-            this._backgroundAnalysisProgram?.libraryUpdated();
+
+            const handled = this._backgroundAnalysisProgram?.libraryUpdated();
+            this._options.libraryReanalysisTimeProvider?.libraryUpdated?.(handled);
         }
     }
 
@@ -1517,7 +1528,8 @@ export class AnalyzerService {
 
         this._clearLibraryReanalysisTimer();
 
-        const backOffTimeInMS = this._options.libraryReanalysisTimeProvider?.();
+        const reanalysisTimeProvider = this._options.libraryReanalysisTimeProvider;
+        const backOffTimeInMS = reanalysisTimeProvider?.();
         if (!backOffTimeInMS) {
             // We don't support library reanalysis.
             return;
@@ -1542,6 +1554,7 @@ export class AnalyzerService {
             this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
 
             // No more pending changes.
+            reanalysisTimeProvider!.libraryReanalysisStarted?.();
             this._pendingLibraryChanges.changesOnly = true;
         }, backOffTimeInMS);
     }

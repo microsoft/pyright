@@ -1,48 +1,40 @@
 # This sample tests the handling of variadic type variables used
 # within Callable types.
 
-# pyright: reportMissingModuleSource=false
-
-from typing import Any, Callable, Protocol, Union
-from typing_extensions import TypeVarTuple, Unpack
+from typing import Any, Callable, Protocol
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeVarTuple,
+    Unpack,
+)
 
 _Xs = TypeVarTuple("_Xs")
 
 
-def func1(func: Callable[[int, Unpack[_Xs]], Any]) -> Callable[[Unpack[_Xs]], int]:
-    ...
+def func1(func: Callable[[int, Unpack[_Xs]], Any]) -> Callable[[Unpack[_Xs]], int]: ...
 
 
-def func2(func: Callable[[Unpack[_Xs]], int]) -> Callable[[Unpack[_Xs]], int]:
-    ...
+def func2(func: Callable[[Unpack[_Xs]], int]) -> Callable[[Unpack[_Xs]], int]: ...
 
 
-def callback1(a: int) -> int:
-    ...
+def callback1(a: int) -> int: ...
 
 
-def callback2(a: str) -> int:
-    ...
+def callback2(a: str) -> int: ...
 
 
-def callback3(a: str) -> None:
-    ...
+def callback3(a: str) -> None: ...
 
 
-def callback4(a: int, b: complex, c: str) -> int:
-    ...
+def callback4(a: int, b: complex, c: str) -> int: ...
 
 
-def callback5(a: int, *args: Unpack[_Xs]) -> tuple[Unpack[_Xs]]:
-    ...
+def callback5(a: int, *args: Unpack[_Xs]) -> tuple[Unpack[_Xs]]: ...
 
 
-def callback6(a: int, *args: Any) -> int:
-    ...
+def callback6(a: int, *args: Any) -> int: ...
 
 
-def callback7(a: int, b: str, c: str, d: str, *args: Any) -> int:
-    ...
+def callback7(a: int, b: str, c: str, d: str, *args: Any) -> int: ...
 
 
 c1 = func1(callback1)
@@ -84,12 +76,10 @@ reveal_type(c7_2, expected_text="(int, str, str, str, *Any) -> int")
 
 
 class CallbackA(Protocol[Unpack[_Xs]]):
-    def __call__(self, a: int, *args: Unpack[_Xs]) -> Any:
-        ...
+    def __call__(self, a: int, *args: Unpack[_Xs]) -> Any: ...
 
 
-def func3(func: CallbackA[Unpack[_Xs]]) -> Callable[[Unpack[_Xs]], int]:
-    ...
+def func3(func: CallbackA[Unpack[_Xs]]) -> Callable[[Unpack[_Xs]], int]: ...
 
 
 d1 = func3(callback1)
@@ -113,12 +103,10 @@ d4_2 = d4(3j)
 d4_3 = d4(3j, "hi", 4)
 
 
-def func4(func: Callable[[Unpack[_Xs], int], int]) -> Callable[[Unpack[_Xs]], int]:
-    ...
+def func4(func: Callable[[Unpack[_Xs], int], int]) -> Callable[[Unpack[_Xs]], int]: ...
 
 
-def callback8(a: int, b: str, c: complex, d: int) -> int:
-    ...
+def callback8(a: int, b: str, c: complex, d: int) -> int: ...
 
 
 d5_1 = func4(callback1)

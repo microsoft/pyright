@@ -32,7 +32,7 @@ import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
 import { assert } from '../common/debug';
 import { ProgramView, ReferenceUseCase, SymbolUsageProvider } from '../common/extensibility';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
+import { ServiceKeys } from '../common/serviceKeys';
 import { TextRange } from '../common/textRange';
 import { ImportAsNode, NameNode, ParseNode, ParseNodeType, StringListNode, StringNode } from '../parser/parseNodes';
 
@@ -216,7 +216,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             // Add declarations from files that implicitly import the target file.
             const implicitlyImportedBy = collectImportedByCells(program, sourceFileInfo);
             implicitlyImportedBy.forEach((implicitImport) => {
-                const parseTree = program.getParseResults(implicitImport.sourceFile.getUri())?.parseTree;
+                const parseTree = program.getParseResults(implicitImport.sourceFile.getUri())?.parserOutput.parseTree;
                 if (parseTree) {
                     const scope = AnalyzerNodeInfo.getScope(parseTree);
                     const symbol = scope?.lookUpSymbol(node.value);

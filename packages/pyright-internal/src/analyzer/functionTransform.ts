@@ -128,7 +128,10 @@ function applyTotalOrderingTransform(
         FunctionType.addParameter(methodToAdd, objParam);
         methodToAdd.details.declaredReturnType = boolType;
 
-        classType.details.fields.set(methodName, Symbol.createWithType(SymbolFlags.ClassMember, methodToAdd));
+        ClassType.getSymbolTable(classType).set(
+            methodName,
+            Symbol.createWithType(SymbolFlags.ClassMember, methodToAdd)
+        );
     });
 
     return result;

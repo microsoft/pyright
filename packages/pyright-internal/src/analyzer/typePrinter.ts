@@ -1090,7 +1090,7 @@ function printFunctionPartsInternal(
             printTypeFlags & PrintTypeFlags.ExpandTypedDictArgs &&
             param.type.category === TypeCategory.Class
         ) {
-            param.type.details.typedDictEntries!.forEach((v, k) => {
+            param.type.details.typedDictEntries!.knownItems.forEach((v, k) => {
                 const valueTypeString = printTypeInternal(
                     v.valueType,
                     printTypeFlags,

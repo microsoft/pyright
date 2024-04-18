@@ -16,8 +16,8 @@ import { ProgramView } from '../common/extensibility';
 import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { Uri } from '../common/uri/uri';
 import { encodeUri } from '../common/uri/uriUtils';
-import { ParseResults } from '../parser/parser';
-import { IndexSymbolData, SymbolIndexer } from './symbolIndexer';
+import { ParseFileResults } from '../parser/parser';
+import { IndexOptions, IndexSymbolData, SymbolIndexer } from './symbolIndexer';
 
 export function convertToFlatSymbols(
     program: ProgramView,
@@ -34,12 +34,13 @@ export function convertToFlatSymbols(
 }
 
 export class DocumentSymbolProvider {
-    private _parseResults: ParseResults | undefined;
+    private _parseResults: ParseFileResults | undefined;
 
     constructor(
         protected readonly program: ProgramView,
         protected readonly uri: Uri,
         private readonly _supportHierarchicalDocumentSymbol: boolean,
+        private readonly _indexOptions: IndexOptions,
         private readonly _token: CancellationToken
     ) {
         this._parseResults = this.program.getParseResults(this.uri);
@@ -65,12 +66,12 @@ export class DocumentSymbolProvider {
             return symbolList;
         }
 
-        const fileInfo = getFileInfo(parseResults.parseTree);
+        const fileInfo = getFileInfo(parseResults.parserOutput.parseTree);
         if (!fileInfo) {
             return symbolList;
         }
 
-        const indexSymbolData = SymbolIndexer.indexSymbols(fileInfo, parseResults, this._token);
+        const indexSymbolData = SymbolIndexer.indexSymbols(fileInfo, parseResults, this._indexOptions, this._token);
         this.appendDocumentSymbolsRecursive(indexSymbolData, symbolList);
 
         return symbolList;

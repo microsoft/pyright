@@ -2,7 +2,7 @@
 # in PEP 696 (default types for TypeVarLike).
 
 from typing import Any, ParamSpec, TypeVar, Unpack
-from typing_extensions import TypeVarTuple
+from typing_extensions import TypeVarTuple # pyright: ignore[reportMissingModuleSource]
 
 T1 = TypeVar("T1")
 Ts1 = TypeVarTuple("Ts1")

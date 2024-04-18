@@ -2,7 +2,10 @@
 # in generic type aliases and with suffixes.
 
 from typing import Callable, Generic, TypeVar
-from typing_extensions import TypeVarTuple, Unpack
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeVarTuple,
+    Unpack,
+)
 
 
 Ts = TypeVarTuple("Ts")
@@ -24,8 +27,7 @@ TailRec = Call[Unpack[Ts]] | Return[T]
 
 def tail_rec(
     fn: Callable[[Unpack[Ts]], TailRec[Unpack[Ts], T]]
-) -> Callable[[Unpack[Ts]], T]:
-    ...
+) -> Callable[[Unpack[Ts]], T]: ...
 
 
 @tail_rec

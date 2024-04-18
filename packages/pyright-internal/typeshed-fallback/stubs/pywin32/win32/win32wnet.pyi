@@ -29,7 +29,8 @@ def WNetGetLastError() -> tuple[Incomplete, Incomplete, Incomplete]: ...
 def WNetGetResourceParent(NetResource: _win32typing.PyNETRESOURCE, /) -> _win32typing.PyNETRESOURCE: ...
 def WNetGetConnection(connection: str | None = ..., /) -> str: ...
 
-NCB = _win32typing.PyNCB
-NCBType = _win32typing.PyNCB
 NETRESOURCE = _win32typing.PyNETRESOURCE
+NCB = _win32typing.PyNCB
+# old "deprecated" names, before types could create instances.
 NETRESOURCEType = _win32typing.PyNETRESOURCE
+NCBType = _win32typing.PyNCB

@@ -33,11 +33,11 @@ import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { CallNode, NameNode, ParseNodeType } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import { getDocumentationPartsForTypeAndDecl, getFunctionDocStringFromType } from './tooltipUtils';
 
 export class SignatureHelpProvider {
-    private readonly _parseResults: ParseResults | undefined;
+    private readonly _parseResults: ParseFileResults | undefined;
     private readonly _sourceMapper: SourceMapper;
 
     constructor(
@@ -73,7 +73,7 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        let node = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, offset);
+        let node = ParseTreeUtils.findNodeByOffset(this._parseResults.parserOutput.parseTree, offset);
 
         // See if we can get to a "better" node by backing up a few columns.
         // A "better" node is defined as one that's deeper than the current
@@ -90,7 +90,7 @@ export class SignatureHelpProvider {
             if (ch === ',' || ch === '(') {
                 break;
             }
-            const curNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, curOffset);
+            const curNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parserOutput.parseTree, curOffset);
             if (curNode && curNode !== initialNode) {
                 if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
                     node = curNode;
@@ -184,7 +184,7 @@ export class SignatureHelpProvider {
                 const sig = signatures[prevActiveSignature];
                 if (isActive(sig)) {
                     activeSignature = prevActiveSignature;
-                    activeParameter = sig.activeParameter;
+                    activeParameter = sig.activeParameter ?? undefined;
                 }
             }
         }

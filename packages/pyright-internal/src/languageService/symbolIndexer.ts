@@ -11,15 +11,19 @@ import { CancellationToken, CompletionItemKind, SymbolKind } from 'vscode-langua
 import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType } from '../analyzer/declaration';
-import { getLastTypedDeclaredForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
+import { getLastTypedDeclarationForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { getSymbolKind } from '../common/lspUtils';
-import { convertOffsetsToRange } from '../common/positionUtils';
+import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
 import { Range } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 import { convertSymbolKindToCompletionItemKind } from './autoImporter';
+
+export interface IndexOptions {
+    includeAliases?: boolean;
+}
 
 export interface IndexAliasData {
     readonly originalName: string;
@@ -42,7 +46,8 @@ export interface IndexSymbolData {
 export class SymbolIndexer {
     static indexSymbols(
         fileInfo: AnalyzerFileInfo,
-        parseResults: ParseResults,
+        parseResults: ParseFileResults,
+        indexOptions: IndexOptions,
         token: CancellationToken
     ): IndexSymbolData[] {
         // Here are the rule of what symbols are indexed for a file.
@@ -53,7 +58,14 @@ export class SymbolIndexer {
         //    __all__ to make sure we don't include too many symbols in the index.
 
         const indexSymbolData: IndexSymbolData[] = [];
-        collectSymbolIndexData(fileInfo, parseResults, parseResults.parseTree, indexSymbolData, token);
+        collectSymbolIndexData(
+            fileInfo,
+            parseResults,
+            parseResults.parserOutput.parseTree,
+            indexOptions,
+            indexSymbolData,
+            token
+        );
 
         return indexSymbolData;
     }
@@ -61,8 +73,9 @@ export class SymbolIndexer {
 
 function collectSymbolIndexData(
     fileInfo: AnalyzerFileInfo,
-    parseResults: ParseResults,
+    parseResults: ParseFileResults,
     node: AnalyzerNodeInfo.ScopedNode,
+    indexOptions: IndexOptions,
     indexSymbolData: IndexSymbolData[],
     token: CancellationToken
 ) {
@@ -80,7 +93,7 @@ function collectSymbolIndexData(
         }
 
         // Prefer declarations with a defined type.
-        let declaration = getLastTypedDeclaredForSymbol(symbol);
+        let declaration = getLastTypedDeclarationForSymbol(symbol);
 
         // Fall back to declarations without a type.
         if (!declaration && symbol.hasDeclarations()) {
@@ -91,7 +104,7 @@ function collectSymbolIndexData(
             return;
         }
 
-        if (DeclarationType.Alias === declaration.type && !shouldAliasBeIndexed(declaration)) {
+        if (DeclarationType.Alias === declaration.type && !shouldAliasBeIndexed(declaration, indexOptions)) {
             return;
         }
 
@@ -101,6 +114,7 @@ function collectSymbolIndexData(
             fileInfo,
             parseResults,
             declaration,
+            indexOptions,
             isVisibleExternally(symbol),
             name,
             indexSymbolData,
@@ -111,8 +125,9 @@ function collectSymbolIndexData(
 
 function collectSymbolIndexDataForName(
     fileInfo: AnalyzerFileInfo,
-    parseResults: ParseResults,
+    parseResults: ParseFileResults,
     declaration: Declaration,
+    indexOptions: IndexOptions,
     externallyVisible: boolean,
     name: string,
     indexSymbolData: IndexSymbolData[],
@@ -123,12 +138,12 @@ function collectSymbolIndexDataForName(
         return;
     }
 
-    const selectionRange = declaration.range;
+    let selectionRange = declaration.range;
     let range = selectionRange;
     const children: IndexSymbolData[] = [];
 
     if (declaration.type === DeclarationType.Class || declaration.type === DeclarationType.Function) {
-        collectSymbolIndexData(fileInfo, parseResults, declaration.node, children, token);
+        collectSymbolIndexData(fileInfo, parseResults, declaration.node, indexOptions, children, token);
 
         range = convertOffsetsToRange(
             declaration.node.start,
@@ -137,8 +152,19 @@ function collectSymbolIndexDataForName(
         );
     }
 
-    if (DeclarationType.Alias === declaration.type && !shouldAliasBeIndexed(declaration)) {
-        return;
+    if (DeclarationType.Alias === declaration.type) {
+        if (!shouldAliasBeIndexed(declaration, indexOptions)) {
+            return;
+        }
+
+        // The default range for a module alias is the first character of the module's file.
+        // Replace that with the range of the alias token.
+        if (declaration.node.nodeType === ParseNodeType.ImportAs && declaration.node.alias) {
+            selectionRange = range = convertTextRangeToRange(
+                declaration.node.alias.token,
+                parseResults.tokenizerOutput.lines
+            );
+        }
     }
 
     const data: IndexSymbolData = {
@@ -155,7 +181,11 @@ function collectSymbolIndexDataForName(
     indexSymbolData.push(data);
 }
 
-function shouldAliasBeIndexed(declaration: AliasDeclaration) {
+function shouldAliasBeIndexed(declaration: AliasDeclaration, indexOptions: IndexOptions) {
+    if (!indexOptions.includeAliases) {
+        return false;
+    }
+
     // Only allow import statements with an alias (`import module as alias` or
     // `from module import symbol as alias`), since the alias is a symbol specific
     // to the importing file.

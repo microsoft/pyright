@@ -205,6 +205,10 @@ export interface TypeResult<T extends Type = Type> {
     // corresponding __getattr__?
     isAsymmetricAccessor?: boolean;
 
+    // For member access operations that are 'set', this is the narrowed
+    // type when considering the declared type of the member.
+    narrowedTypeForSet?: Type | undefined;
+
     // Is the type wrapped in a "Required", "NotRequired" or "ReadOnly" class?
     isRequired?: boolean;
     isNotRequired?: boolean;
@@ -303,6 +307,7 @@ export interface ValidateArgTypeParams {
     paramType: Type;
     requiresTypeVarMatching: boolean;
     argument: FunctionArgument;
+    isDefaultArg?: boolean;
     argType?: Type | undefined;
     errorNode: ExpressionNode;
     paramName?: string | undefined;
@@ -411,6 +416,10 @@ export interface ClassMemberLookup {
     // to __get__ and __set__ types?
     isAsymmetricAccessor: boolean;
 
+    // For member access operations that are 'set', this is the narrowed
+    // type when considering the declared type of the member.
+    narrowedTypeForSet?: Type;
+
     // Deprecation messages related to magic methods invoked via the member access.
     memberAccessDeprecationInfo?: MemberAccessDeprecationInfo;
 }
@@ -441,6 +450,12 @@ export interface ValidateTypeArgsOptions {
     allowParamSpec?: boolean;
     allowTypeArgList?: boolean;
     allowUnpackedTuples?: boolean;
+}
+
+export interface MapSubtypesOptions {
+    conditionFilter?: TypeCondition[] | undefined;
+    sortSubtypes?: boolean;
+    expandCallback?: (type: Type) => Type;
 }
 
 export interface TypeEvaluator {
@@ -518,7 +533,7 @@ export interface TypeEvaluator {
     makeTopLevelTypeVarsConcrete: (type: Type, makeParamSpecsConcrete?: boolean) => Type;
     mapSubtypesExpandTypeVars: (
         type: Type,
-        conditionFilter: TypeCondition[] | undefined,
+        options: MapSubtypesOptions | undefined,
         callback: (expandedSubtype: Type, unexpandedSubtype: Type) => Type | undefined
     ) => Type;
     isTypeSubsumedByOtherType: (type: Type, otherType: Type, allowAnyToSubsume: boolean) => boolean;
@@ -568,7 +583,7 @@ export interface TypeEvaluator {
         baseType: ClassType | undefined,
         memberType: FunctionType | OverloadedFunctionType,
         memberClass?: ClassType,
-        treatConstructorAsClassMember?: boolean,
+        treatConstructorAsClassMethod?: boolean,
         selfType?: ClassType | TypeVarType,
         diag?: DiagnosticAddendum,
         recursionCount?: number

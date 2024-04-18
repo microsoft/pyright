@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 
 import _win32typing
-from win32.lib.pywintypes import error as error
+from win32.lib.pywintypes import TimeType, error as error
 
 def InternetSetCookie(url: str, lpszCookieName: str, data: str, /) -> None: ...
 def InternetGetCookie(Url: str, CookieName: str, /) -> str: ...
@@ -52,8 +52,8 @@ def CommitUrlCacheEntry(
     UrlName,
     LocalFileName,
     CacheEntryType,
-    ExpireTime: _win32typing.PyTime | None = ...,
-    LastModifiedTime: _win32typing.PyTime | None = ...,
+    ExpireTime: TimeType | None = ...,
+    LastModifiedTime: TimeType | None = ...,
     HeaderInfo: Incomplete | None = ...,
     OriginalUrl: Incomplete | None = ...,
 ): ...

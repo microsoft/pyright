@@ -116,10 +116,6 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         }
     }
 
-    if (positionOnlyIndex >= 0) {
-        result.firstPositionOrKeywordIndex = positionOnlyIndex + 1;
-    }
-
     for (let i = 0; i < positionOnlyIndex; i++) {
         if (type.details.parameters[i].hasDefault) {
             break;
@@ -248,7 +244,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                 }
 
                 const typedDictType = paramType;
-                paramType.details.typedDictEntries.forEach((entry, name) => {
+                paramType.details.typedDictEntries.knownItems.forEach((entry, name) => {
                     const specializedParamType = partiallySpecializeType(entry.valueType, typedDictType);
 
                     addVirtualParameter(
@@ -263,6 +259,22 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                         specializedParamType
                     );
                 });
+
+                if (paramType.details.typedDictEntries.extraItems) {
+                    addVirtualParameter(
+                        {
+                            category: ParameterCategory.KwargsDict,
+                            name: 'kwargs',
+                            type: paramType.details.typedDictEntries.extraItems.valueType,
+                            hasDeclaredType: true,
+                            hasDefault: false,
+                        },
+                        index,
+                        paramType.details.typedDictEntries.extraItems.valueType
+                    );
+
+                    result.kwargsIndex = result.params.length - 1;
+                }
 
                 result.hasUnpackedTypedDict = true;
                 result.unpackedKwargsTypedDictType = paramType;
@@ -309,6 +321,11 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         ) {
             result.paramSpec = TypeVarType.cloneForParamSpecAccess(secondLastParam.type, undefined);
         }
+    }
+
+    result.firstPositionOrKeywordIndex = result.params.findIndex((p) => p.source !== ParameterSource.PositionOnly);
+    if (result.firstPositionOrKeywordIndex < 0) {
+        result.firstPositionOrKeywordIndex = result.params.length;
     }
 
     return result;

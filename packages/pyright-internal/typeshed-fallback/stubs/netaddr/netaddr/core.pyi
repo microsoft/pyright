@@ -1,13 +1,10 @@
-from _typeshed import Incomplete, SupportsWrite
+from _typeshed import SupportsWrite
 from collections.abc import Iterator, Mapping
 from typing import Final
 
 BIG_ENDIAN_PLATFORM: bool
-P: Final = 1
 INET_PTON: Final = 1
-Z: Final = 2
 ZEROFILL: Final = 2
-N: Final = 4
 NOHOST: Final = 4
 INET_ATON: Final = 8
 
@@ -15,10 +12,8 @@ class AddrFormatError(Exception): ...
 class AddrConversionError(Exception): ...
 class NotRegisteredError(Exception): ...
 
-def num_bits(int_val: int) -> int: ...
-
 class Subscriber:
-    def update(self, data: Incomplete) -> None: ...
+    def update(self, data) -> None: ...
 
 class PrettyPrinter(Subscriber):
     fh: SupportsWrite[str]

@@ -251,7 +251,7 @@ export function assignTypeToTypeVar(
     if (!curWideTypeBound && !destType.details.isSynthesizedSelf) {
         curWideTypeBound = destType.details.boundType;
     }
-    const curNarrowTypeBound = curEntry?.narrowBound;
+    let curNarrowTypeBound = curEntry?.narrowBound;
     let newNarrowTypeBound = curNarrowTypeBound;
     let newWideTypeBound = curWideTypeBound;
     const diagAddendum = diag ? new DiagnosticAddendum() : undefined;
@@ -383,8 +383,15 @@ export function assignTypeToTypeVar(
         if (!curNarrowTypeBound || isTypeSame(destType, curNarrowTypeBound)) {
             // There was previously no narrow bound. We've now established one.
             newNarrowTypeBound = adjSrcType;
-        } else if (!isTypeSame(curNarrowTypeBound, adjSrcType, {}, recursionCount)) {
-            if (isAnyOrUnknown(adjSrcType) && curEntry.tupleTypes) {
+        } else if (isTypeSame(curNarrowTypeBound, adjSrcType, {}, recursionCount)) {
+            // If this is an invariant context and there is currently no wide type bound
+            // established, use the "no literals" version of the narrow type bounds rather
+            // than a version that has literals.
+            if (!newWideTypeBound && isInvariant && curEntry?.narrowBoundNoLiterals) {
+                newNarrowTypeBound = curEntry.narrowBoundNoLiterals;
+            }
+        } else {
+            if (isAnyOrUnknown(adjSrcType) && curEntry?.tupleTypes) {
                 // Handle the tuple case specially. If Any or Unknown is assigned
                 // during the construction of a tuple, the resulting tuple type must
                 // be tuple[Any, ...], which is compatible with any tuple.
@@ -474,6 +481,14 @@ export function assignTypeToTypeVar(
                     newNarrowTypeBound = widenedType;
                 } else {
                     const objectType = evaluator.getObjectType();
+
+                    // If this is an invariant context and there is currently no wide type bound
+                    // established, use the "no literals" version of the narrow type bounds rather
+                    // than a version that has literals.
+                    if (!newWideTypeBound && isInvariant && curEntry?.narrowBoundNoLiterals) {
+                        curNarrowTypeBound = curEntry.narrowBoundNoLiterals;
+                    }
+
                     const curSolvedNarrowTypeBound = applySolvedTypeVars(curNarrowTypeBound, typeVarContext);
 
                     // In some extreme edge cases, the narrow type bound can become
@@ -546,6 +561,10 @@ export function assignTypeToTypeVar(
                 }
             }
         }
+    }
+
+    if (!newWideTypeBound && isInvariant) {
+        newWideTypeBound = newNarrowTypeBound;
     }
 
     // If there's a bound type, make sure the source is assignable to it.
@@ -921,10 +940,11 @@ function assignTypeToParamSpec(
             });
             newFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
             newFunction.details.constructorTypeVarScopeId = srcType.details.constructorTypeVarScopeId;
-            newFunction.details.paramSpecTypeVarScopeId = srcType.details.paramSpecTypeVarScopeId;
+            FunctionType.addHigherOrderTypeVarScopeIds(newFunction, srcType.details.higherOrderTypeVarScopeIds);
             newFunction.details.docString = srcType.details.docString;
             newFunction.details.deprecatedMessage = srcType.details.deprecatedMessage;
             newFunction.details.paramSpec = srcType.details.paramSpec;
+            newFunction.details.methodClass = srcType.details.methodClass;
 
             let updateContextWithNewFunction = false;
 
@@ -934,30 +954,41 @@ function assignTypeToParamSpec(
                 // for comparison purposes.
                 const existingFunction = convertParamSpecValueToType(existingType);
 
-                // Should we narrow the type?
-                if (
-                    evaluator.assignType(
-                        existingFunction,
-                        newFunction,
-                        /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.SkipFunctionReturnTypeCheck,
-                        recursionCount
-                    )
-                ) {
+                const isNewNarrower = evaluator.assignType(
+                    existingFunction,
+                    newFunction,
+                    /* diag */ undefined,
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
+                    AssignTypeFlags.SkipFunctionReturnTypeCheck,
+                    recursionCount
+                );
+
+                const isNewWider = evaluator.assignType(
+                    newFunction,
+                    existingFunction,
+                    /* diag */ undefined,
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
+                    AssignTypeFlags.SkipFunctionReturnTypeCheck,
+                    recursionCount
+                );
+
+                // Should we widen the type?
+                if (isNewNarrower && isNewWider) {
+                    // The new type is both a supertype and a subtype of the existing type.
+                    // That means the two types are the same or one (or both) have the type
+                    // "..." (which is the ParamSpec equivalent of "Any"). If only one has
+                    // the type "...", we'll prefer the other one. This is analogous to
+                    // what we do with regular TypeVars, where we prefer non-Any values.
+                    if (!FunctionType.shouldSkipArgsKwargsCompatibilityCheck(newFunction)) {
+                        updateContextWithNewFunction = true;
+                    } else {
+                        return;
+                    }
+                } else if (isNewWider) {
                     updateContextWithNewFunction = true;
-                } else if (
-                    evaluator.assignType(
-                        newFunction,
-                        existingFunction,
-                        /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.SkipFunctionReturnTypeCheck,
-                        recursionCount
-                    )
-                ) {
+                } else if (isNewNarrower) {
                     // The existing function is already narrower than the new function, so
                     // no need to narrow it further.
                     return;

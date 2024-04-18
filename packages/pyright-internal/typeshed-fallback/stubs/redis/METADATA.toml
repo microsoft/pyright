@@ -15,4 +15,6 @@ extra_description = """\
 
 [tool.stubtest]
 ignore_missing_stub = true
+# The runtime has an undeclared dependency on setuptools
+stubtest_requirements = ["setuptools"]
 extras = ["ocsp"]

@@ -1,7 +1,9 @@
 # This sample tests the TypeAliasType constructor.
 
 from typing import Callable, Generic, ParamSpec, TypeVar, TypeVarTuple
-from typing_extensions import TypeAliasType
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeAliasType,
+)
 
 T1 = TypeVar("T1")
 

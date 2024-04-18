@@ -11,6 +11,7 @@ import { CancellationToken, Disposable, LSPErrorCodes, ResponseError } from 'vsc
 
 import { isDebugMode } from './core';
 import { Uri } from './uri/uri';
+import { UriEx } from './uri/uriUtils';
 
 export interface CancellationProvider {
     createCancellationTokenSource(): AbstractCancellationTokenSource;
@@ -48,20 +49,33 @@ export function throwIfCancellationRequested(token: CancellationToken) {
     }
 }
 
+const nullDisposable = Disposable.create(() => {});
+
+export function onCancellationRequested(token: CancellationToken, func: (i: any) => void): Disposable {
+    try {
+        return token.onCancellationRequested(func);
+    } catch {
+        // Certain cancellation token implementations, like SharedArrayCancellation
+        // (https://github.com/microsoft/vscode-languageserver-node/blob/main/jsonrpc/src/common/sharedArrayCancellation.ts#L70),
+        // do not support the `onCancellationRequested` method. In such cases, proceed to the next token.
+        return nullDisposable;
+    }
+}
+
 export function CancelAfter(provider: CancellationProvider, ...tokens: CancellationToken[]) {
     const source = provider.createCancellationTokenSource();
     const disposables: Disposable[] = [];
 
     for (const token of tokens) {
         disposables.push(
-            token.onCancellationRequested((_) => {
+            onCancellationRequested(token, () => {
                 source.cancel();
             })
         );
     }
 
     disposables.push(
-        source.token.onCancellationRequested((_) => {
+        onCancellationRequested(source.token, () => {
             disposables.forEach((d) => d.dispose());
         })
     );
@@ -85,7 +99,7 @@ export class FileBasedToken implements CancellationToken {
     private _emitter: Emitter<any> | undefined;
 
     constructor(cancellationId: string, private _fs: { statSync(fileUri: Uri): void }) {
-        this.cancellationFilePath = Uri.file(cancellationId);
+        this.cancellationFilePath = UriEx.file(cancellationId);
     }
 
     get id(): string {
@@ -146,7 +160,7 @@ export class FileBasedToken implements CancellationToken {
     }
 }
 
-class CancellationThrottle {
+export class CancellationThrottle {
     private static _lastCheckTimestamp = 0;
 
     static shouldCheck() {
@@ -180,7 +194,7 @@ export async function raceCancellation<T>(token?: CancellationToken, ...promises
         if (token.isCancellationRequested) {
             return reject(new OperationCanceledException());
         }
-        const disposable = token.onCancellationRequested(() => {
+        const disposable = onCancellationRequested(token, () => {
             disposable.dispose();
             reject(new OperationCanceledException());
         });

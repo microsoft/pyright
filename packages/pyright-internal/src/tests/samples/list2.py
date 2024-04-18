@@ -2,7 +2,9 @@
 # reported up for correct overload selection.
 
 import random
-from typing_extensions import LiteralString
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    LiteralString,
+)
 
 
 # The join method is overloaded with both LiteralString and str variants.

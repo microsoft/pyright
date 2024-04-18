@@ -35,13 +35,11 @@ async def func2():
 
 
 @overload
-def func3(x: int) -> None:
-    ...
+def func3(x: int) -> None: ...
 
 
 @overload
-def func3(x: str) -> str:
-    ...
+def func3(x: str) -> str: ...
 
 
 def func3(x: int | str) -> str | None:
@@ -75,8 +73,7 @@ def decorator2(f: Callable[P, R]) -> Callable[P, R]:
 
 
 def func5(f: Callable[[], list[T1]]) -> Callable[[list[T2]], list[T1 | T2]]:
-    def inner(res: list[T2]) -> list[T1 | T2]:
-        ...
+    def inner(res: list[T2], /) -> list[T1 | T2]: ...
 
     return decorator2(inner)
 
@@ -87,3 +84,26 @@ def func6(x: Iterable[Callable[P, None]]) -> Callable[P, None]:
             fn(*args, **kwargs)
 
     return inner
+
+
+class Callback1:
+    def __call__(self, x: int | str, y: int = 3) -> None: ...
+
+
+class Callback2:
+    def __call__(self, x: int, /) -> None: ...
+
+
+class Callback3:
+    def __call__(self, *args, **kwargs) -> None: ...
+
+
+def func7(f1: Callable[P, R], f2: Callable[P, R]) -> Callable[P, R]: ...
+
+
+def func8(cb1: Callback1, cb2: Callback2, cb3: Callback3):
+    v1 = func7(cb1, cb2)
+    reveal_type(v1, expected_text="(x: int, /) -> None")
+
+    v2 = func7(cb1, cb3)
+    reveal_type(v2, expected_text="(x: int | str, y: int = 3) -> None")

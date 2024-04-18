@@ -12,15 +12,15 @@ import { isAbsolute } from 'path';
 import { getPathsFromPthFiles } from '../analyzer/pythonPathUtils';
 import * as pathConsts from '../common/pathConsts';
 import { appendArray } from './collectionUtils';
-import { DiagnosticSeverityOverrides, DiagnosticSeverityOverridesMap } from './commandLineOptions';
+import { CommandLineOptions, DiagnosticSeverityOverrides, DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { ConsoleInterface, NullConsole } from './console';
 import { TaskListToken } from './diagnostic';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
 import { Host } from './host';
-import { PythonVersion, latestStablePythonVersion, versionFromString, versionToString } from './pythonVersion';
+import { PythonVersion, latestStablePythonVersion } from './pythonVersion';
 import { ServiceProvider } from './serviceProvider';
-import { ServiceKeys } from './serviceProviderExtensions';
+import { ServiceKeys } from './serviceKeys';
 import { Uri } from './uri/uri';
 import { FileSpec, getFileSpec, isDirectory } from './uri/uriUtils';
 
@@ -58,7 +58,7 @@ export class ExecutionEnvironment {
     ) {
         this.name = name;
         this.root = root;
-        this.pythonVersion = defaultPythonVersion || latestStablePythonVersion;
+        this.pythonVersion = defaultPythonVersion ?? latestStablePythonVersion;
         this.pythonPlatform = defaultPythonPlatform;
         this.extraPaths = Array.from(defaultExtraPaths ?? []);
     }
@@ -333,6 +333,9 @@ export interface DiagnosticRuleSet {
     // Report usage of unbound variables.
     reportUnboundVariable: DiagnosticLevel;
 
+    // Report use of unhashable type in a dictionary.
+    reportUnhashable: DiagnosticLevel;
+
     // Report statements that are syntactically correct but
     // have no semantic meaning within a type stub file.
     reportInvalidStubStatement: DiagnosticLevel;
@@ -474,6 +477,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportSelfClsParameterName,
         DiagnosticRule.reportImplicitStringConcatenation,
         DiagnosticRule.reportUndefinedVariable,
+        DiagnosticRule.reportUnhashable,
         DiagnosticRule.reportUnboundVariable,
         DiagnosticRule.reportInvalidStubStatement,
         DiagnosticRule.reportIncompleteStub,
@@ -579,6 +583,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportSelfClsParameterName: 'none',
         reportImplicitStringConcatenation: 'none',
         reportUnboundVariable: 'none',
+        reportUnhashable: 'none',
         reportUndefinedVariable: 'warning',
         reportInvalidStubStatement: 'none',
         reportIncompleteStub: 'none',
@@ -680,6 +685,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportSelfClsParameterName: 'warning',
         reportImplicitStringConcatenation: 'none',
         reportUnboundVariable: 'error',
+        reportUnhashable: 'error',
         reportUndefinedVariable: 'error',
         reportInvalidStubStatement: 'none',
         reportIncompleteStub: 'none',
@@ -781,6 +787,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportSelfClsParameterName: 'warning',
         reportImplicitStringConcatenation: 'none',
         reportUnboundVariable: 'error',
+        reportUnhashable: 'error',
         reportUndefinedVariable: 'error',
         reportInvalidStubStatement: 'none',
         reportIncompleteStub: 'none',
@@ -882,6 +889,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportSelfClsParameterName: 'error',
         reportImplicitStringConcatenation: 'none',
         reportUnboundVariable: 'error',
+        reportUnhashable: 'error',
         reportUndefinedVariable: 'error',
         reportInvalidStubStatement: 'error',
         reportIncompleteStub: 'error',
@@ -1079,7 +1087,7 @@ export class ConfigOptions {
     findExecEnvironment(file: Uri): ExecutionEnvironment {
         return (
             this.executionEnvironments.find((env) => {
-                const envRoot = Uri.isUri(env.root) ? env.root : this.projectRoot.resolvePaths(env.root || '');
+                const envRoot = Uri.is(env.root) ? env.root : this.projectRoot.resolvePaths(env.root || '');
                 return file.startsWith(envRoot);
             }) ?? this.getDefaultExecEnvironment()
         );
@@ -1099,7 +1107,7 @@ export class ConfigOptions {
         typeCheckingMode: string | undefined,
         serviceProvider: ServiceProvider,
         host: Host,
-        diagnosticOverrides?: DiagnosticSeverityOverridesMap
+        commandLineOptions?: CommandLineOptions
     ) {
         this.initializedFromJson = true;
         const console = serviceProvider.tryGet(ServiceKeys.console) ?? new NullConsole();
@@ -1210,7 +1218,7 @@ export class ConfigOptions {
         this.diagnosticRuleSet = { ...defaultSettings };
 
         // Apply host-provided overrides.
-        this.applyDiagnosticOverrides(diagnosticOverrides);
+        this.applyDiagnosticOverrides(commandLineOptions?.diagnosticSeverityOverrides);
 
         // Apply overrides from the config file for the boolean rules.
         getBooleanDiagnosticRules(/* includeNonOverridable */ true).forEach((ruleName) => {
@@ -1270,7 +1278,7 @@ export class ConfigOptions {
         // Read the default "pythonVersion".
         if (configObj.pythonVersion !== undefined) {
             if (typeof configObj.pythonVersion === 'string') {
-                const version = versionFromString(configObj.pythonVersion);
+                const version = PythonVersion.fromString(configObj.pythonVersion);
                 if (version) {
                     this.defaultPythonVersion = version;
                 } else {
@@ -1279,6 +1287,11 @@ export class ConfigOptions {
             } else {
                 console.error(`Config "pythonVersion" field must contain a string.`);
             }
+        }
+
+        // Override the default python version if it was specified on the command line.
+        if (commandLineOptions?.pythonVersion) {
+            this.defaultPythonVersion = commandLineOptions.pythonVersion;
         }
 
         this.ensureDefaultPythonVersion(host, console);
@@ -1290,6 +1303,10 @@ export class ConfigOptions {
             } else {
                 this.defaultPythonPlatform = configObj.pythonPlatform;
             }
+        }
+
+        if (commandLineOptions?.pythonPlatform) {
+            this.defaultPythonPlatform = commandLineOptions.pythonPlatform;
         }
 
         this.ensureDefaultPythonPlatform(host, console);
@@ -1374,7 +1391,7 @@ export class ConfigOptions {
             } else {
                 const execEnvironments = configObj.executionEnvironments as ExecutionEnvironment[];
                 execEnvironments.forEach((env, index) => {
-                    const execEnv = this._initExecutionEnvironmentFromJson(env, index, console);
+                    const execEnv = this._initExecutionEnvironmentFromJson(env, index, console, commandLineOptions);
                     if (execEnv) {
                         this.executionEnvironments.push(execEnv);
                     }
@@ -1456,7 +1473,7 @@ export class ConfigOptions {
         const importFailureInfo: string[] = [];
         this.defaultPythonVersion = host.getPythonVersion(this.pythonPath, importFailureInfo);
         if (this.defaultPythonVersion !== undefined) {
-            console.info(`Assuming Python version ${versionToString(this.defaultPythonVersion)}`);
+            console.info(`Assuming Python version ${this.defaultPythonVersion.toString()}`);
         }
 
         for (const log of importFailureInfo) {
@@ -1536,7 +1553,8 @@ export class ConfigOptions {
     private _initExecutionEnvironmentFromJson(
         envObj: any,
         index: number,
-        console: ConsoleInterface
+        console: ConsoleInterface,
+        commandLineOptions?: CommandLineOptions
     ): ExecutionEnvironment | undefined {
         try {
             const newExecEnv = new ExecutionEnvironment(
@@ -1578,7 +1596,7 @@ export class ConfigOptions {
             // Validate the pythonVersion.
             if (envObj.pythonVersion) {
                 if (typeof envObj.pythonVersion === 'string') {
-                    const version = versionFromString(envObj.pythonVersion);
+                    const version = PythonVersion.fromString(envObj.pythonVersion);
                     if (version) {
                         newExecEnv.pythonVersion = version;
                     } else {
@@ -1589,6 +1607,12 @@ export class ConfigOptions {
                 }
             }
 
+            // If the pythonVersion was specified on the command line, it overrides
+            // the configuration settings for the execution environment.
+            if (commandLineOptions?.pythonVersion) {
+                newExecEnv.pythonVersion = commandLineOptions.pythonVersion;
+            }
+
             // Validate the pythonPlatform.
             if (envObj.pythonPlatform) {
                 if (typeof envObj.pythonPlatform === 'string') {
@@ -1596,6 +1620,12 @@ export class ConfigOptions {
                 } else {
                     console.error(`Config executionEnvironments index ${index} pythonPlatform must be a string.`);
                 }
+            }
+
+            // If the pythonPlatform was specified on the command line, it overrides
+            // the configuration settings for the execution environment.
+            if (commandLineOptions?.pythonPlatform) {
+                newExecEnv.pythonPlatform = commandLineOptions.pythonPlatform;
             }
 
             // Validate the name

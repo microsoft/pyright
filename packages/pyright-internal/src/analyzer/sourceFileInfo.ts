@@ -119,7 +119,7 @@ export class SourceFileInfo {
             this._writableData = this._preEditData;
             this._preEditData = undefined;
 
-            // Some states have changed. Force some of info to be re-calcuated.
+            // Some states have changed. Force some of info to be re-calculated.
             this.sourceFile.dropParseAndBindInfo();
         }
 

@@ -2,23 +2,22 @@
 # is ambiguous due to an Any or Unknown argument.
 
 from typing import Any, Generic, Literal, TypeVar, overload
-from typing_extensions import LiteralString
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    LiteralString,
+)
 
 _T = TypeVar("_T")
 
 
 @overload
-def overload1(x: int, y: float) -> float:
-    ...
+def overload1(x: int, y: float) -> float: ...
 
 
 @overload
-def overload1(x: str, y: float) -> str:
-    ...
+def overload1(x: str, y: float) -> str: ...
 
 
-def overload1(x: str | int, y: float) -> float | str:
-    ...
+def overload1(x: str | int, y: float) -> float | str: ...
 
 
 def func1(a: Any):
@@ -36,17 +35,14 @@ def func1(a: Any):
 
 
 @overload
-def overload2(x: int) -> Any:
-    ...
+def overload2(x: int) -> Any: ...
 
 
 @overload
-def overload2(x: str) -> str:
-    ...
+def overload2(x: str) -> str: ...
 
 
-def overload2(x: str | int) -> Any | str:
-    ...
+def overload2(x: str | int) -> Any | str: ...
 
 
 def func2(a: Any):
@@ -61,17 +57,14 @@ def func2(a: Any):
 
 
 @overload
-def overload3(x: LiteralString) -> LiteralString:
-    ...
+def overload3(x: LiteralString) -> LiteralString: ...
 
 
 @overload
-def overload3(x: str) -> str:
-    ...
+def overload3(x: str) -> str: ...
 
 
-def overload3(x: str) -> str:
-    ...
+def overload3(x: str) -> str: ...
 
 
 def func3(a: Any, b: str):
@@ -91,22 +84,18 @@ def func4(a: Any):
 
 
 @overload
-def overload4(x: str, *, flag: Literal[True]) -> int:
-    ...
+def overload4(x: str, *, flag: Literal[True]) -> int: ...
 
 
 @overload
-def overload4(x: str, *, flag: Literal[False] = ...) -> str:
-    ...
+def overload4(x: str, *, flag: Literal[False] = ...) -> str: ...
 
 
 @overload
-def overload4(x: str, *, flag: bool = ...) -> int | str:
-    ...
+def overload4(x: str, *, flag: bool = ...) -> int | str: ...
 
 
-def overload4(x: str, *, flag: bool = False) -> int | str:
-    ...
+def overload4(x: str, *, flag: bool = False) -> int | str: ...
 
 
 reveal_type(overload4("0"), expected_text="str")
@@ -114,8 +103,7 @@ reveal_type(overload4("0", flag=True), expected_text="int")
 reveal_type(overload4("0", flag=False), expected_text="str")
 
 
-def unknown_any() -> Any:
-    ...
+def unknown_any() -> Any: ...
 
 
 def func5(a: Any):
@@ -124,13 +112,11 @@ def func5(a: Any):
 
 
 @overload
-def overload5(x: list[int]) -> list[int]:
-    ...
+def overload5(x: list[int]) -> list[int]: ...
 
 
 @overload
-def overload5(x: list[str]) -> list[str]:
-    ...
+def overload5(x: list[str]) -> list[str]: ...
 
 
 def overload5(x: list[str] | list[int]) -> list[str] | list[int]:
@@ -143,12 +129,10 @@ def func6(y: list[Any]):
 
 class ClassA(Generic[_T]):
     @overload
-    def m1(self: "ClassA[int]") -> "ClassA[int]":
-        ...
+    def m1(self: "ClassA[int]") -> "ClassA[int]": ...
 
     @overload
-    def m1(self: "ClassA[str]") -> "ClassA[str]":
-        ...
+    def m1(self: "ClassA[str]") -> "ClassA[str]": ...
 
     def m1(self) -> "ClassA[Any]":
         return self
@@ -160,12 +144,10 @@ def func7(a: ClassA[Any]):
 
 class ClassB(Generic[_T]):
     @overload
-    def m1(self: "ClassB[int]", obj: "int | ClassB[int]") -> "ClassB[int]":
-        ...
+    def m1(self: "ClassB[int]", obj: "int | ClassB[int]") -> "ClassB[int]": ...
 
     @overload
-    def m1(self: "ClassB[str]", obj: "str | ClassB[str]") -> "ClassB[str]":
-        ...
+    def m1(self: "ClassB[str]", obj: "str | ClassB[str]") -> "ClassB[str]": ...
 
     def m1(self, obj: Any) -> "ClassB[Any]":
         return self
@@ -180,18 +162,15 @@ _T2 = TypeVar("_T2")
 
 
 @overload
-def overload6(a: _T1, /) -> tuple[_T1]:
-    ...
+def overload6(a: _T1, /) -> tuple[_T1]: ...
 
 
 @overload
-def overload6(a: _T1, b: _T2, /) -> tuple[_T1, _T2]:
-    ...
+def overload6(a: _T1, b: _T2, /) -> tuple[_T1, _T2]: ...
 
 
 @overload
-def overload6(*args: _T1) -> tuple[_T1, ...]:
-    ...
+def overload6(*args: _T1) -> tuple[_T1, ...]: ...
 
 
 def overload6(*args: Any) -> tuple[Any, ...]:
@@ -203,17 +182,14 @@ def func9(*args: int):
 
 
 @overload
-def overload7(a: float = ..., *, b: Literal[True] = ...) -> float:
-    ...
+def overload7(a: float = ..., *, b: Literal[True] = ...) -> float: ...
 
 
 @overload
-def overload7(a: float = ..., *, b: bool) -> str:
-    ...
+def overload7(a: float = ..., *, b: bool) -> str: ...
 
 
-def overload7(a: float = 1.0, *, b: bool = True) -> float | str:
-    ...
+def overload7(a: float = 1.0, *, b: bool = True) -> float | str: ...
 
 
 def func10(kwargs_dict: dict[Any, Any]):
@@ -243,13 +219,11 @@ def func15(kwargs_dict: dict[str, str]):
 
 
 @overload
-def overload8(x: int = 3, **kwargs: int) -> int:
-    ...
+def overload8(x: int = 3, **kwargs: int) -> int: ...
 
 
 @overload
-def overload8(**kwargs: str) -> str:
-    ...
+def overload8(**kwargs: str) -> str: ...
 
 
 def overload8(*args, **kwargs) -> Any:
@@ -262,18 +236,15 @@ def func16(a: dict[str, Any], i: int):
 
 
 @overload
-def overload9(x: int, y: int) -> int:
-    ...
+def overload9(x: int, y: int) -> int: ...
 
 
 @overload
-def overload9(x: float, y: int, z: str) -> float:
-    ...
+def overload9(x: float, y: int, z: str) -> float: ...
 
 
 @overload
-def overload9(x: object, y: int, z: str, a: None) -> str:
-    ...
+def overload9(x: object, y: int, z: str, a: None) -> str: ...
 
 
 def overload9(x, y, z="", a=None) -> Any:
@@ -289,13 +260,11 @@ def func17(a: Any):
 
 
 @overload
-def overload10(x: list[int]) -> list[int]:
-    ...
+def overload10(x: list[int]) -> list[int]: ...
 
 
 @overload
-def overload10(x: list[Any]) -> list[Any]:
-    ...
+def overload10(x: list[Any]) -> list[Any]: ...
 
 
 def overload10(x) -> Any:
@@ -311,15 +280,12 @@ def func18(a: Any, b: list[Any], c: list[str], d: list[int]):
 
 class ClassC:
     @overload
-    def method1(self, k: Literal["hi"], default: Any) -> float:
-        ...
+    def method1(self, k: Literal["hi"], default: Any) -> float: ...
 
     @overload
-    def method1(self, k: str, default: _T) -> Any | _T:
-        ...
+    def method1(self, k: str, default: _T) -> Any | _T: ...
 
-    def method1(self, k: str, default: _T) -> Any | _T:
-        ...
+    def method1(self, k: str, default: _T) -> Any | _T: ...
 
 
 def func19(a: ClassC, b: list, c: Any):

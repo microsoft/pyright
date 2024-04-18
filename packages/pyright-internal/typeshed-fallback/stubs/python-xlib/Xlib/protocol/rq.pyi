@@ -1,4 +1,4 @@
-from _typeshed import ConvertibleToInt, SliceableBuffer
+from _typeshed import ConvertibleToInt, SliceableBuffer, Unused
 from array import array
 
 # Avoid name collision with List.type
@@ -7,7 +7,7 @@ from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Final, Literal, SupportsIndex, TypeVar, overload, type_check_only
 from typing_extensions import LiteralString, TypeAlias
 
-from Xlib._typing import ErrorHandler, Unused
+from Xlib._typing import ErrorHandler
 from Xlib.display import _BaseDisplay, _ResourceBaseClass
 from Xlib.error import XError
 from Xlib.ext.xinput import ClassInfoClass
@@ -347,7 +347,7 @@ class Struct:
     # Structs generate their attributes
     # TODO: Create a specific type-only class for all instances of `Struct`
     @type_check_only
-    def __getattr__(self, __name: str) -> Any: ...
+    def __getattr__(self, name: str, /) -> Any: ...
 
 class TextElements8(ValueField):
     string_textitem: Struct
@@ -365,7 +365,7 @@ class GetAttrData:
     # GetAttrData classes get their attributes dynamically
     # TODO: Complete all classes inheriting from GetAttrData
     def __getattr__(self, attr: str) -> Any: ...
-    def __setattr__(self, __name: str, __value: Any) -> None: ...
+    def __setattr__(self, name: str, value: Any, /) -> None: ...
 
 class DictWrapper(GetAttrData):
     def __init__(self, dict: dict[str, Any]) -> None: ...

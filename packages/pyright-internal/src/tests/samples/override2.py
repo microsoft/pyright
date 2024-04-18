@@ -2,7 +2,7 @@
 # (strict enforcement of PEP 698).
 
 from typing import Any, Callable
-from typing_extensions import override
+from typing_extensions import override  # pyright: ignore[reportMissingModuleSource]
 
 
 def evil_wrapper(func: Callable[..., Any], /):

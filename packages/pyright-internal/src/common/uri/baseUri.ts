@@ -83,6 +83,7 @@ export abstract class BaseUri implements Uri {
     }
 
     abstract get fragment(): string;
+    abstract get query(): string;
 
     isEmpty(): boolean {
         return false;
@@ -121,6 +122,7 @@ export abstract class BaseUri implements Uri {
     }
 
     abstract withFragment(fragment: string): Uri;
+    abstract withQuery(query: string): Uri;
 
     abstract addPath(extra: string): Uri;
 
@@ -209,7 +211,12 @@ export abstract class BaseUri implements Uri {
         for (start = 0; start < fromComponents.length && start < toComponents.length; start++) {
             const fromComponent = fromComponents[start];
             const toComponent = toComponents[start];
-            if (fromComponent !== toComponent) {
+
+            const match = this.isCaseSensitive
+                ? fromComponent === toComponent
+                : fromComponent.toLowerCase() === toComponent.toLowerCase();
+
+            if (!match) {
                 break;
             }
         }

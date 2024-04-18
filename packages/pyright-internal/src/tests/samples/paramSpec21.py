@@ -2,7 +2,10 @@
 # and destination callback protocol.
 
 from typing import Callable, Protocol
-from typing_extensions import Concatenate, ParamSpec
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    Concatenate,
+    ParamSpec,
+)
 
 P1 = ParamSpec("P1")
 P2 = ParamSpec("P2")
@@ -10,32 +13,27 @@ P3 = ParamSpec("P3")
 P4 = ParamSpec("P4")
 
 
-class Context:
-    ...
+class Context: ...
 
 
-class Response:
-    ...
+class Response: ...
 
 
 class ContextCallback(Protocol[P1]):
     def __call__(
         self, ctx: Context, /, *args: P1.args, **kwargs: P1.kwargs
-    ) -> Response:
-        ...
+    ) -> Response: ...
 
 
 def call_context_callback(
     callback: ContextCallback[P3], /, *args: P3.args, **kwargs: P3.kwargs
-) -> Response:
-    ...
+) -> Response: ...
 
 
 class IntContextCallback(Protocol[P2]):
     def __call__(
         self, ctx: Context, value: int, /, *args: P2.args, **kwargs: P2.kwargs
-    ) -> Response:
-        ...
+    ) -> Response: ...
 
 
 def call_int_context_callback(

@@ -22,7 +22,7 @@ class Percentage(MinMax[float, Incomplete]):
     pattern: str
     min: float
     max: float
-    def __set__(self, instance: Serialisable | Strict, value: Incomplete) -> None: ...
+    def __set__(self, instance: Serialisable | Strict, value) -> None: ...
 
 class Extension(Serialisable):
     uri: String[Literal[False]]

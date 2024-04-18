@@ -23,8 +23,8 @@ import {
     UnboundType,
     UnknownType,
 } from '../analyzer/types';
-import { Uri } from '../common/uri/uri';
 import { ParameterCategory } from '../parser/parseNodes';
+import { Uri } from '../common/uri/uri';
 
 function returnTypeCallback(type: FunctionType) {
     return type.details.declaredReturnType ?? UnknownType.create(/* isEllipsis */ true);

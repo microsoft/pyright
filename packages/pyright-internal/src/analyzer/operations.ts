@@ -10,7 +10,7 @@
 
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { PythonVersion } from '../common/pythonVersion';
+import { pythonVersion3_10 } from '../common/pythonVersion';
 import { LocMessage } from '../localization/localize';
 import {
     AugmentedAssignmentNode,
@@ -23,6 +23,7 @@ import {
 import { OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { getEnclosingLambda, isWithinLoop, operatorSupportsChaining, printOperator } from './parseTreeUtils';
+import { getScopeForNode } from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
@@ -41,6 +42,7 @@ import {
     mapSubtypes,
     preserveUnknown,
     removeNoneFromUnion,
+    someSubtypes,
     specializeTupleClass,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
@@ -168,11 +170,11 @@ export function validateBinaryOperation(
         if (operator === OperatorType.In || operator === OperatorType.NotIn) {
             type = evaluator.mapSubtypesExpandTypeVars(
                 rightType,
-                /* conditionFilter */ undefined,
+                /* options */ undefined,
                 (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                     return evaluator.mapSubtypesExpandTypeVars(
                         concreteLeftType,
-                        getTypeCondition(rightSubtypeExpanded),
+                        { conditionFilter: getTypeCondition(rightSubtypeExpanded) },
                         (leftSubtype) => {
                             if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
                                 return preserveUnknown(leftSubtype, rightSubtypeExpanded);
@@ -224,11 +226,11 @@ export function validateBinaryOperation(
         } else {
             type = evaluator.mapSubtypesExpandTypeVars(
                 concreteLeftType,
-                /* conditionFilter */ undefined,
+                /* options */ undefined,
                 (leftSubtypeExpanded, leftSubtypeUnexpanded) => {
                     return evaluator.mapSubtypesExpandTypeVars(
                         rightType,
-                        getTypeCondition(leftSubtypeExpanded),
+                        { conditionFilter: getTypeCondition(leftSubtypeExpanded) },
                         (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                             // If the operator is an AND or OR, we need to combine the two types.
                             if (operator === OperatorType.And || operator === OperatorType.Or) {
@@ -350,11 +352,11 @@ export function validateBinaryOperation(
         if (!type) {
             type = evaluator.mapSubtypesExpandTypeVars(
                 leftType,
-                /* conditionFilter */ undefined,
+                /* options */ undefined,
                 (leftSubtypeExpanded, leftSubtypeUnexpanded) => {
                     return evaluator.mapSubtypesExpandTypeVars(
                         rightType,
-                        getTypeCondition(leftSubtypeExpanded),
+                        { conditionFilter: getTypeCondition(leftSubtypeExpanded) },
                         (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                             if (isAnyOrUnknown(leftSubtypeUnexpanded) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
                                 return preserveUnknown(leftSubtypeUnexpanded, rightSubtypeUnexpanded);
@@ -556,9 +558,21 @@ export function getTypeOfBinaryOperation(
 
     if (!expectedOperandType) {
         if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
-            // For "or" and "and", use the type of the left operand. This allows us to
-            // infer a better type for expressions like `x or []`.
-            expectedOperandType = leftType;
+            // For "or" and "and", use the type of the left operand under certain
+            // circumstances. This allows us to infer a better type for expressions
+            // like `x or []`. Do this only if it's a generic class (like list or dict)
+            // or a TypedDict.
+            if (
+                someSubtypes(leftType, (subtype) => {
+                    if (!isClassInstance(subtype)) {
+                        return false;
+                    }
+
+                    return ClassType.isTypedDictClass(subtype) || subtype.details.typeParameters.length > 0;
+                })
+            ) {
+                expectedOperandType = leftType;
+            }
         } else if (node.operator === OperatorType.Add && node.rightExpression.nodeType === ParseNodeType.List) {
             // For the "+" operator , use this technique only if the right operand is
             // a list expression. This heuristic handles the common case of `my_list + [0]`.
@@ -607,7 +621,7 @@ export function getTypeOfBinaryOperation(
             const unionNotationSupported =
                 fileInfo.isStubFile ||
                 (flags & EvaluatorFlags.AllowForwardReferences) !== 0 ||
-                fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_10;
+                fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_10);
             if (!unionNotationSupported) {
                 // If the left type is Any, we can't say for sure whether this
                 // is an illegal syntax or a valid application of the "|" operator.
@@ -718,7 +732,7 @@ export function getTypeOfBinaryOperation(
 
     const diag = new DiagnosticAddendum();
 
-    // Don't use literal math if either of the operation is within a loop
+    // Don't use literal math if the operation is within a loop
     // because the literal values may change each time. We also don't want to
     // apply literal math within the body of a lambda because they are often
     // used as callbacks where the value changes each time they are called.
@@ -834,11 +848,11 @@ export function getTypeOfAugmentedAssignment(
     } else {
         type = evaluator.mapSubtypesExpandTypeVars(
             leftType,
-            /* conditionFilter */ undefined,
+            /* options */ undefined,
             (leftSubtypeExpanded, leftSubtypeUnexpanded) => {
                 return evaluator.mapSubtypesExpandTypeVars(
                     rightType,
-                    getTypeCondition(leftSubtypeExpanded),
+                    { conditionFilter: getTypeCondition(leftSubtypeExpanded) },
                     (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                         if (isAnyOrUnknown(leftSubtypeUnexpanded) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
                             return preserveUnknown(leftSubtypeUnexpanded, rightSubtypeUnexpanded);
@@ -880,10 +894,11 @@ export function getTypeOfAugmentedAssignment(
                             // assignment, fall back on the normal binary expression evaluator.
                             const binaryOperator = operatorMap[node.operator][1];
 
-                            // Don't use literal math if either of the operation is within a loop
+                            // Don't use literal math if the operation is within a loop
                             // because the literal values may change each time.
                             const isLiteralMathAllowed =
                                 !isWithinLoop(node) &&
+                                isExpressionLocalVariable(evaluator, node.leftExpression) &&
                                 getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) <
                                     maxLiteralMathSubtypeCount;
 
@@ -1125,6 +1140,13 @@ function customMetaclassSupportsMethod(type: Type, methodName: string): boolean 
         return false;
     }
 
+    // If the metaclass inherits from Any or Unknown, we have to guess
+    // whether the method is supported. We'll assume it's not, since this
+    // is the most likely case.
+    if (isAnyOrUnknown(memberInfo.classType)) {
+        return false;
+    }
+
     if (isInstantiableClass(memberInfo.classType) && ClassType.isBuiltIn(memberInfo.classType, 'type')) {
         return false;
     }
@@ -1141,4 +1163,20 @@ function convertFunctionToObject(evaluator: TypeEvaluator, type: Type) {
     }
 
     return type;
+}
+
+// Determines whether the expression refers to a variable that
+// is defined within the current scope or some outer scope.
+function isExpressionLocalVariable(evaluator: TypeEvaluator, node: ExpressionNode): boolean {
+    if (node.nodeType !== ParseNodeType.Name) {
+        return false;
+    }
+
+    const symbolWithScope = evaluator.lookUpSymbolRecursive(node, node.value, /* honorCodeFlow */ false);
+    if (!symbolWithScope) {
+        return false;
+    }
+
+    const currentScope = getScopeForNode(node);
+    return currentScope === symbolWithScope.scope;
 }

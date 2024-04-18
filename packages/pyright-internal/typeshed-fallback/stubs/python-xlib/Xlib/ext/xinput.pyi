@@ -1,8 +1,7 @@
-from _typeshed import ConvertibleToFloat, SliceableBuffer
+from _typeshed import ConvertibleToFloat, SliceableBuffer, Unused
 from collections.abc import Iterable, Sequence
 from typing import Final, TypeVar
 
-from Xlib._typing import Unused
 from Xlib.display import Display
 from Xlib.protocol import display, request, rq
 from Xlib.xobject import drawable, resource

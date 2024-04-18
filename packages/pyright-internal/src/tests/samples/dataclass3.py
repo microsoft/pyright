@@ -27,3 +27,7 @@ a = A(3, 4)
 
 # This should generate an error because there is one too few parameters
 b = B(a)
+
+
+A.__new__(A)
+B.__new__(B)

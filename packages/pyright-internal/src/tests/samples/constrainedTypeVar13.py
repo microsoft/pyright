@@ -5,22 +5,22 @@
 # in the case where constraint is satisfied.
 
 from typing import AnyStr, Generic, ParamSpec, TypeVar
-from typing_extensions import TypeVarTuple, Unpack
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeVarTuple,
+    Unpack,
+)
 
 _T1 = TypeVar("_T1", str, int)
 _T2 = TypeVar("_T2")
 
 
-class A:
-    ...
+class A: ...
 
 
-class B:
-    ...
+class B: ...
 
 
-class C:
-    ...
+class C: ...
 
 
 _T3 = TypeVar("_T3", A, B, C)

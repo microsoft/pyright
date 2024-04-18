@@ -12,15 +12,10 @@ These wrappers have no meaningful use within a map or a oneof since
 individual entries of a map or fields of a oneof can already detect presence.
 """
 import builtins
-import sys
+import typing as typing_extensions
 
 import google.protobuf.descriptor
 import google.protobuf.message
-
-if sys.version_info >= (3, 8):
-    import typing as typing_extensions
-else:
-    import typing_extensions
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 

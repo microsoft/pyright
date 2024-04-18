@@ -13,7 +13,7 @@ T_A = TypeVar("T_A", bound=ClassA)
 
 
 def func1(cls: type[T_A]) -> T_A:
-    # This should generate an error
+    # This should generate an error.
     y = cls()
 
     x = cls(1, "")
@@ -25,6 +25,7 @@ _T = TypeVar("_T")
 
 
 def func2(cls: type[_T]) -> _T:
+    # This should generate an error.
     y = cls(1, "")
 
     x = cls()

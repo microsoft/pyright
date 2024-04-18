@@ -10,15 +10,16 @@ import * as child_process from 'child_process';
 import { CancellationToken } from 'vscode-languageserver';
 
 import { PythonPathResult } from '../analyzer/pythonPathUtils';
-import { OperationCanceledException, throwIfCancellationRequested } from './cancellationUtils';
+import { OperationCanceledException, onCancellationRequested, throwIfCancellationRequested } from './cancellationUtils';
 import { PythonPlatform } from './configOptions';
 import { assertNever } from './debug';
 import { HostKind, NoAccessHost, ScriptOutput } from './host';
 import { normalizePath } from './pathUtils';
-import { PythonVersion, versionFromMajorMinor } from './pythonVersion';
+import { PythonVersion } from './pythonVersion';
 import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
 import { isDirectory } from './uri/uriUtils';
+import { ServiceKeys } from './serviceKeys';
 
 // preventLocalImports removes the working directory from sys.path.
 // The -c flag adds it automatically, which can allow some stdlib
@@ -40,7 +41,7 @@ const extractSys = [
 const extractVersion = [
     ...removeCwdFromSysPath,
     'import sys, json',
-    'json.dump(dict(major=sys.version_info[0], minor=sys.version_info[1]), sys.stdout)',
+    'json.dump(tuple(sys.version_info), sys.stdout)',
 ].join('; ');
 
 export class LimitedAccessHost extends NoAccessHost {
@@ -113,12 +114,23 @@ export class FullAccessHost extends LimitedAccessHost {
                 child_process.execFileSync(p, commandLineArgs, { encoding: 'utf8' })
             );
 
-            const versionJson: { major: number; minor: number } = JSON.parse(execOutput!);
-            const version = versionFromMajorMinor(versionJson.major, versionJson.minor);
+            const versionJson: any[] = JSON.parse(execOutput!);
+
+            if (!Array.isArray(versionJson) || versionJson.length < 5) {
+                importFailureInfo.push(`Python version ${execOutput} from interpreter is unexpected format`);
+                return undefined;
+            }
+
+            const version = new PythonVersion(
+                versionJson[0],
+                versionJson[1],
+                versionJson[2],
+                versionJson[3],
+                versionJson[4]
+            );
+
             if (version === undefined) {
-                importFailureInfo.push(
-                    `Python version ${versionJson.major}.${versionJson.minor} from interpreter is unsupported`
-                );
+                importFailureInfo.push(`Python version ${execOutput} from interpreter is unsupported`);
                 return undefined;
             }
 
@@ -148,7 +160,7 @@ export class FullAccessHost extends LimitedAccessHost {
             const child = this._executePythonInterpreter(pythonPath?.getFilePath(), (p) =>
                 child_process.spawn(p, commandLineArgs, { cwd: cwd.getFilePath() })
             );
-            const tokenWatch = token.onCancellationRequested(() => {
+            const tokenWatch = onCancellationRequested(token, () => {
                 if (child) {
                     try {
                         if (child.pid && child.exitCode === null) {
@@ -224,7 +236,7 @@ export class FullAccessHost extends LimitedAccessHost {
             const commandLineArgs: string[] = ['-c', extractSys];
             importFailureInfo.push(`Executing interpreter: '${interpreterPath}'`);
             const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, { encoding: 'utf8' });
-            const isCaseSensitive = this.serviceProvider.fs().isCaseSensitive;
+            const caseDetector = this.serviceProvider.get(ServiceKeys.caseSensitivityDetector);
 
             // Parse the execOutput. It should be a JSON-encoded array of paths.
             try {
@@ -233,7 +245,7 @@ export class FullAccessHost extends LimitedAccessHost {
                     execSplitEntry = execSplitEntry.trim();
                     if (execSplitEntry) {
                         const normalizedPath = normalizePath(execSplitEntry);
-                        const normalizedUri = Uri.file(normalizedPath, isCaseSensitive);
+                        const normalizedUri = Uri.file(normalizedPath, caseDetector);
                         // Skip non-existent paths and broken zips/eggs.
                         if (
                             this.serviceProvider.fs().existsSync(normalizedUri) &&
@@ -246,7 +258,7 @@ export class FullAccessHost extends LimitedAccessHost {
                     }
                 }
 
-                result.prefix = Uri.file(execSplit.prefix, isCaseSensitive);
+                result.prefix = Uri.file(execSplit.prefix, caseDetector);
 
                 if (result.paths.length === 0) {
                     importFailureInfo.push(`Found no valid directories`);

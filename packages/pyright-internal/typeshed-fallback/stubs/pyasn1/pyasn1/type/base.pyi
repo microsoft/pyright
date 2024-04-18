@@ -64,7 +64,7 @@ class NoValue:
     __imul__ = list.__imul__
     __index__ = int.__index__
     # self instead of cls
-    __init_subclass__ = plug  # pyright: ignore[reportGeneralTypeIssues]
+    __init_subclass__ = plug  # pyright: ignore[reportAssignmentType]
     __int__ = int.__int__
     __invert__ = int.__invert__
     __ior__ = plug

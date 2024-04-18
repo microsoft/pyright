@@ -9,7 +9,7 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
-import { PythonVersion } from '../common/pythonVersion';
+import { pythonVersion3_10, pythonVersion3_9 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -266,7 +266,7 @@ test('NewType3', () => {
 test('NewType4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType4.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('NewType5', () => {
@@ -296,11 +296,11 @@ test('isInstance2', () => {
 test('isInstance3', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    configOptions.defaultPythonVersion = pythonVersion3_9;
     const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 4);
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    configOptions.defaultPythonVersion = pythonVersion3_10;
     const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 4);
 });
@@ -745,6 +745,12 @@ test('Solver33', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver33.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Solver34', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver34.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('SolverScoring1', () => {
@@ -1414,7 +1420,7 @@ test('Protocol48', () => {
 test('ProtocolExplicit1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit1.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('ProtocolExplicit3', () => {
@@ -1492,7 +1498,7 @@ test('TypedDict11', () => {
 test('TypedDict12', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict12.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('TypedDict13', () => {

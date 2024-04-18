@@ -22,9 +22,9 @@ import {
 import * as debug from '../../../common/debug';
 import { rangesAreEqual } from '../../../common/textRange';
 
-export function verifyWorkspaceEdit(expected: WorkspaceEdit, actual: WorkspaceEdit) {
+export function verifyWorkspaceEdit(expected: WorkspaceEdit, actual: WorkspaceEdit, marker?: string) {
     if (actual.changes) {
-        verifyTextEditMap(expected.changes!, actual.changes);
+        verifyTextEditMap(expected.changes!, actual.changes, marker);
     } else {
         assert(!expected.changes);
     }
@@ -96,7 +96,10 @@ export function verifyDocumentEdits(
                             return false;
                         }
 
-                        return textEditsAreSame(expectedEdit.edits, actualEdit.edits);
+                        return textEditsAreSame(
+                            expectedEdit.edits.filter((e) => TextEdit.is(e)) as TextEdit[],
+                            actualEdit.edits.filter((e) => TextEdit.is(e)) as TextEdit[]
+                        );
                     }
                     case 'create': {
                         const expectedOp = op as CreateFile;
@@ -140,11 +143,19 @@ export function verifyDocumentEdits(
     }
 }
 
-export function verifyTextEditMap(expected: { [uri: string]: TextEdit[] }, actual: { [uri: string]: TextEdit[] }) {
-    assert.strictEqual(Object.entries(expected).length, Object.entries(actual).length);
+export function verifyTextEditMap(
+    expected: { [uri: string]: TextEdit[] },
+    actual: { [uri: string]: TextEdit[] },
+    marker?: string
+) {
+    assert.strictEqual(
+        Object.entries(expected).length,
+        Object.entries(actual).length,
+        marker === undefined ? '' : `${marker} has failed`
+    );
 
     for (const key of Object.keys(expected)) {
-        assert(textEditsAreSame(expected[key], actual[key]));
+        assert(textEditsAreSame(expected[key], actual[key]), marker === undefined ? '' : `${marker} has failed`);
     }
 }
 

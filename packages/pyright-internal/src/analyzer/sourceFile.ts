@@ -22,7 +22,7 @@ import { FileSystem } from '../common/fileSystem';
 import { LogTracker, getPathForLogging } from '../common/logTracker';
 import { stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
-import { ServiceKeys } from '../common/serviceProviderExtensions';
+import { ServiceKeys } from '../common/serviceKeys';
 import * as StringUtils from '../common/stringUtils';
 import { Range, TextRange, getEmptyRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -30,8 +30,8 @@ import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import { LocMessage } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
-import { ModuleImport, ParseOptions, ParseResults, Parser } from '../parser/parser';
-import { IgnoreComment } from '../parser/tokenizer';
+import { ModuleImport, ParseFileResults, ParseOptions, Parser, ParserOutput } from '../parser/parser';
+import { IgnoreComment, Tokenizer, TokenizerOutput } from '../parser/tokenizer';
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -95,7 +95,11 @@ class WriteableData {
     // the binder information hanging from it?
     parseTreeNeedsCleaning = false;
 
-    parseResults: ParseResults | undefined;
+    parserOutput: ParserOutput | undefined;
+    parsedFileContents: string | undefined;
+    tokenizerLines: TextRangeCollection<TextRange> | undefined;
+    tokenizerOutput: TokenizerOutput | undefined;
+
     moduleSymbolTable: SymbolTable | undefined;
 
     // Reentrancy check for binding.
@@ -106,6 +110,7 @@ class WriteableData {
     commentDiagnostics: Diagnostic[] = [];
     bindDiagnostics: Diagnostic[] = [];
     checkerDiagnostics: Diagnostic[] = [];
+    taskListDiagnostics: Diagnostic[] = [];
     typeIgnoreLines = new Map<number, IgnoreComment>();
     typeIgnoreAll: IgnoreComment | undefined;
     pyrightIgnoreLines = new Map<number, IgnoreComment>();
@@ -160,12 +165,13 @@ class WriteableData {
  commentDiagnostics=${this.commentDiagnostics?.length},
  bindDiagnostics=${this.bindDiagnostics?.length},
  checkerDiagnostics=${this.checkerDiagnostics?.length},
+ taskListDiagnostics=${this.taskListDiagnostics?.length},
  accumulatedDiagnostics=${this.accumulatedDiagnostics?.length},
  typeIgnoreLines=${this.typeIgnoreLines?.size},
  pyrightIgnoreLines=${this.pyrightIgnoreLines?.size},
  checkTime=${this.checkTime},
  clientDocumentContents=${this.clientDocumentContents?.length},
- parseResults=${this.parseResults?.parseTree.length}`;
+ parseResults=${this.parserOutput?.parseTree.length}`;
     }
 }
 
@@ -399,7 +405,10 @@ export class SourceFile {
     dropParseAndBindInfo(): void {
         this._fireFileDirtyEvent();
 
-        this._writableData.parseResults = undefined;
+        this._writableData.parserOutput = undefined;
+        this._writableData.tokenizerLines = undefined;
+        this._writableData.tokenizerOutput = undefined;
+        this._writableData.parsedFileContents = undefined;
         this._writableData.moduleSymbolTable = undefined;
         this._writableData.isBindingNeeded = true;
     }
@@ -421,10 +430,10 @@ export class SourceFile {
 
         // If the file contains a wildcard import or __all__ symbols,
         // we need to rebind because a dependent import may have changed.
-        if (this._writableData.parseResults) {
+        if (this._writableData.parserOutput) {
             if (
-                this._writableData.parseResults.containsWildcardImport ||
-                AnalyzerNodeInfo.getDunderAllInfo(this._writableData.parseResults.parseTree) !== undefined ||
+                this._writableData.parserOutput.containsWildcardImport ||
+                AnalyzerNodeInfo.getDunderAllInfo(this._writableData.parserOutput.parseTree) !== undefined ||
                 forceRebinding
             ) {
                 // We don't need to rebuild index data since wildcard
@@ -481,6 +490,10 @@ export class SourceFile {
         if (version === null) {
             this._writableData.clientDocumentVersion = undefined;
             this._writableData.clientDocumentContents = undefined;
+
+            // Since the file is no longer open, dump the tokenizer output
+            // so it doesn't consume memory.
+            this._writableData.tokenizerOutput = undefined;
         } else {
             this._writableData.clientDocumentVersion = version;
             this._writableData.clientDocumentContents = contents;
@@ -511,7 +524,7 @@ export class SourceFile {
 
     isParseRequired() {
         return (
-            !this._writableData.parseResults ||
+            !this._writableData.parserOutput ||
             this._writableData.analyzedFileContentsVersion !== this._writableData.fileContentsVersion
         );
     }
@@ -532,12 +545,33 @@ export class SourceFile {
         return this._writableData.isCheckingNeeded;
     }
 
-    getParseResults(): ParseResults | undefined {
-        if (!this.isParseRequired()) {
-            return this._writableData.parseResults;
+    getParseResults(): ParseFileResults | undefined {
+        if (this.isParseRequired()) {
+            return undefined;
         }
 
-        return undefined;
+        assert(this._writableData.parserOutput !== undefined && this._writableData.parsedFileContents !== undefined);
+
+        // If we've cached the tokenizer output, use the cached version.
+        // Otherwise re-tokenize the contents on demand.
+        const tokenizerOutput =
+            this._writableData.tokenizerOutput ?? this._tokenizeContents(this._writableData.parsedFileContents);
+
+        return {
+            parserOutput: this._writableData.parserOutput,
+            tokenizerOutput,
+            text: this._writableData.parsedFileContents,
+        };
+    }
+
+    getParserOutput(): ParserOutput | undefined {
+        if (this.isParseRequired()) {
+            return undefined;
+        }
+
+        assert(this._writableData.parserOutput !== undefined);
+
+        return this._writableData.parserOutput;
     }
 
     // Adds a new circular dependency for this file but only if
@@ -610,7 +644,7 @@ export class SourceFile {
 
             try {
                 // Parse the token stream, building the abstract syntax tree.
-                const parseResults = this._parseFile(
+                const parseFileResults = this._parseFile(
                     configOptions,
                     this._uri,
                     fileContents!,
@@ -618,19 +652,25 @@ export class SourceFile {
                     diagSink
                 );
 
-                assert(parseResults !== undefined && parseResults.tokenizerOutput !== undefined);
-                this._writableData.parseResults = parseResults;
-                this._writableData.typeIgnoreLines = this._writableData.parseResults.tokenizerOutput.typeIgnoreLines;
-                this._writableData.typeIgnoreAll = this._writableData.parseResults.tokenizerOutput.typeIgnoreAll;
-                this._writableData.pyrightIgnoreLines =
-                    this._writableData.parseResults.tokenizerOutput.pyrightIgnoreLines;
+                assert(parseFileResults !== undefined && parseFileResults.tokenizerOutput !== undefined);
+                this._writableData.parserOutput = parseFileResults.parserOutput;
+                this._writableData.tokenizerLines = parseFileResults.tokenizerOutput.lines;
+                this._writableData.parsedFileContents = fileContents;
+                this._writableData.typeIgnoreLines = parseFileResults.tokenizerOutput.typeIgnoreLines;
+                this._writableData.typeIgnoreAll = parseFileResults.tokenizerOutput.typeIgnoreAll;
+                this._writableData.pyrightIgnoreLines = parseFileResults.tokenizerOutput.pyrightIgnoreLines;
+
+                // Cache the tokenizer output only if this file is open.
+                if (this._writableData.clientDocumentContents !== undefined) {
+                    this._writableData.tokenizerOutput = parseFileResults.tokenizerOutput;
+                }
 
                 // Resolve imports.
                 const execEnvironment = configOptions.findExecEnvironment(this._uri);
                 timingStats.resolveImportsTime.timeOperation(() => {
                     const importResult = this._resolveImports(
                         importResolver,
-                        parseResults.importedModules,
+                        parseFileResults.parserOutput.importedModules,
                         execEnvironment
                     );
 
@@ -638,6 +678,13 @@ export class SourceFile {
                     this._writableData.builtinsImport = importResult.builtinsImportResult;
 
                     this._writableData.parseDiagnostics = diagSink.fetchAndClear();
+
+                    this._writableData.taskListDiagnostics = [];
+                    this._addTaskListDiagnostics(
+                        configOptions.taskListTokens,
+                        parseFileResults.tokenizerOutput,
+                        this._writableData.taskListDiagnostics
+                    );
                 });
 
                 // Is this file in a "strict" path?
@@ -647,8 +694,8 @@ export class SourceFile {
 
                 const commentDiags: CommentUtils.CommentDiagnostic[] = [];
                 this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(
-                    this._writableData.parseResults.tokenizerOutput.tokens,
-                    this._writableData.parseResults.tokenizerOutput.lines,
+                    parseFileResults.tokenizerOutput.tokens,
+                    parseFileResults.tokenizerOutput.lines,
                     configOptions.diagnosticRuleSet,
                     useStrict,
                     commentDiags
@@ -661,10 +708,7 @@ export class SourceFile {
                         new Diagnostic(
                             DiagnosticCategory.Error,
                             commentDiag.message,
-                            convertTextRangeToRange(
-                                commentDiag.range,
-                                this._writableData.parseResults!.tokenizerOutput.lines
-                            )
+                            convertTextRangeToRange(commentDiag.range, parseFileResults.tokenizerOutput.lines)
                         )
                     );
                 });
@@ -681,25 +725,30 @@ export class SourceFile {
                 );
 
                 // Create dummy parse results.
-                this._writableData.parseResults = {
-                    text: '',
+                this._writableData.parsedFileContents = '';
+
+                this._writableData.parserOutput = {
                     parseTree: ModuleNode.create({ start: 0, length: 0 }),
                     importedModules: [],
                     futureImports: new Set<string>(),
-                    tokenizerOutput: {
-                        tokens: new TextRangeCollection<Token>([]),
-                        lines: new TextRangeCollection<TextRange>([]),
-                        typeIgnoreAll: undefined,
-                        typeIgnoreLines: new Map<number, IgnoreComment>(),
-                        pyrightIgnoreLines: new Map<number, IgnoreComment>(),
-                        predominantEndOfLineSequence: '\n',
-                        hasPredominantTabSequence: false,
-                        predominantTabSequence: '    ',
-                        predominantSingleQuoteCharacter: "'",
-                    },
                     containsWildcardImport: false,
                     typingSymbolAliases: new Map<string, string>(),
                 };
+
+                this._writableData.tokenizerLines = new TextRangeCollection<TextRange>([]);
+
+                this._writableData.tokenizerOutput = {
+                    tokens: new TextRangeCollection<Token>([]),
+                    lines: this._writableData.tokenizerLines,
+                    typeIgnoreAll: undefined,
+                    typeIgnoreLines: new Map<number, IgnoreComment>(),
+                    pyrightIgnoreLines: new Map<number, IgnoreComment>(),
+                    predominantEndOfLineSequence: '\n',
+                    hasPredominantTabSequence: false,
+                    predominantTabSequence: '    ',
+                    predominantSingleQuoteCharacter: "'",
+                };
+
                 this._writableData.imports = undefined;
                 this._writableData.builtinsImport = undefined;
 
@@ -712,6 +761,7 @@ export class SourceFile {
                     getEmptyRange()
                 );
                 this._writableData.parseDiagnostics = diagSink.fetchAndClear();
+                this._writableData.taskListDiagnostics = diagSink.fetchAndClear();
 
                 // Do not rethrow the exception, swallow it here. Callers are not
                 // prepared to handle an exception.
@@ -738,7 +788,7 @@ export class SourceFile {
         assert(!this.isParseRequired(), 'Bind called before parsing');
         assert(this.isBindingRequired(), 'Bind called unnecessarily');
         assert(!this._writableData.isBindingInProgress, 'Bind called while binding in progress');
-        assert(this._writableData.parseResults !== undefined, 'Parse results not available');
+        assert(this._writableData.parserOutput !== undefined, 'Parse results not available');
 
         return this._logTracker.log(`binding: ${this._getPathForLogging(this._uri)}`, () => {
             try {
@@ -748,26 +798,26 @@ export class SourceFile {
 
                     const fileInfo = this._buildFileInfo(
                         configOptions,
-                        this._writableData.parseResults!.text,
+                        this._writableData.parsedFileContents!,
                         importLookup,
                         builtinsScope,
                         futureImports
                     );
-                    AnalyzerNodeInfo.setFileInfo(this._writableData.parseResults!.parseTree, fileInfo);
+                    AnalyzerNodeInfo.setFileInfo(this._writableData.parserOutput!.parseTree, fileInfo);
 
                     const binder = new Binder(fileInfo, configOptions.indexGenerationMode);
                     this._writableData.isBindingInProgress = true;
-                    binder.bindModule(this._writableData.parseResults!.parseTree);
+                    binder.bindModule(this._writableData.parserOutput!.parseTree);
 
                     // If we're in "test mode" (used for unit testing), run an additional
                     // "test walker" over the parse tree to validate its internal consistency.
                     if (configOptions.internalTestMode) {
                         const testWalker = new TestWalker();
-                        testWalker.walk(this._writableData.parseResults!.parseTree);
+                        testWalker.walk(this._writableData.parserOutput!.parseTree);
                     }
 
                     this._writableData.bindDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
-                    const moduleScope = AnalyzerNodeInfo.getScope(this._writableData.parseResults!.parseTree);
+                    const moduleScope = AnalyzerNodeInfo.getScope(this._writableData.parserOutput!.parseTree);
                     assert(moduleScope !== undefined, 'Module scope not returned by binder');
                     this._writableData.moduleSymbolTable = moduleScope!.symbolTable;
                 });
@@ -812,13 +862,13 @@ export class SourceFile {
         importResolver: ImportResolver,
         evaluator: TypeEvaluator,
         sourceMapper: SourceMapper,
-        dependentFiles?: ParseResults[]
+        dependentFiles?: ParserOutput[]
     ) {
         assert(!this.isParseRequired(), 'Check called before parsing');
         assert(!this.isBindingRequired(), `Check called before binding: state=${this._writableData.debugPrint()}`);
         assert(!this._writableData.isBindingInProgress, 'Check called while binding in progress');
         assert(this.isCheckingRequired(), 'Check called unnecessarily');
-        assert(this._writableData.parseResults !== undefined, 'Parse results not available');
+        assert(this._writableData.parserOutput !== undefined, 'Parse results not available');
 
         return this._logTracker.log(`checking: ${this._getPathForLogging(this._uri)}`, () => {
             try {
@@ -827,14 +877,14 @@ export class SourceFile {
                     const checker = new Checker(
                         importResolver,
                         evaluator,
-                        this._writableData.parseResults!,
+                        this._writableData.parserOutput!,
                         sourceMapper,
                         dependentFiles
                     );
                     checker.check();
                     this._writableData.isCheckingNeeded = false;
 
-                    const fileInfo = AnalyzerNodeInfo.getFileInfo(this._writableData.parseResults!.parseTree)!;
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(this._writableData.parserOutput!.parseTree)!;
                     this._writableData.checkerDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
                     this._writableData.checkTime = checkDuration.getDurationInMilliseconds();
                 });
@@ -908,6 +958,7 @@ export class SourceFile {
         appendArray(diagList, this._writableData.commentDiagnostics);
         appendArray(diagList, this._writableData.bindDiagnostics);
         appendArray(diagList, this._writableData.checkerDiagnostics);
+        appendArray(diagList, this._writableData.taskListDiagnostics);
 
         const prefilteredDiagList = diagList;
         const typeIgnoreLinesClone = new Map(this._writableData.typeIgnoreLines);
@@ -1018,11 +1069,7 @@ export class SourceFile {
             if (prefilteredErrorList.length === 0 && this._writableData.typeIgnoreAll !== undefined) {
                 const rangeStart = this._writableData.typeIgnoreAll.range.start;
                 const rangeEnd = rangeStart + this._writableData.typeIgnoreAll.range.length;
-                const range = convertOffsetsToRange(
-                    rangeStart,
-                    rangeEnd,
-                    this._writableData.parseResults!.tokenizerOutput.lines!
-                );
+                const range = convertOffsetsToRange(rangeStart, rangeEnd, this._writableData.tokenizerLines!);
 
                 if (!isUnreachableCodeRange(range) && this._diagnosticRuleSet.enableTypeIgnoreComments) {
                     unnecessaryTypeIgnoreDiags.push(
@@ -1032,14 +1079,10 @@ export class SourceFile {
             }
 
             typeIgnoreLinesClone.forEach((ignoreComment) => {
-                if (this._writableData.parseResults?.tokenizerOutput.lines) {
+                if (this._writableData.tokenizerLines!) {
                     const rangeStart = ignoreComment.range.start;
                     const rangeEnd = rangeStart + ignoreComment.range.length;
-                    const range = convertOffsetsToRange(
-                        rangeStart,
-                        rangeEnd,
-                        this._writableData.parseResults!.tokenizerOutput.lines!
-                    );
+                    const range = convertOffsetsToRange(rangeStart, rangeEnd, this._writableData.tokenizerLines!);
 
                     if (!isUnreachableCodeRange(range) && this._diagnosticRuleSet.enableTypeIgnoreComments) {
                         unnecessaryTypeIgnoreDiags.push(
@@ -1050,15 +1093,11 @@ export class SourceFile {
             });
 
             pyrightIgnoreLinesClone.forEach((ignoreComment) => {
-                if (this._writableData.parseResults?.tokenizerOutput.lines) {
+                if (this._writableData.tokenizerLines!) {
                     if (!ignoreComment.rulesList) {
                         const rangeStart = ignoreComment.range.start;
                         const rangeEnd = rangeStart + ignoreComment.range.length;
-                        const range = convertOffsetsToRange(
-                            rangeStart,
-                            rangeEnd,
-                            this._writableData.parseResults!.tokenizerOutput.lines!
-                        );
+                        const range = convertOffsetsToRange(rangeStart, rangeEnd, this._writableData.tokenizerLines!);
 
                         if (!isUnreachableCodeRange(range)) {
                             unnecessaryTypeIgnoreDiags.push(
@@ -1072,7 +1111,7 @@ export class SourceFile {
                             const range = convertOffsetsToRange(
                                 rangeStart,
                                 rangeEnd,
-                                this._writableData.parseResults!.tokenizerOutput.lines!
+                                this._writableData.tokenizerLines!
                             );
 
                             if (!isUnreachableCodeRange(range)) {
@@ -1124,14 +1163,6 @@ export class SourceFile {
             );
         }
 
-        // Add diagnostics for comments that match the task list tokens.
-        this._addTaskListDiagnostics(configOptions.taskListTokens, diagList);
-
-        // If the file is in the ignore list, clear the diagnostic list.
-        if (configOptions.ignore.find((ignoreFileSpec) => this._uri.matchesRegex(ignoreFileSpec.regExp))) {
-            diagList = [];
-        }
-
         // If there is a "type: ignore" comment at the top of the file, clear
         // the diagnostic list of all error, warning, and information diagnostics.
         if (this._diagnosticRuleSet.enableTypeIgnoreComments) {
@@ -1160,6 +1191,11 @@ export class SourceFile {
             );
         }
 
+        // If the file is in the ignore list, clear the diagnostic list.
+        if (configOptions.ignore.find((ignoreFileSpec) => this._uri.matchesRegex(ignoreFileSpec.regExp))) {
+            diagList = [];
+        }
+
         this._writableData.accumulatedDiagnostics = diagList;
     }
 
@@ -1178,17 +1214,15 @@ export class SourceFile {
 
     // Get all task list diagnostics for the current file and add them
     // to the specified diagnostic list.
-    private _addTaskListDiagnostics(taskListTokens: TaskListToken[] | undefined, diagList: Diagnostic[]) {
+    private _addTaskListDiagnostics(
+        taskListTokens: TaskListToken[] | undefined,
+        tokenizerOutput: TokenizerOutput,
+        diagList: Diagnostic[]
+    ) {
         if (!taskListTokens || taskListTokens.length === 0 || !diagList) {
             return;
         }
 
-        // If we have no tokens, we're done.
-        if (!this._writableData.parseResults?.tokenizerOutput?.tokens) {
-            return;
-        }
-
-        const tokenizerOutput = this._writableData.parseResults.tokenizerOutput;
         for (let i = 0; i < tokenizerOutput.tokens.count; i++) {
             const token = tokenizerOutput.tokens.getItemAt(i);
 
@@ -1241,10 +1275,8 @@ export class SourceFile {
         builtinsScope: Scope | undefined,
         futureImports: Set<string>
     ) {
-        assert(this._writableData.parseResults !== undefined, 'Parse results not available');
-        const analysisDiagnostics = this.createTextRangeDiagnosticSink(
-            this._writableData.parseResults!.tokenizerOutput.lines
-        );
+        assert(this._writableData.parserOutput !== undefined, 'Parse results not available');
+        const analysisDiagnostics = this.createTextRangeDiagnosticSink(this._writableData.tokenizerLines!);
 
         const fileInfo: AnalyzerFileInfo = {
             importLookup,
@@ -1253,9 +1285,8 @@ export class SourceFile {
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._uri),
             diagnosticRuleSet: this._diagnosticRuleSet,
-            fileContents,
-            lines: this._writableData.parseResults!.tokenizerOutput.lines,
-            typingSymbolAliases: this._writableData.parseResults!.typingSymbolAliases,
+            lines: this._writableData.tokenizerLines!,
+            typingSymbolAliases: this._writableData.parserOutput!.typingSymbolAliases,
             definedConstants: configOptions.defineConstant,
             fileUri: this._uri,
             moduleName: this.getModuleName(),
@@ -1272,9 +1303,9 @@ export class SourceFile {
     }
 
     private _cleanParseTreeIfRequired() {
-        if (this._writableData.parseResults) {
+        if (this._writableData.parserOutput) {
             if (this._writableData.parseTreeNeedsCleaning) {
-                const cleanerWalker = new ParseTreeCleanerWalker(this._writableData.parseResults.parseTree);
+                const cleanerWalker = new ParseTreeCleanerWalker(this._writableData.parserOutput.parseTree);
                 cleanerWalker.clean();
                 this._writableData.parseTreeNeedsCleaning = false;
             }
@@ -1365,8 +1396,8 @@ export class SourceFile {
         fileContents: string,
         ipythonMode: IPythonMode,
         diagSink: DiagnosticSink
-    ) {
-        // Use the configuration options to determine the environment in which
+    ): ParseFileResults {
+        // Use the configuration options to determine the environment zin which
         // this source file will be executed.
         const execEnvironment = configOptions.findExecEnvironment(fileUri);
 
@@ -1381,6 +1412,23 @@ export class SourceFile {
         // Parse the token stream, building the abstract syntax tree.
         const parser = new Parser();
         return parser.parseSourceFile(fileContents, parseOptions, diagSink);
+    }
+
+    private _tokenizeContents(fileContents: string): TokenizerOutput {
+        const tokenizer = new Tokenizer();
+        const output = tokenizer.tokenize(fileContents);
+
+        // If the file is currently open, cache the tokenizer results.
+        if (this._writableData.clientDocumentContents !== undefined) {
+            this._writableData.tokenizerOutput = output;
+
+            // Replace the existing tokenizerLines with the newly-returned
+            // version. They should have the same contents, but we want to use
+            // the same object so the older object can be deallocated.
+            this._writableData.tokenizerLines = output.lines;
+        }
+
+        return output;
     }
 
     private _fireFileDirtyEvent() {

@@ -6,7 +6,7 @@ on:
 
 env:
   VSIX_NAME: vscode-pyright.vsix
-  NODE_VERSION: '16' # Shipped with VS Code.
+  NODE_VERSION: '18' # Shipped with VS Code.
 
 jobs:
   publish_extension:

@@ -74,7 +74,6 @@ export type UnionableType =
 export type Type = UnionableType | NeverType | UnionType;
 
 export type TypeVarScopeId = string;
-export const WildcardTypeVarScopeId = '*';
 export const InScopePlaceholderScopeId = '-';
 
 export class EnumLiteral {
@@ -421,7 +420,7 @@ export namespace ModuleType {
         if (moduleType.loaderFields) {
             if (!symbol) {
                 symbol = moduleType.loaderFields.get(name);
-            } else {
+            } else if (symbol.getDeclarations().length === 1) {
                 // If the symbol is hidden when accessed via the module but is
                 // also accessible through a loader field, use the latter so it
                 // isn't flagged as an error.
@@ -456,6 +455,11 @@ export interface TypedDictEntry {
     isProvided: boolean;
 }
 
+export interface TypedDictEntries {
+    knownItems: Map<string, TypedDictEntry>;
+    extraItems?: TypedDictEntry | undefined;
+}
+
 export const enum ClassTypeFlags {
     None = 0,
 
@@ -487,90 +491,99 @@ export const enum ClassTypeFlags {
     TypedDictClass = 1 << 7,
 
     // Used in conjunction with TypedDictClass, indicates that
+    // the TypedDict class is marked "closed".
+    TypedDictMarkedClosed = 1 << 8,
+
+    // Used in conjunction with TypedDictClass, indicates that
+    // the TypedDict class is marked "closed" or one or more of
+    // its superclasses is marked "closed".
+    TypedDictEffectivelyClosed = 1 << 9,
+
+    // Used in conjunction with TypedDictClass, indicates that
     // the dictionary values can be omitted.
-    CanOmitDictValues = 1 << 8,
+    CanOmitDictValues = 1 << 10,
 
     // The class derives from a class that has the ABCMeta
     // metaclass. Such classes are allowed to contain
     // @abstractmethod decorators.
-    SupportsAbstractMethods = 1 << 10,
+    SupportsAbstractMethods = 1 << 11,
 
     // Derives from property class and has the semantics of
     // a property (with optional setter, deleter).
-    PropertyClass = 1 << 11,
+    PropertyClass = 1 << 12,
 
     // The class is decorated with a "@final" decorator
     // indicating that it cannot be subclassed.
-    Final = 1 << 12,
+    Final = 1 << 13,
 
     // The class derives directly from "Protocol".
-    ProtocolClass = 1 << 13,
+    ProtocolClass = 1 << 14,
 
     // A class whose constructor (__init__ method) does not have
     // annotated types and is treated as though each parameter
     // is a generic type for purposes of type inference.
-    PseudoGenericClass = 1 << 14,
+    PseudoGenericClass = 1 << 15,
 
     // A protocol class that is "runtime checkable" can be used
     // in an isinstance call.
-    RuntimeCheckable = 1 << 15,
+    RuntimeCheckable = 1 << 16,
 
     // The type is defined in the typing_extensions.pyi file.
-    TypingExtensionClass = 1 << 16,
+    TypingExtensionClass = 1 << 17,
 
     // The class type is in the process of being evaluated and
     // is not yet complete. This allows us to detect cases where
     // the class refers to itself (e.g. uses itself as a type
     // argument to one of its generic base classes).
-    PartiallyEvaluated = 1 << 17,
+    PartiallyEvaluated = 1 << 18,
 
     // The class or one of its ancestors defines a __class_getitem__
     // method that is used for subscripting. This is not set if the
     // class is generic, and therefore supports standard subscripting
     // semantics.
-    HasCustomClassGetItem = 1 << 18,
+    HasCustomClassGetItem = 1 << 19,
 
     // The tuple class uses a variadic type parameter and requires
     // special-case handling of its type arguments.
-    TupleClass = 1 << 19,
+    TupleClass = 1 << 20,
 
     // The class has a metaclass of EnumMeta or derives from
     // a class that has this metaclass.
-    EnumClass = 1 << 20,
+    EnumClass = 1 << 21,
 
     // For dataclasses, should __init__ method always be generated
     // with keyword-only parameters?
-    DataClassKeywordOnlyParams = 1 << 21,
+    DataClassKeywordOnlyParams = 1 << 22,
 
     // Properties that are defined using the @classmethod decorator.
-    ClassProperty = 1 << 22,
+    ClassProperty = 1 << 23,
 
     // Class is declared within a type stub file.
-    DefinedInStub = 1 << 23,
+    DefinedInStub = 1 << 24,
 
     // Class does not allow writing or deleting its instance variables
     // through a member access. Used with named tuples.
-    ReadOnlyInstanceVariables = 1 << 24,
+    ReadOnlyInstanceVariables = 1 << 25,
 
     // For dataclasses, should __slots__ be generated?
-    GenerateDataClassSlots = 1 << 25,
+    GenerateDataClassSlots = 1 << 26,
 
     // For dataclasses, should __hash__ be generated?
-    SynthesizeDataClassUnsafeHash = 1 << 26,
+    SynthesizeDataClassUnsafeHash = 1 << 27,
 
     // Decorated with @type_check_only.
-    TypeCheckOnly = 1 << 27,
+    TypeCheckOnly = 1 << 28,
 
     // Created with the NewType call.
-    NewTypeClass = 1 << 28,
+    NewTypeClass = 1 << 29,
 
     // Class is allowed to be used as an implicit type alias even
     // though it is not defined using a `class` statement.
-    ValidTypeAliasClass = 1 << 29,
+    ValidTypeAliasClass = 1 << 30,
 
     // A special form is not compatible with type[T] and cannot
     // be directly instantiated.
-    SpecialFormClass = 1 << 30,
+    SpecialFormClass = 1 << 31,
 }
 
 export interface DataClassBehaviors {
@@ -600,8 +613,7 @@ interface ClassDetails {
     deprecatedMessage?: string | undefined;
     dataClassEntries?: DataClassEntry[] | undefined;
     dataClassBehaviors?: DataClassBehaviors | undefined;
-    typedDictEntries?: Map<string, TypedDictEntry> | undefined;
-    inheritedSlotsNames?: string[];
+    typedDictEntries?: TypedDictEntries | undefined;
     localSlotsNames?: string[];
 
     // A cache of protocol classes (indexed by the class full name)
@@ -621,6 +633,13 @@ interface ClassDetails {
     // A cached value that indicates whether an instance of this class
     // is hashable (i.e. does not override "__hash__" with None).
     isInstanceHashable?: boolean;
+
+    // Callback for deferred synthesis of methods in symbol table.
+    synthesizeMethodsDeferred?: () => void;
+
+    // Callback for calculating inherited slots names.
+    calculateInheritedSlotsNamesDeferred?: () => void;
+    inheritedSlotsNamesCached?: string[];
 }
 
 export interface TupleTypeArgument {
@@ -840,6 +859,11 @@ export namespace ClassType {
     export function cloneWithLiteral(classType: ClassType, value: LiteralValue | undefined): ClassType {
         const newClassType = TypeBase.cloneType(classType);
         newClassType.literalValue = value;
+
+        // Remove type alias information because the type will no longer match
+        // that of the type alias definition if we change the literal type.
+        delete newClassType.typeAliasInfo;
+
         return newClassType;
     }
 
@@ -1080,6 +1104,14 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.CanOmitDictValues);
     }
 
+    export function isTypedDictMarkedClosed(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.TypedDictMarkedClosed);
+    }
+
+    export function isTypedDictEffectivelyClosed(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.TypedDictEffectivelyClosed);
+    }
+
     export function isEnumClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.EnumClass);
     }
@@ -1109,6 +1141,8 @@ export namespace ClassType {
     }
 
     export function getDataClassEntries(classType: ClassType): DataClassEntry[] {
+        classType.details.synthesizeMethodsDeferred?.();
+
         return classType.details.dataClassEntries || [];
     }
 
@@ -1142,6 +1176,22 @@ export namespace ClassType {
 
     export function hasUnknownBaseClass(classType: ClassType) {
         return classType.details.mro.some((baseClass) => isAnyOrUnknown(baseClass));
+    }
+
+    export function getSymbolTable(classType: ClassType) {
+        classType.details.synthesizeMethodsDeferred?.();
+
+        return classType.details.fields;
+    }
+
+    export function getInheritedSlotsNames(classType: ClassType) {
+        // First synthesize methods if needed. The slots entries
+        // can depend on synthesized methods.
+        classType.details.synthesizeMethodsDeferred?.();
+
+        classType.details.calculateInheritedSlotsNamesDeferred?.();
+
+        return classType.details.inheritedSlotsNamesCached;
     }
 
     // Similar to isPartiallyEvaluated except that it also looks at all of the
@@ -1432,9 +1482,9 @@ interface FunctionDetails {
     constructorTypeVarScopeId?: TypeVarScopeId | undefined;
 
     // For functions whose parameter lists derive from a solved
-    // ParamSpec, this is the TypeVar scope ID of the signature
-    // captured by that ParamSpec.
-    paramSpecTypeVarScopeId?: TypeVarScopeId | undefined;
+    // ParamSpec or higher-order generic functions, this is a list of
+    // additional TypeVar IDs that may need to be solved.
+    higherOrderTypeVarScopeIds?: TypeVarScopeId[];
 }
 
 export interface SpecializedFunctionTypes {
@@ -1679,6 +1729,10 @@ export namespace FunctionType {
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
 
+        newFunction.details.typeParameters = newFunction.details.typeParameters.filter(
+            (t) => !newFunction.details.paramSpec || !isTypeSame(t, newFunction.details.paramSpec)
+        );
+
         // The clone should no longer have a parameter specification
         // since we're replacing it.
         delete newFunction.details.paramSpec;
@@ -1763,8 +1817,11 @@ export namespace FunctionType {
                 });
             }
 
-            newFunction.details.paramSpecTypeVarScopeId = paramSpecValue.details.typeVarScopeId;
+            FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.details.typeVarScopeId);
+            FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.details.higherOrderTypeVarScopeIds);
+
             newFunction.details.paramSpec = paramSpecValue.details.paramSpec;
+            newFunction.details.methodClass = paramSpecValue.details.methodClass;
         }
 
         return newFunction;
@@ -1793,6 +1850,11 @@ export namespace FunctionType {
         newFunction.details.typeVarScopeId = newScopeId;
         newFunction.details.typeParameters = typeParameters;
         newFunction.trackedSignatures = trackedSignatures;
+
+        FunctionType.addHigherOrderTypeVarScopeIds(
+            newFunction,
+            typeParameters.map((t) => t.scopeId)
+        );
 
         return newFunction;
     }
@@ -1876,10 +1938,7 @@ export namespace FunctionType {
             newFunction.details.docString = paramSpecValue.details.docString;
         }
 
-        // Note the TypeVar scope ID of the original captured function. This
-        // allows any unsolved TypeVars within that scope to be solved when the
-        // resulting function is called.
-        newFunction.details.paramSpecTypeVarScopeId = paramSpecValue.details.typeVarScopeId;
+        FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.details.typeVarScopeId);
 
         return newFunction;
     }
@@ -1932,6 +1991,34 @@ export namespace FunctionType {
     export function addDefaultParameters(functionType: FunctionType, useUnknown = false) {
         getDefaultParameters(useUnknown).forEach((param) => {
             FunctionType.addParameter(functionType, param);
+        });
+    }
+
+    export function addHigherOrderTypeVarScopeIds(
+        functionType: FunctionType,
+        scopeIds: (TypeVarScopeId | undefined)[] | TypeVarScopeId | undefined
+    ) {
+        if (!scopeIds) {
+            return;
+        }
+
+        if (!Array.isArray(scopeIds)) {
+            scopeIds = [scopeIds];
+        }
+
+        if (!functionType.details.higherOrderTypeVarScopeIds) {
+            functionType.details.higherOrderTypeVarScopeIds = [];
+        }
+
+        // Add the scope IDs to the function if they're unique.
+        scopeIds.forEach((scopeId) => {
+            if (!scopeId || scopeId === functionType.details.typeVarScopeId) {
+                return;
+            }
+
+            if (!functionType.details.higherOrderTypeVarScopeIds!.some((id) => id === scopeId)) {
+                functionType.details.higherOrderTypeVarScopeIds!.push(scopeId);
+            }
         });
     }
 
@@ -2466,7 +2553,8 @@ export interface TypeVarDetails {
     name: string;
     constraints: Type[];
     boundType?: Type | undefined;
-    defaultType?: Type | undefined;
+    isDefaultExplicit?: boolean;
+    defaultType: Type;
 
     isParamSpec: boolean;
     isVariadic: boolean;
@@ -2685,6 +2773,7 @@ export namespace TypeVarType {
                 isParamSpec,
                 isVariadic: false,
                 isSynthesized: false,
+                defaultType: UnknownType.create(),
             },
             flags: typeFlags,
         };

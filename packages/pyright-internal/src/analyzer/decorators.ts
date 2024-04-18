@@ -593,10 +593,10 @@ function getCustomDeprecationMessage(decorator: DecoratorNode): string {
         decorator.expression.nodeType === ParseNodeType.Call &&
         decorator.expression.arguments.length > 0 &&
         decorator.expression.arguments[0].argumentCategory === ArgumentCategory.Simple &&
-        decorator.expression.arguments[0].valueExpression.nodeType === ParseNodeType.StringList &&
-        decorator.expression.arguments[0].valueExpression.strings.length === 1
+        decorator.expression.arguments[0].valueExpression.nodeType === ParseNodeType.StringList
     ) {
-        const message = decorator.expression.arguments[0].valueExpression.strings[0].value;
+        const stringListNode = decorator.expression.arguments[0].valueExpression;
+        const message = stringListNode.strings.map((s) => s.value).join('');
         return convertDocStringToPlainText(message);
     }
 

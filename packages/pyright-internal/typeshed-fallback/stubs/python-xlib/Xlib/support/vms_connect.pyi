@@ -1,9 +1,8 @@
 from _socket import _Address
+from _typeshed import Unused
 from re import Pattern
 from socket import socket
 from typing import Final
-
-from Xlib._typing import Unused
 
 display_re: Final[Pattern[str]]
 

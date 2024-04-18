@@ -61,10 +61,10 @@ function isInheritedFromBuiltin(type: FunctionType | OverloadedFunctionType, cla
     // Functions that are bound to a different type than where they
     // were declared are inherited.
     return (
-        type.details.moduleName === 'builtins' &&
-        !!classType &&
+        !!type.details.methodClass &&
+        ClassType.isBuiltIn(type.details.methodClass) &&
         !!type.boundToType &&
-        !ClassType.isSameGenericClass(classType, type.boundToType)
+        !ClassType.isBuiltIn(type.boundToType)
     );
 }
 
@@ -328,7 +328,7 @@ function _getPropertyDocStringInherited(
             continue;
         }
 
-        const symbol = mroClass.details.fields.get(fieldName);
+        const symbol = ClassType.getSymbolTable(mroClass).get(fieldName);
         // Get both the setter and getter declarations
         const decls = symbol?.getDeclarations();
         if (decls) {

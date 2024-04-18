@@ -66,18 +66,18 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `x == L` and `x != L` (where L is an expression that evaluates to a literal type)
 * `x.y is None` and `x.y is not None` (where x is a type that is distinguished by a field with a None)
 * `x.y is E` and `x.y is not E` (where E is a literal enum or bool and x is a type that is distinguished by a field with a literal type)
-* `x.y == L` and `x.y != L` (where L is a literal expression and x is a type that is distinguished by a field or property with a literal type)
+* `x.y == LN` and `x.y != LN` (where LN is a literal expression or `None` and x is a type that is distinguished by a field or property with a literal type)
 * `x[K] == V`, `x[K] != V`, `x[K] is V`, and `x[K] is not V` (where K and V are literal expressions and x is a type that is distinguished by a TypedDict field with a literal type)
 * `x[I] == V` and `x[I] != V` (where I and V are literal expressions and x is a known-length tuple that is distinguished by the index indicated by I)
 * `x[I] is B` and `x[I] is not B` (where I is a literal expression, B is a `bool` or enum literal, and x is a known-length tuple that is distinguished by the index indicated by I)
 * `x[I] is None` and `x[I] is not None` (where I is a literal expression and x is a known-length tuple that is distinguished by the index indicated by I)
-* `len(x) == L` and `len(x) != L` (where x is tuple and L is an expression that evaluates to an int literal type)
+* `len(x) == L`, `len(x) != L`, `len(x) < L`, etc. (where x is tuple and L is an expression that evaluates to an int literal type)
 * `x in y` or `x not in y` (where y is instance of list, set, frozenset, deque, tuple, dict, defaultdict, or OrderedDict)
 * `S in D` and `S not in D` (where S is a string literal and D is a TypedDict)
 * `isinstance(x, T)` (where T is a type or a tuple of types)
 * `issubclass(x, T)` (where T is a type or a tuple of types)
 * `callable(x)`
-* `f(x)` (where f is a user-defined type guard as defined in [PEP 647](https://www.python.org/dev/peps/pep-0647/))
+* `f(x)` (where f is a user-defined type guard as defined in [PEP 647](https://www.python.org/dev/peps/pep-0647/) or [PEP 742](https://www.python.org/dev/peps/pep-0742))
 * `bool(x)` (where x is any expression that is statically verifiable to be truthy or falsey in all cases)
 * `x` (where x is any expression that is statically verifiable to be truthy or falsey in all cases)
 
@@ -197,7 +197,7 @@ def func4(value: str | int) -> str:
 
 If you later added another color to the `Color` enumeration above (e.g. `YELLOW = 4`), Pyright would detect that `func3` no longer exhausts all members of the enumeration and possibly returns `None`, which violates the declared return type. Likewise, if you modify the type of the `value` parameter in `func4` to expand the union, a similar error will be produced.
 
-This “narrowing for implied else” technique works for all narrowing expressions listed above with the exception of simple falsey/truthy statements and type guards. It is also limited to simple names and doesn’t work with member access or index expressions. These are excluded because they are not generally used for exhaustive checks, and their inclusion would have a significant impact on analysis performance.
+This “narrowing for implied else” technique works for all narrowing expressions listed above with the exception of simple falsey/truthy statements and type guards. It is also limited to simple names and doesn’t work with member access or index expressions, and it requires that the name has a declared type (an explicit type annotation). These limitations are imposed because this functionality would otherwise have significant impact on analysis performance.
 
 
 ### Narrowing Any

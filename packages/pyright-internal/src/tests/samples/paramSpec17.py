@@ -5,7 +5,7 @@
 
 from collections.abc import Callable
 from typing import Any
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec  # pyright: ignore[reportMissingModuleSource]
 
 P = ParamSpec("P")
 
@@ -17,15 +17,13 @@ def func1(func: Callable[P, object], *args: P.args, **kwargs: P.kwargs) -> str:
     return func.__name__ + "(" + ", ".join(arg_reprs) + ")"
 
 
-def func2(*values: object, sep: str | None = ..., end: str | None = ...) -> None:
-    ...
+def func2(*values: object, sep: str | None = ..., end: str | None = ...) -> None: ...
 
 
 func1(func2)
 
 
-def func3(a: int, b: int):
-    ...
+def func3(a: int, b: int): ...
 
 
 def func4(*args: Any, **kwargs: Any):

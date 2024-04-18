@@ -2,7 +2,7 @@
 # and several layers of nested type aliases.
 
 from typing import Any, Callable, Concatenate, Coroutine, TypeVar, Union
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec  # pyright: ignore[reportMissingModuleSource]
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -18,16 +18,13 @@ CoMethod = Method[T, P, Co[U]]
 CoMaybeMethod = Union[CoMethod[T, P, U], CoFunc[P, U]]
 
 
-class D:
-    ...
+class D: ...
 
 
-class E(Exception):
-    ...
+class E(Exception): ...
 
 
-class F:
-    ...
+class F: ...
 
 
 DT = TypeVar("DT", bound=D)
@@ -39,16 +36,13 @@ reveal_type(
 )
 
 
-class A:
-    ...
+class A: ...
 
 
-class B:
-    ...
+class B: ...
 
 
-class C:
-    ...
+class C: ...
 
 
 BT = TypeVar("BT", bound=B)

@@ -3,7 +3,7 @@
 
 from abc import ABC, ABCMeta
 from typing import Any, ClassVar
-from typing_extensions import reveal_type
+from typing_extensions import reveal_type  # pyright: ignore[reportMissingModuleSource]
 
 
 class Meta1(ABCMeta):

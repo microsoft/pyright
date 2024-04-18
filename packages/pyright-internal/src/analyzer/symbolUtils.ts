@@ -10,7 +10,7 @@
 import { Declaration, DeclarationType } from './declaration';
 import { Symbol } from './symbol';
 
-export function getLastTypedDeclaredForSymbol(symbol: Symbol): Declaration | undefined {
+export function getLastTypedDeclarationForSymbol(symbol: Symbol): Declaration | undefined {
     const typedDecls = symbol.getTypedDeclarations();
 
     if (typedDecls.length > 0) {
@@ -37,4 +37,16 @@ export function isTypedDictMemberAccessedThroughIndex(symbol: Symbol): boolean {
 
 export function isVisibleExternally(symbol: Symbol) {
     return !symbol.isExternallyHidden() && !symbol.isPrivatePyTypedImport();
+}
+
+export function isEffectivelyClassVar(symbol: Symbol, isInDataclass: boolean) {
+    if (symbol.isClassVar()) {
+        return true;
+    }
+
+    if (symbol.isFinalVarInClassBody()) {
+        return !isInDataclass;
+    }
+
+    return false;
 }

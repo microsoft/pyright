@@ -2,8 +2,11 @@
 # in conjunction with unpacked tuples.
 
 from __future__ import annotations
-from typing import Any, Generic, NewType, TypeVar, Union
-from typing_extensions import TypeVarTuple, Unpack
+from typing import Any, Generic, NewType, TypeVar
+from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
+    TypeVarTuple,
+    Unpack,
+)
 
 DType = TypeVar("DType")
 Shape = TypeVarTuple("Shape")
@@ -15,29 +18,25 @@ Channels = NewType("Channels", int)
 
 
 class Array(Generic[DType, Unpack[Shape]]):
-    def __abs__(self) -> Array[DType, Unpack[Shape]]:
-        ...
+    def __abs__(self) -> Array[DType, Unpack[Shape]]: ...
 
     def __add__(
         self, other: Array[DType, Unpack[Shape]]
-    ) -> Array[DType, Unpack[Shape]]:
-        ...
+    ) -> Array[DType, Unpack[Shape]]: ...
 
 
-def process_batch_channels(x: Array[Batch, Unpack[tuple[Any, ...]], Channels]) -> None:
-    ...
+def process_batch_channels(
+    x: Array[Batch, Unpack[tuple[Any, ...]], Channels]
+) -> None: ...
 
 
-def expect_variadic_array1(x: Array[Batch, Unpack[Shape]]) -> tuple[Unpack[Shape]]:
-    ...
+def expect_variadic_array1(x: Array[Batch, Unpack[Shape]]) -> tuple[Unpack[Shape]]: ...
 
 
-def expect_variadic_array2(x: Array[Batch, Unpack[tuple[Any, ...]]]) -> None:
-    ...
+def expect_variadic_array2(x: Array[Batch, Unpack[tuple[Any, ...]]]) -> None: ...
 
 
-def expect_precise_array(x: Array[Batch, Height, Width, Channels]) -> None:
-    ...
+def expect_precise_array(x: Array[Batch, Height, Width, Channels]) -> None: ...
 
 
 def func1(x: Array[Batch, Height, Width, Channels]):
