@@ -15,7 +15,7 @@ import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { FunctionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
+import { ParseFileResults } from '../parser/parser';
 
 enum TokenType {
     namespace,
@@ -71,7 +71,7 @@ class TokenModifiers {
 class SemanticTokensTreeWalker extends ParseTreeWalker {
     constructor(
         private _builder: SemanticTokensBuilder,
-        private _parseResults: ParseResults,
+        private _parseResults: ParseFileResults,
         private _evaluator: TypeEvaluator,
         private _cancellationToken: CancellationToken
     ) {
@@ -79,7 +79,7 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
     }
 
     findSemanticTokens() {
-        this.walk(this._parseResults.parseTree);
+        this.walk(this._parseResults.parserOutput.parseTree);
     }
 
     override visitName(node: NameNode): boolean {
@@ -328,7 +328,7 @@ export class SemanticTokensProvider {
         SemanticTokensProvider.tokenModifiers.map((t) => [t, SemanticTokensProvider.tokenModifiers.indexOf(t)])
     );
 
-    private readonly _parseResults: ParseResults | undefined;
+    private readonly _parseResults: ParseFileResults | undefined;
 
     constructor(private _program: ProgramView, private _fileUri: Uri, private _token: CancellationToken) {
         this._parseResults = this._program.getParseResults(this._fileUri);
