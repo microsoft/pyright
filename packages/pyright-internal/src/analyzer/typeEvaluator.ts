@@ -583,7 +583,13 @@ interface CodeFlowAnalyzerCacheEntry {
     codeFlowAnalyzer: CodeFlowAnalyzer;
 }
 
-export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
+type LogWrapper = <T extends (...args: any[]) => any>(func: T) => (...args: Parameters<T>) => ReturnType<T>;
+
+export function createTypeEvaluator(
+    importLookup: ImportLookup,
+    evaluatorOptions: EvaluatorOptions,
+    wrapWithLogger: LogWrapper
+): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const asymmetricAccessorAssignmentCache = new Set<number>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
@@ -21825,7 +21831,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return UnknownType.create();
     }
 
-    function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
+    function _getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
         let returnType: Type | undefined;
         let isIncomplete = false;
         const analyzeUnannotatedFunctions = true;
@@ -26928,6 +26934,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         });
     }
+
+    // Track these apis internal usages when logging is on. otherwise, it should be noop.
+    const getFunctionInferredReturnType = wrapWithLogger(_getFunctionInferredReturnType);
 
     const evaluatorInterface: TypeEvaluator = {
         runWithCancellationToken,
