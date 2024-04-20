@@ -55,11 +55,14 @@ export function createTypeEvaluatorWithTracker(
 
     // Wrap all functions with either a logger or a timer.
     importLookup = wrapWithLogger(importLookup);
-    const evaluator = createTypeEvaluator(importLookup, evaluatorOptions);
+    const evaluator = createTypeEvaluator(importLookup, evaluatorOptions, wrapWithLogger);
+
+    // Track these apis external usages when logging is on. otherwise, it should be noop.
     const keys = Object.keys(evaluator);
     keys.forEach((k) => {
         const entry = (evaluator as any)[k];
-        if (typeof entry === 'function') {
+        if (typeof entry === 'function' && entry.name) {
+            // Only wrap functions that aren't wrapped already.
             (evaluator as any)[k] = wrapWithLogger(entry);
         }
     });
