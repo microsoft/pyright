@@ -3420,6 +3420,8 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
             type.details.docString
         );
 
+        newFunction.details.deprecatedMessage = type.details.deprecatedMessage;
+
         type.details.parameters.forEach((param, index) => {
             FunctionType.addParameter(newFunction, {
                 category: param.category,
@@ -3482,6 +3484,7 @@ export function convertParamSpecValueToType(paramSpecValue: FunctionType, omitPa
             functionType.details.paramSpec = paramSpecValue.details.paramSpec;
         }
         functionType.details.docString = paramSpecValue.details.docString;
+        functionType.details.deprecatedMessage = paramSpecValue.details.deprecatedMessage;
 
         return functionType;
     }

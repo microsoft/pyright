@@ -4187,6 +4187,11 @@ export class Checker extends ParseTreeWalker {
                             errorMessage = LocMessage.deprecatedConstructor().format({
                                 name: type.details.name,
                             });
+                        } else if (isClassInstance(type) && overload.details.name === '__call__') {
+                            deprecatedMessage = overload.details.deprecatedMessage;
+                            errorMessage = LocMessage.deprecatedFunction().format({
+                                name: node.value,
+                            });
                         }
                     }
                 });
@@ -4202,13 +4207,20 @@ export class Checker extends ParseTreeWalker {
                 ) {
                     deprecatedMessage = subtype.details.deprecatedMessage;
                     errorMessage = LocMessage.deprecatedClass().format({ name: subtype.details.name });
-                } else {
-                    // See if this is part of a call to a constructor.
-                    getDeprecatedMessageForOverloadedCall(this._evaluator, subtype);
+                    return;
                 }
-            } else if (isFunction(subtype)) {
+
+                getDeprecatedMessageForOverloadedCall(this._evaluator, subtype);
+                return;
+            }
+
+            if (isFunction(subtype)) {
                 if (subtype.details.deprecatedMessage !== undefined) {
-                    if (!subtype.details.name || node.value === subtype.details.name) {
+                    if (
+                        !subtype.details.name ||
+                        subtype.details.name === '__call__' ||
+                        node.value === subtype.details.name
+                    ) {
                         deprecatedMessage = subtype.details.deprecatedMessage;
                         errorMessage = getDeprecatedMessageForFunction(subtype);
                     }

@@ -1934,8 +1934,13 @@ export namespace FunctionType {
         });
 
         newFunction.details.paramSpec = paramSpecValue.details.paramSpec;
+
         if (!newFunction.details.docString) {
             newFunction.details.docString = paramSpecValue.details.docString;
+        }
+
+        if (!newFunction.details.deprecatedMessage) {
+            newFunction.details.deprecatedMessage = paramSpecValue.details.deprecatedMessage;
         }
 
         FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.details.typeVarScopeId);
