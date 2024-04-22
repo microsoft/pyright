@@ -200,7 +200,7 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 - <a name="reportUnboundVariable"></a> **reportUnboundVariable** [boolean or string, optional]: Generate or suppress diagnostics for unbound variables. The default value for this setting is `"error"`.
 
-- <a name="reportUnhashable"></a> **reportUnhashable** [boolean or string, optional]: Generate or suppress diagnostics for the use of an unhashable object in a container that requires hashability.
+- <a name="reportUnhashable"></a> **reportUnhashable** [boolean or string, optional]: Generate or suppress diagnostics for the use of an unhashable object in a container that requires hashability. The default value for this setting is `"error"`.
 
 - <a name="reportInvalidStubStatement"></a> **reportInvalidStubStatement** [boolean or string, optional]: Generate or suppress diagnostics for statements that are syntactically correct but have no purpose within a type stub file. The default value for this setting is `"none"`.
 
