@@ -6958,7 +6958,7 @@ export class Checker extends ParseTreeWalker {
                 typeVars.some((typeVar) => typeVar.scopeId === functionType.details.methodClass?.details.typeVarScopeId)
             ) {
                 this._evaluator.addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportInvalidTypeVarUse,
                     LocMessage.initMethodSelfParamTypeVar(),
                     paramInfo.typeAnnotation
                 );
