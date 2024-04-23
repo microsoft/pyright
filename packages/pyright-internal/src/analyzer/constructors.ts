@@ -674,28 +674,31 @@ function validateMetaclassCall(
 ): CallResult | undefined {
     const metaclassCallMethodInfo = getBoundCallMethod(evaluator, errorNode, type);
 
-    if (metaclassCallMethodInfo) {
-        const callResult = evaluator.validateCallArguments(
-            errorNode,
-            argList,
-            metaclassCallMethodInfo,
-            /* typeVarContext */ undefined,
-            skipUnknownArgCheck,
-            inferenceContext
-        );
-
-        if (!callResult.returnType || isUnknown(callResult.returnType)) {
-            // The return result isn't known. We'll assume in this case that
-            // the metaclass __call__ method allocated a new instance of the
-            // requested class.
-            const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
-            callResult.returnType = applyExpectedTypeForConstructor(evaluator, type, inferenceContext, typeVarContext);
-        }
-
-        return callResult;
+    if (!metaclassCallMethodInfo) {
+        return undefined;
     }
 
-    return undefined;
+    const callResult = evaluator.validateCallArguments(
+        errorNode,
+        argList,
+        metaclassCallMethodInfo,
+        /* typeVarContext */ undefined,
+        skipUnknownArgCheck,
+        inferenceContext
+    );
+
+    // If the return type is unannotated, don't use the inferred return type.
+    const callType = metaclassCallMethodInfo.type;
+    if (isFunction(callType) && !callType.details.declaredReturnType) {
+        return undefined;
+    }
+
+    // If the return type is unknown, ignore it.
+    if (callResult.returnType && isUnknown(callResult.returnType)) {
+        return undefined;
+    }
+
+    return callResult;
 }
 
 function applyExpectedSubtypeForConstructor(
