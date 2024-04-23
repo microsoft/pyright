@@ -1465,14 +1465,12 @@ export function getTypeOfIndexedTypedDict(
                 allDiagsInvolveNotRequiredKeys = false;
                 return UnknownType.create();
             } else if (!(entry.isRequired || entry.isProvided) && usage.method === 'get') {
-                if (!ParseTreeUtils.isWithinTryBlock(node, /* treatWithAsTryBlock */ true)) {
-                    diag.addMessage(
-                        LocAddendum.keyNotRequired().format({
-                            name: entryName,
-                            type: evaluator.printType(baseType),
-                        })
-                    );
-                }
+                diag.addMessage(
+                    LocAddendum.keyNotRequired().format({
+                        name: entryName,
+                        type: evaluator.printType(baseType),
+                    })
+                );
             } else if (entry.isReadOnly && usage.method !== 'get') {
                 diag.addMessage(
                     LocAddendum.keyReadOnly().format({
