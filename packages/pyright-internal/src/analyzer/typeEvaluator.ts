@@ -13200,6 +13200,7 @@ export function createTypeEvaluator(
         const keyTypes: TypeResultWithNode[] = [];
         const valueTypes: TypeResultWithNode[] = [];
         let isIncomplete = false;
+        let typeErrors = false;
 
         // Handle TypedDict's as a special case.
         if (ClassType.isTypedDictClass(concreteExpectedType)) {
@@ -13210,20 +13211,24 @@ export function createTypeEvaluator(
             const expectedTypedDictEntries = getTypedDictMembersForClass(evaluatorInterface, concreteExpectedType);
 
             // Infer the key and value types if possible.
-            if (
-                getKeyAndValueTypesFromDictionary(
-                    node,
-                    keyTypes,
-                    valueTypes,
+            const keyValueTypeResult = getKeyAndValueTypesFromDictionary(
+                node,
+                keyTypes,
+                valueTypes,
                     /* forceStrictInference */ true,
                     /* isValueTypeInvariant */ true,
                     /* expectedKeyType */ undefined,
                     /* expectedValueType */ undefined,
-                    expectedTypedDictEntries,
-                    expectedDiagAddendum
-                )
-            ) {
+                expectedTypedDictEntries,
+                expectedDiagAddendum
+            );
+
+            if (keyValueTypeResult.isIncomplete) {
                 isIncomplete = true;
+            }
+
+            if (keyValueTypeResult.typeErrors) {
+                typeErrors = true;
             }
 
             const resultTypedDict = assignToTypedDict(
@@ -13297,20 +13302,24 @@ export function createTypeEvaluator(
         }
 
         // Infer the key and value types if possible.
-        if (
-            getKeyAndValueTypesFromDictionary(
-                node,
-                keyTypes,
-                valueTypes,
+        const keyValueResult = getKeyAndValueTypesFromDictionary(
+            node,
+            keyTypes,
+            valueTypes,
                 /* forceStrictInference */ true,
-                isValueTypeInvariant,
-                expectedKeyType,
-                expectedValueType,
-                undefined,
-                expectedDiagAddendum
-            )
-        ) {
+            isValueTypeInvariant,
+            expectedKeyType,
+            expectedValueType,
+            undefined,
+            expectedDiagAddendum
+        );
+
+        if (keyValueResult.isIncomplete) {
             isIncomplete = true;
+        }
+
+        if (keyValueResult.typeErrors) {
+            typeErrors = true;
         }
 
         const specializedKeyType = inferTypeArgFromExpectedEntryType(
@@ -13328,7 +13337,7 @@ export function createTypeEvaluator(
         }
 
         const type = getBuiltInObject(node, 'dict', [specializedKeyType, specializedValueType]);
-        return { type, isIncomplete };
+        return { type, isIncomplete, typeErrors };
     }
 
     // Attempts to infer the type of a dictionary statement. If hasExpectedType
@@ -13343,18 +13352,23 @@ export function createTypeEvaluator(
 
         let isEmptyContainer = false;
         let isIncomplete = false;
+        let typeErrors = false;
 
         // Infer the key and value types if possible.
-        if (
-            getKeyAndValueTypesFromDictionary(
-                node,
-                keyTypeResults,
-                valueTypeResults,
+        const keyValueResult = getKeyAndValueTypesFromDictionary(
+            node,
+            keyTypeResults,
+            valueTypeResults,
                 /* forceStrictInference */ hasExpectedType,
                 /* isValueTypeInvariant */ false
-            )
-        ) {
+        );
+        
+        if (keyValueResult.isIncomplete) {
             isIncomplete = true;
+        }
+
+        if (keyValueResult.typeErrors) {
+            typeErrors = true;
         }
 
         // Strip any literal values.
@@ -13399,7 +13413,7 @@ export function createTypeEvaluator(
             }
         }
 
-        return { type, isIncomplete };
+        return { type, isIncomplete, typeErrors };
     }
 
     function getKeyAndValueTypesFromDictionary(
@@ -13412,8 +13426,9 @@ export function createTypeEvaluator(
         expectedValueType?: Type,
         expectedTypedDictEntries?: TypedDictEntries,
         expectedDiagAddendum?: DiagnosticAddendum
-    ): boolean {
+    ): TypeResult {
         let isIncomplete = false;
+        let typeErrors = false;
 
         // Infer the key and value types if possible.
         node.entries.forEach((entryNode, index) => {
@@ -13430,6 +13445,10 @@ export function createTypeEvaluator(
 
                 if (keyTypeResult.isIncomplete) {
                     isIncomplete = true;
+                }
+
+                if (keyTypeResult.typeErrors) {
+                    typeErrors = true;
                 }
 
                 const keyType = keyTypeResult.type;
@@ -13493,6 +13512,10 @@ export function createTypeEvaluator(
                     isIncomplete = true;
                 }
 
+                if (valueTypeResult.typeErrors) {
+                    typeErrors = true;
+                }
+
                 if (forceStrictInference || index < maxEntriesToUseForInference) {
                     // If an existing key has the same literal type, delete the previous
                     // key since we're overwriting it here.
@@ -13544,6 +13567,10 @@ export function createTypeEvaluator(
 
                 if (unexpandedTypeResult.isIncomplete) {
                     isIncomplete = true;
+                }
+
+                if (unexpandedTypeResult.typeErrors) {
+                    typeErrors = true;
                 }
 
                 const unexpandedType = unexpandedTypeResult.type;
@@ -13630,6 +13657,10 @@ export function createTypeEvaluator(
                     isIncomplete = true;
                 }
 
+                if (dictEntryTypeResult.typeErrors) {
+                    typeErrors = true;
+                }
+
                 // The result should be a tuple.
                 if (isClassInstance(dictEntryType) && isTupleClass(dictEntryType)) {
                     const typeArgs = dictEntryType.tupleTypeArguments?.map((t) => t.type);
@@ -13651,7 +13682,7 @@ export function createTypeEvaluator(
             }
         });
 
-        return isIncomplete;
+        return { type: AnyType.create(), isIncomplete, typeErrors };
     }
 
     function getTypeOfListOrSet(
