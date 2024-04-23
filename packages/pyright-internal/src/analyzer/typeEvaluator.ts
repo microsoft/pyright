@@ -13215,10 +13215,10 @@ export function createTypeEvaluator(
                 node,
                 keyTypes,
                 valueTypes,
-                    /* forceStrictInference */ true,
-                    /* isValueTypeInvariant */ true,
-                    /* expectedKeyType */ undefined,
-                    /* expectedValueType */ undefined,
+                /* forceStrictInference */ true,
+                /* isValueTypeInvariant */ true,
+                /* expectedKeyType */ undefined,
+                /* expectedValueType */ undefined,
                 expectedTypedDictEntries,
                 expectedDiagAddendum
             );
@@ -13306,7 +13306,7 @@ export function createTypeEvaluator(
             node,
             keyTypes,
             valueTypes,
-                /* forceStrictInference */ true,
+            /* forceStrictInference */ true,
             isValueTypeInvariant,
             expectedKeyType,
             expectedValueType,
@@ -13359,10 +13359,10 @@ export function createTypeEvaluator(
             node,
             keyTypeResults,
             valueTypeResults,
-                /* forceStrictInference */ hasExpectedType,
-                /* isValueTypeInvariant */ false
+            /* forceStrictInference */ hasExpectedType,
+            /* isValueTypeInvariant */ false
         );
-        
+
         if (keyValueResult.isIncomplete) {
             isIncomplete = true;
         }
