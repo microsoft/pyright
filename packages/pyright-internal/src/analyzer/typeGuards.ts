@@ -45,6 +45,7 @@ import {
     isModule,
     isNever,
     isOverloadedFunction,
+    isParamSpec,
     isSameWithoutLiteralValue,
     isTypeSame,
     isTypeVar,
@@ -2197,46 +2198,56 @@ function narrowTypeForTypedDictKey(
     literalKey: ClassType,
     isPositiveTest: boolean
 ): Type {
-    const narrowedType = evaluator.mapSubtypesExpandTypeVars(referenceType, /* options */ undefined, (subtype) => {
-        if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
-            const entries = getTypedDictMembersForClass(evaluator, subtype, /* allowNarrowed */ true);
-            const tdEntry = entries.knownItems.get(literalKey.literalValue as string) ?? entries.extraItems;
-
-            if (isPositiveTest) {
-                if (!tdEntry) {
-                    return undefined;
-                }
-
-                // If the entry is currently not required and not marked provided, we can mark
-                // it as provided after this guard expression confirms it is.
-                if (tdEntry.isRequired || tdEntry.isProvided) {
-                    return subtype;
-                }
-
-                const newNarrowedEntriesMap = new Map<string, TypedDictEntry>(subtype.typedDictNarrowedEntries ?? []);
-
-                // Add the new entry.
-                newNarrowedEntriesMap.set(literalKey.literalValue as string, {
-                    valueType: tdEntry.valueType,
-                    isReadOnly: tdEntry.isReadOnly,
-                    isRequired: false,
-                    isProvided: true,
-                });
-
-                // Clone the TypedDict object with the new entries.
-                return ClassType.cloneAsInstance(
-                    ClassType.cloneForNarrowedTypedDictEntries(
-                        ClassType.cloneAsInstantiable(subtype),
-                        newNarrowedEntriesMap
-                    )
-                );
-            } else {
-                return tdEntry !== undefined && (tdEntry.isRequired || tdEntry.isProvided) ? undefined : subtype;
+    const narrowedType = evaluator.mapSubtypesExpandTypeVars(
+        referenceType,
+        /* options */ undefined,
+        (subtype, unexpandedSubtype) => {
+            if (isParamSpec(unexpandedSubtype)) {
+                return unexpandedSubtype;
             }
-        }
 
-        return subtype;
-    });
+            if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
+                const entries = getTypedDictMembersForClass(evaluator, subtype, /* allowNarrowed */ true);
+                const tdEntry = entries.knownItems.get(literalKey.literalValue as string) ?? entries.extraItems;
+
+                if (isPositiveTest) {
+                    if (!tdEntry) {
+                        return undefined;
+                    }
+
+                    // If the entry is currently not required and not marked provided, we can mark
+                    // it as provided after this guard expression confirms it is.
+                    if (tdEntry.isRequired || tdEntry.isProvided) {
+                        return subtype;
+                    }
+
+                    const newNarrowedEntriesMap = new Map<string, TypedDictEntry>(
+                        subtype.typedDictNarrowedEntries ?? []
+                    );
+
+                    // Add the new entry.
+                    newNarrowedEntriesMap.set(literalKey.literalValue as string, {
+                        valueType: tdEntry.valueType,
+                        isReadOnly: tdEntry.isReadOnly,
+                        isRequired: false,
+                        isProvided: true,
+                    });
+
+                    // Clone the TypedDict object with the new entries.
+                    return ClassType.cloneAsInstance(
+                        ClassType.cloneForNarrowedTypedDictEntries(
+                            ClassType.cloneAsInstantiable(subtype),
+                            newNarrowedEntriesMap
+                        )
+                    );
+                } else {
+                    return tdEntry !== undefined && (tdEntry.isRequired || tdEntry.isProvided) ? undefined : subtype;
+                }
+            }
+
+            return subtype;
+        }
+    );
 
     return narrowedType;
 }
