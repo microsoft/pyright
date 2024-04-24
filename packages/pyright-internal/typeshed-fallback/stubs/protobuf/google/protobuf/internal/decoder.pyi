@@ -30,7 +30,7 @@ def EnumDecoder(
     is_packed: bool,
     key: FieldDescriptor,
     new_default: _NewDefault,
-    clear_if_default: bool = ...,
+    clear_if_default: bool = False,
 ) -> _Decoder: ...
 def StringDecoder(
     field_number: int,
@@ -38,7 +38,7 @@ def StringDecoder(
     is_packed: bool,
     key: FieldDescriptor,
     new_default: _NewDefault,
-    clear_if_default: bool = ...,
+    clear_if_default: bool = False,
 ) -> _Decoder: ...
 def BytesDecoder(
     field_number: int,
@@ -46,7 +46,7 @@ def BytesDecoder(
     is_packed: bool,
     key: FieldDescriptor,
     new_default: _NewDefault,
-    clear_if_default: bool = ...,
+    clear_if_default: bool = False,
 ) -> _Decoder: ...
 def GroupDecoder(
     field_number: int, is_repeated: bool, is_packed: bool, key: FieldDescriptor, new_default: _NewDefault

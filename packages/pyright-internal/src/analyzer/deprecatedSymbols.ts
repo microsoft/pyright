@@ -267,18 +267,16 @@ export const deprecatedAliases = new Map<string, DeprecatedForm>([
         'ContextManager',
         {
             version: pythonVersion3_9,
-            fullName: 'contextlib.AbstractContextManager',
+            fullName: 'typing.ContextManager',
             replacementText: 'contextlib.AbstractContextManager',
-            typingImportOnly: true,
         },
     ],
     [
         'AsyncContextManager',
         {
             version: pythonVersion3_9,
-            fullName: 'contextlib.AbstractAsyncContextManager',
+            fullName: 'typing.AsyncContextManager',
             replacementText: 'contextlib.AbstractAsyncContextManager',
-            typingImportOnly: true,
         },
     ],
     [

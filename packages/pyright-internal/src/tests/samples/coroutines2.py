@@ -6,6 +6,7 @@ from typing import Any, Coroutine
 
 
 async def inspector(coro: Coroutine[Any, Any, Any]):
+    assert coro.cr_frame is not None
     print(coro.cr_frame.f_locals)
     return await coro
 

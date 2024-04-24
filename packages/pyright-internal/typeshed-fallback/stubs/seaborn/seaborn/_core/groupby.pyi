@@ -23,10 +23,10 @@ class GroupBy:
         self,
         data: DataFrame,
         func: _AggFuncTypeFrame = ...,
-        *args: Incomplete,
+        *args,
         engine: str | None = None,
         engine_kwargs: dict[str, bool] | None = None,
-        **kwargs: Incomplete,
+        **kwargs,
     ) -> DataFrame: ...
     def apply(
         self, data: DataFrame, func: Callable[Concatenate[DataFrame, _P], DataFrame], *args: _P.args, **kwargs: _P.kwargs

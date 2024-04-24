@@ -1,10 +1,17 @@
-from _typeshed import Incomplete
+from _typeshed import SupportsGetItem
 
+from networkx.classes.graph import Graph, _Edge, _Node
 from networkx.utils.backends import _dispatch
 
 @_dispatch
-def closeness_centrality(G, u: Incomplete | None = None, distance: Incomplete | None = None, wf_improved: bool = True): ...
+def closeness_centrality(
+    G: Graph[_Node], u: _Node | None = None, distance: str | None = None, wf_improved: bool = True
+) -> dict[_Node, float]: ...
 @_dispatch
 def incremental_closeness_centrality(
-    G, edge, prev_cc: Incomplete | None = None, insertion: bool = True, wf_improved: bool = True
-): ...
+    G: Graph[_Node],
+    edge: _Edge[_Node],
+    prev_cc: SupportsGetItem[_Node, float] | None = None,
+    insertion: bool = True,
+    wf_improved: bool = True,
+) -> dict[_Node, float]: ...

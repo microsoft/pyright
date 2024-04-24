@@ -24,7 +24,7 @@ _USE_C_DESCRIPTORS: bool
 
 class DescriptorBase(metaclass=DescriptorMetaclass):
     has_options: Any
-    def __init__(self, options, serialized_options, options_class_name) -> None: ...
+    def __init__(self, file, options, serialized_options, options_class_name) -> None: ...
     def GetOptions(self): ...
 
 class _NestedDescriptorBase(DescriptorBase):
@@ -40,9 +40,9 @@ class _NestedDescriptorBase(DescriptorBase):
         full_name,
         file,
         containing_type,
-        serialized_start=...,
-        serialized_end=...,
-        serialized_options=...,
+        serialized_start=None,
+        serialized_end=None,
+        serialized_options=None,
     ) -> None: ...
     def CopyToProto(self, proto): ...
 
@@ -61,7 +61,6 @@ class Descriptor(_NestedDescriptorBase):
     extension_ranges: Any
     oneofs: Any
     oneofs_by_name: Any
-    syntax: Any
     def __init__(
         self,
         name: str,
@@ -72,16 +71,17 @@ class Descriptor(_NestedDescriptorBase):
         nested_types: list[FieldDescriptor],
         enum_types: list[EnumDescriptor],
         extensions: list[FieldDescriptor],
-        options: Incomplete | None = ...,
-        serialized_options: Incomplete | None = ...,
-        is_extendable: bool | None = ...,
-        extension_ranges: Incomplete | None = ...,
-        oneofs: list[OneofDescriptor] | None = ...,
-        file: FileDescriptor | None = ...,
-        serialized_start: Incomplete | None = ...,
-        serialized_end: Incomplete | None = ...,
-        syntax: str | None = ...,
-        create_key: Incomplete | None = ...,
+        options: Incomplete | None = None,
+        serialized_options: Incomplete | None = None,
+        is_extendable: bool | None = True,
+        extension_ranges: Incomplete | None = None,
+        oneofs: list[OneofDescriptor] | None = None,
+        file: FileDescriptor | None = None,
+        serialized_start: Incomplete | None = None,
+        serialized_end: Incomplete | None = None,
+        syntax: str | None = None,
+        is_map_entry=False,
+        create_key: Incomplete | None = None,
     ): ...
     def EnumValueName(self, enum, value): ...
     def CopyToProto(self, proto): ...
@@ -140,13 +140,13 @@ class FieldDescriptor(DescriptorBase):
         containing_type,
         is_extension,
         extension_scope,
-        options=...,
-        serialized_options=...,
-        has_default_value=...,
-        containing_oneof=...,
-        json_name=...,
-        file=...,
-        create_key=...,
+        options=None,
+        serialized_options=None,
+        has_default_value=True,
+        containing_oneof=None,
+        json_name=None,
+        file=None,
+        create_key=None,
     ): ...
     name: Any
     full_name: Any
@@ -154,7 +154,8 @@ class FieldDescriptor(DescriptorBase):
     number: Any
     type: Any
     cpp_type: Any
-    label: Any
+    @property
+    def label(self): ...
     has_default_value: Any
     default_value: Any
     containing_type: Any
@@ -178,13 +179,13 @@ class FieldDescriptor(DescriptorBase):
         containing_type,
         is_extension,
         extension_scope,
-        options=...,
-        serialized_options=...,
-        has_default_value=...,
-        containing_oneof=...,
-        json_name=...,
-        file=...,
-        create_key=...,
+        options=None,
+        serialized_options=None,
+        has_default_value=True,
+        containing_oneof=None,
+        json_name=None,
+        file=None,
+        create_key=None,
     ) -> None: ...
     @staticmethod
     def ProtoTypeToCppProtoType(proto_type): ...
@@ -197,13 +198,13 @@ class EnumDescriptor(_NestedDescriptorBase):
         full_name,
         filename,
         values,
-        containing_type=...,
-        options=...,
-        serialized_options=...,
-        file=...,
-        serialized_start=...,
-        serialized_end=...,
-        create_key=...,
+        containing_type=None,
+        options=None,
+        serialized_options=None,
+        file=None,
+        serialized_start=None,
+        serialized_end=None,
+        create_key=None,
     ): ...
     values: Any
     values_by_name: Any
@@ -214,35 +215,35 @@ class EnumDescriptor(_NestedDescriptorBase):
         full_name,
         filename,
         values,
-        containing_type=...,
-        options=...,
-        serialized_options=...,
-        file=...,
-        serialized_start=...,
-        serialized_end=...,
-        create_key=...,
+        containing_type=None,
+        options=None,
+        serialized_options=None,
+        file=None,
+        serialized_start=None,
+        serialized_end=None,
+        create_key=None,
     ) -> None: ...
     def CopyToProto(self, proto): ...
     def GetOptions(self) -> EnumOptions: ...
 
 class EnumValueDescriptor(DescriptorBase):
-    def __new__(cls, name, index, number, type=..., options=..., serialized_options=..., create_key=...): ...
+    def __new__(cls, name, index, number, type=None, options=None, serialized_options=None, create_key=None): ...
     name: Any
     index: Any
     number: Any
     type: Any
-    def __init__(self, name, index, number, type=..., options=..., serialized_options=..., create_key=...) -> None: ...
+    def __init__(self, name, index, number, type=None, options=None, serialized_options=None, create_key=None) -> None: ...
     def GetOptions(self) -> EnumValueOptions: ...
 
 class OneofDescriptor:
-    def __new__(cls, name, full_name, index, containing_type, fields, options=..., serialized_options=..., create_key=...): ...
+    def __new__(cls, name, full_name, index, containing_type, fields, options=None, serialized_options=None, create_key=None): ...
     name: Any
     full_name: Any
     index: Any
     containing_type: Any
     fields: Any
     def __init__(
-        self, name, full_name, index, containing_type, fields, options=..., serialized_options=..., create_key=...
+        self, name, full_name, index, containing_type, fields, options=None, serialized_options=None, create_key=None
     ) -> None: ...
     def GetOptions(self) -> OneofOptions: ...
 
@@ -256,12 +257,12 @@ class ServiceDescriptor(_NestedDescriptorBase):
         full_name: str,
         index: int,
         methods: list[MethodDescriptor],
-        options: ServiceOptions | None = ...,
-        serialized_options: Incomplete | None = ...,
-        file: FileDescriptor | None = ...,
-        serialized_start: Incomplete | None = ...,
-        serialized_end: Incomplete | None = ...,
-        create_key: Incomplete | None = ...,
+        options: ServiceOptions | None = None,
+        serialized_options: Incomplete | None = None,
+        file: FileDescriptor | None = None,
+        serialized_start: Incomplete | None = None,
+        serialized_end: Incomplete | None = None,
+        create_key: Incomplete | None = None,
     ): ...
     def FindMethodByName(self, name): ...
     def CopyToProto(self, proto): ...
@@ -276,11 +277,11 @@ class MethodDescriptor(DescriptorBase):
         containing_service,
         input_type,
         output_type,
-        client_streaming=...,
-        server_streaming=...,
-        options=...,
-        serialized_options=...,
-        create_key=...,
+        client_streaming=False,
+        server_streaming=False,
+        options=None,
+        serialized_options=None,
+        create_key=None,
     ): ...
     name: Any
     full_name: Any
@@ -298,11 +299,11 @@ class MethodDescriptor(DescriptorBase):
         containing_service,
         input_type,
         output_type,
-        client_streaming=...,
-        server_streaming=...,
-        options=...,
-        serialized_options=...,
-        create_key=...,
+        client_streaming=False,
+        server_streaming=False,
+        options=None,
+        serialized_options=None,
+        create_key=None,
     ) -> None: ...
     def GetOptions(self) -> MethodOptions: ...
 
@@ -311,21 +312,21 @@ class FileDescriptor(DescriptorBase):
         cls,
         name,
         package,
-        options=...,
-        serialized_options=...,
-        serialized_pb=...,
-        dependencies=...,
-        public_dependencies=...,
-        syntax=...,
-        pool=...,
-        create_key=...,
+        options=None,
+        serialized_options=None,
+        serialized_pb=None,
+        dependencies=None,
+        public_dependencies=None,
+        syntax=None,
+        edition=None,
+        pool=None,
+        create_key=None,
     ): ...
     _options: Any
     pool: Any
     message_types_by_name: Any
     name: Any
     package: Any
-    syntax: Any
     serialized_pb: Any
     enum_types_by_name: Any
     extensions_by_name: Any
@@ -336,17 +337,18 @@ class FileDescriptor(DescriptorBase):
         self,
         name,
         package,
-        options=...,
-        serialized_options=...,
-        serialized_pb=...,
-        dependencies=...,
-        public_dependencies=...,
-        syntax=...,
-        pool=...,
-        create_key=...,
+        options=None,
+        serialized_options=None,
+        serialized_pb=None,
+        dependencies=None,
+        public_dependencies=None,
+        syntax=None,
+        edition=None,
+        pool=None,
+        create_key=None,
     ) -> None: ...
     def CopyToProto(self, proto): ...
     def GetOptions(self) -> FileOptions: ...
 
-def MakeDescriptor(desc_proto, package=..., build_file_if_cpp=..., syntax=...): ...
+def MakeDescriptor(desc_proto, package="", build_file_if_cpp=True, syntax=None, edition=None, file_desc=None): ...
 def _ParseOptions(message: Message, string: bytes) -> Message: ...

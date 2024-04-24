@@ -40,7 +40,7 @@ def heatmap(
     yticklabels: Literal["auto"] | bool | int | Sequence[str] = "auto",
     mask: NDArray[np.bool_] | DataFrame | None = None,
     ax: Axes | None = None,
-    **kwargs: Incomplete,
+    **kwargs,
 ) -> Axes: ...
 
 class _DendrogramPlotter:
@@ -150,10 +150,8 @@ class ClusterGrid(Grid):
         col_linkage: NDArray[Incomplete] | None,
         tree_kws: dict[str, Incomplete] | None,
     ) -> None: ...
-    def plot_colors(self, xind: _ArrayLikeInt_co, yind: _ArrayLikeInt_co, **kws: Incomplete) -> None: ...
-    def plot_matrix(
-        self, colorbar_kws: dict[str, Incomplete], xind: _ArrayLikeInt_co, yind: _ArrayLikeInt_co, **kws: Incomplete
-    ) -> None: ...
+    def plot_colors(self, xind: _ArrayLikeInt_co, yind: _ArrayLikeInt_co, **kws) -> None: ...
+    def plot_matrix(self, colorbar_kws: dict[str, Incomplete], xind: _ArrayLikeInt_co, yind: _ArrayLikeInt_co, **kws) -> None: ...
     def plot(
         self,
         metric: str,
@@ -164,7 +162,7 @@ class ClusterGrid(Grid):
         row_linkage: NDArray[Incomplete] | None,
         col_linkage: NDArray[Incomplete] | None,
         tree_kws: dict[str, Incomplete] | None,
-        **kws: Incomplete,
+        **kws,
     ) -> Self: ...
 
 def clustermap(
@@ -194,5 +192,5 @@ def clustermap(
     colors_ratio: float | tuple[float, float] = 0.03,
     cbar_pos: tuple[float, float, float, float] | None = (0.02, 0.8, 0.05, 0.18),
     tree_kws: dict[str, Incomplete] | None = None,
-    **kwargs: Incomplete,
+    **kwargs,
 ) -> ClusterGrid: ...

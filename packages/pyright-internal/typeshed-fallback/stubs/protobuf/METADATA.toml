@@ -1,6 +1,8 @@
-version = "4.24.*"
+# Whenever you update version here, PROTOBUF_VERSION should be updated
+# in scripts/generate_proto_stubs.sh and vice-versa.
+version = "5.26.*"
 upstream_repository = "https://github.com/protocolbuffers/protobuf"
-extra_description = "Generated using [mypy-protobuf==3.5.0](https://github.com/nipunn1313/mypy-protobuf/tree/v3.5.0) on protobuf==4.21.8"
+extra_description = "Generated using [mypy-protobuf==3.6.0](https://github.com/nipunn1313/mypy-protobuf/tree/v3.6.0) and libprotoc 25.1 on [protobuf v26.1](https://github.com/protocolbuffers/protobuf/releases/tag/v26.1) (python protobuf==5.26.1)"
 partial_stub = true
 
 [tool.stubtest]

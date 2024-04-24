@@ -64,7 +64,7 @@ class _BaseGrid:
         path_effects: list[AbstractPathEffect] = ...,
         picker: bool | float | Callable[[Artist, MouseEvent], tuple[bool, dict[Any, Any]]] | None = ...,
         position: Bbox | tuple[float, float, float, float] = ...,
-        prop_cycle: Incomplete = ...,  # TODO: use cycler.Cycler when cycler gets typed
+        prop_cycle=...,  # TODO: use cycler.Cycler when cycler gets typed
         rasterization_zorder: float | None = ...,
         rasterized: bool = ...,
         sketch_params: float | None = ...,

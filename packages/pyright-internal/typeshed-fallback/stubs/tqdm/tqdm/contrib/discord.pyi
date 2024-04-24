@@ -80,12 +80,7 @@ class tqdm_discord(tqdm_auto[_T]):
         **kwargs,
     ) -> None: ...
     def display(
-        self,
-        msg: str | None = ...,
-        pos: int | None = ...,
-        close: bool = ...,
-        bar_style: Incomplete = ...,
-        check_delay: bool = ...,
+        self, msg: str | None = ..., pos: int | None = ..., close: bool = ..., bar_style=..., check_delay: bool = ...
     ) -> None: ...
     def clear(self, *args, **kwargs) -> None: ...
 

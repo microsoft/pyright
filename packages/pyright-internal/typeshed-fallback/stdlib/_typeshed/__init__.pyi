@@ -47,10 +47,15 @@ AnyStr_co = TypeVar("AnyStr_co", str, bytes, covariant=True)  # noqa: Y001
 # isn't possible or a type is already partially known. In cases like these,
 # use Incomplete instead of Any as a marker. For example, use
 # "Incomplete | None" instead of "Any | None".
-Incomplete: TypeAlias = Any
+Incomplete: TypeAlias = Any  # stable
 
 # To describe a function parameter that is unused and will work with anything.
-Unused: TypeAlias = object
+Unused: TypeAlias = object  # stable
+
+# Marker for return types that include None, but where forcing the user to
+# check for None can be detrimental. Sometimes called "the Any trick". See
+# CONTRIBUTING.md for more information.
+MaybeNone: TypeAlias = Any  # stable
 
 # Used to mark arguments that default to a sentinel value. This prevents
 # stubtest from complaining about the default value not matching.

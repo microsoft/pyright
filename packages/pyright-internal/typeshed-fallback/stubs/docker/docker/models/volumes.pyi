@@ -1,0 +1,16 @@
+from _typeshed import Incomplete
+
+from .resource import Collection, Model
+
+class Volume(Model):
+    id_attribute: str
+    @property
+    def name(self): ...
+    def remove(self, force: bool = False): ...
+
+class VolumeCollection(Collection):
+    model: type[Volume]
+    def create(self, name: Incomplete | None = None, **kwargs): ...  # type:ignore[override]
+    def get(self, volume_id): ...
+    def list(self, **kwargs): ...
+    def prune(self, filters: Incomplete | None = None): ...

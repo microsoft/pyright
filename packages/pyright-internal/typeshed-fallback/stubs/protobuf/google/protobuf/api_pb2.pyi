@@ -31,9 +31,10 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
+
 import builtins
 import collections.abc
-import typing as typing_extensions
+import typing
 
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
@@ -43,7 +44,7 @@ import google.protobuf.type_pb2
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
-@typing_extensions.final
+@typing.final
 class Api(google.protobuf.message.Message):
     """Api is a light-weight descriptor for an API Interface.
 
@@ -69,12 +70,6 @@ class Api(google.protobuf.message.Message):
     """The fully qualified name of this interface, including package name
     followed by the interface's simple name.
     """
-    @property
-    def methods(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Method]:
-        """The methods of this interface, in unspecified order."""
-    @property
-    def options(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[google.protobuf.type_pb2.Option]:
-        """Any metadata attached to the interface."""
     version: builtins.str
     """A version string for this interface. If specified, must have the form
     `major-version.minor-version`, as in `1.10`. If the minor version is
@@ -96,16 +91,26 @@ class Api(google.protobuf.message.Message):
     be omitted. Zero major versions must only be used for
     experimental, non-GA interfaces.
     """
+    syntax: google.protobuf.type_pb2.Syntax.ValueType
+    """The source syntax of the service."""
+    @property
+    def methods(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Method]:
+        """The methods of this interface, in unspecified order."""
+
+    @property
+    def options(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[google.protobuf.type_pb2.Option]:
+        """Any metadata attached to the interface."""
+
     @property
     def source_context(self) -> google.protobuf.source_context_pb2.SourceContext:
         """Source context for the protocol buffer service represented by this
         message.
         """
+
     @property
     def mixins(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Mixin]:
         """Included interfaces. See [Mixin][]."""
-    syntax: google.protobuf.type_pb2.Syntax.ValueType
-    """The source syntax of the service."""
+
     def __init__(
         self,
         *,
@@ -117,12 +122,12 @@ class Api(google.protobuf.message.Message):
         mixins: collections.abc.Iterable[global___Mixin] | None = ...,
         syntax: google.protobuf.type_pb2.Syntax.ValueType | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["source_context", b"source_context"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["methods", b"methods", "mixins", b"mixins", "name", b"name", "options", b"options", "source_context", b"source_context", "syntax", b"syntax", "version", b"version"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["source_context", b"source_context"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["methods", b"methods", "mixins", b"mixins", "name", b"name", "options", b"options", "source_context", b"source_context", "syntax", b"syntax", "version", b"version"]) -> None: ...
 
 global___Api = Api
 
-@typing_extensions.final
+@typing.final
 class Method(google.protobuf.message.Message):
     """Method represents a method of an API interface."""
 
@@ -145,11 +150,12 @@ class Method(google.protobuf.message.Message):
     """The URL of the output message type."""
     response_streaming: builtins.bool
     """If true, the response is streamed."""
+    syntax: google.protobuf.type_pb2.Syntax.ValueType
+    """The source syntax of this method."""
     @property
     def options(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[google.protobuf.type_pb2.Option]:
         """Any metadata attached to the method."""
-    syntax: google.protobuf.type_pb2.Syntax.ValueType
-    """The source syntax of this method."""
+
     def __init__(
         self,
         *,
@@ -161,11 +167,11 @@ class Method(google.protobuf.message.Message):
         options: collections.abc.Iterable[google.protobuf.type_pb2.Option] | None = ...,
         syntax: google.protobuf.type_pb2.Syntax.ValueType | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["name", b"name", "options", b"options", "request_streaming", b"request_streaming", "request_type_url", b"request_type_url", "response_streaming", b"response_streaming", "response_type_url", b"response_type_url", "syntax", b"syntax"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["name", b"name", "options", b"options", "request_streaming", b"request_streaming", "request_type_url", b"request_type_url", "response_streaming", b"response_streaming", "response_type_url", b"response_type_url", "syntax", b"syntax"]) -> None: ...
 
 global___Method = Method
 
-@typing_extensions.final
+@typing.final
 class Mixin(google.protobuf.message.Message):
     """Declares an API Interface to be included in this interface. The including
     interface must redeclare all the methods from the included interface, but
@@ -214,7 +220,7 @@ class Mixin(google.protobuf.message.Message):
     The mixin construct implies that all methods in `AccessControl` are
     also declared with same name and request/response types in
     `Storage`. A documentation generator or annotation processor will
-    see the effective `Storage.GetAcl` method after inheriting
+    see the effective `Storage.GetAcl` method after inherting
     documentation and annotations as follows:
 
         service Storage {
@@ -263,6 +269,6 @@ class Mixin(google.protobuf.message.Message):
         name: builtins.str | None = ...,
         root: builtins.str | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["name", b"name", "root", b"root"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["name", b"name", "root", b"root"]) -> None: ...
 
 global___Mixin = Mixin

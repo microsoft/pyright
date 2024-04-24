@@ -53,7 +53,7 @@ class ThemeConfig(mpl.RcParams):
     THEME_GROUPS: list[str]
     def __init__(self) -> None: ...
     def reset(self) -> None: ...
-    def update(self, other: SupportsKeysAndGetItem[Incomplete, Incomplete] | None = None, /, **kwds: Incomplete) -> None: ...  # type: ignore[override]
+    def update(self, other: SupportsKeysAndGetItem[Incomplete, Incomplete] | None = None, /, **kwds) -> None: ...  # type: ignore[override]
 
 class DisplayConfig(TypedDict):
     format: Literal["png", "svg"]
