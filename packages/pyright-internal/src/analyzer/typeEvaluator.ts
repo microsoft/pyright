@@ -12958,7 +12958,7 @@ export function createTypeEvaluator(
             fileInfo.fileUri,
             ClassTypeFlags.ValidTypeAliasClass,
             ParseTreeUtils.getTypeSourceId(errorNode),
-            /* declaredMetaclass */ undefined,
+            metaclass,
             arg1Type.details.effectiveMetaclass
         );
         arg1Type.tupleTypeArguments.forEach((typeArg) => {
