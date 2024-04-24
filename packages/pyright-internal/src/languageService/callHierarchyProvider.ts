@@ -552,7 +552,11 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
     }
 
     private _addIncomingCallForDeclaration(nameNode: NameNode) {
-        const executionNode = ParseTreeUtils.getExecutionScopeNode(nameNode);
+        let executionNode = ParseTreeUtils.getExecutionScopeNode(nameNode);
+        while (executionNode && executionNode.nodeType === ParseNodeType.TypeParameterList) {
+            executionNode = ParseTreeUtils.getExecutionScopeNode(executionNode);
+        }
+
         if (!executionNode) {
             return;
         }

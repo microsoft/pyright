@@ -4379,196 +4379,182 @@ export function createTypeEvaluator(
         let isIncomplete = false;
         const allowForwardReferences = (flags & EvaluatorFlags.AllowForwardReferences) !== 0 || fileInfo.isStubFile;
 
-        // Does this name refer to a PEP 695-style type parameter?
-        const typeParamSymbol = AnalyzerNodeInfo.getTypeParameterSymbol(node);
-        if (typeParamSymbol) {
-            symbol = typeParamSymbol;
-            assert(symbol.getDeclarations().length === 1);
-            const decl = getLastTypedDeclarationForSymbol(symbol);
-            assert(decl?.type === DeclarationType.TypeParameter);
-            type = getTypeOfTypeParameter(decl.node);
-            setSymbolAccessed(fileInfo, symbol, node);
-        } else {
-            // Look for the scope that contains the value definition and
-            // see if it has a declared type.
-            let symbolWithScope = lookUpSymbolRecursive(
-                node,
-                name,
-                !allowForwardReferences,
-                allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
-            );
+        // Look for the scope that contains the value definition and
+        // see if it has a declared type.
+        let symbolWithScope = lookUpSymbolRecursive(
+            node,
+            name,
+            !allowForwardReferences,
+            allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
+        );
 
-            if (!symbolWithScope) {
-                // If the node is part of a "from X import Y as Z" statement and the node
-                // is the "Y" (non-aliased) name, we need to look up the alias symbol
-                // since the non-aliased name is not in the symbol table.
-                const alias = getAliasFromImport(node);
-                if (alias) {
-                    symbolWithScope = lookUpSymbolRecursive(
-                        alias,
-                        alias.value,
-                        !allowForwardReferences,
-                        allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
-                    );
+        if (!symbolWithScope) {
+            // If the node is part of a "from X import Y as Z" statement and the node
+            // is the "Y" (non-aliased) name, we need to look up the alias symbol
+            // since the non-aliased name is not in the symbol table.
+            const alias = getAliasFromImport(node);
+            if (alias) {
+                symbolWithScope = lookUpSymbolRecursive(
+                    alias,
+                    alias.value,
+                    !allowForwardReferences,
+                    allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
+                );
+            }
+        }
+
+        if (symbolWithScope) {
+            let useCodeFlowAnalysis = !allowForwardReferences;
+
+            // If the symbol is implicitly imported from the builtin
+            // scope, there's no need to use code flow analysis.
+            if (symbolWithScope.scope.type === ScopeType.Builtin) {
+                useCodeFlowAnalysis = false;
+            }
+
+            symbol = symbolWithScope.symbol;
+            setSymbolAccessed(fileInfo, symbol, node);
+
+            // If we're not supposed to be analyzing this function, skip the remaining work
+            // to determine the name's type. Simply evaluate its type as Any.
+            if (!fileInfo.diagnosticRuleSet.analyzeUnannotatedFunctions) {
+                const containingFunction = ParseTreeUtils.getEnclosingFunction(node);
+                if (containingFunction && ParseTreeUtils.isUnannotatedFunction(containingFunction)) {
+                    return {
+                        type: AnyType.create(),
+                        isIncomplete: false,
+                    };
                 }
             }
 
-            if (symbolWithScope) {
-                let useCodeFlowAnalysis = !allowForwardReferences;
+            // Get the effective type (either the declared type or the inferred type).
+            // If we're using code flow analysis, pass the usage node so we consider
+            // only the assignment nodes that are reachable from this usage.
+            const effectiveTypeInfo = getEffectiveTypeOfSymbolForUsage(symbol, useCodeFlowAnalysis ? node : undefined);
+            let effectiveType = transformPossibleRecursiveTypeAlias(effectiveTypeInfo.type);
 
-                // If the symbol is implicitly imported from the builtin
-                // scope, there's no need to use code flow analysis.
-                if (symbolWithScope.scope.type === ScopeType.Builtin) {
-                    useCodeFlowAnalysis = false;
+            if (effectiveTypeInfo.isIncomplete) {
+                if (isUnbound(effectiveType)) {
+                    effectiveType = UnknownType.create(/* isIncomplete */ true);
                 }
+                isIncomplete = true;
+            }
 
-                symbol = symbolWithScope.symbol;
-                setSymbolAccessed(fileInfo, symbol, node);
-
-                // If we're not supposed to be analyzing this function, skip the remaining work
-                // to determine the name's type. Simply evaluate its type as Any.
-                if (!fileInfo.diagnosticRuleSet.analyzeUnannotatedFunctions) {
-                    const containingFunction = ParseTreeUtils.getEnclosingFunction(node);
-                    if (containingFunction && ParseTreeUtils.isUnannotatedFunction(containingFunction)) {
-                        return {
-                            type: AnyType.create(),
-                            isIncomplete: false,
-                        };
-                    }
-                }
-
-                // Get the effective type (either the declared type or the inferred type).
-                // If we're using code flow analysis, pass the usage node so we consider
-                // only the assignment nodes that are reachable from this usage.
-                const effectiveTypeInfo = getEffectiveTypeOfSymbolForUsage(
-                    symbol,
-                    useCodeFlowAnalysis ? node : undefined
+            if (effectiveTypeInfo.isRecursiveDefinition && isNodeReachable(node)) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.recursiveDefinition().format({ name }),
+                    node
                 );
-                let effectiveType = transformPossibleRecursiveTypeAlias(effectiveTypeInfo.type);
+            }
 
-                if (effectiveTypeInfo.isIncomplete) {
-                    if (isUnbound(effectiveType)) {
-                        effectiveType = UnknownType.create(/* isIncomplete */ true);
+            const isSpecialBuiltIn =
+                !!effectiveType && isInstantiableClass(effectiveType) && ClassType.isSpecialBuiltIn(effectiveType);
+
+            type = effectiveType;
+            if (useCodeFlowAnalysis && !isSpecialBuiltIn) {
+                // See if code flow analysis can tell us anything more about the type.
+                // If the symbol is declared outside of our execution scope, use its effective
+                // type. If it's declared inside our execution scope, it generally starts
+                // as unbound at the start of the code flow.
+                let typeAtStart = effectiveType;
+                let isTypeAtStartIncomplete = false;
+
+                if (!symbolWithScope.isBeyondExecutionScope && symbol.isInitiallyUnbound()) {
+                    typeAtStart = UnboundType.create();
+
+                    // Is this a module-level scope? If so, see if it's an alias of a builtin.
+                    if (symbolWithScope.scope.type === ScopeType.Module) {
+                        assert(symbolWithScope.scope.parent);
+                        const builtInSymbol = symbolWithScope.scope.parent.lookUpSymbol(name);
+                        if (builtInSymbol) {
+                            const builtInEffectiveType = getEffectiveTypeOfSymbolForUsage(builtInSymbol);
+                            typeAtStart = builtInEffectiveType.type;
+                        }
                     }
+                }
+
+                if (symbolWithScope.isBeyondExecutionScope) {
+                    const outerScopeTypeResult = getCodeFlowTypeForCapturedVariable(
+                        node,
+                        symbolWithScope,
+                        effectiveType
+                    );
+
+                    if (outerScopeTypeResult?.type) {
+                        type = outerScopeTypeResult.type;
+                        typeAtStart = type;
+                        isTypeAtStartIncomplete = !!outerScopeTypeResult.isIncomplete;
+                    }
+                }
+
+                const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
+                    targetSymbolId: symbol.id,
+                    typeAtStart: { type: typeAtStart, isIncomplete: isTypeAtStartIncomplete },
+                    skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                });
+
+                if (codeFlowTypeResult.type) {
+                    type = codeFlowTypeResult.type;
+                }
+
+                if (codeFlowTypeResult.isIncomplete) {
                     isIncomplete = true;
                 }
+            }
 
-                if (effectiveTypeInfo.isRecursiveDefinition && isNodeReachable(node)) {
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.recursiveDefinition().format({ name }),
-                        node
-                    );
-                }
+            // Detect, report, and fill in missing type arguments if appropriate.
+            type = reportMissingTypeArguments(node, type, flags);
 
-                const isSpecialBuiltIn =
-                    !!effectiveType && isInstantiableClass(effectiveType) && ClassType.isSpecialBuiltIn(effectiveType);
+            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                // Verify that the name does not refer to a (non type alias) variable.
+                if (effectiveTypeInfo.includesVariableDecl && !type.typeAliasInfo) {
+                    let isAllowedTypeForVariable = isTypeVar(type) || isTypeAliasPlaceholder(type);
 
-                type = effectiveType;
-                if (useCodeFlowAnalysis && !isSpecialBuiltIn) {
-                    // See if code flow analysis can tell us anything more about the type.
-                    // If the symbol is declared outside of our execution scope, use its effective
-                    // type. If it's declared inside our execution scope, it generally starts
-                    // as unbound at the start of the code flow.
-                    let typeAtStart = effectiveType;
-                    let isTypeAtStartIncomplete = false;
-
-                    if (!symbolWithScope.isBeyondExecutionScope && symbol.isInitiallyUnbound()) {
-                        typeAtStart = UnboundType.create();
-
-                        // Is this a module-level scope? If so, see if it's an alias of a builtin.
-                        if (symbolWithScope.scope.type === ScopeType.Module) {
-                            assert(symbolWithScope.scope.parent);
-                            const builtInSymbol = symbolWithScope.scope.parent.lookUpSymbol(name);
-                            if (builtInSymbol) {
-                                const builtInEffectiveType = getEffectiveTypeOfSymbolForUsage(builtInSymbol);
-                                typeAtStart = builtInEffectiveType.type;
-                            }
-                        }
+                    if (
+                        isClass(type) &&
+                        !type.includeSubclasses &&
+                        !symbol.hasTypedDeclarations() &&
+                        ClassType.isValidTypeAliasClass(type)
+                    ) {
+                        // This check exempts class types that are created by calling
+                        // NewType, NamedTuple, etc.
+                        isAllowedTypeForVariable = true;
                     }
 
-                    if (symbolWithScope.isBeyondExecutionScope) {
-                        const outerScopeTypeResult = getCodeFlowTypeForCapturedVariable(
-                            node,
-                            symbolWithScope,
-                            effectiveType
-                        );
-
-                        if (outerScopeTypeResult?.type) {
-                            type = outerScopeTypeResult.type;
-                            typeAtStart = type;
-                            isTypeAtStartIncomplete = !!outerScopeTypeResult.isIncomplete;
-                        }
-                    }
-
-                    const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
-                        targetSymbolId: symbol.id,
-                        typeAtStart: { type: typeAtStart, isIncomplete: isTypeAtStartIncomplete },
-                        skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
-                    });
-
-                    if (codeFlowTypeResult.type) {
-                        type = codeFlowTypeResult.type;
-                    }
-
-                    if (codeFlowTypeResult.isIncomplete) {
-                        isIncomplete = true;
-                    }
-                }
-
-                // Detect, report, and fill in missing type arguments if appropriate.
-                type = reportMissingTypeArguments(node, type, flags);
-
-                if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
-                    // Verify that the name does not refer to a (non type alias) variable.
-                    if (effectiveTypeInfo.includesVariableDecl && !type.typeAliasInfo) {
-                        let isAllowedTypeForVariable = isTypeVar(type) || isTypeAliasPlaceholder(type);
-
+                    // Disable for assignments in the typings.pyi file, since it defines special forms.
+                    if (!isAllowedTypeForVariable && !fileInfo.isTypingStubFile) {
+                        // This might be a union that was previously a type alias
+                        // but was reconstituted in such a way that we lost the
+                        // typeAliasInfo. Avoid the false positive error by suppressing
+                        // the error when it looks like a plausible type alias type.
                         if (
-                            isClass(type) &&
-                            !type.includeSubclasses &&
-                            !symbol.hasTypedDeclarations() &&
-                            ClassType.isValidTypeAliasClass(type)
+                            effectiveTypeInfo.includesIllegalTypeAliasDecl ||
+                            !TypeBase.isInstantiable(type) ||
+                            (flags & EvaluatorFlags.DoNotSpecialize) !== 0
                         ) {
-                            // This check exempts class types that are created by calling
-                            // NewType, NamedTuple, etc.
-                            isAllowedTypeForVariable = true;
-                        }
-
-                        // Disable for assignments in the typings.pyi file, since it defines special forms.
-                        if (!isAllowedTypeForVariable && !fileInfo.isTypingStubFile) {
-                            // This might be a union that was previously a type alias
-                            // but was reconstituted in such a way that we lost the
-                            // typeAliasInfo. Avoid the false positive error by suppressing
-                            // the error when it looks like a plausible type alias type.
-                            if (
-                                effectiveTypeInfo.includesIllegalTypeAliasDecl ||
-                                !TypeBase.isInstantiable(type) ||
-                                (flags & EvaluatorFlags.DoNotSpecialize) !== 0
-                            ) {
-                                addDiagnostic(
-                                    DiagnosticRule.reportInvalidTypeForm,
-                                    LocMessage.typeAnnotationVariable(),
-                                    node
-                                );
-                                type = UnknownType.create();
-                            }
+                            addDiagnostic(
+                                DiagnosticRule.reportInvalidTypeForm,
+                                LocMessage.typeAnnotationVariable(),
+                                node
+                            );
+                            type = UnknownType.create();
                         }
                     }
                 }
+            }
+        } else {
+            // Handle the special case of "reveal_type" and "reveal_locals".
+            if (name === 'reveal_type' || name === 'reveal_locals') {
+                type = AnyType.create();
             } else {
-                // Handle the special case of "reveal_type" and "reveal_locals".
-                if (name === 'reveal_type' || name === 'reveal_locals') {
-                    type = AnyType.create();
-                } else {
-                    addDiagnostic(
-                        DiagnosticRule.reportUndefinedVariable,
-                        LocMessage.symbolIsUndefined().format({ name }),
-                        node
-                    );
+                addDiagnostic(
+                    DiagnosticRule.reportUndefinedVariable,
+                    LocMessage.symbolIsUndefined().format({ name }),
+                    node
+                );
 
-                    type = UnknownType.create();
-                }
+                type = UnknownType.create();
             }
         }
 
@@ -17135,9 +17121,11 @@ export function createTypeEvaluator(
 
     function evaluateTypeParameterList(node: TypeParameterListNode): TypeVarType[] {
         const paramTypes: TypeVarType[] = [];
+        const typeParamScope = AnalyzerNodeInfo.getScope(node);
+        assert(typeParamScope !== undefined);
 
         node.parameters.forEach((param) => {
-            const paramSymbol = AnalyzerNodeInfo.getTypeParameterSymbol(param.name);
+            const paramSymbol = typeParamScope.symbolTable.get(param.name.value);
             if (!paramSymbol) {
                 // This can happen if the code is unreachable.
                 return;
@@ -20352,14 +20340,19 @@ export function createTypeEvaluator(
         honorCodeFlow: boolean,
         preferGlobalScope = false
     ): SymbolWithScope | undefined {
-        const scope = ScopeUtils.getScopeForNode(node);
-        let symbolWithScope = scope?.lookUpSymbolRecursive(name);
+        const scopeNodeInfo = ParseTreeUtils.getEvaluationScopeNode(node);
+        const scope = AnalyzerNodeInfo.getScope(scopeNodeInfo.node);
+
+        let symbolWithScope = scope?.lookUpSymbolRecursive(name, { useProxyScope: !!scopeNodeInfo.useProxyScope });
         const scopeType = scope?.type ?? ScopeType.Module;
 
         // Functions and list comprehensions don't allow access to implicitly
         // aliased symbols in outer scopes if they haven't yet been assigned
-        // within the local scope.
-        const scopeTypeHonorsCodeFlow = scopeType !== ScopeType.Function && scopeType !== ScopeType.ListComprehension;
+        // within the local scope. Same with type parameter scopes.
+        const scopeTypeHonorsCodeFlow =
+            scopeType !== ScopeType.Function &&
+            scopeType !== ScopeType.ListComprehension &&
+            scopeType !== ScopeType.TypeParameter;
 
         if (symbolWithScope && honorCodeFlow && scopeTypeHonorsCodeFlow) {
             // Filter the declarations based on flow reachability.
@@ -20416,11 +20409,10 @@ export function createTypeEvaluator(
                     }
 
                     if (nextScopeToSearch) {
-                        symbolWithScope = nextScopeToSearch.lookUpSymbolRecursive(
-                            name,
+                        symbolWithScope = nextScopeToSearch.lookUpSymbolRecursive(name, {
                             isOutsideCallerModule,
-                            isBeyondExecutionScope
-                        );
+                            isBeyondExecutionScope,
+                        });
                     } else {
                         symbolWithScope = undefined;
                     }
@@ -20438,13 +20430,15 @@ export function createTypeEvaluator(
             while (
                 curSymbolWithScope.scope.type !== ScopeType.Module &&
                 curSymbolWithScope.scope.type !== ScopeType.Builtin &&
+                curSymbolWithScope.scope.type !== ScopeType.TypeParameter &&
                 curSymbolWithScope.scope.parent
             ) {
-                curSymbolWithScope = curSymbolWithScope.scope.parent.lookUpSymbolRecursive(
-                    name,
-                    curSymbolWithScope.isOutsideCallerModule,
-                    curSymbolWithScope.isBeyondExecutionScope || curSymbolWithScope.scope.isIndependentlyExecutable()
-                );
+                curSymbolWithScope = curSymbolWithScope.scope.parent.lookUpSymbolRecursive(name, {
+                    isOutsideCallerModule: curSymbolWithScope.isOutsideCallerModule,
+                    isBeyondExecutionScope:
+                        curSymbolWithScope.isBeyondExecutionScope ||
+                        curSymbolWithScope.scope.isIndependentlyExecutable(),
+                });
                 if (!curSymbolWithScope) {
                     break;
                 }
@@ -20767,23 +20761,15 @@ export function createTypeEvaluator(
             const isWithinTypeAliasStatement = !!ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.TypeAlias);
             const allowForwardReferences = isWithinTypeAnnotation || isWithinTypeAliasStatement || fileInfo.isStubFile;
 
-            let symbol: Symbol | undefined;
-            const typeParamSymbol = AnalyzerNodeInfo.getTypeParameterSymbol(node);
-            if (typeParamSymbol) {
-                symbol = typeParamSymbol;
-            } else {
-                const symbolWithScope = lookUpSymbolRecursive(
-                    node,
-                    node.value,
-                    !allowForwardReferences,
-                    isWithinTypeAnnotation
-                );
+            const symbolWithScope = lookUpSymbolRecursive(
+                node,
+                node.value,
+                !allowForwardReferences,
+                isWithinTypeAnnotation
+            );
 
-                symbol = symbolWithScope?.symbol;
-            }
-
-            if (symbol) {
-                appendArray(declarations, symbol.getDeclarations());
+            if (symbolWithScope) {
+                appendArray(declarations, symbolWithScope.symbol.getDeclarations());
             }
         }
 
@@ -21119,6 +21105,9 @@ export function createTypeEvaluator(
                 scopeType
             );
         }
+
+        writeTypeCache(node, { type: typeVar }, /* flags */ undefined);
+        writeTypeCache(node.name, { type: typeVar }, /* flags */ undefined);
 
         return typeVar;
     }

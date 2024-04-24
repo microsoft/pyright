@@ -2501,6 +2501,12 @@ export type ParseNode =
     | YieldNode
     | YieldFromNode;
 
-export type EvaluationScopeNode = LambdaNode | FunctionNode | ModuleNode | ClassNode | ListComprehensionNode;
-export type ExecutionScopeNode = LambdaNode | FunctionNode | ModuleNode;
+export type EvaluationScopeNode =
+    | LambdaNode
+    | FunctionNode
+    | ModuleNode
+    | ClassNode
+    | ListComprehensionNode
+    | TypeParameterListNode;
+export type ExecutionScopeNode = LambdaNode | FunctionNode | ModuleNode | TypeParameterListNode;
 export type TypeParameterScopeNode = FunctionNode | ClassNode | TypeAliasNode;

@@ -17,7 +17,6 @@ import {
     LambdaNode,
     ListComprehensionNode,
     ModuleNode,
-    NameNode,
     ParseNode,
     ParseNodeType,
     StringNode,
@@ -185,16 +184,6 @@ export function getDunderAllInfo(node: ModuleNode): DunderAllInfo | undefined {
 export function setDunderAllInfo(node: ModuleNode, names: DunderAllInfo | undefined) {
     const analyzerNode = node as AnalyzerNodeInfo;
     analyzerNode.dunderAllInfo = names;
-}
-
-export function getTypeParameterSymbol(node: NameNode) {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode.typeParameterSymbol;
-}
-
-export function setTypeParameterSymbol(node: NameNode, symbol: Symbol) {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    analyzerNode.typeParameterSymbol = symbol;
 }
 
 export function isCodeUnreachable(node: ParseNode): boolean {

@@ -2195,7 +2195,7 @@ export class CompletionProvider {
 
         let startingNode: ParseNode = indexNode.baseExpression;
         if (declaration.node) {
-            const scopeRoot = ParseTreeUtils.getEvaluationScopeNode(declaration.node);
+            const scopeRoot = ParseTreeUtils.getEvaluationScopeNode(declaration.node).node;
 
             // Find the lowest tree to search the symbol.
             if (

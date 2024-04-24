@@ -405,7 +405,7 @@ function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameN
             return true;
         }
 
-        const evalScope = ParseTreeUtils.getEvaluationScopeNode(decl.node);
+        const evalScope = ParseTreeUtils.getEvaluationScopeNode(decl.node).node;
 
         // If the declaration is at the module level or a class level, it can be seen
         // outside of the current module, so a global search is needed.
@@ -473,7 +473,8 @@ function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameN
     // Return true if the scope that contains the specified node is visible
     // outside of the current module, false if not.
     function isContainerExternallyVisible(node: NameNode, recursionCount: number) {
-        const scopingNode = ParseTreeUtils.getEvaluationScopeNode(node);
+        const scopingNode = ParseTreeUtils.getEvaluationScopeNode(node).node;
+
         switch (scopingNode.nodeType) {
             case ParseNodeType.Class:
             case ParseNodeType.Function: {
@@ -484,6 +485,7 @@ function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameN
 
             case ParseNodeType.Lambda:
             case ParseNodeType.ListComprehension:
+            case ParseNodeType.TypeParameterList:
                 // Symbols in this scope can't be visible outside.
                 return false;
 
