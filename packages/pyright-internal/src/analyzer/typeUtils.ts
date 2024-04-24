@@ -505,6 +505,10 @@ export function mapSignatures(
         }
     });
 
+    if (newSignatures.length === 0) {
+        return undefined;
+    }
+
     // Add the unmodified implementation if it's present.
     const implementation = OverloadedFunctionType.getImplementation(type);
     if (implementation) {
@@ -513,10 +517,6 @@ export function mapSignatures(
 
     if (!changeMade) {
         return type;
-    }
-
-    if (newSignatures.length === 0) {
-        return undefined;
     }
 
     if (newSignatures.length === 1) {

@@ -26657,32 +26657,36 @@ export function createTypeEvaluator(
                             : firstParamType
                     );
                 }
-            } else if (
-                !assignType(
-                    memberTypeFirstParamType,
-                    firstParamType,
-                    diag?.createAddendum(),
-                    typeVarContext,
-                    /* srcTypeVarContext */ undefined,
-                    AssignTypeFlags.AllowUnspecifiedTypeArguments,
-                    recursionCount
-                )
-            ) {
+            } else {
+                const subDiag = diag?.createAddendum();
+
                 if (
-                    memberTypeFirstParam.name &&
-                    !memberTypeFirstParam.isNameSynthesized &&
-                    memberTypeFirstParam.hasDeclaredType
+                    !assignType(
+                        memberTypeFirstParamType,
+                        firstParamType,
+                        subDiag?.createAddendum(),
+                        typeVarContext,
+                        /* srcTypeVarContext */ undefined,
+                        AssignTypeFlags.AllowUnspecifiedTypeArguments,
+                        recursionCount
+                    )
                 ) {
-                    if (diag) {
-                        diag.addMessage(
-                            LocMessage.bindTypeMismatch().format({
-                                type: printType(baseType),
-                                methodName: memberType.details.name || '<anonymous>',
-                                paramName: memberTypeFirstParam.name,
-                            })
-                        );
+                    if (
+                        memberTypeFirstParam.name &&
+                        !memberTypeFirstParam.isNameSynthesized &&
+                        memberTypeFirstParam.hasDeclaredType
+                    ) {
+                        if (subDiag) {
+                            subDiag.addMessage(
+                                LocMessage.bindTypeMismatch().format({
+                                    type: printType(baseType),
+                                    methodName: memberType.details.name || '<anonymous>',
+                                    paramName: memberTypeFirstParam.name,
+                                })
+                            );
+                        }
+                        return undefined;
                     }
-                    return undefined;
                 }
             }
         }
