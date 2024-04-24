@@ -36,7 +36,7 @@ import { CommandResult } from '../../../commands/commandResult';
 import { Char } from '../../../common/charCodes';
 import { CommandLineOptions } from '../../../common/commandLineOptions';
 import { ConfigOptions, SignatureDisplayType } from '../../../common/configOptions';
-import { ConsoleInterface, NullConsole } from '../../../common/console';
+import { ConsoleInterface, ConsoleWithLogLevel, NullConsole } from '../../../common/console';
 import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
 import * as debug from '../../../common/debug';
 import { DiagnosticCategory } from '../../../common/diagnostic';
@@ -168,7 +168,7 @@ export class TestState {
             );
 
         this.fs = new PyrightFileSystem(this.testFS);
-        this.console = new NullConsole();
+        this.console = new ConsoleWithLogLevel(new NullConsole(), 'test');
         this.serviceProvider = createServiceProvider(this.testFS, this.fs, this.console);
 
         this._cancellationToken = new TestCancellationToken();

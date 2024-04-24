@@ -8,7 +8,7 @@
 
 import * as os from 'os';
 
-import { Workspace } from '../workspaceFactory';
+import { Workspace, WorkspaceFolder } from '../workspaceFactory';
 import { Uri } from './uri/uri';
 import { isRootedDiskPath, normalizeSlashes } from './pathUtils';
 import { ServiceKeys } from './serviceKeys';
@@ -49,7 +49,7 @@ export function resolvePathWithEnvVariables(
 // Expands certain predefined variables supported within VS Code settings.
 // Ideally, VS Code would provide an API for doing this expansion, but
 // it doesn't. We'll handle the most common variables here as a convenience.
-export function expandPathVariables(path: string, rootPath: Uri, workspaces: Workspace[]): string {
+export function expandPathVariables(path: string, rootPath: Uri, workspaces: WorkspaceFolder[]): string {
     // Make sure all replacements look like URI paths too.
     const replace = (match: RegExp, replaceValue: string) => {
         path = path.replace(match, replaceValue);

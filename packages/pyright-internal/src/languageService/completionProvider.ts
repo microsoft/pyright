@@ -1229,7 +1229,7 @@ export class CompletionProvider {
             }
 
             if (curNode.nodeType === ParseNodeType.ImportFrom) {
-                return this._getImportFromCompletions(curNode, priorWord);
+                return this._getImportFromCompletions(curNode, offset, priorWord);
             }
 
             if (isExpressionNode(curNode)) {
@@ -1336,10 +1336,10 @@ export class CompletionProvider {
                 }
 
                 if (curNode.parent.name === curNode) {
-                    return this._getImportFromCompletions(parentNode, priorWord);
+                    return this._getImportFromCompletions(parentNode, offset, priorWord);
                 }
 
-                return this._getImportFromCompletions(parentNode, '');
+                return this._getImportFromCompletions(parentNode, offset, '');
             }
 
             return false;
@@ -2718,7 +2718,11 @@ export class CompletionProvider {
         completionMap.set(completionItem);
     }
 
-    private _getImportFromCompletions(importFromNode: ImportFromNode, priorWord: string): CompletionMap | undefined {
+    private _getImportFromCompletions(
+        importFromNode: ImportFromNode,
+        offset: number,
+        priorWord: string
+    ): CompletionMap | undefined {
         // Don't attempt to provide completions for "from X import *".
         if (importFromNode.isWildcardImport) {
             return undefined;
@@ -2752,10 +2756,16 @@ export class CompletionProvider {
         this._addSymbolsForSymbolTable(
             symbolTable,
             (symbol, name) => {
-                // Don't suggest built in symbols or ones that have already been imported.
                 return (
+                    // Don't suggest built in symbols.
                     symbol.getDeclarations().some((d) => !isIntrinsicDeclaration(d)) &&
-                    !importFromNode.imports.find((imp) => imp.name.value === name)
+                    // Don't suggest symbols that have already been imported elsewhere
+                    // in this import statement.
+                    !importFromNode.imports.find(
+                        (imp) =>
+                            imp.name.value === name &&
+                            !(TextRange.contains(imp, offset) || TextRange.getEnd(imp) === offset)
+                    )
                 );
             },
             priorWord,
