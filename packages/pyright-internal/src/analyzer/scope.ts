@@ -14,6 +14,9 @@ import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 
 export const enum ScopeType {
+    // Used for PEP 695-style type parameters.
+    TypeParameter,
+
     // Used for list comprehension nodes.
     ListComprehension,
 
@@ -66,6 +69,12 @@ export interface GlobalScopeResult {
     isBeyondExecutionScope: boolean;
 }
 
+export interface LookupSymbolOptions {
+    isOutsideCallerModule?: boolean;
+    isBeyondExecutionScope?: boolean;
+    useProxyScope?: boolean;
+}
+
 export class Scope {
     // The scope type, as defined in the enumeration.
     readonly type: ScopeType;
@@ -73,6 +82,10 @@ export class Scope {
     // The next scope in the hierarchy or undefined if it's the
     // top-most scope.
     readonly parent: Scope | undefined;
+
+    // An alternate parent scope that can be used to resolve symbols
+    // in certain contexts. Used for TypeParameter scopes.
+    readonly proxy: Scope | undefined;
 
     // Association between names and symbols.
     readonly symbolTable: SymbolTable = new Map<string, Symbol>();
@@ -85,9 +98,10 @@ export class Scope {
     // for class scopes).
     slotsNames: string[] | undefined;
 
-    constructor(type: ScopeType, parent?: Scope) {
+    constructor(type: ScopeType, parent?: Scope, proxy?: Scope) {
         this.type = type;
         this.parent = parent;
+        this.proxy = proxy;
     }
 
     getGlobalScope(): GlobalScopeResult {
@@ -121,17 +135,17 @@ export class Scope {
         return this.symbolTable.get(name);
     }
 
-    lookUpSymbolRecursive(
-        name: string,
-        isOutsideCallerModule = false,
-        isBeyondExecutionScope = false
-    ): SymbolWithScope | undefined {
-        const symbol = this.symbolTable.get(name);
+    lookUpSymbolRecursive(name: string, options?: LookupSymbolOptions): SymbolWithScope | undefined {
+        let symbol = this.symbolTable.get(name);
+
+        if (!symbol && options?.useProxyScope && this.proxy) {
+            symbol = this.proxy.symbolTable.get(name);
+        }
 
         if (symbol) {
             // If we're searching outside of the original caller's module (global) scope,
             // hide any names that are not meant to be visible to importers.
-            if (isOutsideCallerModule && symbol.isExternallyHidden()) {
+            if (options?.isOutsideCallerModule && symbol.isExternallyHidden()) {
                 return undefined;
             }
 
@@ -144,15 +158,15 @@ export class Scope {
             ) {
                 return {
                     symbol,
-                    isOutsideCallerModule,
-                    isBeyondExecutionScope,
+                    isOutsideCallerModule: !!options?.isOutsideCallerModule,
+                    isBeyondExecutionScope: !!options?.isBeyondExecutionScope,
                     scope: this,
                 };
             }
         }
 
         let parentScope: Scope | undefined;
-        let isNextScopeBeyondExecutionScope = isBeyondExecutionScope || this.isIndependentlyExecutable();
+        let isNextScopeBeyondExecutionScope = options?.isBeyondExecutionScope || this.isIndependentlyExecutable();
 
         if (this.notLocalBindings.get(name) === NameBindingType.Global) {
             const globalScopeResult = this.getGlobalScope();
@@ -170,11 +184,10 @@ export class Scope {
             // If our recursion is about to take us outside the scope of the current
             // module (i.e. into a built-in scope), indicate as such with the second
             // parameter.
-            return parentScope.lookUpSymbolRecursive(
-                name,
-                isOutsideCallerModule || this.type === ScopeType.Module,
-                isNextScopeBeyondExecutionScope
-            );
+            return parentScope.lookUpSymbolRecursive(name, {
+                isOutsideCallerModule: !!options?.isOutsideCallerModule || this.type === ScopeType.Module,
+                isBeyondExecutionScope: isNextScopeBeyondExecutionScope,
+            });
         }
 
         return undefined;
