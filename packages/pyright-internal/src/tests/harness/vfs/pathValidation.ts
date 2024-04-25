@@ -8,6 +8,7 @@ import { sep } from 'path';
 
 import * as pu from '../../../common/pathUtils';
 import { createIOError } from '../utils';
+import { Uri } from '../../../common/uri/uri';
 
 const invalidRootComponentRegExp = getInvalidRootComponentRegExp();
 const invalidNavigableComponentRegExp = /[:*?"<>|]/;
@@ -127,7 +128,7 @@ function validateComponents(components: string[], flags: ValidationFlags, hasTra
         return false;
     }
     for (let i = 1; i < components.length; i++) {
-        if (invalidComponentRegExp.test(components[i])) {
+        if (invalidComponentRegExp.test(components[i]) && components[i] !== Uri.DefaultWorkspaceRootComponent) {
             return false;
         }
     }
