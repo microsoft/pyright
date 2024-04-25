@@ -234,11 +234,14 @@ export namespace Uri {
         return EmptyUri.instance;
     }
 
+    export const DefaultWorkspaceRootComponent = '<default workspace root>';
+    export const DefaultWorkspaceRootPath = `/${DefaultWorkspaceRootComponent}`;
+
     export function defaultWorkspace(serviceProvider: IServiceProvider): Uri;
     export function defaultWorkspace(caseSensitivityDetector: CaseSensitivityDetector): Uri;
     export function defaultWorkspace(arg: IServiceProvider | CaseSensitivityDetector): Uri {
         arg = CaseSensitivityDetector.is(arg) ? arg : arg.get(ServiceKeys.caseSensitivityDetector);
-        return Uri.file('/<default workspace root>/', arg);
+        return Uri.file(DefaultWorkspaceRootPath, arg);
     }
 
     export function fromJsonObj(jsonObj: JsonObjType) {
