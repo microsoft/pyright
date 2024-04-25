@@ -46,7 +46,7 @@ export interface ServerSettings {
 
 export interface MessageAction {
     title: string;
-    id: string;
+    [key: string]: string | boolean | number | object;
 }
 
 export interface WindowInterface {
@@ -60,19 +60,31 @@ export interface WindowInterface {
     showInformationMessage(message: string, ...actions: MessageAction[]): Promise<MessageAction | undefined>;
 }
 
+export namespace WindowInterface {
+    export function is(obj: any): obj is WindowInterface {
+        return (
+            !!obj &&
+            obj.showErrorMessage !== undefined &&
+            obj.showWarningMessage !== undefined &&
+            obj.showInformationMessage !== undefined
+        );
+    }
+}
+
 export interface LanguageServerBaseInterface {
     readonly console: ConsoleInterface;
     readonly window: WindowInterface;
     readonly supportAdvancedEdits: boolean;
     readonly serviceProvider: ext.ServiceProvider;
 
-    getWorkspaces(): Promise<Workspace[]>;
     createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined;
     reanalyze(): void;
     restart(): void;
+
+    getWorkspaces(): Promise<Workspace[]>;
+    getSettings(workspace: Workspace): Promise<ServerSettings>;
 }
 
 export interface LanguageServerInterface extends LanguageServerBaseInterface {
     getWorkspaceForFile(fileUri: Uri): Promise<Workspace>;
-    getSettings(workspace: Workspace): Promise<ServerSettings>;
 }

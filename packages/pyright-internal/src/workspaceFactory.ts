@@ -70,13 +70,16 @@ export function createInitStatus(): InitStatus {
     return self;
 }
 
+export interface WorkspaceFolder {
+    workspaceName: string;
+    rootUri: Uri | undefined;
+}
+
 // path and uri will point to a workspace itself. It could be a folder
 // if the workspace represents a folder. it could be '' if it is the default workspace.
 // But it also could be a file if it is a virtual workspace.
 // rootPath will always point to the folder that contains the workspace.
-export interface Workspace {
-    workspaceName: string;
-    rootUri: Uri | undefined;
+export interface Workspace extends WorkspaceFolder {
     kinds: string[];
     service: AnalyzerService;
     disableLanguageServices: boolean;
