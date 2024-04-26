@@ -1300,6 +1300,16 @@ export namespace ClassType {
     ): boolean {
         // Is it the exact same class?
         if (isSameGenericClass(subclassType, parentClassType)) {
+            // Handle literal types.
+            if (parentClassType.literalValue !== undefined) {
+                if (
+                    subclassType.literalValue === undefined ||
+                    !ClassType.isLiteralValueSame(parentClassType, subclassType)
+                ) {
+                    return false;
+                }
+            }
+
             if (inheritanceChain) {
                 inheritanceChain.push(subclassType);
             }
