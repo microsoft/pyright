@@ -16891,6 +16891,7 @@ export function createTypeEvaluator(
                         evaluatorInterface,
                         node,
                         classType,
+                        isNamedTupleSubclass,
                         skipSynthesizedInit,
                         hasExistingInitMethod,
                         skipSynthesizeHash

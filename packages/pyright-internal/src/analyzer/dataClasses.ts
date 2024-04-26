@@ -78,6 +78,7 @@ export function synthesizeDataClassMethods(
     evaluator: TypeEvaluator,
     node: ClassNode,
     classType: ClassType,
+    isNamedTuple: boolean,
     skipSynthesizeInit: boolean,
     hasExistingInitMethod: boolean,
     skipSynthesizeHash: boolean
@@ -90,16 +91,19 @@ export function synthesizeDataClassMethods(
     const initType = FunctionType.createSynthesizedInstance('__init__');
     initType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
 
-    // Override `__new__` because some dataclasses (such as those that are
-    // created by subclassing from NamedTuple) may have their own custom
-    // __new__ that requires overriding.
+    // Generate both a __new__ and an __init__ method. The parameters of the
+    // __new__ method are based on field definitions for NamedTuple classes,
+    // and the parameters of the __init__ method are based on field definitions
+    // in other cases.
     FunctionType.addParameter(newType, {
         category: ParameterCategory.Simple,
         name: 'cls',
         type: classTypeVar,
         hasDeclaredType: true,
     });
-    FunctionType.addDefaultParameters(newType);
+    if (!isNamedTuple) {
+        FunctionType.addDefaultParameters(newType);
+    }
     newType.details.declaredReturnType = convertToInstance(classTypeVar);
 
     const selfParam: FunctionParameter = {
@@ -109,6 +113,9 @@ export function synthesizeDataClassMethods(
         hasDeclaredType: true,
     };
     FunctionType.addParameter(initType, selfParam);
+    if (isNamedTuple) {
+        FunctionType.addDefaultParameters(initType);
+    }
     initType.details.declaredReturnType = evaluator.getNoneType();
 
     // Maintain a list of all dataclass entries (including
@@ -124,6 +131,10 @@ export function synthesizeDataClassMethods(
         // to avoid a false positive.
         FunctionType.addDefaultParameters(initType);
     }
+
+    // Add field-based parameters to either the __new__ or __init__ method
+    // based on whether this is a NamedTuple or a dataclass.
+    const constructorType = isNamedTuple ? newType : initType;
 
     // Maintain a list of "type evaluators".
     type EntryTypeEvaluator = () => Type;
@@ -217,6 +228,7 @@ export function synthesizeDataClassMethods(
                     const callType = callTypeResult.type;
 
                     if (
+                        !isNamedTuple &&
                         isDataclassFieldConstructor(
                             callType,
                             classType.details.dataClassBehaviors?.fieldDescriptorNames || []
@@ -306,7 +318,7 @@ export function synthesizeDataClassMethods(
                         });
 
                     // Is this a KW_ONLY separator introduced in Python 3.10?
-                    if (statement.valueExpression.value === '_') {
+                    if (!isNamedTuple && statement.valueExpression.value === '_') {
                         const annotatedType = variableTypeEvaluator();
 
                         if (isClassInstance(annotatedType) && ClassType.isBuiltIn(annotatedType, 'KW_ONLY')) {
@@ -460,7 +472,9 @@ export function synthesizeDataClassMethods(
         }
     });
 
-    classType.details.dataClassEntries = localDataClassEntries;
+    if (!isNamedTuple) {
+        classType.details.dataClassEntries = localDataClassEntries;
+    }
 
     // Now that the dataClassEntries field has been set with a complete list
     // of local data class entries for this class, perform deferred type
@@ -529,15 +543,15 @@ export function synthesizeDataClassMethods(
                     if (entry.isKeywordOnly) {
                         keywordOnlyParams.push(functionParam);
                     } else {
-                        FunctionType.addParameter(initType, functionParam);
+                        FunctionType.addParameter(constructorType, functionParam);
                     }
                 }
             });
 
             if (keywordOnlyParams.length > 0) {
-                FunctionType.addKeywordOnlyParameterSeparator(initType);
+                FunctionType.addKeywordOnlyParameterSeparator(constructorType);
                 keywordOnlyParams.forEach((param) => {
-                    FunctionType.addParameter(initType, param);
+                    FunctionType.addParameter(constructorType, param);
                 });
             }
         }
