@@ -6,25 +6,36 @@
 from typing import Generic, TypeVar, Final
 
 T = TypeVar("T")
-E = TypeVar("E")
+S = TypeVar("S")
 
 
-class Ok(Generic[T]):
+class A(Generic[T]):
     def __init__(self, value: T) -> None:
         self._value: Final = value
 
 
-class Err(Generic[E]):
-    def __init__(self, value: E) -> None:
+class B(Generic[S]):
+    def __init__(self, value: S) -> None:
         self._value: Final = value
 
 
-Result = Ok[T] | Err[E]
+Result = A[T] | B[S]
 
 
 def return_ok_none() -> Result[int | None, Exception]:
-    return Ok(None)
+    return A(None)
 
 
 def return_ok_one() -> Result[int | None, Exception]:
-    return Ok(1)
+    return A(1)
+
+
+class C(Generic[T]):
+    pass
+
+
+c1: C[bool] | None = C()
+reveal_type(c1, expected_type="C[bool]")
+
+c2: A[int] | C[int] = C()
+reveal_type(c2, expected_type="C[int]")
