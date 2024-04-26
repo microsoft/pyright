@@ -60,6 +60,7 @@ import {
     isNever,
     isOverloadedFunction,
     isTypeVar,
+    isUnion,
     isUnknown,
 } from './types';
 
@@ -647,14 +648,34 @@ function validateFallbackConstructorCall(
     const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
 
     if (inferenceContext) {
-        populateTypeVarContextBasedOnExpectedType(
-            evaluator,
-            ClassType.cloneAsInstance(type),
-            inferenceContext.expectedType,
-            typeVarContext,
-            getTypeVarScopesForNode(errorNode),
-            errorNode.start
-        );
+        let expectedType: Type | undefined = inferenceContext.expectedType;
+
+        // If the expectedType is a union, try to pick one that is likely to
+        // be the best choice.
+        if (isUnion(expectedType)) {
+            expectedType = findSubtype(expectedType, (subtype) => {
+                if (isAnyOrUnknown(subtype) || isNever(subtype)) {
+                    return false;
+                }
+
+                if (isClass(subtype) && evaluator.assignType(subtype, ClassType.cloneAsInstance(type))) {
+                    return true;
+                }
+
+                return false;
+            });
+        }
+
+        if (expectedType) {
+            populateTypeVarContextBasedOnExpectedType(
+                evaluator,
+                ClassType.cloneAsInstance(type),
+                expectedType,
+                typeVarContext,
+                getTypeVarScopesForNode(errorNode),
+                errorNode.start
+            );
+        }
     }
 
     return {
