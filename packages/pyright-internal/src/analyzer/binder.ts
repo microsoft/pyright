@@ -572,6 +572,8 @@ export class Binder extends ParseTreeWalker {
                     // Walk the statements that make up the function.
                     this.walk(node.suite);
 
+                    this._targetFunctionDeclaration = undefined;
+
                     // Associate the code flow node at the end of the suite with
                     // the suite.
                     AnalyzerNodeInfo.setAfterFlowNode(node.suite, this._currentFlowNode);
