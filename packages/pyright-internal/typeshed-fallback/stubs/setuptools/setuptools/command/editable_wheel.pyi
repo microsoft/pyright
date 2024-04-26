@@ -13,9 +13,9 @@ from ..warnings import SetuptoolsWarning
 _WheelFile: TypeAlias = Incomplete
 
 class _EditableMode(Enum):
-    STRICT: str
-    LENIENT: str
-    COMPAT: str
+    STRICT = "strict"
+    LENIENT = "lenient"
+    COMPAT = "compat"
     @classmethod
     def convert(cls, mode: str | None) -> _EditableMode: ...
 

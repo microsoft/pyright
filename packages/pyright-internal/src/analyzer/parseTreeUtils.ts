@@ -62,6 +62,11 @@ export const enum PrintExpressionFlags {
     DoNotLimitStringLength = 1 << 1,
 }
 
+export interface EvaluationScopeInfo {
+    node: EvaluationScopeNode;
+    useProxyScope?: boolean;
+}
+
 // Returns the depth of the node as measured from the root
 // of the parse tree.
 export function getNodeDepth(node: ParseNode): number {
@@ -726,7 +731,7 @@ export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined 
 // (for example), it will be considered part of its parent node rather than
 // the class node.
 export function getEnclosingFunctionEvaluationScope(node: ParseNode): FunctionNode | undefined {
-    let curNode = getEvaluationScopeNode(node);
+    let curNode = getEvaluationScopeNode(node).node;
 
     while (curNode) {
         if (curNode.nodeType === ParseNodeType.Function) {
@@ -737,7 +742,7 @@ export function getEnclosingFunctionEvaluationScope(node: ParseNode): FunctionNo
             return undefined;
         }
 
-        curNode = getEvaluationScopeNode(curNode.parent);
+        curNode = getEvaluationScopeNode(curNode.parent).node;
     }
 
     return undefined;
@@ -817,7 +822,7 @@ export function getEvaluationNodeForAssignmentExpression(
     // target within a list comprehension is contained within a lambda,
     // function or module, but not a class.
     let sawListComprehension = false;
-    let curNode: ParseNode | undefined = getEvaluationScopeNode(node);
+    let curNode: ParseNode | undefined = getEvaluationScopeNode(node).node;
 
     while (curNode !== undefined) {
         switch (curNode.nodeType) {
@@ -831,7 +836,7 @@ export function getEvaluationNodeForAssignmentExpression(
 
             case ParseNodeType.ListComprehension:
                 sawListComprehension = true;
-                curNode = getEvaluationScopeNode(curNode.parent!);
+                curNode = getEvaluationScopeNode(curNode.parent!).node;
                 break;
 
             default:
@@ -844,32 +849,68 @@ export function getEvaluationNodeForAssignmentExpression(
 
 // Returns the parse node corresponding to the scope that is used to evaluate
 // a symbol referenced in the specified node.
-export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
+export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
     let prevNode: ParseNode | undefined;
     let prevPrevNode: ParseNode | undefined;
     let curNode: ParseNode | undefined = node;
     let isParamNameNode = false;
+    let isParamDefaultNode = false;
 
     while (curNode) {
-        if (curNode.nodeType === ParseNodeType.Parameter && prevNode === curNode.name) {
-            // Note that we passed through a parameter name node.
-            isParamNameNode = true;
+        if (curNode.nodeType === ParseNodeType.Parameter) {
+            if (prevNode === curNode.name) {
+                // Note that we passed through a parameter name node.
+                isParamNameNode = true;
+            } else if (prevNode === curNode.defaultValue) {
+                // Note that we passed through a parameter default value node.
+                isParamDefaultNode = true;
+            }
         }
 
         // We found a scope associated with this node. In most cases,
         // we'll return this scope, but in a few cases we need to return
         // the enclosing scope instead.
         switch (curNode.nodeType) {
+            case ParseNodeType.TypeParameterList: {
+                return { node: curNode, useProxyScope: true };
+            }
+
             case ParseNodeType.Function: {
+                if (!prevNode) {
+                    break;
+                }
+
+                // Decorators are always evaluated outside of the function scope.
+                if (curNode.decorators.some((decorator) => decorator === prevNode)) {
+                    break;
+                }
+
                 if (curNode.parameters.some((param) => param === prevNode)) {
+                    // Default argument expressions are evaluated outside of the function scope.
+                    if (isParamDefaultNode) {
+                        break;
+                    }
+
                     if (isParamNameNode) {
                         if (getScope(curNode) !== undefined) {
-                            return curNode;
+                            return { node: curNode };
                         }
                     }
-                } else if (prevNode === curNode.suite) {
+                }
+
+                if (prevNode === curNode.suite) {
                     if (getScope(curNode) !== undefined) {
-                        return curNode;
+                        return { node: curNode };
+                    }
+                }
+
+                // All other nodes in the function are evaluated in the context
+                // of the type parameter scope if it's present. Otherwise,
+                // they are evaluated within the function's parent scope.
+                if (curNode.typeParameters) {
+                    const scopeNode = curNode.typeParameters;
+                    if (getScope(scopeNode) !== undefined) {
+                        return { node: scopeNode, useProxyScope: true };
                     }
                 }
                 break;
@@ -879,21 +920,40 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
                 if (curNode.parameters.some((param) => param === prevNode)) {
                     if (isParamNameNode) {
                         if (getScope(curNode) !== undefined) {
-                            return curNode;
+                            return { node: curNode };
                         }
                     }
                 } else if (!prevNode || prevNode === curNode.expression) {
                     if (getScope(curNode) !== undefined) {
-                        return curNode;
+                        return { node: curNode };
                     }
                 }
                 break;
             }
 
             case ParseNodeType.Class: {
+                if (!prevNode) {
+                    break;
+                }
+
+                // Decorators are always evaluated outside of the class scope.
+                if (curNode.decorators.some((decorator) => decorator === prevNode)) {
+                    break;
+                }
+
                 if (prevNode === curNode.suite) {
                     if (getScope(curNode) !== undefined) {
-                        return curNode;
+                        return { node: curNode };
+                    }
+                }
+
+                // All other nodes in the class are evaluated in the context
+                // of the type parameter scope if it's present. Otherwise,
+                // they are evaluated within the class' parent scope.
+                if (curNode.typeParameters) {
+                    const scopeNode = curNode.typeParameters;
+                    if (getScope(scopeNode) !== undefined) {
+                        return { node: scopeNode, useProxyScope: true };
                     }
                 }
                 break;
@@ -909,7 +969,17 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
                         curNode.forIfNodes[0].iterableExpression === prevPrevNode;
 
                     if (!isFirstIterableExpr) {
-                        return curNode;
+                        return { node: curNode };
+                    }
+                }
+                break;
+            }
+
+            case ParseNodeType.TypeAlias: {
+                if (prevNode === curNode.expression && curNode.typeParameters) {
+                    const scopeNode = curNode.typeParameters;
+                    if (getScope(scopeNode) !== undefined) {
+                        return { node: scopeNode };
                     }
                 }
                 break;
@@ -917,7 +987,7 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
 
             case ParseNodeType.Module: {
                 if (getScope(curNode) !== undefined) {
-                    return curNode;
+                    return { node: curNode };
                 }
                 break;
             }
@@ -933,8 +1003,8 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
 }
 
 // Returns the parse node corresponding to the function, class, or type alias
-// that contains the specified typeVar reference.
-export function getTypeVarScopeNode(node: ParseNode): TypeParameterScopeNode {
+// that potentially provides the scope for a type parameter.
+export function getTypeVarScopeNode(node: ParseNode): TypeParameterScopeNode | undefined {
     let prevNode: ParseNode | undefined;
     let curNode: ParseNode | undefined = node;
 
@@ -963,13 +1033,13 @@ export function getTypeVarScopeNode(node: ParseNode): TypeParameterScopeNode {
         curNode = curNode.parent;
     }
 
-    return undefined!;
+    return undefined;
 }
 
 // Returns the parse node corresponding to the scope that is used
 // for executing the code referenced in the specified node.
 export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {
-    let evaluationScope = getEvaluationScopeNode(node);
+    let evaluationScope = getEvaluationScopeNode(node).node;
 
     // Classes are not considered execution scope because they are executed
     // within the context of their containing module or function. Likewise, list
@@ -978,7 +1048,7 @@ export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {
         evaluationScope.nodeType === ParseNodeType.Class ||
         evaluationScope.nodeType === ParseNodeType.ListComprehension
     ) {
-        evaluationScope = getEvaluationScopeNode(evaluationScope.parent!);
+        evaluationScope = getEvaluationScopeNode(evaluationScope.parent!).node;
     }
 
     return evaluationScope;
@@ -1417,37 +1487,6 @@ export function isWithinLoop(node: ParseNode): boolean {
             }
         }
 
-        curNode = curNode.parent;
-    }
-
-    return false;
-}
-
-export function isWithinTryBlock(node: ParseNode, treatWithAsTryBlock = false): boolean {
-    let curNode: ParseNode | undefined = node;
-    let prevNode: ParseNode | undefined;
-
-    while (curNode) {
-        switch (curNode.nodeType) {
-            case ParseNodeType.Try: {
-                return curNode.trySuite === prevNode;
-            }
-
-            case ParseNodeType.With: {
-                if (treatWithAsTryBlock && curNode.suite === prevNode) {
-                    return true;
-                }
-                break;
-            }
-
-            case ParseNodeType.Function:
-            case ParseNodeType.Module:
-            case ParseNodeType.Class: {
-                return false;
-            }
-        }
-
-        prevNode = curNode;
         curNode = curNode.parent;
     }
 

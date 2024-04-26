@@ -23,6 +23,26 @@ def func2[T2](): ...
 class ClassC[T3, S1, T3]: ...
 
 
+class ClassD:
+    class ClassE: ...
+
+    class ClassF:
+        class A[T]: ...
+
+        int_alias = int
+
+        class B(A[int_alias]):
+            pass
+
+        # This should genreate an error because ClassE is out of scope.
+        class C(A[ClassE]):
+            pass
+
+
+class ClassG[T](list["T"]):
+    pass
+
+
 # This should generate an error because T3 is duplicated.
 def func3[T3, S1, T3](): ...
 

@@ -44,7 +44,7 @@ class Redis(AbstractRedis, RedisModuleCommands, AsyncCoreCommands[_StrType], Asy
         socket_connect_timeout: float | None = None,
         socket_keepalive: bool | None = None,
         socket_keepalive_options: Mapping[int, int | bytes] | None = None,
-        connection_pool: ConnectionPool | None = None,
+        connection_pool: ConnectionPool[Any] | None = None,
         unix_socket_path: str | None = None,
         encoding: str = "utf-8",
         encoding_errors: str = "strict",
@@ -82,7 +82,7 @@ class Redis(AbstractRedis, RedisModuleCommands, AsyncCoreCommands[_StrType], Asy
         socket_connect_timeout: float | None = None,
         socket_keepalive: bool | None = None,
         socket_keepalive_options: Mapping[int, int | bytes] | None = None,
-        connection_pool: ConnectionPool | None = None,
+        connection_pool: ConnectionPool[Any] | None = None,
         unix_socket_path: str | None = None,
         encoding: str = "utf-8",
         encoding_errors: str = "strict",
@@ -118,7 +118,7 @@ class Redis(AbstractRedis, RedisModuleCommands, AsyncCoreCommands[_StrType], Asy
         socket_connect_timeout: float | None = None,
         socket_keepalive: bool | None = None,
         socket_keepalive_options: Mapping[int, int | bytes] | None = None,
-        connection_pool: ConnectionPool | None = None,
+        connection_pool: ConnectionPool[Any] | None = None,
         unix_socket_path: str | None = None,
         encoding: str = "utf-8",
         encoding_errors: str = "strict",
@@ -154,7 +154,7 @@ class Redis(AbstractRedis, RedisModuleCommands, AsyncCoreCommands[_StrType], Asy
         socket_connect_timeout: float | None = None,
         socket_keepalive: bool | None = None,
         socket_keepalive_options: Mapping[int, int | bytes] | None = None,
-        connection_pool: ConnectionPool | None = None,
+        connection_pool: ConnectionPool[Any] | None = None,
         unix_socket_path: str | None = None,
         encoding: str = "utf-8",
         encoding_errors: str = "strict",
@@ -228,7 +228,7 @@ class Monitor:
     command_re: Any
     connection_pool: Any
     connection: Any
-    def __init__(self, connection_pool: ConnectionPool) -> None: ...
+    def __init__(self, connection_pool: ConnectionPool[Any]) -> None: ...
     async def connect(self) -> None: ...
     async def __aenter__(self) -> Self: ...
     async def __aexit__(self, *args: Unused) -> None: ...
@@ -251,7 +251,7 @@ class PubSub:
     pending_unsubscribe_patterns: Any
     def __init__(
         self,
-        connection_pool: ConnectionPool,
+        connection_pool: ConnectionPool[Any],
         shard_hint: str | None = None,
         ignore_subscribe_messages: bool = False,
         encoder: Incomplete | None = None,
@@ -302,7 +302,7 @@ class Pipeline(Redis[_StrType]):
     explicit_transaction: bool
     def __init__(
         self,
-        connection_pool: ConnectionPool,
+        connection_pool: ConnectionPool[Any],
         response_callbacks: MutableMapping[str | bytes, ResponseCallbackT],
         transaction: bool,
         shard_hint: str | None,

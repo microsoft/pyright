@@ -24,7 +24,25 @@ class Splash(Target):
     script: Incomplete
     splash_requirements: Incomplete
     binaries: list[_TOCTuple]
-    def __init__(self, image_file: StrPath, binaries: list[_TOCTuple], datas: list[_TOCTuple], **kwargs: Incomplete) -> None: ...
+    def __init__(
+        self,
+        image_file: StrPath,
+        binaries: list[_TOCTuple],
+        datas: list[_TOCTuple],
+        *,
+        text_pos: tuple[int, int] = ...,
+        text_size: int = 12,
+        text_font: str = ...,
+        text_color: str = "black",
+        text_default: str = "Initializing",
+        full_tk: bool = False,
+        minify_script: bool = True,
+        rundir: str = "__splash",
+        name: str = ...,
+        script_name: str = ...,
+        max_img_size: tuple[int, int] | None = (760, 480),
+        always_on_top: bool = True,
+    ) -> None: ...
     def assemble(self) -> None: ...
     def test_tk_version(self) -> None: ...
     def generate_script(self) -> str: ...

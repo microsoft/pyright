@@ -1,7 +1,6 @@
 from typing import Any
 
 ECO_VERSION: str
-PY_GT_2: bool
 HAVE_URANDOM: bool
 INSTANCE_ID: str
 IS_64BIT: bool

@@ -11,7 +11,6 @@ from .resultrow import ResultRow
 apilevel: str
 threadsafety: int
 paramstyle: tuple[str, ...]  # hdbcli defines it as a tuple which does not follow PEP 249
-connect = Connection
 
 class Connection:
     def __init__(
@@ -39,6 +38,8 @@ class Connection:
     def rollback(self) -> None: ...
     def setautocommit(self, auto: bool = ...) -> None: ...
     def setclientinfo(self, key: str, value: str | None = ...) -> None: ...
+
+connect = Connection
 
 class LOB:
     def __init__(self, *args: Any, **kwargs: Any) -> None: ...

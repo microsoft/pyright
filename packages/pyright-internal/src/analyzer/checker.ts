@@ -1637,6 +1637,44 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitTypeParameter(node: TypeParameterNode): boolean {
+        // Verify that there are no live type variables with the same
+        // name in outer scopes.
+        let curNode: ParseNode | undefined = node.parent?.parent?.parent;
+        let foundDuplicate = false;
+
+        while (curNode) {
+            const typeVarScopeNode = ParseTreeUtils.getTypeVarScopeNode(curNode);
+            if (!typeVarScopeNode) {
+                break;
+            }
+
+            if (typeVarScopeNode.nodeType === ParseNodeType.Class) {
+                const classType = this._evaluator.getTypeOfClass(typeVarScopeNode)?.classType;
+
+                if (classType?.details.typeParameters.some((param) => param.details.name === node.name.value)) {
+                    foundDuplicate = true;
+                    break;
+                }
+            } else if (typeVarScopeNode.nodeType === ParseNodeType.Function) {
+                const functionType = this._evaluator.getTypeOfFunction(typeVarScopeNode)?.functionType;
+
+                if (functionType?.details.typeParameters.some((param) => param.details.name === node.name.value)) {
+                    foundDuplicate = true;
+                    break;
+                }
+            }
+
+            curNode = typeVarScopeNode.parent;
+        }
+
+        if (foundDuplicate) {
+            this._evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.typeVarUsedByOuterScope().format({ name: node.name.value }),
+                node.name
+            );
+        }
+
         return false;
     }
 
@@ -2995,8 +3033,10 @@ export class Checker extends ParseTreeWalker {
         // Report unaccessed type parameters.
         const accessedSymbolSet = this._fileInfo.accessedSymbolSet;
         for (const paramList of this._typeParameterLists) {
+            const typeParamScope = AnalyzerNodeInfo.getScope(paramList);
+
             for (const param of paramList.parameters) {
-                const symbol = AnalyzerNodeInfo.getTypeParameterSymbol(param.name);
+                const symbol = typeParamScope?.symbolTable.get(param.name.value);
                 if (!symbol) {
                     // This can happen if the code is unreachable.
                     return;
@@ -4187,6 +4227,11 @@ export class Checker extends ParseTreeWalker {
                             errorMessage = LocMessage.deprecatedConstructor().format({
                                 name: type.details.name,
                             });
+                        } else if (isClassInstance(type) && overload.details.name === '__call__') {
+                            deprecatedMessage = overload.details.deprecatedMessage;
+                            errorMessage = LocMessage.deprecatedFunction().format({
+                                name: node.value,
+                            });
                         }
                     }
                 });
@@ -4202,13 +4247,20 @@ export class Checker extends ParseTreeWalker {
                 ) {
                     deprecatedMessage = subtype.details.deprecatedMessage;
                     errorMessage = LocMessage.deprecatedClass().format({ name: subtype.details.name });
-                } else {
-                    // See if this is part of a call to a constructor.
-                    getDeprecatedMessageForOverloadedCall(this._evaluator, subtype);
+                    return;
                 }
-            } else if (isFunction(subtype)) {
+
+                getDeprecatedMessageForOverloadedCall(this._evaluator, subtype);
+                return;
+            }
+
+            if (isFunction(subtype)) {
                 if (subtype.details.deprecatedMessage !== undefined) {
-                    if (!subtype.details.name || node.value === subtype.details.name) {
+                    if (
+                        !subtype.details.name ||
+                        subtype.details.name === '__call__' ||
+                        node.value === subtype.details.name
+                    ) {
                         deprecatedMessage = subtype.details.deprecatedMessage;
                         errorMessage = getDeprecatedMessageForFunction(subtype);
                     }
@@ -6946,7 +6998,7 @@ export class Checker extends ParseTreeWalker {
                 typeVars.some((typeVar) => typeVar.scopeId === functionType.details.methodClass?.details.typeVarScopeId)
             ) {
                 this._evaluator.addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    DiagnosticRule.reportInvalidTypeVarUse,
                     LocMessage.initMethodSelfParamTypeVar(),
                     paramInfo.typeAnnotation
                 );

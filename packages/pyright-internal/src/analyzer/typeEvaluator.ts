@@ -583,7 +583,13 @@ interface CodeFlowAnalyzerCacheEntry {
     codeFlowAnalyzer: CodeFlowAnalyzer;
 }
 
-export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
+type LogWrapper = <T extends (...args: any[]) => any>(func: T) => (...args: Parameters<T>) => ReturnType<T>;
+
+export function createTypeEvaluator(
+    importLookup: ImportLookup,
+    evaluatorOptions: EvaluatorOptions,
+    wrapWithLogger: LogWrapper
+): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const asymmetricAccessorAssignmentCache = new Set<number>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
@@ -4373,196 +4379,182 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let isIncomplete = false;
         const allowForwardReferences = (flags & EvaluatorFlags.AllowForwardReferences) !== 0 || fileInfo.isStubFile;
 
-        // Does this name refer to a PEP 695-style type parameter?
-        const typeParamSymbol = AnalyzerNodeInfo.getTypeParameterSymbol(node);
-        if (typeParamSymbol) {
-            symbol = typeParamSymbol;
-            assert(symbol.getDeclarations().length === 1);
-            const decl = getLastTypedDeclarationForSymbol(symbol);
-            assert(decl?.type === DeclarationType.TypeParameter);
-            type = getTypeOfTypeParameter(decl.node);
-            setSymbolAccessed(fileInfo, symbol, node);
-        } else {
-            // Look for the scope that contains the value definition and
-            // see if it has a declared type.
-            let symbolWithScope = lookUpSymbolRecursive(
-                node,
-                name,
-                !allowForwardReferences,
-                allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
-            );
+        // Look for the scope that contains the value definition and
+        // see if it has a declared type.
+        let symbolWithScope = lookUpSymbolRecursive(
+            node,
+            name,
+            !allowForwardReferences,
+            allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
+        );
 
-            if (!symbolWithScope) {
-                // If the node is part of a "from X import Y as Z" statement and the node
-                // is the "Y" (non-aliased) name, we need to look up the alias symbol
-                // since the non-aliased name is not in the symbol table.
-                const alias = getAliasFromImport(node);
-                if (alias) {
-                    symbolWithScope = lookUpSymbolRecursive(
-                        alias,
-                        alias.value,
-                        !allowForwardReferences,
-                        allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
-                    );
+        if (!symbolWithScope) {
+            // If the node is part of a "from X import Y as Z" statement and the node
+            // is the "Y" (non-aliased) name, we need to look up the alias symbol
+            // since the non-aliased name is not in the symbol table.
+            const alias = getAliasFromImport(node);
+            if (alias) {
+                symbolWithScope = lookUpSymbolRecursive(
+                    alias,
+                    alias.value,
+                    !allowForwardReferences,
+                    allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
+                );
+            }
+        }
+
+        if (symbolWithScope) {
+            let useCodeFlowAnalysis = !allowForwardReferences;
+
+            // If the symbol is implicitly imported from the builtin
+            // scope, there's no need to use code flow analysis.
+            if (symbolWithScope.scope.type === ScopeType.Builtin) {
+                useCodeFlowAnalysis = false;
+            }
+
+            symbol = symbolWithScope.symbol;
+            setSymbolAccessed(fileInfo, symbol, node);
+
+            // If we're not supposed to be analyzing this function, skip the remaining work
+            // to determine the name's type. Simply evaluate its type as Any.
+            if (!fileInfo.diagnosticRuleSet.analyzeUnannotatedFunctions) {
+                const containingFunction = ParseTreeUtils.getEnclosingFunction(node);
+                if (containingFunction && ParseTreeUtils.isUnannotatedFunction(containingFunction)) {
+                    return {
+                        type: AnyType.create(),
+                        isIncomplete: false,
+                    };
                 }
             }
 
-            if (symbolWithScope) {
-                let useCodeFlowAnalysis = !allowForwardReferences;
+            // Get the effective type (either the declared type or the inferred type).
+            // If we're using code flow analysis, pass the usage node so we consider
+            // only the assignment nodes that are reachable from this usage.
+            const effectiveTypeInfo = getEffectiveTypeOfSymbolForUsage(symbol, useCodeFlowAnalysis ? node : undefined);
+            let effectiveType = transformPossibleRecursiveTypeAlias(effectiveTypeInfo.type);
 
-                // If the symbol is implicitly imported from the builtin
-                // scope, there's no need to use code flow analysis.
-                if (symbolWithScope.scope.type === ScopeType.Builtin) {
-                    useCodeFlowAnalysis = false;
+            if (effectiveTypeInfo.isIncomplete) {
+                if (isUnbound(effectiveType)) {
+                    effectiveType = UnknownType.create(/* isIncomplete */ true);
                 }
+                isIncomplete = true;
+            }
 
-                symbol = symbolWithScope.symbol;
-                setSymbolAccessed(fileInfo, symbol, node);
-
-                // If we're not supposed to be analyzing this function, skip the remaining work
-                // to determine the name's type. Simply evaluate its type as Any.
-                if (!fileInfo.diagnosticRuleSet.analyzeUnannotatedFunctions) {
-                    const containingFunction = ParseTreeUtils.getEnclosingFunction(node);
-                    if (containingFunction && ParseTreeUtils.isUnannotatedFunction(containingFunction)) {
-                        return {
-                            type: AnyType.create(),
-                            isIncomplete: false,
-                        };
-                    }
-                }
-
-                // Get the effective type (either the declared type or the inferred type).
-                // If we're using code flow analysis, pass the usage node so we consider
-                // only the assignment nodes that are reachable from this usage.
-                const effectiveTypeInfo = getEffectiveTypeOfSymbolForUsage(
-                    symbol,
-                    useCodeFlowAnalysis ? node : undefined
+            if (effectiveTypeInfo.isRecursiveDefinition && isNodeReachable(node)) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.recursiveDefinition().format({ name }),
+                    node
                 );
-                let effectiveType = transformPossibleRecursiveTypeAlias(effectiveTypeInfo.type);
+            }
 
-                if (effectiveTypeInfo.isIncomplete) {
-                    if (isUnbound(effectiveType)) {
-                        effectiveType = UnknownType.create(/* isIncomplete */ true);
+            const isSpecialBuiltIn =
+                !!effectiveType && isInstantiableClass(effectiveType) && ClassType.isSpecialBuiltIn(effectiveType);
+
+            type = effectiveType;
+            if (useCodeFlowAnalysis && !isSpecialBuiltIn) {
+                // See if code flow analysis can tell us anything more about the type.
+                // If the symbol is declared outside of our execution scope, use its effective
+                // type. If it's declared inside our execution scope, it generally starts
+                // as unbound at the start of the code flow.
+                let typeAtStart = effectiveType;
+                let isTypeAtStartIncomplete = false;
+
+                if (!symbolWithScope.isBeyondExecutionScope && symbol.isInitiallyUnbound()) {
+                    typeAtStart = UnboundType.create();
+
+                    // Is this a module-level scope? If so, see if it's an alias of a builtin.
+                    if (symbolWithScope.scope.type === ScopeType.Module) {
+                        assert(symbolWithScope.scope.parent);
+                        const builtInSymbol = symbolWithScope.scope.parent.lookUpSymbol(name);
+                        if (builtInSymbol) {
+                            const builtInEffectiveType = getEffectiveTypeOfSymbolForUsage(builtInSymbol);
+                            typeAtStart = builtInEffectiveType.type;
+                        }
                     }
+                }
+
+                if (symbolWithScope.isBeyondExecutionScope) {
+                    const outerScopeTypeResult = getCodeFlowTypeForCapturedVariable(
+                        node,
+                        symbolWithScope,
+                        effectiveType
+                    );
+
+                    if (outerScopeTypeResult?.type) {
+                        type = outerScopeTypeResult.type;
+                        typeAtStart = type;
+                        isTypeAtStartIncomplete = !!outerScopeTypeResult.isIncomplete;
+                    }
+                }
+
+                const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
+                    targetSymbolId: symbol.id,
+                    typeAtStart: { type: typeAtStart, isIncomplete: isTypeAtStartIncomplete },
+                    skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                });
+
+                if (codeFlowTypeResult.type) {
+                    type = codeFlowTypeResult.type;
+                }
+
+                if (codeFlowTypeResult.isIncomplete) {
                     isIncomplete = true;
                 }
+            }
 
-                if (effectiveTypeInfo.isRecursiveDefinition && isNodeReachable(node)) {
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.recursiveDefinition().format({ name }),
-                        node
-                    );
-                }
+            // Detect, report, and fill in missing type arguments if appropriate.
+            type = reportMissingTypeArguments(node, type, flags);
 
-                const isSpecialBuiltIn =
-                    !!effectiveType && isInstantiableClass(effectiveType) && ClassType.isSpecialBuiltIn(effectiveType);
+            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                // Verify that the name does not refer to a (non type alias) variable.
+                if (effectiveTypeInfo.includesVariableDecl && !type.typeAliasInfo) {
+                    let isAllowedTypeForVariable = isTypeVar(type) || isTypeAliasPlaceholder(type);
 
-                type = effectiveType;
-                if (useCodeFlowAnalysis && !isSpecialBuiltIn) {
-                    // See if code flow analysis can tell us anything more about the type.
-                    // If the symbol is declared outside of our execution scope, use its effective
-                    // type. If it's declared inside our execution scope, it generally starts
-                    // as unbound at the start of the code flow.
-                    let typeAtStart = effectiveType;
-                    let isTypeAtStartIncomplete = false;
-
-                    if (!symbolWithScope.isBeyondExecutionScope && symbol.isInitiallyUnbound()) {
-                        typeAtStart = UnboundType.create();
-
-                        // Is this a module-level scope? If so, see if it's an alias of a builtin.
-                        if (symbolWithScope.scope.type === ScopeType.Module) {
-                            assert(symbolWithScope.scope.parent);
-                            const builtInSymbol = symbolWithScope.scope.parent.lookUpSymbol(name);
-                            if (builtInSymbol) {
-                                const builtInEffectiveType = getEffectiveTypeOfSymbolForUsage(builtInSymbol);
-                                typeAtStart = builtInEffectiveType.type;
-                            }
-                        }
+                    if (
+                        isClass(type) &&
+                        !type.includeSubclasses &&
+                        !symbol.hasTypedDeclarations() &&
+                        ClassType.isValidTypeAliasClass(type)
+                    ) {
+                        // This check exempts class types that are created by calling
+                        // NewType, NamedTuple, etc.
+                        isAllowedTypeForVariable = true;
                     }
 
-                    if (symbolWithScope.isBeyondExecutionScope) {
-                        const outerScopeTypeResult = getCodeFlowTypeForCapturedVariable(
-                            node,
-                            symbolWithScope,
-                            effectiveType
-                        );
-
-                        if (outerScopeTypeResult?.type) {
-                            type = outerScopeTypeResult.type;
-                            typeAtStart = type;
-                            isTypeAtStartIncomplete = !!outerScopeTypeResult.isIncomplete;
-                        }
-                    }
-
-                    const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
-                        targetSymbolId: symbol.id,
-                        typeAtStart: { type: typeAtStart, isIncomplete: isTypeAtStartIncomplete },
-                        skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
-                    });
-
-                    if (codeFlowTypeResult.type) {
-                        type = codeFlowTypeResult.type;
-                    }
-
-                    if (codeFlowTypeResult.isIncomplete) {
-                        isIncomplete = true;
-                    }
-                }
-
-                // Detect, report, and fill in missing type arguments if appropriate.
-                type = reportMissingTypeArguments(node, type, flags);
-
-                if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
-                    // Verify that the name does not refer to a (non type alias) variable.
-                    if (effectiveTypeInfo.includesVariableDecl && !type.typeAliasInfo) {
-                        let isAllowedTypeForVariable = isTypeVar(type) || isTypeAliasPlaceholder(type);
-
+                    // Disable for assignments in the typings.pyi file, since it defines special forms.
+                    if (!isAllowedTypeForVariable && !fileInfo.isTypingStubFile) {
+                        // This might be a union that was previously a type alias
+                        // but was reconstituted in such a way that we lost the
+                        // typeAliasInfo. Avoid the false positive error by suppressing
+                        // the error when it looks like a plausible type alias type.
                         if (
-                            isClass(type) &&
-                            !type.includeSubclasses &&
-                            !symbol.hasTypedDeclarations() &&
-                            ClassType.isValidTypeAliasClass(type)
+                            effectiveTypeInfo.includesIllegalTypeAliasDecl ||
+                            !TypeBase.isInstantiable(type) ||
+                            (flags & EvaluatorFlags.DoNotSpecialize) !== 0
                         ) {
-                            // This check exempts class types that are created by calling
-                            // NewType, NamedTuple, etc.
-                            isAllowedTypeForVariable = true;
-                        }
-
-                        // Disable for assignments in the typings.pyi file, since it defines special forms.
-                        if (!isAllowedTypeForVariable && !fileInfo.isTypingStubFile) {
-                            // This might be a union that was previously a type alias
-                            // but was reconstituted in such a way that we lost the
-                            // typeAliasInfo. Avoid the false positive error by suppressing
-                            // the error when it looks like a plausible type alias type.
-                            if (
-                                effectiveTypeInfo.includesIllegalTypeAliasDecl ||
-                                !TypeBase.isInstantiable(type) ||
-                                (flags & EvaluatorFlags.DoNotSpecialize) !== 0
-                            ) {
-                                addDiagnostic(
-                                    DiagnosticRule.reportInvalidTypeForm,
-                                    LocMessage.typeAnnotationVariable(),
-                                    node
-                                );
-                                type = UnknownType.create();
-                            }
+                            addDiagnostic(
+                                DiagnosticRule.reportInvalidTypeForm,
+                                LocMessage.typeAnnotationVariable(),
+                                node
+                            );
+                            type = UnknownType.create();
                         }
                     }
                 }
+            }
+        } else {
+            // Handle the special case of "reveal_type" and "reveal_locals".
+            if (name === 'reveal_type' || name === 'reveal_locals') {
+                type = AnyType.create();
             } else {
-                // Handle the special case of "reveal_type" and "reveal_locals".
-                if (name === 'reveal_type' || name === 'reveal_locals') {
-                    type = AnyType.create();
-                } else {
-                    addDiagnostic(
-                        DiagnosticRule.reportUndefinedVariable,
-                        LocMessage.symbolIsUndefined().format({ name }),
-                        node
-                    );
+                addDiagnostic(
+                    DiagnosticRule.reportUndefinedVariable,
+                    LocMessage.symbolIsUndefined().format({ name }),
+                    node
+                );
 
-                    type = UnknownType.create();
-                }
+                type = UnknownType.create();
             }
         }
 
@@ -12966,7 +12958,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             fileInfo.fileUri,
             ClassTypeFlags.ValidTypeAliasClass,
             ParseTreeUtils.getTypeSourceId(errorNode),
-            /* declaredMetaclass */ undefined,
+            metaclass,
             arg1Type.details.effectiveMetaclass
         );
         arg1Type.tupleTypeArguments.forEach((typeArg) => {
@@ -13194,6 +13186,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const keyTypes: TypeResultWithNode[] = [];
         const valueTypes: TypeResultWithNode[] = [];
         let isIncomplete = false;
+        let typeErrors = false;
 
         // Handle TypedDict's as a special case.
         if (ClassType.isTypedDictClass(concreteExpectedType)) {
@@ -13204,20 +13197,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const expectedTypedDictEntries = getTypedDictMembersForClass(evaluatorInterface, concreteExpectedType);
 
             // Infer the key and value types if possible.
-            if (
-                getKeyAndValueTypesFromDictionary(
-                    node,
-                    keyTypes,
-                    valueTypes,
-                    /* forceStrictInference */ true,
-                    /* isValueTypeInvariant */ true,
-                    /* expectedKeyType */ undefined,
-                    /* expectedValueType */ undefined,
-                    expectedTypedDictEntries,
-                    expectedDiagAddendum
-                )
-            ) {
+            const keyValueTypeResult = getKeyAndValueTypesFromDictionary(
+                node,
+                keyTypes,
+                valueTypes,
+                /* forceStrictInference */ true,
+                /* isValueTypeInvariant */ true,
+                /* expectedKeyType */ undefined,
+                /* expectedValueType */ undefined,
+                expectedTypedDictEntries,
+                expectedDiagAddendum
+            );
+
+            if (keyValueTypeResult.isIncomplete) {
                 isIncomplete = true;
+            }
+
+            if (keyValueTypeResult.typeErrors) {
+                typeErrors = true;
             }
 
             const resultTypedDict = assignToTypedDict(
@@ -13291,20 +13288,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Infer the key and value types if possible.
-        if (
-            getKeyAndValueTypesFromDictionary(
-                node,
-                keyTypes,
-                valueTypes,
-                /* forceStrictInference */ true,
-                isValueTypeInvariant,
-                expectedKeyType,
-                expectedValueType,
-                undefined,
-                expectedDiagAddendum
-            )
-        ) {
+        const keyValueResult = getKeyAndValueTypesFromDictionary(
+            node,
+            keyTypes,
+            valueTypes,
+            /* forceStrictInference */ true,
+            isValueTypeInvariant,
+            expectedKeyType,
+            expectedValueType,
+            undefined,
+            expectedDiagAddendum
+        );
+
+        if (keyValueResult.isIncomplete) {
             isIncomplete = true;
+        }
+
+        if (keyValueResult.typeErrors) {
+            typeErrors = true;
         }
 
         const specializedKeyType = inferTypeArgFromExpectedEntryType(
@@ -13322,7 +13323,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const type = getBuiltInObject(node, 'dict', [specializedKeyType, specializedValueType]);
-        return { type, isIncomplete };
+        return { type, isIncomplete, typeErrors };
     }
 
     // Attempts to infer the type of a dictionary statement. If hasExpectedType
@@ -13337,18 +13338,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let isEmptyContainer = false;
         let isIncomplete = false;
+        let typeErrors = false;
 
         // Infer the key and value types if possible.
-        if (
-            getKeyAndValueTypesFromDictionary(
-                node,
-                keyTypeResults,
-                valueTypeResults,
-                /* forceStrictInference */ hasExpectedType,
-                /* isValueTypeInvariant */ false
-            )
-        ) {
+        const keyValueResult = getKeyAndValueTypesFromDictionary(
+            node,
+            keyTypeResults,
+            valueTypeResults,
+            /* forceStrictInference */ hasExpectedType,
+            /* isValueTypeInvariant */ false
+        );
+
+        if (keyValueResult.isIncomplete) {
             isIncomplete = true;
+        }
+
+        if (keyValueResult.typeErrors) {
+            typeErrors = true;
         }
 
         // Strip any literal values.
@@ -13393,7 +13399,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return { type, isIncomplete };
+        return { type, isIncomplete, typeErrors };
     }
 
     function getKeyAndValueTypesFromDictionary(
@@ -13406,8 +13412,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedValueType?: Type,
         expectedTypedDictEntries?: TypedDictEntries,
         expectedDiagAddendum?: DiagnosticAddendum
-    ): boolean {
+    ): TypeResult {
         let isIncomplete = false;
+        let typeErrors = false;
 
         // Infer the key and value types if possible.
         node.entries.forEach((entryNode, index) => {
@@ -13424,6 +13431,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (keyTypeResult.isIncomplete) {
                     isIncomplete = true;
+                }
+
+                if (keyTypeResult.typeErrors) {
+                    typeErrors = true;
                 }
 
                 const keyType = keyTypeResult.type;
@@ -13487,6 +13498,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isIncomplete = true;
                 }
 
+                if (valueTypeResult.typeErrors) {
+                    typeErrors = true;
+                }
+
                 if (forceStrictInference || index < maxEntriesToUseForInference) {
                     // If an existing key has the same literal type, delete the previous
                     // key since we're overwriting it here.
@@ -13538,6 +13553,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (unexpandedTypeResult.isIncomplete) {
                     isIncomplete = true;
+                }
+
+                if (unexpandedTypeResult.typeErrors) {
+                    typeErrors = true;
                 }
 
                 const unexpandedType = unexpandedTypeResult.type;
@@ -13624,6 +13643,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isIncomplete = true;
                 }
 
+                if (dictEntryTypeResult.typeErrors) {
+                    typeErrors = true;
+                }
+
                 // The result should be a tuple.
                 if (isClassInstance(dictEntryType) && isTupleClass(dictEntryType)) {
                     const typeArgs = dictEntryType.tupleTypeArguments?.map((t) => t.type);
@@ -13645,7 +13668,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         });
 
-        return isIncomplete;
+        return { type: AnyType.create(), isIncomplete, typeErrors };
     }
 
     function getTypeOfListOrSet(
@@ -14067,42 +14090,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        if (expectedFunctionTypes.length <= 1) {
-            return getTypeOfLambdaWithExpectedType(
-                node,
-                expectedFunctionTypes.length > 0 ? expectedFunctionTypes[0] : undefined,
-                inferenceContext,
-                /* forceSpeculative */ false
-            );
-        }
-
-        // Sort the expected types for deterministic results.
-        expectedFunctionTypes = sortTypes(expectedFunctionTypes) as FunctionType[];
+        let expectedSubtype: FunctionType | undefined;
 
         // If there's more than one type, try each in turn until we find one that works.
-        for (const expectedFunctionType of expectedFunctionTypes) {
-            const result = getTypeOfLambdaWithExpectedType(
-                node,
-                expectedFunctionType,
-                inferenceContext,
-                /* forceSpeculative */ true
-            );
-            if (!result.typeErrors) {
-                return getTypeOfLambdaWithExpectedType(
+        if (expectedFunctionTypes.length > 1) {
+            // Sort the expected types for deterministic results.
+            expectedFunctionTypes = sortTypes(expectedFunctionTypes) as FunctionType[];
+
+            for (const subtype of expectedFunctionTypes) {
+                const result = getTypeOfLambdaWithExpectedType(
                     node,
-                    expectedFunctionType,
+                    subtype,
                     inferenceContext,
-                    /* forceSpeculative */ false
+                    /* forceSpeculative */ true
                 );
+
+                if (!result.typeErrors) {
+                    expectedSubtype = subtype;
+                    break;
+                }
             }
         }
 
-        return getTypeOfLambdaWithExpectedType(
-            node,
-            expectedFunctionTypes[0],
-            inferenceContext,
-            /* forceSpeculative */ true
-        );
+        if (!expectedSubtype && expectedFunctionTypes.length > 0) {
+            expectedSubtype = expectedFunctionTypes[0];
+        }
+
+        return getTypeOfLambdaWithExpectedType(node, expectedSubtype, inferenceContext, /* forceSpeculative */ false);
     }
 
     function getTypeOfLambdaWithExpectedType(
@@ -16877,6 +16891,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         evaluatorInterface,
                         node,
                         classType,
+                        isNamedTupleSubclass,
                         skipSynthesizedInit,
                         hasExistingInitMethod,
                         skipSynthesizeHash
@@ -17098,9 +17113,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function evaluateTypeParameterList(node: TypeParameterListNode): TypeVarType[] {
         const paramTypes: TypeVarType[] = [];
+        const typeParamScope = AnalyzerNodeInfo.getScope(node);
+        assert(typeParamScope !== undefined);
 
         node.parameters.forEach((param) => {
-            const paramSymbol = AnalyzerNodeInfo.getTypeParameterSymbol(param.name);
+            const paramSymbol = typeParamScope.symbolTable.get(param.name.value);
             if (!paramSymbol) {
                 // This can happen if the code is unreachable.
                 return;
@@ -20315,14 +20332,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         honorCodeFlow: boolean,
         preferGlobalScope = false
     ): SymbolWithScope | undefined {
-        const scope = ScopeUtils.getScopeForNode(node);
-        let symbolWithScope = scope?.lookUpSymbolRecursive(name);
+        const scopeNodeInfo = ParseTreeUtils.getEvaluationScopeNode(node);
+        const scope = AnalyzerNodeInfo.getScope(scopeNodeInfo.node);
+
+        let symbolWithScope = scope?.lookUpSymbolRecursive(name, { useProxyScope: !!scopeNodeInfo.useProxyScope });
         const scopeType = scope?.type ?? ScopeType.Module;
 
         // Functions and list comprehensions don't allow access to implicitly
         // aliased symbols in outer scopes if they haven't yet been assigned
-        // within the local scope.
-        const scopeTypeHonorsCodeFlow = scopeType !== ScopeType.Function && scopeType !== ScopeType.ListComprehension;
+        // within the local scope. Same with type parameter scopes.
+        const scopeTypeHonorsCodeFlow =
+            scopeType !== ScopeType.Function &&
+            scopeType !== ScopeType.ListComprehension &&
+            scopeType !== ScopeType.TypeParameter;
 
         if (symbolWithScope && honorCodeFlow && scopeTypeHonorsCodeFlow) {
             // Filter the declarations based on flow reachability.
@@ -20379,11 +20401,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     if (nextScopeToSearch) {
-                        symbolWithScope = nextScopeToSearch.lookUpSymbolRecursive(
-                            name,
+                        symbolWithScope = nextScopeToSearch.lookUpSymbolRecursive(name, {
                             isOutsideCallerModule,
-                            isBeyondExecutionScope
-                        );
+                            isBeyondExecutionScope,
+                        });
                     } else {
                         symbolWithScope = undefined;
                     }
@@ -20401,13 +20422,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             while (
                 curSymbolWithScope.scope.type !== ScopeType.Module &&
                 curSymbolWithScope.scope.type !== ScopeType.Builtin &&
+                curSymbolWithScope.scope.type !== ScopeType.TypeParameter &&
                 curSymbolWithScope.scope.parent
             ) {
-                curSymbolWithScope = curSymbolWithScope.scope.parent.lookUpSymbolRecursive(
-                    name,
-                    curSymbolWithScope.isOutsideCallerModule,
-                    curSymbolWithScope.isBeyondExecutionScope || curSymbolWithScope.scope.isIndependentlyExecutable()
-                );
+                curSymbolWithScope = curSymbolWithScope.scope.parent.lookUpSymbolRecursive(name, {
+                    isOutsideCallerModule: curSymbolWithScope.isOutsideCallerModule,
+                    isBeyondExecutionScope:
+                        curSymbolWithScope.isBeyondExecutionScope ||
+                        curSymbolWithScope.scope.isIndependentlyExecutable(),
+                });
                 if (!curSymbolWithScope) {
                     break;
                 }
@@ -20730,23 +20753,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const isWithinTypeAliasStatement = !!ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.TypeAlias);
             const allowForwardReferences = isWithinTypeAnnotation || isWithinTypeAliasStatement || fileInfo.isStubFile;
 
-            let symbol: Symbol | undefined;
-            const typeParamSymbol = AnalyzerNodeInfo.getTypeParameterSymbol(node);
-            if (typeParamSymbol) {
-                symbol = typeParamSymbol;
-            } else {
-                const symbolWithScope = lookUpSymbolRecursive(
-                    node,
-                    node.value,
-                    !allowForwardReferences,
-                    isWithinTypeAnnotation
-                );
+            const symbolWithScope = lookUpSymbolRecursive(
+                node,
+                node.value,
+                !allowForwardReferences,
+                isWithinTypeAnnotation
+            );
 
-                symbol = symbolWithScope?.symbol;
-            }
-
-            if (symbol) {
-                appendArray(declarations, symbol.getDeclarations());
+            if (symbolWithScope) {
+                appendArray(declarations, symbolWithScope.symbol.getDeclarations());
             }
         }
 
@@ -21082,6 +21097,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 scopeType
             );
         }
+
+        writeTypeCache(node, { type: typeVar }, /* flags */ undefined);
+        writeTypeCache(node.name, { type: typeVar }, /* flags */ undefined);
 
         return typeVar;
     }
@@ -21825,7 +21843,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return UnknownType.create();
     }
 
-    function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
+    function _getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
         let returnType: Type | undefined;
         let isIncomplete = false;
         const analyzeUnannotatedFunctions = true;
@@ -26631,32 +26649,36 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             : firstParamType
                     );
                 }
-            } else if (
-                !assignType(
-                    memberTypeFirstParamType,
-                    firstParamType,
-                    diag?.createAddendum(),
-                    typeVarContext,
-                    /* srcTypeVarContext */ undefined,
-                    AssignTypeFlags.AllowUnspecifiedTypeArguments,
-                    recursionCount
-                )
-            ) {
+            } else {
+                const subDiag = diag?.createAddendum();
+
                 if (
-                    memberTypeFirstParam.name &&
-                    !memberTypeFirstParam.isNameSynthesized &&
-                    memberTypeFirstParam.hasDeclaredType
+                    !assignType(
+                        memberTypeFirstParamType,
+                        firstParamType,
+                        subDiag?.createAddendum(),
+                        typeVarContext,
+                        /* srcTypeVarContext */ undefined,
+                        AssignTypeFlags.AllowUnspecifiedTypeArguments,
+                        recursionCount
+                    )
                 ) {
-                    if (diag) {
-                        diag.addMessage(
-                            LocMessage.bindTypeMismatch().format({
-                                type: printType(baseType),
-                                methodName: memberType.details.name || '<anonymous>',
-                                paramName: memberTypeFirstParam.name,
-                            })
-                        );
+                    if (
+                        memberTypeFirstParam.name &&
+                        !memberTypeFirstParam.isNameSynthesized &&
+                        memberTypeFirstParam.hasDeclaredType
+                    ) {
+                        if (subDiag) {
+                            subDiag.addMessage(
+                                LocMessage.bindTypeMismatch().format({
+                                    type: printType(baseType),
+                                    methodName: memberType.details.name || '<anonymous>',
+                                    paramName: memberTypeFirstParam.name,
+                                })
+                            );
+                        }
+                        return undefined;
                     }
-                    return undefined;
                 }
             }
         }
@@ -26928,6 +26950,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         });
     }
+
+    // Track these apis internal usages when logging is on. otherwise, it should be noop.
+    const getFunctionInferredReturnType = wrapWithLogger(_getFunctionInferredReturnType);
 
     const evaluatorInterface: TypeEvaluator = {
         runWithCancellationToken,

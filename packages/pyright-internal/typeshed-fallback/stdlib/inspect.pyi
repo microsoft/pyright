@@ -347,11 +347,11 @@ if sys.version_info >= (3, 10):
 
 # The name is the same as the enum's name in CPython
 class _ParameterKind(enum.IntEnum):
-    POSITIONAL_ONLY: int
-    POSITIONAL_OR_KEYWORD: int
-    VAR_POSITIONAL: int
-    KEYWORD_ONLY: int
-    VAR_KEYWORD: int
+    POSITIONAL_ONLY = 0
+    POSITIONAL_OR_KEYWORD = 1
+    VAR_POSITIONAL = 2
+    KEYWORD_ONLY = 3
+    VAR_KEYWORD = 4
 
     @property
     def description(self) -> str: ...
@@ -611,22 +611,22 @@ if sys.version_info >= (3, 9):
 
 if sys.version_info >= (3, 12):
     class BufferFlags(enum.IntFlag):
-        SIMPLE: int
-        WRITABLE: int
-        FORMAT: int
-        ND: int
-        STRIDES: int
-        C_CONTIGUOUS: int
-        F_CONTIGUOUS: int
-        ANY_CONTIGUOUS: int
-        INDIRECT: int
-        CONTIG: int
-        CONTIG_RO: int
-        STRIDED: int
-        STRIDED_RO: int
-        RECORDS: int
-        RECORDS_RO: int
-        FULL: int
-        FULL_RO: int
-        READ: int
-        WRITE: int
+        SIMPLE = 0
+        WRITABLE = 1
+        FORMAT = 4
+        ND = 8
+        STRIDES = 24
+        C_CONTIGUOUS = 56
+        F_CONTIGUOUS = 88
+        ANY_CONTIGUOUS = 152
+        INDIRECT = 280
+        CONTIG = 9
+        CONTIG_RO = 8
+        STRIDED = 25
+        STRIDED_RO = 24
+        RECORDS = 29
+        RECORDS_RO = 28
+        FULL = 285
+        FULL_RO = 284
+        READ = 256
+        WRITE = 512

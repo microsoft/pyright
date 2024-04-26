@@ -1,7 +1,7 @@
 version = "24.0.*"
 upstream_repository = "https://github.com/pyca/pyopenssl"
 # Requires a version of cryptography with a `py.typed` file
-requires = ["cryptography>=35.0.0"]
+requires = ["cryptography>=35.0.0", "types-cffi"]
 partial_stub = true
 
 [tool.stubtest]

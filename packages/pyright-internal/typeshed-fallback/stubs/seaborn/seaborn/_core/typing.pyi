@@ -12,7 +12,7 @@ from pandas import DataFrame, Index, Series, Timedelta, Timestamp
 class SupportsDataFrame(Protocol):
     # `__dataframe__` should return pandas.core.interchange.dataframe_protocol.DataFrame
     # but this class needs to be defined as a Protocol, not as an ABC.
-    def __dataframe__(self, nan_as_null: bool = ..., allow_copy: bool = ...) -> Incomplete: ...
+    def __dataframe__(self, nan_as_null: bool = ..., allow_copy: bool = ...): ...
 
 ColumnName: TypeAlias = str | bytes | date | datetime | timedelta | bool | complex | Timestamp | Timedelta
 Vector: TypeAlias = Series[Any] | Index[Any] | ndarray[Any, Any]

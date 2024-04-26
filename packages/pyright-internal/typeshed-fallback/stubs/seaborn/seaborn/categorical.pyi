@@ -1,4 +1,3 @@
-from _typeshed import Incomplete
 from collections.abc import Callable, Iterable
 from typing import Any, Literal
 
@@ -71,9 +70,9 @@ def violinplot(
     log_scale: _LogScale | None = None,
     native_scale: bool = False,
     legend: _Legend = "auto",
-    scale: Incomplete = ...,  # deprecated
-    scale_hue: Incomplete = ...,  # deprecated
-    bw: Incomplete = ...,  # deprecated
+    scale=...,  # deprecated
+    scale_hue=...,  # deprecated
+    bw=...,  # deprecated
     inner_kws: dict[str, Any] | None = None,
     ax: Axes | None = None,
     **kwargs: Any,
@@ -106,7 +105,7 @@ def boxenplot(
     native_scale: bool = False,
     formatter: Callable[[Any], str] | None = None,
     legend: _Legend = "auto",
-    scale: Incomplete = ...,  # deprecated
+    scale=...,  # deprecated
     box_kws: dict[str, Any] | None = None,
     flier_kws: dict[str, Any] | None = None,
     line_kws: dict[str, Any] | None = None,
@@ -190,9 +189,9 @@ def barplot(
     legend: _Legend = "auto",
     capsize: float = 0,
     err_kws: dict[str, Any] | None = None,
-    ci: Incomplete = ...,  # deprecated
-    errcolor: Incomplete = ...,  # deprecated
-    errwidth: Incomplete = ...,  # deprecated
+    ci=...,  # deprecated
+    errcolor=...,  # deprecated
+    errwidth=...,  # deprecated
     ax: Axes | None = None,
     **kwargs: Any,
 ) -> Axes: ...
@@ -223,10 +222,10 @@ def pointplot(
     formatter: Callable[[Any], str] | None = None,
     legend: _Legend = "auto",
     err_kws: dict[str, Any] | None = None,
-    ci: Incomplete = ...,  # deprecated
-    errwidth: Incomplete = ...,  # deprecated
-    join: Incomplete = ...,  # deprecated
-    scale: Incomplete = ...,  # deprecated
+    ci=...,  # deprecated
+    errwidth=...,  # deprecated
+    join=...,  # deprecated
+    scale=...,  # deprecated
     ax: Axes | None = None,
     **kwargs: Any,
 ) -> Axes: ...
@@ -290,6 +289,6 @@ def catplot(
     sharey: bool = True,
     margin_titles: bool = False,
     facet_kws: dict[str, Any] | None = None,
-    ci: Incomplete = ...,  # deprecated
+    ci=...,  # deprecated
     **kwargs: Any,
 ) -> FacetGrid: ...

@@ -56,13 +56,13 @@ USE_CFFI_ACCESS: bool
 def isImageType(t: object) -> TypeGuard[Image]: ...
 
 class Transpose(IntEnum):
-    FLIP_LEFT_RIGHT: Literal[0]
-    FLIP_TOP_BOTTOM: Literal[1]
-    ROTATE_90: Literal[2]
-    ROTATE_180: Literal[3]
-    ROTATE_270: Literal[4]
-    TRANSPOSE: Literal[5]
-    TRANSVERSE: Literal[6]
+    FLIP_LEFT_RIGHT = 0
+    FLIP_TOP_BOTTOM = 1
+    ROTATE_90 = 2
+    ROTATE_180 = 3
+    ROTATE_270 = 4
+    TRANSPOSE = 5
+    TRANSVERSE = 6
 
 # All Transpose items
 FLIP_LEFT_RIGHT: Literal[0]
@@ -74,11 +74,11 @@ TRANSPOSE: Literal[5]
 TRANSVERSE: Literal[6]
 
 class Transform(IntEnum):
-    AFFINE: Literal[0]
-    EXTENT: Literal[1]
-    PERSPECTIVE: Literal[2]
-    QUAD: Literal[3]
-    MESH: Literal[4]
+    AFFINE = 0
+    EXTENT = 1
+    PERSPECTIVE = 2
+    QUAD = 3
+    MESH = 4
 
 # All Transform items
 AFFINE: Literal[0]
@@ -88,12 +88,12 @@ QUAD: Literal[3]
 MESH: Literal[4]
 
 class Resampling(IntEnum):
-    NEAREST: Literal[0]
-    LANCZOS: Literal[1]
-    BILINEAR: Literal[2]
-    BICUBIC: Literal[3]
-    BOX: Literal[4]
-    HAMMING: Literal[5]
+    NEAREST = 0
+    LANCZOS = 1
+    BILINEAR = 2
+    BICUBIC = 3
+    BOX = 4
+    HAMMING = 5
 
 # All Resampling items
 NEAREST: Literal[0]
@@ -104,10 +104,10 @@ BOX: Literal[4]
 HAMMING: Literal[5]
 
 class Dither(IntEnum):
-    NONE: Literal[0]
-    ORDERED: Literal[1]
-    RASTERIZE: Literal[2]
-    FLOYDSTEINBERG: Literal[3]
+    NONE = 0
+    ORDERED = 1
+    RASTERIZE = 2
+    FLOYDSTEINBERG = 3
 
 # All Dither items
 NONE: Literal[0]
@@ -116,18 +116,18 @@ RASTERIZE: Literal[2]
 FLOYDSTEINBERG: Literal[3]
 
 class Palette(IntEnum):
-    WEB: Literal[0]
-    ADAPTIVE: Literal[1]
+    WEB = 0
+    ADAPTIVE = 1
 
 # All Palette items
 WEB: Literal[0]
 ADAPTIVE: Literal[1]
 
 class Quantize(IntEnum):
-    MEDIANCUT: Literal[0]
-    MAXCOVERAGE: Literal[1]
-    FASTOCTREE: Literal[2]
-    LIBIMAGEQUANT: Literal[3]
+    MEDIANCUT = 0
+    MAXCOVERAGE = 1
+    FASTOCTREE = 2
+    LIBIMAGEQUANT = 3
 
 # All Quantize items
 MEDIANCUT: Literal[0]

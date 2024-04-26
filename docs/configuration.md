@@ -156,7 +156,7 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 - <a name="reportOverlappingOverload"></a> **reportOverlappingOverload** [boolean or string, optional]: Generate or suppress diagnostics for function overloads that overlap in signature and obscure each other or have incompatible return types. The default value for this setting is `"error"`.
 
-- <a name="reportPossiblyUnboundVariable"></a> **reportPossiblyUnboundVariable** [boolean or string, optional]: Generate or suppress diagnostics for variables that are possibly unbound on some code paths. The default value for this setting is `"error"`. The default value for this setting is `"error"`.
+- <a name="reportPossiblyUnboundVariable"></a> **reportPossiblyUnboundVariable** [boolean or string, optional]: Generate or suppress diagnostics for variables that are possibly unbound on some code paths. The default value for this setting is `"error"`.
 
 - <a name="reportMissingSuperCall"></a> **reportMissingSuperCall** [boolean or string, optional]: Generate or suppress diagnostics for `__init__`, `__init_subclass__`, `__enter__` and `__exit__` methods in a subclass that fail to call through to the same-named method on a base class. The default value for this setting is `"none"`.
 
@@ -200,7 +200,7 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 - <a name="reportUnboundVariable"></a> **reportUnboundVariable** [boolean or string, optional]: Generate or suppress diagnostics for unbound variables. The default value for this setting is `"error"`.
 
-- <a name="reportUnhashable"></a> **reportUnhashable** [boolean or string, optional]: Generate or suppress diagnostics for the use of an unhashable object in a container that requires hashability.
+- <a name="reportUnhashable"></a> **reportUnhashable** [boolean or string, optional]: Generate or suppress diagnostics for the use of an unhashable object in a container that requires hashability. The default value for this setting is `"error"`.
 
 - <a name="reportInvalidStubStatement"></a> **reportInvalidStubStatement** [boolean or string, optional]: Generate or suppress diagnostics for statements that are syntactically correct but have no purpose within a type stub file. The default value for this setting is `"none"`.
 

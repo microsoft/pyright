@@ -441,23 +441,40 @@ function assignClassToProtocolInternal(
                 // If the source is a method, bind it.
                 if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
                     if (isMemberFromMetaclass || isInstantiableClass(srcMemberInfo.classType)) {
-                        const boundSrcFunction = evaluator.bindFunctionToClassOrObject(
-                            sourceIsClassObject && !isMemberFromMetaclass
-                                ? srcType
-                                : ClassType.cloneAsInstance(srcType),
-                            srcMemberType,
-                            isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
-                            /* treatConstructorAsClassMethod */ undefined,
-                            isMemberFromMetaclass ? srcType : selfType,
-                            diag?.createAddendum(),
-                            recursionCount
-                        );
+                        let isInstanceMember = !srcMemberInfo.symbol.isClassMember();
 
-                        if (boundSrcFunction) {
-                            srcMemberType = removeParamSpecVariadicsFromSignature(boundSrcFunction);
-                        } else {
-                            typesAreConsistent = false;
-                            return;
+                        // Special-case dataclasses whose entries act like instance members.
+                        if (ClassType.isDataClass(srcType)) {
+                            const dataClassFields = ClassType.getDataClassEntries(srcType);
+                            if (dataClassFields.some((entry) => entry.name === name)) {
+                                isInstanceMember = true;
+                            }
+                        }
+
+                        if (isMemberFromMetaclass) {
+                            isInstanceMember = false;
+                        }
+
+                        // If this is a callable stored in an instance member, skip binding.
+                        if (!isInstanceMember) {
+                            const boundSrcFunction = evaluator.bindFunctionToClassOrObject(
+                                sourceIsClassObject && !isMemberFromMetaclass
+                                    ? srcType
+                                    : ClassType.cloneAsInstance(srcType),
+                                srcMemberType,
+                                isMemberFromMetaclass ? undefined : (srcMemberInfo.classType as ClassType),
+                                /* treatConstructorAsClassMethod */ undefined,
+                                isMemberFromMetaclass ? srcType : selfType,
+                                diag?.createAddendum(),
+                                recursionCount
+                            );
+
+                            if (boundSrcFunction) {
+                                srcMemberType = removeParamSpecVariadicsFromSignature(boundSrcFunction);
+                            } else {
+                                typesAreConsistent = false;
+                                return;
+                            }
                         }
                     }
                 }

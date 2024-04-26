@@ -1536,7 +1536,7 @@ test('Constructor5', () => {
 test('Constructor6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor6.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 0, 1);
 });
 
 test('Constructor7', () => {

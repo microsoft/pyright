@@ -6,8 +6,8 @@ from .ImageFile import ImageFile
 MAGIC: bytes
 
 class Format(IntEnum):
-    DXT1: int
-    UNCOMPRESSED: int
+    DXT1 = 0
+    UNCOMPRESSED = 1
 
 class FtexImageFile(ImageFile):
     format: ClassVar[Literal["FTEX"]]

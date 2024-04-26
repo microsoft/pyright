@@ -8,7 +8,7 @@
  * symbol tables.
  */
 
-import { ParseNode } from '../parser/parseNodes';
+import { EvaluationScopeNode, ParseNode } from '../parser/parseNodes';
 import { getScope } from './analyzerNodeInfo';
 import { getEvaluationScopeNode } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
@@ -27,7 +27,7 @@ export function getBuiltInScope(currentScope: Scope): Scope {
 
 // Locates the evaluation scope associated with the specified parse node.
 export function getScopeForNode(node: ParseNode): Scope | undefined {
-    const scopeNode = getEvaluationScopeNode(node);
+    const scopeNode = getEvaluationScopeNode(node).node;
     return getScope(scopeNode);
 }
 
@@ -39,7 +39,7 @@ export function getScopeHierarchy(node: ParseNode, stopScope?: Scope): Scope[] |
     let curNode: ParseNode | undefined = node;
 
     while (curNode) {
-        const scopeNode = getEvaluationScopeNode(curNode);
+        const scopeNode: EvaluationScopeNode = getEvaluationScopeNode(curNode).node;
         const curScope = getScope(scopeNode);
 
         if (!curScope) {

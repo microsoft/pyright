@@ -1300,6 +1300,16 @@ export namespace ClassType {
     ): boolean {
         // Is it the exact same class?
         if (isSameGenericClass(subclassType, parentClassType)) {
+            // Handle literal types.
+            if (parentClassType.literalValue !== undefined) {
+                if (
+                    subclassType.literalValue === undefined ||
+                    !ClassType.isLiteralValueSame(parentClassType, subclassType)
+                ) {
+                    return false;
+                }
+            }
+
             if (inheritanceChain) {
                 inheritanceChain.push(subclassType);
             }
@@ -1934,8 +1944,13 @@ export namespace FunctionType {
         });
 
         newFunction.details.paramSpec = paramSpecValue.details.paramSpec;
+
         if (!newFunction.details.docString) {
             newFunction.details.docString = paramSpecValue.details.docString;
+        }
+
+        if (!newFunction.details.deprecatedMessage) {
+            newFunction.details.deprecatedMessage = paramSpecValue.details.deprecatedMessage;
         }
 
         FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.details.typeVarScopeId);

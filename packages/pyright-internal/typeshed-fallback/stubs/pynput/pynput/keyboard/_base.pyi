@@ -25,71 +25,71 @@ class KeyCode:
     def from_dead(cls, char: str, **kwargs: Any) -> Self: ...
 
 class Key(enum.Enum):
-    alt: int
-    alt_l: int
-    alt_r: int
-    alt_gr: int
-    backspace: int
-    caps_lock: int
-    cmd: int
-    cmd_l: int
-    cmd_r: int
-    ctrl: int
-    ctrl_l: int
-    ctrl_r: int
-    delete: int
-    down: int
-    end: int
-    enter: int
-    esc: int
-    f1: int
-    f2: int
-    f3: int
-    f4: int
-    f5: int
-    f6: int
-    f7: int
-    f8: int
-    f9: int
-    f10: int
-    f11: int
-    f12: int
-    f13: int
-    f14: int
-    f15: int
-    f16: int
-    f17: int
-    f18: int
-    f19: int
-    f20: int
+    alt = 0
+    alt_l = alt
+    alt_r = alt
+    alt_gr = alt
+    backspace = alt
+    caps_lock = alt
+    cmd = alt
+    cmd_l = alt
+    cmd_r = alt
+    ctrl = alt
+    ctrl_l = alt
+    ctrl_r = alt
+    delete = alt
+    down = alt
+    end = alt
+    enter = alt
+    esc = alt
+    f1 = alt
+    f2 = alt
+    f3 = alt
+    f4 = alt
+    f5 = alt
+    f6 = alt
+    f7 = alt
+    f8 = alt
+    f9 = alt
+    f10 = alt
+    f11 = alt
+    f12 = alt
+    f13 = alt
+    f14 = alt
+    f15 = alt
+    f16 = alt
+    f17 = alt
+    f18 = alt
+    f19 = alt
+    f20 = alt
     if sys.platform == "win32":
-        f21: int
-        f22: int
-        f23: int
-        f24: int
-    home: int
-    left: int
-    page_down: int
-    page_up: int
-    right: int
-    shift: int
-    shift_l: int
-    shift_r: int
-    space: int
-    tab: int
-    up: int
-    media_play_pause: int
-    media_volume_mute: int
-    media_volume_down: int
-    media_volume_up: int
-    media_previous: int
-    media_next: int
-    insert: int
-    menu: int
-    num_lock: int
-    pause: int
-    print_screen: int
-    scroll_lock: int
+        f21 = alt
+        f22 = alt
+        f23 = alt
+        f24 = alt
+    home = alt
+    left = alt
+    page_down = alt
+    page_up = alt
+    right = alt
+    shift = alt
+    shift_l = alt
+    shift_r = alt
+    space = alt
+    tab = alt
+    up = alt
+    media_play_pause = alt
+    media_volume_mute = alt
+    media_volume_down = alt
+    media_volume_up = alt
+    media_previous = alt
+    media_next = alt
+    insert = alt
+    menu = alt
+    num_lock = alt
+    pause = alt
+    print_screen = alt
+    scroll_lock = alt
 
 class Controller:
     _KeyCode: ClassVar[type[KeyCode]]  # undocumented

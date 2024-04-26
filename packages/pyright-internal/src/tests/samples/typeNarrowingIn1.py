@@ -1,6 +1,6 @@
 # This sample tests type narrowing for the "in" operator.
 
-from typing import Literal, TypeVar, TypedDict
+from typing import Callable, Generic, Literal, ParamSpec, TypeVar, TypedDict
 import random
 
 
@@ -160,3 +160,17 @@ def func12(v: T1):
         reveal_type(v, expected_text="TD1*")
     else:
         reveal_type(v, expected_text="TD2*")
+
+
+P = ParamSpec("P")
+
+
+class Container(Generic[P]):
+    def __init__(self, func: Callable[P, str]) -> None:
+        self.func = func
+
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> str:
+        if "data" in kwargs:
+            raise ValueError("data is not allowed in kwargs")
+
+        return self.func(*args, **kwargs)

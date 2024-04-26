@@ -31,6 +31,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
+
 import builtins
 import collections.abc
 import sys
@@ -62,14 +63,14 @@ class NullValue(_NullValue, metaclass=_NullValueEnumTypeWrapper):
     """`NullValue` is a singleton enumeration to represent the null value for the
     `Value` type union.
 
-     The JSON representation for `NullValue` is JSON `null`.
+    The JSON representation for `NullValue` is JSON `null`.
     """
 
 NULL_VALUE: NullValue.ValueType  # 0
 """Null value."""
 global___NullValue = NullValue
 
-@typing_extensions.final
+@typing.final
 class Struct(google.protobuf.message.Message, google.protobuf.internal.well_known_types.Struct):
     """`Struct` represents a structured data value, consisting of fields
     which map to dynamically typed values. In some languages, `Struct`
@@ -83,7 +84,7 @@ class Struct(google.protobuf.message.Message, google.protobuf.internal.well_know
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    @typing_extensions.final
+    @typing.final
     class FieldsEntry(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -98,23 +99,24 @@ class Struct(google.protobuf.message.Message, google.protobuf.internal.well_know
             key: builtins.str | None = ...,
             value: global___Value | None = ...,
         ) -> None: ...
-        def HasField(self, field_name: typing_extensions.Literal["value", b"value"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
+        def HasField(self, field_name: typing.Literal["value", b"value"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["key", b"key", "value", b"value"]) -> None: ...
 
     FIELDS_FIELD_NUMBER: builtins.int
     @property
     def fields(self) -> google.protobuf.internal.containers.MessageMap[builtins.str, global___Value]:
         """Unordered map of dynamically typed values."""
+
     def __init__(
         self,
         *,
         fields: collections.abc.Mapping[builtins.str, global___Value] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["fields", b"fields"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["fields", b"fields"]) -> None: ...
 
 global___Struct = Struct
 
-@typing_extensions.final
+@typing.final
 class Value(google.protobuf.message.Message):
     """`Value` represents a dynamically typed value which can be either
     null, a number, a string, a boolean, a recursive struct value, or a
@@ -143,9 +145,11 @@ class Value(google.protobuf.message.Message):
     @property
     def struct_value(self) -> global___Struct:
         """Represents a structured value."""
+
     @property
     def list_value(self) -> global___ListValue:
         """Represents a repeated `Value`."""
+
     def __init__(
         self,
         *,
@@ -156,13 +160,13 @@ class Value(google.protobuf.message.Message):
         struct_value: global___Struct | None = ...,
         list_value: global___ListValue | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["bool_value", b"bool_value", "kind", b"kind", "list_value", b"list_value", "null_value", b"null_value", "number_value", b"number_value", "string_value", b"string_value", "struct_value", b"struct_value"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["bool_value", b"bool_value", "kind", b"kind", "list_value", b"list_value", "null_value", b"null_value", "number_value", b"number_value", "string_value", b"string_value", "struct_value", b"struct_value"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["kind", b"kind"]) -> typing_extensions.Literal["null_value", "number_value", "string_value", "bool_value", "struct_value", "list_value"] | None: ...
+    def HasField(self, field_name: typing.Literal["bool_value", b"bool_value", "kind", b"kind", "list_value", b"list_value", "null_value", b"null_value", "number_value", b"number_value", "string_value", b"string_value", "struct_value", b"struct_value"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["bool_value", b"bool_value", "kind", b"kind", "list_value", b"list_value", "null_value", b"null_value", "number_value", b"number_value", "string_value", b"string_value", "struct_value", b"struct_value"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["kind", b"kind"]) -> typing.Literal["null_value", "number_value", "string_value", "bool_value", "struct_value", "list_value"] | None: ...
 
 global___Value = Value
 
-@typing_extensions.final
+@typing.final
 class ListValue(google.protobuf.message.Message, google.protobuf.internal.well_known_types.ListValue):
     """`ListValue` is a wrapper around a repeated field of values.
 
@@ -175,11 +179,12 @@ class ListValue(google.protobuf.message.Message, google.protobuf.internal.well_k
     @property
     def values(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Value]:
         """Repeated field of dynamically typed values."""
+
     def __init__(
         self,
         *,
         values: collections.abc.Iterable[global___Value] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["values", b"values"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["values", b"values"]) -> None: ...
 
 global___ListValue = ListValue
