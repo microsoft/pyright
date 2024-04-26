@@ -14090,42 +14090,33 @@ export function createTypeEvaluator(
             });
         }
 
-        if (expectedFunctionTypes.length <= 1) {
-            return getTypeOfLambdaWithExpectedType(
-                node,
-                expectedFunctionTypes.length > 0 ? expectedFunctionTypes[0] : undefined,
-                inferenceContext,
-                /* forceSpeculative */ false
-            );
-        }
-
-        // Sort the expected types for deterministic results.
-        expectedFunctionTypes = sortTypes(expectedFunctionTypes) as FunctionType[];
+        let expectedSubtype: FunctionType | undefined;
 
         // If there's more than one type, try each in turn until we find one that works.
-        for (const expectedFunctionType of expectedFunctionTypes) {
-            const result = getTypeOfLambdaWithExpectedType(
-                node,
-                expectedFunctionType,
-                inferenceContext,
-                /* forceSpeculative */ true
-            );
-            if (!result.typeErrors) {
-                return getTypeOfLambdaWithExpectedType(
+        if (expectedFunctionTypes.length > 1) {
+            // Sort the expected types for deterministic results.
+            expectedFunctionTypes = sortTypes(expectedFunctionTypes) as FunctionType[];
+
+            for (const subtype of expectedFunctionTypes) {
+                const result = getTypeOfLambdaWithExpectedType(
                     node,
-                    expectedFunctionType,
+                    subtype,
                     inferenceContext,
-                    /* forceSpeculative */ false
+                    /* forceSpeculative */ true
                 );
+
+                if (!result.typeErrors) {
+                    expectedSubtype = subtype;
+                    break;
+                }
             }
         }
 
-        return getTypeOfLambdaWithExpectedType(
-            node,
-            expectedFunctionTypes[0],
-            inferenceContext,
-            /* forceSpeculative */ true
-        );
+        if (!expectedSubtype && expectedFunctionTypes.length > 0) {
+            expectedSubtype = expectedFunctionTypes[0];
+        }
+
+        return getTypeOfLambdaWithExpectedType(node, expectedSubtype, inferenceContext, /* forceSpeculative */ false);
     }
 
     function getTypeOfLambdaWithExpectedType(
