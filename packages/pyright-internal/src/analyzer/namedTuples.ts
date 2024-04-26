@@ -382,15 +382,6 @@ export function createNamedTupleType(
     classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
     classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
 
-    const keysItemType = FunctionType.createSynthesizedInstance('keys');
-    const itemsItemType = FunctionType.createSynthesizedInstance('items');
-    keysItemType.details.declaredReturnType = evaluator.getBuiltInObject(errorNode, 'list', [
-        evaluator.getBuiltInObject(errorNode, 'str'),
-    ]);
-    itemsItemType.details.declaredReturnType = keysItemType.details.declaredReturnType;
-    classFields.set('keys', Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
-    classFields.set('items', Symbol.createWithType(SymbolFlags.InstanceMember, itemsItemType));
-
     const lenType = FunctionType.createSynthesizedInstance('__len__');
     lenType.details.declaredReturnType = evaluator.getBuiltInObject(errorNode, 'int');
     FunctionType.addParameter(lenType, selfParameter);
