@@ -458,6 +458,11 @@ export interface MapSubtypesOptions {
     expandCallback?: (type: Type) => Type;
 }
 
+export interface CallSiteEvaluationInfo {
+    errorNode: ExpressionNode;
+    args: ValidateArgTypeParams[];
+}
+
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
@@ -548,7 +553,7 @@ export interface TypeEvaluator {
     getInferredTypeOfDeclaration: (symbol: Symbol, decl: Declaration) => Type | undefined;
     getDeclaredTypeForExpression: (expression: ExpressionNode, usage?: EvaluatorUsage) => Type | undefined;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
-    getFunctionInferredReturnType: (type: FunctionType, args?: ValidateArgTypeParams[]) => Type;
+    getFunctionInferredReturnType: (type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) => Type;
     getBestOverloadForArguments: (
         errorNode: ExpressionNode,
         typeResult: TypeResult<OverloadedFunctionType>,

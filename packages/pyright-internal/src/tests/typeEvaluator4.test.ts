@@ -412,6 +412,11 @@ test('CallSite2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('CallSite3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite3.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('FString1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

@@ -174,6 +174,7 @@ import {
     CallResult,
     CallSignature,
     CallSignatureInfo,
+    CallSiteEvaluationInfo,
     ClassMemberLookup,
     ClassTypeResult,
     DeclaredSymbolTypeInfo,
@@ -11484,7 +11485,7 @@ export function createTypeEvaluator(
         }
 
         // Calculate the return type.
-        let returnType = getFunctionEffectiveReturnType(type, matchResults.argParams);
+        let returnType = getFunctionEffectiveReturnType(type, { args: matchResults.argParams, errorNode });
 
         if (condition.length > 0) {
             returnType = TypeBase.cloneForCondition(returnType, condition);
@@ -21828,7 +21829,7 @@ export function createTypeEvaluator(
     // into account argument types to infer the return type.
     function getFunctionEffectiveReturnType(
         type: FunctionType,
-        args?: ValidateArgTypeParams[],
+        callSiteInfo?: CallSiteEvaluationInfo,
         inferTypeIfNeeded = true
     ) {
         const specializedReturnType = FunctionType.getSpecializedReturnType(type, /* includeInferred */ false);
@@ -21837,13 +21838,13 @@ export function createTypeEvaluator(
         }
 
         if (inferTypeIfNeeded) {
-            return getFunctionInferredReturnType(type, args);
+            return getFunctionInferredReturnType(type, callSiteInfo);
         }
 
         return UnknownType.create();
     }
 
-    function _getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
+    function _getFunctionInferredReturnType(type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) {
         let returnType: Type | undefined;
         let isIncomplete = false;
         const analyzeUnannotatedFunctions = true;
@@ -21924,7 +21925,7 @@ export function createTypeEvaluator(
             FunctionType.hasUnannotatedParams(type) &&
             !FunctionType.isStubDefinition(type) &&
             !FunctionType.isPyTypedDefinition(type) &&
-            args
+            callSiteInfo
         ) {
             let hasDecorators = false;
             let isAsync = false;
@@ -21941,7 +21942,7 @@ export function createTypeEvaluator(
             // We can't use this technique if decorators or async are used because they
             // would need to be applied to the inferred return type.
             if (!hasDecorators && !isAsync) {
-                const contextualReturnType = getFunctionInferredReturnTypeUsingArguments(type, args);
+                const contextualReturnType = getFunctionInferredReturnTypeUsingArguments(type, callSiteInfo);
                 if (contextualReturnType) {
                     returnType = contextualReturnType;
                 }
@@ -21953,8 +21954,9 @@ export function createTypeEvaluator(
 
     function getFunctionInferredReturnTypeUsingArguments(
         type: FunctionType,
-        args: ValidateArgTypeParams[]
+        callSiteInfo: CallSiteEvaluationInfo
     ): Type | undefined {
+        const args = callSiteInfo.args;
         let contextualReturnType: Type | undefined;
 
         if (!type.details.declaration) {
@@ -22000,6 +22002,10 @@ export function createTypeEvaluator(
 
         const paramTypes: Type[] = [];
         let isResultFromCache = false;
+
+        // If the call is located in a loop, don't use literal argument types
+        // for the same reason we don't do literal math in loops.
+        const stripLiteralArgTypes = ParseTreeUtils.isWithinLoop(callSiteInfo.errorNode);
 
         // Suppress diagnostics because we don't want to generate errors.
         suppressDiagnostics(functionNode, () => {
@@ -22048,6 +22054,10 @@ export function createTypeEvaluator(
 
                         if (!paramType) {
                             paramType = UnknownType.create();
+                        }
+
+                        if (stripLiteralArgTypes) {
+                            paramType = stripLiteralValue(paramType);
                         }
 
                         paramTypes.push(paramType);
