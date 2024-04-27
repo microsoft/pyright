@@ -4648,12 +4648,13 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        // If the symbol is a variable in the global scope, it is not eligible
-        // because it could be modified by other modules.
+        // If the symbol is a non-final variable in the global scope, it is not
+        // eligible because it could be modified by other modules.
         if (
             !decls.every(
                 (decl) =>
                     decl.type !== DeclarationType.Variable ||
+                    decl.isFinal ||
                     ScopeUtils.getScopeForNode(decl.node)?.type !== ScopeType.Module
             )
         ) {
