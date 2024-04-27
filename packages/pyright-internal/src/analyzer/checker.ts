@@ -6751,7 +6751,11 @@ export class Checker extends ParseTreeWalker {
                         }
                     }
 
-                    if (isBaseClassVar !== isClassVar) {
+                    // Allow TypedDict members to have the same name as class variables in the
+                    // base class because TypedDict members are not really instance members.
+                    const ignoreTypedDictOverride = ClassType.isTypedDictClass(childClassType) && !isClassVar;
+
+                    if (isBaseClassVar !== isClassVar && !ignoreTypedDictOverride) {
                         const unformattedMessage = overrideSymbol.isClassVar()
                             ? LocMessage.classVarOverridesInstanceVar()
                             : LocMessage.instanceVarOverridesClassVar();
