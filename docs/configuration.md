@@ -343,6 +343,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | strictSetInference                        | false      | false      | false      | true       |
 | deprecateTypingAliases                    | false      | false      | false      | false      |
 | enableExperimentalFeatures                | false      | false      | false      | false      |
+| reportMissingTypeStubs                    | "none"     | "none"     | "none"     | "error"    |
 | reportMissingModuleSource                 | "warning"  | "warning"  | "warning"  | "warning"  |
 | reportInvalidTypeForm                     | "warning"  | "error"    | "error"    | "error"    |
 | reportMissingImports                      | "warning"  | "error"    | "error"    | "error"    |
@@ -350,7 +351,6 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportAssertAlwaysTrue                    | "none"     | "warning"  | "warning"  | "error"    |
 | reportInvalidStringEscapeSequence         | "none"     | "warning"  | "warning"  | "error"    |
 | reportInvalidTypeVarUse                   | "none"     | "warning"  | "warning"  | "error"    |
-| reportMissingTypeStubs                    | "none"     | "warning"  | "warning"  | "error"    |
 | reportSelfClsParameterName                | "none"     | "warning"  | "warning"  | "error"    |
 | reportUnsupportedDunderAll                | "none"     | "warning"  | "warning"  | "error"    |
 | reportUnusedExpression                    | "none"     | "warning"  | "warning"  | "error"    |

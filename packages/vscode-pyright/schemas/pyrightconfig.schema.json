@@ -207,7 +207,7 @@
       "$id": "#/properties/reportMissingTypeStubs",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of imports that cannot be resolved to type stub files",
-      "default": "warning"
+      "default": "none"
     },
     "reportImportCycles": {
       "$id": "#/properties/reportImportCycles",
