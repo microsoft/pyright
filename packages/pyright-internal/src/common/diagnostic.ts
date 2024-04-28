@@ -13,8 +13,8 @@ import { DiagnosticLevel } from './configOptions';
 import { Range, TextRange } from './textRange';
 import { Uri } from './uri/uri';
 
-const defaultMaxDepth = 5;
-const defaultMaxLineCount = 8;
+export const defaultMaxDiagnosticDepth = 5;
+export const defaultMaxDiagnosticLineCount = 8;
 const maxRecursionCount = 64;
 
 // Corresponds to the CommentTaskPriority enum at https://devdiv.visualstudio.com/DefaultCollection/DevDiv/_git/VS?path=src/env/shell/PackageFramework/Framework/CommentTaskPriority.cs
@@ -151,6 +151,11 @@ export class DiagnosticAddendum {
     private _messages: string[] = [];
     private _childAddenda: DiagnosticAddendum[] = [];
 
+    // The nest level is accurate only for the common case where all
+    // addendum are created using createAddendum. This is an upper bound.
+    // The actual nest level may be smaller.
+    private _nestLevel: number | undefined;
+
     // Addenda normally don't have their own ranges, but there are cases
     // where we want to track ranges that can influence the range of the
     // diagnostic.
@@ -167,11 +172,12 @@ export class DiagnosticAddendum {
     // Create a new (nested) addendum to which messages can be added.
     createAddendum() {
         const newAddendum = new DiagnosticAddendum();
+        newAddendum._nestLevel = (this._nestLevel ?? 0) + 1;
         this.addAddendum(newAddendum);
         return newAddendum;
     }
 
-    getString(maxDepth = defaultMaxDepth, maxLineCount = defaultMaxLineCount): string {
+    getString(maxDepth = defaultMaxDiagnosticDepth, maxLineCount = defaultMaxDiagnosticLineCount): string {
         let lines = this._getLinesRecursive(maxDepth, maxLineCount);
 
         if (lines.length > maxLineCount) {
@@ -201,6 +207,10 @@ export class DiagnosticAddendum {
 
     getMessages() {
         return this._messages;
+    }
+
+    getNestLevel() {
+        return this._nestLevel ?? 0;
     }
 
     // Returns undefined if no range is associated with this addendum
