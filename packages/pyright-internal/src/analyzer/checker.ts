@@ -3182,11 +3182,20 @@ export class Checker extends ParseTreeWalker {
             if (decl.type === DeclarationType.Variable) {
                 if (decl.inferredTypeSource) {
                     if (sawAssignment) {
-                        // We check for assignment of Final instance and class variables
-                        // the type evaluator because we need to take into account whether
-                        // the assignment is within an `__init__` method, so ignore class
-                        // scopes here.
-                        if (scopeType !== ScopeType.Class) {
+                        let exemptAssignment = false;
+
+                        if (scopeType === ScopeType.Class) {
+                            // We check for assignment of Final instance and class variables
+                            // in the type evaluator because we need to take into account whether
+                            // the assignment is within an `__init__` method, so ignore class
+                            // scopes here.
+                            const classOrFunc = ParseTreeUtils.getEnclosingClassOrFunction(decl.node);
+                            if (classOrFunc?.nodeType === ParseNodeType.Function) {
+                                exemptAssignment = true;
+                            }
+                        }
+
+                        if (!exemptAssignment) {
                             reportRedeclaration = true;
                         }
                     }
