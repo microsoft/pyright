@@ -1,7 +1,7 @@
 # This sample tests the case where `Callable()` is used as a class pattern.
 
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
@@ -23,4 +23,18 @@ def func3(obj: type[int] | Callable[..., str]) -> int | str | None:
     match obj:
         case Callable():
             reveal_type(obj, expected_text="type[int] | ((...) -> str)")
+            return obj()
+
+
+def func4(obj):
+    match obj:
+        case Callable():
+            reveal_type(obj, expected_text="(...) -> Unknown")
+            return obj()
+
+
+def func5(obj: Any):
+    match obj:
+        case Callable():
+            reveal_type(obj, expected_text="(...) -> Any")
             return obj()
