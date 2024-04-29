@@ -43,6 +43,8 @@ import {
     AnyType,
     ClassType,
     combineTypes,
+    FunctionType,
+    FunctionTypeFlags,
     isAnyOrUnknown,
     isClass,
     isClassInstance,
@@ -816,6 +818,20 @@ function narrowTypeBasedOnClassPattern(
 
                 return evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (subjectSubtypeExpanded) => {
                     if (isAnyOrUnknown(subjectSubtypeExpanded)) {
+                        if (isInstantiableClass(expandedSubtype) && ClassType.isBuiltIn(expandedSubtype, 'Callable')) {
+                            // Convert to an unknown callable type.
+                            const unknownCallable = FunctionType.createSynthesizedInstance(
+                                '',
+                                FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+                            );
+                            FunctionType.addDefaultParameters(
+                                unknownCallable,
+                                /* useUnknown */ isUnknown(subjectSubtypeExpanded)
+                            );
+                            unknownCallable.details.declaredReturnType = subjectSubtypeExpanded;
+                            return unknownCallable;
+                        }
+
                         return convertToInstance(unexpandedSubtype);
                     }
 
