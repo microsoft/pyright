@@ -494,13 +494,25 @@ export class Tokenizer {
                     } else {
                         this._cs.advance(2);
                     }
+
                     this._addLineRange();
-                    return true;
-                } else if (this._cs.nextChar === Char.LineFeed) {
-                    this._cs.advance(2);
-                    this._addLineRange();
+
+                    if (this._tokens.length > 0 && this._tokens[this._tokens.length - 1].type === TokenType.NewLine) {
+                        this._readIndentationAfterNewLine();
+                    }
                     return true;
                 }
+
+                if (this._cs.nextChar === Char.LineFeed) {
+                    this._cs.advance(2);
+                    this._addLineRange();
+
+                    if (this._tokens.length > 0 && this._tokens[this._tokens.length - 1].type === TokenType.NewLine) {
+                        this._readIndentationAfterNewLine();
+                    }
+                    return true;
+                }
+
                 return this._handleInvalid();
             }
 
