@@ -4648,6 +4648,19 @@ export function createTypeEvaluator(
             return undefined;
         }
 
+        // If the symbol is a non-final variable in the global scope, it is not
+        // eligible because it could be modified by other modules.
+        if (
+            !decls.every(
+                (decl) =>
+                    decl.type !== DeclarationType.Variable ||
+                    decl.isFinal ||
+                    ScopeUtils.getScopeForNode(decl.node)?.type !== ScopeType.Module
+            )
+        ) {
+            return undefined;
+        }
+
         // If the symbol is a variable captured by an inner function
         // or lambda, see if we can infer the type from the outer scope.
         const scopeHierarchy = ScopeUtils.getScopeHierarchy(node, symbolWithScope.scope);
