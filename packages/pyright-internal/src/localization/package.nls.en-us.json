@@ -574,7 +574,7 @@
         "unnecessaryPyrightIgnoreRule": "Unnecessary \"# pyright: ignore\" rule: \"{name}\"",
         "unnecessaryTypeIgnore": "Unnecessary \"# type: ignore\" comment",
         "unpackArgCount": "Expected a single type argument after \"Unpack\"",
-        "unpackedArgInTypeArgument": "Unpacked arguments cannot be used in type argument lists",
+        "unpackedArgInTypeArgument": "Unpacked arguments cannot be used in this context",
         "unpackedArgWithVariadicParam": "Unpacked argument cannot be used for TypeVarTuple parameter",
         "unpackedDictArgumentNotMapping": "Argument expression after ** must be a mapping with a \"str\" key type",
         "unpackedDictSubscriptIllegal": "Dictionary unpack operator in subscript is not allowed",

@@ -4,10 +4,7 @@
 # pyright: reportMissingModuleSource=false
 
 from typing import Generic, TypeVar, Union
-from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
-    TypeVarTuple,
-    Unpack,
-)
+from typing_extensions import TypeVarTuple, Unpack
 
 
 _T = TypeVar("_T")
