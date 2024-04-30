@@ -15408,7 +15408,11 @@ export function createTypeEvaluator(
         for (const typeArg of typeArgs) {
             let typeArgType = typeArg.type;
 
-            if (!validateTypeArg(typeArg, { allowVariadicTypeVar: true, allowUnpackedTuples: true })) {
+            if (
+                !validateTypeArg(typeArg, {
+                    allowVariadicTypeVar: fileInfo.diagnosticRuleSet.enableExperimentalFeatures,
+                })
+            ) {
                 typeArgType = UnknownType.create();
             } else if (!isEffectivelyInstantiable(typeArgType)) {
                 addExpectedClassDiagnostic(typeArgType, typeArg.node);

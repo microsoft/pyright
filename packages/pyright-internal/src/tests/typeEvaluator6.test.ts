@@ -169,7 +169,7 @@ test('VariadicTypeVar1', () => {
 
     configOptions.defaultPythonVersion = pythonVersion3_11;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 19);
+    TestUtils.validateResults(analysisResults, 18);
 });
 
 test('VariadicTypeVar2', () => {
