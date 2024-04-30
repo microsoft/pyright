@@ -251,6 +251,10 @@ export namespace TypeBase {
                 newInstance.instantiableNestingLevel === undefined ? 1 : newInstance.instantiableNestingLevel;
         }
 
+        // Remove type alias information because the type will no longer match
+        // that of the type alias definition.
+        delete newInstance.typeAliasInfo;
+
         // Should we cache it for next time?
         if (cache) {
             if (!type.cached) {

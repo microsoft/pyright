@@ -2548,7 +2548,7 @@ export function convertToInstantiable(type: Type, includeSubclasses = true): Typ
         return type.cached.instantiableType;
     }
 
-    let result = mapSubtypes(type, (subtype) => {
+    const result = mapSubtypes(type, (subtype) => {
         switch (subtype.category) {
             case TypeCategory.Class: {
                 return ClassType.cloneAsInstantiable(subtype, includeSubclasses);
@@ -2565,21 +2565,6 @@ export function convertToInstantiable(type: Type, includeSubclasses = true): Typ
 
         return subtype;
     });
-
-    // Copy over any type alias information.
-    if (type.typeAliasInfo && type !== result) {
-        result = TypeBase.cloneForTypeAlias(
-            result,
-            type.typeAliasInfo.name,
-            type.typeAliasInfo.fullName,
-            type.typeAliasInfo.moduleName,
-            type.typeAliasInfo.fileUri,
-            type.typeAliasInfo.typeVarScopeId,
-            type.typeAliasInfo.isPep695Syntax,
-            type.typeAliasInfo.typeParameters,
-            type.typeAliasInfo.typeArguments
-        );
-    }
 
     if (type !== result) {
         // Cache the converted value for next time.
