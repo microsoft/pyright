@@ -19,12 +19,12 @@ def f2(args: JSONStructured):
     if isinstance(args, list):
         reveal_type(
             args,
-            expected_text="list[str | float | int | bool | JSONArray | dict[str, JSONType] | None]",
+            expected_text="list[str | float | int | bool | list[JSONType] | dict[str, JSONType] | None]",
         )
     else:
         reveal_type(
             args,
-            expected_text="dict[str, str | float | int | bool | list[JSONType] | JSONObject | None]",
+            expected_text="dict[str, str | float | int | bool | list[JSONType] | dict[str, JSONType] | None]",
         )
         dargs: JSONObject = args
 
@@ -34,12 +34,12 @@ def f3(args: JSONStructured):
     if isinstance(args, dict):
         reveal_type(
             args,
-            expected_text="dict[str, str | float | int | bool | list[JSONType] | JSONObject | None]",
+            expected_text="dict[str, str | float | int | bool | list[JSONType] | dict[str, JSONType] | None]",
         )
     else:
         reveal_type(
             args,
-            expected_text="list[str | float | int | bool | JSONArray | dict[str, JSONType] | None]",
+            expected_text="list[str | float | int | bool | list[JSONType] | dict[str, JSONType] | None]",
         )
         largs: JSONArray = args
 

@@ -38,7 +38,15 @@ v5: list[Alias1] = []
 
 
 Alias2 = int | str
+Alias3 = int
+Alias4 = type[int]
 
 
 def func1(x: Alias2):
     reveal_type(type(x), expected_text="type[int] | type[str]")
+
+
+def func2(v2: type[Alias2], v3: type[Alias3], v4: type[Alias4]):
+    reveal_type(v2, expected_text="type[int] | type[str]")
+    reveal_type(v3, expected_text="type[int]")
+    reveal_type(v4, expected_text="type[type[int]]")
