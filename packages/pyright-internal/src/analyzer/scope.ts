@@ -136,10 +136,12 @@ export class Scope {
     }
 
     lookUpSymbolRecursive(name: string, options?: LookupSymbolOptions): SymbolWithScope | undefined {
+        let effectiveScope: Scope = this;
         let symbol = this.symbolTable.get(name);
 
         if (!symbol && options?.useProxyScope && this.proxy) {
             symbol = this.proxy.symbolTable.get(name);
+            effectiveScope = this.proxy;
         }
 
         if (symbol) {
@@ -160,7 +162,7 @@ export class Scope {
                     symbol,
                     isOutsideCallerModule: !!options?.isOutsideCallerModule,
                     isBeyondExecutionScope: !!options?.isBeyondExecutionScope,
-                    scope: this,
+                    scope: effectiveScope,
                 };
             }
         }

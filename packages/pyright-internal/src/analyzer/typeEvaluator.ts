@@ -20354,11 +20354,14 @@ export function createTypeEvaluator(
 
         // Functions and list comprehensions don't allow access to implicitly
         // aliased symbols in outer scopes if they haven't yet been assigned
-        // within the local scope. Same with type parameter scopes.
-        const scopeTypeHonorsCodeFlow =
-            scopeType !== ScopeType.Function &&
-            scopeType !== ScopeType.ListComprehension &&
-            scopeType !== ScopeType.TypeParameter;
+        // within the local scope.
+        let scopeTypeHonorsCodeFlow = scopeType !== ScopeType.Function && scopeType !== ScopeType.ListComprehension;
+
+        // TypeParameter scopes don't honor code flow, but if the symbol is resolved
+        // using the proxy scope for the TypeParameter scope, we should use code flow.
+        if (scopeType === ScopeType.TypeParameter && symbolWithScope && symbolWithScope.scope === scope) {
+            scopeTypeHonorsCodeFlow = false;
+        }
 
         if (symbolWithScope && honorCodeFlow && scopeTypeHonorsCodeFlow) {
             // Filter the declarations based on flow reachability.
