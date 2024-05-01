@@ -179,6 +179,30 @@ describe('expandPathVariables', () => {
         const path = `${process.env.USERPROFILE}/bar`;
         assert.equal(expandPathVariables(test_path, Uri.empty(), []), path);
     });
+
+    test('dont expands ~ when it is used as normal char 1', () => {
+        jest.spyOn(os, 'homedir').mockReturnValue('file:///home/foo');
+        const test_path = '/home/user/~testfolder/testapp';
+        assert.equal(expandPathVariables(test_path, Uri.empty(), []), test_path);
+    });
+
+    test('dont expands ~ when it is used as normal char 2', () => {
+        jest.spyOn(os, 'homedir').mockReturnValue('file:///home/foo');
+        const test_path = '/home/user/testfolder~';
+        assert.equal(expandPathVariables(test_path, Uri.empty(), []), test_path);
+    });
+
+    test('dont expands ~ when it is used as normal char 3', () => {
+        jest.spyOn(os, 'homedir').mockReturnValue('file:///home/foo');
+        const test_path = '/home/user/test~folder';
+        assert.equal(expandPathVariables(test_path, Uri.empty(), []), test_path);
+    });
+
+    test('dont expands ~ when it is used as normal char 4', () => {
+        jest.spyOn(os, 'homedir').mockReturnValue('file:///home/foo');
+        const test_path = '/home/user/testfolder~/testapp';
+        assert.equal(expandPathVariables(test_path, Uri.empty(), []), test_path);
+    });
 });
 
 function createWorkspace(rootUri: Uri | undefined) {
