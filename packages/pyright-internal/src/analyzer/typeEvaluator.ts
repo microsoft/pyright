@@ -24387,22 +24387,21 @@ export function createTypeEvaluator(
         return ClassType.isSpecialFormClass(classType);
     }
 
-    // Determines whether a type is "subsumed by" (i.e. is a proper subtype of) one
-    // of the other type.
+    // Determines whether a type is "subsumed by" (i.e. is a proper subtype of) another type.
     function isTypeSubsumedByOtherType(type: Type, otherType: Type, allowAnyToSubsume: boolean, recursionCount = 0) {
         const concreteType = makeTopLevelTypeVarsConcrete(type);
-        const otherTypes = isUnion(otherType) ? otherType.subtypes : [otherType];
+        const otherSubtypes = isUnion(otherType) ? otherType.subtypes : [otherType];
 
-        for (const otherType of otherTypes) {
-            if (isTypeSame(otherType, type)) {
+        for (const otherSubtype of otherSubtypes) {
+            if (isTypeSame(otherSubtype, type)) {
                 continue;
             }
 
-            if (isAnyOrUnknown(otherType)) {
+            if (isAnyOrUnknown(otherSubtype)) {
                 if (allowAnyToSubsume) {
                     return true;
                 }
-            } else if (isProperSubtype(otherType, concreteType, recursionCount)) {
+            } else if (isProperSubtype(otherSubtype, concreteType, recursionCount)) {
                 return true;
             }
         }

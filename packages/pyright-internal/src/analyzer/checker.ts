@@ -1245,44 +1245,53 @@ export class Checker extends ParseTreeWalker {
             doForEachSubtype(baseType, (subtype) => {
                 const tupleType = getSpecializedTupleType(subtype);
 
-                if (
-                    isClassInstance(subtype) &&
-                    tupleType?.tupleTypeArguments &&
-                    !isUnboundedTupleClass(tupleType) &&
-                    !this._evaluator.isTypeSubsumedByOtherType(tupleType, baseType, /* allowAnyToSubsume */ false)
-                ) {
-                    const tupleLength = tupleType.tupleTypeArguments.length;
-
-                    if (
-                        node.items.length === 1 &&
-                        !node.trailingComma &&
-                        node.items[0].argumentCategory === ArgumentCategory.Simple &&
-                        !node.items[0].name
-                    ) {
-                        const subscriptType = this._evaluator.getType(node.items[0].valueExpression);
-                        if (
-                            subscriptType &&
-                            isClassInstance(subscriptType) &&
-                            ClassType.isBuiltIn(subscriptType, 'int') &&
-                            isLiteralType(subscriptType) &&
-                            typeof subscriptType.literalValue === 'number'
-                        ) {
-                            if (
-                                (subscriptType.literalValue >= 0 && subscriptType.literalValue >= tupleLength) ||
-                                (subscriptType.literalValue < 0 && subscriptType.literalValue + tupleLength < 0)
-                            ) {
-                                this._evaluator.addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    LocMessage.tupleIndexOutOfRange().format({
-                                        index: subscriptType.literalValue,
-                                        type: this._evaluator.printType(subtype),
-                                    }),
-                                    node
-                                );
-                            }
-                        }
-                    }
+                if (!isClassInstance(subtype) || !tupleType?.tupleTypeArguments || isUnboundedTupleClass(tupleType)) {
+                    return;
                 }
+
+                const tupleLength = tupleType.tupleTypeArguments.length;
+
+                if (
+                    node.items.length !== 1 ||
+                    node.trailingComma ||
+                    node.items[0].argumentCategory !== ArgumentCategory.Simple ||
+                    node.items[0].name
+                ) {
+                    return;
+                }
+
+                const subscriptType = this._evaluator.getType(node.items[0].valueExpression);
+                if (
+                    !subscriptType ||
+                    !isClassInstance(subscriptType) ||
+                    !ClassType.isBuiltIn(subscriptType, 'int') ||
+                    !isLiteralType(subscriptType) ||
+                    typeof subscriptType.literalValue !== 'number'
+                ) {
+                    return;
+                }
+
+                if (
+                    (subscriptType.literalValue < 0 || subscriptType.literalValue < tupleLength) &&
+                    (subscriptType.literalValue >= 0 || subscriptType.literalValue + tupleLength >= 0)
+                ) {
+                    return;
+                }
+
+                // This can be an expensive check, so we save it for the end once we
+                // are about to emit a diagnostic.
+                if (this._evaluator.isTypeSubsumedByOtherType(tupleType, baseType, /* allowAnyToSubsume */ false)) {
+                    return;
+                }
+
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.tupleIndexOutOfRange().format({
+                        index: subscriptType.literalValue,
+                        type: this._evaluator.printType(subtype),
+                    }),
+                    node
+                );
             });
         }
 
