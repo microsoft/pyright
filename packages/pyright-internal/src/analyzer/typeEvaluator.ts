@@ -17132,10 +17132,9 @@ export function createTypeEvaluator(
     function evaluateTypeParameterList(node: TypeParameterListNode): TypeVarType[] {
         const paramTypes: TypeVarType[] = [];
         const typeParamScope = AnalyzerNodeInfo.getScope(node);
-        assert(typeParamScope !== undefined);
 
         node.parameters.forEach((param) => {
-            const paramSymbol = typeParamScope.symbolTable.get(param.name.value);
+            const paramSymbol = typeParamScope?.symbolTable.get(param.name.value);
             if (!paramSymbol) {
                 // This can happen if the code is unreachable.
                 return;
