@@ -293,9 +293,15 @@ function narrowTypeBasedOnSequencePattern(
             }
         });
 
-        // If the pattern is an empty sequence, use the entry types.
-        if (pattern.entries.length === 0 && entry.entryTypes.length > 0) {
-            narrowedEntryTypes.push(combineTypes(entry.entryTypes));
+        if (pattern.entries.length === 0) {
+            // If the pattern is an empty sequence, use the entry types.
+            if (entry.entryTypes.length > 0) {
+                narrowedEntryTypes.push(combineTypes(entry.entryTypes));
+            }
+
+            if (entry.isPotentialNoMatch) {
+                isDefiniteMatch = false;
+            }
         }
 
         if (!isPositiveTest) {
