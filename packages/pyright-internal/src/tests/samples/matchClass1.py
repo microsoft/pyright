@@ -495,3 +495,16 @@ def func21(subj: object):
         # This should generate an error because Proto2 isn't runtime checkable.
         case Proto2():
             pass
+
+
+class Impl1:
+    x: int
+
+
+def func22(subj: Proto1 | int):
+    match subj:
+        case Proto1():
+            reveal_type(subj, expected_text="Proto1")
+
+        case _:
+            reveal_type(subj, expected_text="int")

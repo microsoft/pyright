@@ -738,19 +738,9 @@ function narrowTypeBasedOnClassPattern(
 
                 if (pattern.arguments.length === 0) {
                     if (isClass(classInstance) && isClass(subjectSubtypeExpanded)) {
-                        if (ClassType.isDerivedFrom(subjectSubtypeExpanded, classInstance)) {
-                            // We know that this match will always succeed, so we can
-                            // eliminate this subtype.
-                            return undefined;
-                        }
-
-                        // Handle LiteralString as a special case.
-                        if (
-                            ClassType.isBuiltIn(classInstance, 'str') &&
-                            ClassType.isBuiltIn(subjectSubtypeExpanded, 'LiteralString')
-                        ) {
-                            return undefined;
-                        }
+                        // We know that this match will always succeed, so we can
+                        // eliminate this subtype.
+                        return undefined;
                     }
 
                     return subjectSubtypeExpanded;
