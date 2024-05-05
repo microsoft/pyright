@@ -48,4 +48,4 @@ def func_typeis(val: int | str):
     if is_int(val, TypeGuardMode.TypeIs):
         reveal_type(val, expected_text="int")
     else:
-        reveal_type(val, expected_text="int | str")
+        reveal_type(val, expected_text="str")
