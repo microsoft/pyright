@@ -62,6 +62,10 @@ export interface SymbolWithScope {
     // scopes because they are "executed" immediately as
     // part of the scope in which they are contained.
     isBeyondExecutionScope: boolean;
+
+    // The symbol was accessed through a nonlocal or global binding.
+    usesNonlocalBinding: boolean;
+    usesGlobalBinding: boolean;
 }
 
 export interface GlobalScopeResult {
@@ -73,6 +77,8 @@ export interface LookupSymbolOptions {
     isOutsideCallerModule?: boolean;
     isBeyondExecutionScope?: boolean;
     useProxyScope?: boolean;
+    usesNonlocalBinding?: boolean;
+    usesGlobalBinding?: boolean;
 }
 
 export class Scope {
@@ -163,6 +169,8 @@ export class Scope {
                     isOutsideCallerModule: !!options?.isOutsideCallerModule,
                     isBeyondExecutionScope: !!options?.isBeyondExecutionScope,
                     scope: effectiveScope,
+                    usesNonlocalBinding: !!options?.usesNonlocalBinding,
+                    usesGlobalBinding: !!options?.usesGlobalBinding,
                 };
             }
         }
@@ -170,7 +178,8 @@ export class Scope {
         let parentScope: Scope | undefined;
         let isNextScopeBeyondExecutionScope = options?.isBeyondExecutionScope || this.isIndependentlyExecutable();
 
-        if (this.notLocalBindings.get(name) === NameBindingType.Global) {
+        const notLocalBinding = this.notLocalBindings.get(name);
+        if (notLocalBinding === NameBindingType.Global) {
             const globalScopeResult = this.getGlobalScope();
             if (globalScopeResult.scope !== this) {
                 parentScope = globalScopeResult.scope;
@@ -189,6 +198,8 @@ export class Scope {
             return parentScope.lookUpSymbolRecursive(name, {
                 isOutsideCallerModule: !!options?.isOutsideCallerModule || this.type === ScopeType.Module,
                 isBeyondExecutionScope: isNextScopeBeyondExecutionScope,
+                usesNonlocalBinding: notLocalBinding === NameBindingType.Nonlocal || !!options?.usesNonlocalBinding,
+                usesGlobalBinding: notLocalBinding === NameBindingType.Global || !!options?.usesGlobalBinding,
             });
         }
 

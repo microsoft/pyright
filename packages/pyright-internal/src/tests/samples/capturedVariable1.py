@@ -133,3 +133,14 @@ def func11(foo: list[int] | None):
 
         def inner() -> list[int]:
             return [x for x in foo]
+
+
+def func12() -> None:
+    counter = 0
+
+    def inner() -> None:
+        nonlocal counter
+        reveal_type(counter, expected_text="int")
+        counter += 1
+
+    inner()

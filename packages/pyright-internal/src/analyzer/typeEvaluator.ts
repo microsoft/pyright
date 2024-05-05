@@ -4621,6 +4621,12 @@ export function createTypeEvaluator(
         symbolWithScope: SymbolWithScope,
         effectiveType: Type
     ): FlowNodeTypeResult | undefined {
+        // This function applies only to captured variables, not those that
+        // are accessed via an explicit nonlocal or global binding.
+        if (symbolWithScope.usesGlobalBinding || symbolWithScope.usesNonlocalBinding) {
+            return undefined;
+        }
+
         // This function applies only to variables, parameters, and imports, not to other
         // types of symbols.
         const decls = symbolWithScope.symbol.getDeclarations();
