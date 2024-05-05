@@ -645,6 +645,7 @@ export function getTypeNarrowingCallback(
                                     type,
                                     classTypeList,
                                     isInstanceCheck,
+                                    /* isTypeIsCheck */ false,
                                     isPositiveTest,
                                     testExpression
                                 ),
@@ -982,7 +983,15 @@ function narrowTypeForUserDefinedTypeGuard(
         filterTypes.push(convertToInstantiable(typeGuardSubtype));
     });
 
-    return narrowTypeForIsInstance(evaluator, type, filterTypes, /* isInstanceCheck */ true, isPositiveTest, errorNode);
+    return narrowTypeForIsInstance(
+        evaluator,
+        type,
+        filterTypes,
+        /* isInstanceCheck */ true,
+        /* isTypeIsCheck */ true,
+        isPositiveTest,
+        errorNode
+    );
 }
 
 // Narrow the type based on whether the subtype can be true or false.
@@ -1190,7 +1199,8 @@ export function isIsinstanceFilterSuperclass(
     concreteVarType: ClassType,
     filterType: Type,
     concreteFilterType: ClassType,
-    isInstanceCheck: boolean
+    isInstanceCheck: boolean,
+    isTypeIsCheck: boolean
 ) {
     if (isTypeVar(filterType) || concreteFilterType.literalValue !== undefined) {
         return isTypeSame(convertToInstance(filterType), varType);
@@ -1199,7 +1209,7 @@ export function isIsinstanceFilterSuperclass(
     // If the filter type represents all possible subclasses
     // of a type, we can't make any statements about its superclass
     // relationship with concreteVarType.
-    if (concreteFilterType.includeSubclasses) {
+    if (!isTypeIsCheck && concreteFilterType.includeSubclasses) {
         return false;
     }
 
@@ -1250,6 +1260,7 @@ function narrowTypeForIsInstance(
     type: Type,
     filterTypes: Type[],
     isInstanceCheck: boolean,
+    isTypeIsCheck: boolean,
     isPositiveTest: boolean,
     errorNode: ExpressionNode
 ) {
@@ -1259,6 +1270,7 @@ function narrowTypeForIsInstance(
         type,
         filterTypes,
         isInstanceCheck,
+        isTypeIsCheck,
         isPositiveTest,
         /* allowIntersections */ false,
         errorNode
@@ -1274,6 +1286,7 @@ function narrowTypeForIsInstance(
         type,
         filterTypes,
         isInstanceCheck,
+        isTypeIsCheck,
         isPositiveTest,
         /* allowIntersections */ true,
         errorNode
@@ -1290,6 +1303,7 @@ function narrowTypeForIsInstanceInternal(
     type: Type,
     filterTypes: Type[],
     isInstanceCheck: boolean,
+    isTypeIsCheck: boolean,
     isPositiveTest: boolean,
     allowIntersections: boolean,
     errorNode: ExpressionNode
@@ -1331,20 +1345,29 @@ function narrowTypeForIsInstanceInternal(
                     );
                 }
 
-                const filterIsSuperclass = isIsinstanceFilterSuperclass(
-                    evaluator,
-                    varType,
-                    concreteVarType,
-                    filterType,
-                    concreteFilterType,
-                    isInstanceCheck
-                );
-                const filterIsSubclass = isIsinstanceFilterSubclass(
-                    evaluator,
-                    concreteVarType,
-                    concreteFilterType,
-                    isInstanceCheck
-                );
+                let filterIsSuperclass: boolean;
+                let filterIsSubclass: boolean;
+
+                if (isTypeIsCheck) {
+                    filterIsSuperclass = evaluator.assignType(filterType, concreteVarType);
+                    filterIsSubclass = evaluator.assignType(concreteVarType, filterType);
+                } else {
+                    filterIsSuperclass = isIsinstanceFilterSuperclass(
+                        evaluator,
+                        varType,
+                        concreteVarType,
+                        filterType,
+                        concreteFilterType,
+                        isInstanceCheck,
+                        isTypeIsCheck
+                    );
+                    filterIsSubclass = isIsinstanceFilterSubclass(
+                        evaluator,
+                        concreteVarType,
+                        concreteFilterType,
+                        isInstanceCheck
+                    );
+                }
 
                 if (filterIsSuperclass) {
                     foundSuperclass = true;
@@ -1405,28 +1428,33 @@ function narrowTypeForIsInstanceInternal(
                                     ClassType.isSpecialBuiltIn(filterType) ||
                                     filterType.details.typeParameters.length > 0
                                 ) {
-                                    const typeVarContext = new TypeVarContext(getTypeVarScopeId(filterType));
-                                    const unspecializedFilterType = ClassType.cloneForSpecialization(
-                                        filterType,
-                                        /* typeArguments */ undefined,
-                                        /* isTypeArgumentExplicit */ false
-                                    );
-
                                     if (
-                                        populateTypeVarContextBasedOnExpectedType(
-                                            evaluator,
-                                            unspecializedFilterType,
-                                            concreteVarType,
-                                            typeVarContext,
-                                            /* liveTypeVarScopes */ undefined,
-                                            errorNode.start
-                                        )
+                                        !filterType.typeArguments ||
+                                        !ClassType.isSameGenericClass(concreteVarType, filterType)
                                     ) {
-                                        specializedFilterType = applySolvedTypeVars(
-                                            unspecializedFilterType,
-                                            typeVarContext,
-                                            { unknownIfNotFound: true }
-                                        ) as ClassType;
+                                        const typeVarContext = new TypeVarContext(getTypeVarScopeId(filterType));
+                                        const unspecializedFilterType = ClassType.cloneForSpecialization(
+                                            filterType,
+                                            /* typeArguments */ undefined,
+                                            /* isTypeArgumentExplicit */ false
+                                        );
+
+                                        if (
+                                            populateTypeVarContextBasedOnExpectedType(
+                                                evaluator,
+                                                unspecializedFilterType,
+                                                concreteVarType,
+                                                typeVarContext,
+                                                /* liveTypeVarScopes */ undefined,
+                                                errorNode.start
+                                            )
+                                        ) {
+                                            specializedFilterType = applySolvedTypeVars(
+                                                unspecializedFilterType,
+                                                typeVarContext,
+                                                { unknownIfNotFound: true }
+                                            ) as ClassType;
+                                        }
                                     }
                                 }
                             }
@@ -1783,7 +1811,7 @@ function narrowTypeForIsInstanceInternal(
                 if (isClassInstance(subtype)) {
                     return combineTypes(
                         filterClassType(
-                            convertToInstance(unexpandedSubtype),
+                            unexpandedSubtype,
                             ClassType.cloneAsInstantiable(subtype),
                             getTypeCondition(subtype),
                             negativeFallback
@@ -2439,7 +2467,8 @@ function narrowTypeForClassComparison(
                         concreteSubtype,
                         classType,
                         classType,
-                        /* isInstanceCheck */ false
+                        /* isInstanceCheck */ false,
+                        /* isTypeIsCheck */ false
                     )
                 ) {
                     return undefined;

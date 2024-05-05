@@ -12,7 +12,7 @@ def func1(val: Union[str, int]):
     if is_str1(val):
         reveal_type(val, expected_text="str")
     else:
-        reveal_type(val, expected_text="str | int")
+        reveal_type(val, expected_text="int")
 
 
 def is_true(o: object) -> TypeIs[Literal[True]]: ...
@@ -35,18 +35,14 @@ def func3(val: dict[str, str] | list[str] | list[int] | Sequence[int]):
     if is_list(val):
         reveal_type(val, expected_text="list[str] | list[int]")
     else:
-        reveal_type(
-            val, expected_text="dict[str, str] | list[str] | list[int] | Sequence[int]"
-        )
+        reveal_type(val, expected_text="dict[str, str] | Sequence[int]")
 
 
 def func4(val: dict[str, str] | list[str] | list[int] | tuple[int]):
     if is_list(val):
         reveal_type(val, expected_text="list[str] | list[int]")
     else:
-        reveal_type(
-            val, expected_text="dict[str, str] | list[str] | list[int] | tuple[int]"
-        )
+        reveal_type(val, expected_text="dict[str, str] | tuple[int]")
 
 
 _K = TypeVar("_K")
@@ -59,9 +55,7 @@ def is_dict(val: Mapping[_K, _V]) -> TypeIs[dict[_K, _V]]:
 
 def func5(val: dict[_K, _V] | Mapping[_K, _V]):
     if not is_dict(val):
-        reveal_type(
-            val, expected_text="dict[_K@func5, _V@func5] | Mapping[_K@func5, _V@func5]"
-        )
+        reveal_type(val, expected_text="Mapping[_K@func5, _V@func5]")
     else:
         reveal_type(val, expected_text="dict[_K@func5, _V@func5]")
 
@@ -114,3 +108,14 @@ takes_int_typeis(int_typeis)
 
 # This should generate an error because TypeIs is invariant.
 takes_int_typeis(bool_typeis)
+
+
+def is_two_element_tuple(val: tuple[T, ...]) -> TypeIs[tuple[T, T]]:
+    return len(val) == 2
+
+
+def func7(names: tuple[str, ...]):
+    if is_two_element_tuple(names):
+        reveal_type(names, expected_text="tuple[str, str]")
+    else:
+        reveal_type(names, expected_text="tuple[str, ...]")
