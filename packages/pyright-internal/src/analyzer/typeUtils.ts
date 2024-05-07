@@ -243,6 +243,7 @@ export const enum AssignTypeFlags {
 
 export interface ApplyTypeVarOptions {
     unknownIfNotFound?: boolean;
+    useUnknownOverDefault?: boolean;
     unknownExemptTypeVars?: TypeVarType[];
     useNarrowBoundOnly?: boolean;
     eliminateUnsolvedInUnions?: boolean;
@@ -4264,7 +4265,9 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                             }
 
                             if (this._options.unknownIfNotFound) {
-                                return specializeWithDefaultTypeArgs(subtype);
+                                return this._options.useUnknownOverDefault
+                                    ? specializeWithUnknownTypeArgs(subtype)
+                                    : specializeWithDefaultTypeArgs(subtype);
                             }
                         }
 
@@ -4295,7 +4298,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
             if (useDefaultOrUnknown) {
                 // Use the default value if there is one.
-                if (typeVar.details.isDefaultExplicit) {
+                if (typeVar.details.isDefaultExplicit && !this._options.useUnknownOverDefault) {
                     return this._solveDefaultType(typeVar.details.defaultType, recursionCount);
                 }
 
@@ -4421,7 +4424,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
         if (useDefaultOrUnknown) {
             // Use the default value if there is one.
-            if (paramSpec.details.isDefaultExplicit) {
+            if (paramSpec.details.isDefaultExplicit && !this._options.useUnknownOverDefault) {
                 return convertTypeToParamSpecValue(
                     this._solveDefaultType(paramSpec.details.defaultType, recursionCount)
                 );

@@ -1482,9 +1482,12 @@ export function getCodeFlowEngine(
                             const arg1Expr = testExpression.arguments[1].valueExpression;
                             const arg1Type = evaluator.getTypeOfExpression(
                                 arg1Expr,
-                                EvaluatorFlags.EvaluateStringLiteralAsType |
+                                EvaluatorFlags.AllowMissingTypeArgs |
+                                    EvaluatorFlags.EvaluateStringLiteralAsType |
                                     EvaluatorFlags.DisallowParamSpec |
-                                    EvaluatorFlags.DisallowTypeVarTuple
+                                    EvaluatorFlags.DisallowTypeVarTuple |
+                                    EvaluatorFlags.DisallowFinal |
+                                    EvaluatorFlags.DoNotSpecialize
                             ).type;
 
                             if (isInstantiableClass(arg1Type)) {

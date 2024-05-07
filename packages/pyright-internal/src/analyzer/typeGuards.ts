@@ -73,6 +73,7 @@ import {
     getSpecializedTupleType,
     getTypeCondition,
     getTypeVarScopeId,
+    getUnknownTypeForCallable,
     isInstantiableMetaclass,
     isLiteralType,
     isLiteralTypeOrUnion,
@@ -630,7 +631,9 @@ export function getTypeNarrowingCallback(
                         EvaluatorFlags.AllowMissingTypeArgs |
                             EvaluatorFlags.EvaluateStringLiteralAsType |
                             EvaluatorFlags.DisallowParamSpec |
-                            EvaluatorFlags.DisallowTypeVarTuple
+                            EvaluatorFlags.DisallowTypeVarTuple |
+                            EvaluatorFlags.DisallowFinal |
+                            EvaluatorFlags.DoNotSpecialize
                     );
                     const arg1Type = arg1TypeResult.type;
 
@@ -1150,6 +1153,14 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | Func
     // undefined if any of the types are not valid.
     const addClassTypesToList = (types: Type[]) => {
         types.forEach((subtype) => {
+            if (isClass(subtype)) {
+                subtype = specializeWithUnknownTypeArgs(subtype);
+
+                if (isInstantiableClass(subtype) && ClassType.isBuiltIn(subtype, 'Callable')) {
+                    subtype = convertToInstantiable(getUnknownTypeForCallable());
+                }
+            }
+
             if (isInstantiableClass(subtype) || (isTypeVar(subtype) && TypeBase.isInstantiable(subtype))) {
                 classTypeList.push(subtype);
             } else if (isNoneTypeClass(subtype)) {
@@ -1452,7 +1463,7 @@ function narrowTypeForIsInstanceInternal(
                                             specializedFilterType = applySolvedTypeVars(
                                                 unspecializedFilterType,
                                                 typeVarContext,
-                                                { unknownIfNotFound: true }
+                                                { unknownIfNotFound: true, useUnknownOverDefault: true }
                                             ) as ClassType;
                                         }
                                     }
