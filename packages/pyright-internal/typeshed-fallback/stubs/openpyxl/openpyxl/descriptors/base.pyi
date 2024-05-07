@@ -36,7 +36,7 @@ class Typed(Descriptor[_T], Generic[_T, _N]):
 
     @overload
     def __init__(
-        self: Typed[_T, Literal[True]],
+        self: Typed[_T, Literal[True]],  # pyright: ignore[reportInvalidTypeVarUse]  #11780
         name: str | None = None,
         *,
         expected_type: _ExpectedTypeParam[_T],
@@ -45,7 +45,7 @@ class Typed(Descriptor[_T], Generic[_T, _N]):
     ) -> None: ...
     @overload
     def __init__(
-        self: Typed[_T, Literal[False]],
+        self: Typed[_T, Literal[False]],  # pyright: ignore[reportInvalidTypeVarUse]  #11780
         name: str | None = None,
         *,
         expected_type: _ExpectedTypeParam[_T],
@@ -64,7 +64,7 @@ class Typed(Descriptor[_T], Generic[_T, _N]):
 class Convertible(Typed[_T, _N]):
     @overload
     def __init__(
-        self: Convertible[_T, Literal[True]],
+        self: Convertible[_T, Literal[True]],  # pyright: ignore[reportInvalidTypeVarUse]  #11780
         name: str | None = None,
         *,
         expected_type: _ExpectedTypeParam[_T],
@@ -72,7 +72,7 @@ class Convertible(Typed[_T, _N]):
     ) -> None: ...
     @overload
     def __init__(
-        self: Convertible[_T, Literal[False]],
+        self: Convertible[_T, Literal[False]],  # pyright: ignore[reportInvalidTypeVarUse]  #11780
         name: str | None = None,
         *,
         expected_type: _ExpectedTypeParam[_T],

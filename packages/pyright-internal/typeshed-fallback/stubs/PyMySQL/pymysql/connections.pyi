@@ -124,7 +124,8 @@ class Connection(Generic[_C]):
     ) -> None: ...
     @overload
     def __init__(
-        self: Connection[_C],  # different between overloads
+        # different between overloads:
+        self: Connection[_C],  # pyright: ignore[reportInvalidTypeVarUse]  #11780
         *,
         host: str | None = None,
         user: Incomplete | None = None,

@@ -443,7 +443,7 @@ class AsyncContextManager(AbstractAsyncContextManager[_T_co, bool | None], Proto
 @runtime_checkable
 class Awaitable(Protocol[_T_co]):
     @abstractmethod
-    def __await__(self) -> Generator[Any, None, _T_co]: ...
+    def __await__(self) -> Generator[Any, Any, _T_co]: ...
 
 class Coroutine(Awaitable[_ReturnT_co], Generic[_YieldT_co, _SendT_contra, _ReturnT_co]):
     __name__: str

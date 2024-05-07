@@ -335,235 +335,237 @@ class Pattern(Generic[AnyStr]):
     def search(
         self: Pattern[str],
         string: str,
-        pos: int = ...,
-        endpos: int = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        partial: bool = False,
+        timeout: float | None = None,
     ) -> Match[str] | None: ...
     @overload
     def search(
         self: Pattern[bytes],
         string: ReadableBuffer,
-        pos: int = ...,
-        endpos: int = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        partial: bool = False,
+        timeout: float | None = None,
     ) -> Match[bytes] | None: ...
     @overload
     def match(
         self: Pattern[str],
         string: str,
-        pos: int = ...,
-        endpos: int = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        partial: bool = False,
+        timeout: float | None = None,
     ) -> Match[str] | None: ...
     @overload
     def match(
         self: Pattern[bytes],
         string: ReadableBuffer,
-        pos: int = ...,
-        endpos: int = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        partial: bool = False,
+        timeout: float | None = None,
     ) -> Match[bytes] | None: ...
     @overload
     def fullmatch(
         self: Pattern[str],
         string: str,
-        pos: int = ...,
-        endpos: int = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        partial: bool = False,
+        timeout: float | None = None,
     ) -> Match[str] | None: ...
     @overload
     def fullmatch(
         self: Pattern[bytes],
         string: ReadableBuffer,
-        pos: int = ...,
-        endpos: int = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        partial: bool = False,
+        timeout: float | None = None,
     ) -> Match[bytes] | None: ...
     @overload
     def split(
-        self: Pattern[str], string: str, maxsplit: int = ..., concurrent: bool | None = ..., timeout: float | None = ...
+        self: Pattern[str], string: str, maxsplit: int = 0, concurrent: bool | None = None, timeout: float | None = None
     ) -> list[str | Any]: ...
     @overload
     def split(
         self: Pattern[bytes],
         string: ReadableBuffer,
-        maxsplit: int = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        maxsplit: int = 0,
+        concurrent: bool | None = None,
+        timeout: float | None = None,
     ) -> list[bytes | Any]: ...
     @overload
     def splititer(
-        self: Pattern[str], string: str, maxsplit: int = ..., concurrent: bool | None = ..., timeout: float | None = ...
+        self: Pattern[str], string: str, maxsplit: int = 0, concurrent: bool | None = None, timeout: float | None = None
     ) -> _regex.Splitter[str]: ...
     @overload
     def splititer(
         self: Pattern[bytes],
         string: ReadableBuffer,
-        maxsplit: int = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        maxsplit: int = 0,
+        concurrent: bool | None = None,
+        timeout: float | None = None,
     ) -> _regex.Splitter[bytes]: ...
     @overload
     def findall(
         self: Pattern[str],
         string: str,
-        pos: int = ...,
-        endpos: int = ...,
-        overlapped: bool = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        pos: int | None = None,
+        endpos: int | None = None,
+        overlapped: bool = False,
+        concurrent: bool | None = None,
+        timeout: float | None = None,
     ) -> list[Any]: ...
     @overload
     def findall(
         self: Pattern[bytes],
         string: ReadableBuffer,
-        pos: int = ...,
-        endpos: int = ...,
-        overlapped: bool = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        pos: int | None = None,
+        endpos: int | None = None,
+        overlapped: bool = False,
+        concurrent: bool | None = None,
+        timeout: float | None = None,
     ) -> list[Any]: ...
     @overload
     def finditer(
         self: Pattern[str],
         string: str,
-        pos: int = ...,
-        endpos: int = ...,
-        overlapped: bool = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        pos: int | None = None,
+        endpos: int | None = None,
+        overlapped: bool = False,
+        concurrent: bool | None = None,
+        partial: bool = False,
+        timeout: float | None = None,
     ) -> _regex.Scanner[str]: ...
     @overload
     def finditer(
         self: Pattern[bytes],
         string: ReadableBuffer,
-        pos: int = ...,
-        endpos: int = ...,
-        overlapped: bool = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        pos: int | None = None,
+        endpos: int | None = None,
+        overlapped: bool = False,
+        concurrent: bool | None = None,
+        partial: bool = False,
+        timeout: float | None = None,
     ) -> _regex.Scanner[bytes]: ...
     @overload
     def sub(
         self: Pattern[str],
         repl: str | Callable[[Match[str]], str],
         string: str,
-        count: int = ...,
-        flags: int = ...,
-        pos: int | None = ...,
-        endpos: int | None = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        count: int = 0,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        timeout: float | None = None,
     ) -> str: ...
     @overload
     def sub(
         self: Pattern[bytes],
         repl: ReadableBuffer | Callable[[Match[bytes]], ReadableBuffer],
         string: ReadableBuffer,
-        count: int = ...,
-        flags: int = ...,
-        pos: int | None = ...,
-        endpos: int | None = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        count: int = 0,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        timeout: float | None = None,
     ) -> bytes: ...
     @overload
     def subf(
         self: Pattern[str],
         format: str | Callable[[Match[str]], str],
         string: str,
-        count: int = ...,
-        flags: int = ...,
-        pos: int | None = ...,
-        endpos: int | None = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        count: int = 0,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        timeout: float | None = None,
     ) -> str: ...
     @overload
     def subf(
         self: Pattern[bytes],
         format: ReadableBuffer | Callable[[Match[bytes]], ReadableBuffer],
         string: ReadableBuffer,
-        count: int = ...,
-        flags: int = ...,
-        pos: int | None = ...,
-        endpos: int | None = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        count: int = 0,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        timeout: float | None = None,
     ) -> bytes: ...
     @overload
     def subn(
         self: Pattern[str],
         repl: str | Callable[[Match[str]], str],
         string: str,
-        count: int = ...,
-        flags: int = ...,
-        pos: int | None = ...,
-        endpos: int | None = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        count: int = 0,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        timeout: float | None = None,
     ) -> tuple[str, int]: ...
     @overload
     def subn(
         self: Pattern[bytes],
         repl: ReadableBuffer | Callable[[Match[bytes]], ReadableBuffer],
         string: ReadableBuffer,
-        count: int = ...,
-        flags: int = ...,
-        pos: int | None = ...,
-        endpos: int | None = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        count: int = 0,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        timeout: float | None = None,
     ) -> tuple[bytes, int]: ...
     @overload
     def subfn(
         self: Pattern[str],
         format: str | Callable[[Match[str]], str],
         string: str,
-        count: int = ...,
-        flags: int = ...,
-        pos: int | None = ...,
-        endpos: int | None = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        count: int = 0,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        timeout: float | None = None,
     ) -> tuple[str, int]: ...
     @overload
     def subfn(
         self: Pattern[bytes],
         format: ReadableBuffer | Callable[[Match[bytes]], ReadableBuffer],
         string: ReadableBuffer,
-        count: int = ...,
-        flags: int = ...,
-        pos: int | None = ...,
-        endpos: int | None = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        count: int = 0,
+        pos: int | None = None,
+        endpos: int | None = None,
+        concurrent: bool | None = None,
+        timeout: float | None = None,
     ) -> tuple[bytes, int]: ...
     @overload
     def scanner(
         self: Pattern[str],
         string: str,
-        pos: int | None = ...,
-        endpos: int | None = ...,
-        overlapped: bool = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        pos: int | None = None,
+        endpos: int | None = None,
+        overlapped: bool = False,
+        concurrent: bool | None = None,
+        partial: bool = False,
+        timeout: float | None = None,
     ) -> _regex.Scanner[str]: ...
     @overload
     def scanner(
         self: Pattern[bytes],
         string: bytes,
-        pos: int | None = ...,
-        endpos: int | None = ...,
-        overlapped: bool = ...,
-        concurrent: bool | None = ...,
-        timeout: float | None = ...,
+        pos: int | None = None,
+        endpos: int | None = None,
+        overlapped: bool = False,
+        concurrent: bool | None = None,
+        partial: bool = False,
+        timeout: float | None = None,
     ) -> _regex.Scanner[bytes]: ...
     def __copy__(self) -> Self: ...
     def __deepcopy__(self) -> Self: ...
