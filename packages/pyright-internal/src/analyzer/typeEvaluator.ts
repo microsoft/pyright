@@ -11965,7 +11965,8 @@ export function createTypeEvaluator(
                       EvaluatorFlags.EvaluateStringLiteralAsType |
                       EvaluatorFlags.DisallowParamSpec |
                       EvaluatorFlags.DisallowTypeVarTuple |
-                      EvaluatorFlags.DisallowFinal
+                      EvaluatorFlags.DisallowFinal |
+                      EvaluatorFlags.DoNotSpecialize
                     : EvaluatorFlags.DoNotSpecialize | EvaluatorFlags.DisallowFinal;
                 const exprTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
