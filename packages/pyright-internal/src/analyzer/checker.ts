@@ -2515,6 +2515,17 @@ export class Checker extends ParseTreeWalker {
             nameWalker.walk(node.returnTypeAnnotation);
         }
 
+        if (node.functionAnnotationComment) {
+            node.functionAnnotationComment.paramTypeAnnotations.forEach((expr) => {
+                nameWalker.walk(expr);
+            });
+
+            if (node.functionAnnotationComment.returnTypeAnnotation) {
+                exemptBoundTypeVar = false;
+                nameWalker.walk(node.functionAnnotationComment.returnTypeAnnotation);
+            }
+        }
+
         localTypeVarUsage.forEach((usage) => {
             // Report error for local type variable that appears only once.
             if (usage.nodes.length === 1 && !usage.isExempt) {

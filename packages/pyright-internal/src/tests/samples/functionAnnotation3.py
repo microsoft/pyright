@@ -11,15 +11,15 @@ class ClassA:
     foo: str
 
     def method0(self, a, b):
-        # type: (_T, str, ClassB) -> str
+        # type: (_T, str, list[_T]) -> str
         return self.foo
 
     def method1(self, a, b):
-        # type: (_T, str, int) -> ClassB
+        # type: (_T, str, list[_T]) -> ClassB
         return ClassB()
 
     # Too many annotations
-    def method2(self, a, b):  # type: (_T, str, int, int) -> str
+    def method2(self, a, b):  # type: (_T, str, int, list[_T]) -> str
         return ""
 
     # Too few annotations
@@ -33,5 +33,4 @@ class ClassA:
         return self.foo
 
 
-class ClassB:
-    ...
+class ClassB: ...
