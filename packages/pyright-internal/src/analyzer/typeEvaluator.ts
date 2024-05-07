@@ -17926,6 +17926,16 @@ export function createTypeEvaluator(
             }
         }
 
+        // If the function contains an *args and a **kwargs parameter and both
+        // are annotated as Any or are unannotated, make it exempt from
+        // args/kwargs compatibility checks.
+        const variadicsWithAnyType = functionType.details.parameters.filter(
+            (param) => param.category !== ParameterCategory.Simple && param.name && isAnyOrUnknown(param.type)
+        );
+        if (variadicsWithAnyType.length >= 2) {
+            functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+        }
+
         // If there was a defined return type, analyze that first so when we
         // walk the contents of the function, return statements can be
         // validated against this type.
