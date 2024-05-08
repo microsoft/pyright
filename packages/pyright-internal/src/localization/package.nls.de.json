@@ -597,7 +597,7 @@
         "unpackNotAllowed": "\"Unpack\" ist in diesem Kontext nicht zulässig.",
         "unpackOperatorNotAllowed": "Der Entpackvorgang ist in diesem Kontext nicht zulässig.",
         "unpackTuplesIllegal": "Der Entpackvorgang ist in Tupeln vor Python 3.8 nicht zulässig.",
-        "unpackedArgInTypeArgument": "Ungepackte Argumente können nicht in Typargumentlisten verwendet werden.",
+        "unpackedArgInTypeArgument": "Nicht gepackte Argumente können in diesem Kontext nicht verwendet werden.",
         "unpackedArgWithVariadicParam": "Das nicht gepackte Argument kann nicht für den Parameter \"TypeVarTuple\" verwendet werden.",
         "unpackedDictArgumentNotMapping": "Der Argumentausdruck nach ** muss eine Zuordnung mit dem Schlüsseltyp \"str\" sein.",
         "unpackedDictSubscriptIllegal": "Der Operator zum Entpacken des Wörterbuchs in tiefgestellten Zeichen ist nicht zulässig.",

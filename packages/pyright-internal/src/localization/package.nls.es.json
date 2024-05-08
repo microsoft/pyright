@@ -597,7 +597,7 @@
         "unpackNotAllowed": "El desempaquetado no está permitido en este contexto",
         "unpackOperatorNotAllowed": "La operación de desempaquetado no está permitida en este contexto",
         "unpackTuplesIllegal": "Operación de desempaquetado no permitida en tuplas anteriores a Python 3.8",
-        "unpackedArgInTypeArgument": "Los argumentos sin empaquetar no pueden utilizarse en listas de argumentos de tipo",
+        "unpackedArgInTypeArgument": "No se pueden usar argumentos sin empaquetar en este contexto",
         "unpackedArgWithVariadicParam": "No se puede usar un argumento desempaquetado para el parámetro TypeVarTuple",
         "unpackedDictArgumentNotMapping": "La expresión del argumento después de ** debe ser un mapeo con un tipo de clave \"str\".",
         "unpackedDictSubscriptIllegal": "El operador de desempaquetado del diccionario en el subíndice no está permitido",

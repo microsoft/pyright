@@ -597,7 +597,7 @@
         "unpackNotAllowed": "アンパックはこのコンテキストでは許可されていません",
         "unpackOperatorNotAllowed": "このコンテキストではアンパック操作は許可されていません",
         "unpackTuplesIllegal": "Python 3.8 より前のタプルではアンパック操作は許可されていません",
-        "unpackedArgInTypeArgument": "アンパックされた引数は、型引数リストでは使用できません",
+        "unpackedArgInTypeArgument": "アンパックされた引数は、このコンテキストでは使用できません",
         "unpackedArgWithVariadicParam": "アンパックされた引数は TypeVarTuple パラメーターには使用できません",
         "unpackedDictArgumentNotMapping": "** の後の引数式は、\"str\" キー型のマッピングである必要があります",
         "unpackedDictSubscriptIllegal": "下付き文字の辞書アンパック演算子は使用できません",

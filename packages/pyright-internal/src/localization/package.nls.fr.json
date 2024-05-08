@@ -597,7 +597,7 @@
         "unpackNotAllowed": "Le décompression n’est pas autorisé dans ce contexte",
         "unpackOperatorNotAllowed": "L’opération de décompression n’est pas autorisée dans ce contexte",
         "unpackTuplesIllegal": "Opération de décompression non autorisée dans les tuples avant Python 3.8",
-        "unpackedArgInTypeArgument": "Les arguments décompressés ne peuvent pas être utilisés dans les listes d’arguments de type",
+        "unpackedArgInTypeArgument": "Les arguments décompressés ne peuvent pas être utilisés dans ce contexte",
         "unpackedArgWithVariadicParam": "L'argument décompressé ne peut pas être utilisé pour le paramètre TypeVarTuple",
         "unpackedDictArgumentNotMapping": "L’expression d’argument après ** doit être un mappage avec un type de clé « str »",
         "unpackedDictSubscriptIllegal": "L’opérateur de décompression de dictionnaire dans l’indice n’est pas autorisé",

@@ -564,6 +564,7 @@ export class ImportResolver {
             return importResult;
         }
 
+        const localImportFailureInfo: string[] = [`Attempting to resolve using local imports: ${importName}`];
         const importPath: ImportPath = { importPath: undefined };
 
         // Going up the given folder one by one until we can resolve the import.
@@ -575,7 +576,7 @@ export class ImportResolver {
                 execEnv,
                 moduleDescriptor,
                 importName,
-                [],
+                localImportFailureInfo,
                 /* allowPartial */ undefined,
                 /* allowNativeLib */ undefined,
                 /* useStubPackage */ false,
@@ -603,6 +604,12 @@ export class ImportResolver {
         if (current) {
             this.cachedParentImportResults.checked(current, importName, importPath);
         }
+
+        if (this._configOptions.verboseOutput) {
+            const console = this.serviceProvider.console();
+            localImportFailureInfo.forEach((diag) => console.log(diag));
+        }
+
         return importResult;
     }
 

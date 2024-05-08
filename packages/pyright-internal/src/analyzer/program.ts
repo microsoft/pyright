@@ -1505,7 +1505,7 @@ export class Program {
         assert(!this._sourceFileMap.has(fileUri.key));
 
         // We should never have an empty URI for a source file.
-        assert(!fileInfo.sourceFile.getUri().isEmpty());
+        assert(!fileUri.isEmpty());
 
         this._sourceFileList.push(fileInfo);
         this._sourceFileMap.set(fileUri.key, fileInfo);

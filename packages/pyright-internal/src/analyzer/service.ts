@@ -1086,7 +1086,7 @@ export class AnalyzerService {
                     this._typeStubTargetUri = rootPackagePath.getDirectory();
                 }
 
-                if (!finalResolvedPath) {
+                if (finalResolvedPath.isEmpty()) {
                     this._typeStubTargetIsSingleFile = false;
                 } else {
                     filesToImport.push(finalResolvedPath);

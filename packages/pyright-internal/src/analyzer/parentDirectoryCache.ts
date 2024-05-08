@@ -30,8 +30,7 @@ export class ParentDirectoryCache {
         const result = this._cachedResults.get(importName)?.get(path.key);
         if (result) {
             // We already checked for the importName at the path.
-            // Return the result if succeeded otherwise, return regular import result given.
-            return result ?? importResult;
+            return result;
         }
 
         const checked = this._importChecked.get(importName)?.get(path.key);

@@ -1709,28 +1709,41 @@ export function lookUpClassMember(
     flags = MemberAccessFlags.Default,
     skipMroClass?: ClassType | undefined
 ): ClassMember | undefined {
+    const resultItr = lookUpClassMembers(classType, memberName, flags, skipMroClass);
+    return resultItr.next()?.value;
+}
+
+// Looks up a member in a class using the multiple-inheritance rules
+// defined by Python.
+export function* lookUpClassMembers(
+    classType: ClassType,
+    memberName: string,
+    flags = MemberAccessFlags.Default,
+    skipMroClass?: ClassType | undefined
+) {
     // Look in the metaclass first.
     const metaclass = classType.details.effectiveMetaclass;
 
     // Skip the "type" class as an optimization because it is known to not
     // define any instance variables, and it's by far the most common metaclass.
     if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
-        const metaMemberItr = getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers);
-        const metaMember = metaMemberItr.next()?.value;
-
-        // If the metaclass defines the member and we didn't hit an Unknown
-        // class in the metaclass MRO, use the metaclass member.
-        if (metaMember && !isAnyOrUnknown(metaMember.classType)) {
-            // Set the isClassMember to true because it's a class member from the
-            // perspective of the classType.
-            metaMember.isClassMember = true;
-            return metaMember;
+        for (const metaMember of getClassMemberIterator(metaclass, memberName, MemberAccessFlags.SkipClassMembers)) {
+            // If the metaclass defines the member and we didn't hit an Unknown
+            // class in the metaclass MRO, use the metaclass member.
+            if (metaMember && !isAnyOrUnknown(metaMember.classType)) {
+                // Set the isClassMember to true because it's a class member from the
+                // perspective of the classType.
+                metaMember.isClassMember = true;
+                yield metaMember;
+            }
         }
     }
 
-    const memberItr = getClassMemberIterator(classType, memberName, flags, skipMroClass);
+    for (const member of getClassMemberIterator(classType, memberName, flags, skipMroClass)) {
+        yield member;
+    }
 
-    return memberItr.next()?.value;
+    return undefined;
 }
 
 // Iterates members in a class matching memberName using the multiple-inheritance rules.
