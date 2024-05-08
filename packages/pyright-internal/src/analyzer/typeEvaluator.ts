@@ -14897,7 +14897,13 @@ export function createTypeEvaluator(
             literalTypes.push(type);
         }
 
-        return combineTypes(literalTypes);
+        let result = combineTypes(literalTypes);
+
+        if (isUnion(result) && unionClassType && isInstantiableClass(unionClassType)) {
+            result = TypeBase.cloneAsSpecialForm(result, ClassType.cloneAsInstance(unionClassType));
+        }
+
+        return result;
     }
 
     // Creates a ClassVar type.
