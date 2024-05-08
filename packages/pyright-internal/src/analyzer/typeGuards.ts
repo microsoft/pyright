@@ -1935,6 +1935,11 @@ function narrowTypeForTupleLength(
             return expandUnboundedTupleElement(concreteSubtype, elementsToAdd, /* keepUnbounded */ false);
         }
 
+        // If this is a tuple related to an "*args: P.args" parameter, don't expand it.
+        if (isParamSpec(subtype) && subtype.paramSpecAccess) {
+            return subtype;
+        }
+
         // Place an upper limit on the number of union subtypes we
         // will expand the tuple to.
         const maxTupleUnionExpansion = 32;
