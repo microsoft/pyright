@@ -17330,13 +17330,25 @@ export function createTypeEvaluator(
         const errorNode = argList.length > 0 ? argList[0].node?.name ?? node.name : node.name;
         let newMethodMember: ClassMember | undefined;
 
+        // See if the class has a metaclass that overrides `__new__`. If so, we
+        // will validate the signature of the `__new__` method.
         if (classType.details.effectiveMetaclass && isClass(classType.details.effectiveMetaclass)) {
-            // See if the metaclass has a `__new__` method that accepts keyword parameters.
-            newMethodMember = lookUpClassMember(
-                classType.details.effectiveMetaclass,
-                '__new__',
-                MemberAccessFlags.SkipTypeBaseClass
-            );
+            // If the metaclass is 'type' or 'ABCMeta', we'll assume it will call through to
+            // __init_subclass__, so we'll skip the `__new__` method check. We need to exclude
+            // TypedDict classes here because _TypedDict uses ABCMeta as its metaclass, but its
+            // typeshed definition doesn't override __init_subclass__.
+            const metaclassCallsInitSubclass =
+                ClassType.isBuiltIn(classType.details.effectiveMetaclass, ['ABCMeta', 'type']) &&
+                !ClassType.isTypedDictClass(classType);
+
+            if (!metaclassCallsInitSubclass) {
+                // See if the metaclass has a `__new__` method that accepts keyword parameters.
+                newMethodMember = lookUpClassMember(
+                    classType.details.effectiveMetaclass,
+                    '__new__',
+                    MemberAccessFlags.SkipTypeBaseClass
+                );
+            }
         }
 
         if (newMethodMember) {
