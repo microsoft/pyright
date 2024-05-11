@@ -2,12 +2,11 @@
 # when applied to functions that appear within a conditional expression.
 
 
-from typing import Any
+from typing import Any, Coroutine
 from dataclasses import dataclass
 
 
-def cond() -> bool:
-    ...
+def cond() -> bool: ...
 
 
 # This should generate a diagnostic when reportUnnecessaryComparison is enabled.
@@ -76,4 +75,13 @@ async def func4() -> bool:
 async def func5() -> None:
     # This should generate an error if reportUnnecessaryComparison is enabled.
     if func4():
+        pass
+
+
+def func6() -> Coroutine[Any, Any, int] | None: ...
+
+
+def func7():
+    coro = func6()
+    if coro:
         pass

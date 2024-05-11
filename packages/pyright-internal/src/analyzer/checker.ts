@@ -1868,7 +1868,7 @@ export class Checker extends ParseTreeWalker {
 
         const exprTypeResult = this._evaluator.getTypeOfExpression(expression);
         let isExprFunction = true;
-        let isCoroutine = false;
+        let isCoroutine = true;
 
         doForEachSubtype(exprTypeResult.type, (subtype) => {
             subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
@@ -1877,8 +1877,8 @@ export class Checker extends ParseTreeWalker {
                 isExprFunction = false;
             }
 
-            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'Coroutine')) {
-                isCoroutine = true;
+            if (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, 'Coroutine')) {
+                isCoroutine = false;
             }
         });
 
