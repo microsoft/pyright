@@ -4528,7 +4528,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const declarations = this._evaluator.getDeclarationsForNameNode(node);
+        // Get the declarations for this name node, but filter out
+        // any variable declarations that are bound using nonlocal
+        // or global explicit bindings.
+        const declarations = this._evaluator
+            .getDeclarationsForNameNode(node)
+            ?.filter((decl) => decl.type !== DeclarationType.Variable || !decl.isExplicitBinding);
 
         let primaryDeclaration =
             declarations && declarations.length > 0 ? declarations[declarations.length - 1] : undefined;
