@@ -12591,13 +12591,11 @@ export function createTypeEvaluator(
     }
 
     function getParamSpecDefaultType(node: ExpressionNode, isPep695Syntax: boolean): Type | undefined {
-        const functionType = FunctionType.createSynthesizedInstance(
-            '',
-            FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck | FunctionTypeFlags.ParamSpecValue
-        );
+        const functionType = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.ParamSpecValue);
 
         if (node.nodeType === ParseNodeType.Ellipsis) {
             FunctionType.addDefaultParameters(functionType);
+            functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
             return functionType;
         }
 
