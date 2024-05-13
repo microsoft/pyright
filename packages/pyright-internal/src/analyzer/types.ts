@@ -3068,6 +3068,14 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
+            // If one function is ... and the other is not, they are not the same.
+            if (
+                FunctionType.shouldSkipArgsKwargsCompatibilityCheck(type1) !==
+                FunctionType.shouldSkipArgsKwargsCompatibilityCheck(functionType2)
+            ) {
+                return false;
+            }
+
             const positionOnlyIndex1 = params1.findIndex((param) => isPositionOnlySeparator(param));
             const positionOnlyIndex2 = params2.findIndex((param) => isPositionOnlySeparator(param));
 

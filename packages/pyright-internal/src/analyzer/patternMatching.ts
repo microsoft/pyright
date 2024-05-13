@@ -80,8 +80,8 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     preserveUnknown,
-    specializeClassType,
     specializeTupleClass,
+    specializeWithUnknownTypeArgs,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -674,7 +674,7 @@ function narrowTypeBasedOnClassPattern(
     // specialize it with Unknown type arguments.
     if (isClass(exprType) && !exprType.typeAliasInfo) {
         exprType = ClassType.cloneRemoveTypePromotions(exprType);
-        exprType = specializeClassType(exprType);
+        exprType = specializeWithUnknownTypeArgs(exprType);
     }
 
     // Are there any positional arguments? If so, try to get the mappings for

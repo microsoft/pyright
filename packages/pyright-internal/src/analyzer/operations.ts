@@ -1031,7 +1031,27 @@ export function getTypeOfUnaryOperation(
                 type = exprType;
             } else {
                 const magicMethodName = unaryOperatorMap[node.operator];
-                type = evaluator.getTypeOfMagicMethodCall(exprType, magicMethodName, [], node, inferenceContext);
+                let isResultValid = true;
+
+                type = evaluator.mapSubtypesExpandTypeVars(exprType, /* options */ undefined, (subtypeExpanded) => {
+                    const result = evaluator.getTypeOfMagicMethodCall(
+                        subtypeExpanded,
+                        magicMethodName,
+                        [],
+                        node,
+                        inferenceContext
+                    );
+
+                    if (!result) {
+                        isResultValid = false;
+                    }
+
+                    return result;
+                });
+
+                if (!isResultValid) {
+                    type = undefined;
+                }
             }
 
             if (!type) {

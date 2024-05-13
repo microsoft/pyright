@@ -436,3 +436,5 @@ LC_MESSAGES="en-us"
 LANG="zh-cn"
 LANGUAGE="fr"
 ```
+
+When running in VS Code, the IDE's locale takes precedence. Setting these environment variables applies only when using pyright outside of VS code.

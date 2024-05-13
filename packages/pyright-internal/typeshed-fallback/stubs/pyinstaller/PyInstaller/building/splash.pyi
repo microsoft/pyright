@@ -30,7 +30,7 @@ class Splash(Target):
         binaries: list[_TOCTuple],
         datas: list[_TOCTuple],
         *,
-        text_pos: tuple[int, int] = ...,
+        text_pos: tuple[int, int] | None = ...,
         text_size: int = 12,
         text_font: str = ...,
         text_color: str = "black",

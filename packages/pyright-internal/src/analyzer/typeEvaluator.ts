@@ -7577,16 +7577,16 @@ export function createTypeEvaluator(
 
             if (value < 0) {
                 value = tupleTypeArgs.length + value;
-                if (value < 0) {
+                if (unboundedIndex >= 0 && value <= unboundedIndex) {
                     return undefined;
-                } else if (unboundedIndex >= 0 && value <= unboundedIndex) {
-                    return undefined;
+                } else if (value < 0) {
+                    return 0;
                 }
             } else {
-                if (value > tupleTypeArgs.length) {
+                if (unboundedIndex >= 0 && value > unboundedIndex) {
                     return undefined;
-                } else if (unboundedIndex >= 0 && value > unboundedIndex) {
-                    return undefined;
+                } else if (value > tupleTypeArgs.length) {
+                    return tupleTypeArgs.length;
                 }
             }
         }
@@ -9710,23 +9710,29 @@ export function createTypeEvaluator(
                 if (expandedCallType.details.name === 'type' && argList.length === 1) {
                     const argType = getTypeOfArgument(argList[0]).type;
                     const returnType = mapSubtypes(argType, (subtype) => {
-                        if (isInstantiableClass(subtype)) {
-                            return subtype.details.effectiveMetaclass ?? AnyType.create();
+                        if (isInstantiableClass(subtype) && subtype.details.effectiveMetaclass) {
+                            return subtype.details.effectiveMetaclass;
                         }
 
-                        if (
-                            isClassInstance(subtype) ||
-                            (isTypeVar(subtype) && TypeBase.isInstance(subtype)) ||
-                            isNoneInstance(subtype)
-                        ) {
-                            return convertToInstantiable(stripLiteralValue(subtype));
+                        if (isNever(subtype)) {
+                            return subtype;
                         }
 
-                        if (isFunction(subtype) && TypeBase.isInstance(subtype)) {
-                            return FunctionType.cloneAsInstantiable(subtype);
+                        if (TypeBase.isInstance(subtype)) {
+                            if (isClass(subtype) || isTypeVar(subtype)) {
+                                return convertToInstantiable(stripLiteralValue(subtype));
+                            }
+
+                            if (isFunction(subtype)) {
+                                return FunctionType.cloneAsInstantiable(subtype);
+                            }
                         }
 
-                        return AnyType.create();
+                        return ClassType.cloneForSpecialization(
+                            ClassType.cloneAsInstance(expandedCallType),
+                            [UnknownType.create()],
+                            /* isTypeArgumentExplicit */ true
+                        );
                     });
 
                     return { returnType };
@@ -12592,13 +12598,11 @@ export function createTypeEvaluator(
     }
 
     function getParamSpecDefaultType(node: ExpressionNode, isPep695Syntax: boolean): Type | undefined {
-        const functionType = FunctionType.createSynthesizedInstance(
-            '',
-            FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck | FunctionTypeFlags.ParamSpecValue
-        );
+        const functionType = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.ParamSpecValue);
 
         if (node.nodeType === ParseNodeType.Ellipsis) {
             FunctionType.addDefaultParameters(functionType);
+            functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
             return functionType;
         }
 
@@ -14898,7 +14902,13 @@ export function createTypeEvaluator(
             literalTypes.push(type);
         }
 
-        return combineTypes(literalTypes);
+        let result = combineTypes(literalTypes);
+
+        if (isUnion(result) && unionClassType && isInstantiableClass(unionClassType)) {
+            result = TypeBase.cloneAsSpecialForm(result, ClassType.cloneAsInstance(unionClassType));
+        }
+
+        return result;
     }
 
     // Creates a ClassVar type.
@@ -17325,13 +17335,25 @@ export function createTypeEvaluator(
         const errorNode = argList.length > 0 ? argList[0].node?.name ?? node.name : node.name;
         let newMethodMember: ClassMember | undefined;
 
+        // See if the class has a metaclass that overrides `__new__`. If so, we
+        // will validate the signature of the `__new__` method.
         if (classType.details.effectiveMetaclass && isClass(classType.details.effectiveMetaclass)) {
-            // See if the metaclass has a `__new__` method that accepts keyword parameters.
-            newMethodMember = lookUpClassMember(
-                classType.details.effectiveMetaclass,
-                '__new__',
-                MemberAccessFlags.SkipTypeBaseClass
-            );
+            // If the metaclass is 'type' or 'ABCMeta', we'll assume it will call through to
+            // __init_subclass__, so we'll skip the `__new__` method check. We need to exclude
+            // TypedDict classes here because _TypedDict uses ABCMeta as its metaclass, but its
+            // typeshed definition doesn't override __init_subclass__.
+            const metaclassCallsInitSubclass =
+                ClassType.isBuiltIn(classType.details.effectiveMetaclass, ['ABCMeta', 'type']) &&
+                !ClassType.isTypedDictClass(classType);
+
+            if (!metaclassCallsInitSubclass) {
+                // See if the metaclass has a `__new__` method that accepts keyword parameters.
+                newMethodMember = lookUpClassMember(
+                    classType.details.effectiveMetaclass,
+                    '__new__',
+                    MemberAccessFlags.SkipTypeBaseClass
+                );
+            }
         }
 
         if (newMethodMember) {
@@ -17925,6 +17947,16 @@ export function createTypeEvaluator(
             ) {
                 functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
             }
+        }
+
+        // If the function contains an *args and a **kwargs parameter and both
+        // are annotated as Any or are unannotated, make it exempt from
+        // args/kwargs compatibility checks.
+        const variadicsWithAnyType = functionType.details.parameters.filter(
+            (param) => param.category !== ParameterCategory.Simple && param.name && isAnyOrUnknown(param.type)
+        );
+        if (variadicsWithAnyType.length >= 2) {
+            functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
         }
 
         // If there was a defined return type, analyze that first so when we

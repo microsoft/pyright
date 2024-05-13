@@ -72,7 +72,7 @@ class Class5(metaclass=Meta1):
 
 
 r5 = accepts_callable(Class5)
-reveal_type(r5, expected_text="(*args: Any, **kwargs: Any) -> NoReturn")
+reveal_type(r5, expected_text="(...) -> NoReturn")
 
 
 class Class6Proxy: ...

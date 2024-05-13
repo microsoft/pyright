@@ -202,5 +202,6 @@ export const pythonVersion3_10 = new PythonVersion(3, 10);
 export const pythonVersion3_11 = new PythonVersion(3, 11);
 export const pythonVersion3_12 = new PythonVersion(3, 12);
 export const pythonVersion3_13 = new PythonVersion(3, 13);
+export const pythonVersion3_14 = new PythonVersion(3, 14);
 
 export const latestStablePythonVersion = pythonVersion3_12;

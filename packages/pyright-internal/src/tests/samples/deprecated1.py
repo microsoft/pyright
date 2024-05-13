@@ -44,7 +44,7 @@ from typing import (
     Match as M1,
 )
 
-from collections.abc import Collection, ByteString
+from collections.abc import Collection, ByteString, Set as AS
 from contextlib import AbstractContextManager
 from re import Pattern, Match
 

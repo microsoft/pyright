@@ -1072,9 +1072,9 @@ export class SourceFile {
                 const range = convertOffsetsToRange(rangeStart, rangeEnd, this._writableData.tokenizerLines!);
 
                 if (!isUnreachableCodeRange(range) && this._diagnosticRuleSet.enableTypeIgnoreComments) {
-                    unnecessaryTypeIgnoreDiags.push(
-                        new Diagnostic(diagCategory, LocMessage.unnecessaryTypeIgnore(), range)
-                    );
+                    const diag = new Diagnostic(diagCategory, LocMessage.unnecessaryTypeIgnore(), range);
+                    diag.setRule(DiagnosticRule.reportUnnecessaryTypeIgnoreComment);
+                    unnecessaryTypeIgnoreDiags.push(diag);
                 }
             }
 
@@ -1085,9 +1085,9 @@ export class SourceFile {
                     const range = convertOffsetsToRange(rangeStart, rangeEnd, this._writableData.tokenizerLines!);
 
                     if (!isUnreachableCodeRange(range) && this._diagnosticRuleSet.enableTypeIgnoreComments) {
-                        unnecessaryTypeIgnoreDiags.push(
-                            new Diagnostic(diagCategory, LocMessage.unnecessaryTypeIgnore(), range)
-                        );
+                        const diag = new Diagnostic(diagCategory, LocMessage.unnecessaryTypeIgnore(), range);
+                        diag.setRule(DiagnosticRule.reportUnnecessaryTypeIgnoreComment);
+                        unnecessaryTypeIgnoreDiags.push(diag);
                     }
                 }
             });
@@ -1100,9 +1100,9 @@ export class SourceFile {
                         const range = convertOffsetsToRange(rangeStart, rangeEnd, this._writableData.tokenizerLines!);
 
                         if (!isUnreachableCodeRange(range)) {
-                            unnecessaryTypeIgnoreDiags.push(
-                                new Diagnostic(diagCategory, LocMessage.unnecessaryPyrightIgnore(), range)
-                            );
+                            const diag = new Diagnostic(diagCategory, LocMessage.unnecessaryTypeIgnore(), range);
+                            diag.setRule(DiagnosticRule.reportUnnecessaryTypeIgnoreComment);
+                            unnecessaryTypeIgnoreDiags.push(diag);
                         }
                     } else {
                         ignoreComment.rulesList.forEach((unusedRule) => {
@@ -1115,15 +1115,15 @@ export class SourceFile {
                             );
 
                             if (!isUnreachableCodeRange(range)) {
-                                unnecessaryTypeIgnoreDiags.push(
-                                    new Diagnostic(
-                                        diagCategory,
-                                        LocMessage.unnecessaryPyrightIgnoreRule().format({
-                                            name: unusedRule.text,
-                                        }),
-                                        range
-                                    )
+                                const diag = new Diagnostic(
+                                    diagCategory,
+                                    LocMessage.unnecessaryPyrightIgnoreRule().format({
+                                        name: unusedRule.text,
+                                    }),
+                                    range
                                 );
+                                diag.setRule(DiagnosticRule.reportUnnecessaryTypeIgnoreComment);
+                                unnecessaryTypeIgnoreDiags.push(diag);
                             }
                         });
                     }

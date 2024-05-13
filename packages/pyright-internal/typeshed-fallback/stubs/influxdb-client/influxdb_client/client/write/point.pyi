@@ -18,7 +18,7 @@ class Point:
     def measurement(measurement: str) -> Point: ...
     @staticmethod
     def from_dict(
-        dictionary: SupportsGetItem[str, Any],
+        dictionary: SupportsGetItem[str, Any],  # TODO: Use SupportsContainsAndGetItem
         write_precision: _WritePrecision = "ns",
         *,
         record_measurement_name: str | None = ...,

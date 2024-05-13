@@ -31,7 +31,9 @@ class Lazy(Generic[_T]):
 
 class readproperty(Generic[_T]):
     func: Callable[[Any], _T]
-    def __init__(self: readproperty[_T], func: Callable[[Any], _T]) -> None: ...
+    def __init__(
+        self: readproperty[_T], func: Callable[[Any], _T]  # pyright: ignore[reportInvalidTypeVarUse]  #11780
+    ) -> None: ...
     @overload
     def __get__(self, inst: None, class_: type[object]) -> Self: ...
     @overload

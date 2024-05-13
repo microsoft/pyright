@@ -177,7 +177,7 @@ class _patch(Generic[_T]):
     kwargs: Mapping[str, Any]
     additional_patchers: Any
     def __init__(
-        self: _patch[_T],
+        self: _patch[_T],  # pyright: ignore[reportInvalidTypeVarUse]  #11780
         getter: Callable[[], Any],
         attribute: str,
         new: _T,

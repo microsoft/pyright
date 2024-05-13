@@ -308,7 +308,7 @@ class ConnectionPool(Generic[_ConnectionT]):
 
     @overload
     def __init__(
-        self: ConnectionPool[_ConnectionT],
+        self: ConnectionPool[_ConnectionT],  # pyright: ignore[reportInvalidTypeVarUse]  #11780
         connection_class: type[_ConnectionT],
         max_connections: int | None = None,
         # **kwargs are passed to the constructed connection instances.
@@ -332,7 +332,7 @@ class BlockingConnectionPool(ConnectionPool[_ConnectionT]):
 
     @overload
     def __init__(
-        self: BlockingConnectionPool[_ConnectionT],
+        self: BlockingConnectionPool[_ConnectionT],  # pyright: ignore[reportInvalidTypeVarUse]  #11780
         max_connections: int,
         timeout: int | None,
         connection_class: type[_ConnectionT],
@@ -342,7 +342,7 @@ class BlockingConnectionPool(ConnectionPool[_ConnectionT]):
     ) -> None: ...
     @overload
     def __init__(
-        self: BlockingConnectionPool[_ConnectionT],
+        self: BlockingConnectionPool[_ConnectionT],  # pyright: ignore[reportInvalidTypeVarUse]  #11780
         max_connections: int = 50,
         timeout: int | None = 20,
         *,

@@ -252,7 +252,7 @@
         "incompatibleMethodOverride": "\"{name}\" 메서드가 호환되지 않는 방식으로 \"{className}\" 클래스를 재정의합니다.",
         "inconsistentIndent": "들여쓰기하지 않은 양이 이전 들여쓰기와 일치하지 않습니다.",
         "inconsistentTabs": "들여쓰기에서 탭 및 공백의 일관성 없는 사용",
-        "initMethodSelfParamTypeVar": "\"__init__\" 메서드의 \"self\" 매개 변수의 형식 주석에는 클래스 범위 형식 varaiable을 포함할 수 없음",
+        "initMethodSelfParamTypeVar": "\"__init__\" 메서드의 \"self\" 매개 변수의 형식 주석에는 클래스 범위 형식 variable을 포함할 수 없음",
         "initMustReturnNone": "\"__init__\"의 반환 형식은 None이어야 합니다.",
         "initSubclassCallFailed": "__init_subclass__ 메서드의 키워드 인수가 잘못됨",
         "initSubclassClsParam": "__init_subclass__ 재정의는 \"cls\" 매개 변수를 사용해야 합니다.",

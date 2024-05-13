@@ -9,7 +9,4 @@ extra_description = """\
 """
 
 [tool.stubtest]
-# Run stubtest on MacOS as well, to check that the
-# uWSGI-specific parts of stubtest_third_party.py
-# also work there
-platforms = ["linux", "darwin"]
+platforms = ["linux"]
