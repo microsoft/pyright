@@ -1104,6 +1104,13 @@ export function specializeWithUnknownTypeArgs(type: ClassType): ClassType {
         return type;
     }
 
+    if (isTupleClass(type)) {
+        return ClassType.cloneIncludeSubclasses(
+            specializeTupleClass(type, [{ type: UnknownType.create(), isUnbounded: true }]),
+            type.includeSubclasses
+        );
+    }
+
     return ClassType.cloneForSpecialization(
         type,
         type.details.typeParameters.map((param) => getUnknownTypeForTypeVar(param)),
