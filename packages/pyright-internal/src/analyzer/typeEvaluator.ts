@@ -7577,16 +7577,16 @@ export function createTypeEvaluator(
 
             if (value < 0) {
                 value = tupleTypeArgs.length + value;
-                if (value < 0) {
+                if (unboundedIndex >= 0 && value <= unboundedIndex) {
                     return undefined;
-                } else if (unboundedIndex >= 0 && value <= unboundedIndex) {
-                    return undefined;
+                } else if (value < 0) {
+                    return 0;
                 }
             } else {
-                if (value > tupleTypeArgs.length) {
+                if (unboundedIndex >= 0 && value > unboundedIndex) {
                     return undefined;
-                } else if (unboundedIndex >= 0 && value > unboundedIndex) {
-                    return undefined;
+                } else if (value > tupleTypeArgs.length) {
+                    return tupleTypeArgs.length;
                 }
             }
         }
