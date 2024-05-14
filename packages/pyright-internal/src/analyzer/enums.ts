@@ -11,16 +11,10 @@ import { assert } from '../common/debug';
 import { ArgumentCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { VariableDeclaration } from './declaration';
-import {
-    getClassFullName,
-    getEnclosingClass,
-    getParentNodeOfType,
-    getTypeSourceId,
-    isNodeContainedWithin,
-} from './parseTreeUtils';
+import { getClassFullName, getEnclosingClass, getTypeSourceId } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName, isSingleDunderName } from './symbolNameUtils';
-import { FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { EvaluatorFlags, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
 import { MemberAccessFlags, computeMroLinearization, lookUpClassMember, makeInferenceContext } from './typeUtils';
 import {
@@ -29,6 +23,7 @@ import {
     ClassTypeFlags,
     EnumLiteral,
     Type,
+    TypeBase,
     UnknownType,
     combineTypes,
     findSubtype,
@@ -38,6 +33,7 @@ import {
     isFunction,
     isInstantiableClass,
     isOverloadedFunction,
+    maxTypeRecursionCount,
 } from './types';
 
 // Determines whether the class is an Enum metaclass or a subclass thereof.
@@ -55,16 +51,16 @@ export function isEnumClassWithMembers(evaluator: TypeEvaluator, classType: Clas
     }
 
     // Determine whether the enum class defines a member.
-    let definesValue = false;
+    let definesMember = false;
 
-    ClassType.getSymbolTable(classType).forEach((symbol) => {
-        const symbolType = evaluator.getEffectiveTypeOfSymbol(symbol);
-        if (isClassInstance(symbolType) && ClassType.isSameGenericClass(symbolType, classType)) {
-            definesValue = true;
+    ClassType.getSymbolTable(classType).forEach((symbol, name) => {
+        const symbolType = transformTypeForEnumMember(evaluator, classType, name);
+        if (symbolType && isClassInstance(symbolType) && ClassType.isSameGenericClass(symbolType, classType)) {
+            definesMember = true;
         }
     });
 
-    return definesValue;
+    return definesMember;
 }
 
 // Creates a new custom enum class with named values.
@@ -287,23 +283,32 @@ export function createEnumType(
     return classType;
 }
 
-export function transformTypeForPossibleEnumClass(
+export function transformTypeForEnumMember(
     evaluator: TypeEvaluator,
-    statementNode: ParseNode,
-    nameNode: NameNode,
-    getValueType: () => { declaredType?: Type; assignedType?: Type }
+    classType: ClassType,
+    memberName: string,
+    recursionCount = 0
 ): Type | undefined {
-    // If the node is within a class that derives from the metaclass
-    // "EnumMeta", we need to treat assignments differently.
-    const enclosingClassNode = getEnclosingClass(statementNode, /* stopAtFunction */ true);
-    if (!enclosingClassNode) {
+    if (recursionCount > maxTypeRecursionCount) {
+        return undefined;
+    }
+    recursionCount++;
+
+    if (!ClassType.isEnumClass(classType)) {
         return undefined;
     }
 
-    const enumClassInfo = evaluator.getTypeOfClass(enclosingClassNode);
-    if (!enumClassInfo || !ClassType.isEnumClass(enumClassInfo.classType)) {
+    const memberInfo = lookUpClassMember(classType, memberName);
+    if (!memberInfo || !isClass(memberInfo.classType) || !ClassType.isEnumClass(memberInfo.classType)) {
         return undefined;
     }
+
+    const decls = memberInfo.symbol.getDeclarations();
+    if (decls.length < 1) {
+        return undefined;
+    }
+
+    const primaryDecl = decls[0];
 
     // In ".py" files, the transform applies only to members that are
     // assigned within the class. In stub files, it applies to most variables
@@ -314,22 +319,36 @@ export function transformTypeForPossibleEnumClass(
     // it, we're stuck with this limitation.
     let isMemberOfEnumeration = false;
     let isUnpackedTuple = false;
+    let valueTypeExprNode: ExpressionNode | undefined;
+    let declaredTypeNode: ExpressionNode | undefined;
+    let nameNode: NameNode | undefined;
 
-    if (
-        statementNode.nodeType === ParseNodeType.Assignment &&
-        isNodeContainedWithin(nameNode, statementNode.leftExpression)
+    if (primaryDecl.node.nodeType === ParseNodeType.Name) {
+        nameNode = primaryDecl.node;
+    } else if (primaryDecl.node.nodeType === ParseNodeType.Function) {
+        // Handle the case where a method is decorated with @enum.member.
+        nameNode = primaryDecl.node.name;
+    } else {
+        return undefined;
+    }
+
+    if (nameNode.parent?.nodeType === ParseNodeType.Assignment && nameNode.parent.leftExpression === nameNode) {
+        isMemberOfEnumeration = true;
+        valueTypeExprNode = nameNode.parent.rightExpression;
+    } else if (
+        nameNode.parent?.nodeType === ParseNodeType.Tuple &&
+        nameNode.parent.parent?.nodeType === ParseNodeType.Assignment
     ) {
         isMemberOfEnumeration = true;
-
-        if (getParentNodeOfType(nameNode, ParseNodeType.Tuple)) {
-            isUnpackedTuple = true;
-        }
+        isUnpackedTuple = true;
+        valueTypeExprNode = nameNode.parent.parent.rightExpression;
     } else if (
         getFileInfo(nameNode).isStubFile &&
         nameNode.parent?.nodeType === ParseNodeType.TypeAnnotation &&
         nameNode.parent.valueExpression === nameNode
     ) {
         isMemberOfEnumeration = true;
+        declaredTypeNode = nameNode.parent.typeAnnotation;
     }
 
     // The spec specifically excludes names that start and end with a single underscore.
@@ -343,9 +362,39 @@ export function transformTypeForPossibleEnumClass(
         return undefined;
     }
 
-    const valueTypeInfo = getValueType();
-    const declaredType = valueTypeInfo.declaredType;
-    let assignedType = valueTypeInfo.assignedType;
+    const declaredType = declaredTypeNode ? evaluator.getTypeOfAnnotation(declaredTypeNode) : undefined;
+    let assignedType: Type | undefined;
+
+    if (valueTypeExprNode) {
+        const evalFlags = getFileInfo(valueTypeExprNode).isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined;
+        assignedType = evaluator.getTypeOfExpression(valueTypeExprNode, evalFlags).type;
+    }
+
+    // Handle aliases to other enum members within the same enum.
+    if (valueTypeExprNode?.nodeType === ParseNodeType.Name && valueTypeExprNode.value !== memberName) {
+        const aliasedEnumType = transformTypeForEnumMember(
+            evaluator,
+            classType,
+            valueTypeExprNode.value,
+            recursionCount
+        );
+
+        if (
+            aliasedEnumType &&
+            isClassInstance(aliasedEnumType) &&
+            ClassType.isSameGenericClass(aliasedEnumType, ClassType.cloneAsInstance(memberInfo.classType)) &&
+            aliasedEnumType.literalValue !== undefined
+        ) {
+            return aliasedEnumType;
+        }
+    }
+
+    if (primaryDecl.node.nodeType === ParseNodeType.Function) {
+        const functionType = evaluator.getTypeOfFunction(primaryDecl.node);
+        if (functionType) {
+            assignedType = functionType.decoratedType;
+        }
+    }
 
     let valueType = declaredType ?? assignedType ?? UnknownType.create();
 
@@ -377,9 +426,13 @@ export function transformTypeForPossibleEnumClass(
         return undefined;
     }
 
-    if (!assignedType && statementNode.nodeType === ParseNodeType.Assignment) {
+    if (
+        !assignedType &&
+        nameNode.parent?.nodeType === ParseNodeType.Assignment &&
+        nameNode.parent.leftExpression === nameNode
+    ) {
         assignedType = evaluator.getTypeOfExpression(
-            statementNode.rightExpression,
+            nameNode.parent.rightExpression,
             /* flags */ undefined,
             makeInferenceContext(declaredType)
         ).type;
@@ -411,27 +464,18 @@ export function transformTypeForPossibleEnumClass(
         }
     }
 
-    // Handle aliases to other enum members within the same enum.
-    if (
-        isClassInstance(valueType) &&
-        ClassType.isSameGenericClass(valueType, ClassType.cloneAsInstance(enumClassInfo.classType)) &&
-        valueType.literalValue !== undefined
-    ) {
-        return undefined;
-    }
-
     if (!isMemberOfEnumeration) {
         return undefined;
     }
 
     const enumLiteral = new EnumLiteral(
-        enumClassInfo.classType.details.fullName,
-        enumClassInfo.classType.details.name,
+        memberInfo.classType.details.fullName,
+        memberInfo.classType.details.name,
         nameNode.value,
         valueType
     );
 
-    return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(enumClassInfo.classType, enumLiteral));
+    return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(memberInfo.classType, enumLiteral));
 }
 
 export function isDeclInEnumClass(evaluator: TypeEvaluator, decl: VariableDeclaration): boolean {
@@ -483,11 +527,20 @@ export function getTypeOfEnumMember(
     memberName: string,
     isIncomplete: boolean
 ): TypeResult | undefined {
-    // Handle the special case of 'name' and 'value' members within an enum.
-    if (!isClassInstance(classType) || !ClassType.isEnumClass(classType)) {
+    if (!ClassType.isEnumClass(classType)) {
         return undefined;
     }
 
+    if (TypeBase.isInstantiable(classType)) {
+        const type = transformTypeForEnumMember(evaluator, classType, memberName);
+        if (!type) {
+            return undefined;
+        }
+
+        return { type, isIncomplete };
+    }
+
+    // Handle the special case of 'name' and 'value' members within an enum.
     const literalValue = classType.literalValue;
 
     if (memberName === 'name' || memberName === '_name_') {

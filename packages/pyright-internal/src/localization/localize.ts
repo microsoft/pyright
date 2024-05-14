@@ -432,6 +432,10 @@ export namespace Localizer {
         export const ellipsisSecondArg = () => getRawString('Diagnostic.ellipsisSecondArg');
         export const enumClassOverride = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.enumClassOverride'));
+        export const enumMemberDelete = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.enumMemberDelete'));
+        export const enumMemberSet = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.enumMemberSet'));
         export const exceptionGroupIncompatible = () => getRawString('Diagnostic.exceptionGroupIncompatible');
         export const exceptionTypeIncorrect = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.exceptionTypeIncorrect'));

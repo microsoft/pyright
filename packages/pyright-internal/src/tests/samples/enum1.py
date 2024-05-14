@@ -249,3 +249,14 @@ class TestEnum19(Enum):
 
 reveal_type(TestEnum19.A, expected_text="Literal[TestEnum19.A]")
 reveal_type(TestEnum19.__B, expected_text="Literal[2]")
+
+
+class TestEnum20(Enum):
+    A = 1
+    B = A + 1
+
+
+reveal_type(TestEnum20.A, expected_text="Literal[TestEnum20.A]")
+reveal_type(TestEnum20.A.value, expected_text="Literal[1]")
+reveal_type(TestEnum20.B, expected_text="Literal[TestEnum20.B]")
+reveal_type(TestEnum20.B.value, expected_text="Literal[2]")

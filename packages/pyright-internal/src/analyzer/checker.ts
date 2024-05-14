@@ -98,7 +98,7 @@ import { getBoundCallMethod, getBoundInitMethod, getBoundNewMethod } from './con
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
 import { getNameNodeForDeclaration } from './declarationUtils';
 import { deprecatedAliases, deprecatedSpecialForms } from './deprecatedSymbols';
-import { getEnumDeclaredValueType, isEnumClassWithMembers } from './enums';
+import { getEnumDeclaredValueType, isEnumClassWithMembers, transformTypeForEnumMember } from './enums';
 import { ImportResolver, ImportedModuleDescriptor, createImportedModuleDescriptor } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
@@ -4977,9 +4977,11 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
-            const symbolType = this._evaluator.getEffectiveTypeOfSymbol(symbol);
+            const symbolType = transformTypeForEnumMember(this._evaluator, classType, name);
+
             // Is this symbol a literal instance of the enum class?
             if (
+                !symbolType ||
                 !isClassInstance(symbolType) ||
                 !ClassType.isSameGenericClass(symbolType, classType) ||
                 !(symbolType.literalValue instanceof EnumLiteral)
