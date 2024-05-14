@@ -313,7 +313,8 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         hasDeclaredType: true,
     });
 
-    const objType = fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create();
+    const objType =
+        fget.details.parameters.length > 0 ? FunctionType.getEffectiveParameterType(fget, 0) : AnyType.create();
 
     FunctionType.addParameter(getFunction2, {
         category: ParameterCategory.Simple,
@@ -358,7 +359,8 @@ function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         hasDeclaredType: true,
     });
 
-    let objType = fset.details.parameters.length > 0 ? fset.details.parameters[0].type : AnyType.create();
+    let objType =
+        fset.details.parameters.length > 0 ? FunctionType.getEffectiveParameterType(fset, 0) : AnyType.create();
     if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
     }
@@ -412,7 +414,8 @@ function addDelMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     delFunction.details.typeVarScopeId = getTypeVarScopeId(fdel);
     delFunction.details.deprecatedMessage = fdel.details.deprecatedMessage;
 
-    let objType = fdel.details.parameters.length > 0 ? fdel.details.parameters[0].type : AnyType.create();
+    let objType =
+        fdel.details.parameters.length > 0 ? FunctionType.getEffectiveParameterType(fdel, 0) : AnyType.create();
 
     if (isTypeVar(objType) && objType.details.isSynthesizedSelf) {
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
