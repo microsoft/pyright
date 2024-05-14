@@ -1486,11 +1486,6 @@ interface FunctionDetails {
     // with a ParamSpec representing the parameters.
     paramSpec?: TypeVarType | undefined;
 
-    // If the function is generic (has one or more typeParameters) and
-    // one or more of these appear only within the return type and within
-    // a callable, they are rescoped to that callable.
-    rescopedTypeParameters?: TypeVarType[];
-
     // For __new__ and __init__ methods, the TypeVar scope ID of the
     // associated class.
     constructorTypeVarScopeId?: TypeVarScopeId | undefined;
