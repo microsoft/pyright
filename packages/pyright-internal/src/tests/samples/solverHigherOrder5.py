@@ -2,7 +2,16 @@
 # as an argument to another generic function multiple times.
 
 from dataclasses import dataclass
-from typing import Any, Generic, Literal, ParamSpec, TypeVar, Callable, overload
+from typing import (
+    Any,
+    Generic,
+    Literal,
+    ParamSpec,
+    TypeVar,
+    Callable,
+    TypeVarTuple,
+    overload,
+)
 
 T = TypeVar("T")
 A = TypeVar("A")
@@ -13,6 +22,7 @@ X = TypeVar("X")
 Y = TypeVar("Y")
 Z = TypeVar("Z")
 P = ParamSpec("P")
+Ts = TypeVarTuple("Ts")
 
 
 def identity(x: T) -> T:
@@ -90,8 +100,7 @@ class Pair(Generic[A, B]):
     right: B
 
 
-def func1(f: Callable[[A], B]) -> Callable[[Pair[A, X]], Pair[B, X]]:
-    ...
+def func1(f: Callable[[A], B]) -> Callable[[Pair[A, X]], Pair[B, X]]: ...
 
 
 def test_3(pair: Pair[Pair[A, B], C]) -> Pair[Pair[A, B], C]:
@@ -118,22 +127,18 @@ def test_4(pair: Pair[Pair[Pair[A, B], C], D]) -> Pair[Pair[Pair[A, B], C], D]:
 @overload
 def test_5(
     a: Callable[P, type[T]], *, b: Literal[False, None] = ...
-) -> type[list[type[T]]]:
-    ...
+) -> type[list[type[T]]]: ...
 
 
 @overload
-def test_5(a: T, *args: int, b: Literal[False, None] = ...) -> type[list[T]]:
-    ...
+def test_5(a: T, *args: int, b: Literal[False, None] = ...) -> type[list[T]]: ...
 
 
 @overload
-def test_5(a: T, *args: int, b: Literal[True] = ...) -> type[list[T]]:
-    ...
+def test_5(a: T, *args: int, b: Literal[True] = ...) -> type[list[T]]: ...
 
 
-def test_5(a: Any, *args: int, b: Any = ...) -> Any:
-    ...
+def test_5(a: Any, *args: int, b: Any = ...) -> Any: ...
 
 
 val3 = test_5(test_5, **{})
@@ -149,8 +154,7 @@ reveal_type(
 )
 
 
-def test_6(g: Callable[[B], C]) -> Callable[[Callable[[A], B]], Callable[[A], C]]:
-    ...
+def test_6(g: Callable[[B], C]) -> Callable[[Callable[[A], B]], Callable[[A], C]]: ...
 
 
 val5 = test_6(test_6)
@@ -169,3 +173,10 @@ def test_7(
         expected_text="((A(1)@test_6) -> ((A(2)@test_6) -> C@test_7)) -> ((A(1)@test_6) -> ((A(2)@test_6) -> D@test_7))",
     )
     return val6
+
+
+def test_8(fn: Callable[[*Ts], Callable[[A], B]]) -> Callable[[A, *Ts], B]: ...
+
+
+def test_9(x: Callable[[bool], Callable[[int], Callable[[str], None]]]):
+    test_8(test_8(x))
