@@ -24874,6 +24874,13 @@ export function createTypeEvaluator(
             srcLastToPackIndex = srcDetails.params.length;
         }
 
+        // If both the source and dest have an *args parameter but the dest's is
+        // in a later position, then we can't assign the source's *args to the dest.
+        // Don't make any adjustment in this case.
+        if (srcDetails.argsIndex !== undefined && destDetails.argsIndex > srcDetails.argsIndex) {
+            return;
+        }
+
         const destFirstNonPositional = destDetails.firstKeywordOnlyIndex ?? destDetails.params.length;
         const suffixLength = destFirstNonPositional - destDetails.argsIndex - 1;
         const srcPositionalsToPack = srcDetails.params.slice(destDetails.argsIndex, srcLastToPackIndex - suffixLength);
@@ -25055,7 +25062,9 @@ export function createTypeEvaluator(
                 continue;
             }
 
-            if (
+            if (isUnpacked(srcParamType)) {
+                canAssign = false;
+            } else if (
                 !assignFunctionParameter(
                     destParamType,
                     srcParamType,
