@@ -253,7 +253,6 @@ import {
     isTupleIndexUnambiguous,
     isTypeAliasPlaceholder,
     isTypeAliasRecursive,
-    isTypeVarLimitedToCallable,
     isTypeVarSame,
     isUnboundedTupleClass,
     isVarianceOfTypeArgumentCompatible,
@@ -387,7 +386,6 @@ export interface MemberAccessTypeResult {
 
 interface ScopedTypeVarResult {
     type: TypeVarType;
-    isRescoped: boolean;
     foundInterveningClass: boolean;
 }
 
@@ -4772,17 +4770,7 @@ export function createTypeEvaluator(
                                 const outerFunctionScope = ParseTreeUtils.getEnclosingClassOrFunction(enclosingScope);
 
                                 if (outerFunctionScope?.nodeType === ParseNodeType.Function) {
-                                    if (scopedTypeVarInfo.isRescoped) {
-                                        addDiagnostic(
-                                            DiagnosticRule.reportGeneralTypeIssues,
-                                            LocMessage.paramSpecScopedToReturnType().format({
-                                                name: type.details.name,
-                                            }),
-                                            node
-                                        );
-                                    } else {
-                                        enclosingScope = outerFunctionScope;
-                                    }
+                                    enclosingScope = outerFunctionScope;
                                 } else if (!scopedTypeVarInfo.type.scopeId) {
                                     addDiagnostic(
                                         DiagnosticRule.reportGeneralTypeIssues,
@@ -4838,16 +4826,9 @@ export function createTypeEvaluator(
                     (type.scopeId === undefined || scopedTypeVarInfo.foundInterveningClass) &&
                     !type.details.isSynthesized
                 ) {
-                    let message: ParameterizedString<{ name: string }>;
-                    if (scopedTypeVarInfo.isRescoped) {
-                        message = isParamSpec(type)
-                            ? LocMessage.paramSpecScopedToReturnType()
-                            : LocMessage.typeVarScopedToReturnType();
-                    } else {
-                        message = isParamSpec(type)
-                            ? LocMessage.paramSpecNotUsedByOuterScope()
-                            : LocMessage.typeVarNotUsedByOuterScope();
-                    }
+                    const message = isParamSpec(type)
+                        ? LocMessage.paramSpecNotUsedByOuterScope()
+                        : LocMessage.typeVarNotUsedByOuterScope();
                     addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         message.format({ name: type.details.name }),
@@ -4987,13 +4968,6 @@ export function createTypeEvaluator(
                 if (functionType) {
                     const functionDetails = functionType.details;
                     typeParametersForScope = functionDetails.typeParameters;
-
-                    // Was this type parameter "rescoped" to a callable found within the
-                    // return type annotation? If so, it is not available for use within
-                    // the function body.
-                    if (functionDetails.rescopedTypeParameters?.some((tp) => tp.details.name === type.details.name)) {
-                        return { type, isRescoped: true, foundInterveningClass: false };
-                    }
                 }
 
                 scopeUsesTypeParameterSyntax = !!curNode.typeParameters;
@@ -5009,7 +4983,6 @@ export function createTypeEvaluator(
                     type = TypeVarType.cloneForScopeId(type, match.scopeId, match.scopeName, match.scopeType);
                     return {
                         type,
-                        isRescoped: false,
                         foundInterveningClass: nestedClassCount > 1 && !scopeUsesTypeParameterSyntax,
                     };
                 }
@@ -5058,7 +5031,7 @@ export function createTypeEvaluator(
                         if (allowedTypeParams) {
                             if (!allowedTypeParams.some((param) => param.details.name === type.details.name)) {
                                 // Return the original type.
-                                return { type, isRescoped: false, foundInterveningClass: false };
+                                return { type, foundInterveningClass: false };
                             }
                         }
                     }
@@ -5070,7 +5043,6 @@ export function createTypeEvaluator(
                             leftType.details.recursiveTypeAliasName,
                             TypeVarScopeType.TypeAlias
                         ),
-                        isRescoped: false,
                         foundInterveningClass: false,
                     };
                 }
@@ -5080,7 +5052,7 @@ export function createTypeEvaluator(
         }
 
         // Return the original type.
-        return { type, isRescoped: false, foundInterveningClass: false };
+        return { type, foundInterveningClass: false };
     }
 
     function getTypeOfMemberAccess(node: MemberAccessNode, flags: EvaluatorFlags): TypeResult {
@@ -11575,10 +11547,9 @@ export function createTypeEvaluator(
         // call to a generic function or if this isn't a callable
         // return with type parameters that are rescoped from the original
         // function to the returned callable.
-        const unknownIfNotFound =
-            !ParseTreeUtils.getTypeVarScopesForNode(errorNode).some((typeVarScope) =>
-                typeVarContext.hasSolveForScope(typeVarScope)
-            ) && !type.details.rescopedTypeParameters;
+        const unknownIfNotFound = !ParseTreeUtils.getTypeVarScopesForNode(errorNode).some((typeVarScope) =>
+            typeVarContext.hasSolveForScope(typeVarScope)
+        );
 
         let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
             unknownIfNotFound,
@@ -17992,10 +17963,10 @@ export function createTypeEvaluator(
 
         // Accumulate any type parameters used in the return type.
         if (functionType.details.declaredReturnType && returnTypeAnnotationNode) {
-            rescopeTypeVarsForCallableReturnType(
-                functionType.details.declaredReturnType,
-                functionType,
-                typeParametersSeen
+            addTypeVarsToListIfUnique(
+                typeParametersSeen,
+                getTypeVarArgumentsRecursive(functionType.details.declaredReturnType),
+                functionType.details.typeVarScopeId
             );
         }
 
@@ -18048,46 +18019,6 @@ export function createTypeEvaluator(
             if (symbolWithScope) {
                 setSymbolAccessed(AnalyzerNodeInfo.getFileInfo(param), symbolWithScope.symbol, param.name);
             }
-        }
-    }
-
-    // If the declared return type of a function contains type variables that
-    // are found nowhere else in the signature and are contained within a
-    // Callable, these type variables are "rescoped" from the function to
-    // the Callable.
-    function rescopeTypeVarsForCallableReturnType(
-        returnType: Type,
-        functionType: FunctionType,
-        typeParametersSeen: TypeVarType[]
-    ) {
-        const typeVarsInReturnType = getTypeVarArgumentsRecursive(returnType).filter(
-            (t) => t.scopeId === functionType.details.typeVarScopeId
-        );
-        const rescopedTypeVars: TypeVarType[] = [];
-
-        typeVarsInReturnType.forEach((typeVar) => {
-            if (TypeBase.isInstantiable(typeVar)) {
-                typeVar = TypeVarType.cloneAsInstance(typeVar);
-            }
-
-            // If this type variable was already seen in one or more input parameters,
-            // don't attempt to rescope it.
-            if (typeParametersSeen.some((tp) => isTypeSame(convertToInstance(tp), typeVar))) {
-                return;
-            }
-
-            // Is this type variable seen outside of a single callable?
-            if (isTypeVarLimitedToCallable(returnType, typeVar)) {
-                rescopedTypeVars.push(typeVar);
-            }
-        });
-
-        addTypeVarsToListIfUnique(typeParametersSeen, typeVarsInReturnType);
-
-        // Note that the type parameters have been rescoped so they are not
-        // considered valid for the body of this function.
-        if (rescopedTypeVars.length > 0) {
-            functionType.details.rescopedTypeParameters = rescopedTypeVars;
         }
     }
 

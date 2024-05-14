@@ -829,12 +829,6 @@ test('TypeVar11', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('TypeVar12', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar12.py']);
-
-    TestUtils.validateResults(analysisResults, 6);
-});
-
 test('Annotated1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
