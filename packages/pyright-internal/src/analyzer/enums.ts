@@ -33,6 +33,7 @@ import {
     isFunction,
     isInstantiableClass,
     isOverloadedFunction,
+    maxTypeRecursionCount,
 } from './types';
 
 // Determines whether the class is an Enum metaclass or a subclass thereof.
@@ -285,8 +286,14 @@ export function createEnumType(
 export function transformTypeForEnumMember(
     evaluator: TypeEvaluator,
     classType: ClassType,
-    memberName: string
+    memberName: string,
+    recursionCount = 0
 ): Type | undefined {
+    if (recursionCount > maxTypeRecursionCount) {
+        return undefined;
+    }
+    recursionCount++;
+
     if (!ClassType.isEnumClass(classType)) {
         return undefined;
     }
@@ -364,8 +371,14 @@ export function transformTypeForEnumMember(
     }
 
     // Handle aliases to other enum members within the same enum.
-    if (valueTypeExprNode?.nodeType === ParseNodeType.Name) {
-        const aliasedEnumType = transformTypeForEnumMember(evaluator, classType, valueTypeExprNode.value);
+    if (valueTypeExprNode?.nodeType === ParseNodeType.Name && valueTypeExprNode.value !== memberName) {
+        const aliasedEnumType = transformTypeForEnumMember(
+            evaluator,
+            classType,
+            valueTypeExprNode.value,
+            recursionCount
+        );
+
         if (
             aliasedEnumType &&
             isClassInstance(aliasedEnumType) &&
