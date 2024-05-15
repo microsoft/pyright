@@ -24752,24 +24752,17 @@ export function createTypeEvaluator(
                 recursionCount
             )
         ) {
-            // There are cases involving lambdas where the parameter types are type
-            // variables and match exactly but fail the assignment check because the
-            // TypeVars are out of scope. This happens because parameter types assigned
-            // to lambdas during bidirectional inference do not match the TypeVar scope
-            // of the lambda itself.
-            if (!isTypeSame(destType, srcType)) {
-                if (diag && paramIndex !== undefined) {
-                    diag.addMessage(
-                        LocAddendum.paramAssignment().format({
-                            index: paramIndex + 1,
-                            sourceType: printType(destType),
-                            destType: printType(srcType),
-                        })
-                    );
-                }
-
-                return false;
+            if (diag && paramIndex !== undefined) {
+                diag.addMessage(
+                    LocAddendum.paramAssignment().format({
+                        index: paramIndex + 1,
+                        sourceType: printType(destType),
+                        destType: printType(srcType),
+                    })
+                );
             }
+
+            return false;
         }
 
         return true;
