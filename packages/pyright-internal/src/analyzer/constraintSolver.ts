@@ -519,25 +519,18 @@ export function assignTypeToTypeVar(
         // Make sure we don't exceed the wide type bound.
         if (curWideTypeBound && newNarrowTypeBound) {
             if (!isTypeSame(curWideTypeBound, newNarrowTypeBound, {}, recursionCount)) {
-                let makeConcrete = true;
+                let adjWideTypeBound = evaluator.makeTopLevelTypeVarsConcrete(
+                    curWideTypeBound,
+                    /* makeParamSpecsConcrete */ true
+                );
 
-                // Handle the case where the wide type is type T and the narrow type
-                // is type T | <some other type>. In this case, it violates the
-                // wide type bound.
-                if (isTypeVar(curWideTypeBound)) {
-                    if (isTypeSame(newNarrowTypeBound, curWideTypeBound)) {
-                        makeConcrete = false;
-                    } else if (
-                        isUnion(newNarrowTypeBound) &&
-                        newNarrowTypeBound.subtypes.some((subtype) => isTypeSame(subtype, curWideTypeBound!))
-                    ) {
-                        makeConcrete = false;
-                    }
-                }
-
-                const adjWideTypeBound = makeConcrete
-                    ? evaluator.makeTopLevelTypeVarsConcrete(curWideTypeBound, /* makeParamSpecsConcrete */ true)
-                    : curWideTypeBound;
+                // Convert any remaining (non-top-level) TypeVars in the wide type
+                // bound to in-scope placeholders.
+                adjWideTypeBound = transformExpectedType(
+                    adjWideTypeBound,
+                    /* liveTypeVarScopes */ [],
+                    /* usageOffset */ undefined
+                );
 
                 if (
                     !evaluator.assignType(
