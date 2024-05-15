@@ -180,3 +180,12 @@ def test_8(fn: Callable[[*Ts], Callable[[A], B]]) -> Callable[[A, *Ts], B]: ...
 
 def test_9(x: Callable[[bool], Callable[[int], Callable[[str], None]]]):
     test_8(test_8(x))
+
+
+def test_10(func: Callable[[*Ts], Any], *args: *Ts) -> Any: ...
+
+
+def func2() -> None: ...
+
+
+test_10(test_10, func2)
