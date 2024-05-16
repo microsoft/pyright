@@ -531,13 +531,13 @@ export function getTypeOfEnumMember(
         return undefined;
     }
 
-    if (TypeBase.isInstantiable(classType)) {
-        const type = transformTypeForEnumMember(evaluator, classType, memberName);
-        if (!type) {
-            return undefined;
-        }
-
+    const type = transformTypeForEnumMember(evaluator, classType, memberName);
+    if (type) {
         return { type, isIncomplete };
+    }
+
+    if (TypeBase.isInstantiable(classType)) {
+        return undefined;
     }
 
     // Handle the special case of 'name' and 'value' members within an enum.
