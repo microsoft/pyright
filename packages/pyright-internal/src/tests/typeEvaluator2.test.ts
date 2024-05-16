@@ -240,6 +240,12 @@ test('Super12', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Super13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super13.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MissingSuper1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

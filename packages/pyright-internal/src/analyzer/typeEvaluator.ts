@@ -8378,7 +8378,11 @@ export function createTypeEvaluator(
             targetClassType = getTypeOfExpression(node.arguments[0].valueExpression).type;
             const concreteTargetClassType = makeTopLevelTypeVarsConcrete(targetClassType);
 
-            if (!isAnyOrUnknown(concreteTargetClassType) && !isInstantiableClass(concreteTargetClassType)) {
+            if (
+                !isAnyOrUnknown(concreteTargetClassType) &&
+                !isInstantiableClass(concreteTargetClassType) &&
+                !isMetaclassInstance(concreteTargetClassType)
+            ) {
                 addDiagnostic(
                     DiagnosticRule.reportArgumentType,
                     LocMessage.superCallFirstArg().format({ type: printType(targetClassType) }),
