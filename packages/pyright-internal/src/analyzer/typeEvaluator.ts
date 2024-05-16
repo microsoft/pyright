@@ -25013,6 +25013,23 @@ export function createTypeEvaluator(
                 ) {
                     canAssign = false;
                 }
+            } else if (
+                destParam.source !== ParameterSource.PositionOnly &&
+                srcParam.source === ParameterSource.PositionOnly &&
+                srcParamDetails.kwargsIndex === undefined &&
+                !srcParamDetails.params.some(
+                    (p) =>
+                        p.source === ParameterSource.KeywordOnly &&
+                        p.param.category === ParameterCategory.Simple &&
+                        p.param.name === destParam.param.name
+                )
+            ) {
+                diag?.addMessage(
+                    LocAddendum.namedParamMissingInSource().format({
+                        name: destParam.param.name ?? '',
+                    })
+                );
+                canAssign = false;
             }
         }
 
