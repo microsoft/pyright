@@ -194,6 +194,26 @@ export function getCodeFlowEngine(
             return flowNodeTypeCache;
         }
 
+        // Determines whether any calls to getTypeFromCodeFlow are pending
+        // for an expression other than referenceKeyFilter. This is important in cases
+        // where the type of one expression depends on the type of another
+        // in a loop. If there are other pending evaluations, we will mark the
+        // current evaluation as incomplete and return back to the pending
+        // evaluation.
+        function isGetTypeFromCodeFlowPending(referenceKeyFilter: string | undefined): boolean {
+            if (!referenceKeyFilter) {
+                return false;
+            }
+
+            for (const [key, value] of flowNodeTypeCacheSet.entries()) {
+                if (key !== referenceKeyFilter && value.pendingNodes.size > 0) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         // This function has two primary modes. The first is used to determine
         // the narrowed type of a reference expression based on code flow analysis.
         // The second (when reference is undefined) is used to determine whether
@@ -1063,6 +1083,7 @@ export function getCodeFlowEngine(
                         if (
                             sawIncomplete &&
                             !sawPending &&
+                            !isGetTypeFromCodeFlowPending(referenceKeyWithSymbolId) &&
                             effectiveType &&
                             !isIncompleteUnknown(effectiveType) &&
                             !firstAntecedentTypeIsIncomplete
