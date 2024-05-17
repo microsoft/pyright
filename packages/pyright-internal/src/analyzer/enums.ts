@@ -544,6 +544,13 @@ export function getTypeOfEnumMember(
     const literalValue = classType.literalValue;
 
     if (memberName === 'name' || memberName === '_name_') {
+        // Does the class explicitly override this member? Or it it using the
+        // standard behavior provided by the "Enum" class?
+        const memberInfo = lookUpClassMember(classType, memberName);
+        if (memberInfo && isClass(memberInfo.classType) && !ClassType.isBuiltIn(memberInfo.classType, 'Enum')) {
+            return undefined;
+        }
+
         const strClass = evaluator.getBuiltInType(errorNode, 'str');
         if (!isInstantiableClass(strClass)) {
             return undefined;
@@ -579,6 +586,13 @@ export function getTypeOfEnumMember(
     const valueType = getEnumDeclaredValueType(evaluator, classType);
 
     if (memberName === 'value' || memberName === '_value_') {
+        // Does the class explicitly override this member? Or it it using the
+        // standard behavior provided by the "Enum" class?
+        const memberInfo = lookUpClassMember(classType, memberName);
+        if (memberInfo && isClass(memberInfo.classType) && !ClassType.isBuiltIn(memberInfo.classType, 'Enum')) {
+            return undefined;
+        }
+
         // If the enum class has a custom metaclass, it may implement some
         // "magic" that computes different values for the "_value_" attribute.
         // This occurs, for example, in the django TextChoices class. If we
