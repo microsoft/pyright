@@ -263,3 +263,29 @@ reveal_type(TestEnum20.B.value, expected_text="Literal[2]")
 reveal_type(TestEnum20.A.A.A, expected_text="Literal[TestEnum20.A]")
 reveal_type(TestEnum20.A.B.A, expected_text="Literal[TestEnum20.A]")
 reveal_type(TestEnum20.A.B, expected_text="Literal[TestEnum20.B]")
+
+
+class TestEnum21Base(Enum, metaclass=CustomEnumMeta1):
+    @property
+    def value(self) -> str:
+        return "test"
+
+
+class TestEnum21(TestEnum21Base):
+    A = 1
+
+
+reveal_type(TestEnum21.A.value, expected_text="str")
+
+
+class TestEnum22Base(Enum):
+    @property
+    def value(self) -> str:
+        return "test"
+
+
+class TestEnum22(TestEnum22Base):
+    A = 1
+
+
+reveal_type(TestEnum22.A.value, expected_text="str")
