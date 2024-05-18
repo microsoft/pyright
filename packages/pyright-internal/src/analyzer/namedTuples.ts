@@ -142,7 +142,10 @@ export function createNamedTupleType(
     if (ParseTreeUtils.isAssignmentToDefaultsFollowingNamedTuple(errorNode)) {
         constructorType.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
     }
-    constructorType.details.typeVarScopeId = classType.details.typeVarScopeId;
+    if (classType.details.typeVarScopeId) {
+        constructorType.details.typeVarScopeId = classType.details.typeVarScopeId + '_new';
+        constructorType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    }
     FunctionType.addParameter(constructorType, {
         category: ParameterCategory.Simple,
         name: 'cls',
@@ -377,7 +380,10 @@ export function createNamedTupleType(
     FunctionType.addParameter(initType, selfParameter);
     FunctionType.addDefaultParameters(initType);
     initType.details.declaredReturnType = evaluator.getNoneType();
-    initType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    if (classType.details.typeVarScopeId) {
+        initType.details.typeVarScopeId = classType.details.typeVarScopeId + '_init';
+        initType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    }
 
     classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
     classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));

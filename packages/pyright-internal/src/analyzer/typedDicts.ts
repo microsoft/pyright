@@ -279,7 +279,10 @@ export function synthesizeTypedDictClassMethods(
     });
     FunctionType.addDefaultParameters(newType);
     newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
-    newType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    if (classType.details.typeVarScopeId) {
+        newType.details.typeVarScopeId = classType.details.typeVarScopeId + '_new';
+        newType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    }
 
     // Synthesize an __init__ method with two overrides.
     const initOverride1 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
@@ -290,7 +293,10 @@ export function synthesizeTypedDictClassMethods(
         hasDeclaredType: true,
     });
     initOverride1.details.declaredReturnType = evaluator.getNoneType();
-    initOverride1.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    if (classType.details.typeVarScopeId) {
+        initOverride1.details.typeVarScopeId = classType.details.typeVarScopeId + '_init';
+        initOverride1.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    }
 
     // The first parameter must be positional-only.
     FunctionType.addParameter(initOverride1, {

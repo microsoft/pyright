@@ -87,9 +87,15 @@ export function synthesizeDataClassMethods(
 
     const classTypeVar = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ true);
     const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
-    newType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    if (classType.details.typeVarScopeId) {
+        newType.details.typeVarScopeId = classType.details.typeVarScopeId + '-new';
+        newType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    }
     const initType = FunctionType.createSynthesizedInstance('__init__');
-    initType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    if (classType.details.typeVarScopeId) {
+        initType.details.typeVarScopeId = classType.details.typeVarScopeId + '-init';
+        initType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    }
 
     // Generate both a __new__ and an __init__ method. The parameters of the
     // __new__ method are based on field definitions for NamedTuple classes,
@@ -784,6 +790,7 @@ function getConverterInputType(
     const targetFunction = FunctionType.createSynthesizedInstance('');
     targetFunction.details.typeVarScopeId = typeVar.scopeId;
     targetFunction.details.declaredReturnType = fieldType;
+    targetFunction.details.typeParameters.push(typeVar);
     FunctionType.addParameter(targetFunction, {
         category: ParameterCategory.Simple,
         name: '__input',

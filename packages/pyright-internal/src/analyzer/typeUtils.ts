@@ -2063,6 +2063,45 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
     return [];
 }
 
+// For any class type parameters used within the method, rescopes them
+// to the method.
+export function rescopeConstructorClassTypeVars(methodType: FunctionType, methodName: string): FunctionType {
+    const methodScopeId = methodType.details.typeVarScopeId;
+    const classScopeId = methodType.details.constructorTypeVarScopeId;
+    if (methodScopeId === undefined || classScopeId === undefined) {
+        return methodType;
+    }
+
+    const typeVarsToRescope = getTypeVarArgumentsRecursive(methodType).filter(
+        (typeVar) => typeVar.scopeId === methodScopeId || typeVar.scopeId === classScopeId
+    );
+
+    if (typeVarsToRescope.length === 0) {
+        return methodType;
+    }
+
+    const typeVarContext = new TypeVarContext();
+    const rescopedTypeVars = typeVarsToRescope.map((typeVar) => {
+        const rescopedTypeVar = TypeVarType.cloneForScopeId(
+            typeVar,
+            methodScopeId,
+            methodName,
+            TypeVarScopeType.Function
+        );
+
+        typeVarContext.getPrimarySignature().setTypeVarType(typeVar, rescopedTypeVar);
+        typeVarContext.addSolveForScope(typeVar.scopeId);
+        return rescopedTypeVar;
+    });
+
+    let rescopedFunction = applySolvedTypeVars(methodType, typeVarContext);
+    assert(isFunction(rescopedFunction));
+
+    rescopedFunction = FunctionType.cloneWithNewTypeVarScopeId(rescopedFunction, methodScopeId, rescopedTypeVars);
+
+    return rescopedFunction;
+}
+
 // Creates a specialized version of the class, filling in any unspecified
 // type arguments with Unknown.
 export function specializeClassType(type: ClassType): ClassType {

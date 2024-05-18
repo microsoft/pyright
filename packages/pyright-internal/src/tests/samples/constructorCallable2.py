@@ -128,7 +128,7 @@ class Class8(Generic[T]):
 
 
 r8 = accepts_callable(Class8)
-reveal_type(r8, expected_text="(x: T@Class8, y: list[T@Class8]) -> Class8[T@Class8]")
+reveal_type(r8, expected_text="(x: T@__new__, y: list[T@__new__]) -> Class8[T@__new__]")
 reveal_type(r8("", [""]), expected_text="Class8[str]")
 
 

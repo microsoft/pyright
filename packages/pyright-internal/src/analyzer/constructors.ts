@@ -35,6 +35,7 @@ import {
     isTupleClass,
     lookUpClassMember,
     mapSubtypes,
+    rescopeConstructorClassTypeVars,
     selfSpecializeClass,
     specializeTupleClass,
     transformPossibleRecursiveTypeAlias,
@@ -961,7 +962,7 @@ function createFunctionFromNewMethod(
         convertedNew.details.flags &= ~(FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod);
         convertedNew.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
-        return convertedNew;
+        return rescopeConstructorClassTypeVars(convertedNew, '__new__');
     };
 
     if (isFunction(newType)) {
@@ -1062,7 +1063,7 @@ function createFunctionFromInitMethod(
         convertedInit.details.flags &= ~FunctionTypeFlags.StaticMethod;
         convertedInit.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
-        return convertedInit;
+        return rescopeConstructorClassTypeVars(convertedInit, '__init__');
     }
 
     if (isFunction(initType)) {
