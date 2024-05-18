@@ -3918,8 +3918,7 @@ export class Checker extends ParseTreeWalker {
                     varType,
                     filterType,
                     filterType,
-                    isInstanceCheck,
-                    /* isTypeIsCheck */ false
+                    isInstanceCheck
                 );
                 const filterIsSubclass = isIsinstanceFilterSubclass(
                     this._evaluator,
