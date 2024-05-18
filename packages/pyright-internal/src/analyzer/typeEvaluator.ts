@@ -23549,6 +23549,10 @@ export function createTypeEvaluator(
                     }
                 }
 
+                if (ClassType.isBuiltIn(destType, 'type') && (srcType.instantiableNestingLevel ?? 0) > 0) {
+                    return true;
+                }
+
                 if (
                     !isSpecialFormClass(expandedSrcType, flags) &&
                     assignClass(
