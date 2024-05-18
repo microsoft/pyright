@@ -1343,19 +1343,6 @@ function narrowTypeForIsInstanceInternal(
             let concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
             if (isInstantiableClass(concreteFilterType)) {
-                // If the class was implicitly specialized (e.g. because its type
-                // parameters have default values), replace the default type arguments
-                // with Unknown.
-                if (concreteFilterType.typeArguments && !concreteFilterType.isTypeArgumentExplicit) {
-                    concreteFilterType = specializeWithUnknownTypeArgs(
-                        ClassType.cloneForSpecialization(
-                            concreteFilterType,
-                            /* typeArguments */ undefined,
-                            /* isTypeArgumentExplicit */ false
-                        )
-                    );
-                }
-
                 let filterIsSuperclass: boolean;
                 let filterIsSubclass: boolean;
 
@@ -1363,6 +1350,19 @@ function narrowTypeForIsInstanceInternal(
                     filterIsSuperclass = evaluator.assignType(filterType, concreteVarType);
                     filterIsSubclass = evaluator.assignType(concreteVarType, filterType);
                 } else {
+                    // If the class was implicitly specialized (e.g. because its type
+                    // parameters have default values), replace the default type arguments
+                    // with Unknown.
+                    if (concreteFilterType.typeArguments && !concreteFilterType.isTypeArgumentExplicit) {
+                        concreteFilterType = specializeWithUnknownTypeArgs(
+                            ClassType.cloneForSpecialization(
+                                concreteFilterType,
+                                /* typeArguments */ undefined,
+                                /* isTypeArgumentExplicit */ false
+                            )
+                        );
+                    }
+
                     filterIsSuperclass = isIsinstanceFilterSuperclass(
                         evaluator,
                         varType,

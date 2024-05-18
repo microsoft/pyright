@@ -119,3 +119,11 @@ def func7(names: tuple[str, ...]):
         reveal_type(names, expected_text="tuple[str, str]")
     else:
         reveal_type(names, expected_text="tuple[str, ...]")
+
+
+def is_int(obj: type) -> TypeIs[type[int]]: ...
+
+
+def func8(x: type) -> None:
+    if is_int(x):
+        reveal_type(x, expected_text="type[int]")
