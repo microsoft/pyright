@@ -302,7 +302,10 @@ export function synthesizeDataClassMethods(
                             (arg) => arg.name?.value === 'converter'
                         );
                         if (converterArg && converterArg.valueExpression) {
-                            converter = converterArg;
+                            // Converter support is dependent on PEP 712, which has not yet been approved.
+                            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
+                                converter = converterArg;
+                            }
                         }
                     }
                 }

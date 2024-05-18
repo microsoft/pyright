@@ -385,13 +385,17 @@ test('DataClassDescriptors2', () => {
 });
 
 test('DataClassConverter1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassConverter1.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassConverter1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 17);
 });
 
 test('DataClassConverter2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassConverter2.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassConverter2.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 4);
 });
