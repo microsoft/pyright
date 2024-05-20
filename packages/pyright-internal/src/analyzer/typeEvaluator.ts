@@ -25073,6 +25073,28 @@ export function createTypeEvaluator(
                             );
                             canAssign = false;
                         }
+                    } else {
+                        // Assign default arg values in case they are needed for
+                        // populating TypeVar constraints.
+                        for (let i = destParamDetails.firstPositionOrKeywordIndex; i < srcPositionalCount; i++) {
+                            const paramInfo = srcParamDetails.params[i];
+                            const defaultArgType = paramInfo.defaultArgType ?? paramInfo.param.defaultType;
+
+                            if (
+                                defaultArgType &&
+                                !assignType(
+                                    paramInfo.type,
+                                    defaultArgType,
+                                    diag?.createAddendum(),
+                                    srcTypeVarContext,
+                                    /* destTypeVarContext */ undefined,
+                                    flags,
+                                    recursionCount
+                                )
+                            ) {
+                                canAssign = false;
+                            }
+                        }
                     }
                 } else {
                     // Make sure the remaining positional arguments are of the
@@ -25270,6 +25292,26 @@ export function createTypeEvaluator(
                                             diag?.createAddendum(),
                                             destTypeVarContext,
                                             srcTypeVarContext,
+                                            flags,
+                                            recursionCount
+                                        )
+                                    ) {
+                                        canAssign = false;
+                                    }
+                                } else if (srcParamInfo.param.hasDefault) {
+                                    // Assign default arg values in case they are needed for
+                                    // populating TypeVar constraints.
+                                    const defaultArgType =
+                                        srcParamInfo.defaultArgType ?? srcParamInfo.param.defaultType;
+
+                                    if (
+                                        defaultArgType &&
+                                        !assignType(
+                                            srcParamInfo.type,
+                                            defaultArgType,
+                                            diag?.createAddendum(),
+                                            srcTypeVarContext,
+                                            /* destTypeVarContext */ undefined,
                                             flags,
                                             recursionCount
                                         )

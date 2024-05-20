@@ -209,7 +209,9 @@ _T9 = TypeVar("_T9")
 
 
 @overload
-def func12(func: Callable[[_T7], _T8], iterable: Iterable[_T7], /) -> Iterable[_T8]: ...
+def func12(
+    func: Callable[[_T7], _T8], iterable: Iterable[_T7], default_value: None = None, /
+) -> Iterable[_T8 | None]: ...
 
 
 @overload

@@ -858,6 +858,12 @@ test('Call14', () => {
     TestUtils.validateResults(analysisResults, 5);
 });
 
+test('Call15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call15.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+});
+
 test('Function1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function1.py']);
 
