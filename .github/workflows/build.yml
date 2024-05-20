@@ -17,11 +17,11 @@ jobs:
     name: Build
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -46,7 +46,7 @@ jobs:
           npm run package
           mv pyright-*.vsix ${{ env.VSIX_NAME }}
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME_VSIX }}
           path: packages/vscode-pyright/${{ env.VSIX_NAME }}
@@ -61,7 +61,7 @@ jobs:
 
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
 
