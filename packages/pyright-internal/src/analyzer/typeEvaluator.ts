@@ -7596,8 +7596,26 @@ export function createTypeEvaluator(
         const typeArgs: TypeResultWithNode[] = [];
         let adjFlags = flags;
 
-        if (options?.isFinalAnnotation || options?.isClassVarAnnotation) {
+        if (options?.isFinalAnnotation) {
             adjFlags |= EvaluatorFlags.DisallowClassVar | EvaluatorFlags.DisallowFinal;
+        } else if (options?.isClassVarAnnotation) {
+            adjFlags |= EvaluatorFlags.DisallowClassVar;
+
+            // If the annotation is a variable within the body of a dataclass, a
+            // Final is allowed within the ClassVar annotation. In all other cases,
+            // it's disallowed.
+            let disallowFinal = true;
+            const enclosingClassNode = ParseTreeUtils.getEnclosingClass(node, /* stopeAtFunction */ true);
+            if (enclosingClassNode) {
+                const classTypeInfo = getTypeOfClass(enclosingClassNode);
+                if (classTypeInfo && ClassType.isDataClass(classTypeInfo.classType)) {
+                    disallowFinal = false;
+                }
+            }
+
+            if (disallowFinal) {
+                adjFlags |= EvaluatorFlags.DisallowFinal;
+            }
         } else {
             adjFlags &= ~(
                 EvaluatorFlags.DoNotSpecialize |

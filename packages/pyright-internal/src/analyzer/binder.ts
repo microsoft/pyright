@@ -3922,6 +3922,13 @@ export class Binder extends ParseTreeWalker {
         let finalTypeNode: ExpressionNode | undefined;
 
         if (typeAnnotation) {
+            // Allow Final to be enclosed in ClassVar. Normally, Final implies
+            // ClassVar, but this combination is required in the case of dataclasses.
+            const classVarInfo = this._isAnnotationClassVar(typeAnnotation);
+            if (classVarInfo?.classVarTypeNode) {
+                typeAnnotation = classVarInfo.classVarTypeNode;
+            }
+
             if (this._isTypingAnnotation(typeAnnotation, 'Final')) {
                 isFinal = true;
             } else if (typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
