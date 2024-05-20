@@ -30,6 +30,15 @@ class Foo(Generic[T]):
     # be used in a ClassVar.
     illegal2: ClassVar[T]
 
+    # This should generate an error because Final cannot be
+    # used with a ClassVar.
+    illegal3: ClassVar[Final] = 0
+
+    # This should generate an error because Final cannot be
+    # used with a ClassVar. A second error is generated because
+    # Final[int] is not interpreted as a valid type.
+    illegal4: ClassVar[Final[int]] = 0
+
     ok1: ClassVar[list]
     ok2: ClassVar[list[Any]]
     ok3: Annotated[ClassVar[list[Self]], ""]
