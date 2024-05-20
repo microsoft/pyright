@@ -344,6 +344,12 @@ test('DataClass16', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('DataClass17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass17.py']);
+
+    TestUtils.validateResults(analysisResults, 5);
+});
+
 test('DataClassFrozen1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassFrozen1.py']);
 
