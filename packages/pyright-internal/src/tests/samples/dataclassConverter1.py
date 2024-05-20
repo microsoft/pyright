@@ -1,8 +1,14 @@
 # This sample tests the use of field's converter parameter
 # described in PEP 712.
 
-from dataclasses import dataclass, field
-from typing import Callable, overload
+from typing import Any, Callable, dataclass_transform, overload
+
+
+def model_field(*, converter: Callable[..., Any]) -> Any: ...
+
+
+@dataclass_transform(field_specifiers=(model_field,))
+class ModelBase: ...
 
 
 def converter_simple(s: str) -> int:
@@ -33,39 +39,25 @@ def converter_with_more_specialized_return_type(s: str) -> int:
 
 class ConverterClass:
     @overload
-    def __init__(self, val: str) -> None:
-        ...
+    def __init__(self, val: str) -> None: ...
 
     @overload
-    def __init__(self, val: bytes) -> None:
-        ...
+    def __init__(self, val: bytes) -> None: ...
 
     def __init__(self, val: str | bytes) -> None:
         pass
 
 
-@dataclass
-class DC1:
-    # This should generate an error because "converter" is not an official property yet.
-    field0: int = field(converter=converter_simple)
-
-    # This should generate an error because "converter" is not an official property yet.
-    field1: int = field(converter=converter_with_param_before_args)
-
-    # This should generate an error because "converter" is not an official property yet.
-    field2: int = field(converter=converter_with_args)
-
-    # This should generate an error because "converter" is not an official property yet.
-    field3: int = field(converter=converter_with_extra_defaulted_params)
-
-    # This should generate an error because "converter" is not an official property yet.
-    field4: int = field(converter=converter_with_default_for_first_param)
-
-    # This should generate an error because "converter" is not an official property yet.
-    field5: int | str = field(converter=converter_with_more_specialized_return_type)
-
-    # This should generate an error because "converter" is not an official property yet.
-    field6: ConverterClass = field(converter=ConverterClass)
+class DC1(ModelBase):
+    field0: int = model_field(converter=converter_simple)
+    field1: int = model_field(converter=converter_with_param_before_args)
+    field2: int = model_field(converter=converter_with_args)
+    field3: int = model_field(converter=converter_with_extra_defaulted_params)
+    field4: int = model_field(converter=converter_with_default_for_first_param)
+    field5: int | str = model_field(
+        converter=converter_with_more_specialized_return_type
+    )
+    field6: ConverterClass = model_field(converter=ConverterClass)
 
 
 reveal_type(
@@ -76,34 +68,28 @@ reveal_type(
 
 # This overload will be ignored because it has too many arguments.
 @overload
-def overloaded_converter(s: float, secondParam: str, /) -> int:
-    ...
+def overloaded_converter(s: float, secondParam: str, /) -> int: ...
 
 
 # This overload will be ignored because its return type doesn't match the field type.
 @overload
-def overloaded_converter(s: float) -> str:
-    ...
+def overloaded_converter(s: float) -> str: ...
 
 
 @overload
-def overloaded_converter(s: str) -> int:
-    ...
+def overloaded_converter(s: str) -> int: ...
 
 
 @overload
-def overloaded_converter(s: list[str]) -> int:
-    ...
+def overloaded_converter(s: list[str]) -> int: ...
 
 
 def overloaded_converter(s: float | str | list[str], *args: str) -> int | float | str:
     return 0
 
 
-@dataclass
-class Overloads:
-    # This should generate an error because "converter" is not an official property yet.
-    field0: int = field(converter=overloaded_converter)
+class Overloads(ModelBase):
+    field0: int = model_field(converter=overloaded_converter)
 
 
 reveal_type(
@@ -114,12 +100,10 @@ reveal_type(
 
 class CallableObject:
     @overload
-    def __call__(self, arg1: int) -> str:
-        ...
+    def __call__(self, arg1: int) -> str: ...
 
     @overload
-    def __call__(self, arg1: str) -> int:
-        ...
+    def __call__(self, arg1: str) -> int: ...
 
     def __call__(self, arg1: str | int | list[str]) -> int | str:
         return 1
@@ -129,16 +113,10 @@ callable: Callable[[str], int] = converter_simple
 callable_union: Callable[[str], int] | Callable[[int], str] = converter_simple
 
 
-@dataclass
-class Callables:
-    # This should generate an error because "converter" is not an official property yet.
-    field0: int = field(converter=CallableObject())
-
-    # This should generate an error because "converter" is not an official property yet.
-    field1: int = field(converter=callable)
-
-    # This should generate an error because "converter" is not an official property yet.
-    field2: int = field(converter=callable_union)
+class Callables(ModelBase):
+    field0: int = model_field(converter=CallableObject())
+    field1: int = model_field(converter=callable)
+    field2: int = model_field(converter=callable_union)
 
 
 reveal_type(
@@ -156,29 +134,26 @@ def wrong_number_of_params(x: str, x2: str, /) -> int:
 
 
 @overload
-def wrong_converter_overload(s: float) -> str:
-    ...
+def wrong_converter_overload(s: float) -> str: ...
 
 
 @overload
-def wrong_converter_overload(s: str) -> str:
-    ...
+def wrong_converter_overload(s: str) -> str: ...
 
 
 def wrong_converter_overload(s: float | str) -> int | str:
     return 1
 
 
-@dataclass
-class Errors:
-    # This should generate an error because "converter" is not an official property yet
-    # and a second error because the return type doesn't match the field type.
-    field0: int = field(converter=wrong_return_type)
+class Errors(ModelBase):
+    # This should generate an error because  the return type doesn't
+    # match the field type.
+    field0: int = model_field(converter=wrong_return_type)
 
-    # This should generate an error because "converter" is not an official property yet
-    # and a second error because the converter has the wrong number of parameters.
-    field1: int = field(converter=wrong_number_of_params)
+    # This should generate an error because the converter has the
+    # wrong number of parameters.
+    field1: int = model_field(converter=wrong_number_of_params)
 
-    # This should generate an error because "converter" is not an official property yet
-    # and a second error because none of the overloads match the field type.
-    field2: int = field(converter=wrong_converter_overload)
+    # This should generate an error because none of the overloads
+    # match the field type.
+    field2: int = model_field(converter=wrong_converter_overload)

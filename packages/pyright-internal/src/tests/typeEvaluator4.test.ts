@@ -389,7 +389,7 @@ test('DataClassConverter1', () => {
     configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassConverter1.py'], configOptions);
 
-    TestUtils.validateResults(analysisResults, 17);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('DataClassConverter2', () => {
