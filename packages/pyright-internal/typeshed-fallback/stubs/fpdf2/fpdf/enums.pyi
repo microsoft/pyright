@@ -44,6 +44,7 @@ class VAlign(CoerciveEnum):
     B = "BOTTOM"
 
 class TextEmphasis(CoerciveIntFlag):
+    NONE = 0
     B = 1
     I = 2
     U = 4
@@ -70,12 +71,18 @@ class TableCellFillMode(CoerciveEnum):
     ALL = "ALL"
     ROWS = "ROWS"
     COLUMNS = "COLUMNS"
+    EVEN_ROWS = "EVEN_ROWS"
+    EVEN_COLUMNS = "EVEN_COLUMNS"
 
     def should_fill_cell(self, i: int, j: int) -> bool: ...
 
 class TableSpan(CoerciveEnum):
-    ROW: Literal["ROW"]
-    COL: Literal["COL"]
+    ROW = "ROW"
+    COL = "COL"
+
+class TableHeadingsDisplay(CoerciveIntEnum):
+    NONE = 0
+    ON_TOP_OF_EVERY_PAGE = 1
 
 class RenderStyle(CoerciveEnum):
     D = "DRAW"
@@ -259,3 +266,9 @@ class EncryptionMethod(Enum):
     RC4 = 1
     AES_128 = 2
     AES_256 = 3
+
+class TextDirection(CoerciveEnum):
+    LTR = "LTR"
+    RTL = "RTL"
+    TTB = "TTB"
+    BTT = "BTT"

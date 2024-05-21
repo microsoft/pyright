@@ -218,23 +218,23 @@ class D3DFMT(IntEnum):
     A2B10G10R10_XR_BIAS = 119
     BINARYBUFFER = 199
 
-    UYVY: int
-    R8G8_B8G8: int
-    YUY2: int
-    G8R8_G8B8: int
-    DXT1: int
-    DXT2: int
-    DXT3: int
-    DXT4: int
-    DXT5: int
-    DX10: int
-    BC4S: int
-    BC4U: int
-    BC5S: int
-    BC5U: int
-    ATI1: int
-    ATI2: int
-    MULTI2_ARGB8: int
+    UYVY = 1498831189  # i32(b"UYVY")
+    R8G8_B8G8 = 1195525970  # i32(b"RGBG")
+    YUY2 = 844715353  # i32(b"YUY2")
+    G8R8_G8B8 = 1111970375  # i32(b"GRGB")
+    DXT1 = 827611204  # i32(b"DXT1")
+    DXT2 = 844388420  # i32(b"DXT2")
+    DXT3 = 861165636  # i32(b"DXT3")
+    DXT4 = 877942852  # i32(b"DXT4")
+    DXT5 = 894720068  # i32(b"DXT5")
+    DX10 = 808540228  # i32(b"DX10")
+    BC4S = 1395934018  # i32(b"BC4S")
+    BC4U = 1429488450  # i32(b"BC4U")
+    BC5S = 1395999554  # i32(b"BC5S")
+    BC5U = 1429553986  # i32(b"BC5U")
+    ATI1 = 826889281  # i32(b"ATI1")
+    ATI2 = 843666497  # i32(b"ATI2")
+    MULTI2_ARGB8 = 827606349  # i32(b"MET1")
 
 DDSD_CAPS: Final = 0x1
 DDSD_HEIGHT: Final = 0x2

@@ -1,4 +1,4 @@
-version = "1.42.*"
+version = "1.43.*"
 upstream_repository = "https://github.com/influxdata/influxdb-client-python"
 # requires a version of urllib3 with a py.typed file
 requires = ["urllib3>=2"]

@@ -2,11 +2,12 @@ __all__ = ["STDOUT", "PIPE", "Wurlitzer", "pipes", "sys_pipes", "sys_pipes_forev
 
 import contextlib
 import io
+import logging
 from _typeshed import SupportsWrite
 from contextlib import _GeneratorContextManager
 from types import TracebackType
 from typing import Any, Final, Literal, Protocol, TextIO, TypeVar, overload
-from typing_extensions import TypeAlias
+from typing_extensions import Self, TypeAlias
 
 STDOUT: Final = 2
 PIPE: Final = 3
@@ -31,8 +32,8 @@ class Wurlitzer:
 
     def __init__(
         self,
-        stdout: SupportsWrite[str] | SupportsWrite[bytes] | None = None,
-        stderr: _STDOUT | SupportsWrite[str] | SupportsWrite[bytes] | None = None,
+        stdout: SupportsWrite[str] | SupportsWrite[bytes] | logging.Logger | None = None,
+        stderr: _STDOUT | SupportsWrite[str] | SupportsWrite[bytes] | logging.Logger | None = None,
         encoding: str | None = ...,
         bufsize: int | None = ...,
     ) -> None: ...
@@ -71,6 +72,30 @@ def pipes(
 ) -> _GeneratorContextManager[tuple[io.StringIO, _StreamErrT]]: ...
 @overload
 def pipes(
+    stdout: _PIPE, stderr: logging.Logger, encoding: str = ..., bufsize: int | None = None
+) -> _GeneratorContextManager[tuple[io.StringIO, _LogPipe]]: ...
+@overload
+def pipes(
+    stdout: logging.Logger, stderr: _STDOUT, encoding: str | None = ..., bufsize: int | None = None
+) -> _GeneratorContextManager[tuple[_LogPipe, None]]: ...
+@overload
+def pipes(
+    stdout: logging.Logger, stderr: _PIPE, encoding: None, bufsize: int | None = None
+) -> _GeneratorContextManager[tuple[_LogPipe, io.BytesIO]]: ...
+@overload
+def pipes(
+    stdout: logging.Logger, stderr: _PIPE, encoding: str = ..., bufsize: int | None = None
+) -> _GeneratorContextManager[tuple[_LogPipe, io.StringIO]]: ...
+@overload
+def pipes(
+    stdout: logging.Logger, stderr: _StreamErrT, encoding: str | None = ..., bufsize: int | None = None
+) -> _GeneratorContextManager[tuple[_LogPipe, _StreamErrT]]: ...
+@overload
+def pipes(
+    stdout: logging.Logger, stderr: logging.Logger, encoding: str | None = ..., bufsize: int | None = None
+) -> _GeneratorContextManager[tuple[_LogPipe, _LogPipe]]: ...
+@overload
+def pipes(
     stdout: _StreamOutT, stderr: _STDOUT, encoding: str | None = ..., bufsize: int | None = None
 ) -> _GeneratorContextManager[tuple[_StreamOutT, None]]: ...
 @overload
@@ -87,11 +112,28 @@ def pipes(
 ) -> _GeneratorContextManager[tuple[_StreamOutT, _StreamErrT]]: ...
 @overload
 def pipes(
-    stdout: _PIPE | _StreamOutT = 3,
-    stderr: _STDOUT | _PIPE | _StreamErrT = 3,
+    stdout: _StreamOutT, stderr: logging.Logger, encoding: str | None = ..., bufsize: int | None = None
+) -> _GeneratorContextManager[tuple[_StreamOutT, _LogPipe]]: ...
+@overload
+def pipes(
+    stdout: _PIPE | logging.Logger | _StreamOutT = 3,
+    stderr: _STDOUT | _PIPE | logging.Logger | _StreamErrT = 3,
     encoding: str | None = ...,
     bufsize: int | None = None,
-) -> _GeneratorContextManager[tuple[io.BytesIO | io.StringIO | _StreamOutT, io.BytesIO | io.StringIO | _StreamErrT | None]]: ...
+) -> _GeneratorContextManager[
+    tuple[io.BytesIO | io.StringIO | _StreamOutT | _LogPipe, io.BytesIO | io.StringIO | _StreamErrT | _LogPipe | None]
+]: ...
+
+class _LogPipe(io.BufferedWriter):
+    logger: logging.Logger
+    stream_name: str
+    level: int
+    def __init__(self, logger: logging.Logger, stream_name: str, level: int = 20) -> None: ...
+    def write(self, chunk: str) -> None: ...  # type: ignore[override]
+    def flush(self) -> None: ...
+    def __enter__(self) -> Self: ...
+    def __exit__(self, *exc_info: object) -> None: ...
+
 def sys_pipes_forever(encoding: str = ..., bufsize: int | None = None) -> None: ...
 def stop_sys_pipes() -> None: ...
 def load_ipython_extension(ip: _InteractiveShell) -> None: ...

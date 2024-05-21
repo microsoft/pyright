@@ -112,7 +112,7 @@ def split(
 ) -> list[str | Any]: ...
 @overload
 def split(
-    pattern: ReadableBuffer | Pattern[bytes],
+    pattern: bytes | Pattern[bytes],
     string: ReadableBuffer,
     maxsplit: int = 0,
     flags: int = 0,
@@ -134,7 +134,7 @@ def splititer(
 ) -> _regex.Splitter[str]: ...
 @overload
 def splititer(
-    pattern: ReadableBuffer | Pattern[bytes],
+    pattern: bytes | Pattern[bytes],
     string: ReadableBuffer,
     maxsplit: int = 0,
     flags: int = 0,
@@ -158,7 +158,7 @@ def findall(
 ) -> list[Any]: ...
 @overload
 def findall(
-    pattern: ReadableBuffer | Pattern[bytes],
+    pattern: bytes | Pattern[bytes],
     string: ReadableBuffer,
     flags: int = 0,
     pos: int | None = None,
@@ -185,7 +185,7 @@ def finditer(
 ) -> _regex.Scanner[str]: ...
 @overload
 def finditer(
-    pattern: ReadableBuffer | Pattern[bytes],
+    pattern: bytes | Pattern[bytes],
     string: ReadableBuffer,
     flags: int = 0,
     pos: int | None = None,
@@ -213,7 +213,7 @@ def sub(
 ) -> str: ...
 @overload
 def sub(
-    pattern: ReadableBuffer | Pattern[bytes],
+    pattern: bytes | Pattern[bytes],
     repl: ReadableBuffer | Callable[[Match[bytes]], ReadableBuffer],
     string: ReadableBuffer,
     count: int = 0,
@@ -241,7 +241,7 @@ def subf(
 ) -> str: ...
 @overload
 def subf(
-    pattern: ReadableBuffer | Pattern[bytes],
+    pattern: bytes | Pattern[bytes],
     format: ReadableBuffer | Callable[[Match[bytes]], ReadableBuffer],
     string: ReadableBuffer,
     count: int = 0,
@@ -269,7 +269,7 @@ def subn(
 ) -> tuple[str, int]: ...
 @overload
 def subn(
-    pattern: ReadableBuffer | Pattern[bytes],
+    pattern: bytes | Pattern[bytes],
     repl: ReadableBuffer | Callable[[Match[bytes]], ReadableBuffer],
     string: ReadableBuffer,
     count: int = 0,
@@ -297,7 +297,7 @@ def subfn(
 ) -> tuple[str, int]: ...
 @overload
 def subfn(
-    pattern: ReadableBuffer | Pattern[bytes],
+    pattern: bytes | Pattern[bytes],
     format: ReadableBuffer | Callable[[Match[bytes]], ReadableBuffer],
     string: ReadableBuffer,
     count: int = 0,
@@ -570,7 +570,7 @@ class Pattern(Generic[AnyStr]):
     def __copy__(self) -> Self: ...
     def __deepcopy__(self) -> Self: ...
     if sys.version_info >= (3, 9):
-        def __class_getitem__(cls, item: Any) -> GenericAlias: ...
+        def __class_getitem__(cls, item: Any, /) -> GenericAlias: ...
 
 @final
 class Match(Generic[AnyStr]):
@@ -649,4 +649,4 @@ class Match(Generic[AnyStr]):
     def __copy__(self) -> Self: ...
     def __deepcopy__(self) -> Self: ...
     if sys.version_info >= (3, 9):
-        def __class_getitem__(cls, item: Any) -> GenericAlias: ...
+        def __class_getitem__(cls, item: Any, /) -> GenericAlias: ...

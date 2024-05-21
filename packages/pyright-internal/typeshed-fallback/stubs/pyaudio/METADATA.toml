@@ -4,6 +4,6 @@ version = "0.2.*"
 
 [tool.stubtest]
 # linux and win32 are equivalent
-platforms = ["linux"]
+platforms = ["darwin", "linux"]
 apt_dependencies = ["portaudio19-dev"]
-# brew_dependencies = ["portaudio"]
+brew_dependencies = ["portaudio"]

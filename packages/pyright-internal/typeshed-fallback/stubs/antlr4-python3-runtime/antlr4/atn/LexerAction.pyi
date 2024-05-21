@@ -4,14 +4,14 @@ from enum import IntEnum
 Lexer: Incomplete
 
 class LexerActionType(IntEnum):
-    CHANNEL: int
-    CUSTOM: int
-    MODE: int
-    MORE: int
-    POP_MODE: int
-    PUSH_MODE: int
-    SKIP: int
-    TYPE: int
+    CHANNEL = 0
+    CUSTOM = 1
+    MODE = 2
+    MORE = 3
+    POP_MODE = 4
+    PUSH_MODE = 5
+    SKIP = 6
+    TYPE = 7
 
 class LexerAction:
     actionType: Incomplete

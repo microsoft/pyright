@@ -1,63 +1,70 @@
-from _typeshed import Incomplete, SupportsKeysAndGetItem, Unused
-from collections.abc import Callable, Iterable
+from _typeshed import Incomplete, SupportsItemAccess, SupportsKeysAndGetItem, Unused
+from collections.abc import Callable, Iterable, Mapping
 from html.parser import HTMLParser
 from logging import Logger
-from typing import ClassVar, Final
+from typing import ClassVar, Final, Literal, TypedDict, type_check_only
+from typing_extensions import TypeAlias
 
 from fpdf import FPDF
+
+from .fonts import FontFace
+from .table import Row, Table
 
 __author__: Final[str]
 __copyright__: Final[str]
 
+_OLType: TypeAlias = Literal["1", "a", "A", "I", "i"]
+
 LOGGER: Logger
 BULLET_WIN1252: Final[str]
-DEFAULT_HEADING_SIZES: dict[str, int]
+DEGREE_WIN1252: Final[str]
+HEADING_TAGS: Final[tuple[str, ...]]
+DEFAULT_TAG_STYLES: Final[dict[str, FontFace]]
+DEFAULT_TAG_INDENTS: Final[dict[str, int]]
 
 COLOR_DICT: Final[dict[str, str]]
 
 def color_as_decimal(color: str | None = "#000000") -> tuple[int, int, int] | None: ...
+def parse_style(elem_attrs: SupportsItemAccess[str, str]) -> None: ...
+@type_check_only
+class _Emphasis(TypedDict):
+    b: bool
+    i: bool
+    u: bool
 
 class HTML2FPDF(HTMLParser):
     HTML_UNCLOSED_TAGS: ClassVar[tuple[str, ...]]
+    TABLE_LINE_HEIGHT: ClassVar[float]
 
     pdf: FPDF
-    image_map: Incomplete
-    li_tag_indent: int
-    dd_tag_indent: int
+    image_map: Callable[[str], str]
     ul_bullet_char: str
-    heading_sizes: dict[str, int]
-    pre_code_font: str
+    li_prefix_color: tuple[int, int, int]
     warn_on_tags_not_matching: bool
-    style: Incomplete
-    font_size: Incomplete
+    emphasis: _Emphasis
+    font_size: float
     follows_trailing_space: bool
     follows_heading: bool
     href: str
     align: str
-    page_links: Incomplete
-    font_stack: Incomplete
+    style_stack: list[FontFace]
     indent: int
-    bullet: Incomplete
-    font_color: Incomplete
-    table: Incomplete
-    table_col_width: Incomplete
-    table_col_index: Incomplete
-    td: Incomplete
-    th: Incomplete
-    tr: Incomplete
-    thead: Incomplete
-    tfoot: Incomplete
-    tr_index: Incomplete
-    theader: Incomplete
-    tfooter: Incomplete
-    theader_out: bool
-    table_row_height: int
-    heading_level: Incomplete
+    ol_type: list[_OLType]
+    bullet: list[Incomplete]
+    font_color: tuple[int, int, int]
+    heading_level: Incomplete | None
     heading_above: float
     heading_below: float
+    table_line_separators: bool
+    table: Table | None
+    table_row: Row | None
+    tr: dict[str, str] | None
+    td_th: dict[str, str] | None
+    tag_indents: dict[str, int]
+    tag_styles: dict[str, FontFace]
 
     # Not initialized in __init__:
-    font_face: Incomplete
+    font_family: str
     h: float
 
     def __init__(
@@ -68,20 +75,26 @@ class HTML2FPDF(HTMLParser):
         dd_tag_indent: int = 10,
         table_line_separators: bool = False,
         ul_bullet_char: str = "\x95",
+        li_prefix_color: tuple[int, int, int] = (190, 0, 0),
         heading_sizes: SupportsKeysAndGetItem[str, int] | Iterable[tuple[str, int]] | None = None,
-        pre_code_font: str = "courier",
+        pre_code_font: str = ...,
         warn_on_tags_not_matching: bool = True,
+        tag_indents: dict[str, int] | None = None,
+        tag_styles: Mapping[str, FontFace] | None = None,
         **_: Unused,
     ): ...
     def handle_data(self, data) -> None: ...
     def handle_starttag(self, tag, attrs) -> None: ...
     def handle_endtag(self, tag) -> None: ...
-    def set_font(self, face: Incomplete | None = None, size: Incomplete | None = None, set_default: bool = False) -> None: ...
+    def set_font(self, family: str | None = None, size: float | None = None, set_default: bool = False) -> None: ...
     def set_style(self, tag: Incomplete | None = None, enable: bool = False) -> None: ...
     def set_text_color(self, r: Incomplete | None = None, g: int = 0, b: int = 0) -> None: ...
     def put_link(self, text) -> None: ...
     def render_toc(self, pdf, outline) -> None: ...
     def error(self, message: str) -> None: ...
+
+def ul_prefix(ul_type: str) -> str: ...
+def ol_prefix(ol_type: _OLType, index: int) -> str: ...
 
 class HTMLMixin:
     def __init__(self, *args, **kwargs) -> None: ...

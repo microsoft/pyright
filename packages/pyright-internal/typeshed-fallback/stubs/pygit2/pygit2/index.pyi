@@ -1,6 +1,6 @@
 from _typeshed import StrOrBytesPath, StrPath
 from collections.abc import Iterator
-from typing_extensions import Self
+from typing_extensions import Self, deprecated
 
 from _cffi_backend import _CDataBase
 
@@ -40,6 +40,7 @@ class IndexEntry:
     @property
     def oid(self) -> Oid: ...
     @property
+    @deprecated("Use str(entry.id)")
     def hex(self) -> str: ...
     def __eq__(self, other: object) -> bool: ...
 

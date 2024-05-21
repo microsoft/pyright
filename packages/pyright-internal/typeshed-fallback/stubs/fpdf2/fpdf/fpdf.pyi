@@ -25,6 +25,7 @@ from .enums import (
     RenderStyle,
     TableBordersLayout,
     TableCellFillMode,
+    TextDirection,
     TextMarkupType,
     TextMode as TextMode,
     WrapMode as WrapMode,
@@ -207,7 +208,7 @@ class FPDF(GraphicsStateMixin):
         self,
         use_shaping_engine: bool = True,
         features: dict[str, bool] | None = None,
-        direction: Literal["ltr", "rtl"] | None = None,
+        direction: Literal["ltr", "rtl"] | TextDirection | None = None,
         script: str | None = None,
         language: str | None = None,
     ) -> None: ...

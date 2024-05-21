@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from .._distutils.command.build_ext import build_ext as _build_ext
 
@@ -40,7 +40,7 @@ def link_shared_object(
     library_dirs: Incomplete | None = None,
     runtime_library_dirs: Incomplete | None = None,
     export_symbols: Incomplete | None = None,
-    debug: int = 0,
+    debug: bool | Literal[0, 1] = 0,
     extra_preargs: Incomplete | None = None,
     extra_postargs: Incomplete | None = None,
     build_temp: Incomplete | None = None,
