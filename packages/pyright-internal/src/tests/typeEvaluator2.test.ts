@@ -816,7 +816,7 @@ test('SolverHigherOrder4', () => {
 test('SolverHigherOrder5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverHigherOrder5.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('SolverHigherOrder6', () => {

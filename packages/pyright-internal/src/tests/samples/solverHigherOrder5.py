@@ -189,3 +189,17 @@ def func2() -> None: ...
 
 
 test_10(test_10, func2)
+
+
+def test_11(func: Callable[[*Ts], T], *args: *Ts) -> T:
+    return func(*args)
+
+
+def func3(num: int, /) -> int:
+    return num
+
+
+test_11(test_11, func3, 123)
+
+# This will generate an error, but it should not crash or cause an infinite loop.
+test_11(test_11, test_11, func3, 123)
