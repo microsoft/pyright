@@ -7,6 +7,7 @@ from typing import (
     Generic,
     Literal,
     ParamSpec,
+    Protocol,
     TypeVar,
     Callable,
     TypeVarTuple,
@@ -203,3 +204,15 @@ test_11(test_11, func3, 123)
 
 # This will generate an error, but it should not crash or cause an infinite loop.
 test_11(test_11, test_11, func3, 123)
+
+
+class Proto1(Protocol):
+    def __call__(self, a: T, b: T) -> T: ...
+
+
+def func4(a: T, b: T) -> T:
+    return a
+
+
+def test_12(p: Proto1) -> Proto1:
+    return p(func4, func4)
