@@ -1687,9 +1687,10 @@ export function getCodeFlowEngine(
                                 node,
                                 node.arguments,
                                 { type: callSubtype, isIncomplete: callTypeResult.isIncomplete },
-                                undefined /* typeVarContext */,
-                                false /* skipUnknownArgCheck */,
-                                undefined /* expectedType */
+                                /* typeVarContext */ undefined,
+                                /* skipUnknownArgCheck */ false,
+                                /* inferenceContext */ undefined,
+                                /* signatureTracker */ undefined
                             );
 
                             if (callResult.returnType && isNever(callResult.returnType)) {

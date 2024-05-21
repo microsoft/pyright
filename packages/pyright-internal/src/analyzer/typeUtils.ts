@@ -254,7 +254,6 @@ export interface ApplyTypeVarOptions {
 export interface InferenceContext {
     expectedType: Type;
     isTypeIncomplete?: boolean;
-    signatureTracker?: UniqueSignatureTracker;
 }
 
 export interface RequiresSpecializationOptions {
@@ -405,32 +404,19 @@ export function isBuiltInDeprecatedType(type: Type) {
     return false;
 }
 
-export function makeInferenceContext(
-    expectedType: undefined,
-    isTypeIncomplete?: boolean,
-    signatureTracker?: UniqueSignatureTracker
-): undefined;
-export function makeInferenceContext(
-    expectedType: Type,
-    isTypeIncomplete?: boolean,
-    signatureTracker?: UniqueSignatureTracker
-): InferenceContext;
-export function makeInferenceContext(
-    expectedType: Type | undefined,
-    isTypeIncomplete?: boolean,
-    signatureTracker?: UniqueSignatureTracker
-): InferenceContext | undefined;
+export function makeInferenceContext(expectedType: undefined, isTypeIncomplete?: boolean): undefined;
+export function makeInferenceContext(expectedType: Type, isTypeIncomplete?: boolean): InferenceContext;
+export function makeInferenceContext(expectedType?: Type, isTypeIncomplete?: boolean): InferenceContext | undefined;
 
 export function makeInferenceContext(
     expectedType: Type | undefined,
-    isTypeIncomplete?: boolean,
-    signatureTracker?: UniqueSignatureTracker
+    isTypeIncomplete?: boolean
 ): InferenceContext | undefined {
     if (!expectedType) {
         return undefined;
     }
 
-    return { expectedType, isTypeIncomplete, signatureTracker };
+    return { expectedType, isTypeIncomplete };
 }
 
 // Calls a callback for each subtype and combines the results
