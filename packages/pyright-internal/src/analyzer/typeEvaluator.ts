@@ -22510,30 +22510,32 @@ export function createTypeEvaluator(
             }
         }
 
-        const destErrorType = reportErrorsUsingObjType ? ClassType.cloneAsInstance(destType) : destType;
-        const srcErrorType = reportErrorsUsingObjType ? ClassType.cloneAsInstance(srcType) : srcType;
+        if (diag) {
+            const destErrorType = reportErrorsUsingObjType ? ClassType.cloneAsInstance(destType) : destType;
+            const srcErrorType = reportErrorsUsingObjType ? ClassType.cloneAsInstance(srcType) : srcType;
 
-        let destErrorTypeText = printType(destErrorType);
-        let srcErrorTypeText = printType(srcErrorType);
+            let destErrorTypeText = printType(destErrorType);
+            let srcErrorTypeText = printType(srcErrorType);
 
-        // If the text is the same, use the fully-qualified name rather than the short name.
-        if (destErrorTypeText === srcErrorTypeText && destType.details.fullName && srcType.details.fullName) {
-            destErrorTypeText = destType.details.fullName;
-            srcErrorTypeText = srcType.details.fullName;
-        }
+            // If the text is the same, use the fully-qualified name rather than the short name.
+            if (destErrorTypeText === srcErrorTypeText && destType.details.fullName && srcType.details.fullName) {
+                destErrorTypeText = destType.details.fullName;
+                srcErrorTypeText = srcType.details.fullName;
+            }
 
-        diag?.addMessage(
-            LocAddendum.typeIncompatible().format({
-                sourceType: srcErrorTypeText,
-                destType: destErrorTypeText,
-            })
-        );
+            diag?.addMessage(
+                LocAddendum.typeIncompatible().format({
+                    sourceType: srcErrorTypeText,
+                    destType: destErrorTypeText,
+                })
+            );
 
-        // Tell the user about the disableBytesTypePromotions if that is involved.
-        if (ClassType.isBuiltIn(destType, 'bytes')) {
-            const promotions = typePromotions.get(destType.details.fullName);
-            if (promotions && promotions.some((name) => name === srcType.details.fullName)) {
-                diag?.addMessage(LocAddendum.bytesTypePromotions());
+            // Tell the user about the disableBytesTypePromotions if that is involved.
+            if (ClassType.isBuiltIn(destType, 'bytes')) {
+                const promotions = typePromotions.get(destType.details.fullName);
+                if (promotions && promotions.some((name) => name === srcType.details.fullName)) {
+                    diag?.addMessage(LocAddendum.bytesTypePromotions());
+                }
             }
         }
 
