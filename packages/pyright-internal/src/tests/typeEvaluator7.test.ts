@@ -575,6 +575,12 @@ test('Protocol49', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Protocol50', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol50.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ProtocolExplicit1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocolExplicit1.py']);
 
