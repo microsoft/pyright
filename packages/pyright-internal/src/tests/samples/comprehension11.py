@@ -15,4 +15,4 @@ times = [
         for meridian in ("am", "pm")
     )
 ]
-reveal_type(times, expected_text="list[tuple[int, int, Literal['am', 'pm']]]")
+reveal_type(times, expected_text="list[tuple[int, int, str]]")
