@@ -432,7 +432,9 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
         argList,
         decoratorTypeResult,
         /* typeVarContext */ undefined,
-        /* skipUnknownArgCheck */ true
+        /* skipUnknownArgCheck */ true,
+        /* inferenceContext */ undefined,
+        /* signatureTracker */ undefined
     );
 
     evaluator.setTypeResultForNode(node, {
