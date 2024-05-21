@@ -77,7 +77,7 @@ jobs:
       - name: Upload mypy_primer diff
         uses: actions/upload-artifact@v4
         with:
-          name: mypy_primer_diffs
+          name: mypy_primer_diffs_${{ matrix.shard-index }}
           path: diff_${{ matrix.shard-index }}.txt
       - if: ${{ matrix.shard-index }} == 0
         name: Save PR number
