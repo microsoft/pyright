@@ -20376,7 +20376,8 @@ export function createTypeEvaluator(
         signatureTracker: UniqueSignatureTracker | undefined
     ): TypeResult {
         if (arg.typeResult) {
-            return { type: arg.typeResult.type, isIncomplete: arg.typeResult.isIncomplete };
+            const type = arg.typeResult.type?.specialForm ?? arg.typeResult.type;
+            return { type, isIncomplete: arg.typeResult.isIncomplete };
         }
 
         if (!arg.valueExpression) {
@@ -23733,8 +23734,19 @@ export function createTypeEvaluator(
                     return true;
                 }
 
-                if (
-                    !isSpecialFormClass(expandedSrcType, flags) &&
+                if (isSpecialFormClass(expandedSrcType, flags)) {
+                    if (destType.specialForm) {
+                        return assignType(
+                            destType.specialForm,
+                            expandedSrcType,
+                            diag,
+                            destTypeVarContext,
+                            srcTypeVarContext,
+                            flags,
+                            recursionCount
+                        );
+                    }
+                } else if (
                     assignClass(
                         destType,
                         expandedSrcType,
