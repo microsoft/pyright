@@ -537,7 +537,7 @@ export function assignTypeToTypeVar(
                         adjWideTypeBound,
                         newNarrowTypeBound,
                         diag?.createAddendum(),
-                        typeVarContext,
+                        /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
                         AssignTypeFlags.IgnoreTypeVarScope,
                         recursionCount
