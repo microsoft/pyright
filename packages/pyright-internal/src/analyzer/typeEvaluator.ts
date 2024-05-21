@@ -21958,7 +21958,11 @@ export function createTypeEvaluator(
     ) {
         const specializedReturnType = FunctionType.getSpecializedReturnType(type, /* includeInferred */ false);
         if (specializedReturnType && !isUnknown(specializedReturnType)) {
-            return adjustCallableReturnType(type, specializedReturnType, /* liveTypeVarScopes */ []);
+            const liveTypeVarScopes = callSiteInfo?.errorNode
+                ? ParseTreeUtils.getTypeVarScopesForNode(callSiteInfo?.errorNode)
+                : [];
+
+            return adjustCallableReturnType(type, specializedReturnType, liveTypeVarScopes);
         }
 
         if (inferTypeIfNeeded) {

@@ -654,7 +654,7 @@ test('Solver15', () => {
 test('Solver16', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver16.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Solver17', () => {
