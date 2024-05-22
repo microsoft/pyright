@@ -8080,17 +8080,6 @@ export function createTypeEvaluator(
 
         let typeResult: TypeResult = { type: UnknownType.create() };
 
-        // If the inference context has an associated signature tracker, make sure
-        // the base type of this call is not the same as one of the tracked signatures.
-        // This is important for nested generic calls (e.g. "foo(foo(x))").
-        if (signatureTracker) {
-            baseTypeResult.type = ensureFunctionSignaturesAreUnique(
-                baseTypeResult.type,
-                signatureTracker,
-                node.leftExpression.start
-            );
-        }
-
         if (!isTypeAliasPlaceholder(baseTypeResult.type)) {
             if (node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === 'super') {
                 // Handle the built-in "super" call specially.
