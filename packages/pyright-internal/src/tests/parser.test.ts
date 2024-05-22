@@ -25,12 +25,18 @@ test('Empty', () => {
     assert.equal(parserOutput.parseTree.statements.length, 0);
 });
 
-test('Sample1', () => {
+test('Parser1', () => {
     const diagSink = new DiagnosticSink();
-    const parserOutput = TestUtils.parseSampleFile('sample1.py', diagSink).parserOutput;
+    const parserOutput = TestUtils.parseSampleFile('parser1.py', diagSink).parserOutput;
 
     assert.equal(diagSink.fetchAndClear().length, 0);
     assert.equal(parserOutput.parseTree.statements.length, 4);
+});
+
+test('Parser2', () => {
+    const diagSink = new DiagnosticSink();
+    TestUtils.parseSampleFile('parser2.py', diagSink);
+    assert.strictEqual(diagSink.getErrors().length, 0);
 });
 
 test('FStringEmptyTuple', () => {

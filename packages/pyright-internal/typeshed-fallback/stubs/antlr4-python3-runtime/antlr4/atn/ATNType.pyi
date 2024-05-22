@@ -1,7 +1,7 @@
 from enum import IntEnum
 
 class ATNType(IntEnum):
-    LEXER: int
-    PARSER: int
+    LEXER = 0
+    PARSER = 1
     @classmethod
     def fromOrdinal(cls, i: int): ...

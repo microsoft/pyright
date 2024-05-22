@@ -61,7 +61,9 @@ import {
     buildTypeVarContextFromSpecializedClass,
     computeMroLinearization,
     convertToInstance,
+    doForEachSignature,
     getTypeVarScopeId,
+    getTypeVarScopeIds,
     isLiteralType,
     isMetaclassInstance,
     populateTypeVarContextForSelfType,
@@ -302,7 +304,10 @@ export function synthesizeDataClassMethods(
                             (arg) => arg.name?.value === 'converter'
                         );
                         if (converterArg && converterArg.valueExpression) {
-                            converter = converterArg;
+                            // Converter support is dependent on PEP 712, which has not yet been approved.
+                            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
+                                converter = converterArg;
+                            }
                         }
                     }
                 }
@@ -792,34 +797,28 @@ function getConverterInputType(
     });
     FunctionType.addPositionOnlyParameterSeparator(targetFunction);
 
-    if (isFunction(converterType)) {
-        const typeVarContext = new TypeVarContext(typeVar.scopeId);
-        const diagAddendum = new DiagnosticAddendum();
-
-        if (evaluator.assignType(targetFunction, converterType, diagAddendum, typeVarContext)) {
-            const solution = applySolvedTypeVars(typeVar, typeVarContext, { unknownIfNotFound: true });
-            return solution;
-        }
-
-        evaluator.addDiagnostic(
-            DiagnosticRule.reportGeneralTypeIssues,
-            LocMessage.dataClassConverterFunction().format({
-                argType: evaluator.printType(converterType),
-                fieldType: evaluator.printType(fieldType),
-                fieldName: fieldName,
-            }) + diagAddendum.getString(),
-            converterNode,
-            diagAddendum.getEffectiveTextRange() ?? converterNode
-        );
-    } else {
+    if (isFunction(converterType) || isOverloadedFunction(converterType)) {
         const acceptedTypes: Type[] = [];
         const diagAddendum = new DiagnosticAddendum();
 
-        OverloadedFunctionType.getOverloads(converterType).forEach((overload) => {
-            const typeVarContext = new TypeVarContext(typeVar.scopeId);
+        doForEachSignature(converterType, (signature) => {
+            const returnTypeVarContext = new TypeVarContext(getTypeVarScopeIds(signature));
 
-            if (evaluator.assignType(targetFunction, overload, diagAddendum, typeVarContext)) {
-                const overloadSolution = applySolvedTypeVars(typeVar, typeVarContext, { unknownIfNotFound: true });
+            if (
+                evaluator.assignType(
+                    FunctionType.getSpecializedReturnType(signature) ?? UnknownType.create(),
+                    fieldType,
+                    /* diag */ undefined,
+                    returnTypeVarContext
+                )
+            ) {
+                signature = applySolvedTypeVars(signature, returnTypeVarContext) as FunctionType;
+            }
+
+            const inputTypeVarContext = new TypeVarContext(typeVar.scopeId);
+
+            if (evaluator.assignType(targetFunction, signature, diagAddendum, inputTypeVarContext)) {
+                const overloadSolution = applySolvedTypeVars(typeVar, inputTypeVarContext, { unknownIfNotFound: true });
                 acceptedTypes.push(overloadSolution);
             }
         });
@@ -828,15 +827,28 @@ function getConverterInputType(
             return combineTypes(acceptedTypes);
         }
 
-        evaluator.addDiagnostic(
-            DiagnosticRule.reportGeneralTypeIssues,
-            LocMessage.dataClassConverterOverloads().format({
-                funcName: converterType.overloads[0].details.name || '<anonymous function>',
-                fieldType: evaluator.printType(fieldType),
-                fieldName: fieldName,
-            }) + diagAddendum.getString(),
-            converterNode
-        );
+        if (isFunction(converterType)) {
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.dataClassConverterFunction().format({
+                    argType: evaluator.printType(converterType),
+                    fieldType: evaluator.printType(fieldType),
+                    fieldName: fieldName,
+                }) + diagAddendum.getString(),
+                converterNode,
+                diagAddendum.getEffectiveTextRange() ?? converterNode
+            );
+        } else {
+            evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.dataClassConverterOverloads().format({
+                    funcName: converterType.overloads[0].details.name || '<anonymous function>',
+                    fieldType: evaluator.printType(fieldType),
+                    fieldName: fieldName,
+                }) + diagAddendum.getString(),
+                converterNode
+            );
+        }
     }
 
     return fieldType;

@@ -7,28 +7,23 @@ T = TypeVar("T")
 U = TypeVar("U")
 
 
-def foo(value: T) -> T:
-    ...
+def func1(value: T) -> T: ...
 
 
-def bar(values: Sequence[T]) -> T:
-    ...
+def func2(values: Sequence[T]) -> T: ...
 
 
-def baz(
-    value: T,
-    callback: Callable[[T], U],
-) -> U:
-    ...
+def func3(value: T, callback: Callable[[T], U]) -> U: ...
 
 
-def qux(
-    values: Sequence[T],
-    callback: Callable[[Sequence[T]], U],
-) -> U:
-    ...
+def func4(values: Sequence[T], callback: Callable[[Sequence[T]], U]) -> U: ...
 
 
-reveal_type(baz(1.0, foo), expected_text="float")
-reveal_type(qux([1.0], foo), expected_text="Sequence[float]")
-reveal_type(qux([1.0], bar), expected_text="float")
+reveal_type(func3(1.0, func1), expected_text="float")
+reveal_type(func4([1.0], func1), expected_text="Sequence[float]")
+reveal_type(func4([1.0], func2), expected_text="float")
+
+
+def func5(obj: object, cb: Callable[[], Callable[[T], object]]) -> None:
+    # This should generate an error.
+    cb()(obj)

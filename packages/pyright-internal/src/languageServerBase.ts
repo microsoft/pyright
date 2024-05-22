@@ -38,7 +38,6 @@ import {
     DiagnosticTag,
     DidChangeConfigurationParams,
     DidChangeTextDocumentParams,
-    DidChangeWatchedFilesNotification,
     DidChangeWatchedFilesParams,
     DidCloseTextDocumentParams,
     DidOpenTextDocumentParams,
@@ -48,7 +47,6 @@ import {
     DocumentSymbol,
     DocumentSymbolParams,
     ExecuteCommandParams,
-    FileSystemWatcher,
     HoverParams,
     InitializeParams,
     InitializeResult,
@@ -66,7 +64,6 @@ import {
     SymbolInformation,
     TextDocumentPositionParams,
     TextDocumentSyncKind,
-    WatchKind,
     WorkDoneProgressReporter,
     WorkspaceEdit,
     WorkspaceSymbol,
@@ -79,7 +76,7 @@ import { AnalysisResults } from './analyzer/analysis';
 import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
-import { AnalyzerService, LibraryReanalysisTimeProvider, configFileNames, getNextServiceId } from './analyzer/service';
+import { AnalyzerService, LibraryReanalysisTimeProvider, getNextServiceId } from './analyzer/service';
 import { IPythonMode } from './analyzer/sourceFile';
 import type { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandResult } from './commands/commandResult';
@@ -102,7 +99,7 @@ import { ServiceKeys } from './common/serviceKeys';
 import { ServiceProvider } from './common/serviceProvider';
 import { DocumentRange, Position, Range } from './common/textRange';
 import { Uri } from './common/uri/uri';
-import { deduplicateFolders, encodeUri, isFile } from './common/uri/uriUtils';
+import { encodeUri } from './common/uri/uriUtils';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CallHierarchyProvider } from './languageService/callHierarchyProvider';
 import { CompletionItemData, CompletionProvider } from './languageService/completionProvider';
@@ -120,6 +117,8 @@ import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvid
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { ParseFileResults } from './parser/parser';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
+import { DynamicFeature, DynamicFeatures } from './languageService/dynamicFeature';
+import { FileWatcherDynamicFeature } from './languageService/fileWatcherDynamicFeature';
 
 export interface ServerOptions {
     productName: string;
@@ -243,8 +242,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     private _lastTriggerKind: CompletionTriggerKind | undefined = CompletionTriggerKind.Invoked;
 
-    private _lastFileWatcherRegistration: Disposable | undefined;
-
     private _initialized = false;
     private _workspaceFoldersChangedDisposable: Disposable | undefined;
 
@@ -281,6 +278,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
     // The URIs for which diagnostics are reported
     protected readonly documentsWithDiagnostics = new Set<string>();
+
+    private readonly _dynamicFeatures = new DynamicFeatures();
 
     constructor(protected serverOptions: ServerOptions, protected connection: Connection) {
         // Stash the base directory into a global variable.
@@ -345,6 +344,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     dispose() {
         this.workspaceFactory.clear();
         this.openFileMap.clear();
+        this._dynamicFeatures.unregister();
         this._workspaceFoldersChangedDisposable?.dispose();
     }
 
@@ -420,7 +420,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         });
 
         Promise.all(tasks).then(() => {
-            this._setupFileWatcher();
+            this._dynamicFeatures.register();
         });
     }
 
@@ -441,6 +441,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
             workspace,
             serverSettings.pythonPath ? serverSettings.pythonPath : undefined
         );
+
+        this._dynamicFeatures.update(serverSettings);
 
         // Then use the updated settings to restart the service.
         this.updateOptionsAndRestartService(workspace, serverSettings);
@@ -663,6 +665,17 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         // Create a service instance for each of the workspace folders.
         this.workspaceFactory.handleInitialize(params);
 
+        if (this.client.hasWatchFileCapability) {
+            this.addDynamicFeature(
+                new FileWatcherDynamicFeature(
+                    this.connection,
+                    this.client.hasWatchFileRelativePathCapability,
+                    this.fs,
+                    this.workspaceFactory
+                )
+            );
+        }
+
         const result: InitializeResult = {
             capabilities: {
                 textDocumentSync: TextDocumentSyncKind.Incremental,
@@ -733,10 +746,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
 
         this._workspaceFoldersChangedDisposable = this.connection.workspace.onDidChangeWorkspaceFolders((event) => {
             this.workspaceFactory.handleWorkspaceFoldersChanged(event);
-            this._setupFileWatcher();
+            this._dynamicFeatures.register();
         });
 
-        this._setupFileWatcher();
+        this._dynamicFeatures.register();
     }
 
     protected onDidChangeConfiguration(params: DidChangeConfigurationParams) {
@@ -1407,47 +1420,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         return Uri.parse(uri, this.serverOptions.serviceProvider);
     }
 
-    private _setupFileWatcher() {
-        if (!this.client.hasWatchFileCapability) {
-            return;
-        }
-
-        const watchKind = WatchKind.Create | WatchKind.Change | WatchKind.Delete;
-
-        // Set default (config files and all workspace files) first.
-        const watchers: FileSystemWatcher[] = [
-            ...configFileNames.map((fileName) => ({ globPattern: `**/${fileName}`, kind: watchKind })),
-            { globPattern: '**', kind: watchKind },
-        ];
-
-        // Add all python search paths to watch list
-        if (this.client.hasWatchFileRelativePathCapability) {
-            // Dedup search paths from all workspaces.
-            // Get rid of any search path under workspace root since it is already watched by
-            // "**" above.
-            const foldersToWatch = deduplicateFolders(
-                this.workspaceFactory
-                    .getNonDefaultWorkspaces()
-                    .map((w) => w.searchPathsToWatch.filter((p) => !p.startsWith(w.rootUri)))
-            );
-
-            foldersToWatch.forEach((p) => {
-                const globPattern = isFile(this.fs, p, /* treatZipDirectoryAsFile */ true)
-                    ? { baseUri: p.getDirectory().toString(), pattern: p.fileName }
-                    : { baseUri: p.toString(), pattern: '**' };
-
-                watchers.push({ globPattern, kind: watchKind });
-            });
-        }
-
-        // Dispose all existing file watchers and create new ones.
-        this.connection.client.register(DidChangeWatchedFilesNotification.type, { watchers }).then((d) => {
-            if (this._lastFileWatcherRegistration) {
-                this._lastFileWatcherRegistration.dispose();
-            }
-
-            this._lastFileWatcherRegistration = d;
-        });
+    protected addDynamicFeature(feature: DynamicFeature) {
+        this._dynamicFeatures.add(feature);
     }
 
     private _getCompatibleMarkupKind(clientSupportedFormats: MarkupKind[] | undefined) {

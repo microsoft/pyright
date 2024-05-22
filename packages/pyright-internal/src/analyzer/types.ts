@@ -251,6 +251,10 @@ export namespace TypeBase {
                 newInstance.instantiableNestingLevel === undefined ? 1 : newInstance.instantiableNestingLevel;
         }
 
+        // Remove type alias information because the type will no longer match
+        // that of the type alias definition.
+        delete newInstance.typeAliasInfo;
+
         // Should we cache it for next time?
         if (cache) {
             if (!type.cached) {
@@ -1481,11 +1485,6 @@ interface FunctionDetails {
     // Parameter specification used only for Callable types created
     // with a ParamSpec representing the parameters.
     paramSpec?: TypeVarType | undefined;
-
-    // If the function is generic (has one or more typeParameters) and
-    // one or more of these appear only within the return type and within
-    // a callable, they are rescoped to that callable.
-    rescopedTypeParameters?: TypeVarType[];
 
     // For __new__ and __init__ methods, the TypeVar scope ID of the
     // associated class.
@@ -3061,6 +3060,14 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             const params2 = functionType2.details.parameters;
 
             if (params1.length !== params2.length) {
+                return false;
+            }
+
+            // If one function is ... and the other is not, they are not the same.
+            if (
+                FunctionType.shouldSkipArgsKwargsCompatibilityCheck(type1) !==
+                FunctionType.shouldSkipArgsKwargsCompatibilityCheck(functionType2)
+            ) {
                 return false;
             }
 

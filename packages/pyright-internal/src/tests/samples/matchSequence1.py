@@ -488,3 +488,10 @@ def test_unbounded_tuple_2(subj: tuple[int, str, Unpack[tuple[range, ...]]]) -> 
 
         case [1, "", *ts2]:
             reveal_type(ts2, expected_text="list[range]")
+
+def test_unbounded_tuple_3(subj: tuple[int, ...]):
+    match subj:
+        case []:
+            return
+        case x:
+            reveal_type(x, expected_text="tuple[int, ...]")

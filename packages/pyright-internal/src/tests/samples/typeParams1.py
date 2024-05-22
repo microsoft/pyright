@@ -43,6 +43,10 @@ class ClassG[T](list["T"]):
     pass
 
 
+class ClassH:
+    def object[T](self, target: object, new: T) -> T: ...
+
+
 # This should generate an error because T3 is duplicated.
 def func3[T3, S1, T3](): ...
 

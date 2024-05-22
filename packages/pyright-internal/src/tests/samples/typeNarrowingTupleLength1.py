@@ -1,6 +1,8 @@
 # This sample tests type narrowing of tuples based on len(x) test.
 
-from typing import Literal, TypeVar
+from typing import Callable, Literal, ParamSpec, TypeVar
+
+P = ParamSpec("P")
 
 
 def func1(val: tuple[int] | tuple[int, int] | tuple[str, str]):
@@ -130,3 +132,14 @@ def func25(t: tuple[str, *tuple[int, ...], str]):
         reveal_type(t, expected_text="Never")
     else:
         reveal_type(t, expected_text="tuple[str, *tuple[int, ...], str]")
+
+
+def func26(fn: Callable[P, None]):
+    def inner(*args: P.args, **kwargs: P.kwargs):
+        if len(args) >= 0:
+            reveal_type(args, expected_text="P@func26.args")
+        else:
+            reveal_type(args, expected_text="P@func26.args")
+        return fn(*args, **kwargs)
+
+    return inner

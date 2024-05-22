@@ -24,6 +24,7 @@ import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { Declaration, DeclarationType } from './declaration';
+import { transformTypeForEnumMember } from './enums';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
@@ -73,6 +74,7 @@ import {
     getSpecializedTupleType,
     getTypeCondition,
     getTypeVarScopeId,
+    getUnknownTypeForCallable,
     isInstantiableMetaclass,
     isLiteralType,
     isLiteralTypeOrUnion,
@@ -630,7 +632,9 @@ export function getTypeNarrowingCallback(
                         EvaluatorFlags.AllowMissingTypeArgs |
                             EvaluatorFlags.EvaluateStringLiteralAsType |
                             EvaluatorFlags.DisallowParamSpec |
-                            EvaluatorFlags.DisallowTypeVarTuple
+                            EvaluatorFlags.DisallowTypeVarTuple |
+                            EvaluatorFlags.DisallowFinal |
+                            EvaluatorFlags.DoNotSpecialize
                     );
                     const arg1Type = arg1TypeResult.type;
 
@@ -645,6 +649,7 @@ export function getTypeNarrowingCallback(
                                     type,
                                     classTypeList,
                                     isInstanceCheck,
+                                    /* isTypeIsCheck */ false,
                                     isPositiveTest,
                                     testExpression
                                 ),
@@ -982,7 +987,15 @@ function narrowTypeForUserDefinedTypeGuard(
         filterTypes.push(convertToInstantiable(typeGuardSubtype));
     });
 
-    return narrowTypeForIsInstance(evaluator, type, filterTypes, /* isInstanceCheck */ true, isPositiveTest, errorNode);
+    return narrowTypeForIsInstance(
+        evaluator,
+        type,
+        filterTypes,
+        /* isInstanceCheck */ true,
+        /* isTypeIsCheck */ true,
+        isPositiveTest,
+        errorNode
+    );
 }
 
 // Narrow the type based on whether the subtype can be true or false.
@@ -1141,6 +1154,14 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | Func
     // undefined if any of the types are not valid.
     const addClassTypesToList = (types: Type[]) => {
         types.forEach((subtype) => {
+            if (isClass(subtype)) {
+                subtype = specializeWithUnknownTypeArgs(subtype);
+
+                if (isInstantiableClass(subtype) && ClassType.isBuiltIn(subtype, 'Callable')) {
+                    subtype = convertToInstantiable(getUnknownTypeForCallable());
+                }
+            }
+
             if (isInstantiableClass(subtype) || (isTypeVar(subtype) && TypeBase.isInstantiable(subtype))) {
                 classTypeList.push(subtype);
             } else if (isNoneTypeClass(subtype)) {
@@ -1250,6 +1271,7 @@ function narrowTypeForIsInstance(
     type: Type,
     filterTypes: Type[],
     isInstanceCheck: boolean,
+    isTypeIsCheck: boolean,
     isPositiveTest: boolean,
     errorNode: ExpressionNode
 ) {
@@ -1259,6 +1281,7 @@ function narrowTypeForIsInstance(
         type,
         filterTypes,
         isInstanceCheck,
+        isTypeIsCheck,
         isPositiveTest,
         /* allowIntersections */ false,
         errorNode
@@ -1274,6 +1297,7 @@ function narrowTypeForIsInstance(
         type,
         filterTypes,
         isInstanceCheck,
+        isTypeIsCheck,
         isPositiveTest,
         /* allowIntersections */ true,
         errorNode
@@ -1290,6 +1314,7 @@ function narrowTypeForIsInstanceInternal(
     type: Type,
     filterTypes: Type[],
     isInstanceCheck: boolean,
+    isTypeIsCheck: boolean,
     isPositiveTest: boolean,
     allowIntersections: boolean,
     errorNode: ExpressionNode
@@ -1318,33 +1343,41 @@ function narrowTypeForIsInstanceInternal(
             let concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
             if (isInstantiableClass(concreteFilterType)) {
-                // If the class was implicitly specialized (e.g. because its type
-                // parameters have default values), replace the default type arguments
-                // with Unknown.
-                if (concreteFilterType.typeArguments && !concreteFilterType.isTypeArgumentExplicit) {
-                    concreteFilterType = specializeWithUnknownTypeArgs(
-                        ClassType.cloneForSpecialization(
-                            concreteFilterType,
-                            /* typeArguments */ undefined,
-                            /* isTypeArgumentExplicit */ false
-                        )
+                let filterIsSuperclass: boolean;
+                let filterIsSubclass: boolean;
+
+                if (isTypeIsCheck) {
+                    filterIsSuperclass = evaluator.assignType(filterType, concreteVarType);
+                    filterIsSubclass = evaluator.assignType(concreteVarType, filterType);
+                } else {
+                    // If the class was implicitly specialized (e.g. because its type
+                    // parameters have default values), replace the default type arguments
+                    // with Unknown.
+                    if (concreteFilterType.typeArguments && !concreteFilterType.isTypeArgumentExplicit) {
+                        concreteFilterType = specializeWithUnknownTypeArgs(
+                            ClassType.cloneForSpecialization(
+                                concreteFilterType,
+                                /* typeArguments */ undefined,
+                                /* isTypeArgumentExplicit */ false
+                            )
+                        );
+                    }
+
+                    filterIsSuperclass = isIsinstanceFilterSuperclass(
+                        evaluator,
+                        varType,
+                        concreteVarType,
+                        filterType,
+                        concreteFilterType,
+                        isInstanceCheck
+                    );
+                    filterIsSubclass = isIsinstanceFilterSubclass(
+                        evaluator,
+                        concreteVarType,
+                        concreteFilterType,
+                        isInstanceCheck
                     );
                 }
-
-                const filterIsSuperclass = isIsinstanceFilterSuperclass(
-                    evaluator,
-                    varType,
-                    concreteVarType,
-                    filterType,
-                    concreteFilterType,
-                    isInstanceCheck
-                );
-                const filterIsSubclass = isIsinstanceFilterSubclass(
-                    evaluator,
-                    concreteVarType,
-                    concreteFilterType,
-                    isInstanceCheck
-                );
 
                 if (filterIsSuperclass) {
                     foundSuperclass = true;
@@ -1405,28 +1438,34 @@ function narrowTypeForIsInstanceInternal(
                                     ClassType.isSpecialBuiltIn(filterType) ||
                                     filterType.details.typeParameters.length > 0
                                 ) {
-                                    const typeVarContext = new TypeVarContext(getTypeVarScopeId(filterType));
-                                    const unspecializedFilterType = ClassType.cloneForSpecialization(
-                                        filterType,
-                                        /* typeArguments */ undefined,
-                                        /* isTypeArgumentExplicit */ false
-                                    );
-
                                     if (
-                                        populateTypeVarContextBasedOnExpectedType(
-                                            evaluator,
-                                            unspecializedFilterType,
-                                            concreteVarType,
-                                            typeVarContext,
-                                            /* liveTypeVarScopes */ undefined,
-                                            errorNode.start
-                                        )
+                                        !filterType.typeArguments ||
+                                        !filterType.isTypeArgumentExplicit ||
+                                        !ClassType.isSameGenericClass(concreteVarType, filterType)
                                     ) {
-                                        specializedFilterType = applySolvedTypeVars(
-                                            unspecializedFilterType,
-                                            typeVarContext,
-                                            { unknownIfNotFound: true }
-                                        ) as ClassType;
+                                        const typeVarContext = new TypeVarContext(getTypeVarScopeId(filterType));
+                                        const unspecializedFilterType = ClassType.cloneForSpecialization(
+                                            filterType,
+                                            /* typeArguments */ undefined,
+                                            /* isTypeArgumentExplicit */ false
+                                        );
+
+                                        if (
+                                            populateTypeVarContextBasedOnExpectedType(
+                                                evaluator,
+                                                unspecializedFilterType,
+                                                concreteVarType,
+                                                typeVarContext,
+                                                /* liveTypeVarScopes */ undefined,
+                                                errorNode.start
+                                            )
+                                        ) {
+                                            specializedFilterType = applySolvedTypeVars(
+                                                unspecializedFilterType,
+                                                typeVarContext,
+                                                { unknownIfNotFound: true, useUnknownOverDefault: true }
+                                            ) as ClassType;
+                                        }
                                     }
                                 }
                             }
@@ -1783,7 +1822,7 @@ function narrowTypeForIsInstanceInternal(
                 if (isClassInstance(subtype)) {
                     return combineTypes(
                         filterClassType(
-                            convertToInstance(unexpandedSubtype),
+                            unexpandedSubtype,
                             ClassType.cloneAsInstantiable(subtype),
                             getTypeCondition(subtype),
                             negativeFallback
@@ -1905,6 +1944,11 @@ function narrowTypeForTupleLength(
             }
 
             return expandUnboundedTupleElement(concreteSubtype, elementsToAdd, /* keepUnbounded */ false);
+        }
+
+        // If this is a tuple related to an "*args: P.args" parameter, don't expand it.
+        if (isParamSpec(subtype) && subtype.paramSpecAccess) {
+            return subtype;
         }
 
         // Place an upper limit on the number of union subtypes we
@@ -2528,9 +2572,11 @@ export function enumerateLiteralsForType(evaluator: TypeEvaluator, type: ClassTy
         // Enumerate all of the values in this enumeration.
         const enumList: ClassType[] = [];
         const fields = ClassType.getSymbolTable(type);
-        fields.forEach((symbol) => {
+        fields.forEach((symbol, name) => {
             if (!symbol.isIgnoredForProtocolMatch()) {
-                const symbolType = evaluator.getEffectiveTypeOfSymbol(symbol);
+                let symbolType = evaluator.getEffectiveTypeOfSymbol(symbol);
+                symbolType = transformTypeForEnumMember(evaluator, type, name) ?? symbolType;
+
                 if (
                     isClassInstance(symbolType) &&
                     ClassType.isSameGenericClass(type, symbolType) &&

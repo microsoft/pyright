@@ -319,6 +319,10 @@ export namespace KeywordToken {
 
         return token;
     }
+
+    export function isSoftKeyword(token: KeywordToken) {
+        return softKeywords.some((t) => token.keywordType === t);
+    }
 }
 
 export interface StringToken extends Token {

@@ -450,7 +450,7 @@ function printTypeInternal(
                         }
                     } else {
                         typeToWrap = printObjectTypeForClassInternal(
-                            type,
+                            type.specialForm ?? type,
                             printTypeFlags,
                             returnTypeCallback,
                             uniqueNameMap,
@@ -510,6 +510,19 @@ function printTypeInternal(
             }
 
             case TypeCategory.Union: {
+                // If this is a value expression that evaluates to a union type but is
+                // not a type alias, simply print the special form ("UnionType").
+                if (TypeBase.isInstantiable(type) && type.specialForm && !type.typeAliasInfo) {
+                    return printTypeInternal(
+                        type.specialForm,
+                        printTypeFlags,
+                        returnTypeCallback,
+                        uniqueNameMap,
+                        recursionTypes,
+                        recursionCount
+                    );
+                }
+
                 // Allocate a set that refers to subtypes in the union by
                 // their indices. If the index is within the set, it is already
                 // accounted for in the output.

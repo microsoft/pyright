@@ -572,6 +572,8 @@ export class Binder extends ParseTreeWalker {
                     // Walk the statements that make up the function.
                     this.walk(node.suite);
 
+                    this._targetFunctionDeclaration = undefined;
+
                     // Associate the code flow node at the end of the suite with
                     // the suite.
                     AnalyzerNodeInfo.setAfterFlowNode(node.suite, this._currentFlowNode);
@@ -1426,6 +1428,7 @@ export class Binder extends ParseTreeWalker {
                     range: convertTextRangeToRange(node.name, this._fileInfo.lines),
                     moduleName: this._fileInfo.moduleName,
                     isInExceptSuite: this._isInExceptSuite,
+                    isExplicitBinding: this._currentScope.getBindingType(node.name.value) !== undefined,
                 };
                 symbol.addDeclaration(declaration);
             }
@@ -2320,6 +2323,7 @@ export class Binder extends ParseTreeWalker {
                     range: convertTextRangeToRange(node.target, this._fileInfo.lines),
                     moduleName: this._fileInfo.moduleName,
                     isInExceptSuite: this._isInExceptSuite,
+                    isExplicitBinding: this._currentScope.getBindingType(node.target.value) !== undefined,
                 };
                 symbol.addDeclaration(declaration);
             }
@@ -2390,6 +2394,7 @@ export class Binder extends ParseTreeWalker {
                 range: convertTextRangeToRange(slotNameNode, this._fileInfo.lines),
                 moduleName: this._fileInfo.moduleName,
                 isInExceptSuite: this._isInExceptSuite,
+                isExplicitBinding: this._currentScope.getBindingType(slotName) !== undefined,
             };
             symbol.addDeclaration(declaration);
         }
@@ -2439,6 +2444,7 @@ export class Binder extends ParseTreeWalker {
                 range: convertTextRangeToRange(target, this._fileInfo.lines),
                 moduleName: this._fileInfo.moduleName,
                 isInExceptSuite: this._isInExceptSuite,
+                isExplicitBinding: this._currentScope.getBindingType(target.value) !== undefined,
             };
             symbol.addDeclaration(declaration);
         }
@@ -3605,6 +3611,7 @@ export class Binder extends ParseTreeWalker {
                         moduleName: this._fileInfo.moduleName,
                         isInExceptSuite: this._isInExceptSuite,
                         docString: this._getVariableDocString(target),
+                        isExplicitBinding: this._currentScope.getBindingType(name.value) !== undefined,
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
                 }
@@ -3746,6 +3753,7 @@ export class Binder extends ParseTreeWalker {
                         moduleName: this._fileInfo.moduleName,
                         isInExceptSuite: this._isInExceptSuite,
                         docString: this._getVariableDocString(target),
+                        isExplicitBinding: this._currentScope.getBindingType(name.value) !== undefined,
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
 
@@ -3914,6 +3922,13 @@ export class Binder extends ParseTreeWalker {
         let finalTypeNode: ExpressionNode | undefined;
 
         if (typeAnnotation) {
+            // Allow Final to be enclosed in ClassVar. Normally, Final implies
+            // ClassVar, but this combination is required in the case of dataclasses.
+            const classVarInfo = this._isAnnotationClassVar(typeAnnotation);
+            if (classVarInfo?.classVarTypeNode) {
+                typeAnnotation = classVarInfo.classVarTypeNode;
+            }
+
             if (this._isTypingAnnotation(typeAnnotation, 'Final')) {
                 isFinal = true;
             } else if (typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {

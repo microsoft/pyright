@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Any
 
 from .._distutils.command import install as orig
@@ -5,7 +6,8 @@ from .._distutils.command import install as orig
 class install(orig.install):
     user_options: Any
     boolean_options: Any
-    new_commands: Any
+    # Any to work around variance issues
+    new_commands: list[tuple[str, Callable[[Any], bool]] | None]
     old_and_unmanageable: Any
     single_version_externally_managed: Any
     def initialize_options(self) -> None: ...

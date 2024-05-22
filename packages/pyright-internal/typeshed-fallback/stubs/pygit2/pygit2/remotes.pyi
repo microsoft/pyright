@@ -58,7 +58,13 @@ class Remote:
     def fetch_refspecs(self) -> list[str]: ...
     @property
     def push_refspecs(self) -> list[str]: ...
-    def push(self, specs: _IntoStrArray, callbacks: RemoteCallbacks | None = None, proxy: _ProxySpec = None) -> None: ...
+    def push(
+        self,
+        specs: _IntoStrArray,
+        callbacks: RemoteCallbacks | None = None,
+        proxy: _ProxySpec = None,
+        push_options: _IntoStrArray | None = None,
+    ) -> None: ...
 
 _RemoteName: TypeAlias = bytes | str
 

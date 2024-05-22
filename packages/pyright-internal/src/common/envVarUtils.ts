@@ -78,8 +78,7 @@ export function expandPathVariables(path: string, rootPath: Uri, workspaces: Wor
         replace(/\$\{env:VIRTUAL_ENV\}/g, process.env.VIRTUAL_ENV || '');
     }
     if (os.homedir) {
-        replace(/\/~/g, os.homedir() || process.env.HOME || process.env.USERPROFILE || '~');
-        replace(/^~/g, os.homedir() || process.env.HOME || process.env.USERPROFILE || '~');
+        replace(/(?:^|\/)~(?=\/)/g, os.homedir() || process.env.HOME || process.env.USERPROFILE || '~');
     }
 
     return path;

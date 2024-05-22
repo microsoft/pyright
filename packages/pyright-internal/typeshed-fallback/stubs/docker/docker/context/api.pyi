@@ -1,5 +1,4 @@
-from _typeshed import Incomplete
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 
 from docker.context.context import Context
 from docker.tls import TLSConfig
@@ -27,4 +26,4 @@ class ContextAPI:
     @classmethod
     def remove_context(cls, name: str) -> None: ...
     @classmethod
-    def inspect_context(cls, name: str = "default") -> Mapping[str, Incomplete]: ...
+    def inspect_context(cls, name: str = "default") -> Context: ...

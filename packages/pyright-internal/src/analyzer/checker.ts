@@ -98,7 +98,7 @@ import { getBoundCallMethod, getBoundInitMethod, getBoundNewMethod } from './con
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
 import { getNameNodeForDeclaration } from './declarationUtils';
 import { deprecatedAliases, deprecatedSpecialForms } from './deprecatedSymbols';
-import { getEnumDeclaredValueType, isEnumClassWithMembers } from './enums';
+import { getEnumDeclaredValueType, isEnumClassWithMembers, transformTypeForEnumMember } from './enums';
 import { ImportResolver, ImportedModuleDescriptor, createImportedModuleDescriptor } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
@@ -1245,44 +1245,53 @@ export class Checker extends ParseTreeWalker {
             doForEachSubtype(baseType, (subtype) => {
                 const tupleType = getSpecializedTupleType(subtype);
 
-                if (
-                    isClassInstance(subtype) &&
-                    tupleType?.tupleTypeArguments &&
-                    !isUnboundedTupleClass(tupleType) &&
-                    !this._evaluator.isTypeSubsumedByOtherType(tupleType, baseType, /* allowAnyToSubsume */ false)
-                ) {
-                    const tupleLength = tupleType.tupleTypeArguments.length;
-
-                    if (
-                        node.items.length === 1 &&
-                        !node.trailingComma &&
-                        node.items[0].argumentCategory === ArgumentCategory.Simple &&
-                        !node.items[0].name
-                    ) {
-                        const subscriptType = this._evaluator.getType(node.items[0].valueExpression);
-                        if (
-                            subscriptType &&
-                            isClassInstance(subscriptType) &&
-                            ClassType.isBuiltIn(subscriptType, 'int') &&
-                            isLiteralType(subscriptType) &&
-                            typeof subscriptType.literalValue === 'number'
-                        ) {
-                            if (
-                                (subscriptType.literalValue >= 0 && subscriptType.literalValue >= tupleLength) ||
-                                (subscriptType.literalValue < 0 && subscriptType.literalValue + tupleLength < 0)
-                            ) {
-                                this._evaluator.addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    LocMessage.tupleIndexOutOfRange().format({
-                                        index: subscriptType.literalValue,
-                                        type: this._evaluator.printType(subtype),
-                                    }),
-                                    node
-                                );
-                            }
-                        }
-                    }
+                if (!isClassInstance(subtype) || !tupleType?.tupleTypeArguments || isUnboundedTupleClass(tupleType)) {
+                    return;
                 }
+
+                const tupleLength = tupleType.tupleTypeArguments.length;
+
+                if (
+                    node.items.length !== 1 ||
+                    node.trailingComma ||
+                    node.items[0].argumentCategory !== ArgumentCategory.Simple ||
+                    node.items[0].name
+                ) {
+                    return;
+                }
+
+                const subscriptType = this._evaluator.getType(node.items[0].valueExpression);
+                if (
+                    !subscriptType ||
+                    !isClassInstance(subscriptType) ||
+                    !ClassType.isBuiltIn(subscriptType, 'int') ||
+                    !isLiteralType(subscriptType) ||
+                    typeof subscriptType.literalValue !== 'number'
+                ) {
+                    return;
+                }
+
+                if (
+                    (subscriptType.literalValue < 0 || subscriptType.literalValue < tupleLength) &&
+                    (subscriptType.literalValue >= 0 || subscriptType.literalValue + tupleLength >= 0)
+                ) {
+                    return;
+                }
+
+                // This can be an expensive check, so we save it for the end once we
+                // are about to emit a diagnostic.
+                if (this._evaluator.isTypeSubsumedByOtherType(tupleType, baseType, /* allowAnyToSubsume */ false)) {
+                    return;
+                }
+
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.tupleIndexOutOfRange().format({
+                        index: subscriptType.literalValue,
+                        type: this._evaluator.printType(subtype),
+                    }),
+                    node
+                );
             });
         }
 
@@ -1859,7 +1868,7 @@ export class Checker extends ParseTreeWalker {
 
         const exprTypeResult = this._evaluator.getTypeOfExpression(expression);
         let isExprFunction = true;
-        let isCoroutine = false;
+        let isCoroutine = true;
 
         doForEachSubtype(exprTypeResult.type, (subtype) => {
             subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
@@ -1868,8 +1877,8 @@ export class Checker extends ParseTreeWalker {
                 isExprFunction = false;
             }
 
-            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'Coroutine')) {
-                isCoroutine = true;
+            if (!isClassInstance(subtype) || !ClassType.isBuiltIn(subtype, 'Coroutine')) {
+                isCoroutine = false;
             }
         });
 
@@ -2504,6 +2513,17 @@ export class Checker extends ParseTreeWalker {
             // annotations.
             exemptBoundTypeVar = false;
             nameWalker.walk(node.returnTypeAnnotation);
+        }
+
+        if (node.functionAnnotationComment) {
+            node.functionAnnotationComment.paramTypeAnnotations.forEach((expr) => {
+                nameWalker.walk(expr);
+            });
+
+            if (node.functionAnnotationComment.returnTypeAnnotation) {
+                exemptBoundTypeVar = false;
+                nameWalker.walk(node.functionAnnotationComment.returnTypeAnnotation);
+            }
         }
 
         localTypeVarUsage.forEach((usage) => {
@@ -3182,11 +3202,20 @@ export class Checker extends ParseTreeWalker {
             if (decl.type === DeclarationType.Variable) {
                 if (decl.inferredTypeSource) {
                     if (sawAssignment) {
-                        // We check for assignment of Final instance and class variables
-                        // the type evaluator because we need to take into account whether
-                        // the assignment is within an `__init__` method, so ignore class
-                        // scopes here.
-                        if (scopeType !== ScopeType.Class) {
+                        let exemptAssignment = false;
+
+                        if (scopeType === ScopeType.Class) {
+                            // We check for assignment of Final instance and class variables
+                            // in the type evaluator because we need to take into account whether
+                            // the assignment is within an `__init__` method, so ignore class
+                            // scopes here.
+                            const classOrFunc = ParseTreeUtils.getEnclosingClassOrFunction(decl.node);
+                            if (classOrFunc?.nodeType === ParseNodeType.Function) {
+                                exemptAssignment = true;
+                            }
+                        }
+
+                        if (!exemptAssignment) {
                             reportRedeclaration = true;
                         }
                     }
@@ -4498,7 +4527,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const declarations = this._evaluator.getDeclarationsForNameNode(node);
+        // Get the declarations for this name node, but filter out
+        // any variable declarations that are bound using nonlocal
+        // or global explicit bindings.
+        const declarations = this._evaluator
+            .getDeclarationsForNameNode(node)
+            ?.filter((decl) => decl.type !== DeclarationType.Variable || !decl.isExplicitBinding);
 
         let primaryDeclaration =
             declarations && declarations.length > 0 ? declarations[declarations.length - 1] : undefined;
@@ -4942,9 +4976,11 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
-            const symbolType = this._evaluator.getEffectiveTypeOfSymbol(symbol);
+            const symbolType = transformTypeForEnumMember(this._evaluator, classType, name);
+
             // Is this symbol a literal instance of the enum class?
             if (
+                !symbolType ||
                 !isClassInstance(symbolType) ||
                 !ClassType.isSameGenericClass(symbolType, classType) ||
                 !(symbolType.literalValue instanceof EnumLiteral)
@@ -4992,11 +5028,27 @@ export class Checker extends ParseTreeWalker {
                     ];
 
                     if (newMemberTypeResult) {
-                        this._evaluator.validateCallArguments(errorNode, argList, newMemberTypeResult);
+                        this._evaluator.validateCallArguments(
+                            errorNode,
+                            argList,
+                            newMemberTypeResult,
+                            /* typeVarContext */ undefined,
+                            /* skipUnknownArgCheck */ undefined,
+                            /* inferenceContext */ undefined,
+                            /* signatureTracker */ undefined
+                        );
                     }
 
                     if (initMemberTypeResult) {
-                        this._evaluator.validateCallArguments(errorNode, argList, initMemberTypeResult);
+                        this._evaluator.validateCallArguments(
+                            errorNode,
+                            argList,
+                            initMemberTypeResult,
+                            /* typeVarContext */ undefined,
+                            /* skipUnknownArgCheck */ undefined,
+                            /* inferenceContext */ undefined,
+                            /* signatureTracker */ undefined
+                        );
                     }
                 }
             } else if (declaredValueType) {
@@ -6751,7 +6803,11 @@ export class Checker extends ParseTreeWalker {
                         }
                     }
 
-                    if (isBaseClassVar !== isClassVar) {
+                    // Allow TypedDict members to have the same name as class variables in the
+                    // base class because TypedDict members are not really instance members.
+                    const ignoreTypedDictOverride = ClassType.isTypedDictClass(childClassType) && !isClassVar;
+
+                    if (isBaseClassVar !== isClassVar && !ignoreTypedDictOverride) {
                         const unformattedMessage = overrideSymbol.isClassVar()
                             ? LocMessage.classVarOverridesInstanceVar()
                             : LocMessage.instanceVarOverridesClassVar();

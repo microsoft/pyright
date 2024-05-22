@@ -146,7 +146,6 @@ import {
     StringTokenFlags,
     Token,
     TokenType,
-    softKeywords,
 } from './tokenizerTypes';
 
 interface ListResult<T> {
@@ -2967,7 +2966,10 @@ export class Parser {
                 const peekToken2 = this._peekToken(2);
                 let isInvalidTypeToken = true;
 
-                if (peekToken1.type === TokenType.Identifier || peekToken1.type === TokenType.Keyword) {
+                if (
+                    peekToken1.type === TokenType.Identifier ||
+                    (peekToken1.type === TokenType.Keyword && KeywordToken.isSoftKeyword(peekToken1 as KeywordToken))
+                ) {
                     if (peekToken2.type === TokenType.OpenBracket) {
                         isInvalidTypeToken = false;
                     } else if (
@@ -5087,8 +5089,8 @@ export class Parser {
 
         // If this is a "soft keyword", it can be converted into an identifier.
         if (nextToken.type === TokenType.Keyword) {
-            const keywordType = this._peekKeywordType();
-            if (softKeywords.find((type) => type === keywordType)) {
+            const keywordToken = nextToken as KeywordToken;
+            if (KeywordToken.isSoftKeyword(keywordToken)) {
                 const keywordText = this._fileContents!.substr(nextToken.start, nextToken.length);
                 this._getNextToken();
                 return IdentifierToken.create(nextToken.start, nextToken.length, keywordText, nextToken.comments);

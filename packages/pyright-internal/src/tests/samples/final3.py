@@ -52,6 +52,11 @@ class Foo:
     _member7: Final = 6
     __member8: Final = 6
 
+    member9: Final = 2
+
+    # This should generate an error.
+    member9 = 3
+
     def __init__(self, a: bool):
         # This should generate an error because a Final
         # member outside of a stub file or a class body

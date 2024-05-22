@@ -1,9 +1,14 @@
+import sys
 from _typeshed import SupportsItems, SupportsKeysAndGetItem
 from _typeshed.wsgi import WSGIEnvironment
-from cgi import FieldStorage
 from collections.abc import Collection, Iterable, Iterator, MutableMapping
 from typing import Any, Literal, TypeVar, overload
-from typing_extensions import Self
+from typing_extensions import Self, TypeAlias
+
+if sys.version_info >= (3, 13):
+    _FieldStorage: TypeAlias = Any
+else:
+    from cgi import FieldStorage as _FieldStorage
 
 _T = TypeVar("_T")
 _KT = TypeVar("_KT")
@@ -19,7 +24,7 @@ class MultiDict(MutableMapping[_KT, _VT]):
     @classmethod
     def view_list(cls, lst: list[tuple[_KT, _VT]]) -> MultiDict[_KT, _VT]: ...
     @classmethod
-    def from_fieldstorage(cls, fs: FieldStorage) -> MultiDict[str, str | FieldStorage]: ...
+    def from_fieldstorage(cls, fs: _FieldStorage) -> MultiDict[str, str | _FieldStorage]: ...
     def __getitem__(self, key: _KT) -> _VT: ...
     def __setitem__(self, key: _KT, value: _VT) -> None: ...
     def add(self, key: _KT, value: _VT) -> None: ...

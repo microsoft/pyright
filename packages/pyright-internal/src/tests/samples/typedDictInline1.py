@@ -1,6 +1,6 @@
 # This sample tests support for inlined TypedDict definitions.
 
-from typing import Dict, TypedDict
+from typing import Dict
 
 
 td1: dict[{"a": int, "b": str}] = {"a": 0, "b": ""}

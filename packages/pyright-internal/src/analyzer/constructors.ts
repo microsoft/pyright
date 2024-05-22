@@ -24,6 +24,7 @@ import { CallResult, FunctionArgument, TypeEvaluator, TypeResult } from './typeE
 import {
     InferenceContext,
     MemberAccessFlags,
+    UniqueSignatureTracker,
     applySolvedTypeVars,
     buildTypeVarContextFromSpecializedClass,
     convertToInstance,
@@ -117,8 +118,9 @@ export function validateConstructorArguments(
     errorNode: ExpressionNode,
     argList: FunctionArgument[],
     type: ClassType,
-    skipUnknownArgCheck: boolean,
-    inferenceContext: InferenceContext | undefined
+    skipUnknownArgCheck: boolean | undefined,
+    inferenceContext: InferenceContext | undefined,
+    signatureTracker: UniqueSignatureTracker | undefined
 ): CallResult {
     const metaclassResult = validateMetaclassCall(
         evaluator,
@@ -126,7 +128,8 @@ export function validateConstructorArguments(
         argList,
         type,
         skipUnknownArgCheck,
-        inferenceContext
+        inferenceContext,
+        signatureTracker
     );
 
     if (metaclassResult) {
@@ -160,6 +163,7 @@ export function validateConstructorArguments(
             type,
             skipUnknownArgCheck,
             inferenceContext,
+            signatureTracker,
             newMethodTypeResult
         );
     });
@@ -179,16 +183,24 @@ export function validateConstructorArguments(
                 type,
                 skipUnknownArgCheck,
                 inferenceContext,
+                signatureTracker,
                 newMethodTypeResult
             );
 
             validatedArgExpressions = true;
         } else if (returnResult.returnType) {
-            const transformed = applyConstructorTransform(evaluator, errorNode, argList, type, {
-                argumentErrors: !!returnResult.argumentErrors,
-                returnType: returnResult.returnType,
-                isTypeIncomplete: !!returnResult.isTypeIncomplete,
-            });
+            const transformed = applyConstructorTransform(
+                evaluator,
+                errorNode,
+                argList,
+                type,
+                {
+                    argumentErrors: !!returnResult.argumentErrors,
+                    returnType: returnResult.returnType,
+                    isTypeIncomplete: !!returnResult.isTypeIncomplete,
+                },
+                signatureTracker
+            );
 
             returnResult.returnType = transformed.returnType;
 
@@ -222,8 +234,9 @@ function validateNewAndInitMethods(
     errorNode: ExpressionNode,
     argList: FunctionArgument[],
     type: ClassType,
-    skipUnknownArgCheck: boolean,
+    skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined,
+    signatureTracker: UniqueSignatureTracker | undefined,
     newMethodTypeResult: TypeResult | undefined
 ): CallResult {
     let returnType: Type | undefined;
@@ -244,6 +257,7 @@ function validateNewAndInitMethods(
             type,
             skipUnknownArgCheck,
             inferenceContext,
+            signatureTracker,
             newMethodTypeResult,
             /* useSpeculativeModeForArgs */ true
         );
@@ -312,6 +326,7 @@ function validateNewAndInitMethods(
                 initMethodBindToType,
                 skipUnknownArgCheck,
                 inferenceContext,
+                signatureTracker,
                 initMethodTypeResult.type
             );
 
@@ -342,6 +357,7 @@ function validateNewAndInitMethods(
                 type,
                 skipUnknownArgCheck,
                 inferenceContext,
+                signatureTracker,
                 newMethodTypeResult,
                 /* useSpeculativeModeForArgs */ false
             );
@@ -380,8 +396,9 @@ function validateNewMethod(
     errorNode: ExpressionNode,
     argList: FunctionArgument[],
     type: ClassType,
-    skipUnknownArgCheck: boolean,
+    skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined,
+    signatureTracker: UniqueSignatureTracker | undefined,
     newMethodTypeResult: TypeResult,
     useSpeculativeModeForArgs: boolean
 ): CallResult {
@@ -390,10 +407,10 @@ function validateNewMethod(
     let argumentErrors = false;
     const overloadsUsedForCall: FunctionType[] = [];
 
-    if (inferenceContext?.signatureTracker) {
+    if (signatureTracker) {
         newMethodTypeResult.type = ensureFunctionSignaturesAreUnique(
             newMethodTypeResult.type,
-            inferenceContext.signatureTracker,
+            signatureTracker,
             errorNode.start
         );
     }
@@ -411,7 +428,8 @@ function validateNewMethod(
             newMethodTypeResult,
             typeVarContext,
             skipUnknownArgCheck,
-            inferenceContext
+            inferenceContext,
+            signatureTracker
         );
     });
 
@@ -424,7 +442,15 @@ function validateNewMethod(
 
         // Evaluate the arguments in a non-speculative manner to generate any diagnostics.
         typeVarContext.unlock();
-        evaluator.validateCallArguments(errorNode, argList, newMethodTypeResult, typeVarContext, skipUnknownArgCheck);
+        evaluator.validateCallArguments(
+            errorNode,
+            argList,
+            newMethodTypeResult,
+            typeVarContext,
+            skipUnknownArgCheck,
+            inferenceContext,
+            signatureTracker
+        );
     } else {
         newReturnType = callResult.returnType;
 
@@ -457,8 +483,9 @@ function validateInitMethod(
     errorNode: ExpressionNode,
     argList: FunctionArgument[],
     type: ClassType,
-    skipUnknownArgCheck: boolean,
+    skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined,
+    signatureTracker: UniqueSignatureTracker | undefined,
     initMethodType: Type
 ): CallResult {
     let returnType: Type | undefined;
@@ -466,12 +493,8 @@ function validateInitMethod(
     let argumentErrors = false;
     const overloadsUsedForCall: FunctionType[] = [];
 
-    if (inferenceContext?.signatureTracker) {
-        initMethodType = ensureFunctionSignaturesAreUnique(
-            initMethodType,
-            inferenceContext.signatureTracker,
-            errorNode.start
-        );
+    if (signatureTracker) {
+        initMethodType = ensureFunctionSignaturesAreUnique(initMethodType, signatureTracker, errorNode.start);
     }
 
     // If there is an expected type, analyze the __init__ call for each of the
@@ -526,7 +549,9 @@ function validateInitMethod(
                             argList,
                             { type: specializedConstructor },
                             typeVarContext.clone(),
-                            skipUnknownArgCheck
+                            skipUnknownArgCheck,
+                            /* inferenceContext */ undefined,
+                            signatureTracker
                         );
                     });
 
@@ -538,7 +563,9 @@ function validateInitMethod(
                             argList,
                             { type: specializedConstructor },
                             typeVarContext,
-                            skipUnknownArgCheck
+                            skipUnknownArgCheck,
+                            /* inferenceContext */ undefined,
+                            signatureTracker
                         );
 
                         if (callResult.isTypeIncomplete) {
@@ -581,7 +608,9 @@ function validateInitMethod(
             argList,
             { type: initMethodType },
             typeVarContext,
-            skipUnknownArgCheck
+            skipUnknownArgCheck,
+            /* inferenceContext */ undefined,
+            signatureTracker
         );
 
         let adjustedClassType = type;
@@ -690,8 +719,9 @@ function validateMetaclassCall(
     errorNode: ExpressionNode,
     argList: FunctionArgument[],
     type: ClassType,
-    skipUnknownArgCheck: boolean,
-    inferenceContext: InferenceContext | undefined
+    skipUnknownArgCheck: boolean | undefined,
+    inferenceContext: InferenceContext | undefined,
+    signatureTracker: UniqueSignatureTracker | undefined
 ): CallResult | undefined {
     const metaclassCallMethodInfo = getBoundCallMethod(evaluator, errorNode, type);
 
@@ -705,7 +735,8 @@ function validateMetaclassCall(
         metaclassCallMethodInfo,
         /* typeVarContext */ undefined,
         skipUnknownArgCheck,
-        inferenceContext
+        inferenceContext,
+        signatureTracker
     );
 
     // If the return type is unannotated, don't use the inferred return type.

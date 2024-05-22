@@ -14,7 +14,7 @@ Relative paths specified within the config file are relative to the config file�
 
 - **ignore** [array of paths, optional]: Paths of directories or files whose diagnostic output (errors and warnings) should be suppressed even if they are an included file or within the transitive closure of an included file. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).
 
-- **strict** [array of paths, optional]: Paths of directories or files that should use “strict” analysis if they are included. This is the same as manually adding a “# pyright: strict” comment. In strict mode, most type-checking rules are enabled. Refer to [this table](configuration.md#diagnostic-rule-defaults) for details about which rules are enabled in strict mode. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).
+- **strict** [array of paths, optional]: Paths of directories or files that should use “strict” analysis if they are included. This is the same as manually adding a “# pyright: strict” comment. In strict mode, most type-checking rules are enabled. Refer to [this table](configuration.md#diagnostic-settings-defaults) for details about which rules are enabled in strict mode. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).
 
 - **defineConstant** [map of constants to values (boolean or string), optional]: Set of identifiers that should be assumed to contain a constant value wherever used within this program. For example, `{ "DEBUG": true }` indicates that pyright should assume that the identifier `DEBUG` will always be equal to `True`. If this identifier is used within a conditional expression (such as `if not DEBUG:`) pyright will use the indicated value to determine whether the guarded block is reachable or not. Member expressions that reference one of these constants (e.g. `my_module.DEBUG`) are also supported.
 
@@ -343,6 +343,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | strictSetInference                        | false      | false      | false      | true       |
 | deprecateTypingAliases                    | false      | false      | false      | false      |
 | enableExperimentalFeatures                | false      | false      | false      | false      |
+| reportMissingTypeStubs                    | "none"     | "none"     | "none"     | "error"    |
 | reportMissingModuleSource                 | "warning"  | "warning"  | "warning"  | "warning"  |
 | reportInvalidTypeForm                     | "warning"  | "error"    | "error"    | "error"    |
 | reportMissingImports                      | "warning"  | "error"    | "error"    | "error"    |
@@ -350,7 +351,6 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportAssertAlwaysTrue                    | "none"     | "warning"  | "warning"  | "error"    |
 | reportInvalidStringEscapeSequence         | "none"     | "warning"  | "warning"  | "error"    |
 | reportInvalidTypeVarUse                   | "none"     | "warning"  | "warning"  | "error"    |
-| reportMissingTypeStubs                    | "none"     | "warning"  | "warning"  | "error"    |
 | reportSelfClsParameterName                | "none"     | "warning"  | "warning"  | "error"    |
 | reportUnsupportedDunderAll                | "none"     | "warning"  | "warning"  | "error"    |
 | reportUnusedExpression                    | "none"     | "warning"  | "warning"  | "error"    |
@@ -436,3 +436,5 @@ LC_MESSAGES="en-us"
 LANG="zh-cn"
 LANGUAGE="fr"
 ```
+
+When running in VS Code, the IDE's locale takes precedence. Setting these environment variables applies only when using pyright outside of VS code.

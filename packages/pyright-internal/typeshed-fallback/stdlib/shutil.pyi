@@ -132,14 +132,44 @@ def disk_usage(path: FileDescriptorOrPath) -> _ntuple_diskusage: ...
 # While chown can be imported on Windows, it doesn't actually work;
 # see https://bugs.python.org/issue33140. We keep it here because it's
 # in __all__.
-@overload
-def chown(path: FileDescriptorOrPath, user: str | int, group: None = None) -> None: ...
-@overload
-def chown(path: FileDescriptorOrPath, user: None = None, *, group: str | int) -> None: ...
-@overload
-def chown(path: FileDescriptorOrPath, user: None, group: str | int) -> None: ...
-@overload
-def chown(path: FileDescriptorOrPath, user: str | int, group: str | int) -> None: ...
+if sys.version_info >= (3, 13):
+    @overload
+    def chown(
+        path: FileDescriptorOrPath,
+        user: str | int,
+        group: None = None,
+        *,
+        dir_fd: int | None = None,
+        follow_symlinks: bool = True,
+    ) -> None: ...
+    @overload
+    def chown(
+        path: FileDescriptorOrPath,
+        user: None = None,
+        *,
+        group: str | int,
+        dir_fd: int | None = None,
+        follow_symlinks: bool = True,
+    ) -> None: ...
+    @overload
+    def chown(
+        path: FileDescriptorOrPath, user: None, group: str | int, *, dir_fd: int | None = None, follow_symlinks: bool = True
+    ) -> None: ...
+    @overload
+    def chown(
+        path: FileDescriptorOrPath, user: str | int, group: str | int, *, dir_fd: int | None = None, follow_symlinks: bool = True
+    ) -> None: ...
+
+else:
+    @overload
+    def chown(path: FileDescriptorOrPath, user: str | int, group: None = None) -> None: ...
+    @overload
+    def chown(path: FileDescriptorOrPath, user: None = None, *, group: str | int) -> None: ...
+    @overload
+    def chown(path: FileDescriptorOrPath, user: None, group: str | int) -> None: ...
+    @overload
+    def chown(path: FileDescriptorOrPath, user: str | int, group: str | int) -> None: ...
+
 @overload
 def which(cmd: _StrPathT, mode: int = 1, path: StrPath | None = None) -> str | _StrPathT | None: ...
 @overload

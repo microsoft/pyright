@@ -622,6 +622,7 @@ export function getTypeOfBinaryOperation(
                 fileInfo.isStubFile ||
                 (flags & EvaluatorFlags.AllowForwardReferences) !== 0 ||
                 fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_10);
+
             if (!unionNotationSupported) {
                 // If the left type is Any, we can't say for sure whether this
                 // is an illegal syntax or a valid application of the "|" operator.
@@ -635,16 +636,10 @@ export function getTypeOfBinaryOperation(
                 }
             }
 
-            if (
-                !evaluator.validateTypeArg(
-                    { ...leftTypeResult, node: leftExpression },
-                    { allowVariadicTypeVar: true, allowUnpackedTuples: true }
-                ) ||
-                !evaluator.validateTypeArg(
-                    { ...rightTypeResult, node: rightExpression },
-                    { allowVariadicTypeVar: true, allowUnpackedTuples: true }
-                )
-            ) {
+            const isLeftTypeArgValid = evaluator.validateTypeArg({ ...leftTypeResult, node: leftExpression });
+            const isRightTypeArgValid = evaluator.validateTypeArg({ ...rightTypeResult, node: rightExpression });
+
+            if (!isLeftTypeArgValid || !isRightTypeArgValid) {
                 return { type: UnknownType.create() };
             }
 
@@ -1036,7 +1031,27 @@ export function getTypeOfUnaryOperation(
                 type = exprType;
             } else {
                 const magicMethodName = unaryOperatorMap[node.operator];
-                type = evaluator.getTypeOfMagicMethodCall(exprType, magicMethodName, [], node, inferenceContext);
+                let isResultValid = true;
+
+                type = evaluator.mapSubtypesExpandTypeVars(exprType, /* options */ undefined, (subtypeExpanded) => {
+                    const result = evaluator.getTypeOfMagicMethodCall(
+                        subtypeExpanded,
+                        magicMethodName,
+                        [],
+                        node,
+                        inferenceContext
+                    );
+
+                    if (!result) {
+                        isResultValid = false;
+                    }
+
+                    return result;
+                });
+
+                if (!isResultValid) {
+                    type = undefined;
+                }
             }
 
             if (!type) {

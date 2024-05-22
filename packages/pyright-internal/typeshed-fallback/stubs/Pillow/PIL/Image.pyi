@@ -2,7 +2,7 @@ from _typeshed import Incomplete, SupportsRead, SupportsWrite, Unused
 from collections.abc import Callable, Iterable, Iterator, MutableMapping, Sequence
 from enum import IntEnum
 from pathlib import Path
-from typing import Any, ClassVar, Literal, Protocol, SupportsBytes
+from typing import Any, ClassVar, Final, Literal, Protocol, SupportsBytes
 from typing_extensions import Self, TypeAlias, TypeGuard
 
 from PIL.PyAccess import PyAccess
@@ -65,13 +65,13 @@ class Transpose(IntEnum):
     TRANSVERSE = 6
 
 # All Transpose items
-FLIP_LEFT_RIGHT: Literal[0]
-FLIP_TOP_BOTTOM: Literal[1]
-ROTATE_90: Literal[2]
-ROTATE_180: Literal[3]
-ROTATE_270: Literal[4]
-TRANSPOSE: Literal[5]
-TRANSVERSE: Literal[6]
+FLIP_LEFT_RIGHT: Final = 0
+FLIP_TOP_BOTTOM: Final = 1
+ROTATE_90: Final = 2
+ROTATE_180: Final = 3
+ROTATE_270: Final = 4
+TRANSPOSE: Final = 5
+TRANSVERSE: Final = 6
 
 class Transform(IntEnum):
     AFFINE = 0
@@ -81,11 +81,11 @@ class Transform(IntEnum):
     MESH = 4
 
 # All Transform items
-AFFINE: Literal[0]
-EXTENT: Literal[1]
-PERSPECTIVE: Literal[2]
-QUAD: Literal[3]
-MESH: Literal[4]
+AFFINE: Final = 0
+EXTENT: Final = 1
+PERSPECTIVE: Final = 2
+QUAD: Final = 3
+MESH: Final = 4
 
 class Resampling(IntEnum):
     NEAREST = 0
@@ -96,12 +96,12 @@ class Resampling(IntEnum):
     HAMMING = 5
 
 # All Resampling items
-NEAREST: Literal[0]
-LANCZOS: Literal[1]
-BILINEAR: Literal[2]
-BICUBIC: Literal[3]
-BOX: Literal[4]
-HAMMING: Literal[5]
+NEAREST: Final = 0
+LANCZOS: Final = 1
+BILINEAR: Final = 2
+BICUBIC: Final = 3
+BOX: Final = 4
+HAMMING: Final = 5
 
 class Dither(IntEnum):
     NONE = 0
@@ -110,18 +110,18 @@ class Dither(IntEnum):
     FLOYDSTEINBERG = 3
 
 # All Dither items
-NONE: Literal[0]
-ORDERED: Literal[1]
-RASTERIZE: Literal[2]
-FLOYDSTEINBERG: Literal[3]
+NONE: Final = 0
+ORDERED: Final = 1
+RASTERIZE: Final = 2
+FLOYDSTEINBERG: Final = 3
 
 class Palette(IntEnum):
     WEB = 0
     ADAPTIVE = 1
 
 # All Palette items
-WEB: Literal[0]
-ADAPTIVE: Literal[1]
+WEB: Final = 0
+ADAPTIVE: Final = 1
 
 class Quantize(IntEnum):
     MEDIANCUT = 0
@@ -130,10 +130,10 @@ class Quantize(IntEnum):
     LIBIMAGEQUANT = 3
 
 # All Quantize items
-MEDIANCUT: Literal[0]
-MAXCOVERAGE: Literal[1]
-FASTOCTREE: Literal[2]
-LIBIMAGEQUANT: Literal[3]
+MEDIANCUT: Final = 0
+MAXCOVERAGE: Final = 1
+FASTOCTREE: Final = 2
+LIBIMAGEQUANT: Final = 3
 
 ID: list[str]
 OPEN: dict[str, Any]

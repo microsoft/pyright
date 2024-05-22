@@ -9,7 +9,7 @@
  */
 
 import { assert } from '../common/debug';
-import { DiagnosticAddendum } from '../common/diagnostic';
+import { defaultMaxDiagnosticDepth, DiagnosticAddendum } from '../common/diagnostic';
 import { LocAddendum } from '../localization/localize';
 import { assignTypeToTypeVar } from './constraintSolver';
 import { DeclarationType } from './declaration';
@@ -65,7 +65,7 @@ interface ProtocolCompatibility {
 const protocolAssignmentStack: ProtocolAssignmentStackEntry[] = [];
 
 // Maximum number of different types that are cached with a protocol.
-const maxProtocolCompatibilityCacheEntries = 32;
+const maxProtocolCompatibilityCacheEntries = 64;
 
 export function assignClassToProtocol(
     evaluator: TypeEvaluator,
@@ -108,9 +108,13 @@ export function assignClassToProtocol(
             }
 
             // If it's known not to be compatible and the caller hasn't requested
-            // any detailed diagnostic information, we can return false immediately.
-            if (!compatibility && !diag) {
-                return false;
+            // any detailed diagnostic information or we've already exceeded the
+            // depth of diagnostic information that will be displayed, we can
+            // return false immediately.
+            if (!compatibility) {
+                if (!diag || diag.getNestLevel() > defaultMaxDiagnosticDepth) {
+                    return false;
+                }
             }
         }
     }

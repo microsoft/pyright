@@ -1,13 +1,13 @@
 from _typeshed import StrOrBytesPath
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterator
 from tarfile import TarInfo
 from typing import IO, Any, Protocol
-from typing_extensions import TypeAlias, deprecated
+from typing_extensions import TypeAlias
 
 from ._pygit2 import Blob, Commit, Diff, Object, Oid, Reference, Repository as _Repository, Signature, Tree, _OidArg
 from .blame import Blame
 from .branches import Branches
-from .callbacks import CheckoutCallbacks, RemoteCallbacks, StashApplyCallbacks
+from .callbacks import CheckoutCallbacks, StashApplyCallbacks
 from .config import Config
 from .enums import (
     AttrCheck,
@@ -26,7 +26,7 @@ from .index import Index, IndexEntry
 from .packbuilder import PackBuilder
 from .references import References
 from .remotes import RemoteCollection
-from .submodules import Submodule, SubmoduleCollection
+from .submodules import SubmoduleCollection
 from .utils import _IntoStrArray
 
 _PackDelegate: TypeAlias = Callable[[PackBuilder], None]
@@ -47,16 +47,6 @@ class BaseRepository(_Repository):
         self, path: StrOrBytesPath | None = None, pack_delegate: _PackDelegate | None = None, n_threads: int | None = None
     ) -> int: ...
     def __iter__(self) -> Iterator[Oid]: ...
-    @deprecated("Use repo.submodules.add(...)")
-    def add_submodule(self, url: str, path: str, link: bool = True, callbacks: RemoteCallbacks | None = None) -> Submodule: ...
-    @deprecated("Use repo.submodules[...]")
-    def lookup_submodule(self, path: str) -> Submodule: ...
-    @deprecated("Use repo.submodules.init(...)")
-    def init_submodules(self, submodules: Iterable[str] | None = None, overwrite: bool = False) -> None: ...
-    @deprecated("Use repo.submodules.update(...)")
-    def update_submodules(
-        self, submodules: Iterable[str] | None = None, init: bool = False, callbacks: RemoteCallbacks | None = None
-    ) -> None: ...
     def get(self, key: _OidArg, default: Object | None = None) -> Object | None: ...
     def __getitem__(self, key: _OidArg) -> Object: ...
     def __contains__(self, key: _OidArg) -> bool: ...

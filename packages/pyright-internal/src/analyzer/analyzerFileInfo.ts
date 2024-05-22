@@ -10,7 +10,7 @@
 
 import { DiagnosticRuleSet, ExecutionEnvironment } from '../common/configOptions';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import { pythonVersion3_13 } from '../common/pythonVersion';
+import { pythonVersion3_14 } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Uri } from '../common/uri/uri';
@@ -75,9 +75,10 @@ export function isAnnotationEvaluationPostponed(fileInfo: AnalyzerFileInfo) {
 
     // As of May 2023, the Python steering council has approved PEP 649 for Python 3.13.
     // It was tentatively approved for 3.12, but they decided to defer until the next
-    // release to reduce the risk.
+    // release to reduce the risk. As of May 8, 2024, the change did not make it into
+    // Python 3.13beta1, so it has been deferred to Python 3.14.
     // https://discuss.python.org/t/pep-649-deferred-evaluation-of-annotations-tentatively-accepted/21331
-    if (fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_13)) {
+    if (fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_14)) {
         return true;
     }
 

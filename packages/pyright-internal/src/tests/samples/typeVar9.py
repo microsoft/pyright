@@ -120,3 +120,29 @@ _T2 = TypeVar("_T2", default=int)
 
 class ClassB(Generic[_T2]):
     def __init__(self, x: _T2 = ...) -> None: ...
+
+
+# This should generate an error because _T appears only once.
+def f17(
+    arg,  # type: _T
+):  # type: (...) -> int
+    return 1
+
+
+def f18(
+    arg,  # type: _T
+):  # type: (...) -> _T
+    return arg
+
+
+# This should generate an error because _T appears only once.
+def f19(
+    arg,
+):  # type: (_T) -> int
+    return 1
+
+
+def f20(
+    arg,  # type: _T
+):  # type: (...) -> _T
+    return arg

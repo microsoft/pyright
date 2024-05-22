@@ -201,13 +201,13 @@
       "$id": "#/properties/reportInvalidTypeForm",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of type expressions that use an invalid form",
-      "default": "warning"
+      "default": "error"
     },
     "reportMissingTypeStubs": {
       "$id": "#/properties/reportMissingTypeStubs",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of imports that cannot be resolved to type stub files",
-      "default": "warning"
+      "default": "none"
     },
     "reportImportCycles": {
       "$id": "#/properties/reportImportCycles",

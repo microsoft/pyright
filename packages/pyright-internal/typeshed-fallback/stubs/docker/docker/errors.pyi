@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from typing import NoReturn
 
 from docker.models.containers import Container
@@ -47,8 +47,8 @@ class StreamParseError(RuntimeError):
 
 class BuildError(DockerException):
     msg: str
-    build_log: str
-    def __init__(self, reason: str, build_log: str) -> None: ...
+    build_log: Iterator[dict[str, str]]
+    def __init__(self, reason: str, build_log: Iterator[dict[str, str]]) -> None: ...
 
 class ImageLoadError(DockerException): ...
 

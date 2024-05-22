@@ -7,7 +7,7 @@ from typing import Literal, overload
 from PIL import Image
 
 from .drawing import DeviceGray, DeviceRGB
-from .enums import Align, TableBordersLayout, TableCellFillMode, TableSpan, VAlign, WrapMode
+from .enums import Align, TableBordersLayout, TableCellFillMode, TableHeadingsDisplay, TableSpan, VAlign, WrapMode
 from .fonts import FontFace
 from .fpdf import FPDF
 from .util import Padding
@@ -40,6 +40,7 @@ class Table:
         padding: float | Padding | None = None,
         outer_border_width: float | None = None,
         num_heading_rows: int = 1,
+        repeat_headings: TableHeadingsDisplay | int = 1,
     ) -> None: ...
     def row(self, cells: Iterable[str] = (), style: FontFace | None = None) -> Row: ...
     def render(self) -> None: ...

@@ -1,8 +1,8 @@
 import datetime
 import io
+import sys
 from _typeshed import ExcInfo, ReadableBuffer, SupportsItems, SupportsKeysAndGetItem, SupportsNoArgReadline, SupportsRead
 from _typeshed.wsgi import WSGIApplication, WSGIEnvironment
-from cgi import FieldStorage
 from collections.abc import Iterable, Mapping
 from re import Pattern
 from tempfile import _TemporaryFileWrapper
@@ -19,6 +19,11 @@ from webob.headers import EnvironHeaders
 from webob.multidict import GetDict, MultiDict, NestedMultiDict, NoVars
 from webob.response import Response, _HTTPHeader
 
+if sys.version_info >= (3, 13):
+    _FieldStorage: TypeAlias = Any
+else:
+    from cgi import FieldStorage as _FieldStorage
+
 _T = TypeVar("_T")
 _HTTPMethod: TypeAlias = Literal["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH"]
 _ListOrTuple: TypeAlias = list[_T] | tuple[_T, ...]
@@ -34,7 +39,9 @@ class _RequestCacheControlDict(TypedDict, total=False):
     no_transform: bool
     max_age: int
 
-class _FieldStorageWithFile(FieldStorage):
+# On py313 this subclasses `Any`, hence the type: ignore.
+# This is needed for the regr_test.py script, which uses --disallow-subclassing-any
+class _FieldStorageWithFile(_FieldStorage):  # type: ignore[misc]
     file: IO[bytes]
     filename: str
 
@@ -244,4 +251,4 @@ class Transcoder:
     errors: str
     def __init__(self, charset: str, errors: str = "strict") -> None: ...
     def transcode_query(self, q: str) -> str: ...
-    def transcode_fs(self, fs: FieldStorage, content_type: str) -> io.BytesIO: ...
+    def transcode_fs(self, fs: _FieldStorage, content_type: str) -> io.BytesIO: ...

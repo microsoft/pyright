@@ -67,6 +67,7 @@ GIT_CHECKOUT_USE_OURS: int
 GIT_CHECKOUT_USE_THEIRS: int
 GIT_CONFIG_HIGHEST_LEVEL: int
 GIT_CONFIG_LEVEL_APP: int
+GIT_CONFIG_LEVEL_WORKTREE: int
 GIT_CONFIG_LEVEL_GLOBAL: int
 GIT_CONFIG_LEVEL_LOCAL: int
 GIT_CONFIG_LEVEL_PROGRAMDATA: int
@@ -175,11 +176,6 @@ GIT_OBJECT_OFS_DELTA: int
 GIT_OBJECT_REF_DELTA: int
 GIT_OBJECT_TAG: int
 GIT_OBJECT_TREE: int
-GIT_OBJ_ANY: int
-GIT_OBJ_BLOB: int
-GIT_OBJ_COMMIT: int
-GIT_OBJ_TAG: int
-GIT_OBJ_TREE: int
 GIT_OID_HEXSZ: int
 GIT_OID_HEX_ZERO: str
 GIT_OID_MINPREFIXLEN: int
@@ -217,16 +213,9 @@ GIT_OPT_SET_WINDOWS_SHAREMODE: int
 GIT_REFERENCES_ALL: int
 GIT_REFERENCES_BRANCHES: int
 GIT_REFERENCES_TAGS: int
-GIT_REF_INVALID: int
-GIT_REF_LISTALL: int
-GIT_REF_OID: int
-GIT_REF_SYMBOLIC: int
 GIT_RESET_HARD: int
 GIT_RESET_MIXED: int
 GIT_RESET_SOFT: int
-GIT_REVPARSE_MERGE_BASE: int
-GIT_REVPARSE_RANGE: int
-GIT_REVPARSE_SINGLE: int
 GIT_REVSPEC_MERGE_BASE: int
 GIT_REVSPEC_RANGE: int
 GIT_REVSPEC_SINGLE: int
@@ -287,10 +276,8 @@ _GIT_OBJ_TREE: TypeAlias = Literal[2]
 class Object:
     _pointer: bytes
     filemode: FileMode
-    hex: str
     id: Oid
     name: str | None
-    oid: Oid
     raw_name: bytes | None
     short_id: str
     type: Literal[_GIT_OBJ_COMMIT, _GIT_OBJ_TREE, _GIT_OBJ_TAG, _GIT_OBJ_BLOB]
@@ -526,7 +513,6 @@ class OdbBackendPack(OdbBackend):
 
 @final
 class Oid:
-    hex: str
     raw: bytes
     def __init__(self, raw: bytes = ..., hex: str = ...) -> None: ...
     def __eq__(self, other: object) -> bool: ...

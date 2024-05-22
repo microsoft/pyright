@@ -51,3 +51,6 @@ func1(TypeGuard)
 func1(Annotated)
 func1(Union[int, str])
 func1(int | str)
+
+
+{Literal[1]: "literal"}[Literal[1]]

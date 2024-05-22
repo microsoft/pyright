@@ -171,6 +171,7 @@ export const deprecatedAliases = new Map<string, DeprecatedForm>([
             version: pythonVersion3_9,
             fullName: 'typing.AbstractSet',
             replacementText: 'collections.abc.Set',
+            typingImportOnly: true,
         },
     ],
     [
