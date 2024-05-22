@@ -154,6 +154,10 @@ export const enum EvaluatorFlags {
     // Allow use of the Concatenate special form.
     AllowConcatenate = 1 << 27,
 
+    // Do not infer literal types within a tuple (used for tuples nested within
+    // other container classes).
+    StripLiteralTypeForTuple = 1 << 28,
+
     // Defaults used for evaluating the LHS of a call expression.
     CallBaseDefaults = DoNotSpecialize,
 
