@@ -359,3 +359,23 @@ test('import symbol tooltip - useLibraryCodeForTypes true', async () => {
         marker1: '```python\n(class) bar\n```',
     });
 });
+
+test('TypedDict doc string', async () => {
+    const code = `
+// @filename: test.py
+//// from typing import [|/*marker*/TypedDict|]
+
+// @filename: typing.py
+// @library: true
+//// def TypedDict(typename, fields=None, /, *, total=True, **kwargs):
+////     """A simple typed namespace. At runtime it is equivalent to a plain dict."""
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    const marker1 = state.getMarkerByName('marker');
+    state.openFile(marker1.fileName);
+
+    state.verifyHover('markdown', {
+        marker: '```python\n(class) TypedDict\n```\n---\nA simple typed namespace. At runtime it is equivalent to a plain dict.',
+    });
+});

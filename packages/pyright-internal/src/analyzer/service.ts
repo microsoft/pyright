@@ -1086,7 +1086,7 @@ export class AnalyzerService {
                     this._typeStubTargetUri = rootPackagePath.getDirectory();
                 }
 
-                if (!finalResolvedPath) {
+                if (finalResolvedPath.isEmpty()) {
                     this._typeStubTargetIsSingleFile = false;
                 } else {
                     filesToImport.push(finalResolvedPath);
@@ -1730,7 +1730,7 @@ export class AnalyzerService {
             this._onCompletionCallback({
                 diagnostics: [],
                 filesInProgram: 0,
-                filesRequiringAnalysis: 0,
+                requiringAnalysisCount: { files: 0, cells: 0 },
                 checkingOnlyOpenFiles: true,
                 fatalErrorOccurred: false,
                 configParseErrorOccurred: true,

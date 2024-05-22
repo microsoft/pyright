@@ -595,7 +595,7 @@
         "unpackNotAllowed": "此內容中不允許解壓縮",
         "unpackOperatorNotAllowed": "此內容中不允許解壓縮作業",
         "unpackTuplesIllegal": "Python 3.8 之前的 Tuple 中不允許解壓縮作業",
-        "unpackedArgInTypeArgument": "解壓縮的引數不能用於類型引數清單",
+        "unpackedArgInTypeArgument": "無法在此內容中使用未封裝的引數",
         "unpackedArgWithVariadicParam": "未封裝的引數無法用於 TypeVarTuple 參數",
         "unpackedDictArgumentNotMapping": "** 後的引數運算式必須是具有 \"str\" 金鑰類型的對應",
         "unpackedDictSubscriptIllegal": "字典解壓縮運算子在下標中不被允許",

@@ -15,7 +15,7 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ProgramView } from '../common/extensibility';
 import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { Uri } from '../common/uri/uri';
-import { encodeUri } from '../common/uri/uriUtils';
+import { convertUriToLspUriString } from '../common/uri/uriUtils';
 import { ParseFileResults } from '../parser/parser';
 import { IndexOptions, IndexSymbolData, SymbolIndexer } from './symbolIndexer';
 
@@ -125,7 +125,7 @@ function _appendToFlatSymbolsRecursive(
     const flatSymbol: SymbolInformation = {
         name: symbol.name,
         kind: symbol.kind,
-        location: Location.create(encodeUri(fs, documentUri), symbol.range),
+        location: Location.create(convertUriToLspUriString(fs, documentUri), symbol.range),
     };
 
     if (symbol.tags) {

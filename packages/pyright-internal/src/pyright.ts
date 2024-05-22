@@ -438,7 +438,7 @@ async function processArgs(): Promise<ExitStatus> {
             }
         }
 
-        if (args.createstub && results.filesRequiringAnalysis === 0) {
+        if (args.createstub && results.requiringAnalysisCount.files === 0) {
             try {
                 service.writeTypeStub(cancellationNone);
                 service.dispose();
