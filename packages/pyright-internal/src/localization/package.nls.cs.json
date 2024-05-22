@@ -595,7 +595,7 @@
         "unpackNotAllowed": "Rozbalení se v tomto kontextu nepovoluje",
         "unpackOperatorNotAllowed": "Operace rozbalení není v tomto kontextu povolená",
         "unpackTuplesIllegal": "Operace rozbalení není povolená v řazených kolekcích členů před Pythonem 3.8",
-        "unpackedArgInTypeArgument": "Rozbalené argumenty není možné použít v seznamech argumentů typu",
+        "unpackedArgInTypeArgument": "V tomto kontextu nelze použít rozbalené argumenty.",
         "unpackedArgWithVariadicParam": "Pro parametr TypeVarTuple nejde použít rozbalený argument",
         "unpackedDictArgumentNotMapping": "Výraz argumentu za ** musí být mapování s typem klíče str",
         "unpackedDictSubscriptIllegal": "Operátor rozbalení slovníku v dolním indexu není povolený",

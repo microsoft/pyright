@@ -50,6 +50,7 @@ import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
 import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
+import { RequiringAnalysisCount } from './analysis';
 
 const _maxImportDepth = 256;
 
@@ -521,22 +522,29 @@ export class Program {
         return this._sourceFileList.filter((s) => s.isOpenByClient);
     }
 
-    getFilesToAnalyzeCount() {
-        let sourceFileCount = 0;
+    getFilesToAnalyzeCount(): RequiringAnalysisCount {
+        let filesToAnalyzeCount = 0;
+        let cellsToAnalyzeCount = 0;
 
         if (this._disableChecker) {
-            return sourceFileCount;
+            return { files: 0, cells: 0 };
         }
 
         this._sourceFileList.forEach((fileInfo) => {
-            if (fileInfo.sourceFile.isCheckingRequired()) {
+            const sourceFile = fileInfo.sourceFile;
+            if (sourceFile.isCheckingRequired()) {
                 if (this._shouldCheckFile(fileInfo)) {
-                    sourceFileCount++;
+                    sourceFile.getIPythonMode() === IPythonMode.CellDocs
+                        ? cellsToAnalyzeCount++
+                        : filesToAnalyzeCount++;
                 }
             }
         });
 
-        return sourceFileCount;
+        return {
+            files: filesToAnalyzeCount,
+            cells: cellsToAnalyzeCount,
+        };
     }
 
     isCheckingOnlyOpenFiles() {
@@ -1505,7 +1513,7 @@ export class Program {
         assert(!this._sourceFileMap.has(fileUri.key));
 
         // We should never have an empty URI for a source file.
-        assert(!fileInfo.sourceFile.getUri().isEmpty());
+        assert(!fileUri.isEmpty());
 
         this._sourceFileList.push(fileInfo);
         this._sourceFileMap.set(fileUri.key, fileInfo);

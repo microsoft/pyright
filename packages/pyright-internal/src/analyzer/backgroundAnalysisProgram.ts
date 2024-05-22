@@ -262,7 +262,7 @@ export class BackgroundAnalysisProgram {
             this._onAnalysisCompletion({
                 diagnostics: fileDiags,
                 filesInProgram: this._program.getFileCount(),
-                filesRequiringAnalysis: this._program.getFilesToAnalyzeCount(),
+                requiringAnalysisCount: this._program.getFilesToAnalyzeCount(),
                 checkingOnlyOpenFiles: this._program.isCheckingOnlyOpenFiles(),
                 fatalErrorOccurred: false,
                 configParseErrorOccurred: false,
