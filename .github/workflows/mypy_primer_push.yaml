@@ -59,7 +59,7 @@ jobs:
             | tee diff.txt
           ) || [ $? -eq 1 ]
       - name: Upload mypy_primer diff
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mypy_primer_diffs
           path: diff.txt
