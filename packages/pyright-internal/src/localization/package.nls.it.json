@@ -595,7 +595,7 @@
         "unpackNotAllowed": "La decompressione non è consentita in questo contesto",
         "unpackOperatorNotAllowed": "L’operazione di decompressione non è consentita in questo contesto",
         "unpackTuplesIllegal": "L'operazione di decompressione non è consentita nelle tuple precedenti a Python 3.8",
-        "unpackedArgInTypeArgument": "Gli argomenti non compressi non possono essere usati negli elenchi di argomenti tipo",
+        "unpackedArgInTypeArgument": "Non è possibile usare argomenti decompressi in questo contesto",
         "unpackedArgWithVariadicParam": "Non è possibile usare l'argomento decompresso per il parametro TypeVarTuple",
         "unpackedDictArgumentNotMapping": "L'espressione dell'argomento dopo ** deve essere un mapping con un tipo di chiave \"str\"",
         "unpackedDictSubscriptIllegal": "L'operatore di decompressione del dizionario nel pedice non è consentito",

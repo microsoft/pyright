@@ -595,7 +595,7 @@
         "unpackNotAllowed": "Rozpakowywanie jest niedozwolone w tym kontekście",
         "unpackOperatorNotAllowed": "Operacja rozpakowywania jest niedozwolona w tym kontekście",
         "unpackTuplesIllegal": "Operacja rozpakowywania nie jest dozwolona w krotkach przed językiem Python w wersji 3.8",
-        "unpackedArgInTypeArgument": "Rozpakowanych argumentów nie można używać na listach argumentów typu",
+        "unpackedArgInTypeArgument": "Nie można użyć nierozpakowanych argumentów w tym kontekście",
         "unpackedArgWithVariadicParam": "Nie można użyć nierozpakowanego argumentu dla parametru TypeVarTuple",
         "unpackedDictArgumentNotMapping": "Wyrażenie argumentu po znakach ** musi być mapowaniem z typem klucza „str”",
         "unpackedDictSubscriptIllegal": "Operator rozpakowywania słownika w indeksie dolnym jest niedozwolony",

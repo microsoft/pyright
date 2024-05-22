@@ -234,6 +234,8 @@ export namespace Uri {
         return EmptyUri.instance;
     }
 
+    // Excel's copy of tests\harness\vfs\pathValidation.ts knows about this constant.
+    // If the value is changed, the Excel team should be told.
     export const DefaultWorkspaceRootComponent = '<default workspace root>';
     export const DefaultWorkspaceRootPath = `/${DefaultWorkspaceRootComponent}`;
 

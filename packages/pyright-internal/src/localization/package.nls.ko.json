@@ -595,7 +595,7 @@
         "unpackNotAllowed": "이 컨텍스트에서는 압축 풀기가 허용되지 않습니다.",
         "unpackOperatorNotAllowed": "이 컨텍스트에서는 압축 풀기 작업이 허용되지 않습니다.",
         "unpackTuplesIllegal": "Python 3.8 이전의 튜플에서는 압축 풀기 작업이 허용되지 않습니다.",
-        "unpackedArgInTypeArgument": "압축되지 않은 인수는 형식 인수 목록에 사용할 수 없습니다.",
+        "unpackedArgInTypeArgument": "압축을 푼 인수는 이 컨텍스트에서 사용할 수 없음",
         "unpackedArgWithVariadicParam": "압축을 푼 인수는 TypeVarTuple 매개 변수에 사용할 수 없습니다.",
         "unpackedDictArgumentNotMapping": "** 뒤의 인수 식은 \"str\" 키 형식의 매핑이어야 합니다.",
         "unpackedDictSubscriptIllegal": "아래 첨자에서 사전 압축 풀기 연산자는 사용할 수 없습니다.",

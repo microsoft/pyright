@@ -12,7 +12,7 @@ import { isMainThread } from 'worker_threads';
 import { OperationCanceledException } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
-import { ConsoleInterface, StandardConsole } from '../common/console';
+import { ConsoleInterface, LogLevel, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory, TaskListToken, convertLevelToCategory } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -95,7 +95,6 @@ class WriteableData {
     // the binder information hanging from it?
     parseTreeNeedsCleaning = false;
 
-    parserOutput: ParserOutput | undefined;
     parsedFileContents: string | undefined;
     tokenizerLines: TextRangeCollection<TextRange> | undefined;
     tokenizerOutput: TokenizerOutput | undefined;
@@ -142,6 +141,30 @@ class WriteableData {
     // True if the file appears to have been deleted.
     isFileDeleted = false;
 
+    private _lastCallstack: string | undefined;
+    private _parserOutput: ParserOutput | undefined;
+
+    private readonly _consoleWithLevel?: ConsoleInterface & { level: LogLevel };
+
+    constructor(console: ConsoleInterface) {
+        if (ConsoleInterface.hasLevel(console)) {
+            this._consoleWithLevel = console;
+        }
+    }
+
+    get parserOutput() {
+        return this._parserOutput;
+    }
+
+    set parserOutput(value: ParserOutput | undefined) {
+        this._lastCallstack =
+            this._consoleWithLevel?.level === LogLevel.Log && value === undefined && this._parserOutput !== undefined
+                ? new Error().stack
+                : undefined;
+
+        this._parserOutput = value;
+    }
+
     debugPrint() {
         return `WritableData: 
  diagnosticVersion=${this.diagnosticVersion}, 
@@ -171,7 +194,8 @@ class WriteableData {
  pyrightIgnoreLines=${this.pyrightIgnoreLines?.size},
  checkTime=${this.checkTime},
  clientDocumentContents=${this.clientDocumentContents?.length},
- parseResults=${this.parserOutput?.parseTree.length}`;
+ parseResults=${this.parserOutput?.parseTree.length},
+ parseResultsDropCallstack=${this._lastCallstack}`;
     }
 }
 
@@ -180,9 +204,6 @@ export interface SourceFileEditMode {
 }
 
 export class SourceFile {
-    // Data that changes when the source file changes.
-    private _writableData = new WriteableData();
-
     // Console interface to use for debugging.
     private _console: ConsoleInterface;
 
@@ -232,6 +253,10 @@ export class SourceFile {
     private _ipythonMode = IPythonMode.None;
     private _logTracker: LogTracker;
     private _preEditData: WriteableData | undefined;
+
+    // Data that changes when the source file changes.
+    private _writableData: WriteableData;
+
     readonly fileSystem: FileSystem;
 
     constructor(
@@ -247,6 +272,8 @@ export class SourceFile {
     ) {
         this.fileSystem = serviceProvider.get(ServiceKeys.fs);
         this._console = console || new StandardConsole();
+        this._writableData = new WriteableData(this._console);
+
         this._editMode = editMode;
         this._uri = uri;
         this._moduleName = moduleName;
@@ -864,7 +891,7 @@ export class SourceFile {
         sourceMapper: SourceMapper,
         dependentFiles?: ParserOutput[]
     ) {
-        assert(!this.isParseRequired(), 'Check called before parsing');
+        assert(!this.isParseRequired(), `Check called before parsing: state=${this._writableData.debugPrint()}`);
         assert(!this.isBindingRequired(), `Check called before binding: state=${this._writableData.debugPrint()}`);
         assert(!this._writableData.isBindingInProgress, 'Check called while binding in progress');
         assert(this.isCheckingRequired(), 'Check called unnecessarily');
@@ -1209,7 +1236,7 @@ export class SourceFile {
         this._preEditData = this._writableData;
 
         // Recreate all the writable data from scratch.
-        this._writableData = new WriteableData();
+        this._writableData = new WriteableData(this._console);
     }
 
     // Get all task list diagnostics for the current file and add them

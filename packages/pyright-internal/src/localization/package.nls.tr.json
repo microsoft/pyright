@@ -595,7 +595,7 @@
         "unpackNotAllowed": "Bu bağlamda paketi açma işlemine izin verilmiyor",
         "unpackOperatorNotAllowed": "Bu bağlamda paket açma işlemi kullanılamaz",
         "unpackTuplesIllegal": "Python 3.8'den önceki demetler içinde paket açma işlemi kullanılamıyor",
-        "unpackedArgInTypeArgument": "Paketlenmemiş bağımsız değişkenler tür bağımsız değişkeni listelerinde kullanılamaz",
+        "unpackedArgInTypeArgument": "Paketlenmemiş bağımsız değişkenler bu bağlamda kullanılamaz",
         "unpackedArgWithVariadicParam": "Paketlenmemiş bağımsız değişken, TypeVarTuple parametresi için kullanılamaz",
         "unpackedDictArgumentNotMapping": "** sonrasındaki bağımsız değişken ifadesi \"str\" anahtar türüne sahip bir eşleme olmalıdır",
         "unpackedDictSubscriptIllegal": "Alt simgede sözlük açma işlecine izin verilmiyor",
