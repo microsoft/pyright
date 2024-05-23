@@ -587,9 +587,10 @@ export function getTypeOfEnumMember(
 
     if (memberName === 'value' || memberName === '_value_') {
         // Does the class explicitly override this member? Or it it using the
-        // standard behavior provided by the "Enum" class?
+        // standard behavior provided by the "Enum" class and other built-in
+        // subclasses like "StrEnum" and "IntEnum"?
         const memberInfo = lookUpClassMember(classType, memberName);
-        if (memberInfo && isClass(memberInfo.classType) && !ClassType.isBuiltIn(memberInfo.classType, 'Enum')) {
+        if (memberInfo && isClass(memberInfo.classType) && !ClassType.isBuiltIn(memberInfo.classType)) {
             return undefined;
         }
 
