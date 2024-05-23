@@ -13,7 +13,9 @@ import {
     TypeCategory,
     UnknownType,
     getTypeAliasInfo,
+    isFunction,
     isModule,
+    isOverloadedFunction,
     isTypeVar,
 } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -118,20 +120,22 @@ class SemanticTokensTreeWalker extends ParseTreeWalker {
             return this._addResultsForDeclaration(primaryDeclaration, node);
         } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
             const type = this._evaluator.getType(node) ?? UnknownType.create();
-            let tokenType: TokenType;
+            let tokenType: TokenType | null = null;
             if (isModule(type)) {
                 // Handle modules specially because submodules aren't associated with
                 // declarations, but we want them to be presented in the same way as
                 // the top-level module, which does have a declaration.
                 tokenType = TokenType.namespace;
-            } else {
+            } else if (isFunction(type) || isOverloadedFunction(type)) {
                 const isProperty = isMaybeDescriptorInstance(type, /* requireSetter */ false);
                 tokenType = isProperty ? TokenType.property : TokenType.function;
             }
 
-            const start = convertOffsetToPosition(node.start, this._parseResults.tokenizerOutput.lines);
-            const end = convertOffsetToPosition(TextRange.getEnd(node), this._parseResults.tokenizerOutput.lines);
-            SemanticTokensTreeWalker._push(this._builder, start, end, tokenType, new TokenModifiers());
+            if (tokenType) {
+                const start = convertOffsetToPosition(node.start, this._parseResults.tokenizerOutput.lines);
+                const end = convertOffsetToPosition(TextRange.getEnd(node), this._parseResults.tokenizerOutput.lines);
+                SemanticTokensTreeWalker._push(this._builder, start, end, tokenType, new TokenModifiers());
+            }
         }
 
         return false;
