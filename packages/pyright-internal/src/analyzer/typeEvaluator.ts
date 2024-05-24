@@ -148,8 +148,8 @@ import {
     getTypeOfUnaryOperation,
 } from './operations';
 import {
+    ParameterKind,
     ParameterListDetails,
-    ParameterSource,
     VirtualParameterDetails,
     getParameterListDetails,
     isParamSpecArgsArgument,
@@ -10241,7 +10241,7 @@ export function createTypeEvaluator(
                 paramMap.set(param.name, {
                     argsNeeded: param.category === ParameterCategory.Simple && !param.hasDefault ? 1 : 0,
                     argsReceived: 0,
-                    isPositionalOnly: paramInfo.source === ParameterSource.PositionOnly,
+                    isPositionalOnly: paramInfo.kind === ParameterKind.Positional,
                 });
             }
         });
@@ -25049,7 +25049,7 @@ export function createTypeEvaluator(
 
         let srcLastToPackIndex = srcDetails.params.findIndex((p, i) => {
             assert(destDetails.argsIndex !== undefined);
-            return i >= destDetails.argsIndex && p.source === ParameterSource.KeywordOnly;
+            return i >= destDetails.argsIndex && p.kind === ParameterKind.Keyword;
         });
         if (srcLastToPackIndex < 0) {
             srcLastToPackIndex = srcDetails.params.length;
@@ -25098,7 +25098,7 @@ export function createTypeEvaluator(
                     },
                     type: srcPositionalsType,
                     index: -1,
-                    source: ParameterSource.PositionOnly,
+                    kind: ParameterKind.Positional,
                 },
                 ...srcDetails.params.slice(
                     destDetails.argsIndex + srcPositionalsToPack.length,
@@ -25116,16 +25116,14 @@ export function createTypeEvaluator(
             );
             srcDetails.kwargsIndex = kwargsIndex >= 0 ? kwargsIndex : undefined;
 
-            const firstKeywordOnlyIndex = srcDetails.params.findIndex(
-                (param) => param.source === ParameterSource.KeywordOnly
-            );
+            const firstKeywordOnlyIndex = srcDetails.params.findIndex((param) => param.kind === ParameterKind.Keyword);
             srcDetails.firstKeywordOnlyIndex = firstKeywordOnlyIndex >= 0 ? firstKeywordOnlyIndex : undefined;
 
             srcDetails.positionOnlyParamCount = Math.max(
                 0,
                 srcDetails.params.findIndex(
                     (p) =>
-                        p.source !== ParameterSource.PositionOnly ||
+                        p.kind !== ParameterKind.Positional ||
                         p.param.category !== ParameterCategory.Simple ||
                         p.param.hasDefault
                 )
@@ -25191,13 +25189,13 @@ export function createTypeEvaluator(
             const destParamName = destParam.param.name ?? '';
             const srcParamName = srcParam.param.name ?? '';
             if (destParamName) {
-                const isDestPositionalOnly = destParam.source === ParameterSource.PositionOnly;
+                const isDestPositionalOnly = destParam.kind === ParameterKind.Positional;
                 if (
                     !isDestPositionalOnly &&
                     destParam.param.category !== ParameterCategory.ArgsList &&
                     srcParam.param.category !== ParameterCategory.ArgsList
                 ) {
-                    if (srcParam.source === ParameterSource.PositionOnly) {
+                    if (srcParam.kind === ParameterKind.Positional) {
                         diag?.createAddendum().addMessage(
                             LocAddendum.functionParamPositionOnly().format({
                                 name: destParamName,
@@ -25267,12 +25265,12 @@ export function createTypeEvaluator(
                     canAssign = false;
                 }
             } else if (
-                destParam.source !== ParameterSource.PositionOnly &&
-                srcParam.source === ParameterSource.PositionOnly &&
+                destParam.kind !== ParameterKind.Positional &&
+                srcParam.kind === ParameterKind.Positional &&
                 srcParamDetails.kwargsIndex === undefined &&
                 !srcParamDetails.params.some(
                     (p) =>
-                        p.source === ParameterSource.KeywordOnly &&
+                        p.kind === ParameterKind.Keyword &&
                         p.param.category === ParameterCategory.Simple &&
                         p.param.name === destParam.param.name
                 )
@@ -25304,16 +25302,17 @@ export function createTypeEvaluator(
             // If the dest type includes a ParamSpec, the additional parameters
             // can be assigned to it, so no need to report an error here.
             if (!targetIncludesParamSpec) {
+                // All source parameters that don't have a default value must
+                // have a matching parameter in the dest.
                 const nonDefaultSrcParamCount = srcParamDetails.params.filter(
                     (p) => !!p.param.name && !p.param.hasDefault && p.param.category === ParameterCategory.Simple
                 ).length;
 
                 if (destParamDetails.argsIndex === undefined) {
                     if (destPositionalCount < nonDefaultSrcParamCount) {
-                        if (
-                            destParamDetails.firstPositionOrKeywordIndex > 0 &&
-                            destParamDetails.firstPositionOrKeywordIndex < srcPositionalCount
-                        ) {
+                        const destPositionOnlyCount = destParamDetails.firstPositionOrKeywordIndex;
+
+                        if (destPositionOnlyCount > 0 && destPositionOnlyCount < srcPositionalCount) {
                             diag?.createAddendum().addMessage(
                                 LocAddendum.functionTooFewParams().format({
                                     expected: nonDefaultSrcParamCount,
@@ -25401,7 +25400,7 @@ export function createTypeEvaluator(
                         }
 
                         if (
-                            destParamDetails.params[paramIndex].source !== ParameterSource.PositionOnly &&
+                            destParamDetails.params[paramIndex].kind !== ParameterKind.Positional &&
                             srcParamDetails.kwargsIndex === undefined
                         ) {
                             diag?.addMessage(
@@ -25515,7 +25514,7 @@ export function createTypeEvaluator(
                         if (
                             srcParamInfo.param.name &&
                             srcParamInfo.param.category === ParameterCategory.Simple &&
-                            srcParamInfo.source !== ParameterSource.PositionOnly
+                            srcParamInfo.kind !== ParameterKind.Positional
                         ) {
                             const destParamInfo = destParamMap.get(srcParamInfo.param.name);
                             const paramDiag = diag?.createAddendum();
@@ -26360,14 +26359,14 @@ export function createTypeEvaluator(
                 if (
                     i >= baseParamDetails.positionOnlyParamCount &&
                     !isPrivateOrProtectedName(baseParam.name || '') &&
-                    baseParamDetails.params[i].source !== ParameterSource.PositionOnly &&
+                    baseParamDetails.params[i].kind !== ParameterKind.Positional &&
                     baseParam.category === ParameterCategory.Simple &&
                     enforceParamNames &&
                     baseParam.name !== overrideParam.name
                 ) {
                     if (overrideParam.category === ParameterCategory.Simple) {
                         if (!baseParam.isNameSynthesized) {
-                            if (overrideParamDetails.params[i].source === ParameterSource.PositionOnly) {
+                            if (overrideParamDetails.params[i].kind === ParameterKind.Positional) {
                                 diag?.addMessage(
                                     LocAddendum.overrideParamNamePositionOnly().format({
                                         index: i + 1,
@@ -26390,10 +26389,7 @@ export function createTypeEvaluator(
                     i < overrideParamDetails.positionOnlyParamCount &&
                     i >= baseParamDetails.positionOnlyParamCount
                 ) {
-                    if (
-                        !baseParam.isNameSynthesized &&
-                        baseParamDetails.params[i].source !== ParameterSource.PositionOnly
-                    ) {
+                    if (!baseParam.isNameSynthesized && baseParamDetails.params[i].kind !== ParameterKind.Positional) {
                         diag?.addMessage(
                             LocAddendum.overrideParamNamePositionOnly().format({
                                 index: i + 1,
@@ -26453,7 +26449,7 @@ export function createTypeEvaluator(
                     const baseParam = baseParamDetails.params[i];
 
                     if (
-                        baseParam.source === ParameterSource.PositionOrKeyword &&
+                        baseParam.kind === ParameterKind.Standard &&
                         baseParam.param.category === ParameterCategory.Simple
                     ) {
                         diag?.addMessage(
@@ -26505,13 +26501,11 @@ export function createTypeEvaluator(
             // Now check any keyword-only parameters.
             const baseKwOnlyParams = baseParamDetails.params.filter(
                 (paramInfo) =>
-                    paramInfo.source === ParameterSource.KeywordOnly &&
-                    paramInfo.param.category === ParameterCategory.Simple
+                    paramInfo.kind === ParameterKind.Keyword && paramInfo.param.category === ParameterCategory.Simple
             );
             const overrideKwOnlyParams = overrideParamDetails.params.filter(
                 (paramInfo) =>
-                    paramInfo.source === ParameterSource.KeywordOnly &&
-                    paramInfo.param.category === ParameterCategory.Simple
+                    paramInfo.kind === ParameterKind.Keyword && paramInfo.param.category === ParameterCategory.Simple
             );
 
             baseKwOnlyParams.forEach((paramInfo) => {

@@ -32,7 +32,7 @@ import { isDefinedInFile } from '../analyzer/declarationUtils';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import { ImportResult } from '../analyzer/importResult';
-import { getParameterListDetails, ParameterSource } from '../analyzer/parameterUtils';
+import { getParameterListDetails, ParameterKind } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { getScopeForNode } from '../analyzer/scopeUtils';
@@ -2855,7 +2855,7 @@ export class CompletionProvider {
         const paramDetails = getParameterListDetails(type);
 
         paramDetails.params.forEach((paramInfo) => {
-            if (paramInfo.param.name && paramInfo.source !== ParameterSource.PositionOnly) {
+            if (paramInfo.param.name && paramInfo.kind !== ParameterKind.Positional) {
                 if (!SymbolNameUtils.isPrivateOrProtectedName(paramInfo.param.name)) {
                     names.add(paramInfo.param.name);
                 }

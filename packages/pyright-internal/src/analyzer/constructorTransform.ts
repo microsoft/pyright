@@ -16,7 +16,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
 import { ArgumentCategory, ExpressionNode, ParameterCategory } from '../parser/parseNodes';
 import { createFunctionFromConstructor } from './constructors';
-import { getParameterListDetails, ParameterSource } from './parameterUtils';
+import { getParameterListDetails, ParameterKind } from './parameterUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { FunctionArgument, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
 import {
@@ -246,7 +246,7 @@ function applyPartialTransformToFunction(
             // Does this positional argument map to a positional parameter?
             if (
                 argIndex >= paramListDetails.params.length ||
-                paramListDetails.params[argIndex].source === ParameterSource.KeywordOnly
+                paramListDetails.params[argIndex].kind === ParameterKind.Keyword
             ) {
                 if (paramListDetails.argsIndex !== undefined) {
                     const paramType = FunctionType.getEffectiveParameterType(
@@ -329,8 +329,7 @@ function applyPartialTransformToFunction(
             }
         } else {
             const matchingParam = paramListDetails.params.find(
-                (paramInfo) =>
-                    paramInfo.param.name === arg.name?.value && paramInfo.source !== ParameterSource.PositionOnly
+                (paramInfo) => paramInfo.param.name === arg.name?.value && paramInfo.kind !== ParameterKind.Positional
             );
 
             if (!matchingParam) {
