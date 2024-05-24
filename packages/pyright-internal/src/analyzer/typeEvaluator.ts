@@ -25529,7 +25529,7 @@ export function createTypeEvaluator(
 
                             if (!destParamInfo) {
                                 if (destParamDetails.kwargsIndex === undefined && !srcParamInfo.param.hasDefault) {
-                                    if (paramDiag && srcParamDetails.firstKeywordOnlyIndex !== undefined) {
+                                    if (paramDiag) {
                                         paramDiag.addMessage(
                                             LocAddendum.namedParamMissingInDest().format({
                                                 name: srcParamInfo.param.name,
