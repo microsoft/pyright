@@ -25298,76 +25298,83 @@ export function createTypeEvaluator(
             canAssign = false;
         }
 
-        if (destPositionalCount < srcPositionalCount) {
-            // If the dest type includes a ParamSpec, the additional parameters
-            // can be assigned to it, so no need to report an error here.
-            if (!targetIncludesParamSpec) {
-                // All source parameters that don't have a default value must
-                // have a matching parameter in the dest.
+        if (destPositionalCount < srcPositionalCount && !targetIncludesParamSpec) {
+            for (let i = destPositionalCount; i < srcPositionalCount; i++) {
+                // If the dest has an *args parameter, make sure it can accept the remaining
+                // positional arguments in the source.
+                if (destParamDetails.argsIndex !== undefined) {
+                    const destArgsType = destParamDetails.params[destParamDetails.argsIndex].type;
+                    const srcParamType = srcParamDetails.params[i].type;
+                    if (
+                        !assignFunctionParameter(
+                            destArgsType,
+                            srcParamType,
+                            i,
+                            diag?.createAddendum(),
+                            destTypeVarContext,
+                            srcTypeVarContext,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        canAssign = false;
+                    }
+
+                    continue;
+                }
+
+                // If The source parameter has a default value, it is OK for the
+                // corresponding dest parameter to be missing.
+                const srcParam = srcParamDetails.params[i];
+
+                if (srcParam.param.hasDefault) {
+                    // Assign default arg value in case it is needed for
+                    // populating TypeVar constraints.
+                    const paramInfo = srcParamDetails.params[i];
+                    const defaultArgType = paramInfo.defaultArgType ?? paramInfo.param.defaultType;
+
+                    if (
+                        defaultArgType &&
+                        !assignType(
+                            paramInfo.type,
+                            defaultArgType,
+                            diag?.createAddendum(),
+                            srcTypeVarContext,
+                            /* destTypeVarContext */ undefined,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        canAssign = false;
+                    }
+
+                    continue;
+                }
+
+                // If the source parameter is also addressible by keyword, it is OK
+                // that there is no matching positional parameter in the dest.
+                if (srcParam.kind === ParameterKind.Standard) {
+                    continue;
+                }
+
+                // If the source parameter is a variadic, it is OK that there is no
+                // matching positional parameter in the dest.
+                if (srcParam.param.category === ParameterCategory.ArgsList) {
+                    continue;
+                }
+
                 const nonDefaultSrcParamCount = srcParamDetails.params.filter(
                     (p) => !!p.param.name && !p.param.hasDefault && p.param.category === ParameterCategory.Simple
                 ).length;
 
-                if (destParamDetails.argsIndex === undefined) {
-                    if (destPositionalCount < nonDefaultSrcParamCount) {
-                        const destPositionOnlyCount = destParamDetails.firstPositionOrKeywordIndex;
-
-                        if (destPositionOnlyCount > 0 && destPositionOnlyCount < srcPositionalCount) {
-                            diag?.createAddendum().addMessage(
-                                LocAddendum.functionTooFewParams().format({
-                                    expected: nonDefaultSrcParamCount,
-                                    received: destPositionalCount,
-                                })
-                            );
-                            canAssign = false;
-                        }
-                    } else {
-                        // Assign default arg values in case they are needed for
-                        // populating TypeVar constraints.
-                        for (let i = destParamDetails.firstPositionOrKeywordIndex; i < srcPositionalCount; i++) {
-                            const paramInfo = srcParamDetails.params[i];
-                            const defaultArgType = paramInfo.defaultArgType ?? paramInfo.param.defaultType;
-
-                            if (
-                                defaultArgType &&
-                                !assignType(
-                                    paramInfo.type,
-                                    defaultArgType,
-                                    diag?.createAddendum(),
-                                    srcTypeVarContext,
-                                    /* destTypeVarContext */ undefined,
-                                    flags,
-                                    recursionCount
-                                )
-                            ) {
-                                canAssign = false;
-                            }
-                        }
-                    }
-                } else {
-                    // Make sure the remaining positional arguments are of the
-                    // correct type for the *args parameter.
-                    const destArgsType = destParamDetails.params[destParamDetails.argsIndex].type;
-                    if (!isAnyOrUnknown(destArgsType)) {
-                        for (let paramIndex = destPositionalCount; paramIndex < srcPositionalCount; paramIndex++) {
-                            const srcParamType = srcParamDetails.params[paramIndex].type;
-                            if (
-                                !assignFunctionParameter(
-                                    destArgsType,
-                                    srcParamType,
-                                    paramIndex,
-                                    diag?.createAddendum(),
-                                    destTypeVarContext,
-                                    srcTypeVarContext,
-                                    flags,
-                                    recursionCount
-                                )
-                            ) {
-                                canAssign = false;
-                            }
-                        }
-                    }
-                }
+                diag?.createAddendum().addMessage(
+                    LocAddendum.functionTooFewParams().format({
+                        expected: nonDefaultSrcParamCount,
+                        received: destPositionalCount,
+                    })
+                );
+                canAssign = false;
+                break;
             }
         } else if (srcPositionalCount < destPositionalCount) {
             if (srcParamDetails.argsIndex !== undefined) {
@@ -25522,7 +25529,7 @@ export function createTypeEvaluator(
 
                             if (!destParamInfo) {
                                 if (destParamDetails.kwargsIndex === undefined && !srcParamInfo.param.hasDefault) {
-                                    if (paramDiag && srcParamDetails.firstKeywordOnlyIndex !== undefined) {
+                                    if (paramDiag) {
                                         paramDiag.addMessage(
                                             LocAddendum.namedParamMissingInDest().format({
                                                 name: srcParamInfo.param.name,
