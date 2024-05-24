@@ -9,7 +9,7 @@
 import assert from 'assert';
 import * as JSONC from 'jsonc-parser';
 
-import { configFileNames } from '../../../analyzer/service';
+import { configFileName } from '../../../analyzer/service';
 import { Comparison, toBoolean } from '../../../common/core';
 import { combinePaths, getBaseFileName } from '../../../common/pathUtils';
 import { getStringComparer } from '../../../common/stringUtils';
@@ -76,5 +76,5 @@ export function getMarkerNames(testData: FourSlashData): string[] {
 
 function isConfig(file: FourSlashFile, ignoreCase: boolean): boolean {
     const comparer = getStringComparer(ignoreCase);
-    return configFileNames.some((f) => comparer(getBaseFileName(file.fileName), f) === Comparison.EqualTo);
+    return comparer(getBaseFileName(file.fileName), configFileName) === Comparison.EqualTo;
 }
