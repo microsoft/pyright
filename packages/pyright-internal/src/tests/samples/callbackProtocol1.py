@@ -122,3 +122,27 @@ def test_func5(a: int, b: str) -> int:
 
 
 f5: TestClass5 = test_func5
+
+
+class TestClass6(Protocol):
+    def __call__(self, a: int, /, *, b: str) -> int: ...
+
+
+def test_func6(a: int, b: str) -> int:
+    return 123
+
+
+f6: TestClass6 = test_func6
+
+
+class TestClass7:
+    def __call__(self) -> None:
+        pass
+
+
+def test_func7(*args: * tuple[int, *tuple[int, ...]]) -> int:
+    return 123
+
+
+# This should generate an error.
+f7: TestClass7 = test_func7
