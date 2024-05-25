@@ -1071,9 +1071,85 @@ export function createTypeEvaluator(
         // at that point.
         initializedBasicTypes(node);
 
+        let typeResult = getTypeOfExpressionCore(node, flags, inferenceContext, signatureTracker);
+
+        // Should we disable type promotions for bytes?
+        if (
+            isInstantiableClass(typeResult.type) &&
+            typeResult.type.includePromotions &&
+            !typeResult.type.includeSubclasses &&
+            ClassType.isBuiltIn(typeResult.type, 'bytes')
+        ) {
+            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.disableBytesTypePromotions) {
+                typeResult = {
+                    ...typeResult,
+                    type: ClassType.cloneRemoveTypePromotions(typeResult.type),
+                };
+            }
+        }
+
+        // Don't allow speculative caching for assignment expressions because
+        // the target name node won't have a corresponding type cached speculatively.
+        const allowSpeculativeCaching = node.nodeType !== ParseNodeType.AssignmentExpression;
+
+        writeTypeCache(node, typeResult, flags, inferenceContext, allowSpeculativeCaching);
+
+        // If there was an expected type, make sure that the result type is compatible.
+        if (
+            inferenceContext &&
+            !isAnyOrUnknown(inferenceContext.expectedType) &&
+            !isNever(inferenceContext.expectedType)
+        ) {
+            expectedTypeCache.set(node.id, inferenceContext.expectedType);
+
+            // If this is a generic function and there is a signature tracker,
+            // make sure the signature is unique.
+            if (signatureTracker && isFunction(typeResult.type)) {
+                typeResult.type = ensureFunctionSignaturesAreUnique(typeResult.type, signatureTracker, node.start);
+            }
+
+            if (!typeResult.isIncomplete && !typeResult.expectedTypeDiagAddendum) {
+                const diag = new DiagnosticAddendum();
+
+                // Make sure the resulting type is assignable to the expected type.
+                if (
+                    !assignType(
+                        inferenceContext.expectedType,
+                        typeResult.type,
+                        diag,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        AssignTypeFlags.IgnoreTypeVarScope
+                    )
+                ) {
+                    typeResult.typeErrors = true;
+                    typeResult.expectedTypeDiagAddendum = diag;
+                    diag.addTextRange(node);
+                }
+            }
+        }
+
+        if (printExpressionTypes) {
+            printExpressionSpaceCount--;
+            console.log(
+                `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
+                    node
+                )}): Post ${printType(typeResult.type)}${typeResult.isIncomplete ? ' Incomplete' : ''}`
+            );
+        }
+
+        return typeResult;
+    }
+
+    // This is a helper function that implements the core of getTypeOfExpression.
+    function getTypeOfExpressionCore(
+        node: ExpressionNode,
+        flags = EvaluatorFlags.None,
+        inferenceContext?: InferenceContext,
+        signatureTracker?: UniqueSignatureTracker
+    ): TypeResult {
         let typeResult: TypeResult | undefined;
         let expectingInstantiable = (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0;
-        let allowSpeculativeCaching = true;
 
         switch (node.nodeType) {
             case ParseNodeType.Name: {
@@ -1215,10 +1291,6 @@ export function createTypeEvaluator(
                     node.rightExpression,
                     /* ignoreEmptyContainers */ true
                 );
-
-                // Don't allow speculative caching for assignment expressions because
-                // the target name node won't have a corresponding type cached speculatively.
-                allowSpeculativeCaching = false;
                 break;
             }
 
@@ -1280,67 +1352,6 @@ export function createTypeEvaluator(
         // Do we need to validate that the type is instantiable?
         if (expectingInstantiable) {
             validateTypeIsInstantiable(typeResult, flags, node);
-        }
-
-        // Should we disable type promotions for bytes?
-        if (
-            isInstantiableClass(typeResult.type) &&
-            typeResult.type.includePromotions &&
-            !typeResult.type.includeSubclasses &&
-            ClassType.isBuiltIn(typeResult.type, 'bytes')
-        ) {
-            if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.disableBytesTypePromotions) {
-                typeResult = {
-                    ...typeResult,
-                    type: ClassType.cloneRemoveTypePromotions(typeResult.type),
-                };
-            }
-        }
-
-        writeTypeCache(node, typeResult, flags, inferenceContext, allowSpeculativeCaching);
-
-        // If there was an expected type, make sure that the result type is compatible.
-        if (
-            inferenceContext &&
-            !isAnyOrUnknown(inferenceContext.expectedType) &&
-            !isNever(inferenceContext.expectedType)
-        ) {
-            expectedTypeCache.set(node.id, inferenceContext.expectedType);
-
-            // If this is a generic function and there is a signature tracker,
-            // make sure the signature is unique.
-            if (signatureTracker && isFunction(typeResult.type)) {
-                typeResult.type = ensureFunctionSignaturesAreUnique(typeResult.type, signatureTracker, node.start);
-            }
-
-            if (!typeResult.isIncomplete && !typeResult.expectedTypeDiagAddendum) {
-                const diag = new DiagnosticAddendum();
-
-                // Make sure the resulting type is assignable to the expected type.
-                if (
-                    !assignType(
-                        inferenceContext.expectedType,
-                        typeResult.type,
-                        diag,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.IgnoreTypeVarScope
-                    )
-                ) {
-                    typeResult.typeErrors = true;
-                    typeResult.expectedTypeDiagAddendum = diag;
-                    diag.addTextRange(node);
-                }
-            }
-        }
-
-        if (printExpressionTypes) {
-            printExpressionSpaceCount--;
-            console.log(
-                `${getPrintExpressionTypesSpaces()}${ParseTreeUtils.printExpression(node)} (${getLineNum(
-                    node
-                )}): Post ${printType(typeResult.type)}${typeResult.isIncomplete ? ' Incomplete' : ''}`
-            );
         }
 
         return typeResult;
