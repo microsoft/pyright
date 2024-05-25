@@ -4184,7 +4184,9 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                     return TypeVarType.cloneForUnpacked(replacement, typeVar.isVariadicInUnion);
                 }
 
-                return replacement;
+                if (!isTypeVar(replacement) || !replacement.isInScopePlaceholder || !this._options.unknownIfNotFound) {
+                    return replacement;
+                }
             }
 
             // If this typeVar is in scope for what we're solving but the type
