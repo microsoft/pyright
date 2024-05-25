@@ -591,7 +591,11 @@ export class AnalyzerService {
             }
         }
 
-        const configOptions = new ConfigOptions(projectRoot, this._typeCheckingMode);
+        const configOptions = new ConfigOptions(projectRoot);
+        configOptions.initializeTypeCheckingMode(
+            this._typeCheckingMode,
+            commandLineOptions.diagnosticSeverityOverrides
+        );
         const defaultExcludes = ['**/node_modules', '**/__pycache__', '**/.*'];
 
         if (commandLineOptions.pythonPath) {
@@ -657,6 +661,8 @@ export class AnalyzerService {
 
         configOptions.disableTaggedHints = !!commandLineOptions.disableTaggedHints;
 
+        configOptions.initializeTypeCheckingMode(commandLineOptions.typeCheckingMode ?? 'standard');
+
         const configs = this._getExtendedConfigurations(configFilePath ?? pyprojectFilePath);
 
         if (configs) {
@@ -664,7 +670,6 @@ export class AnalyzerService {
                 configOptions.initializeFromJson(
                     config.configFileJsonObj,
                     config.configFileDirUri,
-                    this._typeCheckingMode,
                     this.serviceProvider,
                     host,
                     commandLineOptions

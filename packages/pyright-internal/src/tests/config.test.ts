@@ -216,7 +216,7 @@ test('PythonPlatform', () => {
     const nullConsole = new NullConsole();
 
     const sp = createServiceProvider(fs, nullConsole);
-    configOptions.initializeFromJson(json, cwd, undefined, sp, new NoAccessHost());
+    configOptions.initializeFromJson(json, cwd, sp, new NoAccessHost());
 
     const env = configOptions.executionEnvironments[0];
     assert.strictEqual(env.pythonPlatform, 'platform');
@@ -343,7 +343,7 @@ test('verify config fileSpecs after cloning', () => {
     const rootUri = Uri.file(process.cwd(), fs);
     const config = new ConfigOptions(rootUri);
     const sp = createServiceProvider(fs, new NullConsole());
-    config.initializeFromJson(configFile, rootUri, undefined, sp, new TestAccessHost());
+    config.initializeFromJson(configFile, rootUri, sp, new TestAccessHost());
     const cloned = deserialize(serialize(config));
 
     assert.deepEqual(config.ignore, cloned.ignore);
@@ -385,5 +385,5 @@ test('Extended config files', () => {
     assert.deepStrictEqual(fileNames, ['sample.pyi', 'test.py']);
 
     const configOptions = service.test_getConfigOptions(commandLineOptions);
-    assert.equal(configOptions.typeCheckingMode, 'strict');
+    assert.equal(configOptions.diagnosticRuleSet.strictListInference, true);
 });

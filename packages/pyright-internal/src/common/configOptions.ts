@@ -987,9 +987,6 @@ export class ConfigOptions {
     // Minimum threshold for type eval logging
     typeEvaluationTimeThreshold = 50;
 
-    // Current type checking mode.
-    typeCheckingMode?: string;
-
     // Was this config initialized from JSON (pyrightconfig/pyproject)?
     initializedFromJson = false;
 
@@ -1047,10 +1044,9 @@ export class ConfigOptions {
     // Controls how hover and completion function signatures are displayed.
     functionSignatureDisplay: SignatureDisplayType;
 
-    constructor(projectRoot: Uri, typeCheckingMode?: string) {
+    constructor(projectRoot: Uri) {
         this.projectRoot = projectRoot;
-        this.typeCheckingMode = typeCheckingMode;
-        this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
+        this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet();
         this.functionSignatureDisplay = SignatureDisplayType.formatted;
     }
 
@@ -1101,11 +1097,21 @@ export class ConfigOptions {
         return [this.getDefaultExecEnvironment()];
     }
 
+    initializeTypeCheckingMode(
+        typeCheckingMode: string | undefined,
+        severityOverrides?: DiagnosticSeverityOverridesMap
+    ) {
+        this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
+
+        if (severityOverrides) {
+            this.applyDiagnosticOverrides(severityOverrides);
+        }
+    }
+
     // Initialize the structure from a JSON object.
     initializeFromJson(
         configObj: any,
         configDirUri: Uri,
-        typeCheckingMode: string | undefined,
         serviceProvider: ServiceProvider,
         host: Host,
         commandLineOptions?: CommandLineOptions
@@ -1190,7 +1196,6 @@ export class ConfigOptions {
         }
 
         // If there is a "typeCheckingMode", it can override the provided setting.
-        let configTypeCheckingMode: string | undefined = this.typeCheckingMode;
         if (configObj.typeCheckingMode !== undefined) {
             if (
                 configObj.typeCheckingMode === 'off' ||
@@ -1198,7 +1203,7 @@ export class ConfigOptions {
                 configObj.typeCheckingMode === 'standard' ||
                 configObj.typeCheckingMode === 'strict'
             ) {
-                configTypeCheckingMode = configObj.typeCheckingMode;
+                this.diagnosticRuleSet = { ...ConfigOptions.getDiagnosticRuleSet(configObj.typeCheckingMode) };
             } else {
                 console.error(`Config "typeCheckingMode" entry must contain "off", "basic", "standard", or "strict".`);
             }
@@ -1211,15 +1216,6 @@ export class ConfigOptions {
                 console.error(`Config "useLibraryCodeForTypes" entry must be true or false.`);
             }
         }
-
-        this.typeCheckingMode = configTypeCheckingMode || typeCheckingMode;
-        const defaultSettings = ConfigOptions.getDiagnosticRuleSet(this.typeCheckingMode);
-
-        // Start with the default values for all rules in the rule set.
-        this.diagnosticRuleSet = { ...defaultSettings };
-
-        // Apply host-provided overrides.
-        this.applyDiagnosticOverrides(commandLineOptions?.diagnosticSeverityOverrides);
 
         // Apply overrides from the config file for the boolean rules.
         getBooleanDiagnosticRules(/* includeNonOverridable */ true).forEach((ruleName) => {

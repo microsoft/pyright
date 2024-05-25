@@ -180,10 +180,10 @@ export class TestState {
         const configOptions = this._convertGlobalOptionsToConfigOptions(vfsInfo.projectRoot, mountPaths);
 
         if (this.rawConfigJson) {
+            configOptions.initializeTypeCheckingMode('standard');
             configOptions.initializeFromJson(
                 this.rawConfigJson,
                 Uri.file(projectRoot, this.serviceProvider),
-                'standard',
                 this.serviceProvider,
                 testAccessHost
             );
