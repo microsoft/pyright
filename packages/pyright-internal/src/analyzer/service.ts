@@ -54,7 +54,7 @@ import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
 import { IPythonMode } from './sourceFile';
 
-export const configFileNames = ['pyrightconfig.json'];
+export const configFileName = 'pyrightconfig.json';
 export const pyprojectTomlName = 'pyproject.toml';
 
 // How long since the last user activity should we wait until running
@@ -84,6 +84,11 @@ export interface AnalyzerServiceOptions {
     fileSystem?: FileSystem;
 }
 
+interface ConfigFileContents {
+    configFileDirUri: Uri;
+    configFileJsonObj: object;
+}
+
 // Hold uniqueId for this service. It can be used to distinguish each service later.
 let _nextServiceId = 1;
 
@@ -103,7 +108,8 @@ export class AnalyzerService {
     private _sourceFileWatcher: FileWatcher | undefined;
     private _reloadConfigTimer: any;
     private _libraryReanalysisTimer: any;
-    private _configFileUri: Uri | undefined;
+    private _primaryConfigFileUri: Uri | undefined;
+    private _extendedConfigFileUris: Uri[] = [];
     private _configFileWatcher: FileWatcher | undefined;
     private _libraryFileWatcher: FileWatcher | undefined;
     private _librarySearchUrisToWatch: Uri[] | undefined;
@@ -534,11 +540,12 @@ export class AnalyzerService {
                     ? Uri.file(commandLineOptions.configFilePath, this.serviceProvider, /* checkRelative */ true)
                     : projectRoot.resolvePaths(commandLineOptions.configFilePath)
             );
+
             if (!this.fs.existsSync(configFilePath)) {
                 this._console.info(`Configuration file not found at ${configFilePath.toUserVisibleString()}.`);
                 configFilePath = projectRoot;
             } else {
-                if (configFilePath.lastExtension.endsWith('.json')) {
+                if (configFilePath.lastExtension.endsWith('.json') || configFilePath.lastExtension.endsWith('.toml')) {
                     projectRoot = configFilePath.getDirectory();
                 } else {
                     projectRoot = configFilePath;
@@ -648,30 +655,23 @@ export class AnalyzerService {
             }
         }
 
-        this._configFileUri = configFilePath || pyprojectFilePath;
-
         configOptions.disableTaggedHints = !!commandLineOptions.disableTaggedHints;
 
-        // If we found a config file, parse it to compute the effective options.
-        let configJsonObj: object | undefined;
-        if (configFilePath) {
-            this._console.info(`Loading configuration file at ${configFilePath.toUserVisibleString()}`);
-            configJsonObj = this._parseJsonConfigFile(configFilePath);
-        } else if (pyprojectFilePath) {
-            this._console.info(`Loading pyproject.toml file at ${pyprojectFilePath.toUserVisibleString()}`);
-            configJsonObj = this._parsePyprojectTomlFile(pyprojectFilePath);
-        }
+        const configs = this._getExtendedConfigurations(configFilePath ?? pyprojectFilePath);
 
-        if (configJsonObj) {
-            configOptions.initializeFromJson(
-                configJsonObj,
-                this._typeCheckingMode,
-                this.serviceProvider,
-                host,
-                commandLineOptions
-            );
+        if (configs) {
+            for (const config of configs) {
+                configOptions.initializeFromJson(
+                    config.configFileJsonObj,
+                    config.configFileDirUri,
+                    this._typeCheckingMode,
+                    this.serviceProvider,
+                    host,
+                    commandLineOptions
+                );
+            }
 
-            const configFileDir = this._configFileUri!.getDirectory();
+            const configFileDir = this._primaryConfigFileUri!.getDirectory();
 
             // If no include paths were provided, assume that all files within
             // the project should be included.
@@ -860,6 +860,61 @@ export class AnalyzerService {
         return configOptions;
     }
 
+    // Loads the config JSON object from the specified config file along with any
+    // chained config files specified in the "extends" property (recursively).
+    private _getExtendedConfigurations(primaryConfigFileUri: Uri | undefined): ConfigFileContents[] | undefined {
+        this._primaryConfigFileUri = primaryConfigFileUri;
+        this._extendedConfigFileUris = [];
+
+        if (!primaryConfigFileUri) {
+            return undefined;
+        }
+
+        let curConfigFileUri = primaryConfigFileUri;
+
+        const configJsonObjs: ConfigFileContents[] = [];
+
+        while (true) {
+            this._extendedConfigFileUris.push(curConfigFileUri);
+
+            let configFileJsonObj: object | undefined;
+
+            // Is this a TOML or JSON file?
+            if (curConfigFileUri.lastExtension.endsWith('.toml')) {
+                this._console.info(`Loading pyproject.toml file at ${curConfigFileUri.toUserVisibleString()}`);
+                configFileJsonObj = this._parsePyprojectTomlFile(curConfigFileUri);
+            } else {
+                this._console.info(`Loading configuration file at ${curConfigFileUri.toUserVisibleString()}`);
+                configFileJsonObj = this._parseJsonConfigFile(curConfigFileUri);
+            }
+
+            if (!configFileJsonObj) {
+                break;
+            }
+
+            // Push onto the start of the array so base configs are processed first.
+            configJsonObjs.unshift({ configFileJsonObj, configFileDirUri: curConfigFileUri.getDirectory() });
+
+            const baseConfigUri = ConfigOptions.resolveExtends(configFileJsonObj, curConfigFileUri.getDirectory());
+            if (!baseConfigUri) {
+                break;
+            }
+
+            // Check for circular references.
+            if (this._extendedConfigFileUris.some((uri) => uri.equals(baseConfigUri))) {
+                this._console.error(
+                    `Circular reference in configuration file "extends" setting: ${curConfigFileUri.toUserVisibleString()} ` +
+                        `extends ${baseConfigUri.toUserVisibleString()}`
+                );
+                break;
+            }
+
+            curConfigFileUri = baseConfigUri;
+        }
+
+        return configJsonObjs;
+    }
+
     private _getTypeStubFolder() {
         const stubPath =
             this._configOptions.stubPath ??
@@ -914,12 +969,11 @@ export class AnalyzerService {
     }
 
     private _findConfigFile(searchPath: Uri): Uri | undefined {
-        for (const name of configFileNames) {
-            const fileName = searchPath.resolvePaths(name);
-            if (this.fs.existsSync(fileName)) {
-                return this.fs.realCasePath(fileName);
-            }
+        const fileName = searchPath.resolvePaths(configFileName);
+        if (this.fs.existsSync(fileName)) {
+            return this.fs.realCasePath(fileName);
         }
+
         return undefined;
     }
 
@@ -1573,8 +1627,8 @@ export class AnalyzerService {
             return;
         }
 
-        if (this._configFileUri) {
-            this._configFileWatcher = this.fs.createFileSystemWatcher([this._configFileUri], (event) => {
+        if (this._primaryConfigFileUri) {
+            this._configFileWatcher = this.fs.createFileSystemWatcher(this._extendedConfigFileUris, (event) => {
                 if (this._verboseOutput) {
                     this._console.info(`Received fs event '${event}' for config file`);
                 }
@@ -1588,7 +1642,7 @@ export class AnalyzerService {
 
                 if (event === 'add' || event === 'change') {
                     const fileName = getFileName(path);
-                    if (fileName && configFileNames.some((name) => name === fileName)) {
+                    if (fileName === configFileName) {
                         if (this._verboseOutput) {
                             this._console.info(`Received fs event '${event}' for config file`);
                         }
@@ -1624,8 +1678,8 @@ export class AnalyzerService {
     private _reloadConfigFile() {
         this._updateConfigFileWatcher();
 
-        if (this._configFileUri) {
-            this._console.info(`Reloading configuration file at ${this._configFileUri.toUserVisibleString()}`);
+        if (this._primaryConfigFileUri) {
+            this._console.info(`Reloading configuration file at ${this._primaryConfigFileUri.toUserVisibleString()}`);
 
             const host = this._backgroundAnalysisProgram.host;
 

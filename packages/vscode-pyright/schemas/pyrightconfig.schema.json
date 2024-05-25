@@ -23,6 +23,12 @@
     }
   },
   "properties": {
+    "extends": {
+      "$id": "#/properties/extends",
+      "type": "string",
+      "title": "Path to configuration file that this configuration extends",
+      "pattern": "^(.*)$"
+    },
     "include": {
       "$id": "#/properties/include",
       "type": "array",
