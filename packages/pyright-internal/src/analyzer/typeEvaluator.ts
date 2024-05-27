@@ -25952,7 +25952,9 @@ export function createTypeEvaluator(
                     if (isAnyOrUnknown(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
                         replacedTypeArg = true;
                         return expectedTypeArgType;
-                    } else if (isClassInstance(expectedTypeArgType) && isClassInstance(typeArg)) {
+                    }
+
+                    if (isClassInstance(expectedTypeArgType) && isClassInstance(typeArg)) {
                         // Recursively replace Any in the type argument.
                         const recursiveReplacement = replaceTypeArgsWithAny(
                             node,
@@ -25960,6 +25962,7 @@ export function createTypeEvaluator(
                             typeArg,
                             recursionCount
                         );
+
                         if (recursiveReplacement) {
                             replacedTypeArg = true;
                             return recursiveReplacement;
@@ -26004,6 +26007,12 @@ export function createTypeEvaluator(
     // When a value is assigned to a variable with a declared type,
     // we may be able to narrow the type based on the assignment.
     function narrowTypeBasedOnAssignment(node: ExpressionNode, declaredType: Type, assignedType: Type): Type {
+        // TODO: The rules for narrowing types on assignment are defined in
+        // the typing spec. Pyright's current logic is currently not even internally
+        // consistent and probably not sound from a type theory perspective. It
+        // should be completely reworked once there has been a public discussion
+        // about the correct behavior.
+
         const narrowedType = mapSubtypes(assignedType, (assignedSubtype) => {
             // Handle the special case where the assigned type is a literal type.
             // Some types include very large unions of literal types, and we don't
@@ -26045,8 +26054,18 @@ export function createTypeEvaluator(
                     }
 
                     // If the declared type doesn't contain any `Any` but the assigned
-                    // type does, stick with the declared type.
-                    if (containsAnyRecursive(assignedSubtype) && !containsAnyRecursive(declaredSubtype)) {
+                    // type does, stick with the declared type. We don't include unknowns
+                    // in the assigned subtype check here so unknowns are preserved so
+                    // reportUnknownVariableType assignment diagnostics are reported.
+
+                    // TODO - this is an inconsistency because Any and Unknown should
+                    // always be treated the same for purposes of type narrowing. This
+                    // should be revisited once the narrowing-on-assignment behavior
+                    // is properly specified in the typing spec.
+                    if (
+                        containsAnyRecursive(assignedSubtype, /* includeUnknown */ false) &&
+                        !containsAnyRecursive(declaredSubtype)
+                    ) {
                         return declaredSubtype;
                     }
 
