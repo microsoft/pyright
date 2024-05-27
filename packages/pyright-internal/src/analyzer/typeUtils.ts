@@ -2551,17 +2551,28 @@ export function getMembersForModule(moduleType: ModuleType, symbolTable: SymbolT
 }
 
 // Determines if the type contains an Any recursively.
-export function containsAnyRecursive(type: Type): boolean {
+export function containsAnyRecursive(type: Type, includeUnknown = true): boolean {
     class AnyWalker extends TypeWalker {
         foundAny = false;
+
+        constructor(private _includeUnknown: boolean) {
+            super();
+        }
 
         override visitAny(type: AnyType) {
             this.foundAny = true;
             this.cancelWalk();
         }
+
+        override visitUnknown(type: UnknownType): void {
+            if (this._includeUnknown) {
+                this.foundAny = true;
+                this.cancelWalk();
+            }
+        }
     }
 
-    const walker = new AnyWalker();
+    const walker = new AnyWalker(includeUnknown);
     walker.walk(type);
     return walker.foundAny;
 }
