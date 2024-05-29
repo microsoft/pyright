@@ -154,6 +154,8 @@
         "ellipsisContext": "不允许在此上下文中使用 \"...\"",
         "ellipsisSecondArg": "仅允许 \"...\" 作为两个参数中的第二个参数",
         "enumClassOverride": "枚举类“{name}”是最终类，不能为子类",
+        "enumMemberDelete": "无法删除枚举成员“{name}”",
+        "enumMemberSet": "无法分配枚举成员“{name}”",
         "exceptionGroupIncompatible": "异常组语法 (\"except*\") 需要 Python 3.11 或更高版本",
         "exceptionTypeIncorrect": "\"{type}\" 不是派生自 BaseException",
         "exceptionTypeNotClass": "“{type}”不是有效的异常类",

@@ -154,6 +154,8 @@
         "ellipsisContext": "\"...\" はこのコンテキストでは許可されていません",
         "ellipsisSecondArg": "\"...\" は2 つの引数の 2 番目の引数としてのみ使用できます",
         "enumClassOverride": "列挙型クラス \"{name}\" は最終的なクラスであり、サブクラス化できません",
+        "enumMemberDelete": "列挙型メンバー \"{name}\" を削除できません",
+        "enumMemberSet": "列挙型メンバー \"{name}\" を割り当てることはできません",
         "exceptionGroupIncompatible": "例外グループの構文 (\"except*\") には Python 3.11 以降が必要です",
         "exceptionTypeIncorrect": "\"{type}\" は BaseException から派生していません",
         "exceptionTypeNotClass": "\"{type}\" は有効な例外クラスではありません",

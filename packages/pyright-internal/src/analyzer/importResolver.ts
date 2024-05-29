@@ -884,12 +884,16 @@ export class ImportResolver {
         return '.'.repeat(moduleDescriptor.leadingDots) + moduleDescriptor.nameParts.join('.');
     }
 
-    protected getParentImportResolutionRoot(sourceFileUri: Uri, executionRoot: Uri | undefined) {
-        if (executionRoot && !executionRoot.isEmpty()) {
-            return this.fileSystem.realCasePath(executionRoot);
+    protected getParentImportResolutionRoot(sourceFileUri: Uri, executionRoot: Uri | undefined): Uri {
+        if (!this._isDefaultWorkspace(executionRoot)) {
+            return executionRoot!;
         }
 
         return sourceFileUri.getDirectory();
+    }
+
+    private _isDefaultWorkspace(uri: Uri | undefined) {
+        return !uri || uri.isEmpty() || Uri.isDefaultWorkspace(uri);
     }
 
     private _resolveImportStrict(
@@ -2790,7 +2794,7 @@ export class ImportResolver {
         return (
             current &&
             !current.isEmpty() &&
-            (current.isChild(root) || (current.equals(root) && (!execEnv.root || execEnv.root.isEmpty())))
+            (current.isChild(root) || (current.equals(root) && this._isDefaultWorkspace(execEnv.root)))
         );
     }
 }

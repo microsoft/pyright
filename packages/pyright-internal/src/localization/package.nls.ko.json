@@ -154,6 +154,8 @@
         "ellipsisContext": "\"...\"는 이 컨텍스트에서는 허용되지 않습니다.",
         "ellipsisSecondArg": "\"...\"는 두 인수 중 두 번째 인수로만 허용됩니다.",
         "enumClassOverride": "열거형 클래스 \"{name}\"은(는) 최종 클래스이며 서브클래스할 수 없습니다.",
+        "enumMemberDelete": "열거형 멤버 \"{name}\"을(를) 삭제할 수 없음",
+        "enumMemberSet": "열거형 멤버 \"{name}\"을(를) 할당할 수 없음",
         "exceptionGroupIncompatible": "예외 그룹 구문(\"except*\")에는 Python 3.11 이상이 필요합니다.",
         "exceptionTypeIncorrect": "‘{type}’은 BaseException에서 파생되지 않습니다.",
         "exceptionTypeNotClass": "\"{type}\"은(는) 올바른 예외 클래스가 아닙니다.",

@@ -154,6 +154,8 @@
         "ellipsisContext": "此內容中不允許 \"...\"",
         "ellipsisSecondArg": "\"...\" 只允許做為兩個引數的第二個",
         "enumClassOverride": "列舉類別 \"{name}\" 為 Final，且不能設為子類別",
+        "enumMemberDelete": "無法刪除列舉成員 \"{name}\"",
+        "enumMemberSet": "無法指派列舉成員 \"{name}\"",
         "exceptionGroupIncompatible": "例外群組語法 (\"except*\") 需要 Python 3.11 或更新版本",
         "exceptionTypeIncorrect": "\"{type}\" 不是衍生自 BaseException",
         "exceptionTypeNotClass": "\"{type}\" 不是有效的例外類別",
