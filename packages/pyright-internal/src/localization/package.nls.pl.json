@@ -154,6 +154,8 @@
         "ellipsisContext": "Wartość „...” jest niedozwolona w tym kontekście",
         "ellipsisSecondArg": "Wartość „...” jest dozwolona tylko jako drugi z dwóch argumentów",
         "enumClassOverride": "Klasa wyliczenia „{name}” jest ostateczna i nie można jej podzielić na podklasy",
+        "enumMemberDelete": "Nie można usunąć składowej wyliczenia \"{name}\"",
+        "enumMemberSet": "Nie można przypisać składowej wyliczenia „{name}”",
         "exceptionGroupIncompatible": "Składnia grupy wyjątków („except*”) wymaga języka Python w wersji 3.11 lub nowszej",
         "exceptionTypeIncorrect": "Typ „{type}” nie pochodzi od parametru BaseException",
         "exceptionTypeNotClass": "Typ „{type}” nie jest prawidłową klasą wyjątku",

@@ -270,4 +270,20 @@ export namespace Uri {
     export function is(thing: any): thing is Uri {
         return !!thing && typeof thing._key === 'string';
     }
+
+    export function isEmpty(uri: Uri | undefined): boolean {
+        return !uri || uri.isEmpty();
+    }
+
+    export function equals(a: Uri | undefined, b: Uri | undefined): boolean {
+        if (a === b) {
+            return true;
+        }
+
+        return a?.equals(b) ?? false;
+    }
+
+    export function isDefaultWorkspace(uri: Uri) {
+        return uri.fileName.includes(DefaultWorkspaceRootComponent);
+    }
 }

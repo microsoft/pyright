@@ -154,6 +154,8 @@
         "ellipsisContext": "\"...\" kullanımına bu bağlamda izin verilmiyor",
         "ellipsisSecondArg": "\"...\" yalnızca iki bağımsız değişkenin ikincisi olarak kullanılabilir",
         "enumClassOverride": "\"{name}\" sabit listesi sınıfı final niteliğinde ve alt sınıf olamaz",
+        "enumMemberDelete": "Sabit liste üyesi \"{name}\" silinemiyor",
+        "enumMemberSet": "Sabit liste üyesi \"{name}\" atanamıyor",
         "exceptionGroupIncompatible": "Özel durum grubu söz dizimi (\"except*\") için Python 3.11 veya daha yeni bir sürümü gerekiyor",
         "exceptionTypeIncorrect": "\"{type}\", BaseException türevi değil",
         "exceptionTypeNotClass": "\"{type}\" geçerli bir özel durum sınıfı değil",

@@ -154,6 +154,8 @@
         "ellipsisContext": "„...“ se v tomto kontextu nepovoluje",
         "ellipsisSecondArg": "„...“ je povoleno pouze jako druhý ze dvou argumentů",
         "enumClassOverride": "Třída výčtu {name} je konečná a nemůže být podtřídou",
+        "enumMemberDelete": "Člen výčtu {name} se nedá odstranit.",
+        "enumMemberSet": "Člen výčtu {name} se nedá přiřadit.",
         "exceptionGroupIncompatible": "Syntaxe skupiny výjimek (except*) vyžaduje Python 3.11 nebo novější",
         "exceptionTypeIncorrect": "„{type}“ se neodvozuje od BaseException",
         "exceptionTypeNotClass": "{type} není platná třída výjimky",

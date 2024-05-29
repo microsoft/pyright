@@ -154,6 +154,8 @@
         "ellipsisContext": "\"...\" non è consentito in questo contesto",
         "ellipsisSecondArg": "\"...\" è consentito solo come secondo di due argomenti",
         "enumClassOverride": "La classe di enumerazione \"{name}\" è finale e non può essere sottoclassata",
+        "enumMemberDelete": "Non è possibile eliminare il membro di enumerazione \"{name}\"",
+        "enumMemberSet": "Non è possibile assegnare il membro di enumerazione \"{name}\"",
         "exceptionGroupIncompatible": "La sintassi del gruppo di eccezioni (\"except*\") richiede Python 3.11 o versione successiva",
         "exceptionTypeIncorrect": "\"{type}\" non deriva da BaseException",
         "exceptionTypeNotClass": "\"{type}\" non è una classe di eccezione valida",

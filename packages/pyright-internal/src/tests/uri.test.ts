@@ -691,7 +691,7 @@ test('getWildcardRoot with root', () => {
 
 test('getWildcardRoot with drive letter', () => {
     const p = getWildcardRoot(Uri.parse('file:///c:/', caseDetector), '.');
-    assert.equal(p.toString(), 'file:///c%3A');
+    assert.equal(p.toString(), 'file:///c%3A/');
 });
 
 function resolvePaths(uri: string, ...paths: string[]) {
@@ -792,7 +792,7 @@ test('getRootLength2', () => {
 });
 
 test('getRootLength3', () => {
-    assert.equal(getUriRootLength('c:'), 2);
+    assert.equal(getUriRootLength('c:'), 3);
 });
 
 test('getRootLength4', () => {
@@ -800,7 +800,7 @@ test('getRootLength4', () => {
 });
 
 test('getRootLength5', () => {
-    assert.equal(getUriRootLength('c:/'), 2);
+    assert.equal(getUriRootLength('c:/'), 3);
 });
 
 test('getRootLength6', () => {
@@ -968,4 +968,14 @@ test('constant uri test', () => {
 
     assert(!uri1.equals(uri2));
     assert(uri1.equals(uri1));
+});
+
+test('root test', () => {
+    const uri1 = UriEx.file('C:\\');
+    const uri2 = UriEx.file('C:');
+    const uri3 = UriEx.file('/');
+
+    assert.strictEqual(uri1.getFilePath(), normalizeSlashes('c:/'));
+    assert.strictEqual(uri2.getFilePath(), normalizeSlashes('c:/'));
+    assert.strictEqual(uri3.getFilePath(), normalizeSlashes('/'));
 });
