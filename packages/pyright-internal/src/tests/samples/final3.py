@@ -121,6 +121,8 @@ b: list[Final[int]] = []
 class ClassA:
     member1: Final = 3
     member2: Final
+    member4: Final
+    member5: Final = 3
 
     def __init__(self):
         # This should generate an error.
@@ -129,6 +131,12 @@ class ClassA:
         self.member2 = "hi"
 
         self.member3: Final = "hi"
+
+        # This should generate an error.
+        ClassA.member4 = "hi"
+
+        # This should generate an error.
+        ClassA.member5 = 3
 
     def other(self):
         # This should generate an error.
