@@ -116,6 +116,7 @@ import {
     FunctionDeclaration,
     ModuleLoaderActions,
     SpecialBuiltInClassDeclaration,
+    VariableDeclaration,
 } from './declaration';
 import {
     ResolvedAliasInfo,
@@ -5872,7 +5873,12 @@ export function createTypeEvaluator(
                 // If a Final instance variable is declared in the class body but is
                 // being assigned within an __init__ method, it's allowed.
                 const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(errorNode);
-                if (!enclosingFunctionNode || enclosingFunctionNode.name.value !== '__init__') {
+                if (
+                    !enclosingFunctionNode ||
+                    enclosingFunctionNode.name.value !== '__init__' ||
+                    (finalVarTypeDecl as VariableDeclaration).inferredTypeSource !== undefined ||
+                    isInstantiableClass(classType)
+                ) {
                     diag?.addMessage(LocMessage.finalReassigned().format({ name: memberName }));
                     isDescriptorError = true;
                 }
