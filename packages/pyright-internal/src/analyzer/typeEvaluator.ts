@@ -5226,6 +5226,11 @@ export function createTypeEvaluator(
             baseType = makeTopLevelTypeVarsConcrete(baseType);
         }
 
+        // Do union expansion for promotion types. Exclude bytes here because
+        // this creates too much noise. Users who want stricter checks for bytes
+        // can use "disableBytesTypePromotions".
+        baseType = expandPromotionTypes(node, baseType, /* excludeBytes */ true);
+
         switch (baseType.category) {
             case TypeCategory.Any:
             case TypeCategory.Unknown:
