@@ -122,6 +122,12 @@ export function validateConstructorArguments(
     inferenceContext: InferenceContext | undefined,
     signatureTracker: UniqueSignatureTracker | undefined
 ): CallResult {
+    // If this is a "float" or "complex" constructor call, do not include
+    // the associated promotions.
+    if (!type.includeSubclasses && type.includePromotions) {
+        type = ClassType.cloneRemoveTypePromotions(type);
+    }
+
     const metaclassResult = validateMetaclassCall(
         evaluator,
         errorNode,

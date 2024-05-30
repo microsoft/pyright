@@ -1346,6 +1346,12 @@ function narrowTypeForIsInstanceInternal(
                 let filterIsSuperclass: boolean;
                 let filterIsSubclass: boolean;
 
+                // If the user has explicitly specified "float" or "complex" as a filter,
+                // eliminate the associated promotions.
+                if (!concreteFilterType.includeSubclasses && concreteFilterType.includePromotions) {
+                    concreteFilterType = ClassType.cloneRemoveTypePromotions(concreteFilterType);
+                }
+
                 if (isTypeIsCheck) {
                     filterIsSuperclass = evaluator.assignType(filterType, concreteVarType);
                     filterIsSubclass = evaluator.assignType(concreteVarType, filterType);
@@ -1775,21 +1781,28 @@ function narrowTypeForIsInstanceInternal(
             const isSubtypeMetaclass = isMetaclassInstance(subtype);
 
             if (isPositiveTest && isAnyOrUnknown(subtype)) {
+                const filterTypeInstances = filterTypes.map((filterType) => {
+                    if (
+                        isInstantiableClass(filterType) &&
+                        !filterType.includeSubclasses &&
+                        filterType.includePromotions
+                    ) {
+                        filterType = ClassType.cloneRemoveTypePromotions(filterType);
+                    }
+                    return convertToInstance(filterType);
+                });
+
                 // If this is a positive test and the effective type is Any or
                 // Unknown, we can assume that the type matches one of the
                 // specified types.
                 if (isInstanceCheck) {
-                    anyOrUnknownSubstitutions.push(
-                        combineTypes(filterTypes.map((classType) => convertToInstance(classType)))
-                    );
+                    anyOrUnknownSubstitutions.push(combineTypes(filterTypeInstances));
                 } else {
                     // We perform a double conversion from instance to instantiable
                     // here to make sure that the includeSubclasses flag is cleared
                     // if it's a class.
                     anyOrUnknownSubstitutions.push(
-                        combineTypes(
-                            filterTypes.map((classType) => convertToInstantiable(convertToInstance(classType)))
-                        )
+                        combineTypes(filterTypeInstances.map((classType) => convertToInstantiable(classType)))
                     );
                 }
 
