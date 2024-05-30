@@ -292,9 +292,17 @@ function validateNewAndInitMethods(
 
     let initMethodTypeResult: TypeResult | undefined;
 
-    // Validate __init__ if it's present. Skip if the __new__ method produced errors.
+    // If there were errors evaluating the __new__ method, assume that __new__
+    // returns the class instance and proceed accordingly. This may produce
+    // false positives in some cases, but it will prevent false negatives
+    // if the __init__ method also produces type errors (perhaps unrelated
+    // to the errors in the __new__ method).
+    if (argumentErrors) {
+        initMethodTypeResult = { type: convertToInstance(type) };
+    }
+
+    // Validate __init__ if it's present.
     if (
-        !argumentErrors &&
         !isNever(newMethodReturnType) &&
         !shouldSkipInitEvaluation(evaluator, type, newMethodReturnType) &&
         isClassInstance(newMethodReturnType)
