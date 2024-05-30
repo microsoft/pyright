@@ -13177,7 +13177,7 @@ export function createTypeEvaluator(
             if (isEffectivelyInstantiable(specializedType)) {
                 classType.details.baseClasses.push(specializedType);
             } else {
-                addExpectedClassDiagnostic(typeArg.type, argList[1].valueExpression || errorNode);
+                classType.details.baseClasses.push(UnknownType.create());
             }
         });
 
