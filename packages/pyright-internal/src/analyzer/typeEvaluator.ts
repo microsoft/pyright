@@ -23480,7 +23480,10 @@ export function createTypeEvaluator(
                 // rather than dest. If the type variable is not in the scope of the
                 // provided TypeVarContext, simply verify that the concrete types are
                 // compatible.
-                if (!srcTypeVarContext || !srcTypeVarContext.hasSolveForScope(getTypeVarScopeId(srcType))) {
+                if (
+                    (flags & AssignTypeFlags.IgnoreTypeVarScope) === 0 &&
+                    (!srcTypeVarContext || !srcTypeVarContext.hasSolveForScope(getTypeVarScopeId(srcType)))
+                ) {
                     return assignType(
                         makeTopLevelTypeVarsConcrete(destType),
                         makeTopLevelTypeVarsConcrete(srcType),
@@ -23497,7 +23500,7 @@ export function createTypeEvaluator(
                             srcType,
                             destType,
                             diag,
-                            srcTypeVarContext,
+                            srcTypeVarContext ?? new TypeVarContext(),
                             originalFlags,
                             recursionCount
                         )
@@ -23515,7 +23518,7 @@ export function createTypeEvaluator(
                                     srcType as TypeVarType,
                                     destSubtype,
                                     diag,
-                                    srcTypeVarContext,
+                                    srcTypeVarContext ?? new TypeVarContext(),
                                     originalFlags,
                                     recursionCount
                                 )
