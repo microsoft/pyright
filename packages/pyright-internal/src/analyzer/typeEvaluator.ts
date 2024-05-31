@@ -15624,6 +15624,7 @@ export function createTypeEvaluator(
         for (const typeArg of typeArgs) {
             let typeArgType = typeArg.type;
 
+            // This is an experimental feature because Unions of unpacked TypeVarTuples are not officially supported.
             if (
                 !validateTypeArg(typeArg, {
                     allowVariadicTypeVar: fileInfo.diagnosticRuleSet.enableExperimentalFeatures,
@@ -15637,6 +15638,7 @@ export function createTypeEvaluator(
 
             // If this is an unpacked tuple, explode out the individual items.
             if (isUnpackedClass(typeArg.type) && typeArg.type.tupleTypeArguments) {
+                // This is an experimental feature because Unions of unpacked TypeVarTuples are not officially supported.
                 if (fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
                     typeArg.type.tupleTypeArguments.forEach((tupleTypeArg) => {
                         types.push(convertToInstantiable(tupleTypeArg.type));
@@ -15650,6 +15652,7 @@ export function createTypeEvaluator(
                 }
             } else {
                 if (isTypeVar(typeArgType) && isUnpackedVariadicTypeVar(typeArgType)) {
+                    // This is an experimental feature because Unions of unpacked TypeVarTuples are not officially supported.
                     if (fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
                         // If this is an unpacked TypeVar, note that it is in a union so we can
                         // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
@@ -16737,6 +16740,7 @@ export function createTypeEvaluator(
                         } else if (arg.name.value === 'total' && !constArgValue) {
                             classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
                         } else if (arg.name.value === 'closed' && constArgValue) {
+                            // This is an experimental feature because PEP 728 hasn't been accepted yet.
                             if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
                                 classType.details.flags |=
                                     ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;

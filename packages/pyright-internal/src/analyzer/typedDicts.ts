@@ -196,6 +196,7 @@ export function createTypedDictType(
                 } else if (arg.name.value === 'total' && arg.valueExpression.constType === KeywordType.False) {
                     classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
                 } else if (arg.name.value === 'closed' && arg.valueExpression.constType === KeywordType.True) {
+                    // This is an experimental feature because PEP 728 hasn't been accepted yet.
                     if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
                         classType.details.flags |=
                             ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
