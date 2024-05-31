@@ -737,14 +737,6 @@ test('TypedDict24', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('TypedDictInline1', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictInline1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 9);
-});
-
 test('ClassVar1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classVar1.py']);
 

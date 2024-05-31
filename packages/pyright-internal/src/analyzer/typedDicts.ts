@@ -235,34 +235,6 @@ export function createTypedDictType(
     return classType;
 }
 
-// Creates a new anonymous TypedDict class from an inlined dict[{}] type annotation.
-export function createTypedDictTypeInlined(
-    evaluator: TypeEvaluator,
-    dictNode: DictionaryNode,
-    typedDictClass: ClassType
-): ClassType {
-    const fileInfo = AnalyzerNodeInfo.getFileInfo(dictNode);
-    const className = '<TypedDict>';
-
-    const classType = ClassType.createInstantiable(
-        className,
-        ParseTreeUtils.getClassFullName(dictNode, fileInfo.moduleName, className),
-        fileInfo.moduleName,
-        fileInfo.fileUri,
-        ClassTypeFlags.TypedDictClass,
-        ParseTreeUtils.getTypeSourceId(dictNode),
-        /* declaredMetaclass */ undefined,
-        typedDictClass.details.effectiveMetaclass
-    );
-    classType.details.baseClasses.push(typedDictClass);
-    computeMroLinearization(classType);
-
-    getTypedDictFieldsFromDictSyntax(evaluator, dictNode, ClassType.getSymbolTable(classType), /* isInline */ true);
-    synthesizeTypedDictClassMethods(evaluator, dictNode, classType);
-
-    return classType;
-}
-
 export function synthesizeTypedDictClassMethods(
     evaluator: TypeEvaluator,
     node: ClassNode | ExpressionNode,
