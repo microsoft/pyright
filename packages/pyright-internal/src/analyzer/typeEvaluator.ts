@@ -612,7 +612,7 @@ export function createTypeEvaluator(
     let noneTypeClass: Type | undefined;
     let objectClass: Type | undefined;
     let typeClass: Type | undefined;
-    let unionClass: Type | undefined;
+    let unionTypeClass: Type | undefined;
     let awaitableClass: Type | undefined;
     let functionClass: Type | undefined;
     let tupleClass: Type | undefined;
@@ -620,7 +620,7 @@ export function createTypeEvaluator(
     let intClass: Type | undefined;
     let strClass: Type | undefined;
     let dictClass: Type | undefined;
-    let typedDictClassType: Type | undefined;
+    let typedDictClass: Type | undefined;
     let typedDictPrivateClass: Type | undefined;
     let supportsKeysAndGetItemClass: Type | undefined;
     let mappingClass: Type | undefined;
@@ -950,9 +950,9 @@ export function createTypeEvaluator(
             typeClass = getBuiltInType(node, 'type');
             functionClass = getBuiltInType(node, 'function');
 
-            unionClass = getTypesType(node, 'UnionType');
-            if (unionClass && isClass(unionClass)) {
-                unionClass.details.flags |= ClassTypeFlags.SpecialFormClass;
+            unionTypeClass = getTypesType(node, 'UnionType');
+            if (unionTypeClass && isClass(unionTypeClass)) {
+                unionTypeClass.details.flags |= ClassTypeFlags.SpecialFormClass;
             }
 
             // Initialize and cache "Collection" to break a cyclical dependency
@@ -965,7 +965,7 @@ export function createTypeEvaluator(
             intClass = getBuiltInType(node, 'int');
             strClass = getBuiltInType(node, 'str');
             dictClass = getBuiltInType(node, 'dict');
-            typedDictClassType = getTypingType(node, 'TypedDict');
+            typedDictClass = getTypingType(node, 'TypedDict');
             typedDictPrivateClass = getTypingType(node, '_TypedDict');
             awaitableClass = getTypingType(node, 'Awaitable');
             mappingClass = getTypingType(node, 'Mapping');
@@ -2979,7 +2979,7 @@ export function createTypeEvaluator(
     }
 
     function getUnionClassType(): Type {
-        return unionClass ?? UnknownType.create();
+        return unionTypeClass ?? UnknownType.create();
     }
 
     function getTypingType(node: ParseNode, symbolName: string): Type | undefined {
@@ -7757,8 +7757,8 @@ export function createTypeEvaluator(
             setTypeResultForNode(node, { type: UnknownType.create() });
         } else if (node.nodeType === ParseNodeType.Dictionary && supportsDictExpression) {
             const inlinedTypeDict =
-                typedDictClassType && isInstantiableClass(typedDictClassType)
-                    ? createTypedDictTypeInlined(evaluatorInterface, node, typedDictClassType)
+                typedDictClass && isInstantiableClass(typedDictClass)
+                    ? createTypedDictTypeInlined(evaluatorInterface, node, typedDictClass)
                     : undefined;
             const keyTypeFallback = strClass && isInstantiableClass(strClass) ? strClass : UnknownType.create();
 
@@ -14965,8 +14965,8 @@ export function createTypeEvaluator(
         }
 
         let optionalType = combineTypes([typeArg0Type, noneTypeClass ?? UnknownType.create()]);
-        if (unionClass && isInstantiableClass(unionClass)) {
-            optionalType = TypeBase.cloneAsSpecialForm(optionalType, ClassType.cloneAsInstance(unionClass));
+        if (unionTypeClass && isInstantiableClass(unionTypeClass)) {
+            optionalType = TypeBase.cloneAsSpecialForm(optionalType, ClassType.cloneAsInstance(unionTypeClass));
         }
 
         return optionalType;
@@ -15103,8 +15103,8 @@ export function createTypeEvaluator(
 
         let result = combineTypes(literalTypes);
 
-        if (isUnion(result) && unionClass && isInstantiableClass(unionClass)) {
-            result = TypeBase.cloneAsSpecialForm(result, ClassType.cloneAsInstance(unionClass));
+        if (isUnion(result) && unionTypeClass && isInstantiableClass(unionTypeClass)) {
+            result = TypeBase.cloneAsSpecialForm(result, ClassType.cloneAsInstance(unionTypeClass));
         }
 
         return result;
@@ -15678,8 +15678,8 @@ export function createTypeEvaluator(
         }
 
         let unionType = combineTypes(types);
-        if (unionClass && isInstantiableClass(unionClass)) {
-            unionType = TypeBase.cloneAsSpecialForm(unionType, ClassType.cloneAsInstance(unionClass));
+        if (unionTypeClass && isInstantiableClass(unionTypeClass)) {
+            unionType = TypeBase.cloneAsSpecialForm(unionType, ClassType.cloneAsInstance(unionTypeClass));
         }
 
         return unionType;
