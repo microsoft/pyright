@@ -42,6 +42,8 @@ import {
     CallNode,
     CaseNode,
     ClassNode,
+    ComprehensionForIfNode,
+    ComprehensionNode,
     ConstantNode,
     DecoratorNode,
     DictionaryNode,
@@ -55,8 +57,6 @@ import {
     ImportFromNode,
     IndexNode,
     LambdaNode,
-    ListComprehensionForIfNode,
-    ListComprehensionNode,
     ListNode,
     MatchNode,
     MemberAccessNode,
@@ -1237,8 +1237,8 @@ export function createTypeEvaluator(
                 break;
             }
 
-            case ParseNodeType.ListComprehension: {
-                typeResult = getTypeOfListComprehension(node, flags, inferenceContext);
+            case ParseNodeType.Comprehension: {
+                typeResult = getTypeOfComprehension(node, flags, inferenceContext);
                 break;
             }
 
@@ -8358,7 +8358,7 @@ export function createTypeEvaluator(
 
             // Stop when we get a valid scope that's not a list comprehension
             // scope. That includes lambdas, functions, classes, and modules.
-            if (scope && scope.type !== ScopeType.ListComprehension) {
+            if (scope && scope.type !== ScopeType.Comprehension) {
                 break;
             }
 
@@ -13807,8 +13807,8 @@ export function createTypeEvaluator(
                         );
                     }
                 }
-            } else if (entryNode.nodeType === ParseNodeType.ListComprehension) {
-                const dictEntryTypeResult = getElementTypeFromListComprehension(
+            } else if (entryNode.nodeType === ParseNodeType.Comprehension) {
+                const dictEntryTypeResult = getElementTypeFromComprehension(
                     entryNode,
                     flags | EvaluatorFlags.StripLiteralTypeForTuple,
                     expectedValueType,
@@ -13949,8 +13949,8 @@ export function createTypeEvaluator(
         node.entries.forEach((entry) => {
             let entryTypeResult: TypeResult;
 
-            if (entry.nodeType === ParseNodeType.ListComprehension) {
-                entryTypeResult = getElementTypeFromListComprehension(
+            if (entry.nodeType === ParseNodeType.Comprehension) {
+                entryTypeResult = getElementTypeFromComprehension(
                     entry,
                     flags | EvaluatorFlags.StripLiteralTypeForTuple,
                     expectedEntryType
@@ -14010,7 +14010,7 @@ export function createTypeEvaluator(
     }
 
     function getExpectedEntryTypeForIterable(
-        node: ListNode | SetNode | ListComprehensionNode,
+        node: ListNode | SetNode | ComprehensionNode,
         expectedClassType: Type | undefined,
         inferenceContext?: InferenceContext
     ): Type | undefined {
@@ -14068,8 +14068,8 @@ export function createTypeEvaluator(
         node.entries.forEach((entry, index) => {
             let entryTypeResult: TypeResult;
 
-            if (entry.nodeType === ParseNodeType.ListComprehension && !entry.isGenerator) {
-                entryTypeResult = getElementTypeFromListComprehension(
+            if (entry.nodeType === ParseNodeType.Comprehension && !entry.isGenerator) {
+                entryTypeResult = getElementTypeFromComprehension(
                     entry,
                     flags | EvaluatorFlags.StripLiteralTypeForTuple
                 );
@@ -14495,8 +14495,8 @@ export function createTypeEvaluator(
         return { type: functionType, isIncomplete, typeErrors };
     }
 
-    function getTypeOfListComprehension(
-        node: ListComprehensionNode,
+    function getTypeOfComprehension(
+        node: ComprehensionNode,
         flags: EvaluatorFlags,
         inferenceContext?: InferenceContext
     ): TypeResult {
@@ -14507,7 +14507,7 @@ export function createTypeEvaluator(
         // or any clause other than the leftmost "for" contain an "await" operator,
         // it is treated as an async generator.
         let isAsync = node.forIfNodes.some((comp, index) => {
-            if (comp.nodeType === ParseNodeType.ListComprehensionFor && comp.isAsync) {
+            if (comp.nodeType === ParseNodeType.ComprehensionFor && comp.isAsync) {
                 return true;
             }
             return index > 0 && ParseTreeUtils.containsAwaitNode(comp);
@@ -14521,7 +14521,7 @@ export function createTypeEvaluator(
         const builtInIteratorType = getTypingType(node, isAsync ? 'AsyncGenerator' : 'Generator');
 
         const expectedEntryType = getExpectedEntryTypeForIterable(node, builtInIteratorType, inferenceContext);
-        const elementTypeResult = getElementTypeFromListComprehension(node, flags, expectedEntryType);
+        const elementTypeResult = getElementTypeFromComprehension(node, flags, expectedEntryType);
         if (elementTypeResult.isIncomplete) {
             isIncomplete = true;
         }
@@ -14590,10 +14590,10 @@ export function createTypeEvaluator(
         }
     }
 
-    function evaluateListComprehensionForIf(node: ListComprehensionForIfNode) {
+    function evaluateComprehensionForIf(node: ComprehensionForIfNode) {
         let isIncomplete = false;
 
-        if (node.nodeType === ParseNodeType.ListComprehensionFor) {
+        if (node.nodeType === ParseNodeType.ComprehensionFor) {
             const iterableTypeResult = getTypeOfExpression(node.iterableExpression);
             if (iterableTypeResult.isIncomplete) {
                 isIncomplete = true;
@@ -14613,7 +14613,7 @@ export function createTypeEvaluator(
                 node.iterableExpression
             );
         } else {
-            assert(node.nodeType === ParseNodeType.ListComprehensionIf);
+            assert(node.nodeType === ParseNodeType.ComprehensionIf);
 
             // Evaluate the test expression to validate it and mark symbols
             // as referenced. Don't bother doing this if we're in speculative
@@ -14626,10 +14626,9 @@ export function createTypeEvaluator(
         return isIncomplete;
     }
 
-    // Returns the type of one entry returned by the list comprehension,
-    // as opposed to the entire list.
-    function getElementTypeFromListComprehension(
-        node: ListComprehensionNode,
+    // Returns the type of one entry returned by the comprehension.
+    function getElementTypeFromComprehension(
+        node: ComprehensionNode,
         flags: EvaluatorFlags,
         expectedValueOrElementType?: Type,
         expectedKeyType?: Type
@@ -14639,7 +14638,7 @@ export function createTypeEvaluator(
 
         // "Execute" the list comprehensions from start to finish.
         for (const forIfNode of node.forIfNodes) {
-            if (evaluateListComprehensionForIf(forIfNode)) {
+            if (evaluateComprehensionForIf(forIfNode)) {
                 isIncomplete = true;
             }
         }
@@ -19481,8 +19480,8 @@ export function createTypeEvaluator(
                 if (
                     parent.nodeType === ParseNodeType.DictionaryKeyEntry ||
                     parent.nodeType === ParseNodeType.DictionaryExpandEntry ||
-                    parent.nodeType === ParseNodeType.ListComprehensionFor ||
-                    parent.nodeType === ParseNodeType.ListComprehensionIf
+                    parent.nodeType === ParseNodeType.ComprehensionFor ||
+                    parent.nodeType === ParseNodeType.ComprehensionIf
                 ) {
                     assert(parent.parent !== undefined && isExpressionNode(parent.parent));
                     parent = parent.parent;
@@ -19760,16 +19759,16 @@ export function createTypeEvaluator(
                     return;
                 }
 
-                case ParseNodeType.ListComprehensionFor: {
-                    const listComprehension = curNode.parent as ListComprehensionNode;
-                    assert(listComprehension.nodeType === ParseNodeType.ListComprehension);
-                    if (curNode === listComprehension.expression) {
-                        evaluateTypesForExpressionInContext(listComprehension);
+                case ParseNodeType.ComprehensionFor: {
+                    const comprehension = curNode.parent as ComprehensionNode;
+                    assert(comprehension.nodeType === ParseNodeType.Comprehension);
+                    if (curNode === comprehension.expression) {
+                        evaluateTypesForExpressionInContext(comprehension);
                     } else {
                         // Evaluate the individual iterations starting with the first
                         // up to the curNode.
-                        for (const forIfNode of listComprehension.forIfNodes) {
-                            evaluateListComprehensionForIf(forIfNode);
+                        for (const forIfNode of comprehension.forIfNodes) {
+                            evaluateComprehensionForIf(forIfNode);
                             if (forIfNode === curNode) {
                                 break;
                             }
@@ -20532,7 +20531,7 @@ export function createTypeEvaluator(
         // Functions and list comprehensions don't allow access to implicitly
         // aliased symbols in outer scopes if they haven't yet been assigned
         // within the local scope.
-        let scopeTypeHonorsCodeFlow = scopeType !== ScopeType.Function && scopeType !== ScopeType.ListComprehension;
+        let scopeTypeHonorsCodeFlow = scopeType !== ScopeType.Function && scopeType !== ScopeType.Comprehension;
 
         // TypeParameter scopes don't honor code flow, but if the symbol is resolved
         // using the proxy scope for the TypeParameter scope, we should use code flow.
@@ -27001,7 +27000,7 @@ export function createTypeEvaluator(
             case ParseNodeType.Unpack:
             case ParseNodeType.Tuple:
             case ParseNodeType.Call:
-            case ParseNodeType.ListComprehension:
+            case ParseNodeType.Comprehension:
             case ParseNodeType.Slice:
             case ParseNodeType.Yield:
             case ParseNodeType.YieldFrom:

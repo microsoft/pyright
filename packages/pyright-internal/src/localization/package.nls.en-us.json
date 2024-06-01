@@ -610,7 +610,7 @@
         "yieldFromIllegal": "Use of \"yield from\" requires Python 3.3 or newer",
         "yieldFromOutsideAsync": "\"yield from\" not allowed in an async function",
         "yieldOutsideFunction": "\"yield\" not allowed outside of a function or lambda",
-        "yieldWithinListCompr": "\"yield\" not allowed inside a list comprehension",
+        "yieldWithinComprehension": "\"yield\" not allowed inside a comprehension",
         "zeroCaseStatementsFound": "Match statement must include at least one case statement",
         "zeroLengthTupleNotAllowed": "Zero-length tuple is not allowed in this context"
     },

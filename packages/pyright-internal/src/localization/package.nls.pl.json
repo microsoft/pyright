@@ -624,7 +624,7 @@
         "yieldFromIllegal": "Użycie wartości „yield from” wymaga języka Python w wersji 3.3 lub nowszej",
         "yieldFromOutsideAsync": "Instrukcja „yield from” jest niedozwolona w funkcji asynchronicznej",
         "yieldOutsideFunction": "Instrukcja „yield” jest niedozwolona poza funkcją lub wyrażeniem lambda",
-        "yieldWithinListCompr": "Instrukcja „yield” nie jest dozwolona w rozumieniu listy",
+        "yieldWithinComprehension": "Instrukcja „yield” nie jest dozwolona w rozumieniu listy",
         "zeroCaseStatementsFound": "Instrukcja dopasowania musi zawierać co najmniej jedną instrukcję dotyczącą wielkości liter",
         "zeroLengthTupleNotAllowed": "Krotka o zerowej długości jest niedozwolona w tym kontekście"
     },

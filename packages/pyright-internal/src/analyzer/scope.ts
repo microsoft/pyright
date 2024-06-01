@@ -17,8 +17,8 @@ export const enum ScopeType {
     // Used for PEP 695-style type parameters.
     TypeParameter,
 
-    // Used for list comprehension nodes.
-    ListComprehension,
+    // Used for comprehension nodes.
+    Comprehension,
 
     // Function scopes are used for lambdas and functions.
     Function,

@@ -624,7 +624,7 @@
         "yieldFromIllegal": "\"yield from\" kullanımı için Python 3.3 veya daha yeni bir sürümü gerekiyor",
         "yieldFromOutsideAsync": "Zaman uyumsuz bir işlevde \"yield from\" öğesine izin verilmez",
         "yieldOutsideFunction": "\"yield\", işlev veya lambda dışında kullanılamaz",
-        "yieldWithinListCompr": "Liste anlama içinde \"yield\" kullanılamaz",
+        "yieldWithinComprehension": "Liste anlama içinde \"yield\" kullanılamaz",
         "zeroCaseStatementsFound": "Match deyimi en az bir case deyimi içermeli",
         "zeroLengthTupleNotAllowed": "Bu bağlamda sıfır uzunluklu demete izin verilmiyor"
     },

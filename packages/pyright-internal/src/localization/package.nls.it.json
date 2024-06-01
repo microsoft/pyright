@@ -624,7 +624,7 @@
         "yieldFromIllegal": "L'uso di \"yield from\" richiede Python 3.3 o versione successiva",
         "yieldFromOutsideAsync": "\"yield from\" non consentito in una funzione asincrona",
         "yieldOutsideFunction": "\"yield\" non consentito all'esterno di una funzione o di un'espressione lambda",
-        "yieldWithinListCompr": "\"yield\" non consentito all'interno di una comprensione di elenco",
+        "yieldWithinComprehension": "\"yield\" non consentito all'interno di una comprensione di elenco",
         "zeroCaseStatementsFound": "L’istruzione Match deve includere almeno un’istruzione case",
         "zeroLengthTupleNotAllowed": "Tupla di lunghezza zero non è consentita in questo contesto"
     },

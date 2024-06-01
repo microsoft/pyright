@@ -1167,7 +1167,7 @@ export namespace Localizer {
         export const yieldFromIllegal = () => getRawString('Diagnostic.yieldFromIllegal');
         export const yieldFromOutsideAsync = () => getRawString('Diagnostic.yieldFromOutsideAsync');
         export const yieldOutsideFunction = () => getRawString('Diagnostic.yieldOutsideFunction');
-        export const yieldWithinListCompr = () => getRawString('Diagnostic.yieldWithinListCompr');
+        export const yieldWithinComprehension = () => getRawString('Diagnostic.yieldWithinComprehension');
         export const zeroCaseStatementsFound = () => getRawString('Diagnostic.zeroCaseStatementsFound');
         export const zeroLengthTupleNotAllowed = () => getRawString('Diagnostic.zeroLengthTupleNotAllowed');
     }

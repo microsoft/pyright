@@ -1377,7 +1377,7 @@ export class CompletionProvider {
         }
 
         if (
-            curNode.parent.nodeType === ParseNodeType.ListComprehensionFor &&
+            curNode.parent.nodeType === ParseNodeType.ComprehensionFor &&
             TextRange.contains(curNode.parent.targetExpression, curNode.start)
         ) {
             return undefined;

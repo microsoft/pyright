@@ -624,7 +624,7 @@
         "yieldFromIllegal": "L’utilisation de « yield from » nécessite Python 3.3 ou version ultérieure",
         "yieldFromOutsideAsync": "« yield from » non autorisé dans une fonction asynchrone",
         "yieldOutsideFunction": "\"rendement\" non autorisé en dehors d'une fonction ou d'un lambda",
-        "yieldWithinListCompr": "« yield » non autorisé dans une compréhension de liste",
+        "yieldWithinComprehension": "« yield » non autorisé dans une compréhension de liste",
         "zeroCaseStatementsFound": "L'instruction de correspondance doit inclure au moins une instruction case",
         "zeroLengthTupleNotAllowed": "Le tuple de longueur nulle n’est pas autorisé dans ce contexte"
     },

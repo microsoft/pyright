@@ -624,7 +624,7 @@
         "yieldFromIllegal": "\"yield from\" を使用するには Python 3.3 以降が必要です",
         "yieldFromOutsideAsync": "非同期関数では \"yield from\" は使用できません",
         "yieldOutsideFunction": "関数またはラムダの外部では \"yield\" は許可されません",
-        "yieldWithinListCompr": "\"yield\" はリスト理解内では使用できません",
+        "yieldWithinComprehension": "\"yield\" はリスト理解内では使用できません",
         "zeroCaseStatementsFound": "Match ステートメントには、少なくとも 1 つの case ステートメントを含める必要があります",
         "zeroLengthTupleNotAllowed": "このコンテキストでは長さ 0 のタプルは使用できません"
     },

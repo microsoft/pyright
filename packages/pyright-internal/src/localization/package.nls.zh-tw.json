@@ -624,7 +624,7 @@
         "yieldFromIllegal": "使用 \"yield from\" 需要 Python 3.3 或更新版本",
         "yieldFromOutsideAsync": "非同步函式中不允許 \"yield from\"",
         "yieldOutsideFunction": "在函式或 lambda 外部不允許 \"yield\"",
-        "yieldWithinListCompr": "清單理解內不允許 \"yield\"",
+        "yieldWithinComprehension": "清單理解內不允許 \"yield\"",
         "zeroCaseStatementsFound": "Match 陳述式必須至少包含一個 case 陳述式",
         "zeroLengthTupleNotAllowed": "此內容中不允許零長度 Tuple"
     },

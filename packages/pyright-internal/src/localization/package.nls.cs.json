@@ -624,7 +624,7 @@
         "yieldFromIllegal": "Použití příkazu yield from vyžaduje Python 3.3 nebo novější",
         "yieldFromOutsideAsync": "yield from není v asynchronní funkci povoleno",
         "yieldOutsideFunction": "„yield“ není povoleno mimo funkci nebo lambdu",
-        "yieldWithinListCompr": "yield není povolen uvnitř seznamu porozumění",
+        "yieldWithinComprehension": "yield není povolen uvnitř seznamu porozumění",
         "zeroCaseStatementsFound": "Výraz shody obsahovat alespoň jeden výraz velikosti písmen",
         "zeroLengthTupleNotAllowed": "Řazená kolekce členů s nulovou délkou není v tomto kontextu povolená"
     },

@@ -624,7 +624,7 @@
         "yieldFromIllegal": "\"yield from\"을 사용하려면 Python 3.3 이상이 필요합니다.",
         "yieldFromOutsideAsync": "비동기 함수에서는 \"yield from\"을 사용할 수 없습니다.",
         "yieldOutsideFunction": "함수 또는 람다 외부에서는 ‘yield’를 사용할 수 없습니다.",
-        "yieldWithinListCompr": "목록 이해 내에서는 \"yield\"를 사용할 수 없습니다.",
+        "yieldWithinComprehension": "목록 이해 내에서는 \"yield\"를 사용할 수 없습니다.",
         "zeroCaseStatementsFound": "Match 문에는 Case 문이 하나 이상 포함되어야 합니다.",
         "zeroLengthTupleNotAllowed": "길이가 0인 튜플은 이 컨텍스트에서 허용되지 않습니다."
     },

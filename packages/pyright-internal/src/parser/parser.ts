@@ -47,6 +47,10 @@ import {
     CallNode,
     CaseNode,
     ClassNode,
+    ComprehensionForIfNode,
+    ComprehensionForNode,
+    ComprehensionIfNode,
+    ComprehensionNode,
     ConstantNode,
     ContinueNode,
     DecoratorNode,
@@ -72,10 +76,6 @@ import {
     ImportNode,
     IndexNode,
     LambdaNode,
-    ListComprehensionForIfNode,
-    ListComprehensionForNode,
-    ListComprehensionIfNode,
-    ListComprehensionNode,
     ListNode,
     MatchNode,
     MemberAccessNode,
@@ -1661,7 +1661,7 @@ export class Parser {
     }
 
     // comp_iter: comp_for | comp_if
-    private _tryParseListComprehension(target: ParseNode, isGenerator: boolean): ListComprehensionNode | undefined {
+    private _tryParseComprehension(target: ParseNode, isGenerator: boolean): ComprehensionNode | undefined {
         const compFor = this._tryParseCompForStatement();
 
         if (!compFor) {
@@ -1674,30 +1674,30 @@ export class Parser {
             this._addSyntaxError(LocMessage.dictExpandIllegalInComprehension(), target);
         }
 
-        const listCompNode = ListComprehensionNode.create(target, isGenerator);
+        const compNode = ComprehensionNode.create(target, isGenerator);
 
-        const forIfList: ListComprehensionForIfNode[] = [compFor];
+        const forIfList: ComprehensionForIfNode[] = [compFor];
         while (true) {
             const compIter = this._tryParseCompForStatement() || this._tryParseCompIfStatement();
             if (!compIter) {
                 break;
             }
-            compIter.parent = listCompNode;
+            compIter.parent = compNode;
             forIfList.push(compIter);
         }
 
-        listCompNode.forIfNodes = forIfList;
+        compNode.forIfNodes = forIfList;
         if (forIfList.length > 0) {
             forIfList.forEach((comp) => {
-                comp.parent = listCompNode;
+                comp.parent = compNode;
             });
-            extendRange(listCompNode, forIfList[forIfList.length - 1]);
+            extendRange(compNode, forIfList[forIfList.length - 1]);
         }
-        return listCompNode;
+        return compNode;
     }
 
     // comp_for: ['async'] 'for' exprlist 'in' or_test [comp_iter]
-    private _tryParseCompForStatement(): ListComprehensionForNode | undefined {
+    private _tryParseCompForStatement(): ComprehensionForNode | undefined {
         const startTokenKeywordType = this._peekKeywordType();
 
         if (startTokenKeywordType === KeywordType.Async) {
@@ -1731,7 +1731,7 @@ export class Parser {
             });
         }
 
-        const compForNode = ListComprehensionForNode.create(asyncToken || forToken, targetExpr, seqExpr!);
+        const compForNode = ComprehensionForNode.create(asyncToken || forToken, targetExpr, seqExpr!);
 
         if (asyncToken) {
             compForNode.isAsync = true;
@@ -1743,7 +1743,7 @@ export class Parser {
 
     // comp_if: 'if' test_nocond [comp_iter]
     // comp_iter: comp_for | comp_if
-    private _tryParseCompIfStatement(): ListComprehensionIfNode | undefined {
+    private _tryParseCompIfStatement(): ComprehensionIfNode | undefined {
         if (this._peekKeywordType() !== KeywordType.If) {
             return undefined;
         }
@@ -1753,7 +1753,7 @@ export class Parser {
             this._tryParseLambdaExpression() ||
             this._parseAssignmentExpression(/* disallowAssignmentExpression */ true);
 
-        const compIfNode = ListComprehensionIfNode.create(ifToken, ifExpr);
+        const compIfNode = ComprehensionIfNode.create(ifToken, ifExpr);
 
         return compIfNode;
     }
@@ -3496,7 +3496,7 @@ export class Parser {
 
                 if (argListResult.args.length > 1 || argListResult.trailingComma) {
                     argListResult.args.forEach((arg) => {
-                        if (arg.valueExpression.nodeType === ParseNodeType.ListComprehension) {
+                        if (arg.valueExpression.nodeType === ParseNodeType.Comprehension) {
                             if (!arg.valueExpression.isParenthesized) {
                                 this._addSyntaxError(LocMessage.generatorNotParenthesized(), arg.valueExpression);
                             }
@@ -3840,9 +3840,9 @@ export class Parser {
                     this._addSyntaxError(LocMessage.expectedParamName(), nameExpr);
                 }
             } else {
-                const listComp = this._tryParseListComprehension(valueExpr, /* isGenerator */ true);
-                if (listComp) {
-                    valueExpr = listComp;
+                const comprehension = this._tryParseComprehension(valueExpr, /* isGenerator */ true);
+                if (comprehension) {
+                    valueExpr = comprehension;
                 }
             }
         }
@@ -3914,7 +3914,7 @@ export class Parser {
                 possibleTupleNode.isParenthesized = true;
             }
 
-            if (possibleTupleNode.nodeType === ParseNodeType.ListComprehension) {
+            if (possibleTupleNode.nodeType === ParseNodeType.Comprehension) {
                 possibleTupleNode.isParenthesized = true;
             }
 
@@ -4094,9 +4094,9 @@ export class Parser {
         return this._parseExpressionListGeneric(
             () => {
                 let expr = this._parseTestOrStarExpression(/* allowAssignmentExpression */ true);
-                const listComp = this._tryParseListComprehension(expr, isGenerator);
-                if (listComp) {
-                    expr = listComp;
+                const comprehension = this._tryParseComprehension(expr, isGenerator);
+                if (comprehension) {
+                    expr = comprehension;
                     sawComprehension = true;
                 }
                 return expr;
@@ -4121,7 +4121,7 @@ export class Parser {
         const setEntries: ExpressionNode[] = [];
         let isDictionary = false;
         let isSet = false;
-        let sawListComprehension = false;
+        let sawComprehension = false;
         let isFirstEntry = true;
         let trailingCommaToken: Token | undefined;
 
@@ -4157,10 +4157,10 @@ export class Parser {
                 } else {
                     const keyEntryNode = DictionaryKeyEntryNode.create(keyExpression, valueExpression);
                     let dictEntry: DictionaryEntryNode = keyEntryNode;
-                    const listComp = this._tryParseListComprehension(keyEntryNode, /* isGenerator */ false);
-                    if (listComp) {
-                        dictEntry = listComp;
-                        sawListComprehension = true;
+                    const comprehension = this._tryParseComprehension(keyEntryNode, /* isGenerator */ false);
+                    if (comprehension) {
+                        dictEntry = comprehension;
+                        sawComprehension = true;
 
                         if (!isFirstEntry) {
                             this._addSyntaxError(LocMessage.comprehensionInDict(), dictEntry);
@@ -4176,10 +4176,10 @@ export class Parser {
                     const listEntryNode = DictionaryExpandEntryNode.create(doubleStarExpression);
                     extendRange(listEntryNode, doubleStar);
                     let expandEntryNode: DictionaryEntryNode = listEntryNode;
-                    const listComp = this._tryParseListComprehension(listEntryNode, /* isGenerator */ false);
-                    if (listComp) {
-                        expandEntryNode = listComp;
-                        sawListComprehension = true;
+                    const comprehension = this._tryParseComprehension(listEntryNode, /* isGenerator */ false);
+                    if (comprehension) {
+                        expandEntryNode = comprehension;
+                        sawComprehension = true;
 
                         if (!isFirstEntry) {
                             this._addSyntaxError(LocMessage.comprehensionInDict(), doubleStarExpression);
@@ -4200,10 +4200,10 @@ export class Parser {
                         dictionaryEntries.push(keyEntryNode);
                         this._addSyntaxError(LocMessage.dictKeyValuePairs(), keyExpression);
                     } else {
-                        const listComp = this._tryParseListComprehension(keyExpression, /* isGenerator */ false);
-                        if (listComp) {
-                            keyExpression = listComp;
-                            sawListComprehension = true;
+                        const comprehension = this._tryParseComprehension(keyExpression, /* isGenerator */ false);
+                        if (comprehension) {
+                            keyExpression = comprehension;
+                            sawComprehension = true;
 
                             if (!isFirstEntry) {
                                 this._addSyntaxError(LocMessage.comprehensionInSet(), keyExpression);
@@ -4216,7 +4216,7 @@ export class Parser {
             }
 
             // List comprehension statements always end the list.
-            if (sawListComprehension) {
+            if (sawComprehension) {
                 break;
             }
 

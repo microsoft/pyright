@@ -36,6 +36,8 @@ import {
     CallNode,
     CaseNode,
     ClassNode,
+    ComprehensionIfNode,
+    ComprehensionNode,
     DelNode,
     DictionaryNode,
     ErrorNode,
@@ -51,8 +53,6 @@ import {
     ImportFromNode,
     IndexNode,
     LambdaNode,
-    ListComprehensionIfNode,
-    ListComprehensionNode,
     ListNode,
     MatchNode,
     MemberAccessNode,
@@ -868,12 +868,12 @@ export class Checker extends ParseTreeWalker {
         return true;
     }
 
-    override visitListComprehension(node: ListComprehensionNode): boolean {
+    override visitComprehension(node: ComprehensionNode): boolean {
         this._scopedNodes.push(node);
         return true;
     }
 
-    override visitListComprehensionIf(node: ListComprehensionIfNode): boolean {
+    override visitComprehensionIf(node: ComprehensionIfNode): boolean {
         this._validateConditionalIsBool(node.testExpression);
         this._reportUnnecessaryConditionExpression(node.testExpression);
         return true;
@@ -1923,7 +1923,7 @@ export class Checker extends ParseTreeWalker {
             node.nodeType === ParseNodeType.Dictionary
         ) {
             // Exclude comprehensions.
-            if (!node.entries.some((entry) => entry.nodeType === ParseNodeType.ListComprehension)) {
+            if (!node.entries.some((entry) => entry.nodeType === ParseNodeType.Comprehension)) {
                 reportAsUnused = true;
             }
         }
@@ -4138,7 +4138,7 @@ export class Checker extends ParseTreeWalker {
     private _isSymbolPrivate(nameValue: string, scopeType: ScopeType) {
         // All variables within the scope of a function or a list
         // comprehension are considered private.
-        if (scopeType === ScopeType.Function || scopeType === ScopeType.ListComprehension) {
+        if (scopeType === ScopeType.Function || scopeType === ScopeType.Comprehension) {
             return true;
         }
 
