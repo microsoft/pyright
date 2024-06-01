@@ -13810,7 +13810,7 @@ export function createTypeEvaluator(
             } else if (entryNode.nodeType === ParseNodeType.ListComprehension) {
                 const dictEntryTypeResult = getElementTypeFromListComprehension(
                     entryNode,
-                    flags,
+                    flags | EvaluatorFlags.StripLiteralTypeForTuple,
                     expectedValueType,
                     expectedKeyType
                 );
@@ -13950,7 +13950,11 @@ export function createTypeEvaluator(
             let entryTypeResult: TypeResult;
 
             if (entry.nodeType === ParseNodeType.ListComprehension) {
-                entryTypeResult = getElementTypeFromListComprehension(entry, flags, expectedEntryType);
+                entryTypeResult = getElementTypeFromListComprehension(
+                    entry,
+                    flags | EvaluatorFlags.StripLiteralTypeForTuple,
+                    expectedEntryType
+                );
             } else {
                 entryTypeResult = getTypeOfExpression(
                     entry,
@@ -14065,7 +14069,10 @@ export function createTypeEvaluator(
             let entryTypeResult: TypeResult;
 
             if (entry.nodeType === ParseNodeType.ListComprehension && !entry.isGenerator) {
-                entryTypeResult = getElementTypeFromListComprehension(entry, flags);
+                entryTypeResult = getElementTypeFromListComprehension(
+                    entry,
+                    flags | EvaluatorFlags.StripLiteralTypeForTuple
+                );
             } else {
                 entryTypeResult = getTypeOfExpression(entry, flags | EvaluatorFlags.StripLiteralTypeForTuple);
             }
@@ -14642,7 +14649,7 @@ export function createTypeEvaluator(
             // Create a tuple with the key/value types.
             const keyTypeResult = getTypeOfExpression(
                 node.expression.keyExpression,
-                flags | EvaluatorFlags.StripLiteralTypeForTuple,
+                flags,
                 makeInferenceContext(expectedKeyType)
             );
             if (keyTypeResult.isIncomplete) {
@@ -14658,7 +14665,7 @@ export function createTypeEvaluator(
 
             const valueTypeResult = getTypeOfExpression(
                 node.expression.valueExpression,
-                flags | EvaluatorFlags.StripLiteralTypeForTuple,
+                flags,
                 makeInferenceContext(expectedValueOrElementType)
             );
             if (valueTypeResult.isIncomplete) {
@@ -14680,13 +14687,13 @@ export function createTypeEvaluator(
             // The parser should have reported an error in this case because it's not allowed.
             getTypeOfExpression(
                 node.expression.expandExpression,
-                flags | EvaluatorFlags.StripLiteralTypeForTuple,
+                flags,
                 makeInferenceContext(expectedValueOrElementType)
             );
         } else if (isExpressionNode(node)) {
             const exprTypeResult = getTypeOfExpression(
                 node.expression as ExpressionNode,
-                flags | EvaluatorFlags.StripLiteralTypeForTuple,
+                flags,
                 makeInferenceContext(expectedValueOrElementType)
             );
             if (exprTypeResult.isIncomplete) {
