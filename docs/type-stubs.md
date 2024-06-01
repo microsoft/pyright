@@ -4,7 +4,7 @@ Type stubs are “.pyi” files that specify the public interface for a library.
 
 ### Importance of Type Stub Files
 
-Regardless of the search path, Pyright always attempts to resolve an import with a type stub (“.pyi”) file before falling back to a python source (“.py”) file. If a type stub cannot be located for an external import, Pyright will try to use inline type information if the module is part of a package that contains a “py.typed” file (defined in [PEP 561](https://www.python.org/dev/peps/pep-0561/)). If the module is part of a package that doesn’t contain a “py.typed” file, Pyright will treat all of the symbols imported from these modules will be of type “Unknown”, and wildcard imports (of the form `from foo import *`) will not populate the module’s namespace with specific symbol names.
+Regardless of the search path, Pyright always attempts to resolve an import with a type stub (“.pyi”) file before falling back to a python source (“.py”) file. If a type stub cannot be located for an external import, Pyright will try to use inline type information if the module is part of a package that contains a “py.typed” file (defined in [PEP 561](https://www.python.org/dev/peps/pep-0561/)). If the module is part of a package that doesn’t contain a “py.typed” file, Pyright will treat all of the symbols imported from these modules as having type “Unknown”, and wildcard imports (of the form `from foo import *`) will not populate the module’s namespace with specific symbol names.
 
 Why does Pyright not attempt (by default) to determine types from imported python sources? There are several reasons.
 
