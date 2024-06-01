@@ -30,6 +30,7 @@ import { Duration, timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import { makeDirectories } from '../common/uri/uriUtils';
 import { ParseFileResults, ParserOutput } from '../parser/parser';
+import { RequiringAnalysisCount } from './analysis';
 import { AbsoluteModuleDescriptor, ImportLookupResult, LookupImportOptions } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CacheManager } from './cacheManager';
@@ -50,7 +51,6 @@ import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
 import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
-import { RequiringAnalysisCount } from './analysis';
 
 const _maxImportDepth = 256;
 
@@ -1665,22 +1665,16 @@ export class Program {
     }
 
     private _getImplicitImports(file: SourceFileInfo) {
-        // If file is not parsed, then chainedSourceFile,
-        // builtinsImport might not exist or incorrect.
-        // They will be added when _parseFile is called and _updateSourceFileImports ran.
+        // If file is builtins.pyi, then chainedSourceFile might not exist or be incorrect.
         if (file.builtinsImport === file) {
             return undefined;
         }
 
-        const tryReturn = (input: SourceFileInfo | undefined) => {
-            if (!input || input.sourceFile.isFileDeleted()) {
-                return undefined;
-            }
+        if (file.chainedSourceFile && !file.chainedSourceFile.sourceFile.isFileDeleted()) {
+            return file.chainedSourceFile;
+        }
 
-            return input;
-        };
-
-        return tryReturn(file.chainedSourceFile) ?? file.builtinsImport;
+        return file.builtinsImport;
     }
 
     private _bindImplicitImports(fileToAnalyze: SourceFileInfo, skipFileNeededCheck?: boolean) {
@@ -1691,6 +1685,7 @@ export class Program {
         let nextImplicitImport = this._getImplicitImports(fileToAnalyze);
         while (nextImplicitImport) {
             const implicitPath = nextImplicitImport.sourceFile.getUri();
+
             if (implicitSet.has(implicitPath.key)) {
                 // We've found a cycle. Break out of the loop.
                 debug.fail(
@@ -1711,32 +1706,32 @@ export class Program {
             return;
         }
 
-        // Go in reverse order (so top of chain is first).
+        // Reverse order, so top of chain is first.
         let implicitImport = implicitImports.pop();
         while (implicitImport) {
-            // Bind this file, but don't recurse into its imports.
-            this._bindFile(implicitImport, undefined, skipFileNeededCheck, /* isImplicitImport */ true);
+            // Bind this file but don't recurse into its imports.
+            this._bindFile(implicitImport, /* content */ undefined, skipFileNeededCheck, /* isImplicitImport */ true);
             implicitImport = implicitImports.pop();
         }
     }
 
-    // Binds the specified file and all of its dependencies, recursively.
-    // Returns true if the file was bound or it didn't need to be bound.
+    // Binds the specified file. Returns true if the file was bound or it
+    // didn't need to be bound.
     private _bindFile(
-        fileToAnalyze: SourceFileInfo,
+        fileToBind: SourceFileInfo,
         content?: string,
-        skipFileNeededCheck?: boolean,
-        isImplicitImport?: boolean
+        skipFileNeededCheck = false,
+        isImplicitImport = false
     ): boolean {
-        if (!this._isFileNeeded(fileToAnalyze, skipFileNeededCheck) || !fileToAnalyze.sourceFile.isBindingRequired()) {
-            return !fileToAnalyze.sourceFile.isBindingRequired();
+        if (!this._isFileNeeded(fileToBind, skipFileNeededCheck) || !fileToBind.sourceFile.isBindingRequired()) {
+            return !fileToBind.sourceFile.isBindingRequired();
         }
 
-        this._parseFile(fileToAnalyze, content, skipFileNeededCheck);
+        this._parseFile(fileToBind, content, skipFileNeededCheck);
 
         // Create a function to get the scope info.
         const getScopeIfAvailable = (fileInfo: SourceFileInfo | undefined) => {
-            if (!fileInfo || fileInfo === fileToAnalyze) {
+            if (!fileInfo || fileInfo === fileToBind) {
                 return undefined;
             }
 
@@ -1756,26 +1751,25 @@ export class Program {
         };
 
         let builtinsScope: Scope | undefined;
-        if (fileToAnalyze.builtinsImport && fileToAnalyze.builtinsImport !== fileToAnalyze) {
+        if (fileToBind.builtinsImport && fileToBind.builtinsImport !== fileToBind) {
             // Bind all of the implicit imports first. So we don't recurse into them.
             if (!isImplicitImport) {
-                this._bindImplicitImports(fileToAnalyze);
+                this._bindImplicitImports(fileToBind);
             }
 
             // If it is not builtin module itself, we need to parse and bind
             // the builtin module.
             builtinsScope =
-                getScopeIfAvailable(fileToAnalyze.chainedSourceFile) ??
-                getScopeIfAvailable(fileToAnalyze.builtinsImport);
+                getScopeIfAvailable(fileToBind.chainedSourceFile) ?? getScopeIfAvailable(fileToBind.builtinsImport);
         }
 
-        let futureImports = fileToAnalyze.sourceFile.getParserOutput()!.futureImports;
-        if (fileToAnalyze.chainedSourceFile) {
-            futureImports = this._getEffectiveFutureImports(futureImports, fileToAnalyze.chainedSourceFile);
+        let futureImports = fileToBind.sourceFile.getParserOutput()!.futureImports;
+        if (fileToBind.chainedSourceFile) {
+            futureImports = this._getEffectiveFutureImports(futureImports, fileToBind.chainedSourceFile);
         }
-        fileToAnalyze.effectiveFutureImports = futureImports.size > 0 ? futureImports : undefined;
+        fileToBind.effectiveFutureImports = futureImports.size > 0 ? futureImports : undefined;
 
-        fileToAnalyze.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope, futureImports);
+        fileToBind.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope, futureImports);
         return true;
     }
 
