@@ -18,7 +18,7 @@ async def main() -> None:
     reveal_type(v4, expected_text="AsyncGenerator[int, None]")
 
     v5 = ((0, await foo()) for _ in [1, 2])
-    reveal_type(v5, expected_text="AsyncGenerator[tuple[Literal[0], int], None]")
+    reveal_type(v5, expected_text="AsyncGenerator[tuple[int, int], None]")
 
     v6 = (x for x in [1, 2] if (x, await foo()))
     reveal_type(v6, expected_text="AsyncGenerator[int, None]")

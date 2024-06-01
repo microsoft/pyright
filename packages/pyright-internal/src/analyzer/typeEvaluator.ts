@@ -14521,15 +14521,21 @@ export function createTypeEvaluator(
         const builtInIteratorType = getTypingType(node, isAsync ? 'AsyncGenerator' : 'Generator');
 
         const expectedEntryType = getExpectedEntryTypeForIterable(node, builtInIteratorType, inferenceContext);
-        const elementTypeResult = getElementTypeFromComprehension(node, flags, expectedEntryType);
+        const elementTypeResult = getElementTypeFromComprehension(
+            node,
+            flags | EvaluatorFlags.StripLiteralTypeForTuple,
+            expectedEntryType
+        );
+
         if (elementTypeResult.isIncomplete) {
             isIncomplete = true;
         }
+
         if (elementTypeResult.typeErrors) {
             typeErrors = true;
         }
-        let elementType = elementTypeResult.type;
 
+        let elementType = elementTypeResult.type;
         if (!expectedEntryType || !containsLiteralType(expectedEntryType)) {
             elementType = stripLiteralValue(elementType);
         }
