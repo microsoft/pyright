@@ -101,7 +101,7 @@ export function assignTypeToTypeVar(
 
     let isTypeVarInScope = true;
     const isInvariant = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
-    const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
+    const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0 && !isInvariant;
 
     // If the TypeVar doesn't have a scope ID, then it's being used
     // outside of a valid TypeVar scope. This will be reported as a
