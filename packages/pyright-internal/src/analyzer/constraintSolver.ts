@@ -516,6 +516,31 @@ export function assignTypeToTypeVar(
             }
         }
 
+        // If this is an invariant context, make sure the narrow type bound
+        // isn't too wide.
+        if (isInvariant && newNarrowTypeBound) {
+            if (
+                !evaluator.assignType(
+                    adjSrcType,
+                    newNarrowTypeBound,
+                    diag?.createAddendum(),
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
+                    AssignTypeFlags.IgnoreTypeVarScope,
+                    recursionCount
+                )
+            ) {
+                if (diag && diagAddendum) {
+                    diag.addMessage(
+                        LocAddendum.typeAssignmentMismatch().format(
+                            evaluator.printSrcDestTypes(newNarrowTypeBound, adjSrcType)
+                        )
+                    );
+                }
+                return false;
+            }
+        }
+
         // Make sure we don't exceed the wide type bound.
         if (curWideTypeBound && newNarrowTypeBound) {
             if (!isTypeSame(curWideTypeBound, newNarrowTypeBound, {}, recursionCount)) {

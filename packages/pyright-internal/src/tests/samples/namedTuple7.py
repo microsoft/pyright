@@ -13,7 +13,6 @@ class NT1(NamedTuple, Generic[_T1]):
     c: list[_T1]
 
 
-reveal_type(NT1(3, 4, ["hi"]), expected_text="NT1[int | str]")
 reveal_type(NT1(3, 4, []), expected_text="NT1[int]")
 reveal_type(NT1(3.4, 4, [1, 2]), expected_text="NT1[float]")
 reveal_type(NT1(3.4, 4, [2j]), expected_text="NT1[complex]")
