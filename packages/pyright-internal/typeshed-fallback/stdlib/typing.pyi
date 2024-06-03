@@ -129,7 +129,7 @@ if sys.version_info >= (3, 12):
     __all__ += ["TypeAliasType", "override"]
 
 if sys.version_info >= (3, 13):
-    __all__ += ["get_protocol_members", "is_protocol", "NoDefault"]
+    __all__ += ["get_protocol_members", "is_protocol", "NoDefault", "TypeIs", "ReadOnly"]
 
 Any = object()
 
@@ -183,6 +183,7 @@ class TypeVar:
     if sys.version_info >= (3, 11):
         def __typing_subst__(self, arg: Any) -> Any: ...
     if sys.version_info >= (3, 13):
+        def __typing_prepare_subst__(self, alias: Any, args: Any) -> tuple[Any, ...]: ...
         def has_default(self) -> bool: ...
 
 # Used for an undocumented mypy feature. Does not exist at runtime.
@@ -989,7 +990,16 @@ class ForwardRef:
     else:
         def __init__(self, arg: str, is_argument: bool = True) -> None: ...
 
-    if sys.version_info >= (3, 9):
+    if sys.version_info >= (3, 13):
+        def _evaluate(
+            self,
+            globalns: dict[str, Any] | None,
+            localns: dict[str, Any] | None,
+            type_params: tuple[TypeVar | ParamSpec | TypeVarTuple, ...] = ...,
+            *,
+            recursive_guard: frozenset[str],
+        ) -> Any | None: ...
+    elif sys.version_info >= (3, 9):
         def _evaluate(
             self, globalns: dict[str, Any] | None, localns: dict[str, Any] | None, recursive_guard: frozenset[str]
         ) -> Any | None: ...
@@ -1036,3 +1046,5 @@ if sys.version_info >= (3, 13):
     class _NoDefaultType: ...
 
     NoDefault: _NoDefaultType
+    TypeIs: _SpecialForm
+    ReadOnly: _SpecialForm

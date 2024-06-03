@@ -1,0 +1,6 @@
+version = "4.2.*"
+# NOTE: There is no public upstream repository
+
+[tool.stubtest]
+apt_dependencies = ["libcairo2-dev"]
+extras = ["pycairo"]

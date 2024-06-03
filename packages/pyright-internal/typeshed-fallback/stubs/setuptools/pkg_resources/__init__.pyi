@@ -1,3 +1,4 @@
+import sys
 import types
 import zipimport
 from _typeshed import BytesPath, Incomplete, StrOrBytesPath, StrPath, Unused
@@ -174,13 +175,6 @@ class WorkingSet:
     def require(self, *requirements: _NestedStr) -> Sequence[Distribution]: ...
     def subscribe(self, callback: Callable[[Distribution], object], existing: bool = True) -> None: ...
 
-working_set: WorkingSet
-require = working_set.require
-iter_entry_points = working_set.iter_entry_points
-add_activation_listener = working_set.subscribe
-run_script = working_set.run_script
-run_main = run_script
-
 class Environment:
     def __init__(
         self, search_path: Iterable[str] | None = None, platform: str | None = ..., python: str | None = ...
@@ -289,16 +283,6 @@ class ResourceManager:
     def set_extraction_path(self, path: str) -> None: ...
     def cleanup_resources(self, force: bool = False) -> list[str]: ...
 
-__resource_manager: ResourceManager  # Doesn't exist at runtime
-resource_exists = __resource_manager.resource_exists
-resource_isdir = __resource_manager.resource_isdir
-resource_filename = __resource_manager.resource_filename
-resource_stream = __resource_manager.resource_stream
-resource_string = __resource_manager.resource_string
-resource_listdir = __resource_manager.resource_listdir
-set_extraction_path = __resource_manager.set_extraction_path
-cleanup_resources = __resource_manager.cleanup_resources
-
 @overload
 def get_provider(moduleOrReq: str) -> IResourceProvider: ...
 @overload
@@ -400,7 +384,7 @@ class Distribution(NullProvider):
     ) -> None: ...
     @classmethod
     def from_location(
-        cls, location: str, basename: str, metadata: _MetadataType = None, *, precedence: int = 3
+        cls, location: str, basename: StrPath, metadata: _MetadataType = None, *, precedence: int = 3
     ) -> Distribution: ...
     @property
     def hashcmp(self) -> tuple[parse_version, int, str, str | None, str, str]: ...
@@ -421,7 +405,7 @@ class Distribution(NullProvider):
     def activate(self, path: list[str] | None = None, replace: bool = False) -> None: ...
     def egg_name(self) -> str: ...  # type: ignore[override]  # supertype's egg_name is a variable, not a method
     @classmethod
-    def from_filename(cls, filename: StrOrBytesPath, metadata: _MetadataType = None, *, precedence: int = 3) -> Distribution: ...
+    def from_filename(cls, filename: StrPath, metadata: _MetadataType = None, *, precedence: int = 3) -> Distribution: ...
     def as_requirement(self) -> Requirement: ...
     def load_entry_point(self, group: str, name: str) -> _ResolvedEntryPoint: ...
     @overload
@@ -498,3 +482,25 @@ def normalize_path(filename: StrPath) -> str: ...
 def normalize_path(filename: BytesPath) -> bytes: ...
 
 class PkgResourcesDeprecationWarning(Warning): ...
+
+__resource_manager: ResourceManager  # Doesn't exist at runtime
+resource_exists = __resource_manager.resource_exists
+resource_isdir = __resource_manager.resource_isdir
+resource_filename = __resource_manager.resource_filename
+resource_stream = __resource_manager.resource_stream
+resource_string = __resource_manager.resource_string
+resource_listdir = __resource_manager.resource_listdir
+set_extraction_path = __resource_manager.set_extraction_path
+cleanup_resources = __resource_manager.cleanup_resources
+
+working_set: WorkingSet
+require = working_set.require
+iter_entry_points = working_set.iter_entry_points
+add_activation_listener = working_set.subscribe
+run_script = working_set.run_script
+run_main = run_script
+
+if sys.version_info >= (3, 10):
+    LOCALE_ENCODING: Final = "locale"
+else:
+    LOCALE_ENCODING: Final = None

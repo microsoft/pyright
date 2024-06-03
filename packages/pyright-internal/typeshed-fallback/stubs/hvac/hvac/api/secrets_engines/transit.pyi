@@ -42,7 +42,8 @@ class Transit(VaultApiBase):
         batch_input: Incomplete | None = None,
         type: Incomplete | None = None,
         convergent_encryption: Incomplete | None = None,
-        mount_point="transit",
+        mount_point: str = "transit",
+        associated_data: str | None = None,
     ): ...
     def decrypt_data(
         self,
@@ -51,7 +52,8 @@ class Transit(VaultApiBase):
         context: Incomplete | None = None,
         nonce: Incomplete | None = None,
         batch_input: Incomplete | None = None,
-        mount_point="transit",
+        mount_point: str = "transit",
+        associated_data: str | None = None,
     ): ...
     def rewrap_data(
         self,
