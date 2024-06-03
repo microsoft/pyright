@@ -14622,7 +14622,7 @@ export function createTypeEvaluator(
             assert(node.nodeType === ParseNodeType.ComprehensionIf);
 
             // Evaluate the test expression to validate it and mark symbols
-            // as referenced. This doesn't affect the type of the evalauted
+            // as referenced. This doesn't affect the type of the evaluated
             // comprehension, but it is important for evaluating intermediate
             // expressions such as assignment expressions that can affect other
             // subexpressions.
