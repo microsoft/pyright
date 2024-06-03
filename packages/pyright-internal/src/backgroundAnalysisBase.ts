@@ -418,7 +418,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
             case 'updateChainedFileUri': {
                 const { fileUri, chainedUri } = deserialize(msg.data);
-                this.handleUpdateChainedfileUri(fileUri, chainedUri);
+                this.handleUpdateChainedFileUri(fileUri, chainedUri);
                 break;
             }
 
@@ -602,8 +602,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         );
     }
 
-    protected handleUpdateChainedfileUri(fileUri: Uri, chainedfileUri: Uri | undefined) {
-        this.program.updateChainedUri(fileUri, chainedfileUri);
+    protected handleUpdateChainedFileUri(fileUri: Uri, chainedFileUri: Uri | undefined) {
+        this.program.updateChainedUri(fileUri, chainedFileUri);
     }
 
     protected handleSetFileClosed(fileUri: Uri, isTracked: boolean | undefined) {

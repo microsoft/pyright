@@ -11422,7 +11422,7 @@ export function createTypeEvaluator(
             }
 
             // The type annotation for the "self" parameter in an __init__ method to
-            // can incluence the type being constructed.
+            // can influence the type being constructed.
             if (
                 type.details.name === '__init__' &&
                 type.strippedFirstParamType &&
@@ -14622,7 +14622,7 @@ export function createTypeEvaluator(
             assert(node.nodeType === ParseNodeType.ComprehensionIf);
 
             // Evaluate the test expression to validate it and mark symbols
-            // as referenced. This doesn't affect the type of the evalauted
+            // as referenced. This doesn't affect the type of the evaluated
             // comprehension, but it is important for evaluating intermediate
             // expressions such as assignment expressions that can affect other
             // subexpressions.
@@ -25324,7 +25324,7 @@ export function createTypeEvaluator(
                     continue;
                 }
 
-                // If the source parameter is also addressible by keyword, it is OK
+                // If the source parameter is also addressable by keyword, it is OK
                 // that there is no matching positional parameter in the dest.
                 if (srcParam.kind === ParameterKind.Standard) {
                     continue;

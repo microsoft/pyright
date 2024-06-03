@@ -3,7 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Provide LSP's workspace symbol functionality.
+ * Provide langue server workspace symbol functionality.
  */
 
 import { CancellationToken, Location, ResultProgressReporter, SymbolInformation } from 'vscode-languageserver';

@@ -141,7 +141,7 @@ class WriteableData {
     // True if the file appears to have been deleted.
     isFileDeleted = false;
 
-    private _lastCallstack: string | undefined;
+    private _lastCallStack: string | undefined;
     private _parserOutput: ParserOutput | undefined;
 
     private readonly _consoleWithLevel?: ConsoleInterface & { level: LogLevel };
@@ -157,7 +157,7 @@ class WriteableData {
     }
 
     set parserOutput(value: ParserOutput | undefined) {
-        this._lastCallstack =
+        this._lastCallStack =
             this._consoleWithLevel?.level === LogLevel.Log && value === undefined && this._parserOutput !== undefined
                 ? new Error().stack
                 : undefined;
@@ -195,7 +195,7 @@ class WriteableData {
  checkTime=${this.checkTime},
  clientDocumentContents=${this.clientDocumentContents?.length},
  parseResults=${this.parserOutput?.parseTree.length},
- parseResultsDropCallstack=${this._lastCallstack}`;
+ parseResultsDropCallStack=${this._lastCallStack}`;
     }
 }
 
