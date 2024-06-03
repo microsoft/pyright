@@ -445,16 +445,6 @@ export function assignTypeToTypeVar(
                 // source type.
                 newNarrowTypeBound = adjSrcType;
             } else {
-                // We need to widen the type.
-                if (typeVarContext.isLocked()) {
-                    diag?.addMessage(
-                        LocAddendum.typeAssignmentMismatch().format(
-                            evaluator.printSrcDestTypes(adjSrcType, curNarrowTypeBound)
-                        )
-                    );
-                    return false;
-                }
-
                 if (
                     evaluator.assignType(
                         adjSrcType,
@@ -615,7 +605,7 @@ export function assignTypeToTypeVar(
         }
     }
 
-    if (!typeVarContext.isLocked() && isTypeVarInScope) {
+    if (isTypeVarInScope) {
         updateTypeVarType(
             evaluator,
             typeVarContext,
@@ -850,7 +840,7 @@ function assignTypeToConstrainedTypeVar(
                     recursionCount
                 )
             ) {
-                if (!typeVarContext.isLocked() && isTypeVarInScope) {
+                if (isTypeVarInScope) {
                     updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curWideTypeBound);
                 }
             } else {
@@ -865,7 +855,7 @@ function assignTypeToConstrainedTypeVar(
         }
     } else {
         // Assign the type to the type var.
-        if (!typeVarContext.isLocked() && isTypeVarInScope) {
+        if (isTypeVarInScope) {
             updateTypeVarType(
                 evaluator,
                 typeVarContext,
@@ -902,7 +892,7 @@ function assignTypeToParamSpec(
                     }
                 }
             } else {
-                if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
+                if (typeVarContext.hasSolveForScope(destType.scopeId)) {
                     signatureContext.setTypeVarType(destType, convertTypeToParamSpecValue(srcType));
                 }
                 return;
@@ -991,7 +981,7 @@ function assignTypeToParamSpec(
             }
 
             if (updateContextWithNewFunction) {
-                if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
+                if (typeVarContext.hasSolveForScope(destType.scopeId)) {
                     signatureContext.setTypeVarType(destType, newFunction);
                 }
                 return;
