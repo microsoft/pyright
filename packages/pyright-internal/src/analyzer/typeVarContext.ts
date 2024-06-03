@@ -314,6 +314,7 @@ export class TypeVarContext {
     static nextTypeVarContextId = 1;
     private _id;
     private _solveForScopes: TypeVarScopeId[] | undefined;
+    private _isLocked = false;
     private _signatureContexts: TypeVarSignatureContext[];
 
     constructor(solveForScopes?: TypeVarScopeId[] | TypeVarScopeId) {
@@ -337,6 +338,7 @@ export class TypeVarContext {
         }
 
         newTypeVarMap._signatureContexts = this._signatureContexts.map((context) => context.clone());
+        newTypeVarMap._isLocked = this._isLocked;
 
         return newTypeVarMap;
     }
@@ -364,6 +366,7 @@ export class TypeVarContext {
     // Copies a cloned type var context back into this object.
     copyFromClone(clone: TypeVarContext) {
         this._signatureContexts = clone._signatureContexts.map((context) => context.clone());
+        this._isLocked = clone._isLocked;
     }
 
     // Copy the specified signature contexts into this type var context.
@@ -430,6 +433,21 @@ export class TypeVarContext {
         }
     }
 
+    lock() {
+        // Locks the type var map, preventing any further changes.
+        assert(!this._isLocked);
+        this._isLocked = true;
+    }
+
+    unlock() {
+        // Unlocks the type var map, allowing further changes.
+        this._isLocked = false;
+    }
+
+    isLocked(): boolean {
+        return this._isLocked;
+    }
+
     isEmpty() {
         return this._signatureContexts.every((context) => context.isEmpty());
     }
@@ -441,12 +459,16 @@ export class TypeVarContext {
         wideBound?: Type,
         tupleTypes?: TupleTypeArgument[]
     ) {
+        assert(!this._isLocked);
+
         return this._signatureContexts.forEach((context) => {
             context.setTypeVarType(reference, narrowBound, narrowBoundNoLiterals, wideBound, tupleTypes);
         });
     }
 
     setTupleTypeVar(reference: TypeVarType, tupleTypes: TupleTypeArgument[]) {
+        assert(!this._isLocked);
+
         return this._signatureContexts.forEach((context) => {
             context.setTupleTypeVar(reference, tupleTypes);
         });
@@ -472,9 +494,16 @@ export class TypeVarContext {
     }
 
     doForEachSignatureContext(callback: (signature: TypeVarSignatureContext, signatureIndex: number) => void) {
+        const wasLocked = this.isLocked();
+        this.unlock();
+
         this.getSignatureContexts().forEach((signature, signatureIndex) => {
             callback(signature, signatureIndex);
         });
+
+        if (wasLocked) {
+            this.lock();
+        }
     }
 
     getSignatureContext(index: number) {

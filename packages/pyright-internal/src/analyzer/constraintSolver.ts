@@ -75,7 +75,9 @@ const logTypeVarContextUpdates = false;
 // Assigns the source type to the dest type var in the type var context. If an existing
 // type is already associated with that type var name, it attempts to either widen or
 // narrow the type (depending on the value of the isContravariant parameter). The goal is
-// to produce the narrowest type that meets all of the requirements.
+// to produce the narrowest type that meets all of the requirements. If the type var context
+// has been "locked", it simply validates that the srcType is compatible (with no attempt
+// to widen or narrow).
 export function assignTypeToTypeVar(
     evaluator: TypeEvaluator,
     destType: TypeVarType,
@@ -443,6 +445,16 @@ export function assignTypeToTypeVar(
                 // source type.
                 newNarrowTypeBound = adjSrcType;
             } else {
+                // We need to widen the type.
+                if (typeVarContext.isLocked()) {
+                    diag?.addMessage(
+                        LocAddendum.typeAssignmentMismatch().format(
+                            evaluator.printSrcDestTypes(adjSrcType, curNarrowTypeBound)
+                        )
+                    );
+                    return false;
+                }
+
                 if (
                     evaluator.assignType(
                         adjSrcType,
@@ -603,7 +615,7 @@ export function assignTypeToTypeVar(
         }
     }
 
-    if (isTypeVarInScope) {
+    if (!typeVarContext.isLocked() && isTypeVarInScope) {
         updateTypeVarType(
             evaluator,
             typeVarContext,
@@ -838,7 +850,7 @@ function assignTypeToConstrainedTypeVar(
                     recursionCount
                 )
             ) {
-                if (isTypeVarInScope) {
+                if (!typeVarContext.isLocked() && isTypeVarInScope) {
                     updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curWideTypeBound);
                 }
             } else {
@@ -853,7 +865,7 @@ function assignTypeToConstrainedTypeVar(
         }
     } else {
         // Assign the type to the type var.
-        if (isTypeVarInScope) {
+        if (!typeVarContext.isLocked() && isTypeVarInScope) {
             updateTypeVarType(
                 evaluator,
                 typeVarContext,
@@ -890,7 +902,7 @@ function assignTypeToParamSpec(
                     }
                 }
             } else {
-                if (typeVarContext.hasSolveForScope(destType.scopeId)) {
+                if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
                     signatureContext.setTypeVarType(destType, convertTypeToParamSpecValue(srcType));
                 }
                 return;
@@ -979,7 +991,7 @@ function assignTypeToParamSpec(
             }
 
             if (updateContextWithNewFunction) {
-                if (typeVarContext.hasSolveForScope(destType.scopeId)) {
+                if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
                     signatureContext.setTypeVarType(destType, newFunction);
                 }
                 return;

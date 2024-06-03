@@ -449,6 +449,7 @@ function validateNewMethod(
         argumentErrors = true;
 
         // Evaluate the arguments in a non-speculative manner to generate any diagnostics.
+        typeVarContext.unlock();
         evaluator.validateCallArguments(
             errorNode,
             argList,
