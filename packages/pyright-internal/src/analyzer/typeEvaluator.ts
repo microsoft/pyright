@@ -14622,11 +14622,11 @@ export function createTypeEvaluator(
             assert(node.nodeType === ParseNodeType.ComprehensionIf);
 
             // Evaluate the test expression to validate it and mark symbols
-            // as referenced. Don't bother doing this if we're in speculative
-            // mode because it doesn't affect the element type.
-            if (!isSpeculativeModeInUse(node.testExpression)) {
-                getTypeOfExpression(node.testExpression);
-            }
+            // as referenced. This doesn't affect the type of the evalauted
+            // comprehension, but it is important for evaluating intermediate
+            // expressions such as assignment expressions that can affect other
+            // subexpressions.
+            getTypeOfExpression(node.testExpression);
         }
 
         return isIncomplete;
@@ -19721,7 +19721,7 @@ export function createTypeEvaluator(
                 }
 
                 case ParseNodeType.AssignmentExpression: {
-                    getTypeOfExpression(curNode);
+                    evaluateTypesForExpressionInContext(curNode);
                     return;
                 }
 
