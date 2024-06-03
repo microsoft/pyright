@@ -738,7 +738,7 @@ function assignClassToProtocolInternal(
             ) {
                 typesAreConsistent = false;
             }
-        } else if (destTypeVarContext && !destTypeVarContext.isLocked()) {
+        } else if (destTypeVarContext) {
             for (const typeParam of destType.details.typeParameters) {
                 const typeArgEntry = protocolTypeVarContext.getPrimarySignature().getTypeVar(typeParam);
 

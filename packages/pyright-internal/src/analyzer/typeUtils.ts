@@ -2075,10 +2075,6 @@ export function setTypeArgumentsRecursive(
     }
     recursionCount++;
 
-    if (typeVarContext.isLocked()) {
-        return;
-    }
-
     switch (destType.category) {
         case TypeCategory.Union:
             doForEachSubtype(destType, (subtype) => {

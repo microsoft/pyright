@@ -8714,7 +8714,6 @@ export function createTypeEvaluator(
                 const effectiveTypeVarContext =
                     typeVarContext?.clone() ?? new TypeVarContext(getTypeVarScopeId(overload));
                 effectiveTypeVarContext.addSolveForScope(getTypeVarScopeIds(overload));
-                effectiveTypeVarContext.unlock();
 
                 // Use speculative mode so we don't output any diagnostics or
                 // record any final types in the type cache.
@@ -8847,7 +8846,6 @@ export function createTypeEvaluator(
         // And run through the first expanded argument list one more time to
         // populate the type cache.
         const finalTypeVarContext = typeVarContext ?? matchedOverloads[0].typeVarContext;
-        finalTypeVarContext.unlock();
         finalTypeVarContext.addSolveForScope(getTypeVarScopeId(matchedOverloads[0].overload));
         const finalCallResult = validateFunctionArgumentTypesWithContext(
             errorNode,
@@ -9109,7 +9107,6 @@ export function createTypeEvaluator(
 
             const effectiveTypeVarContext = typeVarContext ?? new TypeVarContext();
             effectiveTypeVarContext.addSolveForScope(getTypeVarScopeIds(bestMatch.overload));
-            effectiveTypeVarContext.unlock();
 
             return validateFunctionArgumentTypesWithContext(
                 errorNode,
@@ -11513,10 +11510,6 @@ export function createTypeEvaluator(
                     });
                 });
             }
-
-            // Lock the type var map so it cannot be modified when revalidating
-            // the arguments in a second pass.
-            typeVarContext.lock();
         }
 
         let sawParamSpecArgs = false;
@@ -23076,7 +23069,7 @@ export function createTypeEvaluator(
             );
         }
 
-        if (destTypeVarContext && curSrcType.typeArguments && !destTypeVarContext.isLocked()) {
+        if (destTypeVarContext && curSrcType.typeArguments) {
             // Populate the typeVar map with type arguments of the source.
             const srcTypeArgs = curSrcType.typeArguments;
             for (let i = 0; i < destType.details.typeParameters.length; i++) {
@@ -26905,14 +26898,12 @@ export function createTypeEvaluator(
                 // contain references to themselves or their subclasses, so if
                 // we attempt to call assignType, we'll risk infinite recursion.
                 // Instead, we'll assume it's assignable.
-                if (!typeVarContext.isLocked()) {
-                    typeVarContext.setTypeVarType(
-                        memberTypeFirstParamType,
-                        TypeBase.isInstantiable(memberTypeFirstParamType)
-                            ? convertToInstance(firstParamType)
-                            : firstParamType
-                    );
-                }
+                typeVarContext.setTypeVarType(
+                    memberTypeFirstParamType,
+                    TypeBase.isInstantiable(memberTypeFirstParamType)
+                        ? convertToInstance(firstParamType)
+                        : firstParamType
+                );
             } else {
                 const subDiag = diag?.createAddendum();
 
