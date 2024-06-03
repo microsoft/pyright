@@ -388,119 +388,115 @@ export function assignTypeToTypeVar(
             if (!newWideTypeBound && isInvariant && curEntry?.narrowBoundNoLiterals) {
                 newNarrowTypeBound = curEntry.narrowBoundNoLiterals;
             }
-        } else {
-            if (isAnyOrUnknown(adjSrcType) && curEntry?.tupleTypes) {
-                // Handle the tuple case specially. If Any or Unknown is assigned
-                // during the construction of a tuple, the resulting tuple type must
-                // be tuple[Any, ...], which is compatible with any tuple.
-                newNarrowTypeBound = adjSrcType;
-            } else if (
+        } else if (isAnyOrUnknown(adjSrcType) && curEntry?.tupleTypes) {
+            // Handle the tuple case specially. If Any or Unknown is assigned
+            // during the construction of a tuple, the resulting tuple type must
+            // be tuple[Any, ...], which is compatible with any tuple.
+            newNarrowTypeBound = adjSrcType;
+        } else if (
+            evaluator.assignType(
+                curNarrowTypeBound,
+                adjSrcType,
+                diagAddendum,
+                typeVarContext,
+                /* srcTypeVarContext */ undefined,
+                flags,
+                recursionCount
+            )
+        ) {
+            // No need to widen. Stick with the existing type unless it's unknown
+            // or partly unknown, in which case we'll replace it with a known type
+            // as long as it doesn't violate the current narrow bound.
+            if (
+                isPartlyUnknown(curNarrowTypeBound) &&
+                !isUnknown(adjSrcType) &&
                 evaluator.assignType(
+                    adjSrcType,
                     curNarrowTypeBound,
-                    adjSrcType,
-                    diagAddendum,
+                    /* diag */ undefined,
                     typeVarContext,
                     /* srcTypeVarContext */ undefined,
-                    flags,
+                    flags & AssignTypeFlags.IgnoreTypeVarScope,
                     recursionCount
                 )
             ) {
-                // No need to widen. Stick with the existing type unless it's unknown
-                // or partly unknown, in which case we'll replace it with a known type
-                // as long as it doesn't violate the current narrow bound.
-                if (
-                    isPartlyUnknown(curNarrowTypeBound) &&
-                    !isUnknown(adjSrcType) &&
-                    evaluator.assignType(
-                        adjSrcType,
-                        curNarrowTypeBound,
-                        /* diag */ undefined,
-                        typeVarContext,
-                        /* srcTypeVarContext */ undefined,
-                        flags & AssignTypeFlags.IgnoreTypeVarScope,
-                        recursionCount
-                    )
-                ) {
-                    newNarrowTypeBound = adjSrcType;
-                } else {
-                    newNarrowTypeBound = applySolvedTypeVars(curNarrowTypeBound, typeVarContext);
-                }
-            } else if (
-                isTypeVar(curNarrowTypeBound) &&
-                !isTypeVar(adjSrcType) &&
-                evaluator.assignType(
-                    evaluator.makeTopLevelTypeVarsConcrete(curNarrowTypeBound),
-                    adjSrcType,
-                    diagAddendum,
-                    typeVarContext,
-                    /* srcTypeVarContext */ undefined,
-                    flags,
-                    recursionCount
-                )
-            ) {
-                // If the existing narrow type bound was a TypeVar that is not
-                // part of the current context we can replace it with the new
-                // source type.
                 newNarrowTypeBound = adjSrcType;
             } else {
-                if (
-                    evaluator.assignType(
-                        adjSrcType,
-                        curNarrowTypeBound,
-                        /* diag */ undefined,
-                        typeVarContext,
-                        /* srcTypeVarContext */ undefined,
-                        flags & AssignTypeFlags.IgnoreTypeVarScope,
-                        recursionCount
+                newNarrowTypeBound = applySolvedTypeVars(curNarrowTypeBound, typeVarContext);
+            }
+        } else if (
+            isTypeVar(curNarrowTypeBound) &&
+            !isTypeVar(adjSrcType) &&
+            evaluator.assignType(
+                evaluator.makeTopLevelTypeVarsConcrete(curNarrowTypeBound),
+                adjSrcType,
+                diagAddendum,
+                typeVarContext,
+                /* srcTypeVarContext */ undefined,
+                flags,
+                recursionCount
+            )
+        ) {
+            // If the existing narrow type bound was a TypeVar that is not
+            // part of the current context we can replace it with the new
+            // source type.
+            newNarrowTypeBound = adjSrcType;
+        } else if (
+            evaluator.assignType(
+                adjSrcType,
+                curNarrowTypeBound,
+                /* diag */ undefined,
+                typeVarContext,
+                /* srcTypeVarContext */ undefined,
+                flags & AssignTypeFlags.IgnoreTypeVarScope,
+                recursionCount
+            )
+        ) {
+            newNarrowTypeBound = adjSrcType;
+        } else if (isVariadicTypeVar(destType)) {
+            const widenedType = widenTypeForVariadicTypeVar(evaluator, curNarrowTypeBound, adjSrcType);
+            if (!widenedType) {
+                diag?.addMessage(
+                    LocAddendum.typeAssignmentMismatch().format(
+                        evaluator.printSrcDestTypes(curNarrowTypeBound, adjSrcType)
                     )
-                ) {
-                    newNarrowTypeBound = adjSrcType;
-                } else if (isVariadicTypeVar(destType)) {
-                    const widenedType = widenTypeForVariadicTypeVar(evaluator, curNarrowTypeBound, adjSrcType);
-                    if (!widenedType) {
-                        diag?.addMessage(
-                            LocAddendum.typeAssignmentMismatch().format(
-                                evaluator.printSrcDestTypes(curNarrowTypeBound, adjSrcType)
-                            )
-                        );
-                        return false;
-                    }
+                );
+                return false;
+            }
 
-                    newNarrowTypeBound = widenedType;
-                } else {
-                    const objectType = evaluator.getObjectType();
+            newNarrowTypeBound = widenedType;
+        } else {
+            const objectType = evaluator.getObjectType();
 
-                    // If this is an invariant context and there is currently no wide type bound
-                    // established, use the "no literals" version of the narrow type bounds rather
-                    // than a version that has literals.
-                    if (!newWideTypeBound && isInvariant && curEntry?.narrowBoundNoLiterals) {
-                        curNarrowTypeBound = curEntry.narrowBoundNoLiterals;
-                    }
+            // If this is an invariant context and there is currently no wide type bound
+            // established, use the "no literals" version of the narrow type bounds rather
+            // than a version that has literals.
+            if (!newWideTypeBound && isInvariant && curEntry?.narrowBoundNoLiterals) {
+                curNarrowTypeBound = curEntry.narrowBoundNoLiterals;
+            }
 
-                    const curSolvedNarrowTypeBound = applySolvedTypeVars(curNarrowTypeBound, typeVarContext);
+            const curSolvedNarrowTypeBound = applySolvedTypeVars(curNarrowTypeBound, typeVarContext);
 
-                    // In some extreme edge cases, the narrow type bound can become
-                    // a union with so many subtypes that performance grinds to a
-                    // halt. We'll detect this case and widen the resulting type
-                    // to an 'object' instead of making the union even bigger. This
-                    // is still a valid solution to the TypeVar.
-                    if (
-                        isUnion(curSolvedNarrowTypeBound) &&
-                        curSolvedNarrowTypeBound.subtypes.length > maxSubtypesForInferredType &&
-                        (destType as TypeVarType).details.boundType !== undefined &&
-                        isClassInstance(objectType)
-                    ) {
-                        newNarrowTypeBound = combineTypes(
-                            [curSolvedNarrowTypeBound, objectType],
-                            maxSubtypeCountForTypeVarNarrowBound
-                        );
-                    } else {
-                        newNarrowTypeBound = combineTypes(
-                            [curSolvedNarrowTypeBound, adjSrcType],
-                            maxSubtypeCountForTypeVarNarrowBound
-                        );
-                    }
-                }
+            // In some extreme edge cases, the narrow type bound can become
+            // a union with so many subtypes that performance grinds to a
+            // halt. We'll detect this case and widen the resulting type
+            // to an 'object' instead of making the union even bigger. This
+            // is still a valid solution to the TypeVar.
+            if (
+                isUnion(curSolvedNarrowTypeBound) &&
+                curSolvedNarrowTypeBound.subtypes.length > maxSubtypesForInferredType &&
+                (destType as TypeVarType).details.boundType !== undefined &&
+                isClassInstance(objectType)
+            ) {
+                newNarrowTypeBound = combineTypes(
+                    [curSolvedNarrowTypeBound, objectType],
+                    maxSubtypeCountForTypeVarNarrowBound
+                );
+            } else {
+                newNarrowTypeBound = combineTypes(
+                    [curSolvedNarrowTypeBound, adjSrcType],
+                    maxSubtypeCountForTypeVarNarrowBound
+                );
             }
         }
 
