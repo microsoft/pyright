@@ -142,6 +142,7 @@
         "enumClassOverride": "Enum class \"{name}\" is final and cannot be subclassed",
         "enumMemberDelete": "Enum member \"{name}\" cannot be deleted",
         "enumMemberSet": "Enum member \"{name}\" cannot be assigned",
+        "enumMemberTypeAnnotation": "Type annotations are not allowed for enum members",
         "exceptionGroupIncompatible": "Exception group syntax (\"except*\") requires Python 3.11 or newer",
         "exceptionTypeIncorrect": "\"{type}\" does not derive from BaseException",
         "exceptionTypeNotClass": "\"{type}\" is not a valid exception class",

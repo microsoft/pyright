@@ -283,10 +283,19 @@ export function createEnumType(
     return classType;
 }
 
+// Performs the "magic" that the Enum metaclass does at runtime when it
+// transforms a value into an enum instance. If the specified name isn't
+// an enum member, this function returns undefined indicating that the
+// Enum metaclass does not transform the value.
+// By default, if a type annotation is present, the member is not treated
+// as a member of the enumeration, but the Enum metaclass ignores such
+// annotations. The typing spec indicates that the use of an annotation is
+// illegal, so we need to detect this case and report an error.
 export function transformTypeForEnumMember(
     evaluator: TypeEvaluator,
     classType: ClassType,
     memberName: string,
+    ignoreAnnotation = false,
     recursionCount = 0
 ): Type | undefined {
     if (recursionCount > maxTypeRecursionCount) {
@@ -335,16 +344,24 @@ export function transformTypeForEnumMember(
         isMemberOfEnumeration = true;
         isUnpackedTuple = true;
         valueTypeExprNode = nameNode.parent.parent.rightExpression;
+    } else if (
+        nameNode.parent?.nodeType === ParseNodeType.TypeAnnotation &&
+        nameNode.parent.valueExpression === nameNode
+    ) {
+        if (ignoreAnnotation) {
+            isMemberOfEnumeration = true;
+        }
+        declaredTypeNode = nameNode.parent.typeAnnotation;
     }
 
     // The spec specifically excludes names that start and end with a single underscore.
     // This also includes dunder names.
-    if (isSingleDunderName(nameNode.value)) {
+    if (isSingleDunderName(memberName)) {
         return undefined;
     }
 
     // Specifically exclude "value" and "name". These are reserved by the enum metaclass.
-    if (nameNode.value === 'name' || nameNode.value === 'value') {
+    if (memberName === 'name' || memberName === 'value') {
         return undefined;
     }
 
@@ -362,6 +379,7 @@ export function transformTypeForEnumMember(
             evaluator,
             classType,
             valueTypeExprNode.value,
+            /* ignoreAnnotation */ false,
             recursionCount
         );
 
@@ -402,7 +420,7 @@ export function transformTypeForEnumMember(
     }
 
     // The spec excludes private (mangled) names.
-    if (isPrivateName(nameNode.value)) {
+    if (isPrivateName(memberName)) {
         return undefined;
     }
 
@@ -457,7 +475,7 @@ export function transformTypeForEnumMember(
     const enumLiteral = new EnumLiteral(
         memberInfo.classType.details.fullName,
         memberInfo.classType.details.name,
-        nameNode.value,
+        memberName,
         valueType
     );
 
