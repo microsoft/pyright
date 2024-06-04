@@ -4971,12 +4971,17 @@ export class Checker extends ParseTreeWalker {
         }
 
         ClassType.getSymbolTable(classType).forEach((symbol, name) => {
-            // Enum members don't have type annotations.
-            if (symbol.getTypedDeclarations().length > 0) {
-                return;
-            }
-
-            const symbolType = transformTypeForEnumMember(this._evaluator, classType, name);
+            // Determine whether this is an enum member. We ignore the presence
+            // of an annotation in this case because the runtime does. From a
+            // type checking perspective, if the runtime treats the assignment
+            // as an enum member but there is a type annotation present, it is
+            // considered a type checking error.
+            const symbolType = transformTypeForEnumMember(
+                this._evaluator,
+                classType,
+                name,
+                /* ignoreAnnotation */ true
+            );
 
             // Is this symbol a literal instance of the enum class?
             if (
@@ -4985,6 +4990,19 @@ export class Checker extends ParseTreeWalker {
                 !ClassType.isSameGenericClass(symbolType, classType) ||
                 !(symbolType.literalValue instanceof EnumLiteral)
             ) {
+                return;
+            }
+
+            // Enum members should not have type annotations.
+            const typedDecls = symbol.getTypedDeclarations();
+            if (typedDecls.length > 0) {
+                if (typedDecls[0].type === DeclarationType.Variable && typedDecls[0].inferredTypeSource) {
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.enumMemberTypeAnnotation(),
+                        typedDecls[0].node
+                    );
+                }
                 return;
             }
 
