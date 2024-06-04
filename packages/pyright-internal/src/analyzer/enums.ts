@@ -310,13 +310,6 @@ export function transformTypeForEnumMember(
 
     const primaryDecl = decls[0];
 
-    // In ".py" files, the transform applies only to members that are
-    // assigned within the class. In stub files, it applies to most variables
-    // even if they are not assigned. This unfortunate convention means
-    // there is no way in a stub to specify both enum members and instance
-    // variables used within each enum instance. Unless/until there is
-    // a change to this convention and all type checkers and stubs adopt
-    // it, we're stuck with this limitation.
     let isMemberOfEnumeration = false;
     let isUnpackedTuple = false;
     let valueTypeExprNode: ExpressionNode | undefined;
@@ -342,13 +335,6 @@ export function transformTypeForEnumMember(
         isMemberOfEnumeration = true;
         isUnpackedTuple = true;
         valueTypeExprNode = nameNode.parent.parent.rightExpression;
-    } else if (
-        getFileInfo(nameNode).isStubFile &&
-        nameNode.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-        nameNode.parent.valueExpression === nameNode
-    ) {
-        isMemberOfEnumeration = true;
-        declaredTypeNode = nameNode.parent.typeAnnotation;
     }
 
     // The spec specifically excludes names that start and end with a single underscore.
