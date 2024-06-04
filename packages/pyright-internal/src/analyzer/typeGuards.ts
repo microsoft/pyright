@@ -2543,7 +2543,8 @@ function narrowTypeForLiteralComparison(
             }
         } else if (isPositiveTest) {
             if (isIsOperator || isNoneInstance(subtype)) {
-                return undefined;
+                const isSubtype = evaluator.assignType(subtype, literalType);
+                return isSubtype ? literalType : undefined;
             }
         }
 
