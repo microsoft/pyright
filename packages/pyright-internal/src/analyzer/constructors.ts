@@ -1191,10 +1191,6 @@ function isDefaultNewMethod(newMethod?: Type): boolean {
         return false;
     }
 
-    if (newMethod.details.paramSpec) {
-        return false;
-    }
-
     const params = newMethod.details.parameters;
     if (params.length !== 2) {
         return false;
