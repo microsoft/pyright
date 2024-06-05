@@ -340,7 +340,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     async getWorkspaces(): Promise<Workspace[]> {
-        const workspaces = [...this.workspaceFactory.items()];
+        const workspaces = this.workspaceFactory.items();
         for (const workspace of workspaces) {
             await workspace.isInitialized.promise;
         }
