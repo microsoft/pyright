@@ -297,6 +297,7 @@ import {
     ClassType,
     ClassTypeFlags,
     DataClassBehaviors,
+    EnumLiteral,
     FunctionParameter,
     FunctionType,
     FunctionTypeFlags,
@@ -1982,9 +1983,17 @@ export function createTypeEvaluator(
 
             if (isClassInstance(concreteSubtype)) {
                 if (concreteSubtype.literalValue !== undefined) {
+                    let isLiteralFalsy: boolean;
+
+                    if (concreteSubtype.literalValue instanceof EnumLiteral) {
+                        isLiteralFalsy = !canBeTruthy(concreteSubtype);
+                    } else {
+                        isLiteralFalsy = !concreteSubtype.literalValue;
+                    }
+
                     // If the object is already definitely falsy, it's fine to
                     // include, otherwise it should be removed.
-                    return !concreteSubtype.literalValue ? subtype : undefined;
+                    return isLiteralFalsy ? subtype : undefined;
                 }
 
                 // If the object is a bool, make it "false", since
@@ -2023,9 +2032,17 @@ export function createTypeEvaluator(
 
             if (isClassInstance(concreteSubtype)) {
                 if (concreteSubtype.literalValue !== undefined) {
+                    let isLiteralTruthy: boolean;
+
+                    if (concreteSubtype.literalValue instanceof EnumLiteral) {
+                        isLiteralTruthy = !canBeFalsy(concreteSubtype);
+                    } else {
+                        isLiteralTruthy = !!concreteSubtype.literalValue;
+                    }
+
                     // If the object is already definitely truthy, it's fine to
                     // include, otherwise it should be removed.
-                    return concreteSubtype.literalValue ? subtype : undefined;
+                    return isLiteralTruthy ? subtype : undefined;
                 }
 
                 // If the object is a bool, make it "true", since
