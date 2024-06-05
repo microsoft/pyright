@@ -23,8 +23,8 @@ import {
     UnboundType,
     UnknownType,
 } from '../analyzer/types';
-import { ParameterCategory } from '../parser/parseNodes';
 import { Uri } from '../common/uri/uri';
+import { ParameterCategory } from '../parser/parseNodes';
 
 function returnTypeCallback(type: FunctionType) {
     return type.details.declaredReturnType ?? UnknownType.create(/* isEllipsis */ true);
@@ -161,7 +161,7 @@ test('FunctionTypes', () => {
 
     const paramSpecP = TypeVarType.createInstance('P');
     paramSpecP.details.isParamSpec = true;
-    funcTypeB.details.paramSpec = paramSpecP;
+    FunctionType.addParamSpecVariadics(funcTypeB, paramSpecP);
 
     funcTypeB.details.declaredReturnType = NeverType.createNever();
 
@@ -193,8 +193,8 @@ test('FunctionTypes', () => {
 
     const funcTypeD = FunctionType.createInstance('D', '', '', FunctionTypeFlags.None);
 
-    funcTypeD.details.paramSpec = paramSpecP;
     funcTypeD.details.declaredReturnType = AnyType.create();
+    FunctionType.addParamSpecVariadics(funcTypeD, paramSpecP);
 
     assert.strictEqual(printType(funcTypeD, PrintTypeFlags.None, returnTypeCallback), '(**P) -> Any');
     assert.strictEqual(printType(funcTypeD, PrintTypeFlags.PythonSyntax, returnTypeCallback), 'Callable[P, Any]');

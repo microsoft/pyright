@@ -43,7 +43,6 @@ import {
     MemberAccessFlags,
     partiallySpecializeType,
     populateTypeVarContextForSelfType,
-    removeParamSpecVariadicsFromSignature,
     requiresSpecialization,
     synthesizeTypeVarForSelfCls,
 } from './typeUtils';
@@ -474,7 +473,7 @@ function assignClassToProtocolInternal(
                             );
 
                             if (boundSrcFunction) {
-                                srcMemberType = removeParamSpecVariadicsFromSignature(boundSrcFunction);
+                                srcMemberType = boundSrcFunction;
                             } else {
                                 typesAreConsistent = false;
                                 return;
@@ -533,7 +532,7 @@ function assignClassToProtocolInternal(
                 }
 
                 if (boundDeclaredType) {
-                    destMemberType = removeParamSpecVariadicsFromSignature(boundDeclaredType);
+                    destMemberType = boundDeclaredType;
                 } else {
                     typesAreConsistent = false;
                     return;

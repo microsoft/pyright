@@ -10,19 +10,21 @@
  */
 
 import { assert } from '../common/debug';
+import { getUnknownTypeForParamSpec } from './typeUtils';
 import {
     AnyType,
     ClassType,
     FunctionType,
     InScopePlaceholderScopeId,
-    isFunction,
-    isTypeSame,
-    maxTypeRecursionCount,
     TupleTypeArgument,
     Type,
     TypeCategory,
     TypeVarScopeId,
     TypeVarType,
+    isAnyOrUnknown,
+    isFunction,
+    isTypeSame,
+    maxTypeRecursionCount,
 } from './types';
 
 // The maximum number of signature contexts that can be associated
@@ -152,6 +154,10 @@ export class TypeVarSignatureContext {
 
         if (isFunction(entry.narrowBound)) {
             return entry.narrowBound;
+        }
+
+        if (isAnyOrUnknown(entry.narrowBound)) {
+            return getUnknownTypeForParamSpec();
         }
 
         return undefined;
