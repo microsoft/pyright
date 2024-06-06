@@ -47,11 +47,11 @@ class MetaA:
         return isinstance(ParentA, str)
 
 
-a1: Annotated[ParentA, MetaA()] = ParentA()
+a1: Annotated[ParentA, 1, "", MetaA()] = ParentA()
 a2: Annotated[ChildA, MetaA(), 1, ""] = ChildA()
 
 # This should generate an error.
-a3: Annotated[int, MetaA()] = 1
+a3: Annotated[int, 1, "", MetaA(), ""] = 1
 
 
 class MetaInt:
@@ -64,7 +64,7 @@ i1: Annotated[int, MetaInt()] = 1
 i2: Annotated[float, MetaInt()] = 1.0
 
 
-class MetaWithOverride:
+class MetaWithOverload:
     @overload
     def __supports_type__(self, obj: int, /) -> bool: ...
     @overload
@@ -74,11 +74,11 @@ class MetaWithOverride:
     def __supports_type__(self, obj: Any, /) -> bool: ...
 
 
-v1: Annotated[int, MetaWithOverride()] = 1
-v2: Annotated[None, MetaWithOverride()] = None
+v1: Annotated[int, MetaWithOverload()] = 1
+v2: Annotated[None, MetaWithOverload()] = None
 
 # This should generate an error.
-v3: Annotated[str, MetaWithOverride()] = ""
+v3: Annotated[str, MetaWithOverload()] = ""
 
 # This should generate an error.
-v4: Annotated[complex, MetaWithOverride()] = 3j
+v4: Annotated[complex, MetaWithOverload()] = 3j

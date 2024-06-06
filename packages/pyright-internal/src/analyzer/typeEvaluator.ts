@@ -15479,10 +15479,8 @@ export function createTypeEvaluator(
 
     // Enforces metadata consistency as specified in PEP 746.
     function validateAnnotatedMetadata(errorNode: ExpressionNode, annotatedType: Type, metaArgs: TypeResultWithNode[]) {
-        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
-
         // This is an experimental feature because PEP 746 hasn't been accepted.
-        if (!fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
+        if (!AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
             return;
         }
 
@@ -15499,17 +15497,15 @@ export function createTypeEvaluator(
                 }
 
                 // "Call" the __supports_type__ method to determine if the type is supported.
-                const argList: FunctionArgument[] = [
-                    {
-                        argumentCategory: ArgumentCategory.Simple,
-                        typeResult: { type: convertToInstance(annotatedType) },
-                    },
-                ];
-
                 const callResult = useSpeculativeMode(errorNode, () =>
                     validateCallArguments(
                         errorNode,
-                        argList,
+                        [
+                            {
+                                argumentCategory: ArgumentCategory.Simple,
+                                typeResult: { type: convertToInstance(annotatedType) },
+                            },
+                        ],
                         { type: supportsTypeMethod },
                         /* typeVarContext */ undefined,
                         /* skipUnknownArgCheck */ true,
@@ -15518,18 +15514,24 @@ export function createTypeEvaluator(
                     )
                 );
 
-                if (!callResult.isTypeIncomplete && callResult.returnType) {
-                    if (callResult.argumentErrors || !canBeTruthy(callResult.returnType)) {
-                        addDiagnostic(
-                            DiagnosticRule.reportInvalidTypeArguments,
-                            LocMessage.annotatedMetadataInconsistent().format({
-                                metadataType: printType(metaArg.type),
-                                type: printType(convertToInstance(annotatedType)),
-                            }),
-                            metaArg.node
-                        );
-                    }
+                if (callResult.isTypeIncomplete || !callResult.returnType) {
+                    continue;
                 }
+
+                // If there are no errors and the return type is potentially truthy,
+                // we know that the type is supported by this metadata object.
+                if (!callResult.argumentErrors && canBeTruthy(callResult.returnType)) {
+                    continue;
+                }
+
+                addDiagnostic(
+                    DiagnosticRule.reportInvalidTypeArguments,
+                    LocMessage.annotatedMetadataInconsistent().format({
+                        metadataType: printType(metaArg.type),
+                        type: printType(convertToInstance(annotatedType)),
+                    }),
+                    metaArg.node
+                );
             }
         }
     }
