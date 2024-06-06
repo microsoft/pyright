@@ -606,7 +606,7 @@ interface ClassDetails {
     flags: ClassTypeFlags;
     typeSourceId: TypeSourceId;
     baseClasses: Type[];
-    mro: Type[];
+    mro: (ClassType | AnyType | UnknownType)[];
     declaration?: ClassDeclaration | SpecialBuiltInClassDeclaration | undefined;
     declaredMetaclass?: ClassType | UnknownType | undefined;
     effectiveMetaclass?: ClassType | UnknownType | undefined;
@@ -1355,7 +1355,7 @@ export namespace ClassType {
         return false;
     }
 
-    export function getReverseMro(classType: ClassType): Type[] {
+    export function getReverseMro(classType: ClassType): (ClassType | UnknownType | AnyType)[] {
         return classType.details.mro.slice(0).reverse();
     }
 }
