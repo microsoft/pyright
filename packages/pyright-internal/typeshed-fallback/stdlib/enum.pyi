@@ -267,9 +267,9 @@ if sys.version_info >= (3, 11):
         def _generate_next_value_(name: str, start: int, count: int, last_values: list[str]) -> str: ...
 
     class EnumCheck(StrEnum):
-        CONTINUOUS: str
-        NAMED_FLAGS: str
-        UNIQUE: str
+        CONTINUOUS = "no skipped integer values"
+        NAMED_FLAGS = "multi-flag aliases may not contain unnamed flags"
+        UNIQUE = "one name per value"
 
     CONTINUOUS = EnumCheck.CONTINUOUS
     NAMED_FLAGS = EnumCheck.NAMED_FLAGS
@@ -280,10 +280,10 @@ if sys.version_info >= (3, 11):
         def __call__(self, enumeration: _EnumerationT) -> _EnumerationT: ...
 
     class FlagBoundary(StrEnum):
-        STRICT: str
-        CONFORM: str
-        EJECT: str
-        KEEP: str
+        STRICT = "strict"
+        CONFORM = "conform"
+        EJECT = "eject"
+        KEEP = "keep"
 
     STRICT = FlagBoundary.STRICT
     CONFORM = FlagBoundary.CONFORM
