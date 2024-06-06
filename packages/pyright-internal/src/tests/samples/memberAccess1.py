@@ -139,33 +139,3 @@ class ClassF:
         )
 
 
-class ClassG(Generic[_T]):
-    x: _T
-    y: int
-
-    def __init__(self, label: _T | None = None) -> None:
-        ...
-
-
-ClassG[int].y = 1
-ClassG[int].y
-del ClassG[int].y
-
-ClassG.y = 1
-ClassG.y
-del ClassG.y
-
-# This should generate an error because x is generic.
-ClassG[int].x = 1
-
-# This should generate an error because x is generic.
-ClassG[int].x
-
-# This should generate an error because x is generic.
-del ClassG[int].x
-
-# This should generate an error because x is generic.
-ClassG.x
-
-# This should generate an error because x is generic.
-del ClassG.x

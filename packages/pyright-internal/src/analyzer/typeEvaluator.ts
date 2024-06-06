@@ -22392,26 +22392,31 @@ export function createTypeEvaluator(
                 // prior to specializing.
                 inferReturnTypeIfNecessary(typeResult.type);
 
+                // Check for ambiguous accesses to attributes with generic types?
                 if (
+                    errorNode &&
+                    selfClass &&
+                    isClass(selfClass) &&
                     member.isInstanceMember &&
-                    (flags & MemberAccessFlags.DisallowGenericInstanceVariableAccess) !== 0
+                    isClass(member.unspecializedClassType) &&
+                    (flags & MemberAccessFlags.DisallowGenericInstanceVariableAccess) !== 0 &&
+                    requiresSpecialization(typeResult.type, { ignoreSelf: true, ignoreImplicitTypeArgs: true })
                 ) {
-                    let isGenericNonCallable = false;
+                    const specializedType = partiallySpecializeType(
+                        typeResult.type,
+                        member.unspecializedClassType,
+                        selfSpecializeClass(selfClass, /* overrideTypeArgs */ true)
+                    );
 
-                    doForEachSubtype(typeResult.type, (subtype) => {
-                        if (!isAnyOrUnknown(subtype) && !isFunction(subtype) && !isOverloadedFunction(subtype)) {
-                            if (
-                                requiresSpecialization(typeResult.type, {
-                                    ignoreSelf: true,
-                                    ignoreImplicitTypeArgs: true,
-                                })
-                            ) {
-                                isGenericNonCallable = true;
-                            }
-                        }
-                    });
-
-                    if (isGenericNonCallable && errorNode) {
+                    if (
+                        findSubtype(
+                            specializedType,
+                            (subtype) =>
+                                !isFunction(subtype) &&
+                                !isOverloadedFunction(subtype) &&
+                                requiresSpecialization(subtype, { ignoreSelf: true, ignoreImplicitTypeArgs: true })
+                        )
+                    ) {
                         addDiagnostic(
                             DiagnosticRule.reportGeneralTypeIssues,
                             LocMessage.genericInstanceVariableAccess(),

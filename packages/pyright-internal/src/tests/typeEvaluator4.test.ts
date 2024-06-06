@@ -118,7 +118,7 @@ test('FString5', () => {
 
 test('MemberAccess1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess1.py']);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('MemberAccess2', () => {
@@ -234,6 +234,11 @@ test('MemberAccess23', () => {
 test('MemberAccess24', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess24.py']);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('MemberAccess25', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess25.py']);
+    TestUtils.validateResults(analysisResults, 12);
 });
 
 test('DataClassNamedTuple1', () => {
