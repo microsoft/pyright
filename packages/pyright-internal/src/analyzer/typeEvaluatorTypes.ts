@@ -9,7 +9,6 @@
 
 import { CancellationToken } from 'vscode-languageserver-protocol';
 
-import { DiagnosticLevel } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -676,8 +675,7 @@ export interface TypeEvaluator {
     ) => Diagnostic | undefined;
     addDiagnosticForTextRange: (
         fileInfo: AnalyzerFileInfo,
-        diagLevel: DiagnosticLevel,
-        rule: DiagnosticRule | '',
+        rule: DiagnosticRule,
         message: string,
         range: TextRange
     ) => Diagnostic | undefined;

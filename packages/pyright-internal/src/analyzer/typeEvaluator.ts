@@ -3038,7 +3038,6 @@ export function createTypeEvaluator(
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
             addDiagnosticForTextRange(
                 fileInfo,
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.codeTooComplexToAnalyze(),
                 errorRange
@@ -3235,11 +3234,12 @@ export function createTypeEvaluator(
 
     function addDiagnosticForTextRange(
         fileInfo: AnalyzerFileInfo,
-        diagLevel: DiagnosticLevel,
-        rule: DiagnosticRule | '',
+        rule: DiagnosticRule,
         message: string,
         range: TextRange
     ) {
+        const diagLevel = fileInfo.diagnosticRuleSet[rule] as DiagnosticLevel;
+
         if (diagLevel === 'none') {
             return undefined;
         }

@@ -251,7 +251,6 @@ export class Checker extends ParseTreeWalker {
         if (codeComplexity > maxCodeComplexity) {
             this._evaluator.addDiagnosticForTextRange(
                 this._fileInfo,
-                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.codeTooComplexToAnalyze(),
                 { start: 0, length: 0 }
@@ -844,7 +843,6 @@ export class Checker extends ParseTreeWalker {
         if (node.typeComment) {
             this._evaluator.addDiagnosticForTextRange(
                 this._fileInfo,
-                this._fileInfo.diagnosticRuleSet.reportInvalidTypeForm,
                 DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.annotationNotSupported(),
                 node.typeComment
@@ -899,7 +897,6 @@ export class Checker extends ParseTreeWalker {
         if (node.typeComment) {
             this._evaluator.addDiagnosticForTextRange(
                 this._fileInfo,
-                this._fileInfo.diagnosticRuleSet.reportInvalidTypeForm,
                 DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.annotationNotSupported(),
                 node.typeComment
@@ -1169,7 +1166,6 @@ export class Checker extends ParseTreeWalker {
                     if (!isUnboundedTupleClass(type)) {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
-                            this._fileInfo.diagnosticRuleSet.reportAssertAlwaysTrue,
                             DiagnosticRule.reportAssertAlwaysTrue,
                             LocMessage.assertAlwaysTrue(),
                             node.testExpression
@@ -1386,7 +1382,6 @@ export class Checker extends ParseTreeWalker {
                     if (error.errorType === UnescapeErrorType.InvalidEscapeSequence) {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
-                            this._fileInfo.diagnosticRuleSet.reportInvalidStringEscapeSequence,
                             DiagnosticRule.reportInvalidStringEscapeSequence,
                             LocMessage.stringUnsupportedEscape(),
                             { start: start + error.offset, length: error.length }
@@ -1400,7 +1395,6 @@ export class Checker extends ParseTreeWalker {
                     if (escapeOffset >= 0) {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
-                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             LocMessage.formatStringEscape(),
                             { start, length: 1 }
@@ -1436,7 +1430,6 @@ export class Checker extends ParseTreeWalker {
         if (node.strings.length > 1 && !node.isParenthesized) {
             this._evaluator.addDiagnosticForTextRange(
                 this._fileInfo,
-                this._fileInfo.diagnosticRuleSet.reportImplicitStringConcatenation,
                 DiagnosticRule.reportImplicitStringConcatenation,
                 LocMessage.implicitStringConcat(),
                 node
@@ -1571,7 +1564,6 @@ export class Checker extends ParseTreeWalker {
             ) {
                 this._evaluator.addDiagnosticForTextRange(
                     this._fileInfo,
-                    this._fileInfo.diagnosticRuleSet.reportWildcardImportFromLibrary,
                     DiagnosticRule.reportWildcardImportFromLibrary,
                     LocMessage.wildcardLibraryImport(),
                     node.wildcardToken || node
@@ -3610,7 +3602,6 @@ export class Checker extends ParseTreeWalker {
 
                             this._evaluator.addDiagnosticForTextRange(
                                 this._fileInfo,
-                                this._fileInfo.diagnosticRuleSet.reportUnusedImport,
                                 DiagnosticRule.reportUnusedImport,
                                 LocMessage.unaccessedImport().format({ name: multipartName }),
                                 textRange
@@ -4437,7 +4428,6 @@ export class Checker extends ParseTreeWalker {
             // This means the user has a module that is overwriting the stdlib module.
             const diag = this._evaluator.addDiagnosticForTextRange(
                 this._fileInfo,
-                this._fileInfo.diagnosticRuleSet.reportShadowedImports,
                 DiagnosticRule.reportShadowedImports,
                 LocMessage.stdlibModuleOverridden().format({
                     name: moduleName,

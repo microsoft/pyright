@@ -10,11 +10,11 @@ import assert from 'assert';
 
 import { combinePaths, getFileName, normalizeSlashes } from '../common/pathUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
+import { Uri } from '../common/uri/uri';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { runFourSlashTestContent } from './harness/fourslash/runner';
 import { parseAndGetTestState } from './harness/fourslash/testState';
 import * as factory from './harness/vfs/factory';
-import { Uri } from '../common/uri/uri';
 
 test('Create', () => {
     const code = `

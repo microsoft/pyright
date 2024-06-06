@@ -367,7 +367,6 @@ export class Binder extends ParseTreeWalker {
 
         if (!importResult.isImportFound) {
             this._addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportMissingImports,
                 DiagnosticRule.reportMissingImports,
                 LocMessage.importResolveFailure().format({
                     importName: importResult.importName,
@@ -385,7 +384,6 @@ export class Binder extends ParseTreeWalker {
             !importResult.pyTypedInfo
         ) {
             const diagnostic = this._addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportMissingTypeStubs,
                 DiagnosticRule.reportMissingTypeStubs,
                 LocMessage.stubFileMissing().format({ importName: importResult.importName }),
                 node
@@ -752,7 +750,6 @@ export class Binder extends ParseTreeWalker {
                 this._usesUnsupportedDunderAllForm = true;
 
                 this._addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
                     DiagnosticRule.reportUnsupportedDunderAll,
                     LocMessage.unsupportedDunderAllOperation(),
                     node
@@ -863,7 +860,6 @@ export class Binder extends ParseTreeWalker {
 
         if (node.chainedTypeAnnotationComment) {
             this._addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportInvalidTypeForm,
                 DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.annotationNotSupported(),
                 node.chainedTypeAnnotationComment
@@ -956,7 +952,6 @@ export class Binder extends ParseTreeWalker {
                     this._usesUnsupportedDunderAllForm = true;
 
                     this._addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
                         DiagnosticRule.reportUnsupportedDunderAll,
                         LocMessage.unsupportedDunderAllOperation(),
                         node
@@ -1111,7 +1106,6 @@ export class Binder extends ParseTreeWalker {
                 this._usesUnsupportedDunderAllForm = true;
 
                 this._addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
                     DiagnosticRule.reportUnsupportedDunderAll,
                     LocMessage.unsupportedDunderAllOperation(),
                     node
@@ -3842,7 +3836,6 @@ export class Binder extends ParseTreeWalker {
 
         if (!declarationHandled) {
             this._addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportInvalidTypeForm,
                 DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.annotationNotSupported(),
                 typeAnnotation
@@ -4224,7 +4217,9 @@ export class Binder extends ParseTreeWalker {
         return getUniqueFlowNodeId();
     }
 
-    private _addDiagnostic(diagLevel: DiagnosticLevel, rule: DiagnosticRule, message: string, textRange: TextRange) {
+    private _addDiagnostic(rule: DiagnosticRule, message: string, textRange: TextRange) {
+        const diagLevel = this._fileInfo.diagnosticRuleSet[rule] as DiagnosticLevel;
+
         let diagnostic: Diagnostic | undefined;
         switch (diagLevel) {
             case 'error':
