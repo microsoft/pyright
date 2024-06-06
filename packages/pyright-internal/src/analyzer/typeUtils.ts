@@ -73,6 +73,9 @@ export interface ClassMember {
     // Partially-specialized class that contains the class member
     classType: ClassType | UnknownType | AnyType;
 
+    // Unspecialized class that contains the class member
+    unspecializedClassType: ClassType | UnknownType | AnyType;
+
     // True if it is an instance or class member; it can be both a class and
     // an instance member in cases where a class variable is overridden
     // by an instance variable
@@ -1141,8 +1144,12 @@ export function getUnknownTypeForCallable(): FunctionType {
 // If the class is generic and not already specialized, this function
 // "self specializes" the class, filling in its own type parameters
 // as type arguments.
-export function selfSpecializeClass(type: ClassType): ClassType {
-    if (type.details.typeParameters.length === 0 || type.typeArguments) {
+export function selfSpecializeClass(type: ClassType, overrideTypeArgs = false): ClassType {
+    if (type.details.typeParameters.length === 0) {
+        return type;
+    }
+
+    if (type.typeArguments && !overrideTypeArgs) {
         return type;
     }
 
@@ -1640,6 +1647,7 @@ export function getProtocolSymbolsRecursive(
             symbolMap.set(name, {
                 symbol,
                 classType,
+                unspecializedClassType: classType,
                 isInstanceMember: symbol.isInstanceMember(),
                 isClassMember: symbol.isClassMember(),
                 isClassVar: isEffectivelyClassVar(symbol, /* isDataclass */ false),
@@ -1772,6 +1780,8 @@ export function* getClassMemberIterator(
         for (const [mroClass, specializedMroClass] of classItr) {
             if (!isInstantiableClass(mroClass)) {
                 if (!declaredTypesOnly) {
+                    const classType = isAnyOrUnknown(mroClass) ? mroClass : UnknownType.create();
+
                     // The class derives from an unknown type, so all bets are off
                     // when trying to find a member. Return an unknown symbol.
                     const cm: ClassMember = {
@@ -1779,7 +1789,8 @@ export function* getClassMemberIterator(
                         isInstanceMember: false,
                         isClassMember: true,
                         isClassVar: false,
-                        classType: isAnyOrUnknown(mroClass) ? mroClass : UnknownType.create(),
+                        classType,
+                        unspecializedClassType: classType,
                         isTypeDeclared: false,
                         skippedUndeclaredType: false,
                     };
@@ -1806,6 +1817,7 @@ export function* getClassMemberIterator(
                             isClassMember: symbol.isClassMember(),
                             isClassVar: isEffectivelyClassVar(symbol, ClassType.isDataClass(specializedMroClass)),
                             classType: specializedMroClass,
+                            unspecializedClassType: mroClass,
                             isTypeDeclared: hasDeclaredType,
                             skippedUndeclaredType,
                         };
@@ -1846,6 +1858,7 @@ export function* getClassMemberIterator(
                             isClassMember,
                             isClassVar: isEffectivelyClassVar(symbol, isDataclass),
                             classType: specializedMroClass,
+                            unspecializedClassType: mroClass,
                             isTypeDeclared: hasDeclaredType,
                             skippedUndeclaredType,
                         };
@@ -1865,6 +1878,7 @@ export function* getClassMemberIterator(
             isClassMember: true,
             isClassVar: false,
             classType,
+            unspecializedClassType: classType,
             isTypeDeclared: false,
             skippedUndeclaredType: false,
         };
@@ -1936,6 +1950,7 @@ export function getClassFieldsRecursive(classType: ClassType): Map<string, Class
                 if (!symbol.isIgnoredForProtocolMatch() && symbol.hasTypedDeclarations()) {
                     memberMap.set(name, {
                         classType: specializedMroClass,
+                        unspecializedClassType: mroClass,
                         symbol,
                         isInstanceMember: symbol.isInstanceMember(),
                         isClassMember: symbol.isClassMember(),
@@ -3114,7 +3129,9 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
     // The first class in the MRO is the class itself.
     const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
-    classType.details.mro.push(applySolvedTypeVars(classType, typeVarContext));
+    const specializedClassType = applySolvedTypeVars(classType, typeVarContext);
+    assert(isClass(specializedClassType) || isAny(specializedClassType) || isUnknown(specializedClassType));
+    classType.details.mro.push(specializedClassType);
 
     // Helper function that returns true if the specified searchClass
     // is found in the "tail" (i.e. in elements 1 through n) of any
@@ -3154,6 +3171,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
                 if (!isInstantiableClass(classList[0])) {
                     foundValidHead = true;
+                    assert(isAny(classList[0]) || isUnknown(classList[0]));
                     classType.details.mro.push(classList[0]);
                     classList.shift();
                     break;
@@ -3180,6 +3198,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
             // Handle the situation by pull the head off the first empty list.
             // This allows us to make forward progress.
             if (!isInstantiableClass(nonEmptyList[0])) {
+                assert(isAny(nonEmptyList[0]) || isUnknown(nonEmptyList[0]));
                 classType.details.mro.push(nonEmptyList[0]);
                 nonEmptyList.shift();
             } else {
