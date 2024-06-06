@@ -1,5 +1,6 @@
 {
     "Diagnostic": {
+        "annotatedMetadataInconsistent": "Annotated metadata type \"{metadataType}\" is not compatible with type \"{type}\"",
         "abstractMethodInvocation": "Method \"{method}\" cannot be called because it is abstract and unimplemented",
         "annotatedParamCountMismatch": "Parameter annotation count mismatch: expected {expected} but received {received}",
         "annotatedTypeArgMissing": "Expected one type argument and one or more annotations for \"Annotated\"",

@@ -15450,11 +15450,15 @@ export function createTypeEvaluator(
 
     function createAnnotatedType(
         classType: ClassType,
-        errorNode: ParseNode,
+        errorNode: ExpressionNode,
         typeArgs: TypeResultWithNode[] | undefined
     ): TypeResult {
-        if (typeArgs && typeArgs.length < 2) {
-            addError(LocMessage.annotatedTypeArgMissing(), errorNode);
+        if (typeArgs) {
+            if (typeArgs.length < 2) {
+                addError(LocMessage.annotatedTypeArgMissing(), errorNode);
+            } else {
+                validateAnnotatedMetadata(errorNode, typeArgs[0].type, typeArgs.slice(1));
+            }
         }
 
         if (!typeArgs || typeArgs.length === 0) {
@@ -15471,6 +15475,63 @@ export function createTypeEvaluator(
             isRequired: typeArgs[0].isRequired,
             isNotRequired: typeArgs[0].isNotRequired,
         };
+    }
+
+    // Enforces metadata consistency as specified in PEP 746.
+    function validateAnnotatedMetadata(errorNode: ExpressionNode, annotatedType: Type, metaArgs: TypeResultWithNode[]) {
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+
+        // This is an experimental feature because PEP 746 hasn't been accepted.
+        if (!fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
+            return;
+        }
+
+        for (const metaArg of metaArgs) {
+            if (isClass(metaArg.type)) {
+                const supportsTypeMethod = getTypeOfBoundMember(
+                    /* errorNode */ undefined,
+                    metaArg.type,
+                    '__supports_type__'
+                )?.type;
+
+                if (!supportsTypeMethod) {
+                    continue;
+                }
+
+                // "Call" the __supports_type__ method to determine if the type is supported.
+                const argList: FunctionArgument[] = [
+                    {
+                        argumentCategory: ArgumentCategory.Simple,
+                        typeResult: { type: convertToInstance(annotatedType) },
+                    },
+                ];
+
+                const callResult = useSpeculativeMode(errorNode, () =>
+                    validateCallArguments(
+                        errorNode,
+                        argList,
+                        { type: supportsTypeMethod },
+                        /* typeVarContext */ undefined,
+                        /* skipUnknownArgCheck */ true,
+                        /* inferenceContext */ undefined,
+                        /* signatureTracker */ undefined
+                    )
+                );
+
+                if (!callResult.isTypeIncomplete && callResult.returnType) {
+                    if (callResult.argumentErrors || !canBeTruthy(callResult.returnType)) {
+                        addDiagnostic(
+                            DiagnosticRule.reportInvalidTypeArguments,
+                            LocMessage.annotatedMetadataInconsistent().format({
+                                metadataType: printType(metaArg.type),
+                                type: printType(convertToInstance(annotatedType)),
+                            }),
+                            metaArg.node
+                        );
+                    }
+                }
+            }
+        }
     }
 
     // Creates one of several "special" types that are defined in typing.pyi
@@ -19933,7 +19994,7 @@ export function createTypeEvaluator(
         classType: ClassType,
         typeArgs: TypeResultWithNode[] | undefined,
         flags: EvaluatorFlags,
-        errorNode: ParseNode
+        errorNode: ExpressionNode
     ): TypeResult {
         // Handle the special-case classes that are not defined
         // in the type stubs.

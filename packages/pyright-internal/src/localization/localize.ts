@@ -188,6 +188,10 @@ export function loadStringsForLocale(locale: string, localeMap: Map<string, any>
 
 export namespace Localizer {
     export namespace Diagnostic {
+        export const annotatedMetadataInconsistent = () =>
+            new ParameterizedString<{ type: string; metadataType: string }>(
+                getRawString('Diagnostic.annotatedMetadataInconsistent')
+            );
         export const abstractMethodInvocation = () =>
             new ParameterizedString<{ method: string }>(getRawString('Diagnostic.abstractMethodInvocation'));
         export const annotatedParamCountMismatch = () =>
