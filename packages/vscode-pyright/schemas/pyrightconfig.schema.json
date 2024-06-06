@@ -898,6 +898,276 @@
             "default": "",
             "pattern": "^(.*)$"
           },
+          "disableBytesTypePromotions": {
+            "$ref": "#/definitions/disableBytesTypePromotions"
+          },
+          "strictListInference": {
+            "$ref": "#/definitions/strictListInference"
+          },
+          "strictSetInference": {
+            "$ref": "#/definitions/strictSetInference"
+          },
+          "strictDictionaryInference": {
+            "$ref": "#/definitions/strictDictionaryInference"
+          },
+          "analyzeUnannotatedFunctions": {
+            "$ref": "#/definitions/analyzeUnannotatedFunctions"
+          },
+          "strictParameterNoneValue": {
+            "$ref": "#/definitions/strictParameterNoneValue"
+          },
+          "enableExperimentalFeatures": {
+            "$ref": "#/definitions/enableExperimentalFeatures"
+          },
+          "enableTypeIgnoreComments": {
+            "$ref": "#/definitions/enableTypeIgnoreComments"
+          },
+          "deprecateTypingAliases": {
+            "$ref": "#/definitions/deprecateTypingAliases"
+          },
+          "reportGeneralTypeIssues": {
+            "$ref": "#/definitions/reportGeneralTypeIssues"
+          },
+          "reportPropertyTypeMismatch": {
+            "$ref": "#/definitions/reportPropertyTypeMismatch"
+          },
+          "reportFunctionMemberAccess": {
+            "$ref": "#/definitions/reportFunctionMemberAccess"
+          },
+          "reportMissingImports": {
+            "$ref": "#/definitions/reportMissingImports"
+          },
+          "reportMissingModuleSource": {
+            "$ref": "#/definitions/reportMissingModuleSource"
+          },
+          "reportInvalidTypeForm": {
+            "$ref": "#/definitions/reportInvalidTypeForm"
+          },
+          "reportMissingTypeStubs": {
+            "$ref": "#/definitions/reportMissingTypeStubs"
+          },
+          "reportImportCycles": {
+            "$ref": "#/definitions/reportImportCycles"
+          },
+          "reportUnusedImport": {
+            "$ref": "#/definitions/reportUnusedImport"
+          },
+          "reportUnusedClass": {
+            "$ref": "#/definitions/reportUnusedClass"
+          },
+          "reportUnusedFunction": {
+            "$ref": "#/definitions/reportUnusedFunction"
+          },
+          "reportUnusedVariable": {
+            "$ref": "#/definitions/reportUnusedVariable"
+          },
+          "reportDuplicateImport": {
+            "$ref": "#/definitions/reportDuplicateImport"
+          },
+          "reportWildcardImportFromLibrary": {
+            "$ref": "#/definitions/reportWildcardImportFromLibrary"
+          },
+          "reportAbstractUsage": {
+            "$ref": "#/definitions/reportAbstractUsage"
+          },
+          "reportArgumentType": {
+            "$ref": "#/definitions/reportArgumentType"
+          },
+          "reportAssertTypeFailure": {
+            "$ref": "#/definitions/reportAssertTypeFailure"
+          },
+          "reportAssignmentType": {
+            "$ref": "#/definitions/reportAssignmentType"
+          },
+          "reportAttributeAccessIssue": {
+            "$ref": "#/definitions/reportAttributeAccessIssue"
+          },
+          "reportCallIssue": {
+            "$ref": "#/definitions/reportCallIssue"
+          },
+          "reportInconsistentOverload": {
+            "$ref": "#/definitions/reportInconsistentOverload"
+          },
+          "reportIndexIssue": {
+            "$ref": "#/definitions/reportIndexIssue"
+          },
+          "reportInvalidTypeArguments": {
+            "$ref": "#/definitions/reportInvalidTypeArguments"
+          },
+          "reportNoOverloadImplementation": {
+            "$ref": "#/definitions/reportNoOverloadImplementation"
+          },
+          "reportOperatorIssue": {
+            "$ref": "#/definitions/reportOperatorIssue"
+          },
+          "reportOptionalSubscript": {
+            "$ref": "#/definitions/reportOptionalSubscript"
+          },
+          "reportOptionalMemberAccess": {
+            "$ref": "#/definitions/reportOptionalMemberAccess"
+          },
+          "reportOptionalCall": {
+            "$ref": "#/definitions/reportOptionalCall"
+          },
+          "reportOptionalIterable": {
+            "$ref": "#/definitions/reportOptionalIterable"
+          },
+          "reportOptionalContextManager": {
+            "$ref": "#/definitions/reportOptionalContextManager"
+          },
+          "reportOptionalOperand": {
+            "$ref": "#/definitions/reportOptionalOperand"
+          },
+          "reportRedeclaration": {
+            "$ref": "#/definitions/reportRedeclaration"
+          },
+          "reportReturnType": {
+            "$ref": "#/definitions/reportReturnType"
+          },
+          "reportTypedDictNotRequiredAccess": {
+            "$ref": "#/definitions/reportTypedDictNotRequiredAccess"
+          },
+          "reportUntypedFunctionDecorator": {
+            "$ref": "#/definitions/reportUntypedFunctionDecorator"
+          },
+          "reportUntypedClassDecorator": {
+            "$ref": "#/definitions/reportUntypedClassDecorator"
+          },
+          "reportUntypedBaseClass": {
+            "$ref": "#/definitions/reportUntypedBaseClass"
+          },
+          "reportUntypedNamedTuple": {
+            "$ref": "#/definitions/reportUntypedNamedTuple"
+          },
+          "reportPrivateUsage": {
+            "$ref": "#/definitions/reportPrivateUsage"
+          },
+          "reportTypeCommentUsage": {
+            "$ref": "#/definitions/reportTypeCommentUsage"
+          },
+          "reportPrivateImportUsage": {
+            "$ref": "#/definitions/reportPrivateImportUsage"
+          },
+          "reportConstantRedefinition": {
+            "$ref": "#/definitions/reportConstantRedefinition"
+          },
+          "reportDeprecated": {
+            "$ref": "#/definitions/reportDeprecated"
+          },
+          "reportIncompatibleMethodOverride": {
+            "$ref": "#/definitions/reportIncompatibleMethodOverride"
+          },
+          "reportIncompatibleVariableOverride": {
+            "$ref": "#/definitions/reportIncompatibleVariableOverride"
+          },
+          "reportInconsistentConstructor": {
+            "$ref": "#/definitions/reportInconsistentConstructor"
+          },
+          "reportOverlappingOverload": {
+            "$ref": "#/definitions/reportOverlappingOverload"
+          },
+          "reportPossiblyUnboundVariable": {
+            "$ref": "#/definitions/reportPossiblyUnboundVariable"
+          },
+          "reportMissingSuperCall": {
+            "$ref": "#/definitions/reportMissingSuperCall"
+          },
+          "reportUninitializedInstanceVariable": {
+            "$ref": "#/definitions/reportUninitializedInstanceVariable"
+          },
+          "reportInvalidStringEscapeSequence": {
+            "$ref": "#/definitions/reportInvalidStringEscapeSequence"
+          },
+          "reportUnknownParameterType": {
+            "$ref": "#/definitions/reportUnknownParameterType"
+          },
+          "reportUnknownArgumentType": {
+            "$ref": "#/definitions/reportUnknownArgumentType"
+          },
+          "reportUnknownLambdaType": {
+            "$ref": "#/definitions/reportUnknownLambdaType"
+          },
+          "reportUnknownVariableType": {
+            "$ref": "#/definitions/reportUnknownVariableType"
+          },
+          "reportUnknownMemberType": {
+            "$ref": "#/definitions/reportUnknownMemberType"
+          },
+          "reportMissingParameterType": {
+            "$ref": "#/definitions/reportMissingParameterType"
+          },
+          "reportMissingTypeArgument": {
+            "$ref": "#/definitions/reportMissingTypeArgument"
+          },
+          "reportInvalidTypeVarUse": {
+            "$ref": "#/definitions/reportInvalidTypeVarUse"
+          },
+          "reportCallInDefaultInitializer": {
+            "$ref": "#/definitions/reportCallInDefaultInitializer"
+          },
+          "reportUnnecessaryIsInstance": {
+            "$ref": "#/definitions/reportUnnecessaryIsInstance"
+          },
+          "reportUnnecessaryCast": {
+            "$ref": "#/definitions/reportUnnecessaryCast"
+          },
+          "reportUnnecessaryComparison": {
+            "$ref": "#/definitions/reportUnnecessaryComparison"
+          },
+          "reportUnnecessaryContains": {
+            "$ref": "#/definitions/reportUnnecessaryContains"
+          },
+          "reportAssertAlwaysTrue": {
+            "$ref": "#/definitions/reportAssertAlwaysTrue"
+          },
+          "reportSelfClsParameterName": {
+            "$ref": "#/definitions/reportSelfClsParameterName"
+          },
+          "reportImplicitStringConcatenation": {
+            "$ref": "#/definitions/reportImplicitStringConcatenation"
+          },
+          "reportUnboundVariable": {
+            "$ref": "#/definitions/reportUnboundVariable"
+          },
+          "reportUnhashable": {
+            "$ref": "#/definitions/reportUnhashable"
+          },
+          "reportUndefinedVariable": {
+            "$ref": "#/definitions/reportUndefinedVariable"
+          },
+          "reportInvalidStubStatement": {
+            "$ref": "#/definitions/reportInvalidStubStatement"
+          },
+          "reportIncompleteStub": {
+            "$ref": "#/definitions/reportIncompleteStub"
+          },
+          "reportUnsupportedDunderAll": {
+            "$ref": "#/definitions/reportUnsupportedDunderAll"
+          },
+          "reportUnusedCallResult": {
+            "$ref": "#/definitions/reportUnusedCallResult"
+          },
+          "reportUnusedCoroutine": {
+            "$ref": "#/definitions/reportUnusedCoroutine"
+          },
+          "reportUnusedExcept": {
+            "$ref": "#/definitions/reportUnusedExcept"
+          },
+          "reportUnusedExpression": {
+            "$ref": "#/definitions/reportUnusedExpression"
+          },
+          "reportUnnecessaryTypeIgnoreComment": {
+            "$ref": "#/definitions/reportUnnecessaryTypeIgnoreComment"
+          },
+          "reportMatchNotExhaustive": {
+            "$ref": "#/definitions/reportMatchNotExhaustive"
+          },
+          "reportShadowedImports": {
+            "$ref": "#/definitions/reportShadowedImports"
+          },
+          "reportImplicitOverride": {
+            "$ref": "#/definitions/reportImplicitOverride"
+          },
           "extraPaths": {
             "$ref": "#/definitions/extraPaths"
           },

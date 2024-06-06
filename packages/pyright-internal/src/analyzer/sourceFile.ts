@@ -723,7 +723,7 @@ export class SourceFile {
                 this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(
                     parseFileResults.tokenizerOutput.tokens,
                     parseFileResults.tokenizerOutput.lines,
-                    configOptions.diagnosticRuleSet,
+                    execEnvironment.diagnosticRuleSet,
                     useStrict,
                     commentDiags
                 );

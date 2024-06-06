@@ -12,7 +12,7 @@ import assert from 'assert';
 import { AnalyzerService } from '../analyzer/service';
 import { deserialize, serialize } from '../backgroundThreadBase';
 import { CommandLineOptions } from '../common/commandLineOptions';
-import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { ConfigOptions, ExecutionEnvironment, getStandardDiagnosticRuleSet } from '../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../common/console';
 import { NoAccessHost } from '../common/host';
 import { combinePaths, normalizePath, normalizeSlashes } from '../common/pathUtils';
@@ -170,6 +170,7 @@ test('FindExecEnv1', () => {
     const execEnv1 = new ExecutionEnvironment(
         'python',
         cwd.resolvePaths('src/foo'),
+        getStandardDiagnosticRuleSet(),
         /* defaultPythonVersion */ undefined,
         /* defaultPythonPlatform */ undefined,
         /* defaultExtraPaths */ undefined
@@ -178,6 +179,7 @@ test('FindExecEnv1', () => {
     const execEnv2 = new ExecutionEnvironment(
         'python',
         cwd.resolvePaths('src'),
+        getStandardDiagnosticRuleSet(),
         /* defaultPythonVersion */ undefined,
         /* defaultPythonPlatform */ undefined,
         /* defaultExtraPaths */ undefined
