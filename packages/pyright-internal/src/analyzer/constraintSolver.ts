@@ -143,7 +143,7 @@ export function assignTypeToTypeVar(
             destType.details.isParamSpec &&
             isFunction(srcType) &&
             FunctionType.isParamSpecValue(srcType) &&
-            FunctionType.shouldSkipArgsKwargsCompatibilityCheck(srcType)
+            FunctionType.isGradualCallableForm(srcType)
         ) {
             return true;
         }
@@ -971,7 +971,7 @@ function assignTypeToParamSpec(
                     // "..." (which is the ParamSpec equivalent of "Any"). If only one has
                     // the type "...", we'll prefer the other one. This is analogous to
                     // what we do with regular TypeVars, where we prefer non-Any values.
-                    if (!FunctionType.shouldSkipArgsKwargsCompatibilityCheck(newFunction)) {
+                    if (!FunctionType.isGradualCallableForm(newFunction)) {
                         updateContextWithNewFunction = true;
                     } else {
                         return;

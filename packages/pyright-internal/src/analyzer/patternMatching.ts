@@ -818,7 +818,7 @@ function narrowTypeBasedOnClassPattern(
                             // Convert to an unknown callable type.
                             const unknownCallable = FunctionType.createSynthesizedInstance(
                                 '',
-                                FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+                                FunctionTypeFlags.GradualCallableForm
                             );
                             FunctionType.addDefaultParameters(
                                 unknownCallable,

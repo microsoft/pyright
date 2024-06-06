@@ -6275,7 +6275,7 @@ export function createTypeEvaluator(
                 // If there's no declared return type on the getter, assume it's symmetric.
                 if (setterType.details.parameters.length >= 3 && getterType.details.declaredReturnType) {
                     const setterValueType = FunctionType.getEffectiveParameterType(setterType, 2);
-                    const getterReturnType = FunctionType.getSpecializedReturnType(getterType) ?? UnknownType.create();
+                    const getterReturnType = FunctionType.getEffectiveReturnType(getterType) ?? UnknownType.create();
 
                     if (!isTypeSame(setterValueType, getterReturnType)) {
                         isAsymmetric = true;
@@ -6312,7 +6312,7 @@ export function createTypeEvaluator(
                 // If there's no declared return type on the getter, assume it's symmetric.
                 if (setterType.details.parameters.length >= 3 && getterType.details.declaredReturnType) {
                     const setterValueType = FunctionType.getEffectiveParameterType(setterType, 2);
-                    const getterReturnType = FunctionType.getSpecializedReturnType(getterType) ?? UnknownType.create();
+                    const getterReturnType = FunctionType.getEffectiveReturnType(getterType) ?? UnknownType.create();
 
                     if (!isTypeSame(setterValueType, getterReturnType)) {
                         isAsymmetric = true;
@@ -6797,7 +6797,7 @@ export function createTypeEvaluator(
                                     FunctionType.addParamSpecVariadics(functionType, typeArg);
                                 } else if (isEllipsisType(typeArg)) {
                                     FunctionType.addDefaultParameters(functionType);
-                                    functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+                                    functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
                                 }
                             } else {
                                 FunctionType.addParameter(functionType, {
@@ -6822,7 +6822,7 @@ export function createTypeEvaluator(
                 } else if (isEllipsisType(typeArgType)) {
                     const functionType = FunctionType.createSynthesizedInstance(
                         '',
-                        FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+                        FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.GradualCallableForm
                     );
                     FunctionType.addDefaultParameters(functionType);
                     assignTypeToTypeVar(evaluatorInterface, param, functionType, diag, typeVarContext);
@@ -11240,7 +11240,7 @@ export function createTypeEvaluator(
             isAnyOrUnknown(inferenceContext.expectedType) ||
             isNever(inferenceContext.expectedType) ||
             !type.details.declaredReturnType ||
-            !requiresSpecialization(FunctionType.getSpecializedReturnType(type) ?? UnknownType.create())
+            !requiresSpecialization(FunctionType.getEffectiveReturnType(type) ?? UnknownType.create())
         ) {
             return validateFunctionArgumentTypes(
                 errorNode,
@@ -12733,7 +12733,7 @@ export function createTypeEvaluator(
 
         if (node.nodeType === ParseNodeType.Ellipsis) {
             FunctionType.addDefaultParameters(functionType);
-            functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+            functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
             return functionType;
         }
 
@@ -14225,7 +14225,7 @@ export function createTypeEvaluator(
         if (enclosingFunction) {
             const functionTypeInfo = getTypeOfFunction(enclosingFunction);
             if (functionTypeInfo) {
-                const returnType = FunctionType.getSpecializedReturnType(functionTypeInfo.functionType);
+                const returnType = FunctionType.getEffectiveReturnType(functionTypeInfo.functionType);
                 if (returnType) {
                     expectedYieldType = getGeneratorYieldType(returnType, !!enclosingFunction.isAsync);
 
@@ -14871,7 +14871,7 @@ export function createTypeEvaluator(
                 }
             } else if (isEllipsisType(typeArgs[0].type)) {
                 FunctionType.addDefaultParameters(functionType);
-                functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+                functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
             } else if (isParamSpec(typeArgs[0].type)) {
                 paramSpec = typeArgs[0].type;
             } else {
@@ -14886,7 +14886,7 @@ export function createTypeEvaluator(
                                     paramSpec = typeArg;
                                 } else if (isEllipsisType(typeArg)) {
                                     FunctionType.addDefaultParameters(functionType);
-                                    functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+                                    functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
                                 }
                             } else {
                                 FunctionType.addParameter(functionType, {
@@ -14921,7 +14921,7 @@ export function createTypeEvaluator(
             }
         } else {
             FunctionType.addDefaultParameters(functionType, /* useUnknown */ true);
-            functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+            functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
         }
 
         if (paramSpec) {
@@ -18117,7 +18117,7 @@ export function createTypeEvaluator(
                 isParamSpec(paramType2) &&
                 paramType2.paramSpecAccess === 'kwargs'
             ) {
-                functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+                functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
             }
         }
 
@@ -18128,7 +18128,7 @@ export function createTypeEvaluator(
             (param) => param.category !== ParameterCategory.Simple && param.name && isAnyOrUnknown(param.type)
         );
         if (variadicsWithAnyType.length >= 2) {
-            functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+            functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
         }
 
         // If there was a defined return type, analyze that first so when we
@@ -20283,7 +20283,7 @@ export function createTypeEvaluator(
 
                     if (isEllipsisType(typeArg.type)) {
                         FunctionType.addDefaultParameters(functionType);
-                        functionType.details.flags |= FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+                        functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
                         typeArgTypes.push(functionType);
                         typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(functionType));
                         return;
@@ -20318,8 +20318,7 @@ export function createTypeEvaluator(
                                         FunctionType.addParamSpecVariadics(functionType, typeArg);
                                     } else if (isEllipsisType(typeArg)) {
                                         FunctionType.addDefaultParameters(functionType);
-                                        functionType.details.flags |=
-                                            FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+                                        functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
                                     }
                                 } else {
                                     FunctionType.addParameter(functionType, {
@@ -21994,7 +21993,7 @@ export function createTypeEvaluator(
         callSiteInfo?: CallSiteEvaluationInfo,
         inferTypeIfNeeded = true
     ) {
-        const specializedReturnType = FunctionType.getSpecializedReturnType(type, /* includeInferred */ false);
+        const specializedReturnType = FunctionType.getEffectiveReturnType(type, /* includeInferred */ false);
         if (specializedReturnType && !isUnknown(specializedReturnType)) {
             const liveTypeVarScopes = callSiteInfo?.errorNode
                 ? ParseTreeUtils.getTypeVarScopesForNode(callSiteInfo?.errorNode)
@@ -23566,7 +23565,7 @@ export function createTypeEvaluator(
                 if (
                     isParamSpec(srcType) &&
                     isFunction(destType) &&
-                    FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType) &&
+                    FunctionType.isGradualCallableForm(destType) &&
                     destType.details.parameters.length <= 2
                 ) {
                     return true;
@@ -25267,7 +25266,7 @@ export function createTypeEvaluator(
         }
 
         if (
-            !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType) &&
+            !FunctionType.isGradualCallableForm(destType) &&
             destParamDetails.firstPositionOrKeywordIndex < srcParamDetails.positionOnlyParamCount &&
             !targetIncludesParamSpec
         ) {
@@ -25426,7 +25425,7 @@ export function createTypeEvaluator(
         if (
             srcParamDetails.argsIndex !== undefined &&
             destParamDetails.argsIndex !== undefined &&
-            !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType)
+            !FunctionType.isGradualCallableForm(destType)
         ) {
             let destArgsType = destParamDetails.params[destParamDetails.argsIndex].type;
             let srcArgsType = srcParamDetails.params[srcParamDetails.argsIndex].type;
@@ -25458,7 +25457,7 @@ export function createTypeEvaluator(
         // If the dest has an "*args" but the source doesn't, report the incompatibility.
         // The converse situation is OK.
         if (
-            !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType) &&
+            !FunctionType.isGradualCallableForm(destType) &&
             srcParamDetails.argsIndex === undefined &&
             srcParamSpec === undefined &&
             destParamDetails.argsIndex !== undefined &&
@@ -25650,7 +25649,7 @@ export function createTypeEvaluator(
             // If the dest has a "**kwargs" but the source doesn't, report the incompatibility.
             // The converse situation is OK.
             if (
-                !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(destType) &&
+                !FunctionType.isGradualCallableForm(destType) &&
                 srcParamDetails.kwargsIndex === undefined &&
                 srcParamSpec === undefined &&
                 destParamDetails.kwargsIndex !== undefined
@@ -26258,10 +26257,7 @@ export function createTypeEvaluator(
 
         let canOverride = true;
 
-        if (
-            !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(baseMethod) &&
-            !FunctionType.shouldSkipArgsKwargsCompatibilityCheck(overrideMethod)
-        ) {
+        if (!FunctionType.isGradualCallableForm(baseMethod) && !FunctionType.isGradualCallableForm(overrideMethod)) {
             // Verify that we're not overriding a static, class or instance method with
             // an incompatible type.
             if (FunctionType.isStaticMethod(baseMethod)) {

@@ -2685,8 +2685,8 @@ export class Checker extends ParseTreeWalker {
         for (let i = 0; i < prevOverloads.length; i++) {
             const prevOverload = prevOverloads[i];
             if (this._isOverlappingOverload(prevOverload, functionType, /* partialOverlap */ true)) {
-                const prevReturnType = FunctionType.getSpecializedReturnType(prevOverload);
-                const returnType = FunctionType.getSpecializedReturnType(functionType);
+                const prevReturnType = FunctionType.getEffectiveReturnType(prevOverload);
+                const returnType = FunctionType.getEffectiveReturnType(functionType);
 
                 if (
                     prevReturnType &&
@@ -5601,15 +5601,11 @@ export class Checker extends ParseTreeWalker {
         // because we don't care about the return type for this check.
         initMemberType = FunctionType.cloneWithNewFlags(
             initMemberType,
-            initMemberType.details.flags |
-                FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck |
-                FunctionTypeFlags.ParamSpecValue
+            initMemberType.details.flags | FunctionTypeFlags.GradualCallableForm | FunctionTypeFlags.ParamSpecValue
         );
         newMemberType = FunctionType.cloneWithNewFlags(
             newMemberType,
-            initMemberType.details.flags |
-                FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck |
-                FunctionTypeFlags.ParamSpecValue
+            initMemberType.details.flags | FunctionTypeFlags.GradualCallableForm | FunctionTypeFlags.ParamSpecValue
         );
 
         if (
@@ -7158,7 +7154,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const declaredReturnType = FunctionType.getSpecializedReturnType(functionTypeResult.functionType);
+        const declaredReturnType = FunctionType.getEffectiveReturnType(functionTypeResult.functionType);
         if (!declaredReturnType) {
             return;
         }

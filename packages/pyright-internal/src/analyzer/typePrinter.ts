@@ -1227,7 +1227,7 @@ function printFunctionPartsInternal(
         }
 
         // If this is a (...) signature, replace the *args, **kwargs with "...".
-        if (FunctionType.shouldSkipArgsKwargsCompatibilityCheck(type) && !isParamSpecArgsKwargsParam) {
+        if (FunctionType.isGradualCallableForm(type) && !isParamSpecArgsKwargsParam) {
             if (param.category === ParameterCategory.ArgsList) {
                 paramString = '...';
             } else if (param.category === ParameterCategory.KwargsDict) {

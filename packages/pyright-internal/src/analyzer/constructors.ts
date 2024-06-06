@@ -858,7 +858,7 @@ export function createFunctionFromConstructor(
         let skipInitMethod = false;
 
         doForEachSignature(fromNew, (signature) => {
-            const newMethodReturnType = FunctionType.getSpecializedReturnType(signature);
+            const newMethodReturnType = FunctionType.getEffectiveReturnType(signature);
             if (newMethodReturnType && shouldSkipInitEvaluation(evaluator, classType, newMethodReturnType)) {
                 skipInitMethod = true;
             }
@@ -932,7 +932,7 @@ function createFunctionFromMetaclassCall(
     // constructed.
     doForEachSignature(boundCallType, (signature) => {
         if (signature.details.declaredReturnType) {
-            const returnType = FunctionType.getSpecializedReturnType(signature);
+            const returnType = FunctionType.getEffectiveReturnType(signature);
             if (returnType && shouldSkipNewAndInitEvaluation(evaluator, classType, returnType)) {
                 useMetaclassCall = true;
             }

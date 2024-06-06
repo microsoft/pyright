@@ -2338,7 +2338,7 @@ export function narrowTypeForDiscriminatedLiteralFieldComparison(
             if (isClassInstance(subtype) && isClassInstance(memberType) && isProperty(memberType)) {
                 const getterType = memberType.fgetInfo?.methodType;
                 if (getterType && getterType.details.declaredReturnType) {
-                    const getterReturnType = FunctionType.getSpecializedReturnType(getterType);
+                    const getterReturnType = FunctionType.getEffectiveReturnType(getterType);
                     if (getterReturnType) {
                         memberType = getterReturnType;
                     }

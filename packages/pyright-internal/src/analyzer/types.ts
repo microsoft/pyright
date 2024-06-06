@@ -1044,10 +1044,6 @@ export namespace ClassType {
         return true;
     }
 
-    export function derivesFromAnyOrUnknown(classType: ClassType) {
-        return classType.details.mro.some((mroClass) => !isClass(mroClass));
-    }
-
     export function supportsAbstractMethods(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.SupportsAbstractMethods);
     }
@@ -1178,7 +1174,7 @@ export namespace ClassType {
         return classType.details.typeParameters;
     }
 
-    export function hasUnknownBaseClass(classType: ClassType) {
+    export function derivesFromAnyOrUnknown(classType: ClassType) {
         return classType.details.mro.some((baseClass) => isAnyOrUnknown(baseClass));
     }
 
@@ -1441,7 +1437,7 @@ export const enum FunctionTypeFlags {
     // The *args and **kwargs parameters do not need to be present for this
     // function to be compatible. This is used for Callable[..., x] and
     // ... type arguments to ParamSpec and Concatenate.
-    SkipArgsKwargsCompatibilityCheck = 1 << 15,
+    GradualCallableForm = 1 << 15,
 
     // This function represents the value bound to a ParamSpec, so its return
     // type is not meaningful.
@@ -1774,7 +1770,7 @@ export namespace FunctionType {
         }
 
         // Use the "..." flag from the param spec.
-        newFunction.details.flags |= paramSpecValue.details.flags & FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck;
+        newFunction.details.flags |= paramSpecValue.details.flags & FunctionTypeFlags.GradualCallableForm;
 
         // Mark the function as synthesized since there is no user-defined declaration for it.
         newFunction.details.flags |= FunctionTypeFlags.SynthesizedMethod;
@@ -2113,8 +2109,8 @@ export namespace FunctionType {
         return (type.details.flags & FunctionTypeFlags.UnannotatedParams) !== 0;
     }
 
-    export function shouldSkipArgsKwargsCompatibilityCheck(type: FunctionType) {
-        return (type.details.flags & FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck) !== 0;
+    export function isGradualCallableForm(type: FunctionType) {
+        return (type.details.flags & FunctionTypeFlags.GradualCallableForm) !== 0;
     }
 
     export function isParamSpecValue(type: FunctionType) {
@@ -2174,7 +2170,7 @@ export namespace FunctionType {
         });
     }
 
-    export function getSpecializedReturnType(type: FunctionType, includeInferred = true) {
+    export function getEffectiveReturnType(type: FunctionType, includeInferred = true) {
         if (type.specializedTypes?.returnType) {
             return type.specializedTypes.returnType;
         }
@@ -2546,7 +2542,7 @@ export interface TypeVarDetails {
     synthesizedIndex?: number | undefined;
     isExemptFromBoundCheck?: boolean;
 
-    // Does this type variable originate from new type parameter syntax?
+    // Does this type variable originate from PEP 695 type parameter syntax?
     isTypeParamSyntax?: boolean;
 
     // Used for recursive type aliases.
@@ -3029,10 +3025,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             }
 
             // If one function is ... and the other is not, they are not the same.
-            if (
-                FunctionType.shouldSkipArgsKwargsCompatibilityCheck(type1) !==
-                FunctionType.shouldSkipArgsKwargsCompatibilityCheck(functionType2)
-            ) {
+            if (FunctionType.isGradualCallableForm(type1) !== FunctionType.isGradualCallableForm(functionType2)) {
                 return false;
             }
 

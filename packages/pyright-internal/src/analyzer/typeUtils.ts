@@ -632,8 +632,8 @@ function compareTypes(a: Type, b: Type, recursionCount = 0): number {
             }
 
             const returnTypeComparison = compareTypes(
-                FunctionType.getSpecializedReturnType(a) ?? UnknownType.create(),
-                FunctionType.getSpecializedReturnType(bFunc) ?? UnknownType.create()
+                FunctionType.getEffectiveReturnType(a) ?? UnknownType.create(),
+                FunctionType.getEffectiveReturnType(bFunc) ?? UnknownType.create()
             );
 
             if (returnTypeComparison !== 0) {
@@ -854,11 +854,11 @@ export function derivesFromAnyOrUnknown(type: Type): boolean {
         if (isAnyOrUnknown(type)) {
             anyOrUnknown = true;
         } else if (isInstantiableClass(subtype)) {
-            if (ClassType.hasUnknownBaseClass(subtype)) {
+            if (ClassType.derivesFromAnyOrUnknown(subtype)) {
                 anyOrUnknown = true;
             }
         } else if (isClassInstance(subtype)) {
-            if (ClassType.hasUnknownBaseClass(subtype)) {
+            if (ClassType.derivesFromAnyOrUnknown(subtype)) {
                 anyOrUnknown = true;
             }
         }
@@ -1124,7 +1124,7 @@ export function getUnknownTypeForParamSpec(): FunctionType {
         '',
         '',
         '',
-        FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+        FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.GradualCallableForm
     );
     FunctionType.addDefaultParameters(newFunction);
     return newFunction;
@@ -1132,7 +1132,7 @@ export function getUnknownTypeForParamSpec(): FunctionType {
 
 // Returns the equivalent of "Callable[..., Unknown]".
 export function getUnknownTypeForCallable(): FunctionType {
-    const newFunction = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck);
+    const newFunction = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.GradualCallableForm);
     FunctionType.addDefaultParameters(newFunction);
     newFunction.details.declaredReturnType = UnknownType.create();
     return newFunction;
@@ -2034,7 +2034,7 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
             );
         }
 
-        const returnType = FunctionType.getSpecializedReturnType(type);
+        const returnType = FunctionType.getEffectiveReturnType(type);
         if (returnType) {
             addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(returnType, recursionCount));
         }
@@ -2269,7 +2269,7 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
 // Returns the declared "return" type (the type returned from a return statement)
 // if it was declared, or undefined otherwise.
 export function getDeclaredGeneratorReturnType(functionType: FunctionType): Type | undefined {
-    const returnType = FunctionType.getSpecializedReturnType(functionType);
+    const returnType = FunctionType.getEffectiveReturnType(functionType);
     if (returnType) {
         const generatorTypeArgs = getGeneratorTypeArgs(returnType);
 
@@ -2595,7 +2595,7 @@ export function containsAnyOrUnknown(type: Type, recurse: boolean): AnyType | Un
         override visitFunction(type: FunctionType) {
             if (this._recurse) {
                 // A function with a "..." type is effectively an "Any".
-                if (FunctionType.shouldSkipArgsKwargsCompatibilityCheck(type)) {
+                if (FunctionType.isGradualCallableForm(type)) {
                     this.anyOrUnknownType = this.anyOrUnknownType
                         ? preserveUnknown(this.anyOrUnknownType, AnyType.create())
                         : AnyType.create();
@@ -3762,7 +3762,7 @@ class TypeVarTransformer {
         return this.doForEachSignatureContext(() => {
             let functionType = sourceType;
 
-            const declaredReturnType = FunctionType.getSpecializedReturnType(functionType);
+            const declaredReturnType = FunctionType.getEffectiveReturnType(functionType);
             const specializedReturnType = declaredReturnType
                 ? this.apply(declaredReturnType, recursionCount)
                 : undefined;

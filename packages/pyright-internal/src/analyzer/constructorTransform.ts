@@ -474,7 +474,7 @@ function applyPartialTransformToFunction(
     });
 
     newCallMemberType.details.declaredReturnType = specializedFunctionType.details.declaredReturnType
-        ? FunctionType.getSpecializedReturnType(specializedFunctionType)
+        ? FunctionType.getEffectiveReturnType(specializedFunctionType)
         : specializedFunctionType.inferredReturnType;
     newCallMemberType.details.declaration = partialCallMemberType.details.declaration;
     newCallMemberType.details.typeVarScopeId = specializedFunctionType.details.typeVarScopeId;
