@@ -845,6 +845,10 @@ function reportDiagnosticsAsJson(
 
     console.info(JSON.stringify(report, /* replacer */ undefined, 4));
 
+    // Output a blank line to help tools that are attempting to parse the
+    // JSON output when used in watch mode.
+    console.info('');
+
     return {
         errorCount: report.summary.errorCount,
         warningCount: report.summary.warningCount,
