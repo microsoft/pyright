@@ -1145,7 +1145,7 @@ export class Checker extends ParseTreeWalker {
 
             const exceptionType = this._evaluator.getType(node.typeExpression);
             if (exceptionType) {
-                this._validateExceptionType(exceptionType, node.typeExpression);
+                this._validateExceptionType(exceptionType, node.typeExpression, node.isExceptGroup);
             }
         }
 
@@ -2943,7 +2943,9 @@ export class Checker extends ParseTreeWalker {
         exceptionType: Type,
         diag: DiagnosticAddendum,
         baseExceptionType: Type | undefined,
-        allowTuple: boolean
+        baseExceptionGroupType: Type | undefined,
+        allowTuple: boolean,
+        isExceptGroup: boolean
     ) {
         const derivesFromBaseException = (classType: ClassType) => {
             if (!baseExceptionType || !isInstantiableClass(baseExceptionType)) {
@@ -2951,6 +2953,14 @@ export class Checker extends ParseTreeWalker {
             }
 
             return derivesFromClassRecursive(classType, baseExceptionType, /* ignoreUnknown */ false);
+        };
+
+        const derivesFromBaseExceptionGroup = (classType: ClassType) => {
+            if (!baseExceptionGroupType || !isInstantiableClass(baseExceptionGroupType)) {
+                return true;
+            }
+
+            return derivesFromClassRecursive(classType, baseExceptionGroupType, /* ignoreUnknown */ false);
         };
 
         doForEachSubtype(exceptionType, (exceptionSubtype) => {
@@ -2967,6 +2977,10 @@ export class Checker extends ParseTreeWalker {
                             })
                         );
                     }
+
+                    if (isExceptGroup && derivesFromBaseExceptionGroup(exceptionSubtype)) {
+                        diag.addMessage(LocMessage.exceptionGroupTypeIncorrect());
+                    }
                     return;
                 }
 
@@ -2976,7 +2990,9 @@ export class Checker extends ParseTreeWalker {
                             typeArg.type,
                             diag,
                             baseExceptionType,
-                            /* allowTuple */ false
+                            baseExceptionGroupType,
+                            /* allowTuple */ false,
+                            isExceptGroup
                         );
                     });
                     return;
@@ -2991,11 +3007,19 @@ export class Checker extends ParseTreeWalker {
         });
     }
 
-    private _validateExceptionType(exceptionType: Type, errorNode: ExpressionNode): void {
+    private _validateExceptionType(exceptionType: Type, errorNode: ExpressionNode, isExceptGroup: boolean): void {
         const baseExceptionType = this._evaluator.getBuiltInType(errorNode, 'BaseException');
+        const baseExceptionGroupType = this._evaluator.getBuiltInType(errorNode, 'BaseExceptionGroup');
         const diagAddendum = new DiagnosticAddendum();
 
-        this._validateExceptionTypeRecursive(exceptionType, diagAddendum, baseExceptionType, /* allowTuple */ true);
+        this._validateExceptionTypeRecursive(
+            exceptionType,
+            diagAddendum,
+            baseExceptionType,
+            baseExceptionGroupType,
+            /* allowTuple */ true,
+            isExceptGroup
+        );
 
         if (!diagAddendum.isEmpty()) {
             this._evaluator.addDiagnostic(

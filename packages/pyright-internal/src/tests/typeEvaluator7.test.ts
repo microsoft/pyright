@@ -901,18 +901,6 @@ test('TryExcept6', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
-test('TryExcept7', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-
-    configOptions.defaultPythonVersion = pythonVersion3_10;
-    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['tryExcept7.py'], configOptions);
-    TestUtils.validateResults(analysisResults1, 3);
-
-    configOptions.defaultPythonVersion = pythonVersion3_11;
-    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['tryExcept7.py'], configOptions);
-    TestUtils.validateResults(analysisResults2, 0);
-});
-
 test('TryExcept8', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
@@ -934,6 +922,18 @@ test('TryExcept10', () => {
 test('TryExcept11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept11.py']);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('exceptionGroup1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_10;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['exceptionGroup1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 9);
+
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['exceptionGroup1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 2);
 });
 
 test('Del1', () => {
