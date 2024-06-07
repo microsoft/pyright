@@ -1255,8 +1255,7 @@ export function createTypeEvaluator(
                 typeResult = getTypeOfExpression(node.rightExpression, flags, inferenceContext, signatureTracker);
                 assignTypeToExpression(
                     node.leftExpression,
-                    typeResult.type,
-                    !!typeResult.isIncomplete,
+                    typeResult,
                     node.rightExpression,
                     /* ignoreEmptyContainers */ true,
                     /* allowAssignmentToFinalVar */ true
@@ -1270,13 +1269,7 @@ export function createTypeEvaluator(
                 }
 
                 typeResult = getTypeOfExpression(node.rightExpression, flags, inferenceContext, signatureTracker);
-                assignTypeToExpression(
-                    node.name,
-                    typeResult.type,
-                    !!typeResult.isIncomplete,
-                    node.rightExpression,
-                    /* ignoreEmptyContainers */ true
-                );
+                assignTypeToExpression(node.name, typeResult, node.rightExpression, /* ignoreEmptyContainers */ true);
                 break;
             }
 
@@ -3271,8 +3264,7 @@ export function createTypeEvaluator(
 
     function assignTypeToNameNode(
         nameNode: NameNode,
-        type: Type,
-        isTypeIncomplete: boolean,
+        typeResult: TypeResult,
         ignoreEmptyContainers: boolean,
         srcExpression?: ParseNode,
         allowAssignmentToFinalVar = false,
@@ -3311,24 +3303,24 @@ export function createTypeEvaluator(
         }
 
         // We found an existing declared type. Make sure the type is assignable.
-        let destType = type;
+        let destType = typeResult.type;
         const isTypeAlias =
             !!declaredType && isClassInstance(declaredType) && ClassType.isBuiltIn(declaredType, 'TypeAlias');
 
         if (declaredType && !isTypeAlias) {
             let diagAddendum = new DiagnosticAddendum();
 
-            if (!assignType(declaredType, type, diagAddendum)) {
+            if (!assignType(declaredType, typeResult.type, diagAddendum)) {
                 // If there was an expected type mismatch, use that diagnostic
                 // addendum because it will be more informative.
                 if (expectedTypeDiagAddendum) {
                     diagAddendum = expectedTypeDiagAddendum;
                 }
 
-                if (!isTypeIncomplete) {
+                if (!typeResult.isIncomplete) {
                     addDiagnostic(
                         DiagnosticRule.reportAssignmentType,
-                        LocMessage.typeAssignmentMismatch().format(printSrcDestTypes(type, declaredType)) +
+                        LocMessage.typeAssignmentMismatch().format(printSrcDestTypes(typeResult.type, declaredType)) +
                             diagAddendum.getString(),
                         srcExpression ?? nameNode,
                         diagAddendum.getEffectiveTextRange() ?? srcExpression ?? nameNode
@@ -3339,7 +3331,7 @@ export function createTypeEvaluator(
                 destType = declaredType;
             } else {
                 // Constrain the resulting type to match the declared type.
-                destType = narrowTypeBasedOnAssignment(nameNode, declaredType, type);
+                destType = narrowTypeBasedOnAssignment(nameNode, declaredType, typeResult).type;
             }
         } else {
             // If this is a member name (within a class scope) and the member name
@@ -3386,7 +3378,7 @@ export function createTypeEvaluator(
             }
         }
 
-        if (!isTypeIncomplete) {
+        if (!typeResult.isIncomplete) {
             reportPossibleUnknownAssignment(
                 fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                 DiagnosticRule.reportUnknownVariableType,
@@ -3397,13 +3389,12 @@ export function createTypeEvaluator(
             );
         }
 
-        writeTypeCache(nameNode, { type: destType, isIncomplete: isTypeIncomplete }, EvaluatorFlags.None);
+        writeTypeCache(nameNode, { type: destType, isIncomplete: typeResult.isIncomplete }, EvaluatorFlags.None);
     }
 
     function assignTypeToMemberAccessNode(
         target: MemberAccessNode,
-        type: Type,
-        isTypeIncomplete: boolean,
+        typeResult: TypeResult,
         srcExpr?: ExpressionNode,
         expectedTypeDiagAddendum?: DiagnosticAddendum
     ) {
@@ -3421,23 +3412,11 @@ export function createTypeEvaluator(
                 if (classTypeResults && isInstantiableClass(classTypeResults.classType)) {
                     if (isClassInstance(baseType)) {
                         if (ClassType.isSameGenericClass(baseType, classTypeResults.classType)) {
-                            assignTypeToMemberVariable(
-                                target,
-                                type,
-                                isTypeIncomplete,
-                                /* isInstanceMember */ true,
-                                srcExpr
-                            );
+                            assignTypeToMemberVariable(target, typeResult, /* isInstanceMember */ true, srcExpr);
                         }
                     } else if (isInstantiableClass(baseType)) {
                         if (ClassType.isSameGenericClass(baseType, classTypeResults.classType)) {
-                            assignTypeToMemberVariable(
-                                target,
-                                type,
-                                isTypeIncomplete,
-                                /* isInstanceMember */ false,
-                                srcExpr
-                            );
+                            assignTypeToMemberVariable(target, typeResult, /* isInstanceMember */ false, srcExpr);
                         }
                     }
 
@@ -3465,7 +3444,7 @@ export function createTypeEvaluator(
             baseTypeResult,
             {
                 method: 'set',
-                setType: { type, isIncomplete: isTypeIncomplete },
+                setType: typeResult,
                 setErrorNode: srcExpr,
                 setExpectedTypeDiag: expectedTypeDiagAddendum,
             },
@@ -3477,8 +3456,8 @@ export function createTypeEvaluator(
         }
 
         const resultToCache: TypeResult = {
-            type: setTypeResult.narrowedTypeForSet ?? type,
-            isIncomplete: isTypeIncomplete,
+            type: setTypeResult.narrowedTypeForSet ?? typeResult.type,
+            isIncomplete: typeResult.isIncomplete,
             memberAccessDeprecationInfo: setTypeResult.memberAccessDeprecationInfo,
         };
         writeTypeCache(target.memberName, resultToCache, EvaluatorFlags.None);
@@ -3487,8 +3466,7 @@ export function createTypeEvaluator(
 
     function assignTypeToMemberVariable(
         node: MemberAccessNode,
-        srcType: Type,
-        isTypeIncomplete: boolean,
+        typeResult: TypeResult,
         isInstanceMember: boolean,
         srcExprNode?: ExpressionNode
     ) {
@@ -3591,7 +3569,7 @@ export function createTypeEvaluator(
                             // The class variable is accessed in this case.
                             setSymbolAccessed(fileInfo, memberInfo.symbol, node.memberName);
                             const memberType = getTypeOfMember(memberInfo);
-                            srcType = combineTypes([srcType, memberType]);
+                            typeResult = { ...typeResult, type: combineTypes([typeResult.type, memberType]) };
                         }
                     }
                 }
@@ -3600,12 +3578,12 @@ export function createTypeEvaluator(
             // Look up the member info again, now that we've potentially updated it.
             memberInfo = lookUpClassMember(classTypeInfo.classType, memberName, MemberAccessFlags.DeclaredTypesOnly);
 
-            if (!memberInfo && srcExprNode && !isTypeIncomplete) {
+            if (!memberInfo && srcExprNode && !typeResult.isIncomplete) {
                 reportPossibleUnknownAssignment(
                     fileInfo.diagnosticRuleSet.reportUnknownMemberType,
                     DiagnosticRule.reportUnknownMemberType,
                     node.memberName,
-                    srcType,
+                    typeResult.type,
                     node,
                     /* ignoreEmptyContainers */ true
                 );
@@ -3615,8 +3593,7 @@ export function createTypeEvaluator(
 
     function assignTypeToTupleOrListNode(
         target: TupleNode | ListNode,
-        type: Type,
-        isTypeIncomplete: boolean,
+        typeResult: TypeResult,
         srcExpr: ExpressionNode
     ) {
         const targetExpressions = target.nodeType === ParseNodeType.List ? target.entries : target.expressions;
@@ -3632,11 +3609,11 @@ export function createTypeEvaluator(
         // entries at that location.
         const unpackIndex = targetExpressions.findIndex((expr) => expr.nodeType === ParseNodeType.Unpack);
 
-        type = makeTopLevelTypeVarsConcrete(type);
+        typeResult = { ...typeResult, type: makeTopLevelTypeVarsConcrete(typeResult.type) };
 
         const diagAddendum = new DiagnosticAddendum();
 
-        doForEachSubtype(type, (subtype) => {
+        doForEachSubtype(typeResult.type, (subtype) => {
             // Is this subtype a tuple?
             const tupleType = getSpecializedTupleType(subtype);
             if (tupleType && tupleType.tupleTypeArguments) {
@@ -3708,8 +3685,11 @@ export function createTypeEvaluator(
                 // The assigned expression isn't a tuple, so it had better
                 // be some iterable type.
                 const iterableType =
-                    getTypeOfIterator({ type: subtype, isIncomplete: isTypeIncomplete }, /* isAsync */ false, srcExpr)
-                        ?.type ?? UnknownType.create();
+                    getTypeOfIterator(
+                        { type: subtype, isIncomplete: typeResult.isIncomplete },
+                        /* isAsync */ false,
+                        srcExpr
+                    )?.type ?? UnknownType.create();
                 for (let index = 0; index < targetExpressions.length; index++) {
                     targetTypes[index].push(addConditionToType(iterableType, getTypeCondition(subtype)));
                 }
@@ -3723,7 +3703,7 @@ export function createTypeEvaluator(
                     ? LocMessage.listAssignmentMismatch()
                     : LocMessage.tupleAssignmentMismatch()
                 ).format({
-                    type: printType(type),
+                    type: printType(typeResult.type),
                 }) + diagAddendum.getString(),
                 target
             );
@@ -3735,10 +3715,15 @@ export function createTypeEvaluator(
             const typeList = targetTypes[index];
             const targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
 
-            assignTypeToExpression(expr, targetType, isTypeIncomplete, srcExpr, /* ignoreEmptyContainers */ true);
+            assignTypeToExpression(
+                expr,
+                { type: targetType, isIncomplete: typeResult.isIncomplete },
+                srcExpr,
+                /* ignoreEmptyContainers */ true
+            );
         });
 
-        writeTypeCache(target, { type, isIncomplete: isTypeIncomplete }, EvaluatorFlags.None);
+        writeTypeCache(target, typeResult, EvaluatorFlags.None);
     }
 
     // If the type includes promotion types, expand these to their constituent types.
@@ -4056,15 +4041,14 @@ export function createTypeEvaluator(
 
     function assignTypeToExpression(
         target: ExpressionNode,
-        type: Type,
-        isTypeIncomplete: boolean,
+        typeResult: TypeResult,
         srcExpr: ExpressionNode,
         ignoreEmptyContainers = false,
         allowAssignmentToFinalVar = false,
         expectedTypeDiagAddendum?: DiagnosticAddendum
     ) {
         // Is the source expression a TypeVar() call?
-        if (isTypeVar(type)) {
+        if (isTypeVar(typeResult.type)) {
             if (srcExpr && srcExpr.nodeType === ParseNodeType.Call) {
                 const callType = getTypeOfExpression(srcExpr.leftExpression, EvaluatorFlags.CallBaseDefaults).type;
                 if (
@@ -4075,14 +4059,17 @@ export function createTypeEvaluator(
                 ) {
                     const typeVarTarget =
                         target.nodeType === ParseNodeType.TypeAnnotation ? target.valueExpression : target;
-                    if (typeVarTarget.nodeType !== ParseNodeType.Name || typeVarTarget.value !== type.details.name) {
+                    if (
+                        typeVarTarget.nodeType !== ParseNodeType.Name ||
+                        typeVarTarget.value !== typeResult.type.details.name
+                    ) {
                         addError(
-                            type.details.isParamSpec
+                            typeResult.type.details.isParamSpec
                                 ? LocMessage.paramSpecAssignedName().format({
-                                      name: TypeVarType.getReadableName(type),
+                                      name: TypeVarType.getReadableName(typeResult.type),
                                   })
                                 : LocMessage.typeVarAssignedName().format({
-                                      name: TypeVarType.getReadableName(type),
+                                      name: TypeVarType.getReadableName(typeResult.type),
                                   }),
                             typeVarTarget
                         );
@@ -4094,14 +4081,15 @@ export function createTypeEvaluator(
         // If the type was partially unbound, an error will have already been logged.
         // Remove the unbound before assigning to the target expression so the unbound
         // error doesn't propagate.
-        type = removeUnbound(type);
+        if (findSubtype(typeResult.type, (subtype) => isUnbound(subtype))) {
+            typeResult = { ...typeResult, type: removeUnbound(typeResult.type) };
+        }
 
         switch (target.nodeType) {
             case ParseNodeType.Name: {
                 assignTypeToNameNode(
                     target,
-                    type,
-                    isTypeIncomplete,
+                    typeResult,
                     ignoreEmptyContainers,
                     srcExpr,
                     allowAssignmentToFinalVar,
@@ -4111,7 +4099,7 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.MemberAccess: {
-                assignTypeToMemberAccessNode(target, type, isTypeIncomplete, srcExpr, expectedTypeDiagAddendum);
+                assignTypeToMemberAccessNode(target, typeResult, srcExpr, expectedTypeDiagAddendum);
                 break;
             }
 
@@ -4123,20 +4111,20 @@ export function createTypeEvaluator(
                     baseTypeResult,
                     {
                         method: 'set',
-                        setType: { type, isIncomplete: isTypeIncomplete },
+                        setType: typeResult,
                         setErrorNode: srcExpr,
                         setExpectedTypeDiag: expectedTypeDiagAddendum,
                     },
                     EvaluatorFlags.None
                 );
 
-                writeTypeCache(target, { type, isIncomplete: isTypeIncomplete }, EvaluatorFlags.None);
+                writeTypeCache(target, typeResult, EvaluatorFlags.None);
                 break;
             }
 
             case ParseNodeType.List:
             case ParseNodeType.Tuple: {
-                assignTypeToTupleOrListNode(target, type, isTypeIncomplete, srcExpr);
+                assignTypeToTupleOrListNode(target, typeResult, srcExpr);
                 break;
             }
 
@@ -4157,12 +4145,12 @@ export function createTypeEvaluator(
                         isClassInstance(annotationType) && ClassType.isBuiltIn(annotationType, 'TypeAlias');
 
                     if (!isTypeAliasAnnotation) {
-                        if (assignType(annotationType, type)) {
+                        if (assignType(annotationType, typeResult.type)) {
                             // Don't attempt to narrow based on the annotated type if the type
                             // is a enum because the annotated type in an enum doesn't reflect
                             // the type of the symbol.
-                            if (!isClassInstance(type) || !ClassType.isEnumClass(type)) {
-                                type = narrowTypeBasedOnAssignment(target, annotationType, type);
+                            if (!isClassInstance(typeResult.type) || !ClassType.isEnumClass(typeResult.type)) {
+                                typeResult = narrowTypeBasedOnAssignment(target, annotationType, typeResult);
                             }
                         }
                     }
@@ -4170,8 +4158,7 @@ export function createTypeEvaluator(
 
                 assignTypeToExpression(
                     target.valueExpression,
-                    type,
-                    isTypeIncomplete,
+                    typeResult,
                     srcExpr,
                     ignoreEmptyContainers,
                     allowAssignmentToFinalVar,
@@ -4184,8 +4171,10 @@ export function createTypeEvaluator(
                 if (target.expression.nodeType === ParseNodeType.Name) {
                     assignTypeToNameNode(
                         target.expression,
-                        getBuiltInObject(target.expression, 'list', [type]),
-                        /* isIncomplete */ false,
+                        {
+                            type: getBuiltInObject(target.expression, 'list', [typeResult.type]),
+                            isIncomplete: typeResult.isIncomplete,
+                        },
                         ignoreEmptyContainers,
                         srcExpr
                     );
@@ -5889,7 +5878,7 @@ export function createTypeEvaluator(
                 // descriptor-based accesses.
                 narrowedTypeForSet = isDescriptorApplied
                     ? usage.setType.type
-                    : narrowTypeBasedOnAssignment(errorNode, type, usage.setType.type);
+                    : narrowTypeBasedOnAssignment(errorNode, type, usage.setType).type;
             }
 
             // Verify that the assigned type is compatible.
@@ -14622,12 +14611,7 @@ export function createTypeEvaluator(
             ) ?? { type: UnknownType.create(), isIncomplete: iterableTypeResult.isIncomplete };
 
             const targetExpr = node.targetExpression;
-            assignTypeToExpression(
-                targetExpr,
-                itemTypeResult.type,
-                !!itemTypeResult.isIncomplete,
-                node.iterableExpression
-            );
+            assignTypeToExpression(targetExpr, itemTypeResult, node.iterableExpression);
         } else {
             assert(node.nodeType === ParseNodeType.ComprehensionIf);
 
@@ -16286,8 +16270,7 @@ export function createTypeEvaluator(
 
         assignTypeToExpression(
             node.leftExpression,
-            rightHandType,
-            isIncomplete,
+            { type: rightHandType, isIncomplete },
             node.rightExpression,
             /* ignoreEmptyContainers */ true,
             /* allowAssignmentToFinalVar */ true,
@@ -18814,8 +18797,7 @@ export function createTypeEvaluator(
 
         assignTypeToExpression(
             node.targetExpression,
-            iteratedType,
-            !!iteratorTypeResult.isIncomplete,
+            { type: iteratedType, isIncomplete: iteratorTypeResult.isIncomplete },
             node.targetExpression
         );
 
@@ -18888,7 +18870,7 @@ export function createTypeEvaluator(
         }
 
         if (node.name) {
-            assignTypeToExpression(node.name, targetType, /* isIncomplete */ false, node.name);
+            assignTypeToExpression(node.name, { type: targetType }, node.name);
         }
 
         writeTypeCache(node, { type: targetType }, EvaluatorFlags.None);
@@ -18994,7 +18976,11 @@ export function createTypeEvaluator(
         });
 
         if (node.target) {
-            assignTypeToExpression(node.target, scopedType, !!exprTypeResult.isIncomplete, node.target);
+            assignTypeToExpression(
+                node.target,
+                { type: scopedType, isIncomplete: exprTypeResult.isIncomplete },
+                node.target
+            );
         }
 
         writeTypeCache(node, { type: scopedType, isIncomplete: !!exprTypeResult.isIncomplete }, EvaluatorFlags.None);
@@ -19032,7 +19018,7 @@ export function createTypeEvaluator(
             }
         }
 
-        assignTypeToNameNode(symbolNameNode, symbolType, /* isIncomplete */ false, /* ignoreEmptyContainers */ false);
+        assignTypeToNameNode(symbolNameNode, { type: symbolType }, /* ignoreEmptyContainers */ false);
 
         writeTypeCache(node, { type: symbolType }, EvaluatorFlags.None);
     }
@@ -19115,7 +19101,7 @@ export function createTypeEvaluator(
             }
         }
 
-        assignTypeToNameNode(aliasNode, symbolType, /* isIncomplete */ false, /* ignoreEmptyContainers */ false);
+        assignTypeToNameNode(aliasNode, { type: symbolType }, /* ignoreEmptyContainers */ false);
         writeTypeCache(node, { type: symbolType }, EvaluatorFlags.None);
     }
 
@@ -19259,12 +19245,7 @@ export function createTypeEvaluator(
                 }
             }
 
-            assignTypeToNameNode(
-                symbolNameNode,
-                symbolType,
-                /* isIncomplete */ false,
-                /* ignoreEmptyContainers */ false
-            );
+            assignTypeToNameNode(symbolNameNode, { type: symbolType }, /* ignoreEmptyContainers */ false);
 
             writeTypeCache(node, { type: symbolType }, EvaluatorFlags.None);
         }
@@ -26043,14 +26024,18 @@ export function createTypeEvaluator(
 
     // When a value is assigned to a variable with a declared type,
     // we may be able to narrow the type based on the assignment.
-    function narrowTypeBasedOnAssignment(node: ExpressionNode, declaredType: Type, assignedType: Type): Type {
-        // TODO: The rules for narrowing types on assignment are defined in
+    function narrowTypeBasedOnAssignment(
+        node: ExpressionNode,
+        declaredType: Type,
+        assignedTypeResult: TypeResult
+    ): TypeResult {
+        // TODO: The rules for narrowing types on assignment are not defined in
         // the typing spec. Pyright's current logic is currently not even internally
         // consistent and probably not sound from a type theory perspective. It
         // should be completely reworked once there has been a public discussion
         // about the correct behavior.
 
-        const narrowedType = mapSubtypes(assignedType, (assignedSubtype) => {
+        const narrowedType = mapSubtypes(assignedTypeResult.type, (assignedSubtype) => {
             // Handle the special case where the assigned type is a literal type.
             // Some types include very large unions of literal types, and we don't
             // want to use an n^2 loop to compare them.
@@ -26127,12 +26112,12 @@ export function createTypeEvaluator(
         // with the declared type. In strict mode, this will retain the "unknown type"
         // diagnostics while still providing reasonable completion suggestions.
         if (isIncompleteUnknown(narrowedType)) {
-            return narrowedType;
+            return { type: narrowedType };
         } else if (isUnknown(narrowedType)) {
-            return combineTypes([narrowedType, declaredType]);
+            return { type: combineTypes([narrowedType, declaredType]) };
         }
 
-        return narrowedType;
+        return { type: narrowedType };
     }
 
     function validateOverrideMethod(

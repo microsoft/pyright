@@ -631,12 +631,7 @@ export interface TypeEvaluator {
         signatureTracker: UniqueSignatureTracker | undefined
     ) => CallResult;
     validateTypeArg: (argResult: TypeResultWithNode, options?: ValidateTypeArgsOptions) => boolean;
-    assignTypeToExpression: (
-        target: ExpressionNode,
-        type: Type,
-        isTypeIncomplete: boolean,
-        srcExpr: ExpressionNode
-    ) => void;
+    assignTypeToExpression: (target: ExpressionNode, typeResult: TypeResult, srcExpr: ExpressionNode) => void;
     assignClassToSelf: (destType: ClassType, srcType: ClassType, assumedVariance: Variance) => boolean;
     getBuiltInObject: (node: ParseNode, name: string, typeArguments?: Type[]) => Type;
     getTypedDictClassType: () => ClassType | undefined;

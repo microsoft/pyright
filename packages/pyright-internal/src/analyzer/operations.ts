@@ -941,12 +941,7 @@ export function getTypeOfAugmentedAssignment(
         typeResult = { type, isIncomplete };
     }
 
-    evaluator.assignTypeToExpression(
-        node.destExpression,
-        typeResult.type,
-        !!typeResult.isIncomplete,
-        node.rightExpression
-    );
+    evaluator.assignTypeToExpression(node.destExpression, typeResult, node.rightExpression);
 
     return typeResult;
 }
