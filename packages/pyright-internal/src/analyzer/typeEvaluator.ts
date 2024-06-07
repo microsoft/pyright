@@ -8321,32 +8321,37 @@ export function createTypeEvaluator(
         const exprString = ParseTreeUtils.printExpression(arg0Value);
         const typeString = printType(type, { expandTypeAlias: true });
 
-        if (expectedText !== undefined) {
-            if (expectedText !== typeString) {
-                addError(
-                    LocMessage.revealTypeExpectedTextMismatch().format({
-                        expected: expectedText,
-                        received: typeString,
-                    }),
-                    expectedTextNode ?? arg0Value
-                );
+        if (!typeResult.isIncomplete) {
+            if (expectedText !== undefined) {
+                if (expectedText !== typeString) {
+                    addError(
+                        LocMessage.revealTypeExpectedTextMismatch().format({
+                            expected: expectedText,
+                            received: typeString,
+                        }),
+                        expectedTextNode ?? arg0Value
+                    );
+                }
             }
-        }
 
-        if (expectedRevealType) {
-            if (!isTypeSame(expectedRevealType, type, { ignorePseudoGeneric: true })) {
-                const expectedRevealTypeText = printType(expectedRevealType);
-                addError(
-                    LocMessage.revealTypeExpectedTypeMismatch().format({
-                        expected: expectedRevealTypeText,
-                        received: typeString,
-                    }),
-                    expectedRevealTypeNode ?? arg0Value
-                );
+            if (expectedRevealType) {
+                if (!isTypeSame(expectedRevealType, type, { ignorePseudoGeneric: true })) {
+                    const expectedRevealTypeText = printType(expectedRevealType);
+                    addError(
+                        LocMessage.revealTypeExpectedTypeMismatch().format({
+                            expected: expectedRevealTypeText,
+                            received: typeString,
+                        }),
+                        expectedRevealTypeNode ?? arg0Value
+                    );
+                }
             }
-        }
 
-        addInformation(LocAddendum.typeOfSymbol().format({ name: exprString, type: typeString }), node.arguments[0]);
+            addInformation(
+                LocAddendum.typeOfSymbol().format({ name: exprString, type: typeString }),
+                node.arguments[0]
+            );
+        }
 
         return { type, isIncomplete: typeResult.isIncomplete };
     }
