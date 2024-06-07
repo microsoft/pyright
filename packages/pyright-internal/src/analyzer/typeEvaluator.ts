@@ -26040,6 +26040,11 @@ export function createTypeEvaluator(
         // should be completely reworked once there has been a public discussion
         // about the correct behavior.
 
+        // If the result is incomplete, do not attempt to narrow the type.
+        if (assignedTypeResult.isIncomplete) {
+            return assignedTypeResult;
+        }
+
         const narrowedType = mapSubtypes(assignedTypeResult.type, (assignedSubtype) => {
             // Handle the special case where the assigned type is a literal type.
             // Some types include very large unions of literal types, and we don't
