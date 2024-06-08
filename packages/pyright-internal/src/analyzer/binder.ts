@@ -3924,6 +3924,12 @@ export class Binder extends ParseTreeWalker {
 
             if (this._isTypingAnnotation(typeAnnotation, 'Final')) {
                 isFinal = true;
+            } else if (
+                typeAnnotation.nodeType === ParseNodeType.Index &&
+                typeAnnotation.items.length > 0 &&
+                this._isTypingAnnotation(typeAnnotation.baseExpression, 'Annotated')
+            ) {
+                return this._isAnnotationFinal(typeAnnotation.items[0].valueExpression);
             } else if (typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
                 // Recursively call to see if the base expression is "Final".
                 const finalInfo = this._isAnnotationFinal(typeAnnotation.baseExpression);
