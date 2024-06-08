@@ -2160,7 +2160,7 @@ export function buildTypeVarContextFromSpecializedClass(classType: ClassType): T
     const typeParameters = ClassType.getTypeParameters(classType);
 
     const typeVarContext = buildTypeVarContext(typeParameters, classType.typeArguments, getTypeVarScopeId(classType));
-    if (ClassType.isTupleClass(classType) && classType.tupleTypeArguments && typeParameters.length >= 1) {
+    if (ClassType.isTupleClass(classType) && classType.tupleTypeArguments) {
         typeVarContext.setTupleTypeVar(typeParameters[0], classType.tupleTypeArguments);
     }
 
@@ -3670,11 +3670,21 @@ class TypeVarTransformer {
                     ) {
                         appendArray(newTupleTypeArgs!, newTypeArgType.tupleTypeArguments);
                     } else {
-                        newTupleTypeArgs!.push({
-                            type: newTypeArgType,
-                            isUnbounded: oldTypeArgType.isUnbounded,
-                            isOptional: oldTypeArgType.isOptional,
-                        });
+                        // Handle the special case where tuple[T, ...] is being specialized
+                        // to tuple[Never, ...]. This is equivalent to tuple[()].
+                        const isEmptyTuple =
+                            oldTypeArgType.isUnbounded &&
+                            isTypeVar(oldTypeArgType.type) &&
+                            isNever(newTypeArgType) &&
+                            classType.tupleTypeArguments!.length === 1;
+
+                        if (!isEmptyTuple) {
+                            newTupleTypeArgs!.push({
+                                type: newTypeArgType,
+                                isUnbounded: oldTypeArgType.isUnbounded,
+                                isOptional: oldTypeArgType.isOptional,
+                            });
+                        }
                     }
                 });
             } else if (typeParams.length > 0) {
