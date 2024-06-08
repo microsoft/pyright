@@ -1634,6 +1634,23 @@ export class ImportResolver {
             bestResultSoFar = this._pickBestImport(bestResultSoFar, localImport, moduleDescriptor);
         }
 
+        // Check for a stdlib typeshed file.
+        if (allowPyi && moduleDescriptor.nameParts.length > 0) {
+            importFailureInfo.push(`Looking for typeshed stdlib path`);
+            const typeshedStdlibImport = this._findTypeshedPath(
+                execEnv,
+                moduleDescriptor,
+                importName,
+                /* isStdLib */ true,
+                importFailureInfo
+            );
+
+            if (typeshedStdlibImport) {
+                typeshedStdlibImport.isStdlibTypeshedFile = true;
+                return typeshedStdlibImport;
+            }
+        }
+
         // Look for the import in the list of third-party packages.
         const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
         if (pythonSearchPaths.length > 0) {
@@ -1687,23 +1704,8 @@ export class ImportResolver {
             return extraResults;
         }
 
+        // Check for a third-party typeshed file.
         if (allowPyi && moduleDescriptor.nameParts.length > 0) {
-            // Check for a stdlib typeshed file.
-            importFailureInfo.push(`Looking for typeshed stdlib path`);
-            const typeshedStdlibImport = this._findTypeshedPath(
-                execEnv,
-                moduleDescriptor,
-                importName,
-                /* isStdLib */ true,
-                importFailureInfo
-            );
-
-            if (typeshedStdlibImport) {
-                typeshedStdlibImport.isStdlibTypeshedFile = true;
-                return typeshedStdlibImport;
-            }
-
-            // Check for a third-party typeshed file.
             importFailureInfo.push(`Looking for typeshed third-party path`);
             const typeshedImport = this._findTypeshedPath(
                 execEnv,
