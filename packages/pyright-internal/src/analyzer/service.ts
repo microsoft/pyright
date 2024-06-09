@@ -643,7 +643,7 @@ export class AnalyzerService {
             });
         }
 
-        if (!configFilePath && commandLineOptions.executionRoot) {
+        if (!(configFilePath || pyprojectFilePath) && commandLineOptions.executionRoot) {
             if (commandLineOptions.includeFileSpecs.length === 0) {
                 // If no config file was found and there are no explicit include
                 // paths specified, assume the caller wants to include all source

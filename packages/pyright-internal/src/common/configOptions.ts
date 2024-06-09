@@ -1128,7 +1128,7 @@ export class ConfigOptions {
         // Read the "include" entry.
         if (configObj.include !== undefined) {
             if (!Array.isArray(configObj.include)) {
-                console.error(`Config "include" entry must must contain an array.`);
+                console.error(`Config "include" entry must contain an array.`);
             } else {
                 this.include = [];
                 const filesList = configObj.include as string[];
