@@ -643,7 +643,9 @@ export class AnalyzerService {
             });
         }
 
-        if (!(configFilePath || pyprojectFilePath) && commandLineOptions.executionRoot) {
+        const configs = this._getExtendedConfigurations(configFilePath ?? pyprojectFilePath);
+
+        if (!configs && commandLineOptions.executionRoot) {
             if (commandLineOptions.includeFileSpecs.length === 0) {
                 // If no config file was found and there are no explicit include
                 // paths specified, assume the caller wants to include all source
@@ -662,8 +664,6 @@ export class AnalyzerService {
         configOptions.disableTaggedHints = !!commandLineOptions.disableTaggedHints;
 
         configOptions.initializeTypeCheckingMode(commandLineOptions.typeCheckingMode ?? 'standard');
-
-        const configs = this._getExtendedConfigurations(configFilePath ?? pyprojectFilePath);
 
         if (configs) {
             for (const config of configs) {
