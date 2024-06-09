@@ -625,39 +625,17 @@ export class AnalyzerService {
             commandLineOptions.extraPaths
         );
 
-        if (commandLineOptions.includeFileSpecs.length > 0) {
-            commandLineOptions.includeFileSpecs.forEach((fileSpec) => {
-                configOptions.include.push(getFileSpec(projectRoot, fileSpec));
-            });
-        }
+        commandLineOptions.includeFileSpecs.forEach((fileSpec) => {
+            configOptions.include.push(getFileSpec(projectRoot, fileSpec));
+        });
 
-        if (commandLineOptions.excludeFileSpecs.length > 0) {
-            commandLineOptions.excludeFileSpecs.forEach((fileSpec) => {
-                configOptions.exclude.push(getFileSpec(projectRoot, fileSpec));
-            });
-        }
+        commandLineOptions.excludeFileSpecs.forEach((fileSpec) => {
+            configOptions.exclude.push(getFileSpec(projectRoot, fileSpec));
+        });
 
-        if (commandLineOptions.ignoreFileSpecs.length > 0) {
-            commandLineOptions.ignoreFileSpecs.forEach((fileSpec) => {
-                configOptions.ignore.push(getFileSpec(projectRoot, fileSpec));
-            });
-        }
-
-        if (!configFilePath && !pyprojectFilePath && commandLineOptions.executionRoot) {
-            if (commandLineOptions.includeFileSpecs.length === 0) {
-                // If no config file was found and there are no explicit include
-                // paths specified, assume the caller wants to include all source
-                // files under the execution root path.
-                configOptions.include.push(getFileSpec(executionRoot, '.'));
-            }
-
-            if (commandLineOptions.excludeFileSpecs.length === 0) {
-                // Add a few common excludes to avoid long scan times.
-                defaultExcludes.forEach((exclude) => {
-                    configOptions.exclude.push(getFileSpec(executionRoot, exclude));
-                });
-            }
-        }
+        commandLineOptions.ignoreFileSpecs.forEach((fileSpec) => {
+            configOptions.ignore.push(getFileSpec(projectRoot, fileSpec));
+        });
 
         configOptions.disableTaggedHints = !!commandLineOptions.disableTaggedHints;
 
@@ -675,30 +653,28 @@ export class AnalyzerService {
                     commandLineOptions
                 );
             }
-
-            const configFileDir = this._primaryConfigFileUri!.getDirectory();
-
-            // If no include paths were provided, assume that all files within
-            // the project should be included.
-            if (configOptions.include.length === 0) {
-                this._console.info(`No include entries specified; assuming ${configFileDir.toUserVisibleString()}`);
-                configOptions.include.push(getFileSpec(configFileDir, '.'));
-            }
-
-            // If there was no explicit set of excludes, add a few common ones to avoid long scan times.
-            if (configOptions.exclude.length === 0) {
-                defaultExcludes.forEach((exclude) => {
-                    this._console.info(`Auto-excluding ${exclude}`);
-                    configOptions.exclude.push(getFileSpec(configFileDir, exclude));
-                });
-
-                if (configOptions.autoExcludeVenv === undefined) {
-                    configOptions.autoExcludeVenv = true;
-                }
-            }
         } else {
-            configOptions.autoExcludeVenv = true;
             configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
+        }
+
+        // If no include paths were provided, assume that all files within
+        // the project should be included.
+        if (configOptions.include.length === 0) {
+            this._console.info(`No include entries specified; assuming ${projectRoot.toUserVisibleString()}`);
+            configOptions.include.push(getFileSpec(projectRoot, '.'));
+        }
+
+        // If there was no explicit set of excludes, add a few common ones to
+        // avoid long scan times.
+        if (configOptions.exclude.length === 0) {
+            defaultExcludes.forEach((exclude) => {
+                this._console.info(`Auto-excluding ${exclude}`);
+                configOptions.exclude.push(getFileSpec(projectRoot, exclude));
+            });
+
+            if (configOptions.autoExcludeVenv === undefined) {
+                configOptions.autoExcludeVenv = true;
+            }
         }
 
         // Override the analyzeUnannotatedFunctions setting based on the command-line setting.
