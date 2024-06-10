@@ -113,6 +113,8 @@ import { DefinitionFilter, DefinitionProvider, TypeDefinitionProvider } from './
 import { DocumentHighlightProvider } from './languageService/documentHighlightProvider';
 import { CollectionResult } from './languageService/documentSymbolCollector';
 import { DocumentSymbolProvider } from './languageService/documentSymbolProvider';
+import { DynamicFeature, DynamicFeatures } from './languageService/dynamicFeature';
+import { FileWatcherDynamicFeature } from './languageService/fileWatcherDynamicFeature';
 import { HoverProvider } from './languageService/hoverProvider';
 import { canNavigateToFile } from './languageService/navigationUtils';
 import { ReferencesProvider } from './languageService/referencesProvider';
@@ -123,8 +125,6 @@ import { WorkspaceSymbolProvider } from './languageService/workspaceSymbolProvid
 import { Localizer, setLocaleOverride } from './localization/localize';
 import { ParseFileResults } from './parser/parser';
 import { InitStatus, WellKnownWorkspaceKinds, Workspace, WorkspaceFactory } from './workspaceFactory';
-import { DynamicFeature, DynamicFeatures } from './languageService/dynamicFeature';
-import { FileWatcherDynamicFeature } from './languageService/fileWatcherDynamicFeature';
 
 const nullProgressReporter = attachWorkDone(undefined as any, /* params */ undefined);
 
@@ -901,9 +901,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
     }
 
     protected async onSemanticTokens(params: SemanticTokensParams, token: CancellationToken) {
-        const uri = this.decodeUri(params.textDocument.uri);
-        const workspace = await this.getWorkspaceForFile(uri);
+        const uri = this.convertLspUriStringToUri(params.textDocument.uri);
 
+        const workspace = await this.getWorkspaceForFile(uri);
         if (workspace.disableLanguageServices) {
             return;
         }
