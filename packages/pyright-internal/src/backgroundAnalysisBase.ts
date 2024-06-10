@@ -9,7 +9,13 @@
 import { CancellationToken } from 'vscode-languageserver';
 import { MessageChannel, MessagePort, Worker, parentPort, threadId, workerData } from 'worker_threads';
 
-import { AnalysisCompleteCallback, AnalysisResults, analyzeProgram, nullCallback } from './analyzer/analysis';
+import {
+    AnalysisCompleteCallback,
+    AnalysisResults,
+    RequiringAnalysisCount,
+    analyzeProgram,
+    nullCallback,
+} from './analyzer/analysis';
 import { BackgroundAnalysisProgram, InvalidatedReason } from './analyzer/backgroundAnalysisProgram';
 import { ImportResolver } from './analyzer/importResolver';
 import { OpenFileOptions, Program } from './analyzer/program';
@@ -412,7 +418,7 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
             case 'updateChainedFileUri': {
                 const { fileUri, chainedUri } = deserialize(msg.data);
-                this.handleUpdateChainedfileUri(fileUri, chainedUri);
+                this.handleUpdateChainedFileUri(fileUri, chainedUri);
                 break;
             }
 
@@ -473,12 +479,12 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
 
     protected handleAnalyze(port: MessagePort, cancellationId: string, token: CancellationToken) {
         // Report files to analyze first.
-        const filesLeftToAnalyze = this.program.getFilesToAnalyzeCount();
+        const requiringAnalysisCount = this.program.getFilesToAnalyzeCount();
 
         this.onAnalysisCompletion(port, {
             diagnostics: [],
             filesInProgram: this.program.getFileCount(),
-            filesRequiringAnalysis: filesLeftToAnalyze,
+            requiringAnalysisCount: requiringAnalysisCount,
             checkingOnlyOpenFiles: this.program.isCheckingOnlyOpenFiles(),
             fatalErrorOccurred: false,
             configParseErrorOccurred: false,
@@ -596,8 +602,8 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         );
     }
 
-    protected handleUpdateChainedfileUri(fileUri: Uri, chainedfileUri: Uri | undefined) {
-        this.program.updateChainedUri(fileUri, chainedfileUri);
+    protected handleUpdateChainedFileUri(fileUri: Uri, chainedFileUri: Uri | undefined) {
+        this.program.updateChainedUri(fileUri, chainedFileUri);
     }
 
     protected handleSetFileClosed(fileUri: Uri, isTracked: boolean | undefined) {
@@ -671,12 +677,16 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         }
     }
 
-    private _reportDiagnostics(diagnostics: FileDiagnostics[], filesLeftToAnalyze: number, elapsedTime: number) {
+    private _reportDiagnostics(
+        diagnostics: FileDiagnostics[],
+        requiringAnalysisCount: RequiringAnalysisCount,
+        elapsedTime: number
+    ) {
         if (parentPort) {
             this.onAnalysisCompletion(parentPort, {
                 diagnostics,
                 filesInProgram: this.program.getFileCount(),
-                filesRequiringAnalysis: filesLeftToAnalyze,
+                requiringAnalysisCount: requiringAnalysisCount,
                 checkingOnlyOpenFiles: this.program.isCheckingOnlyOpenFiles(),
                 fatalErrorOccurred: false,
                 configParseErrorOccurred: false,

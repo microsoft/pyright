@@ -1,0 +1,4 @@
+{
+    "extends": "../sub3/baseconfig3.json",
+    "typeCheckingMode": "standard"
+}

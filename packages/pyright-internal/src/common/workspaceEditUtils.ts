@@ -28,7 +28,7 @@ import { convertRangeToTextRange, convertTextRangeToRange } from './positionUtil
 import { TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
 import { Uri } from './uri/uri';
-import { encodeUri } from './uri/uriUtils';
+import { convertUriToLspUriString } from './uri/uriUtils';
 
 export function convertToTextEdits(editActions: TextEditAction[]): TextEdit[] {
     return editActions.map((editAction) => ({
@@ -68,7 +68,7 @@ export function convertToWorkspaceEdit(
 
 export function appendToWorkspaceEdit(fs: ReadOnlyFileSystem, edits: FileEditAction[], workspaceEdit: WorkspaceEdit) {
     edits.forEach((edit) => {
-        const uri = encodeUri(fs, edit.fileUri);
+        const uri = convertUriToLspUriString(fs, edit.fileUri);
         workspaceEdit.changes![uri] = workspaceEdit.changes![uri] || [];
         workspaceEdit.changes![uri].push({ range: edit.range, newText: edit.replacementText });
     });
@@ -185,7 +185,7 @@ export function generateWorkspaceEdit(
             continue;
         }
 
-        edits.changes![encodeUri(fs, uri)] = [
+        edits.changes![convertUriToLspUriString(fs, uri)] = [
             {
                 range: convertTextRangeToRange(parseResults.parserOutput.parseTree, parseResults.tokenizerOutput.lines),
                 newText: final.getFileContent() ?? '',
@@ -224,7 +224,11 @@ function _convertToWorkspaceEditWithDocumentChanges(
         switch (operation.kind) {
             case 'create':
                 workspaceEdit.documentChanges!.push(
-                    CreateFile.create(encodeUri(fs, operation.fileUri), /* options */ undefined, defaultAnnotationId)
+                    CreateFile.create(
+                        convertUriToLspUriString(fs, operation.fileUri),
+                        /* options */ undefined,
+                        defaultAnnotationId
+                    )
                 );
                 break;
             case 'rename':
@@ -236,7 +240,7 @@ function _convertToWorkspaceEditWithDocumentChanges(
     }
 
     // Text edit's file path must refer to original file paths unless it is a new file just created.
-    const mapPerFile = createMapFromItems(editActions.edits, (e) => encodeUri(fs, e.fileUri));
+    const mapPerFile = createMapFromItems(editActions.edits, (e) => convertUriToLspUriString(fs, e.fileUri));
     for (const [uri, value] of mapPerFile) {
         workspaceEdit.documentChanges!.push(
             TextDocumentEdit.create(
@@ -259,8 +263,8 @@ function _convertToWorkspaceEditWithDocumentChanges(
             case 'rename':
                 workspaceEdit.documentChanges!.push(
                     RenameFile.create(
-                        encodeUri(fs, operation.oldFileUri),
-                        encodeUri(fs, operation.newFileUri),
+                        convertUriToLspUriString(fs, operation.oldFileUri),
+                        convertUriToLspUriString(fs, operation.newFileUri),
                         /* options */ undefined,
                         defaultAnnotationId
                     )
@@ -268,7 +272,11 @@ function _convertToWorkspaceEditWithDocumentChanges(
                 break;
             case 'delete':
                 workspaceEdit.documentChanges!.push(
-                    DeleteFile.create(encodeUri(fs, operation.fileUri), /* options */ undefined, defaultAnnotationId)
+                    DeleteFile.create(
+                        convertUriToLspUriString(fs, operation.fileUri),
+                        /* options */ undefined,
+                        defaultAnnotationId
+                    )
                 );
                 break;
             default:

@@ -62,7 +62,7 @@ class SerialBase(io.RawIOBase):
         write_timeout: float | None = None,
         dsrdtr: bool = False,
         inter_byte_timeout: float | None = None,
-        exclusive: float | None = None,
+        exclusive: bool | None = None,
     ) -> None: ...
 
     # Return type:

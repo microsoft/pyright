@@ -6,13 +6,19 @@
  * Interface for language server
  */
 
+import { MarkupKind } from 'vscode-languageserver';
+import { MaxAnalysisTime } from '../analyzer/program';
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { Workspace } from '../workspaceFactory';
+import { CancellationProvider } from './cancellationUtils';
 import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { SignatureDisplayType } from './configOptions';
 import { ConsoleInterface, LogLevel } from './console';
 import { TaskListToken } from './diagnostic';
 import * as ext from './extensibility';
+import { FileSystem } from './fileSystem';
+import { FileWatcherHandler } from './fileWatcher';
+import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
 
 export interface ServerSettings {
@@ -69,6 +75,49 @@ export namespace WindowInterface {
             obj.showInformationMessage !== undefined
         );
     }
+}
+
+export interface WorkspaceServices {
+    fs: FileSystem | undefined;
+    backgroundAnalysis: BackgroundAnalysisBase | undefined;
+}
+
+export interface ServerOptions {
+    productName: string;
+    rootDirectory: Uri;
+    version: string;
+    cancellationProvider: CancellationProvider;
+    serviceProvider: ServiceProvider;
+    fileWatcherHandler: FileWatcherHandler;
+    maxAnalysisTimeInForeground?: MaxAnalysisTime;
+    disableChecker?: boolean;
+    supportedCommands?: string[];
+    supportedCodeActions?: string[];
+    supportsTelemetry?: boolean;
+}
+
+export interface ClientCapabilities {
+    hasConfigurationCapability: boolean;
+    hasVisualStudioExtensionsCapability: boolean;
+    hasWorkspaceFoldersCapability: boolean;
+    hasWatchFileCapability: boolean;
+    hasWatchFileRelativePathCapability: boolean;
+    hasActiveParameterCapability: boolean;
+    hasSignatureLabelOffsetCapability: boolean;
+    hasHierarchicalDocumentSymbolCapability: boolean;
+    hasWindowProgressCapability: boolean;
+    hasGoToDeclarationCapability: boolean;
+    hasDocumentChangeCapability: boolean;
+    hasDocumentAnnotationCapability: boolean;
+    hasCompletionCommitCharCapability: boolean;
+    hoverContentFormat: MarkupKind;
+    completionDocFormat: MarkupKind;
+    completionSupportsSnippet: boolean;
+    signatureDocFormat: MarkupKind;
+    supportsDeprecatedDiagnosticTag: boolean;
+    supportsUnnecessaryDiagnosticTag: boolean;
+    supportsTaskItemDiagnosticTag: boolean;
+    completionItemResolveSupportsAdditionalTextEdits: boolean;
 }
 
 export interface LanguageServerBaseInterface {

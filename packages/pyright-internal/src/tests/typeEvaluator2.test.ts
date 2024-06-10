@@ -16,7 +16,7 @@ import * as TestUtils from './testUtils';
 test('CallbackProtocol1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callbackProtocol1.py']);
 
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 10);
 });
 
 test('CallbackProtocol2', () => {
@@ -266,7 +266,7 @@ test('NewType1', () => {
 test('NewType2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType2.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('NewType3', () => {
@@ -765,6 +765,12 @@ test('Solver34', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Solver35', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solver35.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('SolverScoring1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverScoring1.py']);
 
@@ -851,6 +857,12 @@ test('SolverHigherOrder10', () => {
 
 test('SolverHigherOrder11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverHigherOrder11.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('SolverHigherOrder12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['solverHigherOrder12.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

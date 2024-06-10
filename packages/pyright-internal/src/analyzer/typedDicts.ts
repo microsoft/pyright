@@ -196,6 +196,7 @@ export function createTypedDictType(
                 } else if (arg.name.value === 'total' && arg.valueExpression.constType === KeywordType.False) {
                     classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
                 } else if (arg.name.value === 'closed' && arg.valueExpression.constType === KeywordType.True) {
+                    // This is an experimental feature because PEP 728 hasn't been accepted yet.
                     if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
                         classType.details.flags |=
                             ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
@@ -230,34 +231,6 @@ export function createTypedDictType(
             }
         }
     }
-
-    return classType;
-}
-
-// Creates a new anonymous TypedDict class from an inlined dict[{}] type annotation.
-export function createTypedDictTypeInlined(
-    evaluator: TypeEvaluator,
-    dictNode: DictionaryNode,
-    typedDictClass: ClassType
-): ClassType {
-    const fileInfo = AnalyzerNodeInfo.getFileInfo(dictNode);
-    const className = '<TypedDict>';
-
-    const classType = ClassType.createInstantiable(
-        className,
-        ParseTreeUtils.getClassFullName(dictNode, fileInfo.moduleName, className),
-        fileInfo.moduleName,
-        fileInfo.fileUri,
-        ClassTypeFlags.TypedDictClass,
-        ParseTreeUtils.getTypeSourceId(dictNode),
-        /* declaredMetaclass */ undefined,
-        typedDictClass.details.effectiveMetaclass
-    );
-    classType.details.baseClasses.push(typedDictClass);
-    computeMroLinearization(classType);
-
-    getTypedDictFieldsFromDictSyntax(evaluator, dictNode, ClassType.getSymbolTable(classType), /* isInline */ true);
-    synthesizeTypedDictClassMethods(evaluator, dictNode, classType);
 
     return classType;
 }

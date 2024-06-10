@@ -13,7 +13,7 @@ import { AnalyzerService, getNextServiceId } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { LogLevel } from '../common/console';
 import { FileSystem } from '../common/fileSystem';
-import { LanguageServerInterface, ServerSettings } from '../common/languageServerInterface';
+import { LanguageServerBaseInterface, ServerSettings } from '../common/languageServerInterface';
 import { Uri } from '../common/uri/uri';
 
 import { WellKnownWorkspaceKinds, Workspace, createInitStatus } from '../workspaceFactory';
@@ -44,7 +44,7 @@ export class AnalyzerServiceExecutor {
     }
 
     static async cloneService(
-        ls: LanguageServerInterface,
+        ls: LanguageServerBaseInterface,
         workspace: Workspace,
         options?: CloneOptions
     ): Promise<AnalyzerService> {

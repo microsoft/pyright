@@ -12,11 +12,12 @@ import {
     ClassDeclaration,
     Declaration,
     DeclarationBase,
-    DeclarationType,
     FunctionDeclaration,
     isClassDeclaration,
     isFunctionDeclaration,
+    isSpecialBuiltInClassDeclaration,
     isVariableDeclaration,
+    SpecialBuiltInClassDeclaration,
     VariableDeclaration,
 } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -227,9 +228,9 @@ export function getClassDocString(
     sourceMapper: SourceMapper
 ) {
     let docString = classType.details.docString;
-    if (!docString && resolvedDecl && isClassDeclaration(resolvedDecl)) {
-        docString = _getFunctionOrClassDeclsDocString([resolvedDecl]);
-        if (!docString && resolvedDecl && isStubFile(resolvedDecl.uri) && resolvedDecl.type === DeclarationType.Class) {
+    if (!docString && resolvedDecl && _isAnyClassDeclaration(resolvedDecl)) {
+        docString = isClassDeclaration(resolvedDecl) ? _getFunctionOrClassDeclsDocString([resolvedDecl]) : undefined;
+        if (!docString && resolvedDecl && isStubFile(resolvedDecl.uri)) {
             for (const implDecl of sourceMapper.findDeclarations(resolvedDecl)) {
                 if (isVariableDeclaration(implDecl) && !!implDecl.docString) {
                     docString = implDecl.docString;
@@ -385,4 +386,8 @@ function _getFunctionOrClassDeclsDocString(decls: FunctionDeclaration[] | ClassD
     }
 
     return undefined;
+}
+
+function _isAnyClassDeclaration(decl: Declaration): decl is ClassDeclaration | SpecialBuiltInClassDeclaration {
+    return isClassDeclaration(decl) || isSpecialBuiltInClassDeclaration(decl);
 }

@@ -818,7 +818,7 @@ function narrowTypeBasedOnClassPattern(
                             // Convert to an unknown callable type.
                             const unknownCallable = FunctionType.createSynthesizedInstance(
                                 '',
-                                FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck
+                                FunctionTypeFlags.GradualCallableForm
                             );
                             FunctionType.addDefaultParameters(
                                 unknownCallable,
@@ -1577,7 +1577,11 @@ export function assignTypeToPatternTargets(
 
         case ParseNodeType.PatternAs: {
             if (pattern.target) {
-                evaluator.assignTypeToExpression(pattern.target, narrowedType, isTypeIncomplete, pattern.target);
+                evaluator.assignTypeToExpression(
+                    pattern.target,
+                    { type: narrowedType, isIncomplete: isTypeIncomplete },
+                    pattern.target
+                );
             }
 
             let runningNarrowedType = narrowedType;
@@ -1621,7 +1625,11 @@ export function assignTypeToPatternTargets(
                     }
                 }
             } else {
-                evaluator.assignTypeToExpression(pattern.target, narrowedType, isTypeIncomplete, pattern.target);
+                evaluator.assignTypeToExpression(
+                    pattern.target,
+                    { type: narrowedType, isIncomplete: isTypeIncomplete },
+                    pattern.target
+                );
             }
             break;
         }
@@ -1709,8 +1717,7 @@ export function assignTypeToPatternTargets(
                             : UnknownType.create();
                     evaluator.assignTypeToExpression(
                         mappingEntry.target,
-                        dictType,
-                        isTypeIncomplete,
+                        { type: dictType, isIncomplete: isTypeIncomplete },
                         mappingEntry.target
                     );
                 }

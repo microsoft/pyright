@@ -12,11 +12,11 @@ import {
     FileSystemWatcher,
     WatchKind,
 } from 'vscode-languageserver';
-import { DynamicFeature } from './dynamicFeature';
-import { configFileNames } from '../analyzer/service';
+import { configFileName } from '../analyzer/service';
+import { FileSystem } from '../common/fileSystem';
 import { deduplicateFolders, isFile } from '../common/uri/uriUtils';
 import { WorkspaceFactory } from '../workspaceFactory';
-import { FileSystem } from '../common/fileSystem';
+import { DynamicFeature } from './dynamicFeature';
 
 export class FileWatcherDynamicFeature extends DynamicFeature {
     constructor(
@@ -33,7 +33,7 @@ export class FileWatcherDynamicFeature extends DynamicFeature {
 
         // Set default (config files and all workspace files) first.
         const watchers: FileSystemWatcher[] = [
-            ...configFileNames.map((fileName) => ({ globPattern: `**/${fileName}`, kind: watchKind })),
+            { globPattern: `**/${configFileName}`, kind: watchKind },
             { globPattern: '**', kind: watchKind },
         ];
 

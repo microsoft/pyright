@@ -283,10 +283,19 @@ export function createEnumType(
     return classType;
 }
 
+// Performs the "magic" that the Enum metaclass does at runtime when it
+// transforms a value into an enum instance. If the specified name isn't
+// an enum member, this function returns undefined indicating that the
+// Enum metaclass does not transform the value.
+// By default, if a type annotation is present, the member is not treated
+// as a member of the enumeration, but the Enum metaclass ignores such
+// annotations. The typing spec indicates that the use of an annotation is
+// illegal, so we need to detect this case and report an error.
 export function transformTypeForEnumMember(
     evaluator: TypeEvaluator,
     classType: ClassType,
     memberName: string,
+    ignoreAnnotation = false,
     recursionCount = 0
 ): Type | undefined {
     if (recursionCount > maxTypeRecursionCount) {
@@ -310,13 +319,6 @@ export function transformTypeForEnumMember(
 
     const primaryDecl = decls[0];
 
-    // In ".py" files, the transform applies only to members that are
-    // assigned within the class. In stub files, it applies to most variables
-    // even if they are not assigned. This unfortunate convention means
-    // there is no way in a stub to specify both enum members and instance
-    // variables used within each enum instance. Unless/until there is
-    // a change to this convention and all type checkers and stubs adopt
-    // it, we're stuck with this limitation.
     let isMemberOfEnumeration = false;
     let isUnpackedTuple = false;
     let valueTypeExprNode: ExpressionNode | undefined;
@@ -343,22 +345,23 @@ export function transformTypeForEnumMember(
         isUnpackedTuple = true;
         valueTypeExprNode = nameNode.parent.parent.rightExpression;
     } else if (
-        getFileInfo(nameNode).isStubFile &&
         nameNode.parent?.nodeType === ParseNodeType.TypeAnnotation &&
         nameNode.parent.valueExpression === nameNode
     ) {
-        isMemberOfEnumeration = true;
+        if (ignoreAnnotation) {
+            isMemberOfEnumeration = true;
+        }
         declaredTypeNode = nameNode.parent.typeAnnotation;
     }
 
     // The spec specifically excludes names that start and end with a single underscore.
     // This also includes dunder names.
-    if (isSingleDunderName(nameNode.value)) {
+    if (isSingleDunderName(memberName)) {
         return undefined;
     }
 
     // Specifically exclude "value" and "name". These are reserved by the enum metaclass.
-    if (nameNode.value === 'name' || nameNode.value === 'value') {
+    if (memberName === 'name' || memberName === 'value') {
         return undefined;
     }
 
@@ -376,6 +379,7 @@ export function transformTypeForEnumMember(
             evaluator,
             classType,
             valueTypeExprNode.value,
+            /* ignoreAnnotation */ false,
             recursionCount
         );
 
@@ -416,7 +420,7 @@ export function transformTypeForEnumMember(
     }
 
     // The spec excludes private (mangled) names.
-    if (isPrivateName(nameNode.value)) {
+    if (isPrivateName(memberName)) {
         return undefined;
     }
 
@@ -471,7 +475,7 @@ export function transformTypeForEnumMember(
     const enumLiteral = new EnumLiteral(
         memberInfo.classType.details.fullName,
         memberInfo.classType.details.name,
-        nameNode.value,
+        memberName,
         valueType
     );
 
@@ -587,9 +591,10 @@ export function getTypeOfEnumMember(
 
     if (memberName === 'value' || memberName === '_value_') {
         // Does the class explicitly override this member? Or it it using the
-        // standard behavior provided by the "Enum" class?
+        // standard behavior provided by the "Enum" class and other built-in
+        // subclasses like "StrEnum" and "IntEnum"?
         const memberInfo = lookUpClassMember(classType, memberName);
-        if (memberInfo && isClass(memberInfo.classType) && !ClassType.isBuiltIn(memberInfo.classType, 'Enum')) {
+        if (memberInfo && isClass(memberInfo.classType) && !ClassType.isBuiltIn(memberInfo.classType)) {
             return undefined;
         }
 

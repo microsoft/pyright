@@ -47,7 +47,7 @@ class AbstractListener(threading.Thread):
     def _mark_ready(self) -> None: ...  # undocumented
     def _run(self) -> None: ...  # undocumented
     def _stop_platform(self) -> None: ...  # undocumented
-    def join(self, *args: Any) -> None: ...
+    def join(self, timeout: float | None = None, *args: Any) -> None: ...
 
 class Events(Generic[_T, _AbstractListener_T]):
     _Listener: type[_AbstractListener_T] | None  # undocumented

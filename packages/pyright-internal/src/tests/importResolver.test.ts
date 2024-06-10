@@ -689,6 +689,24 @@ describe('Import tests that can run with or without a true venv', () => {
         });
         assert(!importResult.isImportFound);
     });
+
+    test('default workspace importing side by side file', () => {
+        const files = [
+            {
+                path: combinePaths('/', 'src', 'a', 'b', 'file1.py'),
+                content: 'import file2',
+            },
+            {
+                path: combinePaths('/', 'src', 'a', 'b', 'file2.py'),
+                content: 'def f(): pass',
+            },
+        ];
+
+        const importResult = getImportResult(files, ['file2'], (config) => {
+            config.projectRoot = Uri.defaultWorkspace({ isCaseSensitive: () => true });
+        });
+        assert(importResult.isImportFound);
+    });
 });
 
 if (usingTrueVenv()) {

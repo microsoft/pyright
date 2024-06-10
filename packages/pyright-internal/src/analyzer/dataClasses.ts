@@ -806,7 +806,7 @@ function getConverterInputType(
 
             if (
                 evaluator.assignType(
-                    FunctionType.getSpecializedReturnType(signature) ?? UnknownType.create(),
+                    FunctionType.getEffectiveReturnType(signature) ?? UnknownType.create(),
                     fieldType,
                     /* diag */ undefined,
                     returnTypeVarContext

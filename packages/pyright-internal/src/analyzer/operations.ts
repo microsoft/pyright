@@ -117,6 +117,7 @@ export function validateBinaryOperation(
 ): Type {
     const leftType = leftTypeResult.type;
     const rightType = rightTypeResult.type;
+    const isIncomplete = !!leftTypeResult.isIncomplete || !!rightTypeResult.isIncomplete;
     let type: Type | undefined;
     let concreteLeftType = evaluator.makeTopLevelTypeVarsConcrete(leftType);
 
@@ -485,7 +486,8 @@ export function validateBinaryOperation(
                                     );
                                 }
                             }
-                            return resultType;
+
+                            return resultType ?? UnknownType.create(isIncomplete);
                         }
                     );
                 }
@@ -493,7 +495,7 @@ export function validateBinaryOperation(
         }
     }
 
-    return type ?? UnknownType.create();
+    return type ?? UnknownType.create(isIncomplete);
 }
 
 export function getTypeOfBinaryOperation(
@@ -738,7 +740,7 @@ export function getTypeOfBinaryOperation(
     // within a loop construct using __add__.
     const isTupleAddAllowed = !isUnion(leftType);
 
-    let type = validateBinaryOperation(
+    const type = validateBinaryOperation(
         evaluator,
         node.operator,
         { type: leftType, isIncomplete: leftTypeResult.isIncomplete },
@@ -788,8 +790,6 @@ export function getTypeOfBinaryOperation(
                 );
             }
         }
-
-        type = UnknownType.create();
     }
 
     return { type, isIncomplete, typeErrors };
@@ -934,19 +934,12 @@ export function getTypeOfAugmentedAssignment(
                     node
                 );
             }
-
-            type = UnknownType.create();
         }
 
         typeResult = { type, isIncomplete };
     }
 
-    evaluator.assignTypeToExpression(
-        node.destExpression,
-        typeResult.type,
-        !!typeResult.isIncomplete,
-        node.rightExpression
-    );
+    evaluator.assignTypeToExpression(node.destExpression, typeResult, node.rightExpression);
 
     return typeResult;
 }
@@ -1078,7 +1071,7 @@ export function getTypeOfUnaryOperation(
                     }
                 }
 
-                type = UnknownType.create();
+                type = UnknownType.create(isIncomplete);
             }
         }
     }

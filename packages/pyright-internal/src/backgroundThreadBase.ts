@@ -22,24 +22,32 @@ import './common/serviceProviderExtensions';
 import { Uri } from './common/uri/uri';
 
 export class BackgroundConsole implements ConsoleInterface {
-    // We always generate logs in the background. For the foreground,
-    // we'll decide based on user setting whether.
+    private _level = LogLevel.Log;
+
     get level() {
-        return LogLevel.Log;
+        return this._level;
+    }
+
+    set level(value: LogLevel) {
+        this._level = value;
     }
 
     log(msg: string) {
         this.post(LogLevel.Log, msg);
     }
+
     info(msg: string) {
         this.post(LogLevel.Info, msg);
     }
+
     warn(msg: string) {
         this.post(LogLevel.Warn, msg);
     }
+
     error(msg: string) {
         this.post(LogLevel.Error, msg);
     }
+
     protected post(level: LogLevel, msg: string) {
         parentPort?.postMessage({ requestType: 'log', data: serialize({ level: level, message: msg }) });
     }

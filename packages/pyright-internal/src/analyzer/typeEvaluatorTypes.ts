@@ -9,7 +9,6 @@
 
 import { CancellationToken } from 'vscode-languageserver-protocol';
 
-import { DiagnosticLevel } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -153,6 +152,10 @@ export const enum EvaluatorFlags {
 
     // Allow use of the Concatenate special form.
     AllowConcatenate = 1 << 27,
+
+    // Do not infer literal types within a tuple (used for tuples nested within
+    // other container classes).
+    StripLiteralTypeForTuple = 1 << 28,
 
     // Defaults used for evaluating the LHS of a call expression.
     CallBaseDefaults = DoNotSpecialize,
@@ -628,12 +631,7 @@ export interface TypeEvaluator {
         signatureTracker: UniqueSignatureTracker | undefined
     ) => CallResult;
     validateTypeArg: (argResult: TypeResultWithNode, options?: ValidateTypeArgsOptions) => boolean;
-    assignTypeToExpression: (
-        target: ExpressionNode,
-        type: Type,
-        isTypeIncomplete: boolean,
-        srcExpr: ExpressionNode
-    ) => void;
+    assignTypeToExpression: (target: ExpressionNode, typeResult: TypeResult, srcExpr: ExpressionNode) => void;
     assignClassToSelf: (destType: ClassType, srcType: ClassType, assumedVariance: Variance) => boolean;
     getBuiltInObject: (node: ParseNode, name: string, typeArguments?: Type[]) => Type;
     getTypedDictClassType: () => ClassType | undefined;
@@ -672,8 +670,7 @@ export interface TypeEvaluator {
     ) => Diagnostic | undefined;
     addDiagnosticForTextRange: (
         fileInfo: AnalyzerFileInfo,
-        diagLevel: DiagnosticLevel,
-        rule: DiagnosticRule | '',
+        rule: DiagnosticRule,
         message: string,
         range: TextRange
     ) => Diagnostic | undefined;

@@ -217,7 +217,7 @@ reveal_type(te15_A.value, expected_text="str")
 reveal_type(te15_A._value_, expected_text="str")
 
 
-class TestEnum16(Enum):
+class TestEnum16(IntEnum):
     A = 1
     B = 2
     C = 3

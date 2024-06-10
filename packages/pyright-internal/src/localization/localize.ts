@@ -188,6 +188,10 @@ export function loadStringsForLocale(locale: string, localeMap: Map<string, any>
 
 export namespace Localizer {
     export namespace Diagnostic {
+        export const annotatedMetadataInconsistent = () =>
+            new ParameterizedString<{ type: string; metadataType: string }>(
+                getRawString('Diagnostic.annotatedMetadataInconsistent')
+            );
         export const abstractMethodInvocation = () =>
             new ParameterizedString<{ method: string }>(getRawString('Diagnostic.abstractMethodInvocation'));
         export const annotatedParamCountMismatch = () =>
@@ -436,7 +440,9 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.enumMemberDelete'));
         export const enumMemberSet = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.enumMemberSet'));
+        export const enumMemberTypeAnnotation = () => getRawString('Diagnostic.enumMemberTypeAnnotation');
         export const exceptionGroupIncompatible = () => getRawString('Diagnostic.exceptionGroupIncompatible');
+        export const exceptionGroupTypeIncorrect = () => getRawString('Diagnostic.exceptionGroupTypeIncorrect');
         export const exceptionTypeIncorrect = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.exceptionTypeIncorrect'));
         export const exceptionTypeNotClass = () =>
@@ -1167,7 +1173,7 @@ export namespace Localizer {
         export const yieldFromIllegal = () => getRawString('Diagnostic.yieldFromIllegal');
         export const yieldFromOutsideAsync = () => getRawString('Diagnostic.yieldFromOutsideAsync');
         export const yieldOutsideFunction = () => getRawString('Diagnostic.yieldOutsideFunction');
-        export const yieldWithinListCompr = () => getRawString('Diagnostic.yieldWithinListCompr');
+        export const yieldWithinComprehension = () => getRawString('Diagnostic.yieldWithinComprehension');
         export const zeroCaseStatementsFound = () => getRawString('Diagnostic.zeroCaseStatementsFound');
         export const zeroLengthTupleNotAllowed = () => getRawString('Diagnostic.zeroLengthTupleNotAllowed');
     }

@@ -1,4 +1,5 @@
-from typing import NoReturn
+from collections.abc import Iterable
+from typing import NoReturn, Protocol, type_check_only
 
 from docker import APIClient
 from docker.models.configs import ConfigCollection
@@ -12,11 +13,24 @@ from docker.models.services import ServiceCollection
 from docker.models.swarm import Swarm
 from docker.models.volumes import VolumeCollection
 
+@type_check_only
+class _Environ(Protocol):
+    def __getitem__(self, k: str, /) -> str: ...
+    def keys(self) -> Iterable[str]: ...
+
 class DockerClient:
     api: APIClient
     def __init__(self, *args, **kwargs) -> None: ...
     @classmethod
-    def from_env(cls, **kwargs) -> DockerClient: ...
+    def from_env(
+        cls,
+        *,
+        version: str | None = None,
+        timeout: int = ...,
+        max_pool_size: int = ...,
+        environment: _Environ | None = None,
+        use_ssh_client: bool = False,
+    ) -> DockerClient: ...
     @property
     def configs(self) -> ConfigCollection: ...
     @property

@@ -42,12 +42,14 @@ describe('Diagnostic overrides', () => {
         for (const propName of overrideNamesInJson) {
             const p = json.properties[propName];
 
-            expect(p['$id']).toEqual(`#/properties/${propName}`);
-            expect(p['$ref']).toEqual(`#/definitions/diagnostic`);
-            expect(p.title).toBeDefined();
-            expect(p.title.length).toBeGreaterThan(0);
-            expect(p.default).toBeDefined();
-            expect(enumValues).toContain(p.default);
+            const ref = p['$ref'];
+            const def = json.definitions[ref.substring(ref.lastIndexOf('/') + 1)];
+
+            expect(def['$ref']).toEqual(`#/definitions/diagnostic`);
+            expect(def.title).toBeDefined();
+            expect(def.title.length).toBeGreaterThan(0);
+            expect(def.default).toBeDefined();
+            expect(enumValues).toContain(def.default);
         }
 
         const overrideNamesInCode: string[] = Object.values(DiagnosticRule).filter((x) => x.startsWith('report'));

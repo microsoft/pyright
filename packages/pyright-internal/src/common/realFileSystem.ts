@@ -10,7 +10,9 @@ import * as fs from 'fs';
 import * as tmp from 'tmp';
 import { isMainThread } from 'worker_threads';
 
+import { CaseSensitivityDetector } from './caseSensitivityDetector';
 import { ConsoleInterface, NullConsole } from './console';
+import { randomBytesHex } from './crypto';
 import { FileSystem, MkDirOptions, TempFile, TmpfileOptions } from './fileSystem';
 import {
     FileWatcher,
@@ -24,8 +26,6 @@ import { combinePaths, getRootLength } from './pathUtils';
 import { FileUri, FileUriSchema } from './uri/fileUri';
 import { Uri } from './uri/uri';
 import { getRootUri } from './uri/uriUtils';
-import { randomBytesHex } from './crypto';
-import { CaseSensitivityDetector } from './caseSensitivityDetector';
 
 // Automatically remove files created by tmp at process exit.
 tmp.setGracefulCleanup();
@@ -219,7 +219,7 @@ const yarnFS = new YarnFS();
 // unless you are creating a new file system that inherits from `RealFileSystem`
 export class RealFileSystem implements FileSystem {
     constructor(
-        private readonly _caseSensitiveDectector: CaseSensitivityDetector,
+        private readonly _caseSensitiveDetector: CaseSensitivityDetector,
         private readonly _console: ConsoleInterface,
         private readonly _fileWatcherProvider: FileWatcherProvider
     ) {
@@ -356,7 +356,7 @@ export class RealFileSystem implements FileSystem {
     realpathSync(uri: Uri) {
         try {
             const path = uri.getFilePath();
-            return Uri.file(yarnFS.realpathSync(path), this._caseSensitiveDectector);
+            return Uri.file(yarnFS.realpathSync(path), this._caseSensitiveDetector);
         } catch (e: any) {
             return uri;
         }
@@ -366,7 +366,7 @@ export class RealFileSystem implements FileSystem {
         // The entry point to the tool should have set the __rootDirectory
         // global variable to point to the directory that contains the
         // typeshed-fallback directory.
-        return getRootUri(this._caseSensitiveDectector) || Uri.empty();
+        return getRootUri(this._caseSensitiveDetector) || Uri.empty();
     }
 
     createFileSystemWatcher(paths: Uri[], listener: FileWatcherEventHandler): FileWatcher {
@@ -429,7 +429,7 @@ export class RealFileSystem implements FileSystem {
                 return uri;
             }
 
-            return Uri.file(realCase, this._caseSensitiveDectector);
+            return Uri.file(realCase, this._caseSensitiveDetector);
         } catch (e: any) {
             // Return as it is, if anything failed.
             this._console.log(`Failed to get real file system casing for ${uri}: ${e}`);

@@ -2,7 +2,6 @@ from _typeshed import Incomplete
 
 from hvac.api.vault_api_base import VaultApiBase
 
-DEFAULT_MOUNT_POINT: str
 logger: Incomplete
 
 class Identity(VaultApiBase):

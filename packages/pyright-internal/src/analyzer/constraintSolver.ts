@@ -15,9 +15,7 @@ import { maxSubtypesForInferredType, TypeEvaluator } from './typeEvaluatorTypes'
 import {
     ClassType,
     combineTypes,
-    FunctionParameter,
     FunctionType,
-    FunctionTypeFlags,
     isAny,
     isAnyOrUnknown,
     isClass,
@@ -101,7 +99,7 @@ export function assignTypeToTypeVar(
 
     let isTypeVarInScope = true;
     const isInvariant = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
-    const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
+    const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0 && !isInvariant;
 
     // If the TypeVar doesn't have a scope ID, then it's being used
     // outside of a valid TypeVar scope. This will be reported as a
@@ -145,7 +143,7 @@ export function assignTypeToTypeVar(
             destType.details.isParamSpec &&
             isFunction(srcType) &&
             FunctionType.isParamSpecValue(srcType) &&
-            FunctionType.shouldSkipArgsKwargsCompatibilityCheck(srcType)
+            FunctionType.isGradualCallableForm(srcType)
         ) {
             return true;
         }
@@ -513,6 +511,31 @@ export function assignTypeToTypeVar(
                         );
                     }
                 }
+            }
+        }
+
+        // If this is an invariant context, make sure the narrow type bound
+        // isn't too wide.
+        if (isInvariant && newNarrowTypeBound) {
+            if (
+                !evaluator.assignType(
+                    adjSrcType,
+                    newNarrowTypeBound,
+                    diag?.createAddendum(),
+                    /* destTypeVarContext */ undefined,
+                    /* srcTypeVarContext */ undefined,
+                    AssignTypeFlags.IgnoreTypeVarScope,
+                    recursionCount
+                )
+            ) {
+                if (diag && diagAddendum) {
+                    diag.addMessage(
+                        LocAddendum.typeAssignmentMismatch().format(
+                            evaluator.printSrcDestTypes(newNarrowTypeBound, adjSrcType)
+                        )
+                    );
+                }
+                return false;
             }
         }
 
@@ -890,55 +913,29 @@ function assignTypeToParamSpec(
     recursionCount = 0
 ) {
     let isAssignable = true;
+    const adjSrcType = isFunction(srcType) ? convertParamSpecValueToType(srcType) : srcType;
 
     typeVarContext.doForEachSignature((signatureContext) => {
-        if (isTypeVar(srcType) && srcType.details.isParamSpec) {
+        if (isTypeVar(adjSrcType) && adjSrcType.details.isParamSpec) {
             const existingType = signatureContext.getParamSpecType(destType);
             if (existingType) {
-                if (existingType.details.parameters.length === 0 && existingType.details.paramSpec) {
+                const existingTypeParamSpec = FunctionType.getParamSpecFromArgsKwargs(existingType);
+                const existingTypeWithoutArgsKwargs = FunctionType.cloneRemoveParamSpecArgsKwargs(existingType);
+
+                if (existingTypeWithoutArgsKwargs.details.parameters.length === 0 && existingTypeParamSpec) {
                     // If there's an existing entry that matches, that's fine.
-                    if (isTypeSame(existingType.details.paramSpec, srcType, {}, recursionCount)) {
+                    if (isTypeSame(existingTypeParamSpec, adjSrcType, {}, recursionCount)) {
                         return;
                     }
                 }
             } else {
                 if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
-                    signatureContext.setTypeVarType(destType, convertTypeToParamSpecValue(srcType));
+                    signatureContext.setTypeVarType(destType, convertTypeToParamSpecValue(adjSrcType));
                 }
                 return;
             }
-        } else if (isFunction(srcType)) {
-            const functionSrcType = srcType;
-            const parameters = srcType.details.parameters.map((p, index) => {
-                const param: FunctionParameter = {
-                    category: p.category,
-                    name: p.name,
-                    isNameSynthesized: p.isNameSynthesized,
-                    hasDefault: !!p.hasDefault,
-                    defaultValueExpression: p.defaultValueExpression,
-                    hasDeclaredType: p.hasDeclaredType,
-                    type: FunctionType.getEffectiveParameterType(functionSrcType, index),
-                };
-                return param;
-            });
-
-            const newFunction = FunctionType.createInstance(
-                '',
-                '',
-                '',
-                srcType.details.flags | FunctionTypeFlags.ParamSpecValue
-            );
-            parameters.forEach((param) => {
-                FunctionType.addParameter(newFunction, param);
-            });
-            newFunction.details.typeVarScopeId = srcType.details.typeVarScopeId;
-            newFunction.details.constructorTypeVarScopeId = srcType.details.constructorTypeVarScopeId;
-            FunctionType.addHigherOrderTypeVarScopeIds(newFunction, srcType.details.higherOrderTypeVarScopeIds);
-            newFunction.details.docString = srcType.details.docString;
-            newFunction.details.deprecatedMessage = srcType.details.deprecatedMessage;
-            newFunction.details.paramSpec = srcType.details.paramSpec;
-            newFunction.details.methodClass = srcType.details.methodClass;
-
+        } else if (isFunction(adjSrcType)) {
+            const newFunction = adjSrcType;
             let updateContextWithNewFunction = false;
 
             const existingType = signatureContext.getParamSpecType(destType);
@@ -974,7 +971,7 @@ function assignTypeToParamSpec(
                     // "..." (which is the ParamSpec equivalent of "Any"). If only one has
                     // the type "...", we'll prefer the other one. This is analogous to
                     // what we do with regular TypeVars, where we prefer non-Any values.
-                    if (!FunctionType.shouldSkipArgsKwargsCompatibilityCheck(newFunction)) {
+                    if (!FunctionType.isGradualCallableForm(newFunction)) {
                         updateContextWithNewFunction = true;
                     } else {
                         return;
@@ -996,13 +993,13 @@ function assignTypeToParamSpec(
                 }
                 return;
             }
-        } else if (isAnyOrUnknown(srcType)) {
+        } else if (isAnyOrUnknown(adjSrcType)) {
             return;
         }
 
         diag?.addMessage(
             LocAddendum.typeParamSpec().format({
-                type: evaluator.printType(srcType),
+                type: evaluator.printType(adjSrcType),
                 name: destType.details.name,
             })
         );

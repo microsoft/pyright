@@ -409,7 +409,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
             return '...';
         }
 
-        case ParseNodeType.ListComprehension: {
+        case ParseNodeType.Comprehension: {
             let listStr = '<ListExpression>';
 
             if (isExpressionNode(node.expression)) {
@@ -425,7 +425,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 ' ' +
                 node.forIfNodes
                     .map((expr) => {
-                        if (expr.nodeType === ParseNodeType.ListComprehensionFor) {
+                        if (expr.nodeType === ParseNodeType.ComprehensionFor) {
                             return (
                                 `${expr.isAsync ? 'async ' : ''}for ` +
                                 printExpression(expr.targetExpression, flags) +
@@ -821,7 +821,7 @@ export function getEvaluationNodeForAssignmentExpression(
     // PEP 572 indicates that the evaluation node for an assignment expression
     // target within a list comprehension is contained within a lambda,
     // function or module, but not a class.
-    let sawListComprehension = false;
+    let sawComprehension = false;
     let curNode: ParseNode | undefined = getEvaluationScopeNode(node).node;
 
     while (curNode !== undefined) {
@@ -832,10 +832,10 @@ export function getEvaluationNodeForAssignmentExpression(
                 return curNode;
 
             case ParseNodeType.Class:
-                return sawListComprehension ? undefined : curNode;
+                return sawComprehension ? undefined : curNode;
 
-            case ParseNodeType.ListComprehension:
-                sawListComprehension = true;
+            case ParseNodeType.Comprehension:
+                sawComprehension = true;
                 curNode = getEvaluationScopeNode(curNode.parent!).node;
                 break;
 
@@ -959,13 +959,13 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeInfo {
                 break;
             }
 
-            case ParseNodeType.ListComprehension: {
+            case ParseNodeType.Comprehension: {
                 if (getScope(curNode) !== undefined) {
                     // The iterable expression of the first subnode of a list comprehension
                     // is evaluated within the scope of its parent.
                     const isFirstIterableExpr =
                         prevNode === curNode.forIfNodes[0] &&
-                        curNode.forIfNodes[0].nodeType === ParseNodeType.ListComprehensionFor &&
+                        curNode.forIfNodes[0].nodeType === ParseNodeType.ComprehensionFor &&
                         curNode.forIfNodes[0].iterableExpression === prevPrevNode;
 
                     if (!isFirstIterableExpr) {
@@ -1046,7 +1046,7 @@ export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {
     // comprehensions are executed within their container.
     while (
         evaluationScope.nodeType === ParseNodeType.Class ||
-        evaluationScope.nodeType === ParseNodeType.ListComprehension
+        evaluationScope.nodeType === ParseNodeType.Comprehension
     ) {
         evaluationScope = getEvaluationScopeNode(evaluationScope.parent!).node;
     }
@@ -2032,14 +2032,14 @@ export function printParseNodeType(type: ParseNodeType) {
         case ParseNodeType.List:
             return 'List';
 
-        case ParseNodeType.ListComprehension:
-            return 'ListComprehension';
+        case ParseNodeType.Comprehension:
+            return 'Comprehension';
 
-        case ParseNodeType.ListComprehensionFor:
-            return 'ListComprehensionFor';
+        case ParseNodeType.ComprehensionFor:
+            return 'ComprehensionFor';
 
-        case ParseNodeType.ListComprehensionIf:
-            return 'ListComprehensionIf';
+        case ParseNodeType.ComprehensionIf:
+            return 'ComprehensionIf';
 
         case ParseNodeType.MemberAccess:
             return 'MemberAccess';
@@ -2226,7 +2226,7 @@ export function isWriteAccess(node: NameNode) {
                 return curNode.withItems.some((item) => item === prevNode);
             }
 
-            case ParseNodeType.ListComprehensionFor: {
+            case ParseNodeType.ComprehensionFor: {
                 return prevNode === curNode.targetExpression;
             }
 

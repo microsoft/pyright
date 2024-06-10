@@ -2338,7 +2338,7 @@ export function narrowTypeForDiscriminatedLiteralFieldComparison(
             if (isClassInstance(subtype) && isClassInstance(memberType) && isProperty(memberType)) {
                 const getterType = memberType.fgetInfo?.methodType;
                 if (getterType && getterType.details.declaredReturnType) {
-                    const getterReturnType = FunctionType.getSpecializedReturnType(getterType);
+                    const getterReturnType = FunctionType.getEffectiveReturnType(getterType);
                     if (getterReturnType) {
                         memberType = getterReturnType;
                     }
@@ -2543,7 +2543,8 @@ function narrowTypeForLiteralComparison(
             }
         } else if (isPositiveTest) {
             if (isIsOperator || isNoneInstance(subtype)) {
-                return undefined;
+                const isSubtype = evaluator.assignType(subtype, literalType);
+                return isSubtype ? literalType : undefined;
             }
         }
 

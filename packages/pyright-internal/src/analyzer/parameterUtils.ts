@@ -35,10 +35,10 @@ export function isTypedKwargs(param: FunctionParameter): boolean {
     );
 }
 
-export enum ParameterSource {
-    PositionOnly,
-    PositionOrKeyword,
-    KeywordOnly,
+export enum ParameterKind {
+    Positional,
+    Standard,
+    Keyword,
 }
 
 export interface VirtualParameterDetails {
@@ -46,7 +46,7 @@ export interface VirtualParameterDetails {
     type: Type;
     defaultArgType?: Type | undefined;
     index: number;
-    source: ParameterSource;
+    kind: ParameterKind;
 }
 
 export interface ParameterListDetails {
@@ -85,7 +85,6 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         params: [],
         hasUnpackedVariadicTypeVar: false,
         hasUnpackedTypedDict: false,
-        paramSpec: type.details.paramSpec,
     };
 
     let positionOnlyIndex = type.details.parameters.findIndex((p) => isPositionOnlySeparator(p));
@@ -131,20 +130,20 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         index: number,
         typeOverride?: Type,
         defaultArgTypeOverride?: Type,
-        sourceOverride?: ParameterSource
+        sourceOverride?: ParameterKind
     ) => {
         if (param.name) {
-            let source: ParameterSource;
+            let kind: ParameterKind;
             if (sourceOverride !== undefined) {
-                source = sourceOverride;
+                kind = sourceOverride;
             } else if (param.category === ParameterCategory.ArgsList) {
-                source = ParameterSource.PositionOnly;
+                kind = ParameterKind.Positional;
             } else if (sawKeywordOnlySeparator) {
-                source = ParameterSource.KeywordOnly;
+                kind = ParameterKind.Keyword;
             } else if (positionOnlyIndex >= 0 && index < positionOnlyIndex) {
-                source = ParameterSource.PositionOnly;
+                kind = ParameterKind.Positional;
             } else {
-                source = ParameterSource.PositionOrKeyword;
+                kind = ParameterKind.Standard;
             }
 
             result.params.push({
@@ -152,7 +151,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                 index,
                 type: typeOverride ?? FunctionType.getEffectiveParameterType(type, index),
                 defaultArgType: defaultArgTypeOverride,
-                source,
+                kind,
             });
         }
     };
@@ -189,7 +188,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                         index,
                         tupleArg.type,
                         /* defaultArgTypeOverride */ undefined,
-                        ParameterSource.PositionOnly
+                        ParameterKind.Positional
                     );
 
                     if (category === ParameterCategory.Simple) {
@@ -307,23 +306,9 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
 
     // If the signature ends in `*args: P.args, **kwargs: P.kwargs`,
     // extract the ParamSpec P.
-    if (result.params.length >= 2) {
-        const secondLastParam = result.params[result.params.length - 2].param;
-        const lastParam = result.params[result.params.length - 1].param;
+    result.paramSpec = FunctionType.getParamSpecFromArgsKwargs(type);
 
-        if (
-            secondLastParam.category === ParameterCategory.ArgsList &&
-            isTypeVar(secondLastParam.type) &&
-            secondLastParam.type.paramSpecAccess === 'args' &&
-            lastParam.category === ParameterCategory.KwargsDict &&
-            isTypeVar(lastParam.type) &&
-            lastParam.type.paramSpecAccess === 'kwargs'
-        ) {
-            result.paramSpec = TypeVarType.cloneForParamSpecAccess(secondLastParam.type, undefined);
-        }
-    }
-
-    result.firstPositionOrKeywordIndex = result.params.findIndex((p) => p.source !== ParameterSource.PositionOnly);
+    result.firstPositionOrKeywordIndex = result.params.findIndex((p) => p.kind !== ParameterKind.Positional);
     if (result.firstPositionOrKeywordIndex < 0) {
         result.firstPositionOrKeywordIndex = result.params.length;
     }

@@ -1,5 +1,6 @@
 {
     "Diagnostic": {
+        "annotatedMetadataInconsistent": "Annotated metadata type \"{metadataType}\" is not compatible with type \"{type}\"",
         "abstractMethodInvocation": "Method \"{method}\" cannot be called because it is abstract and unimplemented",
         "annotatedParamCountMismatch": "Parameter annotation count mismatch: expected {expected} but received {received}",
         "annotatedTypeArgMissing": "Expected one type argument and one or more annotations for \"Annotated\"",
@@ -142,7 +143,9 @@
         "enumClassOverride": "Enum class \"{name}\" is final and cannot be subclassed",
         "enumMemberDelete": "Enum member \"{name}\" cannot be deleted",
         "enumMemberSet": "Enum member \"{name}\" cannot be assigned",
+        "enumMemberTypeAnnotation": "Type annotations are not allowed for enum members",
         "exceptionGroupIncompatible": "Exception group syntax (\"except*\") requires Python 3.11 or newer",
+        "exceptionGroupTypeIncorrect": "Exception type in except* cannot derive from BaseGroupException",
         "exceptionTypeIncorrect": "\"{type}\" does not derive from BaseException",
         "exceptionTypeNotClass": "\"{type}\" is not a valid exception class",
         "exceptionTypeNotInstantiable": "Constructor for exception type \"{type}\" requires one or more arguments",
@@ -610,7 +613,7 @@
         "yieldFromIllegal": "Use of \"yield from\" requires Python 3.3 or newer",
         "yieldFromOutsideAsync": "\"yield from\" not allowed in an async function",
         "yieldOutsideFunction": "\"yield\" not allowed outside of a function or lambda",
-        "yieldWithinListCompr": "\"yield\" not allowed inside a list comprehension",
+        "yieldWithinComprehension": "\"yield\" not allowed inside a comprehension",
         "zeroCaseStatementsFound": "Match statement must include at least one case statement",
         "zeroLengthTupleNotAllowed": "Zero-length tuple is not allowed in this context"
     },
@@ -679,8 +682,8 @@
         "missingGetter": "Property getter method is missing",
         "missingSetter": "Property setter method is missing",
         "missingDeleter": "Property deleter method is missing",
-        "namedParamMissingInDest": "Keyword parameter \"{name}\" is missing in destination",
-        "namedParamMissingInSource": "Keyword parameter \"{name}\" is missing in source",
+        "namedParamMissingInDest": "Extra parameter \"{name}\"",
+        "namedParamMissingInSource": "Missing keyword parameter \"{name}\"",
         "namedParamTypeMismatch": "Keyword parameter \"{name}\" of type \"{sourceType}\" is incompatible with type \"{destType}\"",
         "namedTupleNotAllowed": "NamedTuple cannot be used for instance or class checks",
         "newMethodLocation": "The __new__ method is defined in class \"{type}\"",

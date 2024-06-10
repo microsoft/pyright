@@ -87,6 +87,8 @@ export class FileUri extends BaseUri {
         originalString: string | undefined,
         isCaseSensitive: boolean
     ): FileUri {
+        filePath = isDiskPathRoot(filePath) ? ensureTrailingDirectorySeparator(filePath) : filePath;
+
         const key = FileUri._createKey(filePath, query, fragment);
         return new FileUri(key, filePath, query, fragment, originalString, isCaseSensitive);
     }

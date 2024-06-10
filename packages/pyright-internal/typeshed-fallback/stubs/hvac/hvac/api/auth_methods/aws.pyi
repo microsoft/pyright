@@ -15,11 +15,17 @@ class Aws(VaultApiBase):
         sts_endpoint: Incomplete | None = None,
         iam_server_id_header_value: Incomplete | None = None,
         mount_point: str = "aws",
+        sts_region: str | None = None,
     ): ...
     def read_config(self, mount_point: str = "aws"): ...
     def delete_config(self, mount_point: str = "aws"): ...
     def configure_identity_integration(
-        self, iam_alias: Incomplete | None = None, ec2_alias: Incomplete | None = None, mount_point: str = "aws"
+        self,
+        iam_alias: Incomplete | None = None,
+        ec2_alias: Incomplete | None = None,
+        mount_point: str = "aws",
+        iam_metadata: str | list[str] | None = None,
+        ec2_metadata: str | list[str] | None = None,
     ): ...
     def read_identity_integration(self, mount_point: str = "aws"): ...
     def create_certificate_configuration(

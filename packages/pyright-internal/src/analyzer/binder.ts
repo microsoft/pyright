@@ -39,6 +39,7 @@ import {
     CallNode,
     CaseNode,
     ClassNode,
+    ComprehensionNode,
     ContinueNode,
     DelNode,
     ExceptNode,
@@ -51,7 +52,6 @@ import {
     ImportFromNode,
     IndexNode,
     LambdaNode,
-    ListComprehensionNode,
     MatchNode,
     MemberAccessNode,
     ModuleNameNode,
@@ -367,7 +367,6 @@ export class Binder extends ParseTreeWalker {
 
         if (!importResult.isImportFound) {
             this._addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportMissingImports,
                 DiagnosticRule.reportMissingImports,
                 LocMessage.importResolveFailure().format({
                     importName: importResult.importName,
@@ -385,7 +384,6 @@ export class Binder extends ParseTreeWalker {
             !importResult.pyTypedInfo
         ) {
             const diagnostic = this._addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportMissingTypeStubs,
                 DiagnosticRule.reportMissingTypeStubs,
                 LocMessage.stubFileMissing().format({ importName: importResult.importName }),
                 node
@@ -752,7 +750,6 @@ export class Binder extends ParseTreeWalker {
                 this._usesUnsupportedDunderAllForm = true;
 
                 this._addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
                     DiagnosticRule.reportUnsupportedDunderAll,
                     LocMessage.unsupportedDunderAllOperation(),
                     node
@@ -863,7 +860,6 @@ export class Binder extends ParseTreeWalker {
 
         if (node.chainedTypeAnnotationComment) {
             this._addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportInvalidTypeForm,
                 DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.annotationNotSupported(),
                 node.chainedTypeAnnotationComment
@@ -956,7 +952,6 @@ export class Binder extends ParseTreeWalker {
                     this._usesUnsupportedDunderAllForm = true;
 
                     this._addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
                         DiagnosticRule.reportUnsupportedDunderAll,
                         LocMessage.unsupportedDunderAllOperation(),
                         node
@@ -1111,7 +1106,6 @@ export class Binder extends ParseTreeWalker {
                 this._usesUnsupportedDunderAllForm = true;
 
                 this._addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
                     DiagnosticRule.reportUnsupportedDunderAll,
                     LocMessage.unsupportedDunderAllOperation(),
                     node
@@ -1264,8 +1258,8 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitYield(node: YieldNode): boolean {
-        if (this._isInListComprehension(node, /* ignoreOutermostIterable */ true)) {
-            this._addSyntaxError(LocMessage.yieldWithinListCompr(), node);
+        if (this._isInComprehension(node, /* ignoreOutermostIterable */ true)) {
+            this._addSyntaxError(LocMessage.yieldWithinComprehension(), node);
         }
 
         this._bindYield(node);
@@ -1273,8 +1267,8 @@ export class Binder extends ParseTreeWalker {
     }
 
     override visitYieldFrom(node: YieldFromNode): boolean {
-        if (this._isInListComprehension(node, /* ignoreOutermostIterable */ true)) {
-            this._addSyntaxError(LocMessage.yieldWithinListCompr(), node);
+        if (this._isInComprehension(node, /* ignoreOutermostIterable */ true)) {
+            this._addSyntaxError(LocMessage.yieldWithinComprehension(), node);
         }
 
         this._bindYield(node);
@@ -1622,7 +1616,7 @@ export class Binder extends ParseTreeWalker {
             // Allow if it's within a generator expression. Execution of
             // generator expressions is deferred and therefore can be
             // run within the context of an async function later.
-            if (node.parent?.nodeType !== ParseNodeType.ListComprehension) {
+            if (node.parent?.nodeType !== ParseNodeType.Comprehension) {
                 this._addSyntaxError(LocMessage.awaitNotInAsync(), node);
             }
         }
@@ -2151,16 +2145,16 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    override visitListComprehension(node: ListComprehensionNode): boolean {
+    override visitComprehension(node: ComprehensionNode): boolean {
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
 
         // The first iterable is executed outside of the comprehension scope.
-        if (node.forIfNodes.length > 0 && node.forIfNodes[0].nodeType === ParseNodeType.ListComprehensionFor) {
+        if (node.forIfNodes.length > 0 && node.forIfNodes[0].nodeType === ParseNodeType.ComprehensionFor) {
             this.walk(node.forIfNodes[0].iterableExpression);
         }
 
         this._createNewScope(
-            ScopeType.ListComprehension,
+            ScopeType.Comprehension,
             this._getNonClassParentScope(),
             /* proxyScope */ undefined,
             () => {
@@ -2174,7 +2168,7 @@ export class Binder extends ParseTreeWalker {
                 for (let i = 0; i < node.forIfNodes.length; i++) {
                     const compr = node.forIfNodes[i];
                     const addedSymbols = new Map<string, Symbol>();
-                    if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
+                    if (compr.nodeType === ParseNodeType.ComprehensionFor) {
                         this._bindPossibleTupleNamedTarget(compr.targetExpression, addedSymbols);
                         this._addInferredTypeAssignmentForVariable(compr.targetExpression, compr);
 
@@ -2195,7 +2189,7 @@ export class Binder extends ParseTreeWalker {
 
                 for (let i = 0; i < node.forIfNodes.length; i++) {
                     const compr = node.forIfNodes[i];
-                    if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
+                    if (compr.nodeType === ParseNodeType.ComprehensionFor) {
                         // We already walked the first iterable expression above,
                         // so skip it here.
                         if (i !== 0) {
@@ -2404,16 +2398,16 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    private _isInListComprehension(node: ParseNode, ignoreOutermostIterable = false) {
+    private _isInComprehension(node: ParseNode, ignoreOutermostIterable = false) {
         let curNode: ParseNode | undefined = node;
         let prevNode: ParseNode | undefined;
         let prevPrevNode: ParseNode | undefined;
 
         while (curNode) {
-            if (curNode.nodeType === ParseNodeType.ListComprehension) {
+            if (curNode.nodeType === ParseNodeType.Comprehension) {
                 if (ignoreOutermostIterable && curNode.forIfNodes.length > 0) {
                     const outermostCompr = curNode.forIfNodes[0];
-                    if (prevNode === outermostCompr && outermostCompr.nodeType === ParseNodeType.ListComprehensionFor) {
+                    if (prevNode === outermostCompr && outermostCompr.nodeType === ParseNodeType.ComprehensionFor) {
                         if (prevPrevNode === outermostCompr.iterableExpression) {
                             return false;
                         }
@@ -3842,7 +3836,6 @@ export class Binder extends ParseTreeWalker {
 
         if (!declarationHandled) {
             this._addDiagnostic(
-                this._fileInfo.diagnosticRuleSet.reportInvalidTypeForm,
                 DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.annotationNotSupported(),
                 typeAnnotation
@@ -3931,6 +3924,12 @@ export class Binder extends ParseTreeWalker {
 
             if (this._isTypingAnnotation(typeAnnotation, 'Final')) {
                 isFinal = true;
+            } else if (
+                typeAnnotation.nodeType === ParseNodeType.Index &&
+                typeAnnotation.items.length > 0 &&
+                this._isTypingAnnotation(typeAnnotation.baseExpression, 'Annotated')
+            ) {
+                return this._isAnnotationFinal(typeAnnotation.items[0].valueExpression);
             } else if (typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
                 // Recursively call to see if the base expression is "Final".
                 const finalInfo = this._isAnnotationFinal(typeAnnotation.baseExpression);
@@ -4224,7 +4223,9 @@ export class Binder extends ParseTreeWalker {
         return getUniqueFlowNodeId();
     }
 
-    private _addDiagnostic(diagLevel: DiagnosticLevel, rule: DiagnosticRule, message: string, textRange: TextRange) {
+    private _addDiagnostic(rule: DiagnosticRule, message: string, textRange: TextRange) {
+        const diagLevel = this._fileInfo.diagnosticRuleSet[rule] as DiagnosticLevel;
+
         let diagnostic: Diagnostic | undefined;
         switch (diagLevel) {
             case 'error':

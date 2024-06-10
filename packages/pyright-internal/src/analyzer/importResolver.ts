@@ -338,7 +338,7 @@ export class ImportResolver {
 
     isStdlibModule(module: ImportedModuleDescriptor, execEnv: ExecutionEnvironment): boolean {
         if (!this._stdlibModules) {
-            this._stdlibModules = this._buildStdlibCache(this.getTypeshedStdLibPath(execEnv));
+            this._stdlibModules = this._buildStdlibCache(this.getTypeshedStdLibPath(execEnv), execEnv);
         }
 
         return this._stdlibModules.has(module.nameParts.join('.'));
@@ -564,6 +564,7 @@ export class ImportResolver {
             return importResult;
         }
 
+        const localImportFailureInfo: string[] = [`Attempting to resolve using local imports: ${importName}`];
         const importPath: ImportPath = { importPath: undefined };
 
         // Going up the given folder one by one until we can resolve the import.
@@ -575,7 +576,7 @@ export class ImportResolver {
                 execEnv,
                 moduleDescriptor,
                 importName,
-                [],
+                localImportFailureInfo,
                 /* allowPartial */ undefined,
                 /* allowNativeLib */ undefined,
                 /* useStubPackage */ false,
@@ -603,6 +604,12 @@ export class ImportResolver {
         if (current) {
             this.cachedParentImportResults.checked(current, importName, importPath);
         }
+
+        if (this._configOptions.verboseOutput) {
+            const console = this.serviceProvider.console();
+            localImportFailureInfo.forEach((diag) => console.log(diag));
+        }
+
         return importResult;
     }
 
@@ -877,12 +884,16 @@ export class ImportResolver {
         return '.'.repeat(moduleDescriptor.leadingDots) + moduleDescriptor.nameParts.join('.');
     }
 
-    protected getParentImportResolutionRoot(sourceFileUri: Uri, executionRoot: Uri | undefined) {
-        if (executionRoot && !executionRoot.isEmpty()) {
-            return this.fileSystem.realCasePath(executionRoot);
+    protected getParentImportResolutionRoot(sourceFileUri: Uri, executionRoot: Uri | undefined): Uri {
+        if (!this._isDefaultWorkspace(executionRoot)) {
+            return executionRoot!;
         }
 
         return sourceFileUri.getDirectory();
+    }
+
+    private _isDefaultWorkspace(uri: Uri | undefined) {
+        return !uri || uri.isEmpty() || Uri.isDefaultWorkspace(uri);
     }
 
     private _resolveImportStrict(
@@ -1623,6 +1634,23 @@ export class ImportResolver {
             bestResultSoFar = this._pickBestImport(bestResultSoFar, localImport, moduleDescriptor);
         }
 
+        // Check for a stdlib typeshed file.
+        if (allowPyi && moduleDescriptor.nameParts.length > 0) {
+            importFailureInfo.push(`Looking for typeshed stdlib path`);
+            const typeshedStdlibImport = this._findTypeshedPath(
+                execEnv,
+                moduleDescriptor,
+                importName,
+                /* isStdLib */ true,
+                importFailureInfo
+            );
+
+            if (typeshedStdlibImport) {
+                typeshedStdlibImport.isStdlibTypeshedFile = true;
+                return typeshedStdlibImport;
+            }
+        }
+
         // Look for the import in the list of third-party packages.
         const pythonSearchPaths = this.getPythonSearchPaths(importFailureInfo);
         if (pythonSearchPaths.length > 0) {
@@ -1676,23 +1704,8 @@ export class ImportResolver {
             return extraResults;
         }
 
+        // Check for a third-party typeshed file.
         if (allowPyi && moduleDescriptor.nameParts.length > 0) {
-            // Check for a stdlib typeshed file.
-            importFailureInfo.push(`Looking for typeshed stdlib path`);
-            const typeshedStdlibImport = this._findTypeshedPath(
-                execEnv,
-                moduleDescriptor,
-                importName,
-                /* isStdLib */ true,
-                importFailureInfo
-            );
-
-            if (typeshedStdlibImport) {
-                typeshedStdlibImport.isStdlibTypeshedFile = true;
-                return typeshedStdlibImport;
-            }
-
-            // Check for a third-party typeshed file.
             importFailureInfo.push(`Looking for typeshed third-party path`);
             const typeshedImport = this._findTypeshedPath(
                 execEnv,
@@ -1888,7 +1901,7 @@ export class ImportResolver {
     }
 
     // Finds all of the stdlib modules and returns a Set containing all of their names.
-    private _buildStdlibCache(stdlibRoot: Uri | undefined): Set<string> {
+    private _buildStdlibCache(stdlibRoot: Uri | undefined, executionEnvironment: ExecutionEnvironment): Set<string> {
         const cache = new Set<string>();
 
         if (stdlibRoot) {
@@ -1901,7 +1914,17 @@ export class ImportResolver {
                         const stripped = stripFileExtension(entry.name);
                         // Skip anything starting with an underscore.
                         if (!stripped.startsWith('_')) {
-                            cache.add(prefix ? `${prefix}.${stripped}` : stripped);
+                            if (
+                                this._isStdlibTypeshedStubValidForVersion(
+                                    createImportedModuleDescriptor(stripped),
+                                    root,
+                                    executionEnvironment.pythonVersion,
+                                    executionEnvironment.pythonPlatform,
+                                    []
+                                )
+                            ) {
+                                cache.add(prefix ? `${prefix}.${stripped}` : stripped);
+                            }
                         }
                     }
                 });
@@ -2773,7 +2796,7 @@ export class ImportResolver {
         return (
             current &&
             !current.isEmpty() &&
-            (current.isChild(root) || (current.equals(root) && (!execEnv.root || execEnv.root.isEmpty())))
+            (current.isChild(root) || (current.equals(root) && this._isDefaultWorkspace(execEnv.root)))
         );
     }
 }

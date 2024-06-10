@@ -10,7 +10,7 @@ LOG: Logger
 class CORS:
     def __init__(
         self,
-        app: flask.Flask | None = None,
+        app: flask.Flask | flask.Blueprint | None = None,
         *,
         resources: dict[str, dict[str, Any]] | list[str] | str | None = ...,
         origins: str | list[str] | None = ...,

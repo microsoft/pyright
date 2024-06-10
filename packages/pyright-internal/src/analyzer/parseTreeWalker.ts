@@ -20,6 +20,9 @@ import {
     CallNode,
     CaseNode,
     ClassNode,
+    ComprehensionForNode,
+    ComprehensionIfNode,
+    ComprehensionNode,
     ConstantNode,
     ContinueNode,
     DecoratorNode,
@@ -30,8 +33,8 @@ import {
     EllipsisNode,
     ErrorNode,
     ExceptNode,
-    FormatStringNode,
     ForNode,
+    FormatStringNode,
     FunctionAnnotationNode,
     FunctionNode,
     GlobalNode,
@@ -42,9 +45,6 @@ import {
     ImportNode,
     IndexNode,
     LambdaNode,
-    ListComprehensionForNode,
-    ListComprehensionIfNode,
-    ListComprehensionNode,
     ListNode,
     MatchNode,
     MemberAccessNode,
@@ -131,6 +131,15 @@ export function getChildNodes(node: ParseNode): (ParseNode | undefined)[] {
         case ParseNodeType.Class:
             return [...node.decorators, node.name, node.typeParameters, ...node.arguments, node.suite];
 
+        case ParseNodeType.Comprehension:
+            return [node.expression, ...node.forIfNodes];
+
+        case ParseNodeType.ComprehensionFor:
+            return [node.targetExpression, node.iterableExpression];
+
+        case ParseNodeType.ComprehensionIf:
+            return [node.testExpression];
+
         case ParseNodeType.Constant:
             return [];
 
@@ -204,15 +213,6 @@ export function getChildNodes(node: ParseNode): (ParseNode | undefined)[] {
 
         case ParseNodeType.List:
             return node.entries;
-
-        case ParseNodeType.ListComprehension:
-            return [node.expression, ...node.forIfNodes];
-
-        case ParseNodeType.ListComprehensionFor:
-            return [node.targetExpression, node.iterableExpression];
-
-        case ParseNodeType.ListComprehensionIf:
-            return [node.testExpression];
 
         case ParseNodeType.Match:
             return [node.subjectExpression, ...node.cases];
@@ -387,6 +387,15 @@ export class ParseTreeVisitor<T> {
             case ParseNodeType.Class:
                 return this.visitClass(node);
 
+            case ParseNodeType.Comprehension:
+                return this.visitComprehension(node);
+
+            case ParseNodeType.ComprehensionFor:
+                return this.visitComprehensionFor(node);
+
+            case ParseNodeType.ComprehensionIf:
+                return this.visitComprehensionIf(node);
+
             case ParseNodeType.Constant:
                 return this.visitConstant(node);
 
@@ -452,15 +461,6 @@ export class ParseTreeVisitor<T> {
 
             case ParseNodeType.List:
                 return this.visitList(node);
-
-            case ParseNodeType.ListComprehension:
-                return this.visitListComprehension(node);
-
-            case ParseNodeType.ListComprehensionFor:
-                return this.visitListComprehensionFor(node);
-
-            case ParseNodeType.ListComprehensionIf:
-                return this.visitListComprehensionIf(node);
 
             case ParseNodeType.Match:
                 return this.visitMatch(node);
@@ -635,7 +635,15 @@ export class ParseTreeVisitor<T> {
         return this._default;
     }
 
-    visitTernary(node: TernaryNode) {
+    visitComprehension(node: ComprehensionNode) {
+        return this._default;
+    }
+
+    visitComprehensionFor(node: ComprehensionForNode) {
+        return this._default;
+    }
+
+    visitComprehensionIf(node: ComprehensionIfNode) {
         return this._default;
     }
 
@@ -728,18 +736,6 @@ export class ParseTreeVisitor<T> {
     }
 
     visitList(node: ListNode) {
-        return this._default;
-    }
-
-    visitListComprehension(node: ListComprehensionNode) {
-        return this._default;
-    }
-
-    visitListComprehensionFor(node: ListComprehensionForNode) {
-        return this._default;
-    }
-
-    visitListComprehensionIf(node: ListComprehensionIfNode) {
         return this._default;
     }
 
@@ -848,6 +844,10 @@ export class ParseTreeVisitor<T> {
     }
 
     visitSuite(node: SuiteNode) {
+        return this._default;
+    }
+
+    visitTernary(node: TernaryNode) {
         return this._default;
     }
 

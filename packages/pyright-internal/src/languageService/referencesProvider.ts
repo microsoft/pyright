@@ -484,7 +484,7 @@ function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameN
             }
 
             case ParseNodeType.Lambda:
-            case ParseNodeType.ListComprehension:
+            case ParseNodeType.Comprehension:
             case ParseNodeType.TypeParameterList:
                 // Symbols in this scope can't be visible outside.
                 return false;

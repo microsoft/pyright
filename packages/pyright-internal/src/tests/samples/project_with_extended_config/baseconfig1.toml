@@ -1,0 +1,3 @@
+[tool.pyright]
+extends = "sub2/baseconfig2.json"
+typeCheckingMode = "strict"

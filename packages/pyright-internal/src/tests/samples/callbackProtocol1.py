@@ -76,6 +76,15 @@ var2 = func4
 var2 = func5
 
 
+class NotProto:
+    def __call__(self, *vals: bytes, maxlen: int | None = None) -> list[bytes]:
+        return []
+
+
+# This should generate an error because NotProto is not a protocol class.
+not_proto: NotProto = good_cb
+
+
 class TestClass3(Protocol):
     def __call__(self) -> None:
         pass
@@ -96,30 +105,44 @@ class TestClass4(Protocol):
         pass
 
 
-def func6(x: int) -> None:
+def test_func4(x: int) -> None:
     pass
 
 
 # This should generate an error.
-var4: TestClass4 = func6
+var4: TestClass4 = test_func4
 
 
 class TestClass5(Protocol):
-    def __call__(self, *, a: int, b: str) -> int:
-        ...
+    def __call__(self, *, a: int, b: str) -> int: ...
 
 
-def func7(a: int, b: str) -> int:
+def test_func5(a: int, b: str) -> int:
     return 123
 
 
-f: TestClass5 = func7
+f5: TestClass5 = test_func5
 
 
-class TestClass6:
-    def __call__(self, *vals: bytes, maxlen: int | None = None) -> list[bytes]:
-        return []
+class TestClass6(Protocol):
+    def __call__(self, a: int, /, *, b: str) -> int: ...
 
 
-# This should generate an error because TestClass6 is not a protocol class.
-var6: TestClass6 = good_cb
+def test_func6(a: int, b: str) -> int:
+    return 123
+
+
+f6: TestClass6 = test_func6
+
+
+class TestClass7:
+    def __call__(self) -> None:
+        pass
+
+
+def test_func7(*args: * tuple[int, *tuple[int, ...]]) -> int:
+    return 123
+
+
+# This should generate an error.
+f7: TestClass7 = test_func7

@@ -455,6 +455,12 @@ test('Loop47', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Loop48', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop48.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ForLoop1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['forLoop1.py']);
 
@@ -996,6 +1002,12 @@ test('Enum11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum11.py']);
 
     TestUtils.validateResults(analysisResults, 8);
+});
+
+test('Enum12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum12.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('EnumAuto1', () => {

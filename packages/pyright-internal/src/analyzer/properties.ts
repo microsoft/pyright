@@ -295,7 +295,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         defaultType: AnyType.create(),
     });
     getFunction1.details.declaredReturnType = FunctionType.isClassMethod(fget)
-        ? FunctionType.getSpecializedReturnType(fget)
+        ? FunctionType.getEffectiveReturnType(fget)
         : propertyObject;
     getFunction1.details.declaration = fget.details.declaration;
     getFunction1.details.deprecatedMessage = fget.details.deprecatedMessage;
@@ -331,7 +331,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         hasDefault: true,
         defaultType: AnyType.create(),
     });
-    getFunction2.details.declaredReturnType = FunctionType.getSpecializedReturnType(fget);
+    getFunction2.details.declaredReturnType = FunctionType.getEffectiveReturnType(fget);
     getFunction2.details.declaration = fget.details.declaration;
     getFunction2.details.deprecatedMessage = fget.details.deprecatedMessage;
 

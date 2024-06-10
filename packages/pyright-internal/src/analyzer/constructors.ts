@@ -292,9 +292,17 @@ function validateNewAndInitMethods(
 
     let initMethodTypeResult: TypeResult | undefined;
 
-    // Validate __init__ if it's present. Skip if the __new__ method produced errors.
+    // If there were errors evaluating the __new__ method, assume that __new__
+    // returns the class instance and proceed accordingly. This may produce
+    // false positives in some cases, but it will prevent false negatives
+    // if the __init__ method also produces type errors (perhaps unrelated
+    // to the errors in the __new__ method).
+    if (argumentErrors) {
+        initMethodTypeResult = { type: convertToInstance(type) };
+    }
+
+    // Validate __init__ if it's present.
     if (
-        !argumentErrors &&
         !isNever(newMethodReturnType) &&
         !shouldSkipInitEvaluation(evaluator, type, newMethodReturnType) &&
         isClassInstance(newMethodReturnType)
@@ -850,7 +858,7 @@ export function createFunctionFromConstructor(
         let skipInitMethod = false;
 
         doForEachSignature(fromNew, (signature) => {
-            const newMethodReturnType = FunctionType.getSpecializedReturnType(signature);
+            const newMethodReturnType = FunctionType.getEffectiveReturnType(signature);
             if (newMethodReturnType && shouldSkipInitEvaluation(evaluator, classType, newMethodReturnType)) {
                 skipInitMethod = true;
             }
@@ -924,7 +932,7 @@ function createFunctionFromMetaclassCall(
     // constructed.
     doForEachSignature(boundCallType, (signature) => {
         if (signature.details.declaredReturnType) {
-            const returnType = FunctionType.getSpecializedReturnType(signature);
+            const returnType = FunctionType.getEffectiveReturnType(signature);
             if (returnType && shouldSkipNewAndInitEvaluation(evaluator, classType, returnType)) {
                 useMetaclassCall = true;
             }
@@ -1180,10 +1188,6 @@ function shouldSkipInitEvaluation(evaluator: TypeEvaluator, classType: ClassType
 // of "def __new__(cls, *args, **kwargs) -> Self".
 function isDefaultNewMethod(newMethod?: Type): boolean {
     if (!newMethod || !isFunction(newMethod)) {
-        return false;
-    }
-
-    if (newMethod.details.paramSpec) {
         return false;
     }
 

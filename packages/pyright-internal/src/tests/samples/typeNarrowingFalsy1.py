@@ -1,25 +1,22 @@
 # This sample tests type narrowing for falsey and truthy values.
 
-from typing import AnyStr, Iterable, Literal, NamedTuple, TypeVar, Union, final
+from typing import AnyStr, Iterable, Literal, NamedTuple, TypeVar
+from enum import Enum, IntEnum
 
 
-class A:
-    ...
+class A: ...
 
 
 class B:
-    def __bool__(self) -> bool:
-        ...
+    def __bool__(self) -> bool: ...
 
 
 class C:
-    def __bool__(self) -> Literal[False]:
-        ...
+    def __bool__(self) -> Literal[False]: ...
 
 
 class D:
-    def __bool__(self) -> Literal[True]:
-        ...
+    def __bool__(self) -> Literal[True]: ...
 
 
 def func1(x: int | list[int] | A | B | C | D | None) -> None:
@@ -132,3 +129,54 @@ def func12(val: T) -> T:
         reveal_type(val, expected_text="T@func12")
 
     return val
+
+
+class Enum1(Enum):
+    A = 0
+
+
+class Enum2(Enum):
+    A = 0
+
+    def __bool__(self) -> Literal[False]:
+        return False
+
+
+class Enum3(IntEnum):
+    A = 0
+    B = 1
+
+
+def func13(x: Literal[Enum1.A]):
+    if x:
+        reveal_type(x, expected_text="Literal[Enum1.A]")
+    else:
+        reveal_type(x, expected_text="Never")
+
+
+def func14(x: Enum1):
+    if x:
+        reveal_type(x, expected_text="Enum1")
+    else:
+        reveal_type(x, expected_text="Never")
+
+
+def func15(x: Literal[Enum2.A]):
+    if x:
+        reveal_type(x, expected_text="Never")
+    else:
+        reveal_type(x, expected_text="Literal[Enum2.A]")
+
+
+def func16(x: Enum2):
+    if x:
+        reveal_type(x, expected_text="Never")
+    else:
+        reveal_type(x, expected_text="Enum2")
+
+
+def func17(x: Enum3):
+    if x:
+        reveal_type(x, expected_text="Enum3")
+    else:
+        reveal_type(x, expected_text="Enum3")

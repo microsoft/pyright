@@ -20,7 +20,8 @@ class JWT(VaultApiBase):
         jwt_supported_algs: Incomplete | None = None,
         default_role: Incomplete | None = None,
         provider_config: Incomplete | None = None,
-        path: Incomplete | None = None,
+        path: str | None = None,
+        namespace_in_state: bool | None = None,
     ): ...
     def read_config(self, path: Incomplete | None = None): ...
     def create_role(

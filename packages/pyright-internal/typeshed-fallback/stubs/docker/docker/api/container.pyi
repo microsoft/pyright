@@ -1,7 +1,7 @@
 import datetime
 from _typeshed import Incomplete
 from typing import Literal, TypedDict, overload, type_check_only
-from typing_extensions import TypeAlias
+from typing_extensions import NotRequired, TypeAlias
 
 from docker.types.daemon import CancellableStream
 
@@ -14,6 +14,21 @@ class _HasId(TypedDict):
 @type_check_only
 class _HasID(TypedDict):
     ID: str
+
+@type_check_only
+class _WaitErrorDetails(TypedDict):
+    Message: str
+
+@type_check_only
+class _WaitContainerExistsResponse(TypedDict):
+    StatusCode: int
+    Error: NotRequired[_WaitErrorDetails]
+
+@type_check_only
+class _WaitNoSuchContainerErrorResponse(TypedDict):
+    message: str
+
+_WaitContainerResponseType: TypeAlias = _WaitContainerExistsResponse | _WaitNoSuchContainerErrorResponse
 
 _Container: TypeAlias = _HasId | _HasID | str
 
@@ -164,4 +179,4 @@ class ContainerApiMixin:
         container: _Container,
         timeout: int | None = None,
         condition: Literal["not-running", "next-exit", "removed"] | None = None,
-    ): ...
+    ) -> _WaitContainerResponseType: ...

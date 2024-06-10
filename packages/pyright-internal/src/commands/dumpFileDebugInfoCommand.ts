@@ -44,6 +44,9 @@ import {
     CallNode,
     CaseNode,
     ClassNode,
+    ComprehensionForNode,
+    ComprehensionIfNode,
+    ComprehensionNode,
     ConstantNode,
     ContinueNode,
     DecoratorNode,
@@ -68,9 +71,6 @@ import {
     ImportNode,
     IndexNode,
     LambdaNode,
-    ListComprehensionForNode,
-    ListComprehensionIfNode,
-    ListComprehensionNode,
     ListNode,
     MatchNode,
     MemberAccessNode,
@@ -121,8 +121,8 @@ import {
 } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
 import { KeywordType, NewLineType, OperatorType, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
-import { ServerCommand } from './commandController';
 import { Workspace } from '../workspaceFactory';
+import { ServerCommand } from './commandController';
 
 export class DumpFileDebugInfoCommand implements ServerCommand {
     constructor(private _ls: LanguageServerInterface) {}
@@ -468,7 +468,7 @@ const FunctionTypeFlagsToString: [FunctionTypeFlags, string][] = [
     [FunctionTypeFlags.ParamSpecValue, 'ParamSpecValue'],
     [FunctionTypeFlags.PartiallyEvaluated, 'PartiallyEvaluated'],
     [FunctionTypeFlags.PyTypedDefinition, 'PyTypedDefinition'],
-    [FunctionTypeFlags.SkipArgsKwargsCompatibilityCheck, 'SkipArgsKwargsCompatibilityCheck'],
+    [FunctionTypeFlags.GradualCallableForm, 'SkipArgsKwargsCompatibilityCheck'],
     [FunctionTypeFlags.StaticMethod, 'StaticMethod'],
     [FunctionTypeFlags.StubDefinition, 'StubDefinition'],
     [FunctionTypeFlags.SynthesizedMethod, 'SynthesizedMethod'],
@@ -641,7 +641,17 @@ class TreeDumper extends ParseTreeWalker {
         return true;
     }
 
-    override visitTernary(node: TernaryNode) {
+    override visitComprehension(node: ComprehensionNode) {
+        this._log(`${this._getPrefix(node)}`);
+        return true;
+    }
+
+    override visitComprehensionFor(node: ComprehensionForNode) {
+        this._log(`${this._getPrefix(node)} async:(${node.isAsync})`);
+        return true;
+    }
+
+    override visitComprehensionIf(node: ComprehensionIfNode) {
         this._log(`${this._getPrefix(node)}`);
         return true;
     }
@@ -767,21 +777,6 @@ class TreeDumper extends ParseTreeWalker {
         return true;
     }
 
-    override visitListComprehension(node: ListComprehensionNode) {
-        this._log(`${this._getPrefix(node)}`);
-        return true;
-    }
-
-    override visitListComprehensionFor(node: ListComprehensionForNode) {
-        this._log(`${this._getPrefix(node)} async:(${node.isAsync})`);
-        return true;
-    }
-
-    override visitListComprehensionIf(node: ListComprehensionIfNode) {
-        this._log(`${this._getPrefix(node)}`);
-        return true;
-    }
-
     override visitMemberAccess(node: MemberAccessNode) {
         this._log(`${this._getPrefix(node)}`);
         return true;
@@ -858,6 +853,11 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitSuite(node: SuiteNode) {
+        this._log(`${this._getPrefix(node)}`);
+        return true;
+    }
+
+    override visitTernary(node: TernaryNode) {
         this._log(`${this._getPrefix(node)}`);
         return true;
     }

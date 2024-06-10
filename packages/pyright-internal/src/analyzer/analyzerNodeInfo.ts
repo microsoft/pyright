@@ -12,10 +12,10 @@
 
 import {
     ClassNode,
+    ComprehensionNode,
     ExecutionScopeNode,
     FunctionNode,
     LambdaNode,
-    ListComprehensionNode,
     ModuleNode,
     ParseNode,
     ParseNodeType,
@@ -76,7 +76,7 @@ interface AnalyzerNodeInfo {
     typeParameterSymbol?: Symbol;
 }
 
-export type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode | ListComprehensionNode;
+export type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode | ComprehensionNode;
 
 // Cleans out all fields that are added by the analyzer phases
 // (after the post-parse walker).
