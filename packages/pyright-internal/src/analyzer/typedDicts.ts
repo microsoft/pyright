@@ -252,7 +252,7 @@ export function synthesizeTypedDictClassMethods(
     });
     FunctionType.addDefaultParameters(newType);
     newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
-    newType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    newType.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     // Synthesize an __init__ method with two overrides.
     const initOverride1 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
@@ -263,7 +263,7 @@ export function synthesizeTypedDictClassMethods(
         hasDeclaredType: true,
     });
     initOverride1.details.declaredReturnType = evaluator.getNoneType();
-    initOverride1.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    initOverride1.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     // The first parameter must be positional-only.
     FunctionType.addParameter(initOverride1, {
@@ -285,7 +285,7 @@ export function synthesizeTypedDictClassMethods(
         hasDeclaredType: true,
     });
     initOverride2.details.declaredReturnType = evaluator.getNoneType();
-    initOverride2.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    initOverride2.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     // All parameters must be named, so insert an empty "*".
     FunctionType.addKeywordOnlyParameterSeparator(initOverride2);

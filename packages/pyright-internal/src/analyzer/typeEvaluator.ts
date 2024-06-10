@@ -13072,7 +13072,7 @@ export function createTypeEvaluator(
             });
             FunctionType.addDefaultParameters(newType);
             newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
-            newType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+            newType.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
             ClassType.getSymbolTable(classType).set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
         }
 

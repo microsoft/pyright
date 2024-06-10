@@ -89,9 +89,9 @@ export function synthesizeDataClassMethods(
 
     const classTypeVar = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ true);
     const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
-    newType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    newType.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
     const initType = FunctionType.createSynthesizedInstance('__init__');
-    initType.details.constructorTypeVarScopeId = classType.details.typeVarScopeId;
+    initType.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     // Generate both a __new__ and an __init__ method. The parameters of the
     // __new__ method are based on field definitions for NamedTuple classes,
