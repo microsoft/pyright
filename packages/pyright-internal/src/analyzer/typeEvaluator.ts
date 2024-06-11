@@ -14513,7 +14513,6 @@ export function createTypeEvaluator(
                 // If the work was canceled before the class types were updated, the
                 // class type in the type cache is in an invalid, partially-constructed state.
                 e.isTypeCacheInvalid = true;
-                console.log('Saw cancellation exception in getTypeOfLambdaWithExpectedType');
             }
 
             throw e;
@@ -18295,7 +18294,6 @@ export function createTypeEvaluator(
                 // If the work was canceled before the class types were updated, the
                 // class type in the type cache is in an invalid, partially-constructed state.
                 e.isTypeCacheInvalid = true;
-                console.log('Saw cancellation exception in getTypeOfFunctionPredecorated');
             }
 
             throw e;
