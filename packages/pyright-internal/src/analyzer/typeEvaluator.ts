@@ -14510,8 +14510,8 @@ export function createTypeEvaluator(
             return { type: functionType, isIncomplete, typeErrors };
         } catch (e) {
             if (OperationCanceledException.is(e)) {
-                // If the work was canceled before the class types were updated, the
-                // class type in the type cache is in an invalid, partially-constructed state.
+                // If the work was canceled before the function type was updated, the
+                // function type in the type cache is in an invalid, partially-constructed state.
                 e.isTypeCacheInvalid = true;
             }
 
@@ -18291,8 +18291,8 @@ export function createTypeEvaluator(
             return functionType;
         } catch (e) {
             if (OperationCanceledException.is(e)) {
-                // If the work was canceled before the class types were updated, the
-                // class type in the type cache is in an invalid, partially-constructed state.
+                // If the work was canceled before the function type was updated, the
+                // function type in the type cache is in an invalid, partially-constructed state.
                 e.isTypeCacheInvalid = true;
             }
 
