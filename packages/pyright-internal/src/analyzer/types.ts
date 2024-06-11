@@ -1658,10 +1658,7 @@ export namespace FunctionType {
         }
 
         newFunction.inferredReturnType = type.inferredReturnType;
-
-        if (newFunction.preBoundFlags & FunctionTypeFlags.ConstructorMethod) {
-            newFunction.boundTypeVarScopeId = boundTypeVarScopeId ?? type.boundTypeVarScopeId;
-        }
+        newFunction.boundTypeVarScopeId = boundTypeVarScopeId ?? type.boundTypeVarScopeId;
 
         return newFunction;
     }
