@@ -16,7 +16,7 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
-import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
+import { invalidateTypeCacheIfCanceled, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticLevel } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
@@ -14330,7 +14330,7 @@ export function createTypeEvaluator(
         let functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.PartiallyEvaluated);
         functionType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
 
-        try {
+        return invalidateTypeCacheIfCanceled(() => {
             // Pre-cache the incomplete function type in case the evaluation of the
             // lambda depends on itself.
             writeTypeCache(node, { type: functionType, isIncomplete: true }, EvaluatorFlags.None);
@@ -14494,15 +14494,7 @@ export function createTypeEvaluator(
             }
 
             return { type: functionType, isIncomplete, typeErrors };
-        } catch (e) {
-            if (OperationCanceledException.is(e)) {
-                // If the work was canceled before the function type was updated, the
-                // function type in the type cache is in an invalid, partially-constructed state.
-                e.isTypeCacheInvalid = true;
-            }
-
-            throw e;
-        }
+        });
     }
 
     function getTypeOfComprehension(
@@ -16523,7 +16515,7 @@ export function createTypeEvaluator(
         classType.details.flags |= ClassTypeFlags.PartiallyEvaluated;
         classType.details.declaration = classDecl;
 
-        try {
+        return invalidateTypeCacheIfCanceled(() => {
             writeTypeCache(node, { type: classType }, /* flags */ undefined);
             writeTypeCache(node.name, { type: classType }, /* flags */ undefined);
 
@@ -17225,15 +17217,7 @@ export function createTypeEvaluator(
             writeTypeCache(node, { type: decoratedType }, EvaluatorFlags.None);
 
             return { classType, decoratedType };
-        } catch (e) {
-            if (OperationCanceledException.is(e)) {
-                // If the work was canceled before the class types were updated, the
-                // class type in the type cache is in an invalid, partially-constructed state.
-                e.isTypeCacheInvalid = true;
-            }
-
-            throw e;
-        }
+        });
     }
 
     // Determines whether the type parameters has a default that refers to another
@@ -17888,7 +17872,7 @@ export function createTypeEvaluator(
             setSymbolResolutionPartialType(functionSymbol.symbol, functionDecl, functionType);
         }
 
-        try {
+        return invalidateTypeCacheIfCanceled(() => {
             writeTypeCache(node.name, { type: functionType }, /* flags */ undefined);
 
             // Is this an "__init__" method within a pseudo-generic class? If so,
@@ -18275,15 +18259,7 @@ export function createTypeEvaluator(
             writeTypeCache(node.name, { type: functionType }, EvaluatorFlags.None);
 
             return functionType;
-        } catch (e) {
-            if (OperationCanceledException.is(e)) {
-                // If the work was canceled before the function type was updated, the
-                // function type in the type cache is in an invalid, partially-constructed state.
-                e.isTypeCacheInvalid = true;
-            }
-
-            throw e;
-        }
+        });
     }
 
     function markParamAccessed(param: ParameterNode) {
