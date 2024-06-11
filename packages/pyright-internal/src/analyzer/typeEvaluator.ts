@@ -14344,159 +14344,180 @@ export function createTypeEvaluator(
         let functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.PartiallyEvaluated);
         functionType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
 
-        // Pre-cache the incomplete function type in case the evaluation of the
-        // lambda depends on itself.
-        writeTypeCache(node, { type: functionType, isIncomplete: true }, EvaluatorFlags.None);
+        try {
+            // Pre-cache the incomplete function type in case the evaluation of the
+            // lambda depends on itself.
+            writeTypeCache(node, { type: functionType, isIncomplete: true }, EvaluatorFlags.None);
 
-        // We assume for simplicity that the parameter signature of the lambda is
-        // the same as the expected type. If this isn't the case, we'll use
-        // object for any lambda parameters that don't match. We could make this
-        // more sophisticated in the future, but it becomes very complex to handle
-        // all of the permutations.
-        let sawParamMismatch = false;
+            // We assume for simplicity that the parameter signature of the lambda is
+            // the same as the expected type. If this isn't the case, we'll use
+            // object for any lambda parameters that don't match. We could make this
+            // more sophisticated in the future, but it becomes very complex to handle
+            // all of the permutations.
+            let sawParamMismatch = false;
 
-        node.parameters.forEach((param, index) => {
-            let paramType: Type | undefined;
+            node.parameters.forEach((param, index) => {
+                let paramType: Type | undefined;
 
-            if (expectedParamDetails && !sawParamMismatch) {
-                if (index < expectedParamDetails.params.length) {
-                    const expectedParam = expectedParamDetails.params[index];
+                if (expectedParamDetails && !sawParamMismatch) {
+                    if (index < expectedParamDetails.params.length) {
+                        const expectedParam = expectedParamDetails.params[index];
 
-                    // If the parameter category matches and both of the parameters are
-                    // either separators (/ or *) or not separators, copy the type
-                    // from the expected parameter.
-                    if (expectedParam.param.category === param.category && !param.name === !expectedParam.param.name) {
-                        paramType = expectedParam.type;
-                    } else {
-                        sawParamMismatch = true;
+                        // If the parameter category matches and both of the parameters are
+                        // either separators (/ or *) or not separators, copy the type
+                        // from the expected parameter.
+                        if (
+                            expectedParam.param.category === param.category &&
+                            !param.name === !expectedParam.param.name
+                        ) {
+                            paramType = expectedParam.type;
+                        } else {
+                            sawParamMismatch = true;
+                        }
+                    } else if (param.defaultValue) {
+                        // If the lambda param has a default value but there is no associated
+                        // parameter in the expected type, assume that the default value is
+                        // being used to explicitly capture a value from an outer scope. Infer
+                        // its type from the default value expression.
+                        paramType = getTypeOfExpression(param.defaultValue, undefined, inferenceContext).type;
                     }
                 } else if (param.defaultValue) {
-                    // If the lambda param has a default value but there is no associated
-                    // parameter in the expected type, assume that the default value is
-                    // being used to explicitly capture a value from an outer scope. Infer
-                    // its type from the default value expression.
-                    paramType = getTypeOfExpression(param.defaultValue, undefined, inferenceContext).type;
+                    // If there is no inference context but we have a default value,
+                    // use the default value to infer the parameter's type.
+                    paramType = inferParameterTypeFromDefaultValue(param.defaultValue);
                 }
-            } else if (param.defaultValue) {
-                // If there is no inference context but we have a default value,
-                // use the default value to infer the parameter's type.
-                paramType = inferParameterTypeFromDefaultValue(param.defaultValue);
-            }
 
-            if (param.name) {
-                writeTypeCache(
-                    param.name,
-                    { type: transformVariadicParamType(node, param.category, paramType ?? UnknownType.create()) },
-                    EvaluatorFlags.None
-                );
-            }
+                if (param.name) {
+                    writeTypeCache(
+                        param.name,
+                        { type: transformVariadicParamType(node, param.category, paramType ?? UnknownType.create()) },
+                        EvaluatorFlags.None
+                    );
+                }
 
-            if (param.defaultValue) {
-                // Evaluate the default value if it's present.
-                getTypeOfExpression(param.defaultValue, EvaluatorFlags.ConvertEllipsisToAny);
-            }
+                if (param.defaultValue) {
+                    // Evaluate the default value if it's present.
+                    getTypeOfExpression(param.defaultValue, EvaluatorFlags.ConvertEllipsisToAny);
+                }
 
-            // Determine whether we need to insert an implied position-only parameter.
-            // This is needed when a function's parameters are named using the old-style
-            // way of specifying position-only parameters.
-            if (index >= 0) {
-                let isImplicitPositionOnlyParam = false;
+                // Determine whether we need to insert an implied position-only parameter.
+                // This is needed when a function's parameters are named using the old-style
+                // way of specifying position-only parameters.
+                if (index >= 0) {
+                    let isImplicitPositionOnlyParam = false;
 
-                if (param.category === ParameterCategory.Simple && param.name) {
-                    if (isPrivateName(param.name.value)) {
-                        isImplicitPositionOnlyParam = true;
+                    if (param.category === ParameterCategory.Simple && param.name) {
+                        if (isPrivateName(param.name.value)) {
+                            isImplicitPositionOnlyParam = true;
+                        }
+                    } else {
+                        paramsArePositionOnly = false;
                     }
-                } else {
-                    paramsArePositionOnly = false;
+
+                    if (
+                        paramsArePositionOnly &&
+                        !isImplicitPositionOnlyParam &&
+                        functionType.details.parameters.length > 0
+                    ) {
+                        FunctionType.addPositionOnlyParameterSeparator(functionType);
+                    }
+
+                    if (!isImplicitPositionOnlyParam) {
+                        paramsArePositionOnly = false;
+                    }
                 }
 
-                if (
-                    paramsArePositionOnly &&
-                    !isImplicitPositionOnlyParam &&
-                    functionType.details.parameters.length > 0
-                ) {
-                    FunctionType.addPositionOnlyParameterSeparator(functionType);
-                }
+                const functionParam: FunctionParameter = {
+                    category: param.category,
+                    name: param.name ? param.name.value : undefined,
+                    hasDefault: !!param.defaultValue,
+                    defaultValueExpression: param.defaultValue,
+                    hasDeclaredType: true,
+                    type: paramType ?? UnknownType.create(),
+                };
 
-                if (!isImplicitPositionOnlyParam) {
-                    paramsArePositionOnly = false;
-                }
+                FunctionType.addParameter(functionType, functionParam);
+            });
+
+            if (paramsArePositionOnly && functionType.details.parameters.length > 0) {
+                FunctionType.addPositionOnlyParameterSeparator(functionType);
             }
 
-            const functionParam: FunctionParameter = {
-                category: param.category,
-                name: param.name ? param.name.value : undefined,
-                hasDefault: !!param.defaultValue,
-                defaultValueExpression: param.defaultValue,
-                hasDeclaredType: true,
-                type: paramType ?? UnknownType.create(),
-            };
+            let typeErrors = false;
 
-            FunctionType.addParameter(functionType, functionParam);
-        });
+            // If we're speculatively evaluating the lambda, create another speculative
+            // evaluation scope for the return expression and do not allow retention
+            // of the cached types.
+            // We need to set allowCacheRetention to false because we don't want to
+            // cache the type of the lambda return expression because it depends on
+            // the parameter types that we set above, and the speculative type cache
+            // doesn't know about that context.
+            useSpeculativeMode(
+                forceSpeculative || isSpeculativeModeInUse(node) || inferenceContext?.isTypeIncomplete
+                    ? node.expression
+                    : undefined,
+                () => {
+                    const returnTypeResult = getTypeOfExpression(
+                        node.expression,
+                        /* flags */ undefined,
+                        makeInferenceContext(expectedReturnType)
+                    );
 
-        if (paramsArePositionOnly && functionType.details.parameters.length > 0) {
-            FunctionType.addPositionOnlyParameterSeparator(functionType);
-        }
+                    functionType.inferredReturnType = returnTypeResult.type;
+                    if (returnTypeResult.isIncomplete) {
+                        isIncomplete = true;
+                    }
 
-        let typeErrors = false;
-
-        // If we're speculatively evaluating the lambda, create another speculative
-        // evaluation scope for the return expression and do not allow retention
-        // of the cached types.
-        // We need to set allowCacheRetention to false because we don't want to
-        // cache the type of the lambda return expression because it depends on
-        // the parameter types that we set above, and the speculative type cache
-        // doesn't know about that context.
-        useSpeculativeMode(
-            forceSpeculative || isSpeculativeModeInUse(node) || inferenceContext?.isTypeIncomplete
-                ? node.expression
-                : undefined,
-            () => {
-                const returnTypeResult = getTypeOfExpression(
-                    node.expression,
-                    /* flags */ undefined,
-                    makeInferenceContext(expectedReturnType)
-                );
-
-                functionType.inferredReturnType = returnTypeResult.type;
-                if (returnTypeResult.isIncomplete) {
-                    isIncomplete = true;
-                }
-
-                if (returnTypeResult.typeErrors) {
-                    typeErrors = true;
-                } else if (expectedReturnType) {
-                    // If the expectedReturnType is generic, see if the actual return type
-                    // provides types for some or all type variables.
-                    if (requiresSpecialization(expectedReturnType)) {
-                        const typeVarContext = new TypeVarContext(getTypeVarScopeId(functionType));
-                        if (
-                            assignType(expectedReturnType, returnTypeResult.type, /* diag */ undefined, typeVarContext)
-                        ) {
-                            functionType = applySolvedTypeVars(functionType, typeVarContext, {
-                                applyInScopePlaceholders: true,
-                            }) as FunctionType;
+                    if (returnTypeResult.typeErrors) {
+                        typeErrors = true;
+                    } else if (expectedReturnType) {
+                        // If the expectedReturnType is generic, see if the actual return type
+                        // provides types for some or all type variables.
+                        if (requiresSpecialization(expectedReturnType)) {
+                            const typeVarContext = new TypeVarContext(getTypeVarScopeId(functionType));
+                            if (
+                                assignType(
+                                    expectedReturnType,
+                                    returnTypeResult.type,
+                                    /* diag */ undefined,
+                                    typeVarContext
+                                )
+                            ) {
+                                functionType = applySolvedTypeVars(functionType, typeVarContext, {
+                                    applyInScopePlaceholders: true,
+                                }) as FunctionType;
+                            }
                         }
                     }
+                },
+                {
+                    dependentType: inferenceContext?.expectedType,
+                    allowDiagnostics:
+                        !forceSpeculative &&
+                        !isDiagnosticSuppressedForNode(node) &&
+                        !inferenceContext?.isTypeIncomplete,
                 }
-            },
-            {
-                dependentType: inferenceContext?.expectedType,
-                allowDiagnostics:
-                    !forceSpeculative && !isDiagnosticSuppressedForNode(node) && !inferenceContext?.isTypeIncomplete,
+            );
+
+            // Mark the function type as no longer being evaluated.
+            functionType.details.flags &= ~FunctionTypeFlags.PartiallyEvaluated;
+
+            // Is the resulting function compatible with the expected type?
+            if (expectedType && !assignType(expectedType, functionType)) {
+                typeErrors = true;
             }
-        );
 
-        // Mark the function type as no longer being evaluated.
-        functionType.details.flags &= ~FunctionTypeFlags.PartiallyEvaluated;
+            return { type: functionType, isIncomplete, typeErrors };
+        } catch (e) {
+            if (OperationCanceledException.is(e)) {
+                // If the work was canceled before the class types were updated, the
+                // class type in the type cache is in an invalid, partially-constructed state.
+                e.isTypeCacheInvalid = true;
+                console.log('Saw cancellation exception in getTypeOfLambdaWithExpectedType');
+            }
 
-        // Is the resulting function compatible with the expected type?
-        if (expectedType && !assignType(expectedType, functionType)) {
-            typeErrors = true;
+            throw e;
         }
-
-        return { type: functionType, isIncomplete, typeErrors };
     }
 
     function getTypeOfComprehension(
@@ -17882,384 +17903,403 @@ export function createTypeEvaluator(
             setSymbolResolutionPartialType(functionSymbol.symbol, functionDecl, functionType);
         }
 
-        writeTypeCache(node.name, { type: functionType }, /* flags */ undefined);
+        try {
+            writeTypeCache(node.name, { type: functionType }, /* flags */ undefined);
 
-        // Is this an "__init__" method within a pseudo-generic class? If so,
-        // we'll add generic types to the constructor's parameters.
-        const addGenericParamTypes =
-            containingClassType &&
-            ClassType.isPseudoGenericClass(containingClassType) &&
-            node.name.value === '__init__';
+            // Is this an "__init__" method within a pseudo-generic class? If so,
+            // we'll add generic types to the constructor's parameters.
+            const addGenericParamTypes =
+                containingClassType &&
+                ClassType.isPseudoGenericClass(containingClassType) &&
+                node.name.value === '__init__';
 
-        const paramTypes: Type[] = [];
+            const paramTypes: Type[] = [];
 
-        // Determine if the first parameter should be skipped for comment-based
-        // function annotations.
-        let firstCommentAnnotationIndex = 0;
-        if (containingClassType && (functionType.details.flags & FunctionTypeFlags.StaticMethod) === 0) {
-            firstCommentAnnotationIndex = 1;
-        }
-
-        // If there is a function annotation comment, validate that it has the correct
-        // number of parameter annotations.
-        if (node.functionAnnotationComment && !node.functionAnnotationComment.isParamListEllipsis) {
-            const expected = node.parameters.length - firstCommentAnnotationIndex;
-            const received = node.functionAnnotationComment.paramTypeAnnotations.length;
-
-            // For methods with "self" or "cls" parameters, the annotation list
-            // can either include or exclude the annotation for the first parameter.
-            if (firstCommentAnnotationIndex > 0 && received === node.parameters.length) {
-                firstCommentAnnotationIndex = 0;
-            } else if (received !== expected) {
-                addError(
-                    LocMessage.annotatedParamCountMismatch().format({
-                        expected,
-                        received,
-                    }),
-                    node.functionAnnotationComment
-                );
-            }
-        }
-
-        // If this function uses PEP 695 syntax for type parameters,
-        // accumulate the list of type parameters upfront.
-        const typeParametersSeen: TypeVarType[] = [];
-        if (node.typeParameters) {
-            functionType.details.typeParameters = evaluateTypeParameterList(node.typeParameters).map((typeParam) =>
-                convertToInstance(typeParam)
-            );
-        } else {
-            functionType.details.typeParameters = typeParametersSeen;
-        }
-
-        let paramsArePositionOnly = true;
-        const isFirstParamClsOrSelf =
-            containingClassType &&
-            (FunctionType.isClassMethod(functionType) ||
-                FunctionType.isInstanceMethod(functionType) ||
-                FunctionType.isConstructorMethod(functionType));
-        const firstNonClsSelfParamIndex = isFirstParamClsOrSelf ? 1 : 0;
-
-        node.parameters.forEach((param, index) => {
-            let paramType: Type | undefined;
-            let annotatedType: Type | undefined;
-            let paramTypeNode: ExpressionNode | undefined;
-
-            if (param.name) {
-                if (index === 0 && isFirstParamClsOrSelf) {
-                    // Mark "self/cls" as accessed.
-                    markParamAccessed(param);
-                } else if (FunctionType.isAbstractMethod(functionType)) {
-                    // Mark all parameters in abstract methods as accessed.
-                    markParamAccessed(param);
-                } else if (containingClassType && ClassType.isProtocolClass(containingClassType)) {
-                    // Mark all parameters in protocol methods as accessed.
-                    markParamAccessed(param);
-                }
+            // Determine if the first parameter should be skipped for comment-based
+            // function annotations.
+            let firstCommentAnnotationIndex = 0;
+            if (containingClassType && (functionType.details.flags & FunctionTypeFlags.StaticMethod) === 0) {
+                firstCommentAnnotationIndex = 1;
             }
 
-            if (param.typeAnnotation) {
-                paramTypeNode = param.typeAnnotation;
-            } else if (param.typeAnnotationComment) {
-                paramTypeNode = param.typeAnnotationComment;
-            } else if (node.functionAnnotationComment && !node.functionAnnotationComment.isParamListEllipsis) {
-                const adjustedIndex = index - firstCommentAnnotationIndex;
-                if (adjustedIndex >= 0 && adjustedIndex < node.functionAnnotationComment.paramTypeAnnotations.length) {
-                    paramTypeNode = node.functionAnnotationComment.paramTypeAnnotations[adjustedIndex];
-                }
-            }
+            // If there is a function annotation comment, validate that it has the correct
+            // number of parameter annotations.
+            if (node.functionAnnotationComment && !node.functionAnnotationComment.isParamListEllipsis) {
+                const expected = node.parameters.length - firstCommentAnnotationIndex;
+                const received = node.functionAnnotationComment.paramTypeAnnotations.length;
 
-            if (paramTypeNode) {
-                if ((functionInfo.flags & FunctionTypeFlags.NoTypeCheck) !== 0) {
-                    annotatedType = UnknownType.create();
-                } else {
-                    annotatedType = getTypeOfParameterAnnotation(paramTypeNode, param.category);
-                }
-
-                if (annotatedType) {
-                    addTypeVarsToListIfUnique(
-                        typeParametersSeen,
-                        getTypeVarArgumentsRecursive(annotatedType),
-                        functionType.details.typeVarScopeId
-                    );
-                }
-
-                if (isVariadicTypeVar(annotatedType) && !annotatedType.isVariadicUnpacked) {
+                // For methods with "self" or "cls" parameters, the annotation list
+                // can either include or exclude the annotation for the first parameter.
+                if (firstCommentAnnotationIndex > 0 && received === node.parameters.length) {
+                    firstCommentAnnotationIndex = 0;
+                } else if (received !== expected) {
                     addError(
-                        LocMessage.unpackedTypeVarTupleExpected().format({
-                            name1: annotatedType.details.name,
-                            name2: annotatedType.details.name,
+                        LocMessage.annotatedParamCountMismatch().format({
+                            expected,
+                            received,
                         }),
-                        paramTypeNode
-                    );
-                    annotatedType = UnknownType.create();
-                }
-            }
-
-            if (!annotatedType && addGenericParamTypes) {
-                if (index > 0 && param.category === ParameterCategory.Simple && param.name && !param.defaultValue) {
-                    const typeParamName = getPseudoGenericTypeVarName(param.name.value);
-                    annotatedType = containingClassType!.details.typeParameters.find(
-                        (param) => param.details.name === typeParamName
+                        node.functionAnnotationComment
                     );
                 }
             }
 
-            if (annotatedType) {
-                const adjustedAnnotatedType = adjustParameterAnnotatedType(param, annotatedType);
-                if (adjustedAnnotatedType !== annotatedType) {
-                    annotatedType = adjustedAnnotatedType;
-                }
+            // If this function uses PEP 695 syntax for type parameters,
+            // accumulate the list of type parameters upfront.
+            const typeParametersSeen: TypeVarType[] = [];
+            if (node.typeParameters) {
+                functionType.details.typeParameters = evaluateTypeParameterList(node.typeParameters).map((typeParam) =>
+                    convertToInstance(typeParam)
+                );
+            } else {
+                functionType.details.typeParameters = typeParametersSeen;
             }
 
-            let defaultValueType: Type | undefined;
-            if (param.defaultValue) {
-                // If this is a stub file, a protocol, an overload, or a class
-                // whose body is a placeholder implementation, treat a "...", as
-                // an "Any" value.
-                let treatEllipsisAsAny = fileInfo.isStubFile || ParseTreeUtils.isSuiteEmpty(node.suite);
-                if (containingClassType && ClassType.isProtocolClass(containingClassType)) {
-                    treatEllipsisAsAny = true;
-                }
-                if (FunctionType.isOverloaded(functionType) || FunctionType.isAbstractMethod(functionType)) {
-                    treatEllipsisAsAny = true;
+            let paramsArePositionOnly = true;
+            const isFirstParamClsOrSelf =
+                containingClassType &&
+                (FunctionType.isClassMethod(functionType) ||
+                    FunctionType.isInstanceMethod(functionType) ||
+                    FunctionType.isConstructorMethod(functionType));
+            const firstNonClsSelfParamIndex = isFirstParamClsOrSelf ? 1 : 0;
+
+            node.parameters.forEach((param, index) => {
+                let paramType: Type | undefined;
+                let annotatedType: Type | undefined;
+                let paramTypeNode: ExpressionNode | undefined;
+
+                if (param.name) {
+                    if (index === 0 && isFirstParamClsOrSelf) {
+                        // Mark "self/cls" as accessed.
+                        markParamAccessed(param);
+                    } else if (FunctionType.isAbstractMethod(functionType)) {
+                        // Mark all parameters in abstract methods as accessed.
+                        markParamAccessed(param);
+                    } else if (containingClassType && ClassType.isProtocolClass(containingClassType)) {
+                        // Mark all parameters in protocol methods as accessed.
+                        markParamAccessed(param);
+                    }
                 }
 
-                defaultValueType = getTypeOfExpression(
-                    param.defaultValue,
-                    treatEllipsisAsAny ? EvaluatorFlags.ConvertEllipsisToAny : EvaluatorFlags.None,
-                    makeInferenceContext(annotatedType)
-                ).type;
-            }
+                if (param.typeAnnotation) {
+                    paramTypeNode = param.typeAnnotation;
+                } else if (param.typeAnnotationComment) {
+                    paramTypeNode = param.typeAnnotationComment;
+                } else if (node.functionAnnotationComment && !node.functionAnnotationComment.isParamListEllipsis) {
+                    const adjustedIndex = index - firstCommentAnnotationIndex;
+                    if (
+                        adjustedIndex >= 0 &&
+                        adjustedIndex < node.functionAnnotationComment.paramTypeAnnotations.length
+                    ) {
+                        paramTypeNode = node.functionAnnotationComment.paramTypeAnnotations[adjustedIndex];
+                    }
+                }
 
-            if (annotatedType) {
-                // If there was both a type annotation and a default value, verify
-                // that the default value matches the annotation.
-                if (param.defaultValue && defaultValueType) {
-                    const diagAddendum = new DiagnosticAddendum();
-                    const typeVarContext = new TypeVarContext(functionType.details.typeVarScopeId);
-                    if (containingClassType && containingClassType.details.typeVarScopeId !== undefined) {
-                        if (node.name.value === '__init__' || node.name.value === '__new__') {
-                            typeVarContext.addSolveForScope(containingClassType.details.typeVarScopeId);
-                        }
+                if (paramTypeNode) {
+                    if ((functionInfo.flags & FunctionTypeFlags.NoTypeCheck) !== 0) {
+                        annotatedType = UnknownType.create();
+                    } else {
+                        annotatedType = getTypeOfParameterAnnotation(paramTypeNode, param.category);
                     }
 
-                    if (!assignType(annotatedType, defaultValueType, diagAddendum, typeVarContext)) {
-                        addDiagnostic(
-                            DiagnosticRule.reportArgumentType,
-                            LocMessage.paramAssignmentMismatch().format({
-                                sourceType: printType(defaultValueType),
-                                paramType: printType(annotatedType),
-                            }) + diagAddendum.getString(),
-                            param.defaultValue
+                    if (annotatedType) {
+                        addTypeVarsToListIfUnique(
+                            typeParametersSeen,
+                            getTypeVarArgumentsRecursive(annotatedType),
+                            functionType.details.typeVarScopeId
+                        );
+                    }
+
+                    if (isVariadicTypeVar(annotatedType) && !annotatedType.isVariadicUnpacked) {
+                        addError(
+                            LocMessage.unpackedTypeVarTupleExpected().format({
+                                name1: annotatedType.details.name,
+                                name2: annotatedType.details.name,
+                            }),
+                            paramTypeNode
+                        );
+                        annotatedType = UnknownType.create();
+                    }
+                }
+
+                if (!annotatedType && addGenericParamTypes) {
+                    if (index > 0 && param.category === ParameterCategory.Simple && param.name && !param.defaultValue) {
+                        const typeParamName = getPseudoGenericTypeVarName(param.name.value);
+                        annotatedType = containingClassType!.details.typeParameters.find(
+                            (param) => param.details.name === typeParamName
                         );
                     }
                 }
 
-                paramType = annotatedType;
-            }
+                if (annotatedType) {
+                    const adjustedAnnotatedType = adjustParameterAnnotatedType(param, annotatedType);
+                    if (adjustedAnnotatedType !== annotatedType) {
+                        annotatedType = adjustedAnnotatedType;
+                    }
+                }
 
-            // Determine whether we need to insert an implied position-only parameter.
-            // This is needed when a function's parameters are named using the old-style
-            // way of specifying position-only parameters.
-            if (index >= firstNonClsSelfParamIndex) {
-                let isImplicitPositionOnlyParam = false;
+                let defaultValueType: Type | undefined;
+                if (param.defaultValue) {
+                    // If this is a stub file, a protocol, an overload, or a class
+                    // whose body is a placeholder implementation, treat a "...", as
+                    // an "Any" value.
+                    let treatEllipsisAsAny = fileInfo.isStubFile || ParseTreeUtils.isSuiteEmpty(node.suite);
+                    if (containingClassType && ClassType.isProtocolClass(containingClassType)) {
+                        treatEllipsisAsAny = true;
+                    }
+                    if (FunctionType.isOverloaded(functionType) || FunctionType.isAbstractMethod(functionType)) {
+                        treatEllipsisAsAny = true;
+                    }
 
-                if (param.category === ParameterCategory.Simple && param.name) {
-                    if (
-                        isPrivateName(param.name.value) &&
-                        !node.parameters.some((p) => p.category === ParameterCategory.Simple && !p.name)
-                    ) {
-                        isImplicitPositionOnlyParam = true;
+                    defaultValueType = getTypeOfExpression(
+                        param.defaultValue,
+                        treatEllipsisAsAny ? EvaluatorFlags.ConvertEllipsisToAny : EvaluatorFlags.None,
+                        makeInferenceContext(annotatedType)
+                    ).type;
+                }
 
-                        // If the parameter name indicates an implicit position-only parameter
-                        // but we have already seen non-position-only parameters, report an error.
-                        if (
-                            !paramsArePositionOnly &&
-                            functionType.details.parameters.every((p) => p.category === ParameterCategory.Simple)
-                        ) {
+                if (annotatedType) {
+                    // If there was both a type annotation and a default value, verify
+                    // that the default value matches the annotation.
+                    if (param.defaultValue && defaultValueType) {
+                        const diagAddendum = new DiagnosticAddendum();
+                        const typeVarContext = new TypeVarContext(functionType.details.typeVarScopeId);
+                        if (containingClassType && containingClassType.details.typeVarScopeId !== undefined) {
+                            if (node.name.value === '__init__' || node.name.value === '__new__') {
+                                typeVarContext.addSolveForScope(containingClassType.details.typeVarScopeId);
+                            }
+                        }
+
+                        if (!assignType(annotatedType, defaultValueType, diagAddendum, typeVarContext)) {
                             addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                LocMessage.positionOnlyAfterNon(),
-                                param.name
+                                DiagnosticRule.reportArgumentType,
+                                LocMessage.paramAssignmentMismatch().format({
+                                    sourceType: printType(defaultValueType),
+                                    paramType: printType(annotatedType),
+                                }) + diagAddendum.getString(),
+                                param.defaultValue
                             );
                         }
                     }
+
+                    paramType = annotatedType;
+                }
+
+                // Determine whether we need to insert an implied position-only parameter.
+                // This is needed when a function's parameters are named using the old-style
+                // way of specifying position-only parameters.
+                if (index >= firstNonClsSelfParamIndex) {
+                    let isImplicitPositionOnlyParam = false;
+
+                    if (param.category === ParameterCategory.Simple && param.name) {
+                        if (
+                            isPrivateName(param.name.value) &&
+                            !node.parameters.some((p) => p.category === ParameterCategory.Simple && !p.name)
+                        ) {
+                            isImplicitPositionOnlyParam = true;
+
+                            // If the parameter name indicates an implicit position-only parameter
+                            // but we have already seen non-position-only parameters, report an error.
+                            if (
+                                !paramsArePositionOnly &&
+                                functionType.details.parameters.every((p) => p.category === ParameterCategory.Simple)
+                            ) {
+                                addDiagnostic(
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    LocMessage.positionOnlyAfterNon(),
+                                    param.name
+                                );
+                            }
+                        }
+                    } else {
+                        paramsArePositionOnly = false;
+                    }
+
+                    if (
+                        paramsArePositionOnly &&
+                        !isImplicitPositionOnlyParam &&
+                        functionType.details.parameters.length > firstNonClsSelfParamIndex
+                    ) {
+                        FunctionType.addPositionOnlyParameterSeparator(functionType);
+                    }
+
+                    if (!isImplicitPositionOnlyParam) {
+                        paramsArePositionOnly = false;
+                    }
+                }
+
+                // If there was no annotation for the parameter, infer its type if possible.
+                let isTypeInferred = false;
+                if (!paramTypeNode) {
+                    isTypeInferred = true;
+                    const inferredType = inferParameterType(
+                        node,
+                        functionType.details.flags,
+                        index,
+                        containingClassType
+                    );
+                    if (inferredType) {
+                        paramType = inferredType;
+                    }
+                }
+
+                const functionParam: FunctionParameter = {
+                    category: param.category,
+                    name: param.name ? param.name.value : undefined,
+                    hasDefault: !!param.defaultValue,
+                    defaultValueExpression: param.defaultValue,
+                    defaultType: defaultValueType,
+                    type: paramType ?? UnknownType.create(),
+                    typeAnnotation: paramTypeNode,
+                    hasDeclaredType: !!paramTypeNode,
+                    isTypeInferred,
+                };
+
+                FunctionType.addParameter(functionType, functionParam);
+
+                if (functionParam.hasDeclaredType) {
+                    addTypeVarsToListIfUnique(
+                        typeParametersSeen,
+                        getTypeVarArgumentsRecursive(functionParam.type),
+                        functionType.details.typeVarScopeId
+                    );
+                }
+
+                if (param.name) {
+                    const variadicParamType = transformVariadicParamType(node, param.category, functionParam.type);
+                    paramTypes.push(variadicParamType);
                 } else {
-                    paramsArePositionOnly = false;
+                    paramTypes.push(functionParam.type);
                 }
+            });
 
+            if (paramsArePositionOnly && functionType.details.parameters.length > firstNonClsSelfParamIndex) {
+                FunctionType.addPositionOnlyParameterSeparator(functionType);
+            }
+
+            // Update the types for the nodes associated with the parameters.
+            paramTypes.forEach((paramType, index) => {
+                const paramNameNode = node.parameters[index].name;
+                if (paramNameNode) {
+                    if (isUnknown(paramType)) {
+                        functionType.details.flags |= FunctionTypeFlags.UnannotatedParams;
+                    }
+                    writeTypeCache(paramNameNode, { type: paramType }, EvaluatorFlags.None);
+                }
+            });
+
+            // If the function ends in P.args and P.kwargs parameters, make it exempt from
+            // args/kwargs compatibility checks. This is important for protocol comparisons.
+            if (paramTypes.length >= 2) {
+                const paramType1 = paramTypes[paramTypes.length - 2];
+                const paramType2 = paramTypes[paramTypes.length - 1];
                 if (
-                    paramsArePositionOnly &&
-                    !isImplicitPositionOnlyParam &&
-                    functionType.details.parameters.length > firstNonClsSelfParamIndex
+                    isParamSpec(paramType1) &&
+                    paramType1.paramSpecAccess === 'args' &&
+                    isParamSpec(paramType2) &&
+                    paramType2.paramSpecAccess === 'kwargs'
                 ) {
-                    FunctionType.addPositionOnlyParameterSeparator(functionType);
-                }
-
-                if (!isImplicitPositionOnlyParam) {
-                    paramsArePositionOnly = false;
+                    functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
                 }
             }
 
-            // If there was no annotation for the parameter, infer its type if possible.
-            let isTypeInferred = false;
-            if (!paramTypeNode) {
-                isTypeInferred = true;
-                const inferredType = inferParameterType(node, functionType.details.flags, index, containingClassType);
-                if (inferredType) {
-                    paramType = inferredType;
+            // If the function contains an *args and a **kwargs parameter and both
+            // are annotated as Any or are unannotated, make it exempt from
+            // args/kwargs compatibility checks.
+            const variadicsWithAnyType = functionType.details.parameters.filter(
+                (param) => param.category !== ParameterCategory.Simple && param.name && isAnyOrUnknown(param.type)
+            );
+            if (variadicsWithAnyType.length >= 2) {
+                functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
+            }
+
+            // If there was a defined return type, analyze that first so when we
+            // walk the contents of the function, return statements can be
+            // validated against this type.
+            const returnTypeAnnotationNode =
+                node.returnTypeAnnotation ?? node.functionAnnotationComment?.returnTypeAnnotation;
+            if (returnTypeAnnotationNode) {
+                // Temporarily set the return type to unknown in case of recursion.
+                functionType.details.declaredReturnType = UnknownType.create();
+
+                const returnType = getTypeOfAnnotation(returnTypeAnnotationNode, {
+                    associateTypeVarsWithScope: true,
+                });
+                functionType.details.declaredReturnType = returnType;
+            } else {
+                // If there was no return type annotation and this is a type stub,
+                // we have no opportunity to infer the return type, so we'll indicate
+                // that it's unknown.
+                if (fileInfo.isStubFile) {
+                    // Special-case the __init__ method, which is commonly left without
+                    // an annotated return type, but we can assume it returns None.
+                    if (node.name.value === '__init__') {
+                        functionType.details.declaredReturnType = getNoneType();
+                    } else {
+                        functionType.details.declaredReturnType = UnknownType.create();
+                    }
                 }
             }
 
-            const functionParam: FunctionParameter = {
-                category: param.category,
-                name: param.name ? param.name.value : undefined,
-                hasDefault: !!param.defaultValue,
-                defaultValueExpression: param.defaultValue,
-                defaultType: defaultValueType,
-                type: paramType ?? UnknownType.create(),
-                typeAnnotation: paramTypeNode,
-                hasDeclaredType: !!paramTypeNode,
-                isTypeInferred,
-            };
-
-            FunctionType.addParameter(functionType, functionParam);
-
-            if (functionParam.hasDeclaredType) {
+            // Accumulate any type parameters used in the return type.
+            if (functionType.details.declaredReturnType && returnTypeAnnotationNode) {
                 addTypeVarsToListIfUnique(
                     typeParametersSeen,
-                    getTypeVarArgumentsRecursive(functionParam.type),
+                    getTypeVarArgumentsRecursive(functionType.details.declaredReturnType),
                     functionType.details.typeVarScopeId
                 );
             }
 
-            if (param.name) {
-                const variadicParamType = transformVariadicParamType(node, param.category, functionParam.type);
-                paramTypes.push(variadicParamType);
-            } else {
-                paramTypes.push(functionParam.type);
-            }
-        });
-
-        if (paramsArePositionOnly && functionType.details.parameters.length > firstNonClsSelfParamIndex) {
-            FunctionType.addPositionOnlyParameterSeparator(functionType);
-        }
-
-        // Update the types for the nodes associated with the parameters.
-        paramTypes.forEach((paramType, index) => {
-            const paramNameNode = node.parameters[index].name;
-            if (paramNameNode) {
-                if (isUnknown(paramType)) {
-                    functionType.details.flags |= FunctionTypeFlags.UnannotatedParams;
+            // If the return type is explicitly annotated as a generator, mark the
+            // function as a generator even though it may not contain a "yield" statement.
+            // This is important for generator functions declared in stub files, abstract
+            // methods or protocol definitions.
+            if (fileInfo.isStubFile || ParseTreeUtils.isSuiteEmpty(node.suite)) {
+                if (
+                    functionType.details.declaredReturnType &&
+                    isClassInstance(functionType.details.declaredReturnType) &&
+                    ClassType.isBuiltIn(functionType.details.declaredReturnType, [
+                        'Generator',
+                        'AsyncGenerator',
+                        'AwaitableGenerator',
+                    ])
+                ) {
+                    functionType.details.flags |= FunctionTypeFlags.Generator;
                 }
-                writeTypeCache(paramNameNode, { type: paramType }, EvaluatorFlags.None);
             }
-        });
 
-        // If the function ends in P.args and P.kwargs parameters, make it exempt from
-        // args/kwargs compatibility checks. This is important for protocol comparisons.
-        if (paramTypes.length >= 2) {
-            const paramType1 = paramTypes[paramTypes.length - 2];
-            const paramType2 = paramTypes[paramTypes.length - 1];
-            if (
-                isParamSpec(paramType1) &&
-                paramType1.paramSpecAccess === 'args' &&
-                isParamSpec(paramType2) &&
-                paramType2.paramSpecAccess === 'kwargs'
-            ) {
-                functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
-            }
-        }
+            // Validate the default types for all type parameters.
+            functionType.details.typeParameters.forEach((typeParam, index) => {
+                let bestErrorNode: ExpressionNode = node.name;
+                if (node.typeParameters && index < node.typeParameters.parameters.length) {
+                    const typeParamNode = node.typeParameters.parameters[index];
+                    bestErrorNode = typeParamNode.defaultExpression ?? typeParamNode.name;
+                }
 
-        // If the function contains an *args and a **kwargs parameter and both
-        // are annotated as Any or are unannotated, make it exempt from
-        // args/kwargs compatibility checks.
-        const variadicsWithAnyType = functionType.details.parameters.filter(
-            (param) => param.category !== ParameterCategory.Simple && param.name && isAnyOrUnknown(param.type)
-        );
-        if (variadicsWithAnyType.length >= 2) {
-            functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
-        }
-
-        // If there was a defined return type, analyze that first so when we
-        // walk the contents of the function, return statements can be
-        // validated against this type.
-        const returnTypeAnnotationNode =
-            node.returnTypeAnnotation ?? node.functionAnnotationComment?.returnTypeAnnotation;
-        if (returnTypeAnnotationNode) {
-            // Temporarily set the return type to unknown in case of recursion.
-            functionType.details.declaredReturnType = UnknownType.create();
-
-            const returnType = getTypeOfAnnotation(returnTypeAnnotationNode, {
-                associateTypeVarsWithScope: true,
+                validateTypeParameterDefault(
+                    bestErrorNode,
+                    typeParam,
+                    functionType.details.typeParameters.slice(0, index),
+                    functionType.details.typeVarScopeId!
+                );
             });
-            functionType.details.declaredReturnType = returnType;
-        } else {
-            // If there was no return type annotation and this is a type stub,
-            // we have no opportunity to infer the return type, so we'll indicate
-            // that it's unknown.
-            if (fileInfo.isStubFile) {
-                // Special-case the __init__ method, which is commonly left without
-                // an annotated return type, but we can assume it returns None.
-                if (node.name.value === '__init__') {
-                    functionType.details.declaredReturnType = getNoneType();
-                } else {
-                    functionType.details.declaredReturnType = UnknownType.create();
-                }
-            }
-        }
 
-        // Accumulate any type parameters used in the return type.
-        if (functionType.details.declaredReturnType && returnTypeAnnotationNode) {
-            addTypeVarsToListIfUnique(
-                typeParametersSeen,
-                getTypeVarArgumentsRecursive(functionType.details.declaredReturnType),
-                functionType.details.typeVarScopeId
-            );
-        }
+            // Clear the "partially evaluated" flag to indicate that the functionType
+            // is fully evaluated.
+            functionType.details.flags &= ~FunctionTypeFlags.PartiallyEvaluated;
 
-        // If the return type is explicitly annotated as a generator, mark the
-        // function as a generator even though it may not contain a "yield" statement.
-        // This is important for generator functions declared in stub files, abstract
-        // methods or protocol definitions.
-        if (fileInfo.isStubFile || ParseTreeUtils.isSuiteEmpty(node.suite)) {
-            if (
-                functionType.details.declaredReturnType &&
-                isClassInstance(functionType.details.declaredReturnType) &&
-                ClassType.isBuiltIn(functionType.details.declaredReturnType, [
-                    'Generator',
-                    'AsyncGenerator',
-                    'AwaitableGenerator',
-                ])
-            ) {
-                functionType.details.flags |= FunctionTypeFlags.Generator;
-            }
-        }
+            writeTypeCache(node.name, { type: functionType }, EvaluatorFlags.None);
 
-        // Validate the default types for all type parameters.
-        functionType.details.typeParameters.forEach((typeParam, index) => {
-            let bestErrorNode: ExpressionNode = node.name;
-            if (node.typeParameters && index < node.typeParameters.parameters.length) {
-                const typeParamNode = node.typeParameters.parameters[index];
-                bestErrorNode = typeParamNode.defaultExpression ?? typeParamNode.name;
+            return functionType;
+        } catch (e) {
+            if (OperationCanceledException.is(e)) {
+                // If the work was canceled before the class types were updated, the
+                // class type in the type cache is in an invalid, partially-constructed state.
+                e.isTypeCacheInvalid = true;
+                console.log('Saw cancellation exception in getTypeOfFunctionPredecorated');
             }
 
-            validateTypeParameterDefault(
-                bestErrorNode,
-                typeParam,
-                functionType.details.typeParameters.slice(0, index),
-                functionType.details.typeVarScopeId!
-            );
-        });
-
-        // Clear the "partially evaluated" flag to indicate that the functionType
-        // is fully evaluated.
-        functionType.details.flags &= ~FunctionTypeFlags.PartiallyEvaluated;
-
-        writeTypeCache(node.name, { type: functionType }, EvaluatorFlags.None);
-
-        return functionType;
+            throw e;
+        }
     }
 
     function markParamAccessed(param: ParameterNode) {
