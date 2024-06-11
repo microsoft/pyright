@@ -1537,7 +1537,8 @@ export interface FunctionType extends TypeBase {
     // The flags for the function prior to binding
     preBoundFlags?: FunctionTypeFlags;
 
-    // The type var scope for the class that the function was bound to
+    // The type var scope for the class that the function was bound to.
+    // This applies only to constructor methods.
     boundTypeVarScopeId?: TypeVarScopeId | undefined;
 
     // If this function is part of an overloaded function, this
@@ -1657,7 +1658,10 @@ export namespace FunctionType {
         }
 
         newFunction.inferredReturnType = type.inferredReturnType;
-        newFunction.boundTypeVarScopeId = boundTypeVarScopeId ?? type.boundTypeVarScopeId;
+
+        if (newFunction.preBoundFlags & FunctionTypeFlags.ConstructorMethod) {
+            newFunction.boundTypeVarScopeId = boundTypeVarScopeId ?? type.boundTypeVarScopeId;
+        }
 
         return newFunction;
     }
