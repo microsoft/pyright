@@ -323,7 +323,7 @@ test('BasicPyprojectTomlParsing', () => {
 test('FindFilesInMemoryOnly', () => {
     const cwd = normalizePath(process.cwd());
     const service = createAnalyzer();
-    const commandLineOptions = new CommandLineOptions('', /* fromVsCodeExtension */ true);
+    const commandLineOptions = new CommandLineOptions(undefined, /* fromVsCodeExtension */ true);
     // Force a lookup of the typeshed path. This causes us to try and generate a module path for the untitled file.
     commandLineOptions.typeshedPath = combinePaths(cwd, 'src', 'tests', 'samples');
     service.setOptions(commandLineOptions);
