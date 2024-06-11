@@ -1087,8 +1087,6 @@ function createFunctionFromInitMethod(
 
         const convertedInit = FunctionType.clone(boundInit);
         convertedInit.details.declaredReturnType = boundInit.strippedFirstParamType ?? selfType ?? objectType;
-        convertedInit.details.name = '';
-        convertedInit.details.fullName = '';
 
         if (convertedInit.specializedTypes) {
             convertedInit.specializedTypes.returnType = selfType ?? objectType;

@@ -135,3 +135,15 @@ def func3(t: type[object]):
     reveal_type(
         cast_to_callable(t), expected_text="(*args: Any, **kwargs: Any) -> object"
     )
+
+
+@dataclass
+class G:
+    value: int
+
+
+def func4(c: Callable[[T1], T2]) -> Callable[[T1], T2]:
+    return c
+
+
+reveal_type(func4(G), expected_text="(int) -> G")
