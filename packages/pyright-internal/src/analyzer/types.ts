@@ -1689,25 +1689,15 @@ export namespace FunctionType {
         specializedTypes: SpecializedFunctionTypes,
         specializedInferredReturnType: Type | undefined
     ): FunctionType {
-        const newFunction = create(
-            type.details.name,
-            type.details.fullName,
-            type.details.moduleName,
-            type.details.flags,
-            type.flags,
-            type.details.docString
-        );
-        newFunction.details = type.details;
+        const newFunction = TypeBase.cloneType(type);
 
         assert(specializedTypes.parameterTypes.length === type.details.parameters.length);
         if (specializedTypes.parameterDefaultArgs) {
             assert(specializedTypes.parameterDefaultArgs.length === type.details.parameters.length);
         }
-        newFunction.specializedTypes = specializedTypes;
 
-        if (specializedInferredReturnType) {
-            newFunction.inferredReturnType = specializedInferredReturnType;
-        }
+        newFunction.specializedTypes = specializedTypes;
+        newFunction.inferredReturnType = specializedInferredReturnType;
 
         return newFunction;
     }
