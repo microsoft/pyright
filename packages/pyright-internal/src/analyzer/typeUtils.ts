@@ -1065,6 +1065,10 @@ export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] | undefined {
         if (type.details.higherOrderTypeVarScopeIds) {
             scopeIds.push(...type.details.higherOrderTypeVarScopeIds);
         }
+
+        if (type.boundTypeVarScopeId) {
+            scopeIds.push(type.boundTypeVarScopeId);
+        }
     }
 
     return scopeIds;

@@ -11411,41 +11411,27 @@ export function createTypeEvaluator(
             }
         }
 
-        if (type.boundTypeVarScopeId) {
-            // If the function was bound to a class or object and was a constructor, a
-            // static method or a class method, it's possible that some of that class's
-            // type variables have not yet been solved. Add that class's TypeVar scope ID.
-            if (type.preBoundFlags !== undefined && type.boundToType && requiresSpecialization(type.boundToType)) {
-                if (
-                    type.preBoundFlags &
-                    (FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ClassMethod | FunctionTypeFlags.StaticMethod)
-                ) {
-                    typeVarContext.addSolveForScope(type.boundTypeVarScopeId);
-                }
-            }
-
-            // The type annotation for the "self" parameter in an __init__ method to
-            // can influence the type being constructed.
-            if (
-                type.details.name === '__init__' &&
-                type.strippedFirstParamType &&
-                type.boundToType &&
-                isClassInstance(type.strippedFirstParamType) &&
-                isClassInstance(type.boundToType) &&
-                ClassType.isSameGenericClass(type.strippedFirstParamType, type.boundToType) &&
-                type.strippedFirstParamType.typeArguments
-            ) {
-                const typeParams = type.strippedFirstParamType.details.typeParameters;
-                specializedInitSelfType = type.strippedFirstParamType;
-                type.strippedFirstParamType.typeArguments.forEach((typeArg, index) => {
-                    if (index < typeParams.length) {
-                        const typeParam = typeParams[index];
-                        if (!isTypeSame(typeParam, typeArg, { ignorePseudoGeneric: true })) {
-                            typeVarContext.setTypeVarType(typeParams[index], typeArg);
-                        }
+        // The type annotation for the "self" parameter in an __init__ method to
+        // can influence the type being constructed.
+        if (
+            type.details.name === '__init__' &&
+            type.strippedFirstParamType &&
+            type.boundToType &&
+            isClassInstance(type.strippedFirstParamType) &&
+            isClassInstance(type.boundToType) &&
+            ClassType.isSameGenericClass(type.strippedFirstParamType, type.boundToType) &&
+            type.strippedFirstParamType.typeArguments
+        ) {
+            const typeParams = type.strippedFirstParamType.details.typeParameters;
+            specializedInitSelfType = type.strippedFirstParamType;
+            type.strippedFirstParamType.typeArguments.forEach((typeArg, index) => {
+                if (index < typeParams.length) {
+                    const typeParam = typeParams[index];
+                    if (!isTypeSame(typeParam, typeArg, { ignorePseudoGeneric: true })) {
+                        typeVarContext.setTypeVarType(typeParams[index], typeArg);
                     }
-                });
-            }
+                }
+            });
         }
 
         // Special-case a few built-in calls that are often used for
