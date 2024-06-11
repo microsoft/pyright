@@ -522,7 +522,7 @@ export class AnalyzerService {
         const optionRoot = commandLineOptions.executionRoot;
         const executionRootUri = Uri.is(optionRoot)
             ? optionRoot
-            : isString(optionRoot)
+            : isString(optionRoot) && optionRoot.length > 0
             ? Uri.file(optionRoot, this.serviceProvider, /* checkRelative */ true)
             : Uri.defaultWorkspace(this.serviceProvider);
 
