@@ -11,6 +11,7 @@ import { ISourceFileFactory } from '../analyzer/programTypes';
 import { SupportPartialStubs } from '../pyrightFileSystem';
 import { CaseSensitivityDetector } from './caseSensitivityDetector';
 import { ConsoleInterface } from './console';
+import { DocStringService } from './docStringService';
 import {
     DebugInfoInspector,
     StatusMutationListener,
@@ -32,4 +33,5 @@ export namespace ServiceKeys {
     export const cacheManager = new ServiceKey<CacheManager>();
     export const debugInfoInspector = new ServiceKey<DebugInfoInspector>();
     export const caseSensitivityDetector = new ServiceKey<CaseSensitivityDetector>();
+    export const docStringService = new ServiceKey<DocStringService>();
 }

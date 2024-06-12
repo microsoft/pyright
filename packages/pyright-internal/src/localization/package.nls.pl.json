@@ -156,6 +156,7 @@
         "enumClassOverride": "Klasa wyliczenia „{name}” jest ostateczna i nie można jej podzielić na podklasy",
         "enumMemberDelete": "Nie można usunąć składowej wyliczenia \"{name}\"",
         "enumMemberSet": "Nie można przypisać składowej wyliczenia „{name}”",
+        "enumMemberTypeAnnotation": "Adnotacje typu nie są dozwolone dla elementów członkowskich wyliczenia",
         "exceptionGroupIncompatible": "Składnia grupy wyjątków („except*”) wymaga języka Python w wersji 3.11 lub nowszej",
         "exceptionTypeIncorrect": "Typ „{type}” nie pochodzi od parametru BaseException",
         "exceptionTypeNotClass": "Typ „{type}” nie jest prawidłową klasą wyjątku",
@@ -624,7 +625,7 @@
         "yieldFromIllegal": "Użycie wartości „yield from” wymaga języka Python w wersji 3.3 lub nowszej",
         "yieldFromOutsideAsync": "Instrukcja „yield from” jest niedozwolona w funkcji asynchronicznej",
         "yieldOutsideFunction": "Instrukcja „yield” jest niedozwolona poza funkcją lub wyrażeniem lambda",
-        "yieldWithinComprehension": "Instrukcja „yield” nie jest dozwolona w rozumieniu listy",
+        "yieldWithinComprehension": "Instrukcja „yield” nie jest dozwolona w rozumieniu",
         "zeroCaseStatementsFound": "Instrukcja dopasowania musi zawierać co najmniej jedną instrukcję dotyczącą wielkości liter",
         "zeroLengthTupleNotAllowed": "Krotka o zerowej długości jest niedozwolona w tym kontekście"
     },

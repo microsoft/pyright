@@ -27,13 +27,14 @@ import { TypeCategory, isOverloadedFunction } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { isDefined } from '../common/core';
-import { ProgramView, ServiceProvider } from '../common/extensibility';
+import { ProgramView } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceKeys';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
+import { ServiceProvider } from '../common/serviceProvider';
 
 export enum DefinitionFilter {
     All = 'all',

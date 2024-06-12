@@ -565,11 +565,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         this.connection.onShutdown(async (token) => this.onShutdown(token));
     }
 
-    protected initialize(
+    protected async initialize(
         params: InitializeParams,
         supportedCommands: string[],
         supportedCodeActions: string[]
-    ): InitializeResult {
+    ): Promise<InitializeResult> {
         if (params.locale) {
             setLocaleOverride(params.locale);
         }
@@ -904,6 +904,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
                 this.client.hasSignatureLabelOffsetCapability,
                 this.client.hasActiveParameterCapability,
                 params.context,
+                program.serviceProvider.docStringService(),
                 token
             ).getSignatureHelp();
         }, token);

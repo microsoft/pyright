@@ -97,6 +97,7 @@ import {
 import { TestFeatures, TestLanguageService } from './testLanguageService';
 import { createVfsInfoFromFourSlashData, getMarkerByName, getMarkerName, getMarkerNames } from './testStateUtils';
 import { verifyWorkspaceEdit } from './workspaceEditTestUtils';
+import { PyrightDocStringService } from '../../../common/docStringService';
 
 export interface TextChange {
     span: TextRange;
@@ -1126,6 +1127,7 @@ export class TestState {
                 /* hasSignatureLabelOffsetCapability */ true,
                 /* hasActiveParameterCapability */ true,
                 /* context */ undefined,
+                new PyrightDocStringService(),
                 CancellationToken.None
             ).getSignatureHelp();
 

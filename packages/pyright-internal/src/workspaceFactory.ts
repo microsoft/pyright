@@ -10,7 +10,7 @@ import { AnalyzerService } from './analyzer/service';
 import { ConsoleInterface } from './common/console';
 import { createDeferred } from './common/deferred';
 import { Uri } from './common/uri/uri';
-import { ServiceProvider } from './common/extensibility';
+import { ServiceProvider } from './common/serviceProvider';
 
 let WorkspaceFactoryIdCounter = 0;
 

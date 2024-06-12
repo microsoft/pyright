@@ -186,6 +186,13 @@ test('getWildcardRegexPattern4', () => {
     assert.ok(!regex.test(fixSeparators('//server/share/dix/foo.py')));
 });
 
+test('getWildcardRegexPattern5', () => {
+    const pattern = getWildcardRegexPattern('//server/share/dir++', '.');
+    const regex = new RegExp(pattern);
+    assert.ok(regex.test(fixSeparators('//server/share/dir++/foo.py')));
+    assert.ok(!regex.test(fixSeparators('//server/share/dix++/foo.py')));
+});
+
 test('isDirectoryWildcardPatternPresent1', () => {
     const isPresent = isDirectoryWildcardPatternPresent('./**/*.py');
     assert.equal(isPresent, true);
