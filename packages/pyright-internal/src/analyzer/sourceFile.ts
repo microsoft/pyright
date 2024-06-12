@@ -299,7 +299,8 @@ export class SourceFile {
                 this._uri.pathEndsWith('stdlib/abc.pyi') ||
                 this._uri.pathEndsWith('stdlib/enum.pyi') ||
                 this._uri.pathEndsWith('stdlib/queue.pyi') ||
-                this._uri.pathEndsWith('stdlib/types.pyi')
+                this._uri.pathEndsWith('stdlib/types.pyi') ||
+                this._uri.pathEndsWith('stdlib/warnings.pyi')
             ) {
                 this._isBuiltInStubFile = true;
             }
