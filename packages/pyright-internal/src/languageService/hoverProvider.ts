@@ -17,7 +17,6 @@ import {
     VariableDeclaration,
     isUnresolvedAliasDeclaration,
 } from '../analyzer/declaration';
-import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { PrintTypeOptions, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
@@ -50,6 +49,8 @@ import {
     getToolTipForType,
     getTypeForToolTip,
 } from './tooltipUtils';
+import { ServiceProvider } from '../common/serviceProvider';
+import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
 
 export interface HoverTextPart {
     python?: boolean;
@@ -91,13 +92,21 @@ export function convertHoverResults(hoverResults: HoverResults | null, format: M
     };
 }
 
-export function addDocumentationResultsPart(docString: string | undefined, format: MarkupKind, parts: HoverTextPart[]) {
+export function addDocumentationResultsPart(
+    serviceProvider: ServiceProvider,
+    docString: string | undefined,
+    format: MarkupKind,
+    parts: HoverTextPart[],
+    resolvedDecl: Declaration | undefined
+) {
     if (!docString) {
         return;
     }
 
     if (format === MarkupKind.Markdown) {
-        const markDown = convertDocStringToMarkdown(docString);
+        const markDown = serviceProvider
+            .docStringService()
+            .convertDocStringToMarkdown(docString, isBuiltInModule(resolvedDecl?.uri));
 
         if (parts.length > 0 && markDown.length > 0) {
             parts.push({ text: '---\n' });
@@ -108,7 +117,7 @@ export function addDocumentationResultsPart(docString: string | undefined, forma
     }
 
     if (format === MarkupKind.PlainText) {
-        parts.push({ text: convertDocStringToPlainText(docString), python: false });
+        parts.push({ text: serviceProvider.docStringService().convertDocStringToPlainText(docString), python: false });
         return;
     }
 
@@ -495,7 +504,7 @@ export class HoverProvider {
             name,
         });
 
-        addDocumentationResultsPart(docString, this._format, parts);
+        addDocumentationResultsPart(this._program.serviceProvider, docString, this._format, parts, resolvedDecl);
         return !!docString;
     }
 

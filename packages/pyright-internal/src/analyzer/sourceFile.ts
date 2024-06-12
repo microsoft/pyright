@@ -17,7 +17,6 @@ import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory, TaskListToken, convertLevelToCategory } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import { ServiceProvider } from '../common/extensibility';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker, getPathForLogging } from '../common/logTracker';
 import { stripFileExtension } from '../common/pathUtils';
@@ -47,6 +46,8 @@ import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
+import '../common/serviceProviderExtensions';
+import { ServiceProvider } from '../common/serviceProvider';
 
 // Limit the number of import cycles tracked per source file.
 const _maxImportCyclesPerFile = 4;
@@ -832,7 +833,11 @@ export class SourceFile {
                     );
                     AnalyzerNodeInfo.setFileInfo(this._writableData.parserOutput!.parseTree, fileInfo);
 
-                    const binder = new Binder(fileInfo, configOptions.indexGenerationMode);
+                    const binder = new Binder(
+                        fileInfo,
+                        this.serviceProvider.docStringService(),
+                        configOptions.indexGenerationMode
+                    );
                     this._writableData.isBindingInProgress = true;
                     binder.bindModule(this._writableData.parserOutput!.parseTree);
 

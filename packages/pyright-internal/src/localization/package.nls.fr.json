@@ -156,6 +156,7 @@
         "enumClassOverride": "La classe Enum « {name} » est finale et ne peut pas être sous-classée",
         "enumMemberDelete": "Le membre enum « {name} » ne peut pas être supprimé",
         "enumMemberSet": "Le membre enum « {name} » ne peut pas être affecté",
+        "enumMemberTypeAnnotation": "Les annotations de type ne sont pas autorisées pour les membres enum",
         "exceptionGroupIncompatible": "La syntaxe du groupe d’exceptions (« except* ») nécessite Python 3.11 ou version ultérieure",
         "exceptionTypeIncorrect": "\"{type}\" ne dérive pas de BaseException",
         "exceptionTypeNotClass": "« {type} » n’est pas une classe d’exception valide",
@@ -624,7 +625,7 @@
         "yieldFromIllegal": "L’utilisation de « yield from » nécessite Python 3.3 ou version ultérieure",
         "yieldFromOutsideAsync": "« yield from » non autorisé dans une fonction asynchrone",
         "yieldOutsideFunction": "\"rendement\" non autorisé en dehors d'une fonction ou d'un lambda",
-        "yieldWithinComprehension": "« yield » non autorisé dans une compréhension de liste",
+        "yieldWithinComprehension": "« yield » n’est pas autorisé dans une compréhension de liste",
         "zeroCaseStatementsFound": "L'instruction de correspondance doit inclure au moins une instruction case",
         "zeroLengthTupleNotAllowed": "Le tuple de longueur nulle n’est pas autorisé dans ce contexte"
     },

@@ -22,7 +22,7 @@ import { ParseFileResults, ParserOutput } from '../parser/parser';
 import { ConfigOptions } from './configOptions';
 import { ConsoleInterface } from './console';
 import { ReadOnlyFileSystem } from './fileSystem';
-import { GroupServiceKey, ServiceKey } from './serviceProvider';
+import { ServiceProvider } from './serviceProvider';
 import { Range } from './textRange';
 import { Uri } from './uri/uri';
 
@@ -62,14 +62,6 @@ export interface SourceFileInfo {
     readonly importedBy: readonly SourceFileInfo[];
     readonly shadows: readonly SourceFileInfo[];
     readonly shadowedBy: readonly SourceFileInfo[];
-}
-
-export interface ServiceProvider {
-    tryGet<T>(key: ServiceKey<T>): T | undefined;
-    tryGet<T>(key: GroupServiceKey<T>): readonly T[] | undefined;
-
-    get<T>(key: ServiceKey<T>): T;
-    get<T>(key: GroupServiceKey<T>): readonly T[];
 }
 
 // Readonly wrapper around a Program. Makes sure it doesn't mutate the program.
