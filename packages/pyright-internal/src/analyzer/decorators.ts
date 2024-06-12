@@ -34,7 +34,7 @@ import {
     validatePropertyMethod,
 } from './properties';
 import { EvaluatorFlags, FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
-import { isBuiltInDeprecatedType, isPartlyUnknown, isProperty } from './typeUtils';
+import { isPartlyUnknown, isProperty } from './typeUtils';
 import {
     ClassType,
     ClassTypeFlags,
@@ -43,7 +43,9 @@ import {
     FunctionTypeFlags,
     OverloadedFunctionType,
     Type,
+    TypeBase,
     UnknownType,
+    isClass,
     isClassInstance,
     isFunction,
     isInstantiableClass,
@@ -86,17 +88,6 @@ export function getFunctionInfoFromDecorators(
         let evaluatorFlags = fileInfo.isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
         if (decoratorNode.expression.nodeType !== ParseNodeType.Call) {
             evaluatorFlags |= EvaluatorFlags.CallBaseDefaults;
-        } else {
-            if (decoratorNode.expression.nodeType === ParseNodeType.Call) {
-                const decoratorCallType = evaluator.getTypeOfExpression(
-                    decoratorNode.expression.leftExpression,
-                    evaluatorFlags | EvaluatorFlags.CallBaseDefaults
-                ).type;
-
-                if (isBuiltInDeprecatedType(decoratorCallType)) {
-                    deprecationMessage = getCustomDeprecationMessage(decoratorNode);
-                }
-            }
         }
 
         const decoratorTypeResult = evaluator.getTypeOfExpression(decoratorNode.expression, evaluatorFlags);
@@ -118,20 +109,22 @@ export function getFunctionInfoFromDecorators(
             } else if (decoratorType.details.builtInName === 'overload') {
                 flags |= FunctionTypeFlags.Overloaded;
             }
-        } else if (isInstantiableClass(decoratorType)) {
-            if (ClassType.isBuiltIn(decoratorType, 'staticmethod')) {
-                if (isInClass) {
-                    flags |= FunctionTypeFlags.StaticMethod;
+        } else if (isClass(decoratorType)) {
+            if (TypeBase.isInstantiable(decoratorType)) {
+                if (ClassType.isBuiltIn(decoratorType, 'staticmethod')) {
+                    if (isInClass) {
+                        flags |= FunctionTypeFlags.StaticMethod;
+                    }
+                } else if (ClassType.isBuiltIn(decoratorType, 'classmethod')) {
+                    if (isInClass) {
+                        flags |= FunctionTypeFlags.ClassMethod;
+                    }
                 }
-            } else if (ClassType.isBuiltIn(decoratorType, 'classmethod')) {
-                if (isInClass) {
-                    flags |= FunctionTypeFlags.ClassMethod;
+            } else {
+                if (ClassType.isBuiltIn(decoratorType, 'deprecated')) {
+                    deprecationMessage = decoratorType.deprecatedInstanceMessage;
                 }
             }
-        }
-
-        if (isBuiltInDeprecatedType(decoratorType)) {
-            deprecationMessage = getCustomDeprecationMessage(decoratorNode);
         }
     }
 
@@ -188,10 +181,6 @@ export function applyFunctionDecorator(
                 );
                 return inputFunctionType;
             }
-        }
-
-        if (isBuiltInDeprecatedType(decoratorCallType)) {
-            return inputFunctionType;
         }
     }
 
@@ -260,11 +249,11 @@ export function applyFunctionDecorator(
 
                     return inputFunctionType;
                 }
-            }
-        }
 
-        if (isBuiltInDeprecatedType(decoratorType)) {
-            return inputFunctionType;
+                case 'decorator': {
+                    return inputFunctionType;
+                }
+            }
         }
 
         // Handle properties and subclasses of properties specially.
@@ -332,11 +321,6 @@ export function applyClassDecorator(
                 );
             }
         }
-
-        if (isBuiltInDeprecatedType(decoratorCallType)) {
-            originalClassType.details.deprecatedMessage = getCustomDeprecationMessage(decoratorNode);
-            return inputClassType;
-        }
     }
 
     if (isOverloadedFunction(decoratorType)) {
@@ -393,6 +377,11 @@ export function applyClassDecorator(
 
         if (dataclassBehaviors) {
             applyDataClassDecorator(evaluator, decoratorNode, originalClassType, dataclassBehaviors, callNode);
+            return inputClassType;
+        }
+    } else if (isClassInstance(decoratorType)) {
+        if (ClassType.isBuiltIn(decoratorType, 'deprecated')) {
+            originalClassType.details.deprecatedMessage = decoratorType.deprecatedInstanceMessage;
             return inputClassType;
         }
     }
@@ -588,16 +577,15 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
     return type;
 }
 
-// Given a @typing.deprecated decorator node, returns either '' or a custom
+// Given a @typing.deprecated call node, returns either '' or a custom
 // deprecation message if one is provided.
-function getCustomDeprecationMessage(decorator: DecoratorNode): string {
+export function getDeprecatedMessageFromCall(node: CallNode): string {
     if (
-        decorator.expression.nodeType === ParseNodeType.Call &&
-        decorator.expression.arguments.length > 0 &&
-        decorator.expression.arguments[0].argumentCategory === ArgumentCategory.Simple &&
-        decorator.expression.arguments[0].valueExpression.nodeType === ParseNodeType.StringList
+        node.arguments.length > 0 &&
+        node.arguments[0].argumentCategory === ArgumentCategory.Simple &&
+        node.arguments[0].valueExpression.nodeType === ParseNodeType.StringList
     ) {
-        const stringListNode = decorator.expression.arguments[0].valueExpression;
+        const stringListNode = node.arguments[0].valueExpression;
         const message = stringListNode.strings.map((s) => s.value).join('');
         return convertDocStringToPlainText(message);
     }

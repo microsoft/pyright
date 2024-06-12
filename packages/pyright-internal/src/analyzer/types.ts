@@ -614,11 +614,15 @@ interface ClassDetails {
     typeParameters: TypeVarType[];
     typeVarScopeId?: TypeVarScopeId | undefined;
     docString?: string | undefined;
-    deprecatedMessage?: string | undefined;
     dataClassEntries?: DataClassEntry[] | undefined;
     dataClassBehaviors?: DataClassBehaviors | undefined;
     typedDictEntries?: TypedDictEntries | undefined;
     localSlotsNames?: string[];
+
+    // If the class is decorated with a @deprecated decorator, this
+    // string provides the message to be displayed when the class
+    // is used.
+    deprecatedMessage?: string | undefined;
 
     // A cache of protocol classes (indexed by the class full name)
     // that have been determined to be compatible or incompatible
@@ -750,6 +754,11 @@ export interface ClassType extends TypeBase {
     fgetInfo?: PropertyMethodInfo | undefined;
     fsetInfo?: PropertyMethodInfo | undefined;
     fdelInfo?: PropertyMethodInfo | undefined;
+
+    // Provides the deprecated message specifically for instances of
+    // the "deprecated" class. This allows these instances to be used
+    // as decorators for other classes or functions.
+    deprecatedInstanceMessage?: string | undefined;
 }
 
 export namespace ClassType {
@@ -864,6 +873,12 @@ export namespace ClassType {
         // that of the type alias definition if we change the literal type.
         delete newClassType.typeAliasInfo;
 
+        return newClassType;
+    }
+
+    export function cloneForDeprecatedInstance(type: ClassType, deprecatedMessage?: string): ClassType {
+        const newClassType = TypeBase.cloneType(type);
+        newClassType.deprecatedInstanceMessage = deprecatedMessage;
         return newClassType;
     }
 

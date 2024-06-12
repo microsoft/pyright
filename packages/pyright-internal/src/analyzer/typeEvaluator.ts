@@ -130,6 +130,7 @@ import {
     addOverloadsToFunctionType,
     applyClassDecorator,
     applyFunctionDecorator,
+    getDeprecatedMessageFromCall,
     getFunctionInfoFromDecorators,
 } from './decorators';
 import {
@@ -9978,6 +9979,17 @@ export function createTypeEvaluator(
         // we have `cls: Type[_T]` followed by `_T()`.
         if (isTypeVar(unexpandedCallType)) {
             returnType = convertToInstance(unexpandedCallType);
+        }
+
+        // If we instantiated the "deprecated" class, attach the deprecation
+        // message to the instance.
+        if (
+            errorNode.nodeType === ParseNodeType.Call &&
+            returnType &&
+            isClassInstance(returnType) &&
+            ClassType.isBuiltIn(returnType, 'deprecated')
+        ) {
+            returnType = ClassType.cloneForDeprecatedInstance(returnType, getDeprecatedMessageFromCall(errorNode));
         }
 
         // If we instantiated a type, transform it into a class.
