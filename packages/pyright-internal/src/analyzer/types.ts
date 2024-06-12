@@ -1608,18 +1608,12 @@ export namespace FunctionType {
         boundToType?: ClassType,
         boundTypeVarScopeId?: TypeVarScopeId
     ): FunctionType {
-        const newFunction = create(
-            type.details.name,
-            type.details.fullName,
-            type.details.moduleName,
-            type.details.flags,
-            type.flags,
-            type.details.docString
-        );
+        const newFunction = TypeBase.cloneType(type);
 
         newFunction.details = { ...type.details };
-        newFunction.boundToType = boundToType ?? type.boundToType;
         newFunction.preBoundFlags = newFunction.details.flags;
+        newFunction.boundToType = boundToType;
+        newFunction.boundTypeVarScopeId = boundTypeVarScopeId;
 
         if (stripFirstParam) {
             if (type.details.parameters.length > 0) {
@@ -1658,7 +1652,6 @@ export namespace FunctionType {
         }
 
         newFunction.inferredReturnType = type.inferredReturnType;
-        newFunction.boundTypeVarScopeId = boundTypeVarScopeId ?? type.boundTypeVarScopeId;
 
         return newFunction;
     }
