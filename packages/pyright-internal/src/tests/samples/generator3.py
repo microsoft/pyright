@@ -54,3 +54,11 @@ def consumer3() -> ClassA | None:
         print(str)
     else:
         return value
+
+
+def generator4():
+    return
+    yield 1
+
+
+reveal_type(generator4(), expected_text="Generator[Never, Any, None]")

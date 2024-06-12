@@ -18679,8 +18679,14 @@ export function createTypeEvaluator(
                                             isClassInstance(iteratorTypeResult.type) &&
                                             ClassType.isBuiltIn(iteratorTypeResult.type, 'Coroutine')
                                         ) {
+                                            const yieldType =
+                                                iteratorTypeResult.type.typeArguments &&
+                                                iteratorTypeResult.type.typeArguments.length > 0
+                                                    ? iteratorTypeResult.type.typeArguments[0]
+                                                    : UnknownType.create();
+
                                             // Handle old-style (pre-await) Coroutines.
-                                            inferredYieldTypes.push();
+                                            inferredYieldTypes.push(yieldType);
                                             useAwaitableGenerator = true;
                                         } else {
                                             const yieldType = getTypeOfIterator(
@@ -18688,6 +18694,7 @@ export function createTypeEvaluator(
                                                 /* isAsync */ false,
                                                 yieldNode
                                             )?.type;
+
                                             inferredYieldTypes.push(yieldType ?? UnknownType.create());
                                         }
                                     } else {
@@ -18708,9 +18715,6 @@ export function createTypeEvaluator(
                             });
                         }
 
-                        if (inferredYieldTypes.length === 0) {
-                            inferredYieldTypes.push(getNoneType());
-                        }
                         const inferredYieldType = combineTypes(inferredYieldTypes);
 
                         // Inferred yield types need to be wrapped in a Generator or
