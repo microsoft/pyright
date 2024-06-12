@@ -17,7 +17,7 @@ async def func1() -> None:
 
 reveal_type(
     old_style_coroutine1,
-    expected_text="() -> AwaitableGenerator[None, Unknown, None, Any]",
+    expected_text="() -> AwaitableGenerator[Any, Unknown, None, Any]",
 )
 
 
