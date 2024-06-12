@@ -12,6 +12,7 @@ import { Workspace, WorkspaceFolder } from '../workspaceFactory';
 import { Uri } from './uri/uri';
 import { isRootedDiskPath, normalizeSlashes } from './pathUtils';
 import { ServiceKeys } from './serviceKeys';
+import { escapeRegExp } from './stringUtils';
 
 export function resolvePathWithEnvVariables(
     workspace: Workspace,
@@ -65,7 +66,8 @@ export function expandPathVariables(path: string, rootPath: Uri, workspaces: Wor
             continue;
         }
 
-        const ws_regexp = RegExp(`\\$\\{workspaceFolder:${workspace.workspaceName}\\}`, 'g');
+        const escapedWorkspaceName = escapeRegExp(workspace.workspaceName);
+        const ws_regexp = RegExp(`\\$\\{workspaceFolder:${escapedWorkspaceName}\\}`, 'g');
         path = path.replace(ws_regexp, workspace.rootUri.getPath());
     }
     if (process.env.HOME !== undefined) {

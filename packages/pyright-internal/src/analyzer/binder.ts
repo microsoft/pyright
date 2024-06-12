@@ -22,6 +22,7 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever, fail } from '../common/debug';
 import { CreateTypeStubFileAction, Diagnostic } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { DocStringService } from '../common/docStringService';
 import { stripFileExtension } from '../common/pathUtils';
 import { convertTextRangeToRange } from '../common/positionUtils';
 import { TextRange, getEmptyRange } from '../common/textRange';
@@ -250,7 +251,11 @@ export class Binder extends ParseTreeWalker {
     // the current function.
     private _codeFlowComplexity = 0;
 
-    constructor(fileInfo: AnalyzerFileInfo, private _moduleSymbolOnly = false) {
+    constructor(
+        fileInfo: AnalyzerFileInfo,
+        private _docStringService: DocStringService,
+        private _moduleSymbolOnly = false
+    ) {
         super();
 
         this._fileInfo = fileInfo;

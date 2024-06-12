@@ -12,6 +12,7 @@ import { CancellationToken, MarkupKind } from 'vscode-languageserver';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { SignatureHelpProvider } from '../languageService/signatureHelpProvider';
 import { parseAndGetTestState } from './harness/fourslash/testState';
+import { PyrightDocStringService } from '../common/docStringService';
 
 test('invalid position in format string segment', () => {
     const code = `
@@ -88,6 +89,7 @@ function checkSignatureHelp(code: string, expects: boolean) {
         /*hasSignatureLabelOffsetCapability*/ true,
         /*hasActiveParameterCapability*/ true,
         /*context*/ undefined,
+        new PyrightDocStringService(),
         CancellationToken.None
     ).getSignatureHelp();
 

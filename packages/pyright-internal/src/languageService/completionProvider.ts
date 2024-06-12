@@ -29,7 +29,6 @@ import {
     VariableDeclaration,
 } from '../analyzer/declaration';
 import { isDefinedInFile } from '../analyzer/declarationUtils';
-import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import { ImportResult } from '../analyzer/importResult';
 import { getParameterListDetails, ParameterKind } from '../analyzer/parameterUtils';
@@ -41,7 +40,7 @@ import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclarationForSymbol, isVisibleExternally } from '../analyzer/symbolUtils';
 import { getTypedDictMembersForClass } from '../analyzer/typedDicts';
-import { getModuleDocStringFromUris } from '../analyzer/typeDocStringUtils';
+import { getModuleDocStringFromUris, isBuiltInModule } from '../analyzer/typeDocStringUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { printLiteralValue } from '../analyzer/typePrinter';
 import {
@@ -127,6 +126,7 @@ import {
 } from './completionProviderUtils';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
+import '../common/serviceProviderExtensions';
 
 namespace Keywords {
     const base: string[] = [
@@ -351,22 +351,24 @@ export class CompletionProvider {
                 Uri.parse(completionItemData.moduleUri, this.program.serviceProvider)
             )
         ) {
-            const documentation = getModuleDocStringFromUris(
-                [Uri.parse(completionItemData.moduleUri, this.program.serviceProvider)],
-                this.sourceMapper
-            );
+            const moduleUri = Uri.parse(completionItemData.moduleUri, this.program.serviceProvider);
+            const documentation = getModuleDocStringFromUris([moduleUri], this.sourceMapper);
             if (!documentation) {
                 return;
             }
 
             if (this.options.format === MarkupKind.Markdown) {
-                const markdownString = convertDocStringToMarkdown(documentation);
+                const markdownString = this.program.serviceProvider
+                    .docStringService()
+                    .convertDocStringToMarkdown(documentation, isBuiltInModule(moduleUri));
                 completionItem.documentation = {
                     kind: MarkupKind.Markdown,
                     value: markdownString,
                 };
             } else if (this.options.format === MarkupKind.PlainText) {
-                const plainTextString = convertDocStringToPlainText(documentation);
+                const plainTextString = this.program.serviceProvider
+                    .docStringService()
+                    .convertDocStringToPlainText(documentation);
                 completionItem.documentation = {
                     kind: MarkupKind.PlainText,
                     value: plainTextString,
@@ -683,9 +685,11 @@ export class CompletionProvider {
 
             if (this.options.format === MarkupKind.Markdown || this.options.format === MarkupKind.PlainText) {
                 this.itemToResolve.documentation = getCompletionItemDocumentation(
+                    this.program.serviceProvider,
                     typeDetail,
                     documentation,
-                    this.options.format
+                    this.options.format,
+                    primaryDecl
                 );
             } else {
                 fail(`Unsupported markup type: ${this.options.format}`);
@@ -966,7 +970,9 @@ export class CompletionProvider {
 
             if (detail?.documentation) {
                 markdownString += '---\n';
-                markdownString += convertDocStringToMarkdown(detail.documentation);
+                markdownString += this.program.serviceProvider
+                    .docStringService()
+                    .convertDocStringToMarkdown(detail.documentation, isBuiltInModule(detail.moduleUri));
             }
 
             markdownString = markdownString.trimEnd();
@@ -993,7 +999,9 @@ export class CompletionProvider {
             }
 
             if (detail?.documentation) {
-                plainTextString += '\n' + convertDocStringToPlainText(detail.documentation);
+                plainTextString +=
+                    '\n' +
+                    this.program.serviceProvider.docStringService().convertDocStringToPlainText(detail.documentation);
             }
 
             plainTextString = plainTextString.trimEnd();

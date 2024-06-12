@@ -15,7 +15,6 @@ import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { SignatureDisplayType } from './configOptions';
 import { ConsoleInterface, LogLevel } from './console';
 import { TaskListToken } from './diagnostic';
-import * as ext from './extensibility';
 import { FileSystem } from './fileSystem';
 import { FileWatcherHandler } from './fileWatcher';
 import { ServiceProvider } from './serviceProvider';
@@ -124,7 +123,7 @@ export interface LanguageServerBaseInterface {
     readonly console: ConsoleInterface;
     readonly window: WindowInterface;
     readonly supportAdvancedEdits: boolean;
-    readonly serviceProvider: ext.ServiceProvider;
+    readonly serviceProvider: ServiceProvider;
 
     createBackgroundAnalysis(serviceId: string): BackgroundAnalysisBase | undefined;
     reanalyze(): void;

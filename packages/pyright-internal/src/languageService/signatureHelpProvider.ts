@@ -20,8 +20,6 @@ import {
     SignatureInformation,
 } from 'vscode-languageserver';
 
-import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
-import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
@@ -35,6 +33,9 @@ import { Uri } from '../common/uri/uri';
 import { CallNode, NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
 import { getDocumentationPartsForTypeAndDecl, getFunctionDocStringFromType } from './tooltipUtils';
+import { DocStringService } from '../common/docStringService';
+import { getFileInfo } from '../analyzer/analyzerNodeInfo';
+import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
 
 export class SignatureHelpProvider {
     private readonly _parseResults: ParseFileResults | undefined;
@@ -48,6 +49,7 @@ export class SignatureHelpProvider {
         private _hasSignatureLabelOffsetCapability: boolean,
         private _hasActiveParameterCapability: boolean,
         private _context: SignatureHelpContext | undefined,
+        private _docStringService: DocStringService,
         private _token: CancellationToken
     ) {
         this._parseResults = this._program.getParseResults(this._fileUri);
@@ -224,6 +226,7 @@ export class SignatureHelpProvider {
         const functionDocString =
             getFunctionDocStringFromType(functionType, this._sourceMapper, this._evaluator) ??
             this._getDocStringFromCallNode(callNode);
+        const fileInfo = getFileInfo(callNode);
 
         let label = '(';
         let activeParameter: number | undefined;
@@ -241,7 +244,7 @@ export class SignatureHelpProvider {
                 startOffset: label.length,
                 endOffset: label.length + paramString.length,
                 text: paramString,
-                documentation: extractParameterDocumentation(functionDocString || '', paramName),
+                documentation: this._docStringService.extractParameterDocumentation(functionDocString || '', paramName),
             });
 
             // Name match for active parameter. The set of parameters from the function
@@ -275,12 +278,15 @@ export class SignatureHelpProvider {
             if (this._format === MarkupKind.Markdown) {
                 sigInfo.documentation = {
                     kind: MarkupKind.Markdown,
-                    value: convertDocStringToMarkdown(functionDocString),
+                    value: this._docStringService.convertDocStringToMarkdown(
+                        functionDocString,
+                        isBuiltInModule(fileInfo?.fileUri)
+                    ),
                 };
             } else {
                 sigInfo.documentation = {
                     kind: MarkupKind.PlainText,
-                    value: convertDocStringToPlainText(functionDocString),
+                    value: this._docStringService.convertDocStringToPlainText(functionDocString),
                 };
             }
         }
