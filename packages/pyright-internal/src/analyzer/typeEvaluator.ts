@@ -8064,11 +8064,7 @@ export function createTypeEvaluator(
         // the base type of this call is not the same as one of the tracked signatures.
         // This is important for nested generic calls (e.g. "foo(foo(x))").
         if (signatureTracker) {
-            baseTypeResult.type = ensureFunctionSignaturesAreUnique(
-                baseTypeResult.type,
-                signatureTracker,
-                node.leftExpression.start
-            );
+            baseTypeResult.type = ensureFunctionSignaturesAreUnique(baseTypeResult.type, signatureTracker, node.start);
         }
 
         if (!isTypeAliasPlaceholder(baseTypeResult.type)) {
