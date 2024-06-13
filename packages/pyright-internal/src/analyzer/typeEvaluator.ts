@@ -104,11 +104,7 @@ import {
     getBoundNewMethod,
     validateConstructorArguments,
 } from './constructors';
-import {
-    applyDataClassClassBehaviorOverrides,
-    applyDataClassDefaultBehaviors,
-    synthesizeDataClassMethods,
-} from './dataClasses';
+import { applyDataClassClassBehaviorOverrides, synthesizeDataClassMethods } from './dataClasses';
 import {
     ClassDeclaration,
     Declaration,
@@ -5901,7 +5897,7 @@ export function createTypeEvaluator(
 
             if (
                 isInstantiableClass(memberInfo.classType) &&
-                ClassType.isFrozenDataClass(memberInfo.classType) &&
+                ClassType.isDataClassFrozen(memberInfo.classType) &&
                 isAccessedThroughObject
             ) {
                 diag?.addMessage(
@@ -16636,10 +16632,7 @@ export function createTypeEvaluator(
                             if (fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_6)) {
                                 if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
                                     isNamedTupleSubclass = true;
-                                    classType.details.flags |=
-                                        ClassTypeFlags.DataClass |
-                                        ClassTypeFlags.SkipSynthesizedDataClassEq |
-                                        ClassTypeFlags.ReadOnlyInstanceVariables;
+                                    classType.details.flags |= ClassTypeFlags.ReadOnlyInstanceVariables;
                                 }
                             }
 
@@ -17078,24 +17071,46 @@ export function createTypeEvaluator(
             // Determine whether this class derives from (or has a metaclass) that imbues
             // it with dataclass-like behaviors. If so, we'll apply those here.
             let dataClassBehaviors: DataClassBehaviors | undefined;
-            if (isInstantiableClass(effectiveMetaclass) && effectiveMetaclass.details.classDataClassTransform) {
-                dataClassBehaviors = effectiveMetaclass.details.classDataClassTransform;
-            } else {
-                const baseClassDataTransform = classType.details.mro.find((mroClass) => {
-                    return (
-                        isClass(mroClass) &&
-                        mroClass.details.classDataClassTransform !== undefined &&
-                        !ClassType.isSameGenericClass(mroClass, classType)
-                    );
-                });
 
-                if (baseClassDataTransform) {
-                    dataClassBehaviors = (baseClassDataTransform as ClassType).details.classDataClassTransform;
+            // If this class has not already received its dataclass behaviors from a
+            // decorator and is inheriting from a class that has dataclass behaviors,
+            // apply those inherited behaviors to this class.
+            if (!classType.details.dataClassBehaviors) {
+                for (const mroClass of classType.details.mro) {
+                    if (!isClass(mroClass)) {
+                        break;
+                    }
+
+                    if (ClassType.isSameGenericClass(mroClass, classType)) {
+                        continue;
+                    }
+
+                    if (mroClass.details.dataClassBehaviors) {
+                        dataClassBehaviors = mroClass.details.dataClassBehaviors;
+                        break;
+                    }
+                }
+            }
+
+            if (!dataClassBehaviors) {
+                if (isInstantiableClass(effectiveMetaclass) && effectiveMetaclass.details.classDataClassTransform) {
+                    dataClassBehaviors = effectiveMetaclass.details.classDataClassTransform;
+                } else {
+                    const baseClassDataTransform = classType.details.mro.find((mroClass) => {
+                        return (
+                            isClass(mroClass) &&
+                            mroClass.details.classDataClassTransform !== undefined &&
+                            !ClassType.isSameGenericClass(mroClass, classType)
+                        );
+                    });
+
+                    if (baseClassDataTransform) {
+                        dataClassBehaviors = (baseClassDataTransform as ClassType).details.classDataClassTransform;
+                    }
                 }
             }
 
             if (dataClassBehaviors) {
-                applyDataClassDefaultBehaviors(classType, dataClassBehaviors);
                 applyDataClassClassBehaviorOverrides(
                     evaluatorInterface,
                     node.name,
@@ -17138,8 +17153,8 @@ export function createTypeEvaluator(
             }
 
             // Synthesize dataclass methods.
-            if (ClassType.isDataClass(classType)) {
-                const skipSynthesizedInit = ClassType.isSkipSynthesizedDataClassInit(classType);
+            if (ClassType.isDataClass(classType) || isNamedTupleSubclass) {
+                const skipSynthesizedInit = ClassType.isDataClassSkipGenerateInit(classType);
                 let hasExistingInitMethod = skipSynthesizedInit;
 
                 // See if there's already a non-synthesized __init__ method.
@@ -22715,7 +22730,7 @@ export function createTypeEvaluator(
                     if (
                         primaryDecl?.type === DeclarationType.Variable &&
                         !isFinalVariableDeclaration(primaryDecl) &&
-                        !ClassType.isFrozenDataClass(destType)
+                        !ClassType.isDataClassFrozen(destType)
                     ) {
                         // Class and instance variables that are mutable need to
                         // enforce invariance. We will exempt variables that are
