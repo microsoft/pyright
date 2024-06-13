@@ -309,6 +309,8 @@ function assignClassToProtocolInternal(
         return isTypeSame(destType, srcType);
     }
 
+    evaluator.inferTypeParameterVarianceForClass(destType);
+
     const sourceIsClassObject = isClass(srcType) && TypeBase.isInstantiable(srcType);
     const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
     const selfTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
