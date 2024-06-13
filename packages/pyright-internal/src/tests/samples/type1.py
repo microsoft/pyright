@@ -124,3 +124,12 @@ def func7(v: type):
 class Class1(Generic[T]):
     def method1(self, v: type) -> type[T]:
         return v
+
+
+class Class2:
+    x1: type
+    x2: type[Any]
+
+
+reveal_type(Class2.x1, expected_text="type")
+reveal_type(Class2.x2, expected_text="type[Any]")
