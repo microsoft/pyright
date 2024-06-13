@@ -5966,7 +5966,7 @@ export class Checker extends ParseTreeWalker {
                 // If the entry is a member of a frozen dataclass, it is immutable,
                 // so it does not need to be invariant.
                 if (
-                    ClassType.isFrozenDataClass(overriddenClassAndSymbol.classType) &&
+                    ClassType.isDataClassFrozen(overriddenClassAndSymbol.classType) &&
                     overriddenClassAndSymbol.classType.details.dataClassEntries
                 ) {
                     const dataclassEntry = overriddenClassAndSymbol.classType.details.dataClassEntries.find(
@@ -6676,7 +6676,7 @@ export class Checker extends ParseTreeWalker {
 
                     // If the entry is a member of a frozen dataclass, it is immutable,
                     // so it does not need to be invariant.
-                    if (ClassType.isFrozenDataClass(baseClass) && baseClass.details.dataClassEntries) {
+                    if (ClassType.isDataClassFrozen(baseClass) && baseClass.details.dataClassEntries) {
                         const dataclassEntry = baseClass.details.dataClassEntries.find(
                             (entry) => entry.name === memberName
                         );
