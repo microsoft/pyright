@@ -2239,7 +2239,7 @@ export function createTypeEvaluator(
 
         // If this is a type[Any] or type[Unknown], allow any other members.
         if (isClassInstance(objectType) && ClassType.isBuiltIn(objectType, 'type') && objectType.includeSubclasses) {
-            if ((flags & MemberAccessFlags.SkipTypeBaseClass) === 0) {
+            if ((flags & (MemberAccessFlags.SkipTypeBaseClass | MemberAccessFlags.SkipAttributeAccessOverride)) === 0) {
                 const typeArg =
                     objectType.typeArguments && objectType.typeArguments.length >= 1
                         ? objectType.typeArguments[0]
