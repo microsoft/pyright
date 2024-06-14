@@ -17071,42 +17071,19 @@ export function createTypeEvaluator(
             // Determine whether this class derives from (or has a metaclass) that imbues
             // it with dataclass-like behaviors. If so, we'll apply those here.
             let dataClassBehaviors: DataClassBehaviors | undefined;
+            if (isInstantiableClass(effectiveMetaclass) && effectiveMetaclass.details.classDataClassTransform) {
+                dataClassBehaviors = effectiveMetaclass.details.classDataClassTransform;
+            } else {
+                const baseClassDataTransform = classType.details.mro.find((mroClass) => {
+                    return (
+                        isClass(mroClass) &&
+                        mroClass.details.classDataClassTransform !== undefined &&
+                        !ClassType.isSameGenericClass(mroClass, classType)
+                    );
+                });
 
-            // If this class has not already received its dataclass behaviors from a
-            // decorator and is inheriting from a class that has dataclass behaviors,
-            // apply those inherited behaviors to this class.
-            if (!classType.details.dataClassBehaviors) {
-                for (const mroClass of classType.details.mro) {
-                    if (!isClass(mroClass)) {
-                        break;
-                    }
-
-                    if (ClassType.isSameGenericClass(mroClass, classType)) {
-                        continue;
-                    }
-
-                    if (mroClass.details.dataClassBehaviors) {
-                        dataClassBehaviors = mroClass.details.dataClassBehaviors;
-                        break;
-                    }
-                }
-            }
-
-            if (!dataClassBehaviors) {
-                if (isInstantiableClass(effectiveMetaclass) && effectiveMetaclass.details.classDataClassTransform) {
-                    dataClassBehaviors = effectiveMetaclass.details.classDataClassTransform;
-                } else {
-                    const baseClassDataTransform = classType.details.mro.find((mroClass) => {
-                        return (
-                            isClass(mroClass) &&
-                            mroClass.details.classDataClassTransform !== undefined &&
-                            !ClassType.isSameGenericClass(mroClass, classType)
-                        );
-                    });
-
-                    if (baseClassDataTransform) {
-                        dataClassBehaviors = (baseClassDataTransform as ClassType).details.classDataClassTransform;
-                    }
+                if (baseClassDataTransform) {
+                    dataClassBehaviors = (baseClassDataTransform as ClassType).details.classDataClassTransform;
                 }
             }
 
