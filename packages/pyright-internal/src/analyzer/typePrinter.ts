@@ -449,8 +449,19 @@ function printTypeInternal(
                             typeToWrap = `Literal[${printLiteralValue(type)}]`;
                         }
                     } else {
+                        if (type.specialForm) {
+                            return printTypeInternal(
+                                type.specialForm,
+                                printTypeFlags,
+                                returnTypeCallback,
+                                uniqueNameMap,
+                                recursionTypes,
+                                recursionCount
+                            );
+                        }
+
                         typeToWrap = printObjectTypeForClassInternal(
-                            type.specialForm ?? type,
+                            type,
                             printTypeFlags,
                             returnTypeCallback,
                             uniqueNameMap,
