@@ -1330,6 +1330,14 @@ export function createTypeEvaluator(
             validateTypeIsInstantiable(typeResult, flags, node);
         }
 
+        // If this is a PEP 695 type alias, remove the special form so the type
+        // printer prints it as its aliased type rather than TypeAliasType.
+        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            if (typeResult.type.specialForm && ClassType.isBuiltIn(typeResult.type.specialForm, 'TypeAliasType')) {
+                typeResult.type = TypeBase.cloneAsSpecialForm(typeResult.type, undefined);
+            }
+        }
+
         return typeResult;
     }
 
