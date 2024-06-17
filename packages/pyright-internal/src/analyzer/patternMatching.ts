@@ -31,7 +31,6 @@ import {
 import { CodeFlowReferenceExpressionNode } from './codeFlowTypes';
 import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
 import { getTypeVarScopesForNode, isMatchingExpression } from './parseTreeUtils';
-import { getTypedDictMembersForClass } from './typedDicts';
 import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     enumerateLiteralsForType,
@@ -39,27 +38,6 @@ import {
     narrowTypeForDiscriminatedLiteralFieldComparison,
     narrowTypeForDiscriminatedTupleComparison,
 } from './typeGuards';
-import {
-    AnyType,
-    ClassType,
-    combineTypes,
-    FunctionType,
-    FunctionTypeFlags,
-    isAnyOrUnknown,
-    isClass,
-    isClassInstance,
-    isInstantiableClass,
-    isNever,
-    isSameWithoutLiteralValue,
-    isTypeSame,
-    isUnknown,
-    isUnpackedVariadicTypeVar,
-    NeverType,
-    Type,
-    TypeBase,
-    TypedDictEntry,
-    UnknownType,
-} from './types';
 import {
     addConditionToType,
     applySolvedTypeVars,
@@ -85,6 +63,28 @@ import {
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
+import { getTypedDictMembersForClass } from './typedDicts';
+import {
+    AnyType,
+    ClassType,
+    FunctionType,
+    FunctionTypeFlags,
+    NeverType,
+    Type,
+    TypeBase,
+    TypedDictEntry,
+    UnknownType,
+    combineTypes,
+    isAnyOrUnknown,
+    isClass,
+    isClassInstance,
+    isInstantiableClass,
+    isNever,
+    isSameWithoutLiteralValue,
+    isTypeSame,
+    isUnknown,
+    isUnpackedVariadicTypeVar,
+} from './types';
 
 // PEP 634 indicates that several built-in classes are handled differently
 // when used with class pattern matching.
@@ -720,10 +720,22 @@ function narrowTypeBasedOnClassPattern(
                     return subjectSubtypeExpanded;
                 }
 
+                // Handle Callable specially.
+                if (
+                    !isAnyOrUnknown(subjectSubtypeExpanded) &&
+                    isInstantiableClass(classType) &&
+                    ClassType.isBuiltIn(classType, 'Callable')
+                ) {
+                    if (evaluator.assignType(getUnknownTypeForCallable(), subjectSubtypeExpanded)) {
+                        return undefined;
+                    }
+                }
+
                 if (!isNoneInstance(subjectSubtypeExpanded) && !isClassInstance(subjectSubtypeExpanded)) {
                     return subjectSubtypeUnexpanded;
                 }
 
+                // Handle NoneType specially.
                 if (
                     isNoneInstance(subjectSubtypeExpanded) &&
                     isInstantiableClass(classType) &&
