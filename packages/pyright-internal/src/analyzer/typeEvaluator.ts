@@ -20050,6 +20050,12 @@ export function createTypeEvaluator(
                         addError(LocMessage.protocolNotAllowed(), errorNode);
                     }
 
+                    typeArgs?.forEach((typeArg) => {
+                        if (typeArg.typeList || !isTypeVar(typeArg.type)) {
+                            addError(LocMessage.protocolTypeArgMustBeTypeParam(), typeArg.node);
+                        }
+                    });
+
                     return {
                         type: createSpecialType(
                             classType,
