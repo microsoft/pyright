@@ -20224,22 +20224,7 @@ export function createTypeEvaluator(
                 minTypeArgCount = firstDefaultParamIndex;
             }
 
-            // Classes that accept inlined type dict type args allow only one.
-            if (typeArgs[0].inlinedTypeDict) {
-                if (typeArgs.length > 1) {
-                    addDiagnostic(
-                        DiagnosticRule.reportInvalidTypeArguments,
-                        LocMessage.typeArgsTooMany().format({
-                            name: classType.aliasName || classType.details.name,
-                            expected: 1,
-                            received: typeArgCount,
-                        }),
-                        typeArgs[1].node
-                    );
-                }
-
-                return { type: typeArgs[0].inlinedTypeDict };
-            } else if (typeArgCount > typeParameters.length) {
+            if (typeArgCount > typeParameters.length) {
                 if (!ClassType.isPartiallyEvaluated(classType) && !ClassType.isTupleClass(classType)) {
                     if (typeParameters.length === 0) {
                         addDiagnostic(
