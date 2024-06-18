@@ -3498,11 +3498,14 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
             // If the typeToAdd is a TypedDict that is the same class as the
             // existing type, see if one of them is a proper subset of the other.
             if (ClassType.isTypedDictClass(type) && ClassType.isSameGenericClass(type, typeToAdd)) {
-                if (ClassType.isTypedDictNarrower(typeToAdd, type)) {
-                    return;
-                } else if (ClassType.isTypedDictNarrower(type, typeToAdd)) {
-                    unionType.subtypes[i] = typeToAdd;
-                    return;
+                // Do not proceed if the TypedDicts are generic and have different type arguments.
+                if (!type.typeArguments && !typeToAdd.typeArguments) {
+                    if (ClassType.isTypedDictNarrower(typeToAdd, type)) {
+                        return;
+                    } else if (ClassType.isTypedDictNarrower(type, typeToAdd)) {
+                        unionType.subtypes[i] = typeToAdd;
+                        return;
+                    }
                 }
             }
         }
