@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Невозможно вызвать метод \"{method}\", так как он является абстрактным и нереализованным",
+        "annotatedMetadataInconsistent": "Annotated metadata type \"{metadataType}\" is not compatible with type \"{type}\"",
         "annotatedParamCountMismatch": "Несоответствие числа аннотаций параметра: ожидается {expected}, но получено {received}",
         "annotatedTypeArgMissing": "Для \"Annotated\" ожидается один аргумент типа и одна или несколько заметок типа",
         "annotationBytesString": "Заметки с типом не могут использовать строковые литералы байтов",
@@ -158,6 +159,7 @@
         "enumMemberSet": "Не удается назначить элемент перечисления \"{name}\"",
         "enumMemberTypeAnnotation": "Аннотации типов не разрешены для элементов перечисления",
         "exceptionGroupIncompatible": "Синтаксис группы исключений (\"except*\") можно использовать в Python версии не ранее 3.11",
+        "exceptionGroupTypeIncorrect": "Exception type in except* cannot derive from BaseGroupException",
         "exceptionTypeIncorrect": "\"{type}\" не является производным от BaseException",
         "exceptionTypeNotClass": "\"{type}\" не является допустимым классом исключений",
         "exceptionTypeNotInstantiable": "Конструктору типа исключения \"{type}\" требуется один или несколько аргументов",

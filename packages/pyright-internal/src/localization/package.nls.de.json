@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Die Methode „{method}“ kann nicht aufgerufen werden, da sie abstrakt und nicht implementiert ist.",
+        "annotatedMetadataInconsistent": "Annotated metadata type \"{metadataType}\" is not compatible with type \"{type}\"",
         "annotatedParamCountMismatch": "Nicht übereinstimmende Parameteranmerkungsanzahl: {expected} erwartet, aber {received} empfangen",
         "annotatedTypeArgMissing": "Es wurde ein Typargument und mindestens eine Anmerkung für \"Annotated\" erwartet.",
         "annotationBytesString": "Typanmerkungen dürfen keine Bytes-Zeichenfolgenliterale verwenden.",
@@ -158,6 +159,7 @@
         "enumMemberSet": "Das Enumerationselement \"{name}\" kann nicht zugewiesen werden.",
         "enumMemberTypeAnnotation": "Typanmerkungen sind für Enumerationsmember nicht zulässig",
         "exceptionGroupIncompatible": "Die Ausnahmegruppensyntax (\"except*\") erfordert Python 3.11 oder höher.",
+        "exceptionGroupTypeIncorrect": "Exception type in except* cannot derive from BaseGroupException",
         "exceptionTypeIncorrect": "\"{type}\" ist nicht von BaseException abgeleitet.",
         "exceptionTypeNotClass": "\"{type}\" ist keine gültige Ausnahmeklasse.",
         "exceptionTypeNotInstantiable": "Der Konstruktor für den Ausnahmetyp \"{type}\" erfordert mindestens ein Argument.",

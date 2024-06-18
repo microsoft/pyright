@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "메서드 \"{method}\"은(는) 추상적이고 구현되지 않았으므로 호출할 수 없습니다.",
+        "annotatedMetadataInconsistent": "Annotated metadata type \"{metadataType}\" is not compatible with type \"{type}\"",
         "annotatedParamCountMismatch": "매개 변수 주석 개수가 일치하지 않습니다. {expected}이)(가) 필요하지만 {received}을(를) 받았습니다.",
         "annotatedTypeArgMissing": "\"Annotated\"에 대해 하나의 형식 인수와 하나 이상의 주석이 필요합니다.",
         "annotationBytesString": "형식 주석은 바이트 문자열 리터럴을 사용할 수 없습니다.",
@@ -158,6 +159,7 @@
         "enumMemberSet": "열거형 멤버 \"{name}\"을(를) 할당할 수 없음",
         "enumMemberTypeAnnotation": "열거형 멤버에는 형식 주석을 사용할 수 없습니다.",
         "exceptionGroupIncompatible": "예외 그룹 구문(\"except*\")에는 Python 3.11 이상이 필요합니다.",
+        "exceptionGroupTypeIncorrect": "Exception type in except* cannot derive from BaseGroupException",
         "exceptionTypeIncorrect": "‘{type}’은 BaseException에서 파생되지 않습니다.",
         "exceptionTypeNotClass": "\"{type}\"은(는) 올바른 예외 클래스가 아닙니다.",
         "exceptionTypeNotInstantiable": "예외 형식 \"{type}\"에 대한 생성자에는 하나 이상의 인수가 필요합니다.",

@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "\"{method}\" metodu soyut veya uygulanmamış olduğundan çağrılamaz",
+        "annotatedMetadataInconsistent": "Annotated metadata type \"{metadataType}\" is not compatible with type \"{type}\"",
         "annotatedParamCountMismatch": "Parametre ek açıklama sayısı uyuşmazlığı: {expected} bekleniyordu ancak {received} alındı",
         "annotatedTypeArgMissing": "\"Annotated\" için bir tür bağımsız değişkeni ve bir veya daha fazla ek açıklama bekleniyordu",
         "annotationBytesString": "Tür ek açıklamaları bayt sabit değerli dizeleri kullanamaz",
@@ -158,6 +159,7 @@
         "enumMemberSet": "Sabit liste üyesi \"{name}\" atanamıyor",
         "enumMemberTypeAnnotation": "Sabit listesi üyeleri için tür ek açıklamalarına izin verilmiyor",
         "exceptionGroupIncompatible": "Özel durum grubu söz dizimi (\"except*\") için Python 3.11 veya daha yeni bir sürümü gerekiyor",
+        "exceptionGroupTypeIncorrect": "Exception type in except* cannot derive from BaseGroupException",
         "exceptionTypeIncorrect": "\"{type}\", BaseException türevi değil",
         "exceptionTypeNotClass": "\"{type}\" geçerli bir özel durum sınıfı değil",
         "exceptionTypeNotInstantiable": "\"{type}\" özel durum türü oluşturucusu bir veya daha fazla bağımsız değişken gerektiriyor",

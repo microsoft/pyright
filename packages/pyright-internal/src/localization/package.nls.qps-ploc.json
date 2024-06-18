@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "[fE8MD][นั้Mëthøð \"{mëthøð}\" çæññøt þë çællëð þëçæµsë ït ïs æþstræçt æñð µñïmplëmëñtëðẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğนั้ढूँ]",
+        "annotatedMetadataInconsistent": "[iOP70][นั้Æññøtætëð mëtæðætæ tÿpë \"{mëtæðætæTÿpë}\" ïs ñøt çømpætïþlë wïth tÿpë \"{tÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪นั้ढूँ]",
         "annotatedParamCountMismatch": "[VZvZc][นั้Pæræmëtër æññøtætïøñ çøµñt mïsmætçh: ëxpëçtëð {ëxpëçtëð} þµt rëçëïvëð {rëçëïvëð}Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
         "annotatedTypeArgMissing": "[mTgtG][นั้Ëxpëçtëð øñë tÿpë ærgµmëñt æñð øñë ør mørë æññøtætïøñs før \"Æññøtætëð\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまนั้ढूँ]",
         "annotationBytesString": "[W1g86][นั้Tÿpë æññøtætïøñs çæññøt µsë þÿtës strïñg lïtërælsẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰนั้ढूँ]",
@@ -158,6 +159,7 @@
         "enumMemberSet": "[mBLro][นั้Ëñµm mëmþër \"{ñæmë}\" çæññøt þë æssïgñëðẤğ倪İЂҰक्र्तिृまẤğนั้ढूँ]",
         "enumMemberTypeAnnotation": "[z8FaL][นั้Tÿpë æññøtætïøñs ærë ñøt ælløwëð før ëñµm mëmþërsẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰนั้ढूँ]",
         "exceptionGroupIncompatible": "[d0SLP][นั้Ëxçëptïøñ grøµp sÿñtæx (\"ëxçëpt*\") rëqµïrës Pÿthøñ 3.11 ør ñëwërẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
+        "exceptionGroupTypeIncorrect": "[Kanvz][นั้Ëxçëptïøñ tÿpë ïñ ëxçëpt* çæññøt ðërïvë frøm ßæsëGrøµpËxçëptïøñẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
         "exceptionTypeIncorrect": "[G7AZt][นั้\"{tÿpë}\" ðøës ñøt ðërïvë frøm ßæsëËxçëptïøñẤğ倪İЂҰक्र्तिृまẤğ倪นั้ढूँ]",
         "exceptionTypeNotClass": "[v1FmY][นั้\"{tÿpë}\" ïs ñøt æ vælïð ëxçëptïøñ çlæssẤğ倪İЂҰक्र्तिृまẤğนั้ढूँ]",
         "exceptionTypeNotInstantiable": "[PfdeG][นั้Çøñstrµçtør før ëxçëptïøñ tÿpë \"{tÿpë}\" rëqµïrës øñë ør mørë ærgµmëñtsẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまนั้ढूँ]",

@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Nie można wywołać metody „{method}”, ponieważ jest abstrakcyjna i niezaimplementowana",
+        "annotatedMetadataInconsistent": "Annotated metadata type \"{metadataType}\" is not compatible with type \"{type}\"",
         "annotatedParamCountMismatch": "Niezgodność liczby adnotacji parametru; oczekiwano {expected}, a uzyskano {received}",
         "annotatedTypeArgMissing": "Oczekiwano jednego argumentu typu i co najmniej jednej adnotacji dla wartości „Annotated”",
         "annotationBytesString": "Adnotacje typu nie mogą używać literałów ciągu bajtów",
@@ -158,6 +159,7 @@
         "enumMemberSet": "Nie można przypisać składowej wyliczenia „{name}”",
         "enumMemberTypeAnnotation": "Adnotacje typu nie są dozwolone dla elementów członkowskich wyliczenia",
         "exceptionGroupIncompatible": "Składnia grupy wyjątków („except*”) wymaga języka Python w wersji 3.11 lub nowszej",
+        "exceptionGroupTypeIncorrect": "Exception type in except* cannot derive from BaseGroupException",
         "exceptionTypeIncorrect": "Typ „{type}” nie pochodzi od parametru BaseException",
         "exceptionTypeNotClass": "Typ „{type}” nie jest prawidłową klasą wyjątku",
         "exceptionTypeNotInstantiable": "Konstruktor typu wyjątku „{type}” wymaga co najmniej jednego argumentu",
