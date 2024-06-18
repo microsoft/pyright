@@ -388,25 +388,6 @@ export function isTypeVarSame(type1: TypeVarType, type2: Type) {
     return isCompatible;
 }
 
-// The `deprecated` type has been defined as a function, an overloaded function,
-// and a class in various versions of typeshed. This function checks for all of
-// these variants to determine whether the type is the built-in `deprecated` type.
-export function isBuiltInDeprecatedType(type: Type) {
-    if (isFunction(type)) {
-        return type.details.builtInName === 'deprecated';
-    }
-
-    if (isOverloadedFunction(type)) {
-        return type.overloads.length > 0 && type.overloads[0].details.builtInName === 'deprecated';
-    }
-
-    if (isInstantiableClass(type)) {
-        return ClassType.isBuiltIn(type, 'deprecated');
-    }
-
-    return false;
-}
-
 export function makeInferenceContext(expectedType: undefined, isTypeIncomplete?: boolean): undefined;
 export function makeInferenceContext(expectedType: Type, isTypeIncomplete?: boolean): InferenceContext;
 export function makeInferenceContext(expectedType?: Type, isTypeIncomplete?: boolean): InferenceContext | undefined;

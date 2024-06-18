@@ -9,7 +9,7 @@
 // @filename: test2.py
 //// from test1 import __foo
 ////
-//// __foo(param=1)
+//// __foo([|param|]=1)
 
 helper.verifyRename({
     marker: {

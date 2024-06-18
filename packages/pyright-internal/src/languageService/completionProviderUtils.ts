@@ -9,7 +9,6 @@
 import { InsertTextFormat, MarkupContent, MarkupKind, TextEdit } from 'vscode-languageserver-types';
 
 import { Declaration, DeclarationType } from '../analyzer/declaration';
-import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { isProperty } from '../analyzer/typeUtils';
 import {
@@ -28,6 +27,8 @@ import { SignatureDisplayType } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
 import { Uri } from '../common/uri/uri';
 import { getToolTipForType } from './tooltipUtils';
+import { ServiceProvider } from '../common/serviceProvider';
+import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
 
 export interface Edits {
     format?: InsertTextFormat;
@@ -152,16 +153,20 @@ export function getTypeDetail(
 }
 
 export function getCompletionItemDocumentation(
+    serviceProvider: ServiceProvider,
     typeDetail: string | undefined,
     documentation: string | undefined,
-    markupKind: MarkupKind
+    markupKind: MarkupKind,
+    declaration: Declaration | undefined
 ): MarkupContent | undefined {
     if (markupKind === MarkupKind.Markdown) {
         let markdownString = '```python\n' + typeDetail + '\n```\n';
 
         if (documentation) {
             markdownString += '---\n';
-            markdownString += convertDocStringToMarkdown(documentation);
+            markdownString += serviceProvider
+                .docStringService()
+                .convertDocStringToMarkdown(documentation, isBuiltInModule(declaration?.uri));
         }
 
         markdownString = markdownString.trimEnd();
@@ -175,7 +180,7 @@ export function getCompletionItemDocumentation(
 
         if (documentation) {
             plainTextString += '\n';
-            plainTextString += convertDocStringToPlainText(documentation);
+            plainTextString += serviceProvider.docStringService().convertDocStringToPlainText(documentation);
         }
 
         plainTextString = plainTextString.trimEnd();

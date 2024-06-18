@@ -22,6 +22,7 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever, fail } from '../common/debug';
 import { CreateTypeStubFileAction, Diagnostic } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { DocStringService } from '../common/docStringService';
 import { stripFileExtension } from '../common/pathUtils';
 import { convertTextRangeToRange } from '../common/positionUtils';
 import { TextRange, getEmptyRange } from '../common/textRange';
@@ -250,7 +251,11 @@ export class Binder extends ParseTreeWalker {
     // the current function.
     private _codeFlowComplexity = 0;
 
-    constructor(fileInfo: AnalyzerFileInfo, private _moduleSymbolOnly = false) {
+    constructor(
+        fileInfo: AnalyzerFileInfo,
+        private _docStringService: DocStringService,
+        private _moduleSymbolOnly = false
+    ) {
         super();
 
         this._fileInfo = fileInfo;
@@ -3450,8 +3455,12 @@ export class Binder extends ParseTreeWalker {
                 if (this._currentScope.type === ScopeType.Module || this._currentScope.type === ScopeType.Builtin) {
                     if (isPrivateOrProtectedName(name)) {
                         if (isPrivateName(name)) {
-                            // Private names are obscured, so they are always externally hidden.
-                            symbol.setIsExternallyHidden();
+                            // Private names within classes are mangled, so they are always externally hidden.
+                            if (scope.type === ScopeType.Class) {
+                                symbol.setIsExternallyHidden();
+                            } else {
+                                this._potentialPrivateSymbols.set(name, symbol);
+                            }
                         } else if (this._fileInfo.isStubFile || this._fileInfo.isInPyTypedPackage) {
                             if (this._currentScope.type === ScopeType.Builtin) {
                                 // Don't include private-named symbols in the builtin scope.

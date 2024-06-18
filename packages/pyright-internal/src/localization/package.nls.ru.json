@@ -156,6 +156,7 @@
         "enumClassOverride": "Перечислимый класс \"{name}\" является окончательным и не может иметь производных классов",
         "enumMemberDelete": "Не удается удалить элемент перечисления \"{name}\"",
         "enumMemberSet": "Не удается назначить элемент перечисления \"{name}\"",
+        "enumMemberTypeAnnotation": "Аннотации типов не разрешены для элементов перечисления",
         "exceptionGroupIncompatible": "Синтаксис группы исключений (\"except*\") можно использовать в Python версии не ранее 3.11",
         "exceptionTypeIncorrect": "\"{type}\" не является производным от BaseException",
         "exceptionTypeNotClass": "\"{type}\" не является допустимым классом исключений",
@@ -624,7 +625,7 @@
         "yieldFromIllegal": "\"Yield from\" можно использовать в Python версии не ниже 3.3",
         "yieldFromOutsideAsync": "\"yield from\" не допускается в асинхронной функции",
         "yieldOutsideFunction": "\"yield\" не допускается за пределами функции или лямбда-выражении",
-        "yieldWithinComprehension": "\"yield\" не допускается внутри понимания списка",
+        "yieldWithinComprehension": "\"yield\" не допускается внутри понимания",
         "zeroCaseStatementsFound": "Операторе match должен включать по крайней мере один оператор case",
         "zeroLengthTupleNotAllowed": "Кортеж нулевой длины не допускается в этом контексте"
     },

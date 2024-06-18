@@ -309,6 +309,8 @@ function assignClassToProtocolInternal(
         return isTypeSame(destType, srcType);
     }
 
+    evaluator.inferTypeParameterVarianceForClass(destType);
+
     const sourceIsClassObject = isClass(srcType) && TypeBase.isInstantiable(srcType);
     const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
     const selfTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
@@ -484,7 +486,7 @@ function assignClassToProtocolInternal(
                 }
 
                 // Frozen dataclasses and named tuples should be treated as read-only.
-                if (ClassType.isFrozenDataClass(srcType) || ClassType.isReadOnlyInstanceVariables(srcType)) {
+                if (ClassType.isDataClassFrozen(srcType) || ClassType.isReadOnlyInstanceVariables(srcType)) {
                     isSrcReadOnly = true;
                 }
             } else {
@@ -697,7 +699,7 @@ function assignClassToProtocolInternal(
                 if (srcMemberInfo && isClass(srcMemberInfo.classType)) {
                     if (
                         ClassType.isReadOnlyInstanceVariables(srcMemberInfo.classType) ||
-                        ClassType.isFrozenDataClass(srcMemberInfo.classType)
+                        ClassType.isDataClassFrozen(srcMemberInfo.classType)
                     ) {
                         isSrcReadOnly = true;
                     }

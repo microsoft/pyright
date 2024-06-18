@@ -156,6 +156,7 @@
         "enumClassOverride": "La classe di enumerazione \"{name}\" è finale e non può essere sottoclassata",
         "enumMemberDelete": "Non è possibile eliminare il membro di enumerazione \"{name}\"",
         "enumMemberSet": "Non è possibile assegnare il membro di enumerazione \"{name}\"",
+        "enumMemberTypeAnnotation": "Le annotazioni di tipo non sono consentite per i membri di enumerazione",
         "exceptionGroupIncompatible": "La sintassi del gruppo di eccezioni (\"except*\") richiede Python 3.11 o versione successiva",
         "exceptionTypeIncorrect": "\"{type}\" non deriva da BaseException",
         "exceptionTypeNotClass": "\"{type}\" non è una classe di eccezione valida",
@@ -624,7 +625,7 @@
         "yieldFromIllegal": "L'uso di \"yield from\" richiede Python 3.3 o versione successiva",
         "yieldFromOutsideAsync": "\"yield from\" non consentito in una funzione asincrona",
         "yieldOutsideFunction": "\"yield\" non consentito all'esterno di una funzione o di un'espressione lambda",
-        "yieldWithinComprehension": "\"yield\" non consentito all'interno di una comprensione di elenco",
+        "yieldWithinComprehension": "\"yield\" non consentito all'interno di una comprensione",
         "zeroCaseStatementsFound": "L’istruzione Match deve includere almeno un’istruzione case",
         "zeroLengthTupleNotAllowed": "Tupla di lunghezza zero non è consentita in questo contesto"
     },

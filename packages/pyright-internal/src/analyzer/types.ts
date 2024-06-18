@@ -476,125 +476,106 @@ export const enum ClassTypeFlags {
     // and 'Union'.
     SpecialBuiltIn = 1 << 1,
 
-    // Introduced in Python 3.7 - class either derives directly
-    // from NamedTuple or has a @dataclass class decorator.
-    DataClass = 1 << 2,
-
-    // Indicates that the dataclass is frozen.
-    FrozenDataClass = 1 << 3,
-
-    // Flags that control whether methods should be
-    // synthesized for a dataclass class.
-    SkipSynthesizedDataClassInit = 1 << 4,
-    SkipSynthesizedDataClassEq = 1 << 5,
-    SynthesizedDataClassOrder = 1 << 6,
-
     // Introduced in PEP 589, TypedDict classes provide a way
     // to specify type hints for dictionaries with different
     // value types and a limited set of static keys.
-    TypedDictClass = 1 << 7,
+    TypedDictClass = 1 << 2,
 
     // Used in conjunction with TypedDictClass, indicates that
     // the TypedDict class is marked "closed".
-    TypedDictMarkedClosed = 1 << 8,
+    TypedDictMarkedClosed = 1 << 3,
 
     // Used in conjunction with TypedDictClass, indicates that
     // the TypedDict class is marked "closed" or one or more of
     // its superclasses is marked "closed".
-    TypedDictEffectivelyClosed = 1 << 9,
+    TypedDictEffectivelyClosed = 1 << 4,
 
     // Used in conjunction with TypedDictClass, indicates that
     // the dictionary values can be omitted.
-    CanOmitDictValues = 1 << 10,
+    CanOmitDictValues = 1 << 5,
 
     // The class derives from a class that has the ABCMeta
     // metaclass. Such classes are allowed to contain
     // @abstractmethod decorators.
-    SupportsAbstractMethods = 1 << 11,
+    SupportsAbstractMethods = 1 << 6,
 
     // Derives from property class and has the semantics of
     // a property (with optional setter, deleter).
-    PropertyClass = 1 << 12,
+    PropertyClass = 1 << 7,
 
     // The class is decorated with a "@final" decorator
     // indicating that it cannot be subclassed.
-    Final = 1 << 13,
+    Final = 1 << 8,
 
     // The class derives directly from "Protocol".
-    ProtocolClass = 1 << 14,
+    ProtocolClass = 1 << 9,
 
     // A class whose constructor (__init__ method) does not have
     // annotated types and is treated as though each parameter
     // is a generic type for purposes of type inference.
-    PseudoGenericClass = 1 << 15,
+    PseudoGenericClass = 1 << 10,
 
     // A protocol class that is "runtime checkable" can be used
     // in an isinstance call.
-    RuntimeCheckable = 1 << 16,
+    RuntimeCheckable = 1 << 11,
 
     // The type is defined in the typing_extensions.pyi file.
-    TypingExtensionClass = 1 << 17,
+    TypingExtensionClass = 1 << 12,
 
     // The class type is in the process of being evaluated and
     // is not yet complete. This allows us to detect cases where
     // the class refers to itself (e.g. uses itself as a type
     // argument to one of its generic base classes).
-    PartiallyEvaluated = 1 << 18,
+    PartiallyEvaluated = 1 << 13,
 
     // The class or one of its ancestors defines a __class_getitem__
     // method that is used for subscripting. This is not set if the
     // class is generic, and therefore supports standard subscripting
     // semantics.
-    HasCustomClassGetItem = 1 << 19,
+    HasCustomClassGetItem = 1 << 14,
 
     // The tuple class uses a variadic type parameter and requires
     // special-case handling of its type arguments.
-    TupleClass = 1 << 20,
+    TupleClass = 1 << 15,
 
     // The class has a metaclass of EnumMeta or derives from
     // a class that has this metaclass.
-    EnumClass = 1 << 21,
-
-    // For dataclasses, should __init__ method always be generated
-    // with keyword-only parameters?
-    DataClassKeywordOnlyParams = 1 << 22,
+    EnumClass = 1 << 16,
 
     // Properties that are defined using the @classmethod decorator.
-    ClassProperty = 1 << 23,
+    ClassProperty = 1 << 17,
 
     // Class is declared within a type stub file.
-    DefinedInStub = 1 << 24,
+    DefinedInStub = 1 << 18,
 
     // Class does not allow writing or deleting its instance variables
     // through a member access. Used with named tuples.
-    ReadOnlyInstanceVariables = 1 << 25,
-
-    // For dataclasses, should __slots__ be generated?
-    GenerateDataClassSlots = 1 << 26,
-
-    // For dataclasses, should __hash__ be generated?
-    SynthesizeDataClassUnsafeHash = 1 << 27,
+    ReadOnlyInstanceVariables = 1 << 19,
 
     // Decorated with @type_check_only.
-    TypeCheckOnly = 1 << 28,
+    TypeCheckOnly = 1 << 20,
 
     // Created with the NewType call.
-    NewTypeClass = 1 << 29,
+    NewTypeClass = 1 << 21,
 
     // Class is allowed to be used as an implicit type alias even
     // though it is not defined using a `class` statement.
-    ValidTypeAliasClass = 1 << 30,
+    ValidTypeAliasClass = 1 << 22,
 
     // A special form is not compatible with type[T] and cannot
     // be directly instantiated.
-    SpecialFormClass = 1 << 31,
+    SpecialFormClass = 1 << 23,
 }
 
 export interface DataClassBehaviors {
-    keywordOnlyParams: boolean;
-    generateEq: boolean;
-    generateOrder: boolean;
-    frozen: boolean;
+    skipGenerateInit?: boolean;
+    skipGenerateEq?: boolean;
+    generateOrder?: boolean;
+    generateSlots?: boolean;
+    generateHash?: boolean;
+    keywordOnly?: boolean;
+    frozen?: boolean;
+    frozenDefault?: boolean;
     fieldDescriptorNames: string[];
 }
 
@@ -614,11 +595,15 @@ interface ClassDetails {
     typeParameters: TypeVarType[];
     typeVarScopeId?: TypeVarScopeId | undefined;
     docString?: string | undefined;
-    deprecatedMessage?: string | undefined;
     dataClassEntries?: DataClassEntry[] | undefined;
     dataClassBehaviors?: DataClassBehaviors | undefined;
     typedDictEntries?: TypedDictEntries | undefined;
     localSlotsNames?: string[];
+
+    // If the class is decorated with a @deprecated decorator, this
+    // string provides the message to be displayed when the class
+    // is used.
+    deprecatedMessage?: string | undefined;
 
     // A cache of protocol classes (indexed by the class full name)
     // that have been determined to be compatible or incompatible
@@ -750,6 +735,11 @@ export interface ClassType extends TypeBase {
     fgetInfo?: PropertyMethodInfo | undefined;
     fsetInfo?: PropertyMethodInfo | undefined;
     fdelInfo?: PropertyMethodInfo | undefined;
+
+    // Provides the deprecated message specifically for instances of
+    // the "deprecated" class. This allows these instances to be used
+    // as decorators for other classes or functions.
+    deprecatedInstanceMessage?: string | undefined;
 }
 
 export namespace ClassType {
@@ -864,6 +854,12 @@ export namespace ClassType {
         // that of the type alias definition if we change the literal type.
         delete newClassType.typeAliasInfo;
 
+        return newClassType;
+    }
+
+    export function cloneForDeprecatedInstance(type: ClassType, deprecatedMessage?: string): ClassType {
+        const newClassType = TypeBase.cloneType(type);
+        newClassType.deprecatedInstanceMessage = deprecatedMessage;
         return newClassType;
     }
 
@@ -1045,35 +1041,35 @@ export namespace ClassType {
     }
 
     export function isDataClass(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.DataClass);
+        return !!classType.details.dataClassBehaviors;
     }
 
-    export function isSkipSynthesizedDataClassInit(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedDataClassInit);
+    export function isDataClassSkipGenerateInit(classType: ClassType) {
+        return !!classType.details.dataClassBehaviors?.skipGenerateInit;
     }
 
-    export function isSkipSynthesizedDataClassEq(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedDataClassEq);
+    export function isDataClassSkipGenerateEq(classType: ClassType) {
+        return !!classType.details.dataClassBehaviors?.skipGenerateEq;
     }
 
-    export function isFrozenDataClass(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.FrozenDataClass);
+    export function isDataClassFrozen(classType: ClassType) {
+        return !!classType.details.dataClassBehaviors?.frozen;
     }
 
-    export function isSynthesizedDataclassOrder(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.SynthesizedDataClassOrder);
+    export function isDataClassGenerateOrder(classType: ClassType) {
+        return !!classType.details.dataClassBehaviors?.generateOrder;
     }
 
-    export function isDataClassKeywordOnlyParams(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.DataClassKeywordOnlyParams);
+    export function isDataClassKeywordOnly(classType: ClassType) {
+        return !!classType.details.dataClassBehaviors?.keywordOnly;
     }
 
-    export function isGeneratedDataClassSlots(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.GenerateDataClassSlots);
+    export function isDataClassGenerateSlots(classType: ClassType) {
+        return !!classType.details.dataClassBehaviors?.generateSlots;
     }
 
-    export function isSynthesizeDataClassUnsafeHash(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.SynthesizeDataClassUnsafeHash);
+    export function isDataClassGenerateHash(classType: ClassType) {
+        return !!classType.details.dataClassBehaviors?.generateHash;
     }
 
     export function isTypeCheckOnly(classType: ClassType) {

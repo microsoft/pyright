@@ -85,7 +85,7 @@ export function synthesizeDataClassMethods(
     hasExistingInitMethod: boolean,
     skipSynthesizeHash: boolean
 ) {
-    assert(ClassType.isDataClass(classType));
+    assert(ClassType.isDataClass(classType) || isNamedTuple);
 
     const classTypeVar = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ true);
     const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
@@ -194,7 +194,7 @@ export function synthesizeDataClassMethods(
             let aliasName: string | undefined;
             let variableTypeEvaluator: EntryTypeEvaluator | undefined;
             let hasDefaultValue = false;
-            let isKeywordOnly = ClassType.isDataClassKeywordOnlyParams(classType) || sawKeywordOnlySeparator;
+            let isKeywordOnly = ClassType.isDataClassKeywordOnly(classType) || sawKeywordOnlySeparator;
             let defaultValueExpression: ExpressionNode | undefined;
             let includeInInit = true;
             let converter: ArgumentNode | undefined;
@@ -606,20 +606,20 @@ export function synthesizeDataClassMethods(
     };
 
     // Synthesize comparison operators.
-    if (!ClassType.isSkipSynthesizedDataClassEq(classType)) {
+    if (!ClassType.isDataClassSkipGenerateEq(classType)) {
         synthesizeComparisonMethod('__eq__', evaluator.getBuiltInObject(node, 'object'));
     }
 
-    if (ClassType.isSynthesizedDataclassOrder(classType)) {
+    if (ClassType.isDataClassGenerateOrder(classType)) {
         const objType = ClassType.cloneAsInstance(classType);
         ['__lt__', '__le__', '__gt__', '__ge__'].forEach((operator) => {
             synthesizeComparisonMethod(operator, objType);
         });
     }
 
-    let synthesizeHashFunction = ClassType.isFrozenDataClass(classType);
+    let synthesizeHashFunction = ClassType.isDataClassFrozen(classType);
     const synthesizeHashNone =
-        !ClassType.isSkipSynthesizedDataClassEq(classType) && !ClassType.isFrozenDataClass(classType);
+        !isNamedTuple && !ClassType.isDataClassSkipGenerateEq(classType) && !ClassType.isDataClassFrozen(classType);
 
     if (skipSynthesizeHash) {
         synthesizeHashFunction = false;
@@ -627,7 +627,7 @@ export function synthesizeDataClassMethods(
 
     // If the user has indicated that a hash function should be generated even if it's unsafe
     // to do so or there is already a hash function present, override the default logic.
-    if (ClassType.isSynthesizeDataClassUnsafeHash(classType)) {
+    if (ClassType.isDataClassGenerateHash(classType)) {
         synthesizeHashFunction = true;
     }
 
@@ -659,17 +659,20 @@ export function synthesizeDataClassMethods(
             )
         );
     }
-    symbolTable.set(
-        '__dataclass_fields__',
-        Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.ClassVar, dictType)
-    );
 
-    if (ClassType.isGeneratedDataClassSlots(classType) && classType.details.localSlotsNames === undefined) {
+    if (!isNamedTuple) {
+        symbolTable.set(
+            '__dataclass_fields__',
+            Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.ClassVar, dictType)
+        );
+    }
+
+    if (ClassType.isDataClassGenerateSlots(classType) && classType.details.localSlotsNames === undefined) {
         classType.details.localSlotsNames = localDataClassEntries.map((entry) => entry.name);
     }
 
     // Should we synthesize a __slots__ symbol?
-    if (ClassType.isGeneratedDataClassSlots(classType)) {
+    if (ClassType.isDataClassGenerateSlots(classType)) {
         let iterableType = evaluator.getTypingType(node, 'Iterable') ?? UnknownType.create();
 
         if (isInstantiableClass(iterableType)) {
@@ -1053,10 +1056,14 @@ export function validateDataClassTransformDecorator(
     node: CallNode
 ): DataClassBehaviors | undefined {
     const behaviors: DataClassBehaviors = {
-        keywordOnlyParams: false,
-        generateEq: true,
+        skipGenerateInit: false,
+        skipGenerateEq: false,
         generateOrder: false,
+        generateSlots: false,
+        generateHash: false,
+        keywordOnly: false,
         frozen: false,
+        frozenDefault: false,
         fieldDescriptorNames: [],
     };
 
@@ -1089,7 +1096,7 @@ export function validateDataClassTransformDecorator(
                     return;
                 }
 
-                behaviors.keywordOnlyParams = value;
+                behaviors.keywordOnly = value;
                 break;
             }
 
@@ -1108,7 +1115,7 @@ export function validateDataClassTransformDecorator(
                     return;
                 }
 
-                behaviors.generateEq = value;
+                behaviors.skipGenerateEq = !value;
                 break;
             }
 
@@ -1147,6 +1154,11 @@ export function validateDataClassTransformDecorator(
                 }
 
                 behaviors.frozen = value;
+
+                // Store the frozen default separately because any class that
+                // doesn't explicitly specify a frozen value will inherit this
+                // value rather than the value from its parent.
+                behaviors.frozenDefault = value;
                 break;
             }
 
@@ -1178,9 +1190,6 @@ export function validateDataClassTransformDecorator(
                     return;
                 }
 
-                if (!behaviors.fieldDescriptorNames) {
-                    behaviors.fieldDescriptorNames = [];
-                }
                 valueType.tupleTypeArguments.forEach((arg) => {
                     if (isInstantiableClass(arg.type) || isFunction(arg.type)) {
                         behaviors.fieldDescriptorNames.push(arg.type.details.fullName);
@@ -1227,10 +1236,6 @@ export function getDataclassDecoratorBehaviors(type: Type): DataClassBehaviors |
     // Is this the built-in dataclass? If so, return the default behaviors.
     if (functionType.details.fullName === 'dataclasses.dataclass') {
         return {
-            keywordOnlyParams: false,
-            generateEq: true,
-            generateOrder: false,
-            frozen: false,
             fieldDescriptorNames: ['dataclasses.field', 'dataclasses.Field'],
         };
     }
@@ -1243,12 +1248,13 @@ function applyDataClassBehaviorOverride(
     errorNode: ParseNode,
     classType: ClassType,
     argName: string,
-    argValueExpr: ExpressionNode
+    argValueExpr: ExpressionNode,
+    behaviors: DataClassBehaviors
 ) {
     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
     const value = evaluateStaticBoolExpression(argValueExpr, fileInfo.executionEnvironment, fileInfo.definedConstants);
 
-    applyDataClassBehaviorOverrideValue(evaluator, errorNode, classType, argName, value);
+    applyDataClassBehaviorOverrideValue(evaluator, errorNode, classType, argName, value, behaviors);
 }
 
 function applyDataClassBehaviorOverrideValue(
@@ -1256,22 +1262,19 @@ function applyDataClassBehaviorOverrideValue(
     errorNode: ParseNode,
     classType: ClassType,
     argName: string,
-    argValue: boolean | undefined
+    argValue: boolean | undefined,
+    behaviors: DataClassBehaviors
 ) {
     switch (argName) {
         case 'order':
-            if (argValue === true) {
-                classType.details.flags |= ClassTypeFlags.SynthesizedDataClassOrder;
-            } else if (argValue === false) {
-                classType.details.flags &= ~ClassTypeFlags.SynthesizedDataClassOrder;
+            if (argValue !== undefined) {
+                behaviors.generateOrder = argValue;
             }
             break;
 
         case 'kw_only':
-            if (argValue === false) {
-                classType.details.flags &= ~ClassTypeFlags.DataClassKeywordOnlyParams;
-            } else if (argValue === true) {
-                classType.details.flags |= ClassTypeFlags.DataClassKeywordOnlyParams;
+            if (argValue !== undefined) {
+                behaviors.keywordOnly = argValue;
             }
             break;
 
@@ -1279,15 +1282,13 @@ function applyDataClassBehaviorOverrideValue(
             let hasUnfrozenBaseClass = false;
             let hasFrozenBaseClass = false;
 
-            if (argValue === false) {
-                classType.details.flags &= ~ClassTypeFlags.FrozenDataClass;
-            } else if (argValue === true) {
-                classType.details.flags |= ClassTypeFlags.FrozenDataClass;
+            if (argValue !== undefined) {
+                behaviors.frozen = argValue;
             }
 
             classType.details.baseClasses.forEach((baseClass) => {
                 if (isInstantiableClass(baseClass) && ClassType.isDataClass(baseClass)) {
-                    if (ClassType.isFrozenDataClass(baseClass)) {
+                    if (ClassType.isDataClassFrozen(baseClass)) {
                         hasFrozenBaseClass = true;
                     } else if (
                         !baseClass.details.classDataClassTransform &&
@@ -1328,24 +1329,20 @@ function applyDataClassBehaviorOverrideValue(
         }
 
         case 'init':
-            if (argValue === false) {
-                classType.details.flags |= ClassTypeFlags.SkipSynthesizedDataClassInit;
-            } else if (argValue === true) {
-                classType.details.flags &= ~ClassTypeFlags.SkipSynthesizedDataClassInit;
+            if (argValue !== undefined) {
+                behaviors.skipGenerateInit = !argValue;
             }
             break;
 
         case 'eq':
-            if (argValue === false) {
-                classType.details.flags |= ClassTypeFlags.SkipSynthesizedDataClassEq;
-            } else if (argValue === true) {
-                classType.details.flags &= ~ClassTypeFlags.SkipSynthesizedDataClassEq;
+            if (argValue !== undefined) {
+                behaviors.skipGenerateEq = !argValue;
             }
             break;
 
         case 'slots':
             if (argValue === true) {
-                classType.details.flags |= ClassTypeFlags.GenerateDataClassSlots;
+                behaviors.generateSlots = true;
 
                 if (classType.details.localSlotsNames) {
                     evaluator.addDiagnostic(
@@ -1355,14 +1352,14 @@ function applyDataClassBehaviorOverrideValue(
                     );
                 }
             } else if (argValue === false) {
-                classType.details.flags &= ~ClassTypeFlags.GenerateDataClassSlots;
+                behaviors.generateSlots = false;
             }
             break;
 
         case 'hash':
         case 'unsafe_hash':
             if (argValue === true) {
-                classType.details.flags |= ClassTypeFlags.SynthesizeDataClassUnsafeHash;
+                behaviors.generateHash = true;
             }
             break;
     }
@@ -1377,9 +1374,24 @@ export function applyDataClassClassBehaviorOverrides(
 ) {
     let sawFrozenArg = false;
 
+    const behaviors = { ...defaultBehaviors };
+
+    // The "frozen" behavior is not inherited from the parent class.
+    // Instead, it comes from the default.
+    behaviors.frozen = behaviors.frozenDefault;
+
+    classType.details.dataClassBehaviors = behaviors;
+
     args.forEach((arg) => {
         if (arg.valueExpression && arg.name) {
-            applyDataClassBehaviorOverride(evaluator, arg.name, classType, arg.name.value, arg.valueExpression);
+            applyDataClassBehaviorOverride(
+                evaluator,
+                arg.name,
+                classType,
+                arg.name.value,
+                arg.valueExpression,
+                behaviors
+            );
 
             if (arg.name.value === 'frozen') {
                 sawFrozenArg = true;
@@ -1387,31 +1399,18 @@ export function applyDataClassClassBehaviorOverrides(
         }
     });
 
-    // If there was no frozen argument, it is implicitly false. This will
-    // validate that we're not overriding a frozen class with a non-frozen class.
+    // If there was no frozen argument, it is implicitly set to the frozenDefault.
+    // This check validates that we're not overriding a frozen class with a
+    // non-frozen class or vice versa.
     if (!sawFrozenArg) {
-        applyDataClassBehaviorOverrideValue(evaluator, errorNode, classType, 'frozen', defaultBehaviors.frozen);
-    }
-}
-
-export function applyDataClassDefaultBehaviors(classType: ClassType, defaultBehaviors: DataClassBehaviors) {
-    classType.details.dataClassBehaviors = defaultBehaviors;
-    classType.details.flags |= ClassTypeFlags.DataClass;
-
-    if (defaultBehaviors.keywordOnlyParams) {
-        classType.details.flags |= ClassTypeFlags.DataClassKeywordOnlyParams;
-    }
-
-    if (!defaultBehaviors.generateEq) {
-        classType.details.flags |= ClassTypeFlags.SkipSynthesizedDataClassEq;
-    }
-
-    if (defaultBehaviors.generateOrder) {
-        classType.details.flags |= ClassTypeFlags.SynthesizedDataClassOrder;
-    }
-
-    if (defaultBehaviors.frozen) {
-        classType.details.flags |= ClassTypeFlags.FrozenDataClass;
+        applyDataClassBehaviorOverrideValue(
+            evaluator,
+            errorNode,
+            classType,
+            'frozen',
+            defaultBehaviors.frozenDefault,
+            behaviors
+        );
     }
 }
 
@@ -1422,7 +1421,5 @@ export function applyDataClassDecorator(
     defaultBehaviors: DataClassBehaviors,
     callNode: CallNode | undefined
 ) {
-    applyDataClassDefaultBehaviors(classType, defaultBehaviors);
-
     applyDataClassClassBehaviorOverrides(evaluator, errorNode, classType, callNode?.arguments ?? [], defaultBehaviors);
 }

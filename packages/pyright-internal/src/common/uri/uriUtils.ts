@@ -15,9 +15,9 @@ import {
     stripTrailingDirectorySeparator,
 } from '../pathUtils';
 import { Uri } from './uri';
-import { ServiceProvider } from '../extensibility';
 import { ServiceKeys } from '../serviceKeys';
 import { CaseSensitivityDetector } from '../caseSensitivityDetector';
+import { ServiceProvider } from '../serviceProvider';
 
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
@@ -149,7 +149,7 @@ export function tryStat(fs: ReadOnlyFileSystem, uri: Uri): Stats | undefined {
 
 export function tryRealpath(fs: ReadOnlyFileSystem, uri: Uri): Uri | undefined {
     try {
-        return fs.realCasePath(uri);
+        return fs.realpathSync(uri);
     } catch (e: any) {
         return undefined;
     }

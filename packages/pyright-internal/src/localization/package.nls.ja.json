@@ -156,6 +156,7 @@
         "enumClassOverride": "列挙型クラス \"{name}\" は最終的なクラスであり、サブクラス化できません",
         "enumMemberDelete": "列挙型メンバー \"{name}\" を削除できません",
         "enumMemberSet": "列挙型メンバー \"{name}\" を割り当てることはできません",
+        "enumMemberTypeAnnotation": "列挙型メンバーには型注釈を使用できません",
         "exceptionGroupIncompatible": "例外グループの構文 (\"except*\") には Python 3.11 以降が必要です",
         "exceptionTypeIncorrect": "\"{type}\" は BaseException から派生していません",
         "exceptionTypeNotClass": "\"{type}\" は有効な例外クラスではありません",
@@ -624,7 +625,7 @@
         "yieldFromIllegal": "\"yield from\" を使用するには Python 3.3 以降が必要です",
         "yieldFromOutsideAsync": "非同期関数では \"yield from\" は使用できません",
         "yieldOutsideFunction": "関数またはラムダの外部では \"yield\" は許可されません",
-        "yieldWithinComprehension": "\"yield\" はリスト理解内では使用できません",
+        "yieldWithinComprehension": "\"yield\" は内包表記内では使用できません",
         "zeroCaseStatementsFound": "Match ステートメントには、少なくとも 1 つの case ステートメントを含める必要があります",
         "zeroLengthTupleNotAllowed": "このコンテキストでは長さ 0 のタプルは使用できません"
     },

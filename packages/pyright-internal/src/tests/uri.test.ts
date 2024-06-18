@@ -674,6 +674,13 @@ test('getWildcardRegexPattern4', () => {
     assert.ok(!regex.test('//server/share/dix/foo.py'));
 });
 
+test('getWildcardRegexPattern4', () => {
+    const pattern = getWildcardRegexPattern(Uri.parse('//server/share/dir++/.bar*/bid', caseDetector), '.');
+    const regex = new RegExp(pattern);
+    assert.ok(regex.test('//server/share/dir++/.bar*/bidfoo.py'));
+    assert.ok(!regex.test('//server/share/dix++/.bar*/bidfoo.py'));
+});
+
 test('getWildcardRoot1', () => {
     const p = getWildcardRoot(Uri.parse('foo:/users/me', caseDetector), './blah/');
     assert.equal(p.toString(), 'foo:/users/me/blah');

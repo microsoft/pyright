@@ -182,6 +182,13 @@ export function getVariableInStubFileDocStrings(decl: VariableDeclaration, sourc
     return docStrings;
 }
 
+export function isBuiltInModule(uri: Uri | undefined) {
+    if (uri) {
+        return uri.getPath().includes('typeshed-fallback/stdlib');
+    }
+    return false;
+}
+
 export function getModuleDocStringFromModuleNodes(modules: ModuleNode[]): string | undefined {
     for (const module of modules) {
         if (module.statements) {
