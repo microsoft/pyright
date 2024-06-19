@@ -910,7 +910,7 @@ test('MethodOverride3', () => {
 
     configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['methodOverride3.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 5);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('MethodOverride4', () => {
