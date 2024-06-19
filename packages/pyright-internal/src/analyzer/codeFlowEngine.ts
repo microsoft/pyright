@@ -1226,8 +1226,6 @@ export function getCodeFlowEngine(
                     curFlowNode.flags &
                     (FlowFlags.VariableAnnotation |
                         FlowFlags.Assignment |
-                        FlowFlags.TrueCondition |
-                        FlowFlags.FalseCondition |
                         FlowFlags.WildcardImport |
                         FlowFlags.NarrowForPattern |
                         FlowFlags.ExhaustedMatch)
@@ -1235,15 +1233,19 @@ export function getCodeFlowEngine(
                     const typedFlowNode = curFlowNode as
                         | FlowVariableAnnotation
                         | FlowAssignment
-                        | FlowCondition
                         | FlowWildcardImport
-                        | FlowCondition
                         | FlowExhaustedMatch;
                     curFlowNode = typedFlowNode.antecedent;
                     continue;
                 }
 
-                if (curFlowNode.flags & (FlowFlags.TrueNeverCondition | FlowFlags.FalseNeverCondition)) {
+                if (
+                    curFlowNode.flags &
+                    (FlowFlags.TrueCondition |
+                        FlowFlags.FalseCondition |
+                        FlowFlags.TrueNeverCondition |
+                        FlowFlags.FalseNeverCondition)
+                ) {
                     const conditionalFlowNode = curFlowNode as FlowCondition;
                     if (conditionalFlowNode.reference) {
                         // Make sure the reference type has a declared type. If not,
