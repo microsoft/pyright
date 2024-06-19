@@ -1,8 +1,8 @@
 # This sample tests the detection and reporting of unreachable code.
 
-from abc import abstractmethod
 import os
 import sys
+from abc import abstractmethod
 from typing import NoReturn
 
 
@@ -109,3 +109,19 @@ def func10():
     return
     # This should be marked unreachable.
     b = e.errno
+
+
+def func11(obj: str) -> list:
+    if isinstance(obj, str):
+        return []
+    else:
+        # This should be marked as unreachable.
+        return obj
+
+
+def func12(obj: str) -> list:
+    if isinstance(obj, str):
+        return []
+
+    # This should be marked as unreachable.
+    return obj
