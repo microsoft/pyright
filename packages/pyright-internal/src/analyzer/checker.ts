@@ -5954,7 +5954,15 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
             } else {
-                // TODO - check types of property methods fget, fset, fdel.
+                this._validateMultipleInheritancePropertyOverride(
+                    overriddenClassAndSymbol.classType,
+                    childClassType,
+                    overriddenType,
+                    overrideType,
+                    overrideSymbol,
+                    memberName,
+                    errorNode
+                );
             }
         } else {
             // This check can be expensive, so don't perform it if the corresponding
@@ -6051,24 +6059,154 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (diag && overrideDecl && overriddenDecl) {
-            diag.addRelatedInfo(
-                LocAddendum.baseClassOverriddenType().format({
-                    baseClass: this._evaluator.printType(convertToInstance(overriddenClassAndSymbol.classType)),
-                    type: this._evaluator.printType(overriddenType),
-                }),
-                overriddenDecl.uri,
-                overriddenDecl.range
-            );
-
-            diag.addRelatedInfo(
-                LocAddendum.baseClassOverridesType().format({
-                    baseClass: this._evaluator.printType(convertToInstance(overrideClassAndSymbol.classType)),
-                    type: this._evaluator.printType(overrideType),
-                }),
-                overrideDecl.uri,
-                overrideDecl.range
+            this._addMultipleInheritanceRelatedInfo(
+                diag,
+                overriddenClassAndSymbol.classType,
+                overriddenType,
+                overriddenDecl,
+                overrideClassAndSymbol.classType,
+                overrideType,
+                overrideDecl
             );
         }
+    }
+
+    private _addMultipleInheritanceRelatedInfo(
+        diag: Diagnostic,
+        overriddenClass: ClassType,
+        overriddenType: Type,
+        overriddenDecl: Declaration,
+        overrideClass: ClassType,
+        overrideType: Type,
+        overrideDecl: Declaration
+    ) {
+        diag.addRelatedInfo(
+            LocAddendum.baseClassOverriddenType().format({
+                baseClass: this._evaluator.printType(convertToInstance(overriddenClass)),
+                type: this._evaluator.printType(overriddenType),
+            }),
+            overriddenDecl.uri,
+            overriddenDecl.range
+        );
+
+        diag.addRelatedInfo(
+            LocAddendum.baseClassOverridesType().format({
+                baseClass: this._evaluator.printType(convertToInstance(overrideClass)),
+                type: this._evaluator.printType(overrideType),
+            }),
+            overrideDecl.uri,
+            overrideDecl.range
+        );
+    }
+
+    private _validateMultipleInheritancePropertyOverride(
+        overriddenClassType: ClassType,
+        overrideClassType: ClassType,
+        overriddenSymbolType: Type,
+        overrideSymbolType: Type,
+        overrideSymbol: Symbol,
+        memberName: string,
+        errorNode: ParseNode
+    ) {
+        const propMethodInfo: [string, (c: ClassType) => FunctionType | undefined][] = [
+            ['fget', (c) => c.fgetInfo?.methodType],
+            ['fset', (c) => c.fsetInfo?.methodType],
+            ['fdel', (c) => c.fdelInfo?.methodType],
+        ];
+
+        propMethodInfo.forEach((info) => {
+            const diagAddendum = new DiagnosticAddendum();
+            const [methodName, methodAccessor] = info;
+            const baseClassPropMethod = methodAccessor(overriddenSymbolType as ClassType);
+            const subclassPropMethod = methodAccessor(overrideSymbolType as ClassType);
+
+            // Is the method present on the base class but missing in the subclass?
+            if (baseClassPropMethod) {
+                const baseClassMethodType = partiallySpecializeType(baseClassPropMethod, overriddenClassType);
+
+                if (isFunction(baseClassMethodType)) {
+                    if (!subclassPropMethod) {
+                        // The method is missing.
+                        diagAddendum.addMessage(
+                            LocAddendum.propertyMethodMissing().format({
+                                name: methodName,
+                            })
+                        );
+
+                        const decls = overrideSymbol.getDeclarations();
+
+                        if (decls.length > 0) {
+                            const lastDecl = decls[decls.length - 1];
+                            const diag = this._evaluator.addDiagnostic(
+                                DiagnosticRule.reportIncompatibleMethodOverride,
+                                LocMessage.propertyOverridden().format({
+                                    name: memberName,
+                                    className: overriddenClassType.details.name,
+                                }) + diagAddendum.getString(),
+                                errorNode
+                            );
+
+                            const origDecl = baseClassMethodType.details.declaration;
+                            if (diag && origDecl) {
+                                this._addMultipleInheritanceRelatedInfo(
+                                    diag,
+                                    overriddenClassType,
+                                    overriddenSymbolType,
+                                    origDecl,
+                                    overrideClassType,
+                                    overrideSymbolType,
+                                    lastDecl
+                                );
+                            }
+                        }
+                    } else {
+                        const subclassMethodType = partiallySpecializeType(subclassPropMethod, overrideClassType);
+
+                        if (isFunction(subclassMethodType)) {
+                            if (
+                                !this._evaluator.validateOverrideMethod(
+                                    baseClassMethodType,
+                                    subclassMethodType,
+                                    overrideClassType,
+                                    diagAddendum.createAddendum()
+                                )
+                            ) {
+                                diagAddendum.addMessage(
+                                    LocAddendum.propertyMethodIncompatible().format({
+                                        name: methodName,
+                                    })
+                                );
+                                const decl = subclassMethodType.details.declaration;
+
+                                if (decl && decl.type === DeclarationType.Function) {
+                                    const diag = this._evaluator.addDiagnostic(
+                                        DiagnosticRule.reportIncompatibleMethodOverride,
+                                        LocMessage.propertyOverridden().format({
+                                            name: memberName,
+                                            className: overriddenClassType.details.name,
+                                        }) + diagAddendum.getString(),
+                                        errorNode
+                                    );
+
+                                    const origDecl = baseClassMethodType.details.declaration;
+                                    if (diag && origDecl) {
+                                        this._addMultipleInheritanceRelatedInfo(
+                                            diag,
+                                            overriddenClassType,
+                                            overriddenSymbolType,
+                                            origDecl,
+                                            overrideClassType,
+                                            overrideSymbolType,
+                                            decl
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     // Validates that any overloaded methods are consistent in how they
@@ -6572,93 +6710,14 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
             } else {
-                const baseClassType = baseClass;
-                const propMethodInfo: [string, (c: ClassType) => FunctionType | undefined][] = [
-                    ['fget', (c) => c.fgetInfo?.methodType],
-                    ['fset', (c) => c.fsetInfo?.methodType],
-                    ['fdel', (c) => c.fdelInfo?.methodType],
-                ];
-
-                propMethodInfo.forEach((info) => {
-                    const diagAddendum = new DiagnosticAddendum();
-                    const [methodName, methodAccessor] = info;
-                    const baseClassPropMethod = methodAccessor(baseType as ClassType);
-                    const subclassPropMethod = methodAccessor(overrideType as ClassType);
-
-                    // Is the method present on the base class but missing in the subclass?
-                    if (baseClassPropMethod) {
-                        const baseClassMethodType = partiallySpecializeType(baseClassPropMethod, baseClassType);
-                        if (isFunction(baseClassMethodType)) {
-                            if (!subclassPropMethod) {
-                                // The method is missing.
-                                diagAddendum.addMessage(
-                                    LocAddendum.propertyMethodMissing().format({
-                                        name: methodName,
-                                    })
-                                );
-                                const decls = overrideSymbol.getDeclarations();
-                                if (decls.length > 0) {
-                                    const lastDecl = decls[decls.length - 1];
-                                    const diag = this._evaluator.addDiagnostic(
-                                        DiagnosticRule.reportIncompatibleMethodOverride,
-                                        LocMessage.propertyOverridden().format({
-                                            name: memberName,
-                                            className: baseClassType.details.name,
-                                        }) + diagAddendum.getString(),
-                                        getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
-                                    );
-
-                                    const origDecl = baseClassMethodType.details.declaration;
-                                    if (diag && origDecl) {
-                                        diag.addRelatedInfo(
-                                            LocAddendum.overriddenMethod(),
-                                            origDecl.uri,
-                                            origDecl.range
-                                        );
-                                    }
-                                }
-                            } else {
-                                const subclassMethodType = partiallySpecializeType(subclassPropMethod, childClassType);
-                                if (isFunction(subclassMethodType)) {
-                                    if (
-                                        !this._evaluator.validateOverrideMethod(
-                                            baseClassMethodType,
-                                            subclassMethodType,
-                                            childClassType,
-                                            diagAddendum.createAddendum()
-                                        )
-                                    ) {
-                                        diagAddendum.addMessage(
-                                            LocAddendum.propertyMethodIncompatible().format({
-                                                name: methodName,
-                                            })
-                                        );
-                                        const decl = subclassMethodType.details.declaration;
-                                        if (decl && decl.type === DeclarationType.Function) {
-                                            const diag = this._evaluator.addDiagnostic(
-                                                DiagnosticRule.reportIncompatibleMethodOverride,
-                                                LocMessage.propertyOverridden().format({
-                                                    name: memberName,
-                                                    className: baseClassType.details.name,
-                                                }) + diagAddendum.getString(),
-                                                decl.node.name
-                                            );
-
-                                            const origDecl = baseClassMethodType.details.declaration;
-                                            if (diag && origDecl) {
-                                                diag.addRelatedInfo(
-                                                    LocAddendum.overriddenMethod(),
-                                                    origDecl.uri,
-                                                    origDecl.range
-                                                );
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
+                this._validatePropertyOverride(
+                    baseClass,
+                    childClassType,
+                    baseType,
+                    overrideType,
+                    overrideSymbol,
+                    memberName
+                );
             }
         } else {
             // This check can be expensive, so don't perform it if the corresponding
@@ -6857,6 +6916,103 @@ export class Checker extends ParseTreeWalker {
                 }
             }
         }
+    }
+
+    private _validatePropertyOverride(
+        baseClassType: ClassType,
+        childClassType: ClassType,
+        baseType: Type,
+        childType: Type,
+        overrideSymbol: Symbol,
+        memberName: string
+    ) {
+        const propMethodInfo: [string, (c: ClassType) => FunctionType | undefined][] = [
+            ['fget', (c) => c.fgetInfo?.methodType],
+            ['fset', (c) => c.fsetInfo?.methodType],
+            ['fdel', (c) => c.fdelInfo?.methodType],
+        ];
+
+        propMethodInfo.forEach((info) => {
+            const diagAddendum = new DiagnosticAddendum();
+            const [methodName, methodAccessor] = info;
+            const baseClassPropMethod = methodAccessor(baseType as ClassType);
+            const subclassPropMethod = methodAccessor(childType as ClassType);
+
+            // Is the method present on the base class but missing in the subclass?
+            if (baseClassPropMethod) {
+                const baseClassMethodType = partiallySpecializeType(baseClassPropMethod, baseClassType);
+
+                if (isFunction(baseClassMethodType)) {
+                    if (!subclassPropMethod) {
+                        // The method is missing.
+                        diagAddendum.addMessage(
+                            LocAddendum.propertyMethodMissing().format({
+                                name: methodName,
+                            })
+                        );
+
+                        const decls = overrideSymbol.getDeclarations();
+
+                        if (decls.length > 0) {
+                            const lastDecl = decls[decls.length - 1];
+                            const diag = this._evaluator.addDiagnostic(
+                                DiagnosticRule.reportIncompatibleMethodOverride,
+                                LocMessage.propertyOverridden().format({
+                                    name: memberName,
+                                    className: baseClassType.details.name,
+                                }) + diagAddendum.getString(),
+                                getNameNodeForDeclaration(lastDecl) ?? lastDecl.node
+                            );
+
+                            const origDecl = baseClassMethodType.details.declaration;
+                            if (diag && origDecl) {
+                                diag.addRelatedInfo(LocAddendum.overriddenMethod(), origDecl.uri, origDecl.range);
+                            }
+                        }
+                    } else {
+                        const subclassMethodType = partiallySpecializeType(subclassPropMethod, childClassType);
+
+                        if (isFunction(subclassMethodType)) {
+                            if (
+                                !this._evaluator.validateOverrideMethod(
+                                    baseClassMethodType,
+                                    subclassMethodType,
+                                    childClassType,
+                                    diagAddendum.createAddendum()
+                                )
+                            ) {
+                                diagAddendum.addMessage(
+                                    LocAddendum.propertyMethodIncompatible().format({
+                                        name: methodName,
+                                    })
+                                );
+                                const decl = subclassMethodType.details.declaration;
+
+                                if (decl && decl.type === DeclarationType.Function) {
+                                    const diag = this._evaluator.addDiagnostic(
+                                        DiagnosticRule.reportIncompatibleMethodOverride,
+                                        LocMessage.propertyOverridden().format({
+                                            name: memberName,
+                                            className: baseClassType.details.name,
+                                        }) + diagAddendum.getString(),
+                                        decl.node.name
+                                    );
+
+                                    const origDecl = baseClassMethodType.details.declaration;
+                                    if (diag && origDecl) {
+                                        diag.addRelatedInfo(
+                                            LocAddendum.overriddenMethod(),
+                                            origDecl.uri,
+                                            origDecl.range
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     // Performs checks on a function that is located within a class
