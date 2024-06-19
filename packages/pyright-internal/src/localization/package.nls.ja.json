@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "メソッド \"{method}\" は抽象メソッドであり、実装されていないため、呼び出すことができません",
+        "annotatedMetadataInconsistent": "Annotated metadata type \"{metadataType}\" is not compatible with type \"{type}\"",
         "annotatedParamCountMismatch": "パラメーター注釈数の不一致: {expected} が必要ですが、{received} を受信しました",
         "annotatedTypeArgMissing": "\"Annotationed\" には 1 つの型引数と 1 つ以上の注釈が必要です",
         "annotationBytesString": "型注釈では、バイト文字列リテラルは使用できません",
@@ -158,6 +159,7 @@
         "enumMemberSet": "列挙型メンバー \"{name}\" を割り当てることはできません",
         "enumMemberTypeAnnotation": "列挙型メンバーには型注釈を使用できません",
         "exceptionGroupIncompatible": "例外グループの構文 (\"except*\") には Python 3.11 以降が必要です",
+        "exceptionGroupTypeIncorrect": "Exception type in except* cannot derive from BaseGroupException",
         "exceptionTypeIncorrect": "\"{type}\" は BaseException から派生していません",
         "exceptionTypeNotClass": "\"{type}\" は有効な例外クラスではありません",
         "exceptionTypeNotInstantiable": "例外の種類 \"{type}\" のコンストラクターには 1 つ以上の引数が必要です",

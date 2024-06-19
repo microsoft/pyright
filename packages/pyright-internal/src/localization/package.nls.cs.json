@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "Metodu „{method}“ nelze volat, protože je abstraktní a neimplementovaná.",
+        "annotatedMetadataInconsistent": "Annotated metadata type \"{metadataType}\" is not compatible with type \"{type}\"",
         "annotatedParamCountMismatch": "Počet poznámek parametrů se neshoduje: očekával(o/y) se {expected}, ale přijal(o/y) se {received}.",
         "annotatedTypeArgMissing": "Byl očekáván jeden argument typu a jedna nebo více poznámek pro Annotated",
         "annotationBytesString": "Poznámky typu nemůžou používat řetězcové literály bajtů.",
@@ -158,6 +159,7 @@
         "enumMemberSet": "Člen výčtu {name} se nedá přiřadit.",
         "enumMemberTypeAnnotation": "Poznámky typu nejsou pro členy výčtu povolené",
         "exceptionGroupIncompatible": "Syntaxe skupiny výjimek (except*) vyžaduje Python 3.11 nebo novější",
+        "exceptionGroupTypeIncorrect": "Exception type in except* cannot derive from BaseGroupException",
         "exceptionTypeIncorrect": "„{type}“ se neodvozuje od BaseException",
         "exceptionTypeNotClass": "{type} není platná třída výjimky",
         "exceptionTypeNotInstantiable": "Konstruktor pro výjimku typu {type} vyžaduje jeden nebo více argumentů",
