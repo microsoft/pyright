@@ -239,7 +239,7 @@ The following settings can be specified for each execution environment.
 
 - **pythonPlatform** [string, optional]: Specifies the target platform that will be used for this execution environment. If not specified, the global `pythonPlatform` setting is used instead.
 
-In addition, any of the [type check diagnostics settings](configuration.md/type-check-diagnostics-settings) listed above can be specified. These settings act as overrides for the files in this execution environment.
+In addition, any of the [type check diagnostics settings](configuration.md#type-check-diagnostics-settings) listed above can be specified. These settings act as overrides for the files in this execution environment.
 
 ## Sample Config File
 The following is an example of a pyright config file:
