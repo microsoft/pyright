@@ -7424,7 +7424,7 @@ export function createTypeEvaluator(
             positionalIndexType = makeTupleObject(tupleTypeArgs);
         }
 
-        let argList: FunctionArgument[] = [
+        const argList: FunctionArgument[] = [
             {
                 argumentCategory: ArgumentCategory.Simple,
                 typeResult: { type: positionalIndexType, isIncomplete: isPositionalIndexTypeIncomplete },
@@ -7470,58 +7470,7 @@ export function createTypeEvaluator(
             });
         });
 
-        let callResult: CallResult | undefined;
-
-        // Speculatively attempt the call. We may need to replace the index
-        // type with 'int', and we don't want to emit errors before we know
-        // which type to use.
-        if (keywordArgs.length === 0 && unpackedDictArgs.length === 0 && positionalArgs.length === 1) {
-            useSpeculativeMode(node, () => {
-                callResult = validateCallArguments(
-                    node,
-                    argList,
-                    { type: itemMethodType },
-                    /* typeVarContext */ undefined,
-                    /* skipUnknownArgCheck */ true,
-                    /* inferenceContext */ undefined,
-                    /* signatureTracker */ undefined
-                );
-
-                if (callResult.argumentErrors) {
-                    // If the object supports "__index__" magic method, convert
-                    // the index to an int and try again.
-                    if (isClassInstance(positionalIndexType)) {
-                        const altArgList = [...argList];
-                        altArgList[0] = { ...altArgList[0] };
-                        const indexMethod = getBoundMagicMethod(positionalIndexType, '__index__');
-
-                        if (indexMethod) {
-                            const intType = getBuiltInObject(node, 'int');
-                            if (isClassInstance(intType)) {
-                                altArgList[0].typeResult = { type: intType };
-                            }
-                        }
-
-                        callResult = validateCallArguments(
-                            node,
-                            altArgList,
-                            { type: itemMethodType },
-                            /* typeVarContext */ undefined,
-                            /* skipUnknownArgCheck */ true,
-                            /* inferenceContext */ undefined,
-                            /* signatureTracker */ undefined
-                        );
-
-                        // We were successful, so replace the arg list.
-                        if (!callResult.argumentErrors) {
-                            argList = altArgList;
-                        }
-                    }
-                }
-            });
-        }
-
-        callResult = validateCallArguments(
+        const callResult = validateCallArguments(
             node,
             argList,
             { type: itemMethodType },
