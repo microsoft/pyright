@@ -5327,10 +5327,10 @@ export class Checker extends ParseTreeWalker {
                             return true;
                         }
 
-                        // If this is part of a dataclass or a class handled by a dataclass_transform,
-                        // exempt it because the class variable will be transformed into an instance
-                        // variable in this case.
-                        if (ClassType.isDataClass(classType)) {
+                        // If this is part of a dataclass, a class handled by a dataclass_transform,
+                        // or a NamedTuple, exempt it because the class variable will be transformed
+                        // into an instance variable in this case.
+                        if (ClassType.isDataClass(classType) || ClassType.isReadOnlyInstanceVariables(classType)) {
                             return true;
                         }
 
