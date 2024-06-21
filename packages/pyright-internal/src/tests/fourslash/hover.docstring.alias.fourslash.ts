@@ -32,9 +32,9 @@
 ////
 
 helper.verifyHover('markdown', {
-    marker1: '```python\n(type alias) AliasA: type[ClassA]\n```\n---\nAliasA doc string\n\nClassA doc string',
-    marker2: '```python\n(type alias) AliasA: type[ClassA]\n```\n---\nAliasA doc string\n\nClassA doc string',
-    marker3: '```python\n(type alias) AliasB: type[ClassB]\n```\n---\nAliasB alone doc string',
-    marker4: '```python\n(type alias) AliasC: type[ClassC]\n```\n---\nAliasC doc string\n\nClassC doc string',
-    marker5: '```python\n(type alias) AliasD: type[ClassD]\n```\n---\nAliasD alone doc string',
+    marker1: '```python\n(type) AliasA = ClassA\n```\n---\nAliasA doc string\n\nClassA doc string',
+    marker2: '```python\n(type) AliasA = ClassA\n```\n---\nAliasA doc string\n\nClassA doc string',
+    marker3: '```python\n(type) AliasB = ClassB\n```\n---\nAliasB alone doc string',
+    marker4: '```python\n(type) AliasC = ClassC\n```\n---\nAliasC doc string\n\nClassC doc string',
+    marker5: '```python\n(type) AliasD = ClassD\n```\n---\nAliasD alone doc string',
 });

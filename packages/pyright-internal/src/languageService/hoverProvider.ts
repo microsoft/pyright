@@ -19,8 +19,9 @@ import {
 } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
+import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
 import { PrintTypeOptions, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
-import { doForEachSubtype, isMaybeDescriptorInstance } from '../analyzer/typeUtils';
+import { convertToInstance, doForEachSubtype, isMaybeDescriptorInstance } from '../analyzer/typeUtils';
 import {
     ClassType,
     Type,
@@ -38,6 +39,7 @@ import { SignatureDisplayType } from '../common/configOptions';
 import { assertNever, fail } from '../common/debug';
 import { ProgramView } from '../common/extensibility';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
+import { ServiceProvider } from '../common/serviceProvider';
 import { Position, Range, TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ExpressionNode, NameNode, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
@@ -49,8 +51,6 @@ import {
     getToolTipForType,
     getTypeForToolTip,
 } from './tooltipUtils';
-import { ServiceProvider } from '../common/serviceProvider';
-import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
 
 export interface HoverTextPart {
     python?: boolean;
@@ -134,8 +134,9 @@ export function getVariableTypeText(
 ) {
     let label = declaration.isConstant || evaluator.isFinalVariableDeclaration(declaration) ? 'constant' : 'variable';
 
-    let expandTypeAlias = false;
+    const expandTypeAlias = false;
     let typeVarName: string | undefined;
+
     if (type.typeAliasInfo && typeNode.nodeType === ParseNodeType.Name) {
         const typeAliasInfo = getTypeAliasInfo(type);
         if (typeAliasInfo?.name === typeNode.value) {
@@ -143,8 +144,12 @@ export function getVariableTypeText(
                 label = type.details.isParamSpec ? 'param spec' : 'type variable';
                 typeVarName = type.details.name;
             } else {
-                expandTypeAlias = true;
-                label = 'type alias';
+                // Handle type aliases specially.
+                const typeText = evaluator.printType(convertToInstance(getTypeForToolTip(evaluator, typeNode)), {
+                    expandTypeAlias: true,
+                });
+
+                return `(type) ${name} = ` + typeText;
             }
         }
     }
@@ -155,7 +160,7 @@ export function getVariableTypeText(
     }
 
     const typeText =
-        typeVarName || name + ': ' + evaluator.printType(getTypeForToolTip(evaluator, typeNode), { expandTypeAlias });
+        typeVarName ?? name + ': ' + evaluator.printType(getTypeForToolTip(evaluator, typeNode), { expandTypeAlias });
 
     return `(${label}) ` + typeText;
 }
@@ -412,8 +417,9 @@ export class HoverProvider {
             }
 
             case DeclarationType.TypeAlias: {
-                const typeText = node.value + this._getTypeText(node, { expandTypeAlias: true });
-                this._addResultsPart(parts, `(type alias) ${typeText}`, /* python */ true);
+                const type = convertToInstance(this._getType(node));
+                const typeText = this._evaluator.printType(type, { expandTypeAlias: true });
+                this._addResultsPart(parts, `(type) ${node.value} = ${typeText}`, /* python */ true);
                 this._addDocumentationPart(parts, node, resolvedDecl);
                 break;
             }
