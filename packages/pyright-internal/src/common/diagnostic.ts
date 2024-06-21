@@ -165,6 +165,12 @@ export class DiagnosticAddendum {
         this._messages.push(message);
     }
 
+    addMessageMultiline(message: string) {
+        message.split('\n').forEach((line) => {
+            this._messages.push(line);
+        });
+    }
+
     addTextRange(range: TextRange) {
         this._range = range;
     }
