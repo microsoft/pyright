@@ -22798,6 +22798,9 @@ export function createTypeEvaluator(
             destTypeArgs.splice(destTypeArgs.length - 1, 1);
         }
 
+        const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
+        let skipAdjustSrc = false;
+
         // If we're doing reverse type mappings and the source contains a variadic
         // TypeVar, we need to adjust the dest so the reverse type mapping assignment
         // can be performed.
@@ -22830,10 +22833,10 @@ export function createTypeEvaluator(
                         isUnbounded: false,
                     });
                 }
+
+                skipAdjustSrc = true;
             }
         } else {
-            const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
-
             if (destUnboundedOrVariadicIndex >= 0 && srcArgsToCapture >= 0) {
                 // If the dest contains a variadic element, determine which source
                 // args map to this element and package them up into an unpacked tuple.
@@ -22866,34 +22869,32 @@ export function createTypeEvaluator(
                             isUnbounded: false,
                         });
                     }
-                } else {
-                    // If possible, package up the source entries that correspond to
-                    // the dest unbounded tuple. This isn't possible if the source contains
-                    // an unbounded tuple outside of this range.
-                    if (
-                        srcUnboundedIndex < 0 ||
-                        (srcUnboundedIndex >= destUnboundedOrVariadicIndex &&
-                            srcUnboundedIndex < destUnboundedOrVariadicIndex + srcArgsToCapture)
-                    ) {
-                        const removedArgTypes = srcTypeArgs
-                            .splice(destUnboundedOrVariadicIndex, srcArgsToCapture)
-                            .map((t) => {
-                                if (
-                                    isTypeVar(t.type) &&
-                                    isUnpackedVariadicTypeVar(t.type) &&
-                                    !t.type.isVariadicInUnion
-                                ) {
-                                    return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
-                                }
-                                return t.type;
-                            });
 
-                        srcTypeArgs.splice(destUnboundedOrVariadicIndex, 0, {
-                            type: removedArgTypes.length > 0 ? combineTypes(removedArgTypes) : AnyType.create(),
-                            isUnbounded: false,
-                        });
-                    }
+                    skipAdjustSrc = true;
                 }
+            }
+        }
+
+        if (!skipAdjustSrc && destUnboundedOrVariadicIndex >= 0 && srcArgsToCapture >= 0) {
+            // If possible, package up the source entries that correspond to
+            // the dest unbounded tuple. This isn't possible if the source contains
+            // an unbounded tuple outside of this range.
+            if (
+                srcUnboundedIndex < 0 ||
+                (srcUnboundedIndex >= destUnboundedOrVariadicIndex &&
+                    srcUnboundedIndex < destUnboundedOrVariadicIndex + srcArgsToCapture)
+            ) {
+                const removedArgTypes = srcTypeArgs.splice(destUnboundedOrVariadicIndex, srcArgsToCapture).map((t) => {
+                    if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type) && !t.type.isVariadicInUnion) {
+                        return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
+                    }
+                    return t.type;
+                });
+
+                srcTypeArgs.splice(destUnboundedOrVariadicIndex, 0, {
+                    type: removedArgTypes.length > 0 ? combineTypes(removedArgTypes) : AnyType.create(),
+                    isUnbounded: false,
+                });
             }
         }
 
