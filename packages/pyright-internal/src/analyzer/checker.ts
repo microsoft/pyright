@@ -95,6 +95,7 @@ import { OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTy
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { getBoundCallMethod, getBoundInitMethod, getBoundNewMethod } from './constructors';
+import { addInheritedDataClassEntries } from './dataClasses';
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
 import { getNameNodeForDeclaration } from './declarationUtils';
 import { deprecatedAliases, deprecatedSpecialForms } from './deprecatedSymbols';
@@ -165,6 +166,7 @@ import {
     AnyType,
     ClassType,
     ClassTypeFlags,
+    DataClassEntry,
     EnumLiteral,
     FunctionType,
     FunctionTypeFlags,
@@ -5294,6 +5296,13 @@ export class Checker extends ParseTreeWalker {
             getProtocolSymbolsRecursive(classType, abstractSymbols, ClassTypeFlags.SupportsAbstractMethods);
         }
 
+        // If this is a dataclass, get all of the entries so we can tell which
+        // ones are initialized by the synthesized __init__ method.
+        const dataClassEntries: DataClassEntry[] = [];
+        if (ClassType.isDataClass(classType)) {
+            addInheritedDataClassEntries(classType, dataClassEntries);
+        }
+
         ClassType.getSymbolTable(classType).forEach((localSymbol, name) => {
             abstractSymbols.delete(name);
 
@@ -5376,20 +5385,30 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
-            if (decls[0].type === DeclarationType.Variable) {
-                // If none of the declarations involve assignments, assume it's
-                // not implemented in the protocol.
-                if (!decls.some((decl) => decl.type === DeclarationType.Variable && !!decl.inferredTypeSource)) {
-                    // This is a variable declaration that is not implemented in the
-                    // protocol base class. Make sure it's implemented in the derived class.
-                    diagAddendum.addMessage(
-                        LocAddendum.uninitializedAbstractVariable().format({
-                            name,
-                            classType: member.classType.details.name,
-                        })
-                    );
+            if (decls[0].type !== DeclarationType.Variable) {
+                return;
+            }
+
+            // Dataclass fields are typically exempted from this check because
+            // they have synthesized __init__ methods that initialize these variables.
+            const dcEntry = dataClassEntries?.find((entry) => entry.name === name);
+            if (dcEntry) {
+                if (dcEntry.includeInInit) {
+                    return;
+                }
+            } else {
+                // Do one or more declarations involve assignments?
+                if (decls.some((decl) => decl.type === DeclarationType.Variable && !!decl.inferredTypeSource)) {
+                    return;
                 }
             }
+
+            diagAddendum.addMessage(
+                LocAddendum.uninitializedAbstractVariable().format({
+                    name,
+                    classType: member.classType.details.name,
+                })
+            );
         });
 
         if (!diagAddendum.isEmpty()) {

@@ -995,7 +995,7 @@ function transformDescriptorType(evaluator: TypeEvaluator, type: Type): Type {
 // the specified class. These entries must be unique and in reverse-MRO
 // order. Returns true if all of the class types in the hierarchy are
 // known, false if one or more are unknown.
-function addInheritedDataClassEntries(classType: ClassType, entries: DataClassEntry[]) {
+export function addInheritedDataClassEntries(classType: ClassType, entries: DataClassEntry[]) {
     let allAncestorsAreKnown = true;
 
     ClassType.getReverseMro(classType).forEach((mroClass) => {
