@@ -97,7 +97,7 @@ export function findNodeByPosition(
 
 // Returns the deepest node that contains the specified offset.
 export function findNodeByOffset(node: ParseNode, offset: number): ParseNode | undefined {
-    if (offset < node.start || offset > TextRange.getEnd(node)) {
+    if (!TextRange.overlaps(node, offset)) {
         return undefined;
     }
 
@@ -109,8 +109,26 @@ export function findNodeByOffset(node: ParseNode, offset: number): ParseNode | u
         // when there are many siblings, such as statements in a module/suite
         // or expressions in a list, etc. Otherwise, we will have to traverse
         // every sibling before finding the correct one.
-        const index = getIndexContaining(children, offset);
+        let index = getIndexContaining(children, offset, TextRange.overlaps);
+
         if (index >= 0) {
+            // Find first sibling that overlaps with the offset. This ensures that
+            // our binary search result matches what we would have returned via a
+            // linear search.
+            let searchIndex = index - 1;
+            while (searchIndex >= 0) {
+                const previousChild = children[searchIndex];
+                if (previousChild) {
+                    if (TextRange.overlaps(previousChild, offset)) {
+                        index = searchIndex;
+                    } else {
+                        break;
+                    }
+                }
+
+                searchIndex--;
+            }
+
             children = [children[index]];
         }
     }
