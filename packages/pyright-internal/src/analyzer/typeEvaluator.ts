@@ -578,6 +578,11 @@ interface CodeFlowAnalyzerCacheEntry {
 
 type LogWrapper = <T extends (...args: any[]) => any>(func: T) => (...args: Parameters<T>) => ReturnType<T>;
 
+interface SuppressedNodeStackEntry {
+    node: ParseNode;
+    suppressedDiags: string[] | undefined;
+}
+
 export function createTypeEvaluator(
     importLookup: ImportLookup,
     evaluatorOptions: EvaluatorOptions,
@@ -586,7 +591,7 @@ export function createTypeEvaluator(
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const asymmetricAccessorAssignmentCache = new Set<number>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
-    const suppressedNodeStack: ParseNode[] = [];
+    const suppressedNodeStack: SuppressedNodeStackEntry[] = [];
     const assignClassToSelfStack: AssignClassToSelfInfo[] = [];
 
     let functionRecursionMap = new Set<number>();
@@ -1328,6 +1333,14 @@ export function createTypeEvaluator(
         // Do we need to validate that the type is instantiable?
         if (expectingInstantiable) {
             validateTypeIsInstantiable(typeResult, flags, node);
+        }
+
+        // If this is a PEP 695 type alias, remove the special form so the type
+        // printer prints it as its aliased type rather than TypeAliasType.
+        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            if (typeResult.type.specialForm && ClassType.isBuiltIn(typeResult.type.specialForm, 'TypeAliasType')) {
+                typeResult.type = TypeBase.cloneAsSpecialForm(typeResult.type, undefined);
+            }
         }
 
         return typeResult;
@@ -3163,19 +3176,53 @@ export function createTypeEvaluator(
         node: ParseNode,
         range?: TextRange
     ) {
-        if (!isDiagnosticSuppressedForNode(node) && isNodeReachable(node)) {
+        if (isDiagnosticSuppressedForNode(node)) {
+            // See if this node is suppressed but the diagnostic should be generated
+            // anyway so it can be used by the caller that requested the suppression.
+            const suppressionEntry = suppressedNodeStack.find(
+                (suppressedNode) =>
+                    ParseTreeUtils.isNodeContainedWithin(node, suppressedNode.node) && suppressedNode.suppressedDiags
+            );
+            suppressionEntry?.suppressedDiags?.push(message);
+
+            return undefined;
+        }
+
+        if (isNodeReachable(node)) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-            return fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range || node);
+            return fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range ?? node);
         }
 
         return undefined;
     }
 
     function isDiagnosticSuppressedForNode(node: ParseNode) {
-        return (
-            suppressedNodeStack.some((suppressedNode) => ParseTreeUtils.isNodeContainedWithin(node, suppressedNode)) ||
-            speculativeTypeTracker.isSpeculative(node, /* ignoreIfDiagnosticsAllowed */ true)
+        if (speculativeTypeTracker.isSpeculative(node, /* ignoreIfDiagnosticsAllowed */ true)) {
+            return true;
+        }
+
+        return suppressedNodeStack.some((suppressedNode) =>
+            ParseTreeUtils.isNodeContainedWithin(node, suppressedNode.node)
         );
+    }
+
+    // This function is similar to isDiagnosticSuppressedForNode except that it
+    // returns false if diagnostics are suppressed for the node but the caller
+    // has requested that diagnostics be generated anyway.
+    function canSkipDiagnosticForNode(node: ParseNode) {
+        if (speculativeTypeTracker.isSpeculative(node, /* ignoreIfDiagnosticsAllowed */ true)) {
+            return true;
+        }
+
+        const suppressedEntries = suppressedNodeStack.filter((suppressedNode) =>
+            ParseTreeUtils.isNodeContainedWithin(node, suppressedNode.node)
+        );
+
+        if (suppressedEntries.length === 0) {
+            return false;
+        }
+
+        return suppressedEntries.every((entry) => !entry.suppressedDiags);
     }
 
     function addDiagnostic(rule: DiagnosticRule, message: string, node: ParseNode, range?: TextRange) {
@@ -6115,17 +6162,29 @@ export function createTypeEvaluator(
         }
 
         // Suppress diagnostics for these method calls because they would be redundant.
-        const callResult = suppressDiagnostics(errorNode, () => {
-            return validateCallArguments(
-                errorNode,
-                argList,
-                { type: methodType },
-                /* typeVarContext */ undefined,
-                /* skipUnknownArgCheck */ true,
-                /* inferenceContext */ undefined,
-                /* signatureTracker */ undefined
-            );
-        });
+        const callResult = suppressDiagnostics(
+            errorNode,
+            () => {
+                return validateCallArguments(
+                    errorNode,
+                    argList,
+                    { type: methodType },
+                    /* typeVarContext */ undefined,
+                    /* skipUnknownArgCheck */ true,
+                    /* inferenceContext */ undefined,
+                    /* signatureTracker */ undefined
+                );
+            },
+            (suppressedDiags) => {
+                // If diagnostics were recorded when suppressed, add them to the
+                // diagnostic as messages.
+                if (diag) {
+                    suppressedDiags.forEach((message) => {
+                        diag?.addMessageMultiline(message);
+                    });
+                }
+            }
+        );
 
         // Collect deprecation information associated with the member access method.
         let deprecationInfo: MemberAccessDeprecationInfo | undefined;
@@ -6148,34 +6207,6 @@ export function createTypeEvaluator(
                 isAsymmetricAccessor,
                 memberAccessDeprecationInfo: deprecationInfo,
             };
-        }
-
-        // Errors were detected when evaluating the access method call.
-        if (usage.method === 'set') {
-            if (
-                usage.setType &&
-                isFunction(methodType) &&
-                methodType.details.parameters.length >= 2 &&
-                !usage.setType.isIncomplete
-            ) {
-                const setterType = FunctionType.getEffectiveParameterType(methodType, 1);
-
-                diag?.addMessage(
-                    LocAddendum.typeIncompatible().format({
-                        destType: printType(setterType),
-                        sourceType: printType(usage.setType.type),
-                    })
-                );
-            } else if (isOverloadedFunction(methodType)) {
-                diag?.addMessage(LocMessage.noOverload().format({ name: accessMethodName }));
-            }
-        } else {
-            diag?.addMessage(
-                LocAddendum.descriptorAccessCallFailed().format({
-                    name: accessMethodName,
-                    className: printType(convertToInstance(methodClassType)),
-                })
-            );
         }
 
         return {
@@ -7416,7 +7447,7 @@ export function createTypeEvaluator(
             positionalIndexType = makeTupleObject(tupleTypeArgs);
         }
 
-        let argList: FunctionArgument[] = [
+        const argList: FunctionArgument[] = [
             {
                 argumentCategory: ArgumentCategory.Simple,
                 typeResult: { type: positionalIndexType, isIncomplete: isPositionalIndexTypeIncomplete },
@@ -7462,58 +7493,7 @@ export function createTypeEvaluator(
             });
         });
 
-        let callResult: CallResult | undefined;
-
-        // Speculatively attempt the call. We may need to replace the index
-        // type with 'int', and we don't want to emit errors before we know
-        // which type to use.
-        if (keywordArgs.length === 0 && unpackedDictArgs.length === 0 && positionalArgs.length === 1) {
-            useSpeculativeMode(node, () => {
-                callResult = validateCallArguments(
-                    node,
-                    argList,
-                    { type: itemMethodType },
-                    /* typeVarContext */ undefined,
-                    /* skipUnknownArgCheck */ true,
-                    /* inferenceContext */ undefined,
-                    /* signatureTracker */ undefined
-                );
-
-                if (callResult.argumentErrors) {
-                    // If the object supports "__index__" magic method, convert
-                    // the index to an int and try again.
-                    if (isClassInstance(positionalIndexType)) {
-                        const altArgList = [...argList];
-                        altArgList[0] = { ...altArgList[0] };
-                        const indexMethod = getBoundMagicMethod(positionalIndexType, '__index__');
-
-                        if (indexMethod) {
-                            const intType = getBuiltInObject(node, 'int');
-                            if (isClassInstance(intType)) {
-                                altArgList[0].typeResult = { type: intType };
-                            }
-                        }
-
-                        callResult = validateCallArguments(
-                            node,
-                            altArgList,
-                            { type: itemMethodType },
-                            /* typeVarContext */ undefined,
-                            /* skipUnknownArgCheck */ true,
-                            /* inferenceContext */ undefined,
-                            /* signatureTracker */ undefined
-                        );
-
-                        // We were successful, so replace the arg list.
-                        if (!callResult.argumentErrors) {
-                            argList = altArgList;
-                        }
-                    }
-                }
-            });
-        }
-
-        callResult = validateCallArguments(
+        const callResult = validateCallArguments(
             node,
             argList,
             { type: itemMethodType },
@@ -9044,7 +9024,7 @@ export function createTypeEvaluator(
         if (filteredMatchResults.length === 0) {
             // Skip the error message if we're in speculative mode because it's very
             // expensive, and we're going to suppress the diagnostic anyway.
-            if (!isDiagnosticSuppressedForNode(errorNode)) {
+            if (!canSkipDiagnosticForNode(errorNode)) {
                 const functionName = typeResult.type.overloads[0].details.name || '<anonymous function>';
                 const diagAddendum = new DiagnosticAddendum();
                 const argTypes = argList.map((t) => {
@@ -9187,7 +9167,7 @@ export function createTypeEvaluator(
         // We couldn't find any valid overloads. Skip the error message if we're
         // in speculative mode because it's very expensive, and we're going to
         // suppress the diagnostic anyway.
-        if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
+        if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
             const result = evaluateUsingBestMatchingOverload(
                 /* skipUnknownArgCheck */ true,
                 /* emitNoOverloadFoundError */ true
@@ -10371,7 +10351,7 @@ export function createTypeEvaluator(
                     }
 
                     if (tooManyPositionals) {
-                        if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
+                        if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                             addDiagnostic(
                                 DiagnosticRule.reportCallIssue,
                                 positionParamLimitIndex === 1
@@ -10422,7 +10402,7 @@ export function createTypeEvaluator(
                         argTypeResult.type.paramSpecAccess === 'args' &&
                         paramDetails.params[paramIndex].param.category !== ParameterCategory.ArgsList
                     ) {
-                        if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
+                        if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                             addDiagnostic(
                                 DiagnosticRule.reportCallIssue,
                                 positionParamLimitIndex === 1
@@ -10501,7 +10481,7 @@ export function createTypeEvaluator(
                 // It's not allowed to use unpacked arguments with a variadic *args
                 // parameter unless the argument is a variadic arg as well.
                 if (isParamVariadic && !isArgCompatibleWithVariadic) {
-                    if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
+                    if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                         addDiagnostic(
                             DiagnosticRule.reportCallIssue,
                             LocMessage.unpackedArgWithVariadicParam(),
@@ -10574,7 +10554,7 @@ export function createTypeEvaluator(
 
                     if (remainingArgCount <= remainingParamCount) {
                         if (remainingArgCount < remainingParamCount) {
-                            if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
+                            if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                                 // Have we run out of arguments and still have parameters left to fill?
                                 addDiagnostic(
                                     DiagnosticRule.reportCallIssue,
@@ -10676,7 +10656,7 @@ export function createTypeEvaluator(
             }
 
             if (argsRemainingCount > 0) {
-                if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
+                if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                     addDiagnostic(
                         DiagnosticRule.reportCallIssue,
                         argsRemainingCount === 1
@@ -10772,7 +10752,7 @@ export function createTypeEvaluator(
                         });
 
                         if (!diag.isEmpty()) {
-                            if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
+                            if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                                 addDiagnostic(
                                     DiagnosticRule.reportCallIssue,
                                     LocMessage.unpackedTypedDictArgument() + diag.getString(),
@@ -10850,7 +10830,7 @@ export function createTypeEvaluator(
                             }
 
                             if (!isValidMappingType) {
-                                if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
+                                if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                                     addDiagnostic(
                                         DiagnosticRule.reportCallIssue,
                                         LocMessage.unpackedDictArgumentNotMapping(),
@@ -10875,7 +10855,7 @@ export function createTypeEvaluator(
                         const paramEntry = paramMap.get(paramNameValue);
                         if (paramEntry && !paramEntry.isPositionalOnly) {
                             if (paramEntry.argsReceived > 0) {
-                                if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
+                                if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                                     addDiagnostic(
                                         DiagnosticRule.reportCallIssue,
                                         LocMessage.paramAlreadyAssigned().format({ name: paramNameValue }),
@@ -10927,7 +10907,7 @@ export function createTypeEvaluator(
                             );
                             trySetActive(argList[argIndex], paramDetails.params[paramDetails.kwargsIndex].param);
                         } else {
-                            if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
+                            if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                                 addDiagnostic(
                                     DiagnosticRule.reportCallIssue,
                                     LocMessage.paramNameMissing().format({ name: paramName.value }),
@@ -10940,7 +10920,7 @@ export function createTypeEvaluator(
                         if (paramSpecArgList) {
                             paramSpecArgList.push(argList[argIndex]);
                         } else {
-                            if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
+                            if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                                 addDiagnostic(
                                     DiagnosticRule.reportCallIssue,
                                     positionParamLimitIndex === 1
@@ -11032,9 +11012,9 @@ export function createTypeEvaluator(
                 });
 
                 if (unassignedParams.length > 0) {
-                    if (!isDiagnosticSuppressedForNode(errorNode)) {
+                    if (!canSkipDiagnosticForNode(errorNode)) {
                         const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
-                        if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
+                        if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                             addDiagnostic(
                                 DiagnosticRule.reportCallIssue,
                                 unassignedParams.length === 1
@@ -11126,7 +11106,7 @@ export function createTypeEvaluator(
                             argParam.argument.argumentCategory !== ArgumentCategory.UnpackedList &&
                             !argParam.mapsToVarArgList
                         ) {
-                            if (!isDiagnosticSuppressedForNode(errorNode) && !isTypeIncomplete) {
+                            if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                                 addDiagnostic(
                                     DiagnosticRule.reportCallIssue,
                                     LocMessage.typeVarTupleMustBeUnpacked(),
@@ -12255,7 +12235,7 @@ export function createTypeEvaluator(
             const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
             if (
                 fileInfo.diagnosticRuleSet.reportArgumentType !== 'none' &&
-                !isDiagnosticSuppressedForNode(argParam.errorNode) &&
+                !canSkipDiagnosticForNode(argParam.errorNode) &&
                 !isTypeIncomplete
             ) {
                 const argTypeText = printType(argType);
@@ -14483,9 +14463,7 @@ export function createTypeEvaluator(
                 {
                     dependentType: inferenceContext?.expectedType,
                     allowDiagnostics:
-                        !forceSpeculative &&
-                        !isDiagnosticSuppressedForNode(node) &&
-                        !inferenceContext?.isTypeIncomplete,
+                        !forceSpeculative && !canSkipDiagnosticForNode(node) && !inferenceContext?.isTypeIncomplete,
                 }
             );
 
@@ -19919,7 +19897,7 @@ export function createTypeEvaluator(
         }
 
         // Allocate a new code flow analyzer.
-        const analyzer = codeFlowEngine.createCodeFlowAnalyzer(typeAtStart);
+        const analyzer = codeFlowEngine.createCodeFlowAnalyzer();
         if (entries) {
             entries.push({ typeAtStart, codeFlowAnalyzer: analyzer });
         } else {
@@ -20041,6 +20019,12 @@ export function createTypeEvaluator(
                     ) {
                         addError(LocMessage.protocolNotAllowed(), errorNode);
                     }
+
+                    typeArgs?.forEach((typeArg) => {
+                        if (typeArg.typeList || !isTypeVar(typeArg.type)) {
+                            addError(LocMessage.protocolTypeArgMustBeTypeParam(), typeArg.node);
+                        }
+                    });
 
                     return {
                         type: createSpecialType(
@@ -20210,22 +20194,7 @@ export function createTypeEvaluator(
                 minTypeArgCount = firstDefaultParamIndex;
             }
 
-            // Classes that accept inlined type dict type args allow only one.
-            if (typeArgs[0].inlinedTypeDict) {
-                if (typeArgs.length > 1) {
-                    addDiagnostic(
-                        DiagnosticRule.reportInvalidTypeArguments,
-                        LocMessage.typeArgsTooMany().format({
-                            name: classType.aliasName || classType.details.name,
-                            expected: 1,
-                            received: typeArgCount,
-                        }),
-                        typeArgs[1].node
-                    );
-                }
-
-                return { type: typeArgs[0].inlinedTypeDict };
-            } else if (typeArgCount > typeParameters.length) {
+            if (typeArgCount > typeParameters.length) {
                 if (!ClassType.isPartiallyEvaluated(classType) && !ClassType.isTupleClass(classType)) {
                     if (typeParameters.length === 0) {
                         addDiagnostic(
@@ -20711,12 +20680,19 @@ export function createTypeEvaluator(
     }
 
     // Disables recording of errors and warnings.
-    function suppressDiagnostics<T>(node: ParseNode, callback: () => T) {
-        suppressedNodeStack.push(node);
+    function suppressDiagnostics<T>(
+        node: ParseNode,
+        callback: () => T,
+        diagCallback?: (suppressedDiags: string[]) => void
+    ) {
+        suppressedNodeStack.push({ node, suppressedDiags: diagCallback ? [] : undefined });
 
         try {
             const result = callback();
-            suppressedNodeStack.pop();
+            const poppedNode = suppressedNodeStack.pop();
+            if (diagCallback && poppedNode?.suppressedDiags) {
+                diagCallback(poppedNode.suppressedDiags);
+            }
             return result;
         } catch (e) {
             // We don't use finally here because the TypeScript debugger doesn't
@@ -22233,7 +22209,7 @@ export function createTypeEvaluator(
             const prevTypeCache = returnTypeInferenceTypeCache;
             returnTypeInferenceContextStack.push({
                 functionNode,
-                codeFlowAnalyzer: codeFlowEngine.createCodeFlowAnalyzer(/* typeAtStart */ undefined),
+                codeFlowAnalyzer: codeFlowEngine.createCodeFlowAnalyzer(),
             });
 
             try {
@@ -22850,6 +22826,9 @@ export function createTypeEvaluator(
             destTypeArgs.splice(destTypeArgs.length - 1, 1);
         }
 
+        const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
+        let skipAdjustSrc = false;
+
         // If we're doing reverse type mappings and the source contains a variadic
         // TypeVar, we need to adjust the dest so the reverse type mapping assignment
         // can be performed.
@@ -22882,10 +22861,10 @@ export function createTypeEvaluator(
                         isUnbounded: false,
                     });
                 }
+
+                skipAdjustSrc = true;
             }
         } else {
-            const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
-
             if (destUnboundedOrVariadicIndex >= 0 && srcArgsToCapture >= 0) {
                 // If the dest contains a variadic element, determine which source
                 // args map to this element and package them up into an unpacked tuple.
@@ -22918,34 +22897,32 @@ export function createTypeEvaluator(
                             isUnbounded: false,
                         });
                     }
-                } else {
-                    // If possible, package up the source entries that correspond to
-                    // the dest unbounded tuple. This isn't possible if the source contains
-                    // an unbounded tuple outside of this range.
-                    if (
-                        srcUnboundedIndex < 0 ||
-                        (srcUnboundedIndex >= destUnboundedOrVariadicIndex &&
-                            srcUnboundedIndex < destUnboundedOrVariadicIndex + srcArgsToCapture)
-                    ) {
-                        const removedArgTypes = srcTypeArgs
-                            .splice(destUnboundedOrVariadicIndex, srcArgsToCapture)
-                            .map((t) => {
-                                if (
-                                    isTypeVar(t.type) &&
-                                    isUnpackedVariadicTypeVar(t.type) &&
-                                    !t.type.isVariadicInUnion
-                                ) {
-                                    return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
-                                }
-                                return t.type;
-                            });
 
-                        srcTypeArgs.splice(destUnboundedOrVariadicIndex, 0, {
-                            type: removedArgTypes.length > 0 ? combineTypes(removedArgTypes) : AnyType.create(),
-                            isUnbounded: false,
-                        });
-                    }
+                    skipAdjustSrc = true;
                 }
+            }
+        }
+
+        if (!skipAdjustSrc && destUnboundedOrVariadicIndex >= 0 && srcArgsToCapture >= 0) {
+            // If possible, package up the source entries that correspond to
+            // the dest unbounded tuple. This isn't possible if the source contains
+            // an unbounded tuple outside of this range.
+            if (
+                srcUnboundedIndex < 0 ||
+                (srcUnboundedIndex >= destUnboundedOrVariadicIndex &&
+                    srcUnboundedIndex < destUnboundedOrVariadicIndex + srcArgsToCapture)
+            ) {
+                const removedArgTypes = srcTypeArgs.splice(destUnboundedOrVariadicIndex, srcArgsToCapture).map((t) => {
+                    if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type) && !t.type.isVariadicInUnion) {
+                        return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
+                    }
+                    return t.type;
+                });
+
+                srcTypeArgs.splice(destUnboundedOrVariadicIndex, 0, {
+                    type: removedArgTypes.length > 0 ? combineTypes(removedArgTypes) : AnyType.create(),
+                    isUnbounded: false,
+                });
             }
         }
 

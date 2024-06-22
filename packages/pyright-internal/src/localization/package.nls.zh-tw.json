@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "無法呼叫方法 \"{method}\"，因為它是抽象且未執行",
+        "annotatedMetadataInconsistent": "Annotated metadata type \"{metadataType}\" is not compatible with type \"{type}\"",
         "annotatedParamCountMismatch": "參數註釋計數不符: 應為 {expected}，但收到 {received}",
         "annotatedTypeArgMissing": "預期 \"Annotated\" 有一個類型引數和一或多個註釋",
         "annotationBytesString": "類型註釋無法使用位元組字串常值",
@@ -158,6 +159,7 @@
         "enumMemberSet": "無法指派列舉成員 \"{name}\"",
         "enumMemberTypeAnnotation": "列舉成員不允許類型註釋",
         "exceptionGroupIncompatible": "例外群組語法 (\"except*\") 需要 Python 3.11 或更新版本",
+        "exceptionGroupTypeIncorrect": "Exception type in except* cannot derive from BaseGroupException",
         "exceptionTypeIncorrect": "\"{type}\" 不是衍生自 BaseException",
         "exceptionTypeNotClass": "\"{type}\" 不是有效的例外類別",
         "exceptionTypeNotInstantiable": "例外類型 \"{type}\" 的建構函式需要一或多個引數",

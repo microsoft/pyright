@@ -15,6 +15,7 @@
     },
     "Diagnostic": {
         "abstractMethodInvocation": "无法调用方法“{method}”，因为它是抽象的且未实施",
+        "annotatedMetadataInconsistent": "Annotated metadata type \"{metadataType}\" is not compatible with type \"{type}\"",
         "annotatedParamCountMismatch": "参数批注计数不匹配: 应为 {expected}，但收到 {received}",
         "annotatedTypeArgMissing": "“Annotated”应为一个类型参数和一个或多个批注",
         "annotationBytesString": "类型批注不能使用字节字符串文本",
@@ -158,6 +159,7 @@
         "enumMemberSet": "无法分配枚举成员“{name}”",
         "enumMemberTypeAnnotation": "枚举成员不允许使用类型注释",
         "exceptionGroupIncompatible": "异常组语法 (\"except*\") 需要 Python 3.11 或更高版本",
+        "exceptionGroupTypeIncorrect": "Exception type in except* cannot derive from BaseGroupException",
         "exceptionTypeIncorrect": "\"{type}\" 不是派生自 BaseException",
         "exceptionTypeNotClass": "“{type}”不是有效的异常类",
         "exceptionTypeNotInstantiable": "异常类型\"{type}\"的构造函数需要一个或多个参数",

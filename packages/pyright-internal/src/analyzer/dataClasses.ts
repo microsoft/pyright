@@ -659,10 +659,13 @@ export function synthesizeDataClassMethods(
             )
         );
     }
-    symbolTable.set(
-        '__dataclass_fields__',
-        Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.ClassVar, dictType)
-    );
+
+    if (!isNamedTuple) {
+        symbolTable.set(
+            '__dataclass_fields__',
+            Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.ClassVar, dictType)
+        );
+    }
 
     if (ClassType.isDataClassGenerateSlots(classType) && classType.details.localSlotsNames === undefined) {
         classType.details.localSlotsNames = localDataClassEntries.map((entry) => entry.name);

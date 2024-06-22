@@ -577,7 +577,7 @@
     "stubPath": {
       "type": "string",
       "title": "Path to directory containing custom type stub files",
-      "default": "",
+      "default": "./typings",
       "examples": [
         "src/typestubs"
       ],

@@ -17,8 +17,7 @@ def test1() -> None:
             raise RuntimeError()
         return
 
-    # This should generate an error because
-    # the code is not unreachable.
+    # This should generate an error.
     c = "hi" + 3
 
     with memoryview(x):

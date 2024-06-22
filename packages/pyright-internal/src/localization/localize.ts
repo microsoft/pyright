@@ -811,6 +811,7 @@ export namespace Localizer {
         export const protocolBaseClassWithTypeArgs = () => getRawString('Diagnostic.protocolBaseClassWithTypeArgs');
         export const protocolIllegal = () => getRawString('Diagnostic.protocolIllegal');
         export const protocolNotAllowed = () => getRawString('Diagnostic.protocolNotAllowed');
+        export const protocolTypeArgMustBeTypeParam = () => getRawString('Diagnostic.protocolTypeArgMustBeTypeParam');
         export const protocolUnsafeOverlap = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.protocolUnsafeOverlap'));
         export const protocolVarianceContravariant = () =>
