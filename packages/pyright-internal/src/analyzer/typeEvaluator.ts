@@ -24166,7 +24166,7 @@ export function createTypeEvaluator(
                         destType,
                         concreteSrcType,
                         diag?.createAddendum(),
-                        destTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(destType)),
+                        destTypeVarContext ?? new TypeVarContext(getTypeVarScopeIds(destType)),
                         srcTypeVarContext ?? new TypeVarContext(getTypeVarScopeIds(concreteSrcType)),
                         flags,
                         recursionCount
