@@ -962,7 +962,7 @@ export class Checker extends ParseTreeWalker {
                             declaredReturnType,
                             returnType,
                             diagAddendum,
-                            new TypeVarContext(),
+                            /* destTypeVarContext */ undefined,
                             /* srcTypeVarContext */ undefined,
                             AssignTypeFlags.AllowBoolTypeGuard
                         )
