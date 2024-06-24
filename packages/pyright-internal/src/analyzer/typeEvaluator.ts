@@ -11640,6 +11640,11 @@ export function createTypeEvaluator(
             paramSpecTypeVarContext.forEach((paramSpecTypeVarContext) => {
                 if (paramSpecTypeVarContext) {
                     specializedReturnType = applySolvedTypeVars(specializedReturnType, paramSpecTypeVarContext);
+
+                    // It's possible that one or more of the TypeVars or ParamSpecs
+                    // in the typeVarContext refer to TypeVars that were solved in
+                    // the paramSpecTypeVarContext. Apply these solved TypeVars accordingly.
+                    applySourceContextTypeVars(typeVarContext, paramSpecTypeVarContext);
                 }
             });
         }

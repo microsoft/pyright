@@ -3329,7 +3329,7 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
     FunctionType.addHigherOrderTypeVarScopeIds(functionType, withoutParamSpec.details.typeVarScopeId);
     FunctionType.addHigherOrderTypeVarScopeIds(functionType, withoutParamSpec.details.higherOrderTypeVarScopeIds);
 
-    withoutParamSpec.details.parameters.forEach((entry) => {
+    withoutParamSpec.details.parameters.forEach((entry, index) => {
         FunctionType.addParameter(functionType, {
             category: entry.category,
             name: entry.name,
@@ -3337,7 +3337,7 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
             defaultValueExpression: entry.defaultValueExpression,
             isNameSynthesized: entry.isNameSynthesized,
             hasDeclaredType: true,
-            type: entry.type,
+            type: FunctionType.getEffectiveParameterType(withoutParamSpec, index),
         });
     });
 
