@@ -3184,7 +3184,7 @@ export class Parser {
 
         const rightExpr = this._parseTestExpression(/* allowAssignmentExpression */ false);
 
-        return AssignmentExpressionNode.create(leftExpr, rightExpr);
+        return AssignmentExpressionNode.create(leftExpr, walrusToken, rightExpr);
     }
 
     // or_test: and_test ('or' and_test)*
@@ -3910,11 +3910,11 @@ export class Parser {
                 possibleTupleNode.parenthesized = true;
             }
 
-            if (possibleTupleNode.nodeType === ParseNodeType.StringList) {
-                possibleTupleNode.isParenthesized = true;
-            }
-
-            if (possibleTupleNode.nodeType === ParseNodeType.Comprehension) {
+            if (
+                possibleTupleNode.nodeType === ParseNodeType.StringList ||
+                possibleTupleNode.nodeType === ParseNodeType.Comprehension ||
+                possibleTupleNode.nodeType === ParseNodeType.AssignmentExpression
+            ) {
                 possibleTupleNode.isParenthesized = true;
             }
 
@@ -4140,10 +4140,23 @@ export class Parser {
             if (this._consumeTokenIfOperator(OperatorType.Power)) {
                 doubleStarExpression = this._parseExpression(/* allowUnpack */ false);
             } else {
-                keyExpression = this._parseTestOrStarExpression(/* allowAssignmentExpression */ false);
+                keyExpression = this._parseTestOrStarExpression(/* allowAssignmentExpression */ true);
+
+                // Allow walrus operators in this context only for Python 3.10 and newer.
+                // Older versions of Python generated a syntax error in this context.
+                let isWalrusAllowed = this._getLanguageVersion().isGreaterOrEqualTo(pythonVersion3_10);
 
                 if (this._consumeTokenIfType(TokenType.Colon)) {
                     valueExpression = this._parseTestExpression(/* allowAssignmentExpression */ false);
+                    isWalrusAllowed = false;
+                }
+
+                if (
+                    !isWalrusAllowed &&
+                    keyExpression.nodeType === ParseNodeType.AssignmentExpression &&
+                    !keyExpression.isParenthesized
+                ) {
+                    this._addSyntaxError(LocMessage.walrusNotAllowed(), keyExpression.walrusToken);
                 }
             }
 

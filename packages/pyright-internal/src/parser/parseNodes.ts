@@ -866,18 +866,22 @@ export namespace BinaryOperationNode {
 export interface AssignmentExpressionNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.AssignmentExpression;
     name: NameNode;
+    walrusToken: Token;
     rightExpression: ExpressionNode;
+    isParenthesized: boolean;
 }
 
 export namespace AssignmentExpressionNode {
-    export function create(name: NameNode, rightExpression: ExpressionNode) {
+    export function create(name: NameNode, walrusToken: Token, rightExpression: ExpressionNode) {
         const node: AssignmentExpressionNode = {
             start: name.start,
             length: name.length,
             nodeType: ParseNodeType.AssignmentExpression,
             id: _nextNodeId++,
             name,
+            walrusToken,
             rightExpression,
+            isParenthesized: false,
         };
 
         name.parent = node;
