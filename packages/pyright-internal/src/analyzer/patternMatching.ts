@@ -219,9 +219,20 @@ function narrowTypeBasedOnSequencePattern(
         let canNarrowTuple = entry.isTuple;
 
         // Don't attempt to narrow tuples in the negative case if the subject
-        // contains indeterminate-length entries.
-        if (!isPositiveTest && entry.isIndeterminateLength) {
-            canNarrowTuple = false;
+        // contains indeterminate-length entries or the tuple is of indeterminate
+        // length.
+        if (!isPositiveTest) {
+            if (entry.isIndeterminateLength) {
+                canNarrowTuple = false;
+            }
+
+            if (
+                isClassInstance(entry.subtype) &&
+                entry.subtype.tupleTypeArguments &&
+                entry.subtype.tupleTypeArguments.some((typeArg) => typeArg.isUnbounded)
+            ) {
+                canNarrowTuple = false;
+            }
         }
 
         // If the subject has an indeterminate length but the pattern does not accept

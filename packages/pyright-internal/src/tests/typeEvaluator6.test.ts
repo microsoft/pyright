@@ -773,6 +773,12 @@ test('Constructor29', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Constructor30', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor30.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ConstructorCallable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable1.py']);
 

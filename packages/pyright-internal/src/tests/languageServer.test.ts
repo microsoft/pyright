@@ -183,11 +183,13 @@ describe(`Basic language server tests`, () => {
 
         // Wait for the diagnostics to publish
         const diagnostics = await waitForDiagnostics(info);
-        assert.equal(diagnostics[0]!.diagnostics.length, 6);
+        const diagnostic = diagnostics.find((d) => d.uri.includes('root/test.py'));
+        assert(diagnostic);
+        assert.equal(diagnostic.diagnostics.length, 6);
 
         // Make sure the error has a special rule
-        assert.equal(diagnostics[0].diagnostics[1].code, 'reportUnusedImport');
-        assert.equal(diagnostics[0].diagnostics[3].code, 'reportUnusedImport');
-        assert.equal(diagnostics[0].diagnostics[5].code, 'reportUnusedImport');
+        assert.equal(diagnostic.diagnostics[1].code, 'reportUnusedImport');
+        assert.equal(diagnostic.diagnostics[3].code, 'reportUnusedImport');
+        assert.equal(diagnostic.diagnostics[5].code, 'reportUnusedImport');
     });
 });
