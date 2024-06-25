@@ -320,6 +320,17 @@ class ServerStateManager {
         if (instance) {
             this._pendingDispose = createDeferred<void>();
 
+            // Dispose the server first. This might send a message or two.
+            const serverIndex = instance.disposables.findIndex((d) => d instanceof TestServer);
+            if (serverIndex >= 0) {
+                try {
+                    instance.disposables[serverIndex].dispose();
+                    instance.disposables = instance.disposables.splice(serverIndex, 1);
+                } catch (e) {
+                    // Dispose failures don't matter.
+                }
+            }
+
             // Wait for our connection to finish first. Give it 10 tries.
             // This is a bit of a hack but there are no good ways to cancel all running requests
             // on shutdown.
@@ -329,9 +340,13 @@ class ServerStateManager {
                 count += 1;
             }
             this._pendingDispose.resolve();
-            instance.disposables.forEach((d) => {
-                d.dispose();
-            });
+            try {
+                instance.disposables.forEach((d) => {
+                    d.dispose();
+                });
+            } catch (e) {
+                // Dispose failures don't matter.
+            }
             this._pendingDispose = undefined;
             if (this._currentOptions) {
                 logToDisk(`Stopped ${this._currentOptions?.testName}`, this._currentOptions.logFile);

@@ -30,7 +30,7 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { ExecutionEnvironment } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
-import { SourceFileInfo } from '../common/extensibility';
+import { ProgramView, SourceFileInfo } from '../common/extensibility';
 import { stripFileExtension } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
 import { Position } from '../common/textRange';
@@ -164,6 +164,7 @@ export class AutoImporter {
 
     constructor(
         protected readonly execEnvironment: ExecutionEnvironment,
+        protected readonly program: ProgramView,
         protected readonly importResolver: ImportResolver,
         protected readonly parseResults: ParseFileResults,
         private readonly _invocationPosition: Position,
@@ -215,13 +216,13 @@ export class AutoImporter {
     ) {
         this.moduleSymbolMap.forEach((topLevelSymbols, key) => {
             // See if this file should be offered as an implicit import.
-            const isStubFileOrHasInit = this.isStubFileOrHasInit(this.moduleSymbolMap!, topLevelSymbols.uri);
+            const uriProperties = this.getUriProperties(this.moduleSymbolMap!, topLevelSymbols.uri);
             this.processModuleSymbolTable(
                 topLevelSymbols,
                 topLevelSymbols.uri,
                 word,
                 similarityLimit,
-                isStubFileOrHasInit,
+                uriProperties,
                 abbrFromUsers,
                 aliasMap,
                 results,
@@ -312,7 +313,7 @@ export class AutoImporter {
         moduleUri: Uri,
         word: string,
         similarityLimit: number,
-        isStubOrHasInit: { isStub: boolean; hasInit: boolean },
+        fileProperties: { isStub: boolean; hasInit: boolean; isUserCode: boolean },
         abbrFromUsers: string | undefined,
         importAliasMap: Map<string, Map<string, ImportAliasData>>,
         results: AutoImportResultMap,
@@ -326,8 +327,10 @@ export class AutoImporter {
         }
 
         const dotCount = StringUtils.getCharacterCount(importSource, '.');
-        topLevelSymbols.forEach((autoImportSymbol, name, library) => {
-            if (!this._shouldIncludeVariable(autoImportSymbol, name, isStubOrHasInit.isStub, library)) {
+        topLevelSymbols.forEach((autoImportSymbol, name) => {
+            if (
+                !this._shouldIncludeVariable(autoImportSymbol, name, fileProperties.isStub, !fileProperties.isUserCode)
+            ) {
                 return;
             }
 
@@ -368,7 +371,7 @@ export class AutoImporter {
                 return;
             }
 
-            const nameForImportFrom = this.getNameForImportFrom(library, moduleUri);
+            const nameForImportFrom = this.getNameForImportFrom(/* library */ !fileProperties.isUserCode, moduleUri);
             const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
                 { name, alias: abbrFromUsers },
                 { name: importSource, nameForImportFrom },
@@ -394,7 +397,8 @@ export class AutoImporter {
         // If the current file is in a directory that also contains an "__init__.py[i]"
         // file, we can use that directory name as an implicit import target.
         // Or if the file is a stub file, we can use it as import target.
-        if (!isStubOrHasInit.isStub && !isStubOrHasInit.hasInit) {
+        // Skip this check for user code.
+        if (!fileProperties.isStub && !fileProperties.hasInit && !fileProperties.isUserCode) {
             return;
         }
 
@@ -435,13 +439,14 @@ export class AutoImporter {
         return undefined;
     }
 
-    protected isStubFileOrHasInit<T>(map: Map<string, T>, uri: Uri) {
+    protected getUriProperties<T>(map: Map<string, T>, uri: Uri) {
         const fileDir = uri.getDirectory();
         const initPathPy = fileDir.initPyUri;
         const initPathPyi = fileDir.initPyiUri;
         const isStub = uri.hasExtension('.pyi');
         const hasInit = map.has(initPathPy.key) || map.has(initPathPyi.key);
-        return { isStub, hasInit };
+        const sourceFileInfo = this.program.getSourceFileInfo(uri);
+        return { isStub, hasInit, isUserCode: isUserCode(sourceFileInfo) };
     }
 
     private _shouldIncludeVariable(

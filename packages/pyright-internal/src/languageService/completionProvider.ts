@@ -818,6 +818,7 @@ export class CompletionProvider {
 
         const autoImporter = new AutoImporter(
             this.execEnv,
+            this.program,
             this.importResolver,
             this.parseResults,
             this.position,

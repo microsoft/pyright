@@ -389,32 +389,34 @@ export abstract class LanguageServerBase implements LanguageServerInterface, Dis
         status: InitStatus | undefined,
         serverSettings?: ServerSettings
     ): Promise<void> {
-        status?.markCalled();
+        try {
+            status?.markCalled();
 
-        serverSettings = serverSettings ?? (await this.getSettings(workspace));
+            serverSettings = serverSettings ?? (await this.getSettings(workspace));
 
-        // Set logging level first.
-        (this.console as ConsoleWithLogLevel).level = serverSettings.logLevel ?? LogLevel.Info;
+            // Set logging level first.
+            (this.console as ConsoleWithLogLevel).level = serverSettings.logLevel ?? LogLevel.Info;
 
-        // Apply the new path to the workspace (before restarting the service).
-        serverSettings.pythonPath = this.workspaceFactory.applyPythonPath(
-            workspace,
-            serverSettings.pythonPath ? serverSettings.pythonPath : undefined
-        );
+            // Apply the new path to the workspace (before restarting the service).
+            serverSettings.pythonPath = this.workspaceFactory.applyPythonPath(
+                workspace,
+                serverSettings.pythonPath ? serverSettings.pythonPath : undefined
+            );
 
-        this._dynamicFeatures.update(serverSettings);
+            this._dynamicFeatures.update(serverSettings);
 
-        // Then use the updated settings to restart the service.
-        this.updateOptionsAndRestartService(workspace, serverSettings);
+            // Then use the updated settings to restart the service.
+            this.updateOptionsAndRestartService(workspace, serverSettings);
 
-        workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
-        workspace.disableTaggedHints = !!serverSettings.disableTaggedHints;
-        workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
-
-        // Don't use workspace.isInitialized directly since it might have been
-        // reset due to pending config change event.
-        // The workspace is now open for business.
-        status?.resolve();
+            workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
+            workspace.disableTaggedHints = !!serverSettings.disableTaggedHints;
+            workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
+        } finally {
+            // Don't use workspace.isInitialized directly since it might have been
+            // reset due to pending config change event.
+            // The workspace is now open for business.
+            status?.resolve();
+        }
     }
 
     updateOptionsAndRestartService(
