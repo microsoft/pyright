@@ -1,0 +1,61 @@
+trigger: none
+resources:
+  repositories:
+    - repository: MicroBuildTemplate
+      type: git
+      name: 1ESPipelineTemplates/MicroBuildTemplate
+      ref: refs/tags/release
+variables:
+  - name: SigningType
+    value: 'real'
+  - name: TeamName
+    value: Pyright
+extends:
+  template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
+  parameters:
+    sdl:
+      sourceAnalysisPool: VSEngSS-MicroBuild2022-1ES
+    pool:
+      name: AzurePipelines-EO
+      demands:
+        - ImageOverride -equals 1ESPT-Ubuntu22.04
+      os: Linux
+    customBuildTags:
+      - ES365AIMigrationTooling
+    stages:
+      - stage: stage
+        jobs:
+          - job: build
+            displayName: Build VSIX
+            timeoutInMinutes: 720
+            templateContext:
+              outputs:
+                - output: pipelineArtifact
+                  displayName: 'publish vsix artifact'
+                  targetPath: build_output
+                  artifactName: vsix-win
+            steps:
+              - checkout: self
+                clean: true
+                submodules: true
+                fetchTags: true
+                persistCredentials: True
+              - task: NodeTool@0
+                displayName: Use Node 18.x
+                inputs:
+                  versionSpec: 18.x
+              - task: CmdLine@2
+                displayName: npm install
+                inputs:
+                  script: npm install
+              - task: CmdLine@2
+                displayName: Package VSIX
+                inputs:
+                  script: npm run package
+                  workingDirectory: packages/vscode-pyright
+              - task: CopyFiles@2
+                displayName: 'Copy vsix to: build_output'
+                inputs:
+                  SourceFolder: packages/vscode-pyright
+                  Contents: '*.vsix'
+                  TargetFolder: build_output
