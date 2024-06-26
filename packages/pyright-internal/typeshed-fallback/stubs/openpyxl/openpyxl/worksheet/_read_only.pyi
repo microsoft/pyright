@@ -1,5 +1,6 @@
 from _typeshed import SupportsGetItem
-from collections.abc import Generator
+from collections.abc import Generator, Iterator
+from typing import Any, overload
 
 from openpyxl import _VisibilityType
 from openpyxl.cell import _CellValue
@@ -21,8 +22,15 @@ class ReadOnlyWorksheet:
     # https://github.com/python/mypy/issues/6700
     @property
     def rows(self) -> Generator[tuple[Cell, ...], None, None]: ...
-    __getitem__ = Worksheet.__getitem__
-    __iter__ = Worksheet.__iter__
+    # From Worksheet.__getitem__
+    @overload
+    def __getitem__(self, key: int) -> tuple[Cell, ...]: ...
+    @overload
+    def __getitem__(self, key: slice) -> tuple[Any, ...]: ...  # tuple[AnyOf[Cell, tuple[Cell, ...]]]
+    @overload
+    def __getitem__(self, key: str) -> Any: ...  # AnyOf[Cell, tuple[Cell, ...], tuple[tuple[Cell, ...], ...]]
+    # From Worksheet.__iter__
+    def __iter__(self) -> Iterator[tuple[Cell, ...]]: ...
     parent: Workbook
     title: str
     sheet_state: _VisibilityType

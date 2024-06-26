@@ -7,8 +7,8 @@ from typing_extensions import ParamSpec, TypeAlias
 from flask import Flask
 from flask.testing import FlaskClient
 
-from .namespace import Namespace
-from .test_client import SocketIOTestClient
+from .namespace import Namespace as Namespace
+from .test_client import SocketIOTestClient as SocketIOTestClient
 
 _P = ParamSpec("_P")
 _R_co = TypeVar("_R_co", covariant=True)
@@ -96,9 +96,9 @@ class SocketIO:
         port: int | None = None,
         *,
         debug: bool = True,
-        use_reloader: bool,
+        use_reloader: bool = ...,
         reloader_options: dict[str, Incomplete] = {},
-        log_output: bool,
+        log_output: bool = ...,
         allow_unsafe_werkzeug: bool = False,
         **kwargs,
     ) -> None: ...

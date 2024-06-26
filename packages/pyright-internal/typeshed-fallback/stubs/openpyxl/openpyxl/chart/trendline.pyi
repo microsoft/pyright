@@ -10,8 +10,7 @@ from openpyxl.descriptors.base import Alias, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.nested import NestedBool, NestedFloat, NestedInteger, NestedSet
 from openpyxl.descriptors.serialisable import Serialisable
-
-from ..xml._functions_overloads import _HasTagAndGet
+from openpyxl.xml._functions_overloads import _HasTagAndGet
 
 _TrendlineTrendlineType: TypeAlias = Literal["exp", "linear", "log", "movingAvg", "poly", "power"]
 

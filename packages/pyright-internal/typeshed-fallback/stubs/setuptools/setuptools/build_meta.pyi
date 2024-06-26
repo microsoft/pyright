@@ -1,6 +1,7 @@
 from _typeshed import StrPath
 from collections.abc import Mapping
 from typing import Any
+from typing_extensions import TypeAlias
 
 from . import dist
 
@@ -16,6 +17,8 @@ __all__ = [
     "__legacy__",
     "SetupRequirementsError",
 ]
+
+_ConfigSettings: TypeAlias = dict[str, str | list[str] | None] | None
 
 class SetupRequirementsError(BaseException):
     specifiers: Any
@@ -34,11 +37,11 @@ class _BuildMetaBackend:
         self, metadata_directory: str, config_settings: Mapping[str, Any] | None = None
     ) -> str: ...
     def build_wheel(
-        self, wheel_directory: StrPath, config_settings: Mapping[str, Any] | None = None, metadata_directory: str | None = None
+        self, wheel_directory: StrPath, config_settings: _ConfigSettings | None = None, metadata_directory: StrPath | None = None
     ) -> str: ...
-    def build_sdist(self, sdist_directory: StrPath, config_settings: Mapping[str, Any] | None = None) -> str: ...
+    def build_sdist(self, sdist_directory: StrPath, config_settings: _ConfigSettings | None = None) -> str: ...
     def build_editable(
-        self, wheel_directory: StrPath, config_settings: Mapping[str, Any] | None = None, metadata_directory: str | None = None
+        self, wheel_directory: StrPath, config_settings: _ConfigSettings | None = None, metadata_directory: str | None = None
     ) -> str: ...
     def get_requires_for_build_editable(self, config_settings: Mapping[str, Any] | None = None) -> list[str]: ...
     def prepare_metadata_for_build_editable(

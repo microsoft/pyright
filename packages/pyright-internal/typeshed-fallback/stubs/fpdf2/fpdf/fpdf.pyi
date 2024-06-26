@@ -25,9 +25,11 @@ from .enums import (
     RenderStyle,
     TableBordersLayout,
     TableCellFillMode,
+    TableHeadingsDisplay,
     TextDirection,
     TextMarkupType,
     TextMode as TextMode,
+    VAlign,
     WrapMode as WrapMode,
     XPos as XPos,
     YPos as YPos,
@@ -41,14 +43,14 @@ from .image_datastructures import (
     ImageInfo as ImageInfo,
     RasterImageInfo as RasterImageInfo,
     VectorImageInfo as VectorImageInfo,
-    _AlignLiteral,
+    _TextAlign,
 )
 from .output import OutputProducer, PDFPage
 from .recorder import FPDFRecorder
 from .structure_tree import StructureTreeBuilder
 from .syntax import DestinationXYZ
 from .table import Table
-from .util import _Unit
+from .util import Padding, _Unit
 
 __all__ = [
     "FPDF",
@@ -489,7 +491,7 @@ class FPDF(GraphicsStateMixin):
         ncols: int = 1,
         gutter: float = 10,
         balance: bool = False,
-        text_align: Align | _AlignLiteral = "LEFT",
+        text_align: str | _TextAlign | tuple[_TextAlign | str, ...] = "LEFT",
         line_height: float = 1,
         l_margin: float | None = None,
         r_margin: float | None = None,
@@ -570,17 +572,26 @@ class FPDF(GraphicsStateMixin):
         self,
         rows: Iterable[Incomplete] = (),
         *,
-        align: str | Align = "CENTER",
+        # Keep in sync with `fpdf.table.Table`:
+        align: str | _TextAlign = "CENTER",
+        v_align: str | VAlign = "MIDDLE",
         borders_layout: str | TableBordersLayout = ...,
         cell_fill_color: int | tuple[Incomplete, ...] | DeviceGray | DeviceRGB | None = None,
         cell_fill_mode: str | TableCellFillMode = ...,
         col_widths: int | tuple[int, ...] | None = None,
         first_row_as_headings: bool = True,
+        gutter_height: float = 0,
+        gutter_width: float = 0,
         headings_style: FontFace = ...,
         line_height: int | None = None,
         markdown: bool = False,
-        text_align: str | Align = "JUSTIFY",
+        text_align: str | _TextAlign | tuple[str | _TextAlign, ...] = "JUSTIFY",
         width: int | None = None,
+        wrapmode: WrapMode = ...,
+        padding: float | Padding | None = None,
+        outer_border_width: float | None = None,
+        num_heading_rows: int = 1,
+        repeat_headings: TableHeadingsDisplay | int = 1,
     ) -> _GeneratorContextManager[Table]: ...
     @overload
     def output(  # type: ignore[overload-overlap]

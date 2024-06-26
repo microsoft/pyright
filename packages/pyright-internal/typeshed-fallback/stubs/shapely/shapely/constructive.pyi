@@ -39,14 +39,14 @@ __all__ = [
 ]
 
 class BufferCapStyle(ParamEnum):
-    round = 1  # noqa: Y052
-    flat = 2  # noqa: Y052
-    square = 3  # noqa: Y052
+    round = 1
+    flat = 2
+    square = 3
 
 class BufferJoinStyle(ParamEnum):
-    round = 1  # noqa: Y052
-    mitre = 2  # noqa: Y052
-    bevel = 3  # noqa: Y052
+    round = 1
+    mitre = 2
+    bevel = 3
 
 @overload
 def boundary(geometry: Point | MultiPoint, **kwargs) -> GeometryCollection: ...

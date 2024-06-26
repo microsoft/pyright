@@ -1,5 +1,6 @@
-version = "4.2.*"
-# NOTE: There is no public upstream repository
+version = "4.2.0"
+# GitHub mirror of https://hg.reportlab.com/hg-public/reportlab/file
+upstream_repository = "https://github.com/MrBitBucket/reportlab-mirror"
 
 [tool.stubtest]
 apt_dependencies = ["libcairo2-dev"]

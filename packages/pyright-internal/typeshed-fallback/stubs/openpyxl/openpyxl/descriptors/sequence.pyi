@@ -11,6 +11,7 @@ from openpyxl.xml.functions import Element
 from .base import Alias, Descriptor
 
 _T = TypeVar("_T")
+_ContainerT = TypeVar("_ContainerT")
 
 class _SupportsFromTree(Protocol):
     @classmethod
@@ -19,22 +20,27 @@ class _SupportsFromTree(Protocol):
 class _SupportsToTree(Protocol):
     def to_tree(self) -> Element: ...
 
-class Sequence(Descriptor[Incomplete]):
-    expected_type: type[Incomplete]
-    seq_types: tuple[type, ...]
+# `_ContainerT` is the internal container type (which defaults to `list`), or
+# `IndexedList` if unique is `True`.
+class Sequence(Descriptor[_ContainerT]):
+    expected_type: type[Any]  # expected type of the sequence elements
+    seq_types: tuple[type, ...]  # allowed settable sequence types, defaults to `list`, `tuple`
     idx_base: int
     unique: bool
-    container: type
-    def __set__(self, instance: Serialisable | Strict, seq) -> None: ...
+    container: type  # internal container type, defaults to `list`
+    # seq must be an instance of any of the declared `seq_types`.
+    def __set__(self, instance: Serialisable | Strict, seq: Any) -> None: ...
     def to_tree(
         self, tagname: str | None, obj: Iterable[object], namespace: str | None = None
     ) -> Generator[Element, None, None]: ...
 
-class UniqueSequence(Sequence):
-    seq_types: tuple[type, ...]
-    container: type
+# `_T` is the type of the elements in the sequence.
+class UniqueSequence(Sequence[set[_T]]):
+    seq_types: tuple[type[list[_T]], type[tuple[_T, ...]], type[set[_T]]]
+    container: type[set[_T]]
 
-class ValueSequence(Sequence):
+# See `Sequence` for the meaning of `_ContainerT`.
+class ValueSequence(Sequence[_ContainerT]):
     attribute: str
     def to_tree(
         self, tagname: str, obj: Iterable[object], namespace: str | None = None  # type: ignore[override]
@@ -43,7 +49,8 @@ class ValueSequence(Sequence):
 
 class _NestedSequenceToTreeObj(Sized, Iterable[_SupportsToTree], Protocol): ...
 
-class NestedSequence(Sequence):
+# See `Sequence` for the meaning of `_ContainerT`.
+class NestedSequence(Sequence[_ContainerT]):
     count: bool
     expected_type: type[_SupportsFromTree]
     def to_tree(  # type: ignore[override]
@@ -53,8 +60,9 @@ class NestedSequence(Sequence):
     # Which can really be anything given the wildly different, and sometimes generic, from_tree return types
     def from_tree(self, node: Iterable[_SerialisableTreeElement]) -> list[Any]: ...
 
-class MultiSequence(Sequence):
-    def __set__(self, instance: Serialisable | Strict, seq) -> None: ...
+# `_T` is the type of the elements in the sequence.
+class MultiSequence(Sequence[list[_T]]):
+    def __set__(self, instance: Serialisable | Strict, seq: tuple[_T, ...] | list[_T]) -> None: ...
     def to_tree(
         self, tagname: Unused, obj: Iterable[_SupportsToTree], namespace: str | None = None  # type: ignore[override]
     ) -> Generator[Element, None, None]: ...

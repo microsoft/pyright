@@ -59,10 +59,10 @@ class FileList(_FileList):
 
 class manifest_maker(sdist):
     template: str
-    use_defaults: int
-    prune: int
-    manifest_only: int
-    force_manifest: int
+    use_defaults: bool
+    prune: bool
+    manifest_only: bool
+    force_manifest: bool
     def initialize_options(self) -> None: ...
     def finalize_options(self) -> None: ...
     filelist: Incomplete

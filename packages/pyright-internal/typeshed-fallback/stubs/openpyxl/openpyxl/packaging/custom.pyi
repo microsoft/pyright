@@ -52,7 +52,7 @@ CLASS_MAPPING: Final[dict[type[_MappingPropertyType], str]]
 XML_MAPPING: Final[dict[str, type[_MappingPropertyType]]]
 
 class CustomPropertyList(Strict, Generic[_T]):
-    props: Sequence
+    props: Sequence[list[_TypedProperty[_T]]]
     def __init__(self) -> None: ...
     @classmethod
     def from_tree(cls, tree: _ChildSerialisableTreeElement) -> Self: ...

@@ -35,6 +35,10 @@ class _EditionEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTy
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
     EDITION_UNKNOWN: _Edition.ValueType  # 0
     """A placeholder for an unknown edition value."""
+    EDITION_LEGACY: _Edition.ValueType  # 900
+    """A placeholder edition for specifying default behaviors *before* a feature
+    was first introduced.  This is effectively an "infinite past".
+    """
     EDITION_PROTO2: _Edition.ValueType  # 998
     """Legacy syntax "editions".  These pre-date editions, but behave much like
     distinct editions.  These can't be used to specify the edition of proto
@@ -67,6 +71,10 @@ class Edition(_Edition, metaclass=_EditionEnumTypeWrapper):
 
 EDITION_UNKNOWN: Edition.ValueType  # 0
 """A placeholder for an unknown edition value."""
+EDITION_LEGACY: Edition.ValueType  # 900
+"""A placeholder edition for specifying default behaviors *before* a feature
+was first introduced.  This is effectively an "infinite past".
+"""
 EDITION_PROTO2: Edition.ValueType  # 998
 """Legacy syntax "editions".  These pre-date editions, but behave much like
 distinct editions.  These can't be used to specify the edition of proto
@@ -898,12 +906,16 @@ class FileOptions(google.protobuf.message.Message):
     java_generate_equals_and_hash: builtins.bool
     """This option does nothing."""
     java_string_check_utf8: builtins.bool
-    """If set true, then the Java2 code generator will generate code that
-    throws an exception whenever an attempt is made to assign a non-UTF-8
-    byte sequence to a string field.
-    Message reflection will do the same.
-    However, an extension field still accepts non-UTF-8 byte sequences.
-    This option has no effect on when used with the lite runtime.
+    """A proto2 file can set this to true to opt in to UTF-8 checking for Java,
+    which will throw an exception if invalid UTF-8 is parsed from the wire or
+    assigned to a string field.
+
+    TODO: clarify exactly what kinds of field types this option
+    applies to, and update these docs accordingly.
+
+    Proto3 files already perform these checks. Setting the option explicitly to
+    false has no effect: it cannot be used to opt proto3 files out of UTF-8
+    checks.
     """
     optimize_for: global___FileOptions.OptimizeMode.ValueType
     go_package: builtins.str
@@ -1238,6 +1250,45 @@ class FieldOptions(google.protobuf.message.Message):
         def HasField(self, field_name: typing.Literal["edition", b"edition", "value", b"value"]) -> builtins.bool: ...
         def ClearField(self, field_name: typing.Literal["edition", b"edition", "value", b"value"]) -> None: ...
 
+    @typing.final
+    class FeatureSupport(google.protobuf.message.Message):
+        """Information about the support window of a feature."""
+
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        EDITION_INTRODUCED_FIELD_NUMBER: builtins.int
+        EDITION_DEPRECATED_FIELD_NUMBER: builtins.int
+        DEPRECATION_WARNING_FIELD_NUMBER: builtins.int
+        EDITION_REMOVED_FIELD_NUMBER: builtins.int
+        edition_introduced: global___Edition.ValueType
+        """The edition that this feature was first available in.  In editions
+        earlier than this one, the default assigned to EDITION_LEGACY will be
+        used, and proto files will not be able to override it.
+        """
+        edition_deprecated: global___Edition.ValueType
+        """The edition this feature becomes deprecated in.  Using this after this
+        edition may trigger warnings.
+        """
+        deprecation_warning: builtins.str
+        """The deprecation warning text if this feature is used after the edition it
+        was marked deprecated in.
+        """
+        edition_removed: global___Edition.ValueType
+        """The edition this feature is no longer available in.  In editions after
+        this one, the last default assigned will be used, and proto files will
+        not be able to override it.
+        """
+        def __init__(
+            self,
+            *,
+            edition_introduced: global___Edition.ValueType | None = ...,
+            edition_deprecated: global___Edition.ValueType | None = ...,
+            deprecation_warning: builtins.str | None = ...,
+            edition_removed: global___Edition.ValueType | None = ...,
+        ) -> None: ...
+        def HasField(self, field_name: typing.Literal["deprecation_warning", b"deprecation_warning", "edition_deprecated", b"edition_deprecated", "edition_introduced", b"edition_introduced", "edition_removed", b"edition_removed"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["deprecation_warning", b"deprecation_warning", "edition_deprecated", b"edition_deprecated", "edition_introduced", b"edition_introduced", "edition_removed", b"edition_removed"]) -> None: ...
+
     CTYPE_FIELD_NUMBER: builtins.int
     PACKED_FIELD_NUMBER: builtins.int
     JSTYPE_FIELD_NUMBER: builtins.int
@@ -1250,6 +1301,7 @@ class FieldOptions(google.protobuf.message.Message):
     TARGETS_FIELD_NUMBER: builtins.int
     EDITION_DEFAULTS_FIELD_NUMBER: builtins.int
     FEATURES_FIELD_NUMBER: builtins.int
+    FEATURE_SUPPORT_FIELD_NUMBER: builtins.int
     UNINTERPRETED_OPTION_FIELD_NUMBER: builtins.int
     ctype: global___FieldOptions.CType.ValueType
     """The ctype option instructs the C++ code generator to use a different
@@ -1332,6 +1384,8 @@ class FieldOptions(google.protobuf.message.Message):
         """Any features defined in the specific edition."""
 
     @property
+    def feature_support(self) -> global___FieldOptions.FeatureSupport: ...
+    @property
     def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]:
         """The parser stores options it doesn't recognize here. See above."""
 
@@ -1350,10 +1404,11 @@ class FieldOptions(google.protobuf.message.Message):
         targets: collections.abc.Iterable[global___FieldOptions.OptionTargetType.ValueType] | None = ...,
         edition_defaults: collections.abc.Iterable[global___FieldOptions.EditionDefault] | None = ...,
         features: global___FeatureSet | None = ...,
+        feature_support: global___FieldOptions.FeatureSupport | None = ...,
         uninterpreted_option: collections.abc.Iterable[global___UninterpretedOption] | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["ctype", b"ctype", "debug_redact", b"debug_redact", "deprecated", b"deprecated", "features", b"features", "jstype", b"jstype", "lazy", b"lazy", "packed", b"packed", "retention", b"retention", "unverified_lazy", b"unverified_lazy", "weak", b"weak"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["ctype", b"ctype", "debug_redact", b"debug_redact", "deprecated", b"deprecated", "edition_defaults", b"edition_defaults", "features", b"features", "jstype", b"jstype", "lazy", b"lazy", "packed", b"packed", "retention", b"retention", "targets", b"targets", "uninterpreted_option", b"uninterpreted_option", "unverified_lazy", b"unverified_lazy", "weak", b"weak"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["ctype", b"ctype", "debug_redact", b"debug_redact", "deprecated", b"deprecated", "feature_support", b"feature_support", "features", b"features", "jstype", b"jstype", "lazy", b"lazy", "packed", b"packed", "retention", b"retention", "unverified_lazy", b"unverified_lazy", "weak", b"weak"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["ctype", b"ctype", "debug_redact", b"debug_redact", "deprecated", b"deprecated", "edition_defaults", b"edition_defaults", "feature_support", b"feature_support", "features", b"features", "jstype", b"jstype", "lazy", b"lazy", "packed", b"packed", "retention", b"retention", "targets", b"targets", "uninterpreted_option", b"uninterpreted_option", "unverified_lazy", b"unverified_lazy", "weak", b"weak"]) -> None: ...
 
 global___FieldOptions = FieldOptions
 
@@ -1438,6 +1493,7 @@ class EnumValueOptions(google.protobuf.message.Message):
     DEPRECATED_FIELD_NUMBER: builtins.int
     FEATURES_FIELD_NUMBER: builtins.int
     DEBUG_REDACT_FIELD_NUMBER: builtins.int
+    FEATURE_SUPPORT_FIELD_NUMBER: builtins.int
     UNINTERPRETED_OPTION_FIELD_NUMBER: builtins.int
     deprecated: builtins.bool
     """Is this enum value deprecated?
@@ -1455,6 +1511,10 @@ class EnumValueOptions(google.protobuf.message.Message):
         """Any features defined in the specific edition."""
 
     @property
+    def feature_support(self) -> global___FieldOptions.FeatureSupport:
+        """Information about the support window of a feature value."""
+
+    @property
     def uninterpreted_option(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UninterpretedOption]:
         """The parser stores options it doesn't recognize here. See above."""
 
@@ -1464,10 +1524,11 @@ class EnumValueOptions(google.protobuf.message.Message):
         deprecated: builtins.bool | None = ...,
         features: global___FeatureSet | None = ...,
         debug_redact: builtins.bool | None = ...,
+        feature_support: global___FieldOptions.FeatureSupport | None = ...,
         uninterpreted_option: collections.abc.Iterable[global___UninterpretedOption] | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["debug_redact", b"debug_redact", "deprecated", b"deprecated", "features", b"features"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["debug_redact", b"debug_redact", "deprecated", b"deprecated", "features", b"features", "uninterpreted_option", b"uninterpreted_option"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["debug_redact", b"debug_redact", "deprecated", b"deprecated", "feature_support", b"feature_support", "features", b"features"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["debug_redact", b"debug_redact", "deprecated", b"deprecated", "feature_support", b"feature_support", "features", b"features", "uninterpreted_option", b"uninterpreted_option"]) -> None: ...
 
 global___EnumValueOptions = EnumValueOptions
 
@@ -1799,18 +1860,26 @@ class FeatureSetDefaults(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
         EDITION_FIELD_NUMBER: builtins.int
-        FEATURES_FIELD_NUMBER: builtins.int
+        OVERRIDABLE_FEATURES_FIELD_NUMBER: builtins.int
+        FIXED_FEATURES_FIELD_NUMBER: builtins.int
         edition: global___Edition.ValueType
         @property
-        def features(self) -> global___FeatureSet: ...
+        def overridable_features(self) -> global___FeatureSet:
+            """Defaults of features that can be overridden in this edition."""
+
+        @property
+        def fixed_features(self) -> global___FeatureSet:
+            """Defaults of features that can't be overridden in this edition."""
+
         def __init__(
             self,
             *,
             edition: global___Edition.ValueType | None = ...,
-            features: global___FeatureSet | None = ...,
+            overridable_features: global___FeatureSet | None = ...,
+            fixed_features: global___FeatureSet | None = ...,
         ) -> None: ...
-        def HasField(self, field_name: typing.Literal["edition", b"edition", "features", b"features"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing.Literal["edition", b"edition", "features", b"features"]) -> None: ...
+        def HasField(self, field_name: typing.Literal["edition", b"edition", "fixed_features", b"fixed_features", "overridable_features", b"overridable_features"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["edition", b"edition", "fixed_features", b"fixed_features", "overridable_features", b"overridable_features"]) -> None: ...
 
     DEFAULTS_FIELD_NUMBER: builtins.int
     MINIMUM_EDITION_FIELD_NUMBER: builtins.int

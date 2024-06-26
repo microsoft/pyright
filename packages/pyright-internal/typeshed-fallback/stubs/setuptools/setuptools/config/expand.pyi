@@ -7,7 +7,6 @@ from typing_extensions import Self
 
 from ..dist import Distribution
 
-chain_iter: Incomplete
 _K = TypeVar("_K")
 _VCo = TypeVar("_VCo", covariant=True)
 
