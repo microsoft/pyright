@@ -825,9 +825,7 @@ export namespace ClassType {
             newClassType.includeSubclasses = true;
         }
 
-        newClassType.tupleTypeArguments = tupleTypeArguments?.map((t) =>
-            isNever(t.type) ? { type: UnknownType.create(), isUnbounded: t.isUnbounded, isOptional: t.isOptional } : t
-        );
+        newClassType.tupleTypeArguments = tupleTypeArguments ? [...tupleTypeArguments] : undefined;
 
         if (isEmptyContainer !== undefined) {
             newClassType.isEmptyContainer = isEmptyContainer;
