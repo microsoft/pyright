@@ -1764,7 +1764,11 @@ function narrowTypeForIsInstanceInternal(
 
     const filteredType = evaluator.mapSubtypesExpandTypeVars(
         expandedTypes,
-        /* options */ undefined,
+        {
+            expandCallback: (type) => {
+                return evaluator.expandPromotionTypes(errorNode, type);
+            },
+        },
         (subtype, unexpandedSubtype) => {
             // If we fail to filter anything in the negative case, we need to decide
             // whether to retain the original TypeVar or replace it with its specialized
