@@ -3115,7 +3115,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
     // The first class in the MRO is the class itself.
     const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
     let specializedClassType = applySolvedTypeVars(classType, typeVarContext);
-    if (!isClass(specializedClassType) && !isAny(specializedClassType) && !isUnknown(specializedClassType)) {
+    if (!isClass(specializedClassType) && !isAnyOrUnknown(specializedClassType)) {
         specializedClassType = UnknownType.create();
     }
 
@@ -3159,11 +3159,16 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
                 if (!isInstantiableClass(classList[0])) {
                     foundValidHead = true;
-                    assert(isClass(classList[0]) || isAnyOrUnknown(classList[0]));
-                    classType.details.mro.push(classList[0]);
+                    let head = classList[0];
+                    if (!isClass(head) && !isAnyOrUnknown(head)) {
+                        head = UnknownType.create();
+                    }
+                    classType.details.mro.push(head);
                     classList.shift();
                     break;
-                } else if (!isInTail(classList[0], classListsToMerge)) {
+                }
+
+                if (!isInTail(classList[0], classListsToMerge)) {
                     foundValidHead = true;
                     classType.details.mro.push(classList[0]);
                     filterClass(classList[0], classListsToMerge);
@@ -3186,8 +3191,11 @@ export function computeMroLinearization(classType: ClassType): boolean {
             // Handle the situation by pull the head off the first empty list.
             // This allows us to make forward progress.
             if (!isInstantiableClass(nonEmptyList[0])) {
-                assert(isClass(nonEmptyList[0]) || isAnyOrUnknown(nonEmptyList[0]));
-                classType.details.mro.push(nonEmptyList[0]);
+                let head = nonEmptyList[0];
+                if (!isClass(head) && !isAnyOrUnknown(head)) {
+                    head = UnknownType.create();
+                }
+                classType.details.mro.push(head);
                 nonEmptyList.shift();
             } else {
                 classType.details.mro.push(nonEmptyList[0]);
