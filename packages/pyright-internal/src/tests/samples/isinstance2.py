@@ -4,7 +4,7 @@
 
 # pyright: reportUnnecessaryIsInstance=true
 
-from typing import Union
+from typing import TypeVar, Union
 
 # This should generate an error because "dummy" can't be resolved.
 # The symbol Document should have an unknown type.
@@ -33,3 +33,13 @@ def func3(obj: float):
         reveal_type(obj, expected_text="float")
     else:
         reveal_type(obj, expected_text="int")
+
+
+T = TypeVar("T", bound=float)
+
+
+def func4(t: type[T]):
+    if issubclass(t, float):
+        reveal_type(t, expected_text="type[float]*")
+    else:
+        reveal_type(t, expected_text="type[int]*")
