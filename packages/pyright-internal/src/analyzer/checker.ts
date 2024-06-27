@@ -3092,106 +3092,123 @@ export class Checker extends ParseTreeWalker {
 
     private _reportInvalidOverload(name: string, symbol: Symbol) {
         const typedDecls = symbol.getTypedDeclarations();
-        if (typedDecls.length >= 1) {
-            const primaryDecl = typedDecls[0];
+        if (typedDecls.length === 0) {
+            return;
+        }
 
-            if (primaryDecl.type === DeclarationType.Function) {
-                const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
-                const overloadedFunctions = isOverloadedFunction(type)
-                    ? OverloadedFunctionType.getOverloads(type)
-                    : isFunction(type) && FunctionType.isOverloaded(type)
-                    ? [type]
-                    : [];
+        const primaryDecl = typedDecls[0];
 
-                if (overloadedFunctions.length === 1) {
-                    // There should never be a single overload.
-                    this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportInconsistentOverload,
-                        LocMessage.singleOverload().format({ name }),
-                        primaryDecl.node.name
-                    );
-                }
+        if (primaryDecl.type !== DeclarationType.Function) {
+            return;
+        }
 
-                // If the file is not a stub and this is the first overload,
-                // verify that there is an implementation.
-                if (!this._fileInfo.isStubFile && overloadedFunctions.length > 0) {
-                    let implementationFunction: FunctionType | undefined;
-                    let exemptMissingImplementation = false;
+        const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
+        const overloadedFunctions = isOverloadedFunction(type)
+            ? OverloadedFunctionType.getOverloads(type)
+            : isFunction(type) && FunctionType.isOverloaded(type)
+            ? [type]
+            : [];
 
-                    if (isOverloadedFunction(type)) {
-                        implementationFunction = OverloadedFunctionType.getImplementation(type);
+        // If the implementation has no name, it was synthesized probably by a
+        // decorator that used a callable with a ParamSpec that captured the
+        // overloaded signature. We'll exempt it from this check.
+        if (isOverloadedFunction(type)) {
+            const overloads = OverloadedFunctionType.getOverloads(type);
+            if (overloads.length > 0 && overloads[0].details.name === '') {
+                return;
+            }
+        } else if (isFunction(type)) {
+            if (type.details.name === '') {
+                return;
+            }
+        }
 
-                        // If the implementation has no name, it was synthesized probably by a
-                        // decorator that used a callable with a ParamSpec that captured the
-                        // overloaded signature. We'll exempt it from this check.
-                        const overloads = OverloadedFunctionType.getOverloads(type);
-                        if (overloads.length > 0 && overloads[0].details.name === '') {
-                            exemptMissingImplementation = true;
-                        }
-                    } else if (isFunction(type) && !FunctionType.isOverloaded(type)) {
-                        implementationFunction = type;
+        if (overloadedFunctions.length === 1) {
+            // There should never be a single overload.
+            this._evaluator.addDiagnostic(
+                DiagnosticRule.reportInconsistentOverload,
+                LocMessage.singleOverload().format({ name }),
+                primaryDecl.node.name
+            );
+        }
+
+        // If the file is not a stub and this is the first overload,
+        // verify that there is an implementation.
+        if (this._fileInfo.isStubFile || overloadedFunctions.length === 0) {
+            return;
+        }
+
+        let implementationFunction: FunctionType | undefined;
+
+        if (isOverloadedFunction(type)) {
+            implementationFunction = OverloadedFunctionType.getImplementation(type);
+        } else if (isFunction(type) && !FunctionType.isOverloaded(type)) {
+            implementationFunction = type;
+        }
+
+        if (!implementationFunction) {
+            const containingClassNode = ParseTreeUtils.getEnclosingClassOrFunction(primaryDecl.node);
+            if (containingClassNode && containingClassNode.nodeType === ParseNodeType.Class) {
+                const classType = this._evaluator.getTypeOfClass(containingClassNode);
+                if (classType) {
+                    if (ClassType.isProtocolClass(classType.classType)) {
+                        return;
                     }
 
-                    if (!implementationFunction) {
-                        const containingClassNode = ParseTreeUtils.getEnclosingClassOrFunction(primaryDecl.node);
-                        if (containingClassNode && containingClassNode.nodeType === ParseNodeType.Class) {
-                            const classType = this._evaluator.getTypeOfClass(containingClassNode);
-                            if (classType) {
-                                if (ClassType.isProtocolClass(classType.classType)) {
-                                    exemptMissingImplementation = true;
-                                } else if (ClassType.supportsAbstractMethods(classType.classType)) {
-                                    if (
-                                        isOverloadedFunction(type) &&
-                                        OverloadedFunctionType.getOverloads(type).every((overload) =>
-                                            FunctionType.isAbstractMethod(overload)
-                                        )
-                                    ) {
-                                        exemptMissingImplementation = true;
-                                    }
-                                }
-                            }
+                    if (ClassType.supportsAbstractMethods(classType.classType)) {
+                        if (
+                            isOverloadedFunction(type) &&
+                            OverloadedFunctionType.getOverloads(type).every((overload) =>
+                                FunctionType.isAbstractMethod(overload)
+                            )
+                        ) {
+                            return;
                         }
-
-                        // If this is a method within a protocol class, don't require that
-                        // there is an implementation.
-                        if (!exemptMissingImplementation) {
-                            this._evaluator.addDiagnostic(
-                                DiagnosticRule.reportNoOverloadImplementation,
-                                LocMessage.overloadWithoutImplementation().format({
-                                    name: primaryDecl.node.name.value,
-                                }),
-                                primaryDecl.node.name
-                            );
-                        }
-                    } else if (isOverloadedFunction(type)) {
-                        // Verify that all overload signatures are assignable to implementation signature.
-                        OverloadedFunctionType.getOverloads(type).forEach((overload, index) => {
-                            const diag = new DiagnosticAddendum();
-                            if (!this._isLegalOverloadImplementation(overload, implementationFunction!, diag)) {
-                                if (implementationFunction!.details.declaration) {
-                                    const diagnostic = this._evaluator.addDiagnostic(
-                                        DiagnosticRule.reportInconsistentOverload,
-                                        LocMessage.overloadImplementationMismatch().format({
-                                            name,
-                                            index: index + 1,
-                                        }) + diag.getString(),
-                                        implementationFunction!.details.declaration.node.name
-                                    );
-
-                                    if (diagnostic && overload.details.declaration) {
-                                        diagnostic.addRelatedInfo(
-                                            LocAddendum.overloadSignature(),
-                                            overload.details.declaration?.uri ?? primaryDecl.uri,
-                                            overload.details.declaration?.range ?? primaryDecl.range
-                                        );
-                                    }
-                                }
-                            }
-                        });
                     }
                 }
             }
+
+            // If this is a method within a protocol class, don't require that
+            // there is an implementation.
+            this._evaluator.addDiagnostic(
+                DiagnosticRule.reportNoOverloadImplementation,
+                LocMessage.overloadWithoutImplementation().format({
+                    name: primaryDecl.node.name.value,
+                }),
+                primaryDecl.node.name
+            );
+
+            return;
         }
+
+        if (!isOverloadedFunction(type)) {
+            return;
+        }
+
+        // Verify that all overload signatures are assignable to implementation signature.
+        OverloadedFunctionType.getOverloads(type).forEach((overload, index) => {
+            const diag = new DiagnosticAddendum();
+            if (!this._isLegalOverloadImplementation(overload, implementationFunction!, diag)) {
+                if (implementationFunction!.details.declaration) {
+                    const diagnostic = this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportInconsistentOverload,
+                        LocMessage.overloadImplementationMismatch().format({
+                            name,
+                            index: index + 1,
+                        }) + diag.getString(),
+                        implementationFunction!.details.declaration.node.name
+                    );
+
+                    if (diagnostic && overload.details.declaration) {
+                        diagnostic.addRelatedInfo(
+                            LocAddendum.overloadSignature(),
+                            overload.details.declaration?.uri ?? primaryDecl.uri,
+                            overload.details.declaration?.range ?? primaryDecl.range
+                        );
+                    }
+                }
+            }
+        });
     }
 
     private _reportMultipleFinalDeclarations(name: string, symbol: Symbol, scopeType: ScopeType) {
