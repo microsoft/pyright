@@ -19878,7 +19878,19 @@ export function createTypeEvaluator(
         // don't bother doing additional work.
         let cacheEntry = readTypeCacheEntry(subnode);
         if (cacheEntry && !cacheEntry.typeResult.isIncomplete) {
-            return cacheEntry.typeResult;
+            const typeResult = cacheEntry.typeResult;
+
+            // Handle the special case where a function or class is partially evaluated.
+            // Indicate that these are not complete types.
+            if (isFunction(typeResult.type) && FunctionType.isPartiallyEvaluated(typeResult.type)) {
+                return { ...typeResult, isIncomplete: true };
+            }
+
+            if (isClass(typeResult.type) && ClassType.isPartiallyEvaluated(typeResult.type)) {
+                return { ...typeResult, isIncomplete: true };
+            }
+
+            return typeResult;
         }
 
         callback();

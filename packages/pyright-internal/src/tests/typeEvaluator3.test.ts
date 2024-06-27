@@ -173,6 +173,12 @@ test('Coroutines3', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Coroutines4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['coroutines4.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Loop1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loop1.py']);
 
