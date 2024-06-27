@@ -43,7 +43,7 @@ class ClassB(Protocol):
 
 
 def deco1(
-    _origin: Callable[P, T]
+    _origin: Callable[P, T],
 ) -> Callable[[Callable[..., Any]], Callable[P, T]]: ...
 
 
@@ -60,3 +60,21 @@ def func5(v: int | str) -> int | str: ...
 
 @deco1(func5)
 def func6(*args: Any, **kwargs: Any) -> Any: ...
+
+
+@overload
+def deco2() -> Callable[[Callable[P, T]], Callable[P, T | None]]: ...
+@overload
+def deco2(
+    x: Callable[[], T],
+) -> Callable[[Callable[P, T]], Callable[P, T]]: ...
+
+
+def deco2(
+    x: Callable[[], T | None] = lambda: None,
+) -> Callable[[Callable[P, T]], Callable[P, T | None]]: ...
+
+
+@deco2(x=dict)
+def func7() -> dict[str, str]:
+    return {}
