@@ -18764,6 +18764,11 @@ export function createTypeEvaluator(
             return false;
         }
 
+        const statements = functionDecl.node.suite.statements;
+        if (statements.some((statement) => statement.nodeType !== ParseNodeType.StatementList)) {
+            return false;
+        }
+
         for (const raiseStatement of functionDecl.raiseStatements) {
             if (!raiseStatement.typeExpression || raiseStatement.valueExpression) {
                 return false;
