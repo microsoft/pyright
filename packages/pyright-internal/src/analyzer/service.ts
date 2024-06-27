@@ -643,7 +643,7 @@ export class AnalyzerService {
 
         const configs = this._getExtendedConfigurations(configFilePath ?? pyprojectFilePath);
 
-        if (configs) {
+        if (configs && configs.length > 0) {
             for (const config of configs) {
                 configOptions.initializeFromJson(
                     config.configFileJsonObj,
