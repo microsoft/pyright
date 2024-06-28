@@ -19499,6 +19499,16 @@ export function createTypeEvaluator(
                 continue;
             }
 
+            // Forward-declared type annotation expressions need to be be evaluated
+            // in context so they have the appropriate flags set. Most of these cases
+            // will have been detected above when calling getParentAnnotationNode,
+            // but TypeAlias expressions are not handled there.
+            const stringEnclosure = ParseTreeUtils.getParentNodeOfType(parent, ParseNodeType.StringList);
+            if (stringEnclosure) {
+                nodeToEvaluate = stringEnclosure as StringListNode;
+                continue;
+            }
+
             // The left expression of a call or member access expression is not generally contextual.
             if (parent.nodeType === ParseNodeType.Call || parent.nodeType === ParseNodeType.MemberAccess) {
                 if (nodeToEvaluate === parent.leftExpression) {
@@ -19525,15 +19535,7 @@ export function createTypeEvaluator(
                 // The base expression of an index expression is not contextual.
                 if (nodeToEvaluate === parent.baseExpression) {
                     flags = EvaluatorFlags.IndexBaseDefaults;
-                    break;
                 }
-            } else if (parent.nodeType === ParseNodeType.StringList && nodeToEvaluate === parent.typeAnnotation) {
-                // Forward-declared type annotation expressions need to be be evaluated
-                // in context so they have the appropriate flags set. Most of these cases
-                // will have been detected above when calling getParentAnnotationNode,
-                // but TypeAlias expressions are not handled there.
-                nodeToEvaluate = parent;
-                continue;
             }
 
             if (!isExpressionNode(parent)) {
