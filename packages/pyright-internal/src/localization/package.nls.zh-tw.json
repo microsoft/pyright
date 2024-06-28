@@ -403,7 +403,7 @@
         "protocolBaseClassWithTypeArgs": "使用型別參數語法時，通訊協定類別不允許使用型別引數",
         "protocolIllegal": "使用 \"Protocol\" 需要 Python 3.7 或更新版本",
         "protocolNotAllowed": "\"Protocol\" 不能用在此內容中",
-        "protocolTypeArgMustBeTypeParam": "Type argument for \"Protocol\" must be a type parameter",
+        "protocolTypeArgMustBeTypeParam": "“Protocol” 的型別引數必須是型別參數",
         "protocolUnsafeOverlap": "類別以不安全方式重疊 \"{name}\"，且可能會在運行時間產生相符專案",
         "protocolVarianceContravariant": "一般通訊協定 \"{class}\" 中使用的型別變數 \"{variable}\" 必須為逆變數",
         "protocolVarianceCovariant": "一般通訊協定 \"{class}\" 中使用的型別變數 \"{variable}\" 必須為共變數",

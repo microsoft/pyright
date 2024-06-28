@@ -1302,3 +1302,90 @@ test('import from completion for namespace package', async () => {
         },
     });
 });
+
+test('members off enum member', async () => {
+    const code = `
+// @filename: test.py
+//// from enum import Enum
+//// class Planet(Enum):
+////     MERCURY = (3.303e+23, 2.4397e6)
+////     EARTH   = (5.976e+24, 6.37814e6)
+////
+////     def __init__(self, mass, radius):
+////         self.mass = mass       # in kilograms
+////         self.radius = radius   # in meters
+////
+////     @property
+////     def surface_gravity(self):
+////         # universal gravitational constant  (m3 kg-1 s-2)
+////         G = 6.67300E-11
+////         return G * self.mass / (self.radius * self.radius)
+////
+//// Planet.EARTH.[|/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('excluded', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'MERCURY',
+                    kind: CompletionItemKind.EnumMember,
+                },
+                {
+                    label: 'EARTH',
+                    kind: CompletionItemKind.EnumMember,
+                },
+            ],
+        },
+    });
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'mass',
+                    kind: CompletionItemKind.Variable,
+                },
+                {
+                    label: 'radius',
+                    kind: CompletionItemKind.Variable,
+                },
+                {
+                    label: 'surface_gravity',
+                    kind: CompletionItemKind.Property,
+                },
+            ],
+        },
+    });
+});
+
+test('enum with regular base type', async () => {
+    const code = `
+// @filename: test.py
+//// from enum import Enum
+//// from datetime import timedelta
+//// class Period(timedelta, Enum):
+////     Today = -1
+////
+//// Period.Today.[|/*marker*/|]
+    `;
+
+    const state = parseAndGetTestState(code).state;
+
+    await state.verifyCompletion('included', 'markdown', {
+        ['marker']: {
+            completions: [
+                {
+                    label: 'days',
+                    kind: CompletionItemKind.Property,
+                },
+                {
+                    label: 'seconds',
+                    kind: CompletionItemKind.Property,
+                },
+            ],
+        },
+    });
+});

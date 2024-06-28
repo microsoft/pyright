@@ -403,7 +403,7 @@
         "protocolBaseClassWithTypeArgs": "No se permiten argumentos de tipo con la clase Protocol cuando se usa la sintaxis de parámetro de tipo",
         "protocolIllegal": "El uso de \"Protocolo\" requiere Python 3.7 o posterior.",
         "protocolNotAllowed": "\"Protocolo\" no puede utilizarse en este contexto",
-        "protocolTypeArgMustBeTypeParam": "Type argument for \"Protocol\" must be a type parameter",
+        "protocolTypeArgMustBeTypeParam": "El argumento de tipo para \"Protocol\" debe ser un parámetro de tipo",
         "protocolUnsafeOverlap": "La clase se superpone \"{name}\" de forma no segura y podría producir una coincidencia en tiempo de ejecución",
         "protocolVarianceContravariant": "La variable de tipo \"{variable}\" usada en el protocolo genérico \"{class}\" debe ser contravariante.",
         "protocolVarianceCovariant": "La variable de tipo \"{variable}\" usada en el protocolo genérico \"{class}\" debe ser covariante",
