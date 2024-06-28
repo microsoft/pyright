@@ -3298,6 +3298,8 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
             newFunction.details.typeVarScopeId = newFunction.details.higherOrderTypeVarScopeIds.pop();
         }
 
+        newFunction.details.constructorTypeVarScopeId = type.details.constructorTypeVarScopeId;
+
         return newFunction;
     }
 
@@ -3336,6 +3338,7 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
 
     FunctionType.addHigherOrderTypeVarScopeIds(functionType, withoutParamSpec.details.typeVarScopeId);
     FunctionType.addHigherOrderTypeVarScopeIds(functionType, withoutParamSpec.details.higherOrderTypeVarScopeIds);
+    functionType.details.constructorTypeVarScopeId = withoutParamSpec.details.constructorTypeVarScopeId;
 
     withoutParamSpec.details.parameters.forEach((entry, index) => {
         FunctionType.addParameter(functionType, {

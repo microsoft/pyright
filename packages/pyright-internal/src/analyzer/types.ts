@@ -1764,6 +1764,7 @@ export namespace FunctionType {
 
         FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.details.typeVarScopeId);
         FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.details.higherOrderTypeVarScopeIds);
+        newFunction.details.constructorTypeVarScopeId = paramSpecValue.details.constructorTypeVarScopeId;
 
         if (!newFunction.details.methodClass && paramSpecValue.details.methodClass) {
             newFunction.details.methodClass = paramSpecValue.details.methodClass;
