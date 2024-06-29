@@ -70,6 +70,7 @@ export function expandPathVariables(path: string, rootPath: Uri, workspaces: Wor
         const ws_regexp = RegExp(`\\$\\{workspaceFolder:${escapedWorkspaceName}\\}`, 'g');
         path = path.replace(ws_regexp, workspace.rootUri.getPath());
     }
+
     if (process.env.HOME !== undefined) {
         replace(/\$\{env:HOME\}/g, process.env.HOME || '');
     }

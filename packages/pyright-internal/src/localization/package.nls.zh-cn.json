@@ -403,7 +403,7 @@
         "protocolBaseClassWithTypeArgs": "使用类型参数语法时，协议类不允许使用类型参数",
         "protocolIllegal": "使用 \"Protocol\" 需要 Python 3.7 或更高版本",
         "protocolNotAllowed": "\"Protocol\" 不能用于此上下文",
-        "protocolTypeArgMustBeTypeParam": "Type argument for \"Protocol\" must be a type parameter",
+        "protocolTypeArgMustBeTypeParam": "“协议”的类型参数必须是类型参数",
         "protocolUnsafeOverlap": "类与“{name}”不安全地重叠，并且可能在运行时生成匹配项",
         "protocolVarianceContravariant": "泛型协议“{class}”中使用的类型变量“{variable}”应为逆变",
         "protocolVarianceCovariant": "泛型协议“{class}”中使用的类型变量“{variable}”应为协变",

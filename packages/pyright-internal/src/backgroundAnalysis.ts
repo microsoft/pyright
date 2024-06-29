@@ -24,11 +24,13 @@ export class BackgroundAnalysis extends BackgroundAnalysisBase {
     constructor(serviceProvider: ServiceProvider) {
         super(serviceProvider.console());
 
+        const index = ++BackgroundAnalysis._workerIndex;
         const initialData: InitializationData = {
             rootUri: getRootUri(serviceProvider)?.toString() ?? '',
+            serviceId: index.toString(),
             cancellationFolderName: getCancellationFolderName(),
             runner: undefined,
-            workerIndex: ++BackgroundAnalysis._workerIndex,
+            workerIndex: index,
         };
 
         // this will load this same file in BG thread and start listener

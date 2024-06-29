@@ -118,7 +118,7 @@ export function setLocaleOverride(locale: string) {
     localeOverride = locale.toLowerCase();
 }
 
-export function getLocaleFromEnv() {
+export function getLocaleFromEnv(): string {
     if (localeOverride) {
         return localeOverride;
     }
@@ -130,7 +130,7 @@ export function getLocaleFromEnv() {
         const vscodeConfigString = env?.VSCODE_NLS_CONFIG;
         if (vscodeConfigString) {
             try {
-                return JSON.parse(vscodeConfigString).locale;
+                return JSON.parse(vscodeConfigString).locale || defaultLocale;
             } catch {
                 // Fall through
             }
@@ -142,7 +142,7 @@ export function getLocaleFromEnv() {
             // This string may contain a local followed by an encoding (e.g. "en-us.UTF-8").
             const localeStringSplit = localeString.split('.');
             if (localeStringSplit.length > 0 && localeStringSplit[0]) {
-                return localeStringSplit[0];
+                return localeStringSplit[0] || defaultLocale;
             }
         }
     } catch {
