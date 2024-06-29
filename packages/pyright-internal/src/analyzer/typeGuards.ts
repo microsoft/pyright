@@ -2463,33 +2463,69 @@ function narrowTypeForClassComparison(
     isPositiveTest: boolean
 ): Type {
     return mapSubtypes(referenceType, (subtype) => {
-        const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
+        let concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
         if (isPositiveTest) {
             if (isNoneInstance(concreteSubtype)) {
-                return undefined;
+                return isNoneTypeClass(classType) ? classType : undefined;
             }
 
-            if (isClassInstance(concreteSubtype) && TypeBase.isInstance(subtype)) {
-                if (ClassType.isBuiltIn(concreteSubtype, 'type')) {
-                    return classType;
+            if (
+                isClassInstance(concreteSubtype) &&
+                TypeBase.isInstance(subtype) &&
+                ClassType.isBuiltIn(concreteSubtype, 'type')
+            ) {
+                concreteSubtype =
+                    concreteSubtype.typeArguments && concreteSubtype.typeArguments.length > 0
+                        ? convertToInstantiable(concreteSubtype.typeArguments[0])
+                        : UnknownType.create();
+            }
+
+            if (isAnyOrUnknown(concreteSubtype)) {
+                return classType;
+            }
+
+            if (isClass(concreteSubtype)) {
+                if (TypeBase.isInstance(concreteSubtype)) {
+                    return ClassType.isBuiltIn(concreteSubtype, 'object') ? classType : undefined;
                 }
 
-                return undefined;
-            }
+                const isSuperType = isIsinstanceFilterSuperclass(
+                    evaluator,
+                    subtype,
+                    concreteSubtype,
+                    classType,
+                    classType,
+                    /* isInstanceCheck */ false
+                );
 
-            if (isInstantiableClass(concreteSubtype) && ClassType.isFinal(concreteSubtype)) {
-                if (
-                    !ClassType.isSameGenericClass(concreteSubtype, classType) &&
-                    !isIsinstanceFilterSuperclass(
+                if (!classType.includeSubclasses) {
+                    // Handle the case where the LHS and RHS operands are specific
+                    // classes, as opposed to types that represent classes and their
+                    // subclasses.
+                    if (!concreteSubtype.includeSubclasses) {
+                        return ClassType.isSameGenericClass(concreteSubtype, classType) ? classType : undefined;
+                    }
+
+                    const isSubType = isIsinstanceFilterSubclass(
                         evaluator,
-                        subtype,
                         concreteSubtype,
                         classType,
-                        classType,
                         /* isInstanceCheck */ false
-                    )
-                ) {
+                    );
+
+                    if (isSuperType) {
+                        return classType;
+                    }
+
+                    if (isSubType) {
+                        return addConditionToType(classType, getTypeCondition(concreteSubtype));
+                    }
+
+                    return undefined;
+                }
+
+                if (ClassType.isFinal(concreteSubtype) && !isSuperType) {
                     return undefined;
                 }
             }
