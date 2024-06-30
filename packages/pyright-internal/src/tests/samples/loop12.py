@@ -3,8 +3,7 @@
 
 
 class ClassA:
-    def non_property(self) -> int:
-        ...
+    def non_property(self) -> int: ...
 
     def do_stuff(self, x: int | None):
         while True:

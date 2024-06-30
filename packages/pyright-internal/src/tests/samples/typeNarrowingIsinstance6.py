@@ -7,12 +7,10 @@ from typing import Any, Generic, Iterable, Sequence, TypeVar
 _T1 = TypeVar("_T1")
 
 
-class ParentA(Generic[_T1]):
-    ...
+class ParentA(Generic[_T1]): ...
 
 
-class ChildA1(ParentA[_T1]):
-    ...
+class ChildA1(ParentA[_T1]): ...
 
 
 def func1(a: ParentA[int], b: ParentA[str] | ParentA[complex]) -> None:
@@ -79,12 +77,10 @@ class ParentD(Generic[_T1]):
     x: _T1
 
 
-class ChildD1(ParentD[_T1]):
-    ...
+class ChildD1(ParentD[_T1]): ...
 
 
-class ChildD2(ParentD[int]):
-    ...
+class ChildD2(ParentD[int]): ...
 
 
 def func7(a: ParentD[_T1]) -> _T1 | None:

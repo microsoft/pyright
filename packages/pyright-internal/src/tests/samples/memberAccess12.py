@@ -9,12 +9,10 @@ T = TypeVar("T")
 
 class MetaClass(type):
     @overload
-    def __get__(self: type[T], instance: None, owner: Any) -> type[T]:
-        ...
+    def __get__(self: type[T], instance: None, owner: Any) -> type[T]: ...
 
     @overload
-    def __get__(self: type[T], instance: object, owner: Any) -> T:
-        ...
+    def __get__(self: type[T], instance: object, owner: Any) -> T: ...
 
     def __get__(self: type[T], instance: object | None, owner: Any) -> type[T] | T:
         if instance is None:
@@ -22,8 +20,7 @@ class MetaClass(type):
         return self()
 
 
-class A(metaclass=MetaClass):
-    ...
+class A(metaclass=MetaClass): ...
 
 
 class B:

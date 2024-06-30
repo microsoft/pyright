@@ -24,18 +24,15 @@ class MyList(MutableSequence[_T]):
         ...
 
     @overload
-    def __getitem__(self, index: slice) -> MyList[_T]:
-        ...
+    def __getitem__(self, index: slice) -> MyList[_T]: ...
 
 
 class NestedSequence(Protocol[T_co]):
     @overload
-    def __getitem__(self, index: int, /) -> T_co | NestedSequence[T_co]:
-        ...
+    def __getitem__(self, index: int, /) -> T_co | NestedSequence[T_co]: ...
 
     @overload
-    def __getitem__(self, index: slice, /) -> NestedSequence[T_co]:
-        ...
+    def __getitem__(self, index: slice, /) -> NestedSequence[T_co]: ...
 
 
 def func1(b: MyList[int | MyList[int]]):
@@ -47,9 +44,8 @@ def func2(c: MyList[MyList[int] | int]):
 
 
 def is_async_callable(
-    obj: Callable[..., _T] | Callable[..., Awaitable[_T]]
-) -> TypeGuard[Callable[..., Awaitable[_T]]]:
-    ...
+    obj: Callable[..., _T] | Callable[..., Awaitable[_T]],
+) -> TypeGuard[Callable[..., Awaitable[_T]]]: ...
 
 
 async def func3(fn: Callable[[], _T] | Callable[[], Awaitable[_T]]):

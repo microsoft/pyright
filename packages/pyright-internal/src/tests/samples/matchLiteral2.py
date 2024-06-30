@@ -30,4 +30,3 @@ def g(d: A | B | C) -> None:
         case "b":
             reveal_type(d.tag, expected_text="Literal['b']")
             reveal_type(d, expected_text="B")
-

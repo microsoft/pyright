@@ -7,8 +7,7 @@ from functools import total_ordering
 class ClassA:
     val1: int
 
-    def __gt__(self, other: object) -> bool:
-        ...
+    def __gt__(self, other: object) -> bool: ...
 
 
 a = ClassA()

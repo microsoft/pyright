@@ -6,16 +6,13 @@ from typing import Callable, ParamSpec
 P = ParamSpec("P")
 
 
-def func1(func: Callable[P, object], *args: P.args, **kwargs: P.kwargs) -> object:
-    ...
+def func1(func: Callable[P, object], *args: P.args, **kwargs: P.kwargs) -> object: ...
 
 
-def func2(x: str) -> int:
-    ...
+def func2(x: str) -> int: ...
 
 
-def func3(y: str) -> int:
-    ...
+def func3(y: str) -> int: ...
 
 
 print(func1(func2, x="..."), func1(func3, y="..."))

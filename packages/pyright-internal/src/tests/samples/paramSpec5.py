@@ -13,16 +13,14 @@ def decorator(fn: Callable[P, R]) -> Callable[P, R]:
     return fn
 
 
-def func1(*, value: str) -> None:
-    ...
+def func1(*, value: str) -> None: ...
 
 
 f1 = decorator(func1)
 reveal_type(f1, expected_text="(*, value: str) -> None")
 
 
-def func2(value: str, /) -> None:
-    ...
+def func2(value: str, /) -> None: ...
 
 
 f2 = decorator(func2)

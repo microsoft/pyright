@@ -9,12 +9,10 @@ _T_co = TypeVar("_T_co", covariant=True)
 _N = TypeVar("_N", bound=int)
 
 
-class ClassA(Generic[_T_co, _N]):
-    ...
+class ClassA(Generic[_T_co, _N]): ...
 
 
-def func1(n: _N) -> ClassA[Literal[0], _N]:
-    ...
+def func1(n: _N) -> ClassA[Literal[0], _N]: ...
 
 
 v1: ClassA[int, Literal[1]] = func1(1)

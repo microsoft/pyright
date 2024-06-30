@@ -14,8 +14,7 @@ _TBase1 = TypeVar("_TBase1", bound=Base)
 _TBase2 = TypeVar("_TBase2", bound=Base)
 
 
-def my_next(__i: Iterator[_T1]) -> _T1:
-    ...
+def my_next(__i: Iterator[_T1]) -> _T1: ...
 
 
 class SourceProvider(Generic[_TBase1]):

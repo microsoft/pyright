@@ -8,12 +8,10 @@ T2 = TypeVar("T2")
 
 
 class S(Generic[T1]):
-    def __or__(self, other: "S[T2]") -> "S[T1 | T2]":
-        ...
+    def __or__(self, other: "S[T2]") -> "S[T1 | T2]": ...
 
 
-def to(x: Callable[..., T1]) -> "S[T1]":
-    ...
+def to(x: Callable[..., T1]) -> "S[T1]": ...
 
 
 x1 = to(int) | to(float)

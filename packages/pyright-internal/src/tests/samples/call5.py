@@ -71,8 +71,7 @@ for a, b in zip(*q6):
     reveal_type(b, expected_text="int")
 
 
-def func1(a: list[str], c: list[int]):
-    ...
+def func1(a: list[str], c: list[int]): ...
 
 
 func1(*q6)

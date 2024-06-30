@@ -16,4 +16,3 @@ async def func1():
 
 loop = get_event_loop()
 loop.run_until_complete(func1())
-

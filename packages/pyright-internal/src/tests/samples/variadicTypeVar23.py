@@ -42,12 +42,12 @@ class Tree(Generic[X, Y]):
 
 
 def lift(
-    f: Callable[[*Xs], tuple[*Ys]]
+    f: Callable[[*Xs], tuple[*Ys]],
 ) -> Callable[[Tree[Z, tuple[*Xs]]], Tree[Z, tuple[*Ys]]]: ...
 
 
 def test(
-    f: Callable[[X], Y]
+    f: Callable[[X], Y],
 ) -> Callable[[Tree[Z, tuple[X, ...]]], Tree[Z, tuple[Y, ...]]]:
     return lift(star(f))
 

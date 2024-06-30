@@ -41,8 +41,7 @@ def func5(x: bool) -> NoReturn:
 x1: Callable[[bool], bool] = func2
 
 
-async def func6() -> NoReturn:
-    ...
+async def func6() -> NoReturn: ...
 
 
 async def func7() -> NoReturn:
@@ -50,8 +49,7 @@ async def func7() -> NoReturn:
 
 
 class A:
-    def __new__(cls) -> NoReturn:
-        ...
+    def __new__(cls) -> NoReturn: ...
 
 
 def func8() -> NoReturn:
@@ -59,8 +57,7 @@ def func8() -> NoReturn:
 
 
 class C:
-    def __call__(self) -> NoReturn:
-        ...
+    def __call__(self) -> NoReturn: ...
 
 
 def func10() -> NoReturn:
@@ -68,17 +65,14 @@ def func10() -> NoReturn:
 
 
 @overload
-def func11() -> NoReturn:
-    ...
+def func11() -> NoReturn: ...
 
 
 @overload
-def func11(x: int) -> None:
-    ...
+def func11(x: int) -> None: ...
 
 
-def func11(x: int = 0) -> NoReturn | None:
-    ...
+def func11(x: int = 0) -> NoReturn | None: ...
 
 
 def func12() -> NoReturn:

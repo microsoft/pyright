@@ -8,8 +8,7 @@ T = TypeVar("T")
 R = TypeVar("R")
 
 
-class ClassA(Generic[R]):
-    ...
+class ClassA(Generic[R]): ...
 
 
 class ClassB(Generic[T]):

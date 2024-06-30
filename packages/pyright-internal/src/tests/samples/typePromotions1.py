@@ -15,8 +15,7 @@ def func2(mem_view_val: memoryview, byte_array_val: bytearray):
     v2: bytes = byte_array_val
 
 
-class IntSubclass(int):
-    ...
+class IntSubclass(int): ...
 
 
 def func3(x: IntSubclass) -> float:

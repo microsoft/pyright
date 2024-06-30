@@ -18,4 +18,3 @@ def func2() -> None:
     # This should generate an error.
     x.append("not foo")
     print(foo_list)
-

@@ -14,8 +14,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def func1(a: S, b: T) -> dict[S, T]:
-    ...
+def func1(a: S, b: T) -> dict[S, T]: ...
 
 
 class DecoratorClass1(Generic[P, R]):
@@ -25,8 +24,7 @@ class DecoratorClass1(Generic[P, R]):
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
         return self._func(*args, **kwargs)
 
-    def other(self, val: int, *args: P.args, **kwargs: P.kwargs) -> R:
-        ...
+    def other(self, val: int, *args: P.args, **kwargs: P.kwargs) -> R: ...
 
 
 decorated_func1 = DecoratorClass1(func1)
@@ -44,8 +42,7 @@ func1_other_ret = decorated_func1.other(0, 1, "")
 reveal_type(func1_other_ret, expected_text="dict[int, str]")
 
 
-def func2(func: Callable[P, R]) -> Callable[P, R]:
-    ...
+def func2(func: Callable[P, R]) -> Callable[P, R]: ...
 
 
 d1 = func2(func1)

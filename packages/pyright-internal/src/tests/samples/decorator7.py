@@ -8,8 +8,7 @@ FuncType = Callable[..., Any]
 FT = TypeVar("FT", bound=FuncType)
 
 
-def decorate() -> Callable[[FT], FT]:
-    ...
+def decorate() -> Callable[[FT], FT]: ...
 
 
 @decorate()

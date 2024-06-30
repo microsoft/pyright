@@ -12,9 +12,8 @@ class Callback(Generic[T]):
         self,
         func: Callable[Concatenate[T, P], object],
         *args: P.args,
-        **kwargs: P.kwargs
-    ) -> None:
-        ...
+        **kwargs: P.kwargs,
+    ) -> None: ...
 
 
 v1: Callback[tuple[int, int]] = Callback(lambda p: (p[1], p[0]))
@@ -22,8 +21,7 @@ v1: Callback[tuple[int, int]] = Callback(lambda p: (p[1], p[0]))
 
 def func1(
     func: Callable[Concatenate[int, P], T], *args: P.args, **kwargs: P.kwargs
-) -> T:
-    ...
+) -> T: ...
 
 
 v2 = func1(lambda p: p)

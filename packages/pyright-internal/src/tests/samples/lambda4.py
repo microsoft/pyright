@@ -35,23 +35,19 @@ accepts_u1(lambda a, b, c: True)
 
 
 class Callable1(Protocol):
-    def __call__(self, p0: int, p1: str) -> bool:
-        ...
+    def __call__(self, p0: int, p1: str) -> bool: ...
 
 
 class Callable2(Protocol):
-    def __call__(self, p0: str) -> bool:
-        ...
+    def __call__(self, p0: str) -> bool: ...
 
 
 class Callable3(Protocol):
-    def __call__(self, *p0: str) -> bool:
-        ...
+    def __call__(self, *p0: str) -> bool: ...
 
 
 class Callable4(Protocol):
-    def __call__(self, p0: int, p1: str, *p2: str) -> bool:
-        ...
+    def __call__(self, p0: int, p1: str, *p2: str) -> bool: ...
 
 
 U2 = Callable1 | Callable2 | Callable3 | Callable4

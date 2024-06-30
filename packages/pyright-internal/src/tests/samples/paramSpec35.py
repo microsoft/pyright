@@ -6,16 +6,13 @@ from typing import Callable, ParamSpec
 P = ParamSpec("P")
 
 
-def func1(x: Callable[P, int], y: Callable[P, int]) -> Callable[P, bool]:
-    ...
+def func1(x: Callable[P, int], y: Callable[P, int]) -> Callable[P, bool]: ...
 
 
-def a1(p0: int) -> int:
-    ...
+def a1(p0: int) -> int: ...
 
 
-def a2(p0: int, p2: str) -> int:
-    ...
+def a2(p0: int, p2: str) -> int: ...
 
 
 v1 = func1(a1, a1)

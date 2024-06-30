@@ -8,8 +8,7 @@ class MyMeta(type):
 
 
 class Base(metaclass=MyMeta):
-    def __new__(cls, arg) -> "Base":
-        ...
+    def __new__(cls, arg) -> "Base": ...
 
 
 reveal_type(Base.something, expected_text="Base")

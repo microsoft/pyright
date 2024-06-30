@@ -3,11 +3,9 @@
 
 
 class Parent:
-    def __init__(self, a: int, b: str):
-        ...
+    def __init__(self, a: int, b: str): ...
 
-    def func1(self, a: int, b: str) -> float:
-        ...
+    def func1(self, a: int, b: str) -> float: ...
 
 
 class Child(Parent):
