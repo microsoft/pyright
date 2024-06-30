@@ -164,6 +164,7 @@ export function getCodeFlowEngine(
     speculativeTypeTracker: SpeculativeTypeTracker
 ): CodeFlowEngine {
     const isReachableRecursionSet = new Set<number>();
+    const reachabilityCache = new Map<number, boolean>();
     const callIsNoReturnCache = new Map<number, boolean>();
     const isExceptionContextManagerCache = new Map<number, boolean>();
     let flowIncompleteGeneration = 1;
@@ -1357,6 +1358,14 @@ export function getCodeFlowEngine(
             }
         }
 
+        // See if we've already cached this result.
+        if (sourceFlowNode === undefined) {
+            const cachedReachability = reachabilityCache.get(flowNode.id);
+            if (cachedReachability !== undefined) {
+                return cachedReachability;
+            }
+        }
+
         // Protect against infinite recursion.
         if (isReachableRecursionSet.has(flowNode.id)) {
             return false;
@@ -1364,7 +1373,14 @@ export function getCodeFlowEngine(
         isReachableRecursionSet.add(flowNode.id);
 
         try {
-            return isFlowNodeReachableRecursive(flowNode, sourceFlowNode);
+            const isReachable = isFlowNodeReachableRecursive(flowNode, sourceFlowNode);
+
+            // Cache the result for next time.
+            if (sourceFlowNode === undefined) {
+                reachabilityCache.set(flowNode.id, isReachable);
+            }
+
+            return isReachable;
         } finally {
             isReachableRecursionSet.delete(flowNode.id);
         }
