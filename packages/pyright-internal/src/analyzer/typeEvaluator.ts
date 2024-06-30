@@ -97,7 +97,7 @@ import {
     isCodeFlowSupportedForReference,
     wildcardImportReferenceKey,
 } from './codeFlowTypes';
-import { assignTypeToTypeVar, populateTypeVarContextBasedOnExpectedType, updateTypeVarType } from './constraintSolver';
+import { addConstraintsForExpectedType, assignTypeToTypeVar, updateTypeVarType } from './constraintSolver';
 import {
     createFunctionFromConstructor,
     getBoundInitMethod,
@@ -7872,7 +7872,7 @@ export function createTypeEvaluator(
         } else {
             const tupleTypeVarContext = new TypeVarContext(getTypeVarScopeId(tupleClass));
             if (
-                !populateTypeVarContextBasedOnExpectedType(
+                !addConstraintsForExpectedType(
                     evaluatorInterface,
                     ClassType.cloneAsInstance(tupleClass),
                     inferenceContext.expectedType,
@@ -11316,7 +11316,7 @@ export function createTypeEvaluator(
                 if (isClassInstance(effectiveExpectedType) && !isTypeSame(effectiveReturnType, effectiveExpectedType)) {
                     const tempTypeVarContext = new TypeVarContext(getTypeVarScopeId(effectiveReturnType));
                     if (
-                        populateTypeVarContextBasedOnExpectedType(
+                        addConstraintsForExpectedType(
                             evaluatorInterface,
                             effectiveReturnType,
                             effectiveExpectedType,
@@ -13397,7 +13397,7 @@ export function createTypeEvaluator(
 
             const dictTypeVarContext = new TypeVarContext(getTypeVarScopeId(builtInDict));
             if (
-                !populateTypeVarContextBasedOnExpectedType(
+                !addConstraintsForExpectedType(
                     evaluatorInterface,
                     builtInDict,
                     inferenceContext.expectedType,
@@ -14016,7 +14016,7 @@ export function createTypeEvaluator(
 
         const typeVarContext = new TypeVarContext(getTypeVarScopeId(expectedClassType));
         if (
-            !populateTypeVarContextBasedOnExpectedType(
+            !addConstraintsForExpectedType(
                 evaluatorInterface,
                 ClassType.cloneAsInstance(expectedClassType),
                 inferenceContext.expectedType,
@@ -25959,7 +25959,7 @@ export function createTypeEvaluator(
             !assignedType.tupleTypeArguments
         ) {
             const typeVarContext = new TypeVarContext(getTypeVarScopeId(assignedType));
-            populateTypeVarContextBasedOnExpectedType(
+            addConstraintsForExpectedType(
                 evaluatorInterface,
                 ClassType.cloneForSpecialization(
                     assignedType,

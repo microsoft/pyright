@@ -29,7 +29,7 @@ import {
     PatternValueNode,
 } from '../parser/parseNodes';
 import { CodeFlowReferenceExpressionNode } from './codeFlowTypes';
-import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
+import { addConstraintsForExpectedType } from './constraintSolver';
 import { getTypeVarScopesForNode, isMatchingExpression } from './parseTreeUtils';
 import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
@@ -921,7 +921,7 @@ function narrowTypeBasedOnClassPattern(
 
                                     const matchTypeInstance = ClassType.cloneAsInstance(unspecializedMatchType);
                                     if (
-                                        populateTypeVarContextBasedOnExpectedType(
+                                        addConstraintsForExpectedType(
                                             evaluator,
                                             matchTypeInstance,
                                             subjectSubtypeExpanded,
@@ -1454,7 +1454,7 @@ function getSequencePatternInfo(
             if (sequenceType && isInstantiableClass(sequenceType)) {
                 const sequenceTypeVarContext = new TypeVarContext(getTypeVarScopeId(sequenceType));
                 if (
-                    populateTypeVarContextBasedOnExpectedType(
+                    addConstraintsForExpectedType(
                         evaluator,
                         ClassType.cloneAsInstance(sequenceType),
                         subtype,

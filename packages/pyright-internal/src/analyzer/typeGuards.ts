@@ -22,7 +22,7 @@ import {
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
-import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
+import { addConstraintsForExpectedType } from './constraintSolver';
 import { Declaration, DeclarationType } from './declaration';
 import { transformTypeForEnumMember } from './enums';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -1451,7 +1451,7 @@ function narrowTypeForIsInstanceInternal(
                                         );
 
                                         if (
-                                            populateTypeVarContextBasedOnExpectedType(
+                                            addConstraintsForExpectedType(
                                                 evaluator,
                                                 unspecializedFilterType,
                                                 concreteVarType,
