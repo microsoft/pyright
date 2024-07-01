@@ -821,7 +821,10 @@ function getConverterInputType(
             const inputTypeVarContext = new TypeVarContext(typeVar.scopeId);
 
             if (evaluator.assignType(targetFunction, signature, diagAddendum, inputTypeVarContext)) {
-                const overloadSolution = applySolvedTypeVars(typeVar, inputTypeVarContext, { unknownIfNotFound: true });
+                const overloadSolution = applySolvedTypeVars(typeVar, inputTypeVarContext, {
+                    unknownIfNotFound: true,
+                    tupleClassType: evaluator.getTupleClassType(),
+                });
                 acceptedTypes.push(overloadSolution);
             }
         });

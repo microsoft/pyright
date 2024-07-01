@@ -290,7 +290,7 @@ function validateNewAndInitMethods(
         newMethodReturnType = applySolvedTypeVars(
             ClassType.cloneAsInstance(type),
             new TypeVarContext(getTypeVarScopeId(type)),
-            { unknownIfNotFound: true }
+            { unknownIfNotFound: true, tupleClassType: evaluator.getTupleClassType() }
         ) as ClassType;
     }
 
@@ -824,6 +824,7 @@ function applyExpectedTypeForConstructor(
 
     const specializedType = applySolvedTypeVars(type, typeVarContext, {
         unknownIfNotFound: unsolvedTypeVarsAreUnknown,
+        tupleClassType: evaluator.getTupleClassType(),
     }) as ClassType;
     return ClassType.cloneAsInstance(specializedType);
 }
@@ -1118,7 +1119,10 @@ function createFunctionFromInitMethod(
                     }
                 });
 
-                returnType = applySolvedTypeVars(objectType, typeVarContext, { unknownIfNotFound: true }) as ClassType;
+                returnType = applySolvedTypeVars(objectType, typeVarContext, {
+                    unknownIfNotFound: true,
+                    tupleClassType: evaluator.getTupleClassType(),
+                }) as ClassType;
             }
         }
 

@@ -245,12 +245,13 @@ export const enum AssignTypeFlags {
 }
 
 export interface ApplyTypeVarOptions {
+    typeClassType?: ClassType;
+    tupleClassType?: ClassType;
     unknownIfNotFound?: boolean;
     useUnknownOverDefault?: boolean;
     unknownExemptTypeVars?: TypeVarType[];
     useNarrowBoundOnly?: boolean;
     eliminateUnsolvedInUnions?: boolean;
-    typeClassType?: Type;
     applyInScopePlaceholders?: boolean;
 }
 
@@ -1073,7 +1074,7 @@ export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
 
 // Specializes the class with "Unknown" type args (or the equivalent for ParamSpecs
 // or TypeVarTuples).
-export function specializeWithUnknownTypeArgs(type: ClassType): ClassType {
+export function specializeWithUnknownTypeArgs(type: ClassType, tupleClassType?: ClassType): ClassType {
     if (type.details.typeParameters.length === 0) {
         return type;
     }
@@ -1091,16 +1092,20 @@ export function specializeWithUnknownTypeArgs(type: ClassType): ClassType {
 
     return ClassType.cloneForSpecialization(
         type,
-        type.details.typeParameters.map((param) => getUnknownTypeForTypeVar(param)),
+        type.details.typeParameters.map((param) => getUnknownTypeForTypeVar(param, tupleClassType)),
         /* isTypeArgumentExplicit */ false,
         /* includeSubclasses */ type.includeSubclasses
     );
 }
 
 // Returns "Unknown" for simple TypeVars or the equivalent for a ParamSpec.
-export function getUnknownTypeForTypeVar(typeVar: TypeVarType): Type {
+export function getUnknownTypeForTypeVar(typeVar: TypeVarType, tupleClassType?: ClassType): Type {
     if (typeVar.details.isParamSpec) {
         return getUnknownTypeForParamSpec();
+    }
+
+    if (typeVar.details.isVariadic && tupleClassType) {
+        return getUnknownTypeForVariadicTypeVar(tupleClassType);
     }
 
     return UnknownType.create();
@@ -1116,6 +1121,19 @@ export function getUnknownTypeForParamSpec(): FunctionType {
     );
     FunctionType.addDefaultParameters(newFunction);
     return newFunction;
+}
+
+export function getUnknownTypeForVariadicTypeVar(tupleClassType: ClassType): Type {
+    assert(isInstantiableClass(tupleClassType) && ClassType.isBuiltIn(tupleClassType, 'tuple'));
+
+    return ClassType.cloneAsInstance(
+        specializeTupleClass(
+            tupleClassType,
+            [{ type: UnknownType.create(), isUnbounded: true }],
+            /* isTypeArgumentExplicit */ true,
+            /* isUnpackedTuple */ true
+        )
+    );
 }
 
 // Returns the equivalent of "Callable[..., Unknown]".
@@ -1374,7 +1392,7 @@ export function partiallySpecializeType(
     type: Type,
     contextClassType: ClassType,
     selfClass?: ClassType | TypeVarType,
-    typeClassType?: Type
+    typeClassType?: ClassType
 ): Type {
     // If the context class is not specialized (or doesn't need specialization),
     // then there's no need to do any more work.
@@ -4133,7 +4151,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
                             if (this._options.unknownIfNotFound) {
                                 return this._options.useUnknownOverDefault
-                                    ? specializeWithUnknownTypeArgs(subtype)
+                                    ? specializeWithUnknownTypeArgs(subtype, this._options.tupleClassType)
                                     : specializeWithDefaultTypeArgs(subtype);
                             }
                         }
@@ -4171,7 +4189,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                     return this._solveDefaultType(typeVar.details.defaultType, recursionCount);
                 }
 
-                return UnknownType.create();
+                return getUnknownTypeForTypeVar(typeVar, this._options.tupleClassType);
             }
         }
 

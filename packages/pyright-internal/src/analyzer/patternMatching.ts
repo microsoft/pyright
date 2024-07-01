@@ -685,7 +685,7 @@ function narrowTypeBasedOnClassPattern(
     // specialize it with Unknown type arguments.
     if (isClass(exprType) && !exprType.typeAliasInfo) {
         exprType = ClassType.cloneRemoveTypePromotions(exprType);
-        exprType = specializeWithUnknownTypeArgs(exprType);
+        exprType = specializeWithUnknownTypeArgs(exprType, evaluator.getTupleClassType());
     }
 
     // Are there any positional arguments? If so, try to get the mappings for
@@ -932,6 +932,7 @@ function narrowTypeBasedOnClassPattern(
                                     ) {
                                         resultType = applySolvedTypeVars(matchTypeInstance, typeVarContext, {
                                             unknownIfNotFound: true,
+                                            tupleClassType: evaluator.getTupleClassType(),
                                         }) as ClassType;
                                     }
                                 }

@@ -4926,7 +4926,10 @@ export function createTypeEvaluator(
 
                 let defaultType: Type;
                 if (param.details.isDefaultExplicit || param.details.isParamSpec) {
-                    defaultType = applySolvedTypeVars(param, typeVarContext, { unknownIfNotFound: true });
+                    defaultType = applySolvedTypeVars(param, typeVarContext, {
+                        unknownIfNotFound: true,
+                        tupleClassType: getTupleClassType(),
+                    });
                 } else if (param.details.isVariadic && tupleClass && isInstantiableClass(tupleClass)) {
                     defaultType = makeTupleObject(
                         [{ type: UnknownType.create(), isUnbounded: true }],
@@ -4951,7 +4954,10 @@ export function createTypeEvaluator(
             }
 
             type = TypeBase.cloneForTypeAlias(
-                applySolvedTypeVars(type, typeVarContext, { unknownIfNotFound: true }),
+                applySolvedTypeVars(type, typeVarContext, {
+                    unknownIfNotFound: true,
+                    tupleClassType: getTupleClassType(),
+                }),
                 type.typeAliasInfo.name,
                 type.typeAliasInfo.fullName,
                 type.typeAliasInfo.moduleName,
@@ -6855,7 +6861,10 @@ export function createTypeEvaluator(
                 if (index < typeArgs.length) {
                     typeArgType = convertToInstance(typeArgs[index].type);
                 } else if (param.details.isDefaultExplicit) {
-                    typeArgType = applySolvedTypeVars(param, typeVarContext, { unknownIfNotFound: true });
+                    typeArgType = applySolvedTypeVars(param, typeVarContext, {
+                        unknownIfNotFound: true,
+                        tupleClassType: getTupleClassType(),
+                    });
                 } else {
                     typeArgType = UnknownType.create();
                 }
@@ -11333,6 +11342,7 @@ export function createTypeEvaluator(
 
                         effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
                             unknownIfNotFound: true,
+                            tupleClassType: getTupleClassType(),
                         });
 
                         effectiveFlags |= AssignTypeFlags.SkipPopulateUnknownExpectedType;
@@ -11633,6 +11643,7 @@ export function createTypeEvaluator(
 
         let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
             unknownIfNotFound,
+            tupleClassType: getTupleClassType(),
             unknownExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
             eliminateUnsolvedInUnions,
             applyInScopePlaceholders: true,
@@ -12516,6 +12527,7 @@ export function createTypeEvaluator(
         const concreteDefaultType = makeTopLevelTypeVarsConcrete(
             applySolvedTypeVars(typeVar.details.defaultType, typeVarContext, {
                 unknownIfNotFound: true,
+                tupleClassType: getTupleClassType(),
             })
         );
 
@@ -18334,6 +18346,7 @@ export function createTypeEvaluator(
                                 // Replace any unsolved TypeVars with Unknown (including all function-scoped TypeVars).
                                 inferredParamType = applySolvedTypeVars(inferredParamType, typeVarContext, {
                                     unknownIfNotFound: true,
+                                    tupleClassType: getTupleClassType(),
                                 });
                             }
 
@@ -20388,7 +20401,10 @@ export function createTypeEvaluator(
                 return;
             }
 
-            const solvedDefaultType = applySolvedTypeVars(typeParam, typeVarContext, { unknownIfNotFound: true });
+            const solvedDefaultType = applySolvedTypeVars(typeParam, typeVarContext, {
+                unknownIfNotFound: true,
+                tupleClassType: getTupleClassType(),
+            });
             typeArgTypes.push(solvedDefaultType);
             if (isParamSpec(typeParam)) {
                 typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(solvedDefaultType));
@@ -22360,7 +22376,7 @@ export function createTypeEvaluator(
                 getEffectiveTypeOfSymbol(member.symbol),
                 member.classType,
                 /* selfClass */ undefined,
-                typeClass ?? UnknownType.create()
+                typeClass && isInstantiableClass(typeClass) ? typeClass : undefined
             );
         }
         return UnknownType.create();
