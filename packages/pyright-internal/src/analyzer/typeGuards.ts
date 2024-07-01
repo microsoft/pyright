@@ -638,7 +638,7 @@ export function getTypeNarrowingCallback(
                     );
                     const arg1Type = arg1TypeResult.type;
 
-                    const classTypeList = getIsInstanceClassTypes(arg1Type);
+                    const classTypeList = getIsInstanceClassTypes(evaluator, arg1Type);
                     const isIncomplete = !!callTypeResult.isIncomplete || !!arg1TypeResult.isIncomplete;
 
                     if (classTypeList) {
@@ -1146,7 +1146,10 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
 // that accepts a single class, and a more complex form that accepts a tuple
 // of classes (including arbitrarily-nested tuples). This method determines
 // which form and returns a list of classes or undefined.
-function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | FunctionType)[] | undefined {
+function getIsInstanceClassTypes(
+    evaluator: TypeEvaluator,
+    argType: Type
+): (ClassType | TypeVarType | FunctionType)[] | undefined {
     let foundNonClassType = false;
     const classTypeList: (ClassType | TypeVarType | FunctionType)[] = [];
 
@@ -1155,7 +1158,7 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | Func
     const addClassTypesToList = (types: Type[]) => {
         types.forEach((subtype) => {
             if (isClass(subtype)) {
-                subtype = specializeWithUnknownTypeArgs(subtype);
+                subtype = specializeWithUnknownTypeArgs(subtype, evaluator.getTupleClassType());
 
                 if (isInstantiableClass(subtype) && ClassType.isBuiltIn(subtype, 'Callable')) {
                     subtype = convertToInstantiable(getUnknownTypeForCallable());
@@ -1359,7 +1362,8 @@ function narrowTypeForIsInstanceInternal(
                                 concreteFilterType,
                                 /* typeArguments */ undefined,
                                 /* isTypeArgumentExplicit */ false
-                            )
+                            ),
+                            evaluator.getTupleClassType()
                         );
                     }
 
@@ -1463,7 +1467,11 @@ function narrowTypeForIsInstanceInternal(
                                             specializedFilterType = applySolvedTypeVars(
                                                 unspecializedFilterType,
                                                 typeVarContext,
-                                                { unknownIfNotFound: true, useUnknownOverDefault: true }
+                                                {
+                                                    unknownIfNotFound: true,
+                                                    useUnknownOverDefault: true,
+                                                    tupleClassType: evaluator.getTupleClassType(),
+                                                }
                                             ) as ClassType;
                                         }
                                     }

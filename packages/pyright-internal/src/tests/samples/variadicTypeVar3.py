@@ -18,13 +18,16 @@ class Array(Generic[Unpack[_Xs]]):
         reveal_type(args, expected_text="tuple[*_Xs@Array]")
 
     # This should generate an error because _Xs is not unpacked.
-    def foo(self, *args: _Xs) -> None: ...
+    def foo(self, *args: _Xs) -> None:
+        ...
 
 
-def linearize(value: Array[Unpack[_Xs]]) -> tuple[Unpack[_Xs]]: ...
+def linearize(value: Array[Unpack[_Xs]]) -> tuple[Unpack[_Xs]]:
+    ...
 
 
-def array_to_tuple(value: Array[Unpack[_Xs]]) -> tuple[complex, Unpack[_Xs]]: ...
+def array_to_tuple(value: Array[Unpack[_Xs]]) -> tuple[complex, Unpack[_Xs]]:
+    ...
 
 
 def func1(x: Array[int, str, str, float], y: Array[()]):
@@ -88,12 +91,23 @@ def func3(x: Array[Unpack[_Xs]]) -> Array[Unpack[_Xs]]:
 
 
 @overload
-def func4(signal: Array[*_Xs], *args: *_Xs) -> None: ...
+def func4(signal: Array[*_Xs], *args: *_Xs) -> None:
+    ...
+
+
 @overload
-def func4(signal: str, *args: Any) -> None: ...
-def func4(signal: Array[*_Xs] | str, *args: *_Xs) -> None: ...
+def func4(signal: str, *args: Any) -> None:
+    ...
+
+
+def func4(signal: Array[*_Xs] | str, *args: *_Xs) -> None:
+    ...
 
 
 def func5(a1: Array[Literal["a", "b"]], a2: Array[Literal["a"], Literal["b"]]):
     func4(a1, "a")
     func4(a2, "a", "b")
+
+
+def func6(a: Array):
+    reveal_type(a, expected_text="Array[*tuple[Unknown, ...]]")
