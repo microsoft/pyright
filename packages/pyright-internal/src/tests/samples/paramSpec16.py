@@ -18,7 +18,7 @@ class ClassA(Generic[P, T, Q, U]): ...
 
 
 def decorator1(
-    func: Callable[Concatenate[Callable[P, T], Q], U]
+    func: Callable[Concatenate[Callable[P, T], Q], U],
 ) -> ClassA[P, T, Q, U]: ...
 
 

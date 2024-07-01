@@ -15,8 +15,9 @@ def is_one(x: int) -> bool:
 v1 = ["a", "b", "c"]
 
 
-def func1(__function: Callable[[_T], Any], __iterable: Iterable[_T]) -> Iterator[_T]:
-    ...
+def func1(
+    __function: Callable[[_T], Any], __iterable: Iterable[_T]
+) -> Iterator[_T]: ...
 
 
 # This should be flagged as an error because nums is

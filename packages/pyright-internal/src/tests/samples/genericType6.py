@@ -4,8 +4,7 @@
 from typing import Any, Generic, TypeVar
 
 
-class ClassA:
-    ...
+class ClassA: ...
 
 
 _T = TypeVar("_T", bound=ClassA)

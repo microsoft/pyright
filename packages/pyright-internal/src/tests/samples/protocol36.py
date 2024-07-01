@@ -7,12 +7,10 @@ _T_co = TypeVar("_T_co", covariant=True)
 
 class NestedSequence(Protocol[_T_co]):
     @overload
-    def __getitem__(self, __i: int) -> _T_co | "NestedSequence[_T_co]":
-        ...
+    def __getitem__(self, __i: int) -> _T_co | "NestedSequence[_T_co]": ...
 
     @overload
-    def __getitem__(self, __s: slice) -> "NestedSequence[_T_co]":
-        ...
+    def __getitem__(self, __s: slice) -> "NestedSequence[_T_co]": ...
 
 
 def func(v1: list[list[list[int]]]):

@@ -11,22 +11,18 @@ T = TypeVar("T", contravariant=True)
 S = TypeVar("S", contravariant=True)
 
 
-class ClassA(Generic[T]):
-    ...
+class ClassA(Generic[T]): ...
 
 
-class ClassB(Generic[S, T], ClassA[T]):
-    ...
+class ClassB(Generic[S, T], ClassA[T]): ...
 
 
 class ClassC(ClassB[S, T]):
-    def __new__(cls, subcon: ClassA[S]) -> ClassC[S, list[S]]:
-        ...
+    def __new__(cls, subcon: ClassA[S]) -> ClassC[S, list[S]]: ...
 
 
 class ClassD(ClassB[S, T]):
-    def __new__(cls, subcon: ClassA[S]) -> ClassD[S, list[S]]:
-        ...
+    def __new__(cls, subcon: ClassA[S]) -> ClassD[S, list[S]]: ...
 
 
 c = ClassA[int]()

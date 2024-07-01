@@ -24,21 +24,17 @@ def func3(input1: list[str]):
 
 
 def func4(
-    func: Callable[[], T] | Callable[[T], None] | list[T] | dict[str, T] | T
-) -> T:
-    ...
+    func: Callable[[], T] | Callable[[T], None] | list[T] | dict[str, T] | T,
+) -> T: ...
 
 
-def func5(func: Callable[[], T]) -> T:
-    ...
+def func5(func: Callable[[], T]) -> T: ...
 
 
-def func6(val: str) -> None:
-    ...
+def func6(val: str) -> None: ...
 
 
-def func7() -> str:
-    ...
+def func7() -> str: ...
 
 
 reveal_type(func4([""]), expected_text="str")

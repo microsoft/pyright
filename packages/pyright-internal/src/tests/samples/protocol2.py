@@ -11,8 +11,7 @@ T_contra = TypeVar("T_contra", contravariant=True)
 
 
 class Writer(Protocol[T_contra]):
-    def write(self, data: T_contra) -> None:
-        ...
+    def write(self, data: T_contra) -> None: ...
 
 
 class WriteFile:

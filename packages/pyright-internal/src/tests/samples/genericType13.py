@@ -3,8 +3,7 @@
 from typing import Any, Type, TypeVar
 
 
-class ClassA:
-    ...
+class ClassA: ...
 
 
 T = TypeVar("T")

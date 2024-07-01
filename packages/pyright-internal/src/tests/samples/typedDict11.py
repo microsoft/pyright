@@ -14,8 +14,7 @@ list2: list[MessageTypeDef] = [
 TMessage = TypeVar("TMessage", bound=MessageTypeDef)
 
 
-def func1(x: list[TMessage]) -> TMessage:
-    ...
+def func1(x: list[TMessage]) -> TMessage: ...
 
 
 func1([{"Id": "", "Handle": ""}])

@@ -54,13 +54,11 @@ ClassA["1"]
 
 
 class ClassB:
-    def __setitem__(self, index: int, value: "ClassB"):
-        ...
+    def __setitem__(self, index: int, value: "ClassB"): ...
 
 
 class ClassC:
-    def __setitem__(self, index: int, value: "ClassC"):
-        ...
+    def __setitem__(self, index: int, value: "ClassC"): ...
 
 
 B_or_C = TypeVar("B_or_C", ClassB, ClassC)
@@ -75,8 +73,7 @@ TD = TypeVar("TD", bound="ClassD[Any]")
 
 
 class ClassD(Generic[TD]):
-    def __setitem__(self, index: int, value: TD):
-        ...
+    def __setitem__(self, index: int, value: TD): ...
 
 
 def func2(container: ClassD[TD], value: TD):
@@ -98,8 +95,7 @@ e["test"] = 3
 
 
 class ClassF(Generic[T]):
-    def __getitem__(self, args: int) -> Self:
-        ...
+    def __getitem__(self, args: int) -> Self: ...
 
     def get(self, index: int) -> Self:
         reveal_type(self[index], expected_text="Self@ClassF[T@ClassF]")

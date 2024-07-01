@@ -5,8 +5,7 @@ from typing import Protocol, TypeVar
 
 
 class ClsProtocol(Protocol):
-    def __init__(self):
-        ...
+    def __init__(self): ...
 
 
 T1 = TypeVar("T1", bound="ClsProtocol")

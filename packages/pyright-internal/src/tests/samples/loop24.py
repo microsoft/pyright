@@ -9,4 +9,3 @@ while True:
         break
     else:
         var, _ = var + 1, 0
-

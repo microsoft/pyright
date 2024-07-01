@@ -27,7 +27,7 @@ class HasAttr(Protocol):
 
 
 def decorate(
-    func: Callable[Concatenate[S, P], R]
+    func: Callable[Concatenate[S, P], R],
 ) -> Callable[Concatenate[S, P], R]: ...
 
 

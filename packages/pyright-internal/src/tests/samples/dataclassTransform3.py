@@ -18,14 +18,12 @@ def __dataclass_transform__(
 
 
 class ModelField:
-    def __init__(self, *, init: bool = True, default: Any | None = None) -> None:
-        ...
+    def __init__(self, *, init: bool = True, default: Any | None = None) -> None: ...
 
 
 def model_field(
     *, init: bool = True, default: Any | None = None, alias: str | None = None
-) -> Any:
-    ...
+) -> Any: ...
 
 
 @__dataclass_transform__(
@@ -41,8 +39,7 @@ class ModelBase:
         frozen: bool = False,
         kw_only: bool = True,
         order: bool = True,
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 class Customer1(ModelBase, frozen=True):
@@ -102,8 +99,7 @@ class GenericModelBase(Generic[_T]):
         frozen: bool = False,
         kw_only: bool = True,
         order: bool = True,
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 class GenericCustomer(GenericModelBase[int]):

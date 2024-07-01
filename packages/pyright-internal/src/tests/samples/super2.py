@@ -30,18 +30,15 @@ reveal_type(b2, expected_text="B")
 
 
 class C:
-    def __init__(self) -> None:
-        ...
+    def __init__(self) -> None: ...
 
 
 class CChild(C):
-    def __init__(self, name: str) -> None:
-        ...
+    def __init__(self, name: str) -> None: ...
 
 
 class D:
-    def __init__(self, name: str, num: int):
-        ...
+    def __init__(self, name: str, num: int): ...
 
 
 class DChild1(CChild, D):

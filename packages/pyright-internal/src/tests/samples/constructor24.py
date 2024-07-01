@@ -72,20 +72,17 @@ def func1(obv: Container[T], default_value: T = None) -> None:
     obv.on_next(default_value)
 
 
-class A:
-    ...
+class A: ...
 
 
 T_A = TypeVar("T_A", bound=A)
 
 
 class B(Generic[T]):
-    def __init__(self, c: Callable[[], T]):
-        ...
+    def __init__(self, c: Callable[[], T]): ...
 
 
-def func2(cls: type[T_A] = A) -> Callable[[], T_A]:
-    ...
+def func2(cls: type[T_A] = A) -> Callable[[], T_A]: ...
 
 
 B(func2())

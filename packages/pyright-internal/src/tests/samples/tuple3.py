@@ -4,8 +4,7 @@
 from typing import Callable
 
 
-def func1(values: tuple[str, ...]):
-    ...
+def func1(values: tuple[str, ...]): ...
 
 
 # This should generate an error.
@@ -15,16 +14,13 @@ func1(("", False))
 func1((False, ""))
 
 
-def func2(x: tuple[int]) -> None:
-    ...
+def func2(x: tuple[int]) -> None: ...
 
 
-def func3(x: tuple[()]) -> None:
-    ...
+def func3(x: tuple[()]) -> None: ...
 
 
-def func4(x: tuple[int, ...]) -> None:
-    ...
+def func4(x: tuple[int, ...]) -> None: ...
 
 
 c1: Callable[[tuple[int]], None]

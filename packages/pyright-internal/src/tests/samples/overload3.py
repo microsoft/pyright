@@ -8,13 +8,11 @@ T = TypeVar("T")
 
 
 @overload
-def mouse_event(x1: int, y1: int) -> int:
-    ...
+def mouse_event(x1: int, y1: int) -> int: ...
 
 
 @overload
-def mouse_event(x1: int, y1: int, x2: int, y2: int) -> tuple[int, int]:
-    ...
+def mouse_event(x1: int, y1: int, x2: int, y2: int) -> tuple[int, int]: ...
 
 
 def mouse_event(

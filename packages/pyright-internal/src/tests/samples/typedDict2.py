@@ -53,7 +53,7 @@ book4: BookBasedMovie = {
 
 book5: BookBasedMovie = {
     "name": "Moonraker",
-    "year": 1979
+    "year": 1979,
     # This should generate an error because 'based_on' is
     # a required field, and it's not provided.
 }

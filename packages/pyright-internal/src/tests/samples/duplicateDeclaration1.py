@@ -40,13 +40,11 @@ class C:
 
 
 @overload
-def a() -> None:
-    ...
+def a() -> None: ...
 
 
 @overload
-def a(x: int) -> None:
-    ...
+def a(x: int) -> None: ...
 
 
 # This should generate an error.

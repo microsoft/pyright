@@ -140,7 +140,7 @@ class TestClass7:
         pass
 
 
-def test_func7(*args: * tuple[int, *tuple[int, ...]]) -> int:
+def test_func7(*args: *tuple[int, *tuple[int, ...]]) -> int:
     return 123
 
 

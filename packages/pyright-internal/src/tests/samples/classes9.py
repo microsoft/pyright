@@ -66,5 +66,4 @@ class TD_A2(TypedDict):
 
 
 # This should generate an error for x but not y.
-class TD_A(TD_A1, TD_A2):
-    ...
+class TD_A(TD_A1, TD_A2): ...

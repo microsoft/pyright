@@ -37,7 +37,7 @@ def error_decorator(
     """Filter specific errors and raise custom exception for remaining once."""
 
     def decorator(
-        func: Callable[Concatenate[_T, _P], _R]
+        func: Callable[Concatenate[_T, _P], _R],
     ) -> Callable[Concatenate[_T, _P], _R | None]:
         def wrapper(self: _T, *args: _P.args, **kwargs: _P.kwargs) -> _R | None:
             try:

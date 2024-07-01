@@ -8,8 +8,7 @@ _T2 = TypeVar("_T2", bound="ClassA")
 
 
 class ClassA:
-    def chain(self: _T1) -> _T1:
-        ...
+    def chain(self: _T1) -> _T1: ...
 
 
 def func1(p1: _T2) -> _T2:

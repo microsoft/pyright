@@ -5,16 +5,13 @@
 from typing import TypeVar, Generic
 
 
-class A:
-    ...
+class A: ...
 
 
-class B:
-    ...
+class B: ...
 
 
-class A2(A):
-    ...
+class A2(A): ...
 
 
 T = TypeVar("T", A, B)

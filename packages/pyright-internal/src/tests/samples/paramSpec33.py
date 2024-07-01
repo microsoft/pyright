@@ -18,7 +18,7 @@ def func1(func: Callable[P, int]) -> Callable[P, int]:
 
 
 def func2(
-    func: Callable[Concatenate[int, P], int]
+    func: Callable[Concatenate[int, P], int],
 ) -> Callable[Concatenate[int, P], int]:
     def inner_func(x: int) -> int:
         # This should generate a type error.

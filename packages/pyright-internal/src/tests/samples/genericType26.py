@@ -35,13 +35,16 @@ class ClassB(Generic[T]):
         # This should generate an error.
         return ClassB(self.value)
 
+
 @dataclass
 class DC1(Generic[T]):
     value: T
 
+
 @dataclass
 class DC2(Generic[S]):
     value: S
+
 
 @dataclass
 class ClassC(Generic[T, S]):
@@ -57,20 +60,17 @@ class ClassC(Generic[T, S]):
 
 T_co = TypeVar("T_co", covariant=True)
 
+
 class ClassD(Generic[T_co]):
     @overload
-    def __init__(self, arg: Iterable[T_co]) -> None:
-        ...
+    def __init__(self, arg: Iterable[T_co]) -> None: ...
 
     @overload
-    def __init__(self, arg: Callable[[], Iterable[T_co]]) -> None:
-        ...
+    def __init__(self, arg: Callable[[], Iterable[T_co]]) -> None: ...
 
-    def __init__(self, arg: Iterable[T_co] | Callable[[], Iterable[T_co]]) -> None:
-        ...
+    def __init__(self, arg: Iterable[T_co] | Callable[[], Iterable[T_co]]) -> None: ...
 
-    def __iter__(self) -> Iterator[T_co]:
-        ...
+    def __iter__(self) -> Iterator[T_co]: ...
 
 
 class ClassE(ClassD[T_co]):

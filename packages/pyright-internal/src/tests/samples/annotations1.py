@@ -64,8 +64,7 @@ class ClassD:
 
     str: "str"
 
-    def int(self):
-        ...
+    def int(self): ...
 
     foo: "int"
 
@@ -147,4 +146,3 @@ x12: b"int"
 
 # This should generate an error because format strings aren't allowed.
 x13: f"int"
-

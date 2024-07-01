@@ -8,8 +8,7 @@ _T = TypeVar("_T")
 
 
 class ClassA(tuple[int, str, int, _T]):
-    def __new__(cls) -> Self:
-        ...
+    def __new__(cls) -> Self: ...
 
 
 objA = ClassA[complex]()
@@ -38,8 +37,7 @@ for aaa in objA:
 
 
 class ClassB(tuple[_T, ...]):
-    def __new__(cls) -> Self:
-        ...
+    def __new__(cls) -> Self: ...
 
 
 objB = ClassB[complex]()
@@ -89,8 +87,7 @@ t3_2: TupleTypeAlias2 = (3, 4)
 T = TypeVar("T")
 
 
-def baz(v: Iterable[T]) -> tuple[T]:
-    ...
+def baz(v: Iterable[T]) -> tuple[T]: ...
 
 
 def qux() -> None:

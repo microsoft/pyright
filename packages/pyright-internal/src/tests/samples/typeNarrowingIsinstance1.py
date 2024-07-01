@@ -130,8 +130,7 @@ def func7(a: Union[list[int], int]):
 # on isinstance checks.
 
 
-class Base1:
-    ...
+class Base1: ...
 
 
 class Sub1_1(Base1):
@@ -183,14 +182,12 @@ def func10(val: Sub2[str] | Base2[str, float]):
 
 @runtime_checkable
 class Proto1(Protocol):
-    def f0(self, /) -> None:
-        ...
+    def f0(self, /) -> None: ...
 
 
 @runtime_checkable
 class Proto2(Proto1, Protocol):
-    def f1(self, /) -> None:
-        ...
+    def f1(self, /) -> None: ...
 
 
 def func11(x: Proto1):

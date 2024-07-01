@@ -9,8 +9,7 @@ T_A = TypeVar("T_A", bound="A")
 
 class A(ABC):
     @abstractmethod
-    def some_method(self) -> str:
-        ...
+    def some_method(self) -> str: ...
 
     def some_factory_method_1(self):
         return type(self)()

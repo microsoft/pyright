@@ -50,8 +50,7 @@ class TD5(TypedDict, Generic[_T1]):
     y: _T1
 
 
-def func2(a: TD5[Literal[1]]):
-    ...
+def func2(a: TD5[Literal[1]]): ...
 
 
 func2({"x": 1, "y": 1})
@@ -60,8 +59,7 @@ func2({"x": 1, "y": 1})
 func2({"x": 2, "y": 1})
 
 
-def func3(a: TD5[_T1]) -> _T1:
-    ...
+def func3(a: TD5[_T1]) -> _T1: ...
 
 
 reveal_type(func3({"x": 1, "y": 1}), expected_text="int")
@@ -72,8 +70,7 @@ class TD6(TD5[Literal[1]]):
     z: str
 
 
-def func4(a: TD6) -> Literal[1]:
-    ...
+def func4(a: TD6) -> Literal[1]: ...
 
 
 func4({"x": 1, "y": 1, "z": "a"})
@@ -96,8 +93,7 @@ f3: TD7[Literal[1]] = {"x": 1, "y": 1, "z": "a"}
 reveal_type(func5({"x": 1, "y": 1, "z": "a"}))
 
 
-class TD8(TD7[Literal[1]]):
-    ...
+class TD8(TD7[Literal[1]]): ...
 
 
 def func6(a: TD8) -> Literal[1]:
@@ -115,8 +111,7 @@ class TD9(TypedDict, Generic[_T1]):
 
 
 class ClassA(Generic[_T1]):
-    def __init__(self, **attrs: Unpack[TD9[_T1]]) -> None:
-        ...
+    def __init__(self, **attrs: Unpack[TD9[_T1]]) -> None: ...
 
 
 f5 = ClassA[int](x=1)
@@ -136,5 +131,4 @@ class TD11(TypedDict):
     y: int
 
 
-class TD12(TD10[str], TD11):
-    ...
+class TD12(TD10[str], TD11): ...

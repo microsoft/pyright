@@ -17,8 +17,7 @@ def extend_if(xs: list[_T], ys: list[tuple[_T, bool]]) -> list[_T]:
 extend_if(["foo"], [("bar", True), ("baz", True)])
 
 
-def func1(value: _T) -> Callable[[_T], None]:
-    ...
+def func1(value: _T) -> Callable[[_T], None]: ...
 
 
 def func2() -> Callable[[bool], None]:

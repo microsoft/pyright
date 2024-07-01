@@ -26,7 +26,7 @@ TailRec = Call[Unpack[Ts]] | Return[T]
 
 
 def tail_rec(
-    fn: Callable[[Unpack[Ts]], TailRec[Unpack[Ts], T]]
+    fn: Callable[[Unpack[Ts]], TailRec[Unpack[Ts], T]],
 ) -> Callable[[Unpack[Ts]], T]: ...
 
 
