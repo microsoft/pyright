@@ -16098,12 +16098,25 @@ export function createTypeEvaluator(
         return undefined;
     }
 
-    function evaluateTypesForAssignmentStatement(node: AssignmentNode): void {
+    // Evaluates the types of the LHS and RHS of the assignment expression.
+    // If targetOfInterest is provided and corresponds to a specific target
+    // name within the LHS of a destructured assignment, only that target
+    // may be evaluated as an optimization when it's safe to do so.
+    function evaluateTypesForAssignmentStatement(node: AssignmentNode, targetOfInterest?: ParseNode): void {
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
         // If the entire statement has already been evaluated, don't
         // re-evaluate it.
         if (isTypeCached(node)) {
+            return;
+        }
+
+        // If this is a tuple assigned to a tuple with a target of interest,
+        // shortcut the evaluation to only the target of interest.
+        if (
+            targetOfInterest?.nodeType === ParseNodeType.Name &&
+            evaluateTypeForPartialAssignmentTarget(node, targetOfInterest)
+        ) {
             return;
         }
 
@@ -16279,6 +16292,71 @@ export function createTypeEvaluator(
         );
 
         writeTypeCache(node, { type: rightHandType, isIncomplete }, EvaluatorFlags.None);
+    }
+
+    // Attempts to evaluate only the portion of the RHS that is needed to evaluate
+    // the target node. This is an optimization to handle the case where a tuple
+    // is assigned to a tuple (e.g. "a, b, c = d, e, f"). This is a pattern that comes
+    // up frequently in scientific Python code, and it creates false dependencies
+    // between variables, which can greatly affect type analysis performance. In
+    // cases where we can sever these dependencies safely, we will do so. Returns
+    // false if this optimization isn't possible.
+    function evaluateTypeForPartialAssignmentTarget(node: AssignmentNode, targetNode: NameNode): boolean {
+        if (
+            node.leftExpression.nodeType !== ParseNodeType.Tuple ||
+            node.rightExpression.nodeType !== ParseNodeType.Tuple
+        ) {
+            return false;
+        }
+
+        const leftEntries = node.leftExpression.expressions;
+        const rightEntries = node.rightExpression.expressions;
+
+        if (leftEntries.length !== rightEntries.length) {
+            return false;
+        }
+
+        // Limit the optimization to names only.
+        if (leftEntries.some((entry) => entry.nodeType !== ParseNodeType.Name)) {
+            return false;
+        }
+        if (rightEntries.some((entry) => entry.nodeType !== ParseNodeType.Name)) {
+            return false;
+        }
+
+        // The optimization applies only when we're being asked to evaluate a target
+        // (i.e. a name within the LHS of the assignment statement).
+        const targetIndex = leftEntries.findIndex((entry) => entry === targetNode);
+        if (targetIndex < 0) {
+            return false;
+        }
+
+        if (isTypeCached(targetNode)) {
+            return true;
+        }
+
+        // Determine whether there is a declared type.
+        const declaredType = getDeclaredTypeForExpression(targetNode, { method: 'set' });
+
+        const srcNode = rightEntries[targetIndex] as NameNode;
+        const srcTypeResult = getTypeOfExpression(srcNode, EvaluatorFlags.None, makeInferenceContext(declaredType));
+
+        assignTypeToExpression(
+            targetNode,
+            srcTypeResult,
+            node.rightExpression,
+            /* ignoreEmptyContainers */ true,
+            /* allowAssignmentToFinalVar */ true,
+            srcTypeResult.expectedTypeDiagAddendum
+        );
+
+        writeTypeCache(
+            targetNode,
+            { type: srcTypeResult.type, isIncomplete: srcTypeResult.isIncomplete },
+            EvaluatorFlags.None
+        );
+
+        return true;
     }
 
     function isPossibleTypeAliasOrTypedDict(decl: Declaration) {
@@ -19776,7 +19854,7 @@ export function createTypeEvaluator(
                             curNode.parent.nodeType === ParseNodeType.AugmentedAssignment) &&
                         curNode.parent.rightExpression === curNode;
                     if (!isInAssignmentChain) {
-                        evaluateTypesForAssignmentStatement(curNode);
+                        evaluateTypesForAssignmentStatement(curNode, node);
                         return;
                     }
                     break;
