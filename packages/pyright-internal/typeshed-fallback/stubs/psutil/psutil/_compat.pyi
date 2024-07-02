@@ -20,7 +20,6 @@ xrange = range
 unicode = str
 basestring = str
 
-def u(s): ...
 def b(s): ...
 
 SubprocessTimeoutExpired = TimeoutExpired

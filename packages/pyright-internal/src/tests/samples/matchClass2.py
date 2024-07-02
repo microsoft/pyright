@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass, field
 
+
 @dataclass
 class Point:
     optional: int | None = field(default=None, kw_only=True)
@@ -16,5 +17,4 @@ match obj:
         reveal_type(x, expected_text="int")
         reveal_type(y, expected_text="int")
         reveal_type(opt, expected_text="int | None")
-        distance = (x ** 2 + y ** 2) ** 0.5
-
+        distance = (x**2 + y**2) ** 0.5

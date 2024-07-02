@@ -5,8 +5,9 @@
 
 from typing import TypeVar
 
-def func1[T1, T2 = list[T1]](x: T1, y: int | T2 = 0) -> T2 | list[T1]:
-    ...
+
+def func1[T1, T2 = list[T1]](x: T1, y: int | T2 = 0) -> T2 | list[T1]: ...
+
 
 v1_1 = func1("hi", 3.4)
 reveal_type(v1_1, expected_text="float | list[str]")
@@ -16,6 +17,4 @@ reveal_type(v1_2, expected_text="list[str]")
 
 
 # This should generate an error because T1 depends on T2.
-def func2[T2=list[T1], T1=str]() -> None:
-    ...
-
+def func2[T2 = list[T1], T1 = str]() -> None: ...

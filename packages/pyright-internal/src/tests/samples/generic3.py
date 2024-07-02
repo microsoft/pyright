@@ -18,8 +18,7 @@ class Foo(Iterable[_T2], Generic[_T1, _T2]):
     def foo(self, a: _T1, b: _T2) -> _T2:
         return b
 
-    def __iter__(self) -> Iterator[int]:
-        ...
+    def __iter__(self) -> Iterator[int]: ...
 
 
 a: Foo[int, str] = Foo(2, "")
@@ -38,5 +37,4 @@ V = TypeVar("V")
 
 # This should generate an error because V isn't included
 # in the Generic type variable list.
-class A(Mapping[K, V], Generic[K]):
-    ...
+class A(Mapping[K, V], Generic[K]): ...

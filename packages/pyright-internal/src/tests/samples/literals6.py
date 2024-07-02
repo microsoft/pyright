@@ -38,8 +38,7 @@ Wrong10 = Literal[Any]
 Wrong11 = Literal[...]
 
 
-def func():
-    ...
+def func(): ...
 
 
 # This should generate an error.

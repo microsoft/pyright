@@ -1,6 +1,6 @@
 from _typeshed import ConvertibleToFloat, ConvertibleToInt, Incomplete, Unused
 from collections.abc import Callable, Iterator
-from typing import ClassVar, Generic, Literal, TypeVar
+from typing import ClassVar, Literal, TypeVar
 from typing_extensions import Self
 
 from openpyxl.descriptors import Strict
@@ -12,6 +12,7 @@ from openpyxl.utils.cell import _RangeBoundariesTuple
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.xml.functions import Element
 
+_DimKeyT = TypeVar("_DimKeyT", bound=str | int)
 _DimT = TypeVar("_DimT", bound=Dimension)
 
 class Dimension(Strict, StyleableObject):
@@ -101,9 +102,11 @@ class ColumnDimension(Dimension):
     @property
     def customWidth(self) -> bool: ...
     def reindex(self) -> None: ...
+    @property
+    def range(self) -> str: ...
     def to_tree(self) -> Element | None: ...
 
-class DimensionHolder(BoundDictionary[str, _DimT], Generic[_DimT]):
+class DimensionHolder(BoundDictionary[_DimKeyT, _DimT]):
     worksheet: Worksheet
     max_outline: int | None
     default_factory: Callable[[], _DimT] | None
@@ -111,7 +114,7 @@ class DimensionHolder(BoundDictionary[str, _DimT], Generic[_DimT]):
     def __init__(
         self, worksheet: Worksheet, reference: str = "index", default_factory: Callable[[], _DimT] | None = None
     ) -> None: ...
-    def group(self, start: str, end: str | None = None, outline_level: int = 1, hidden: bool = False) -> None: ...
+    def group(self, start: _DimKeyT, end: _DimKeyT | None = None, outline_level: int = 1, hidden: bool = False) -> None: ...
     def to_tree(self) -> Element | None: ...
 
 class SheetFormatProperties(Serialisable):

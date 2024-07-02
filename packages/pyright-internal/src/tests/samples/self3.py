@@ -3,7 +3,6 @@
 
 
 class SomeClass:
-    def __str__(self) -> str:
-        ...
+    def __str__(self) -> str: ...
 
     __repr__ = __str__

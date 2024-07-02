@@ -1,14 +1,11 @@
 from _typeshed import ConvertibleToFloat, ConvertibleToInt, Incomplete, Unused
 from datetime import datetime
-from re import Pattern
-from typing import ClassVar, Literal, overload
+from typing import ClassVar, Final, Literal, overload
 from typing_extensions import TypeAlias
 
-from openpyxl.descriptors import Strict
 from openpyxl.descriptors.base import (
     Alias,
     Bool,
-    Convertible,
     DateTime,
     Float,
     Integer,
@@ -21,8 +18,6 @@ from openpyxl.descriptors.base import (
 )
 from openpyxl.descriptors.excel import ExtensionList
 from openpyxl.descriptors.serialisable import Serialisable
-
-from ..descriptors.base import _N
 
 _SortConditionSortBy: TypeAlias = Literal["value", "cellColor", "fontColor", "icon"]
 _IconSet: TypeAlias = Literal[
@@ -48,6 +43,7 @@ _SortStateSortMethod: TypeAlias = Literal["stroke", "pinYin"]
 _CustomFilterOperator: TypeAlias = Literal[
     "equal", "lessThan", "lessThanOrEqual", "notEqual", "greaterThanOrEqual", "greaterThan"
 ]
+_StringFilterOperator: TypeAlias = Literal["contains", "startswith", "endswith", "wildcard"]
 _FiltersCalendarType: TypeAlias = Literal[
     "gregorian",
     "gregorianUs",
@@ -170,24 +166,32 @@ class DynamicFilter(Serialisable):
         maxValIso: datetime | str | None = None,
     ) -> None: ...
 
-class CustomFilterValueDescriptor(Convertible[float | str, _N]):
-    pattern: Pattern[str]
-    expected_type: type[float | str]
-    @overload  # type: ignore[override]  # Different restrictions
-    def __set__(
-        self: CustomFilterValueDescriptor[Literal[True]], instance: Serialisable | Strict, value: str | ConvertibleToFloat | None
-    ) -> None: ...
-    @overload
-    def __set__(
-        self: CustomFilterValueDescriptor[Literal[False]], instance: Serialisable | Strict, value: str | ConvertibleToFloat
-    ) -> None: ...
-
 class CustomFilter(Serialisable):
     tagname: ClassVar[str]
-    operator: NoneSet[_CustomFilterOperator]
-    val: Incomplete
+    val: String[Literal[False]]
+    operator: Set[_CustomFilterOperator]
+    def __init__(self, operator: _CustomFilterOperator = "equal", val: str | None = None) -> None: ...
+    def convert(self) -> BlankFilter | NumberFilter | StringFilter: ...
+
+class BlankFilter(CustomFilter):
+    def __init__(self, **kw: Unused) -> None: ...
+    @property
+    def operator(self) -> Literal["notEqual"]: ...  # type: ignore[override]
+    @property
+    def val(self) -> Literal[" "]: ...  # type: ignore[override]
+
+class NumberFilter(CustomFilter):
+    val: Float[Literal[False]]  # type: ignore[assignment]
+    def __init__(self, operator: _CustomFilterOperator = "equal", val: ConvertibleToFloat | None = None) -> None: ...
+
+string_format_mapping: Final[dict[_StringFilterOperator, str]]
+
+class StringFilter(CustomFilter):
+    operator: Set[_StringFilterOperator]  # type: ignore[assignment]
+    val: String[Literal[False]]
+    exclude: Bool[Literal[False]]
     def __init__(
-        self, operator: _CustomFilterOperator | Literal["none"] | None = None, val: Incomplete | None = None
+        self, operator: _StringFilterOperator = "contains", val: str | None = None, exclude: _ConvertibleToBool = False
     ) -> None: ...
 
 class CustomFilters(Serialisable):
@@ -195,7 +199,7 @@ class CustomFilters(Serialisable):
     _and: Bool[Literal[True]]  # Not private. Avoids name clash
     customFilter: Incomplete
     __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, _and: _ConvertibleToBool | None = False, customFilter=()) -> None: ...
+    def __init__(self, _and: _ConvertibleToBool | None = None, customFilter=()) -> None: ...
 
 class Top10(Serialisable):
     tagname: ClassVar[str]

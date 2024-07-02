@@ -6,7 +6,7 @@
  * Helper functions relating to collections and arrays.
  */
 
-import { compareValues, Comparison, equateValues, isArray } from './core';
+import { compareValues, Comparison, equateValues, isArray, MapLike } from './core';
 
 export const emptyArray: never[] = [] as never[];
 export type EqualityComparer<T> = (a: T, b: T) => boolean;
@@ -318,7 +318,7 @@ export function getNestedProperty(object: any, property: string) {
     return value;
 }
 
-export function getOrAdd<K, V>(map: Map<K, V>, key: K, newValueFactory: () => V): V {
+export function getOrAdd<K, V>(map: MapLike<K, V>, key: K, newValueFactory: () => V): V {
     const value = map.get(key);
     if (value !== undefined) {
         return value;

@@ -40,7 +40,7 @@ def triple_1(
 
 
 def triple_2(
-    f: tuple[Callable[[A], X], Callable[[B], Y], Callable[[C], Z]]
+    f: tuple[Callable[[A], X], Callable[[B], Y], Callable[[C], Z]],
 ) -> Callable[[A, B, C], tuple[X, Y, Z]]:
     def wrapped(a: A, b: B, c: C) -> tuple[X, Y, Z]:
         return f[0](a), f[1](b), f[2](c)
@@ -166,7 +166,7 @@ reveal_type(
 
 
 def test_7(
-    g: Callable[[C], D]
+    g: Callable[[C], D],
 ) -> Callable[[Callable[[A], Callable[[B], C]]], Callable[[A], Callable[[B], D]]]:
     val6 = test_6(test_6)(test_6)(g)
     reveal_type(

@@ -89,8 +89,6 @@ class sdiskpart(NamedTuple):
     mountpoint: str
     fstype: str
     opts: str
-    maxfile: int
-    maxpath: int
 
 class snetio(NamedTuple):
     bytes_sent: int

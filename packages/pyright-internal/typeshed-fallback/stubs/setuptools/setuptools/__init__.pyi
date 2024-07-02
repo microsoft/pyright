@@ -1,7 +1,7 @@
 from _typeshed import StrPath
 from abc import abstractmethod
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Literal
+from typing import Any
 
 from ._distutils.cmd import Command as _Command
 from .depends import Require as Require
@@ -76,9 +76,7 @@ class Command(_Command):
     distribution: Distribution
     def __init__(self, dist: Distribution, **kw: Any) -> None: ...
     def ensure_string_list(self, option: str | list[str]) -> None: ...
-    def reinitialize_command(
-        self, command: _Command | str, reinit_subcommands: bool | Literal[0, 1] = 0, **kw: Any
-    ) -> _Command: ...
+    def reinitialize_command(self, command: _Command | str, reinit_subcommands: bool = False, **kw: Any) -> _Command: ...  # type: ignore[override]
     @abstractmethod
     def initialize_options(self) -> None: ...
     @abstractmethod

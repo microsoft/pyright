@@ -25,8 +25,7 @@ reveal_type(Child1.construct(), expected_text="Child1")
 
 class Parent2:
     @classmethod
-    def construct(cls: type[_T2]) -> _T2:
-        ...
+    def construct(cls: type[_T2]) -> _T2: ...
 
 
 class Child2(Parent2):

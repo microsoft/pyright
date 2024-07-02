@@ -20,8 +20,7 @@ class A:
 T = TypeVar("T")
 
 
-class B(Generic[T]):
-    ...
+class B(Generic[T]): ...
 
 
 def func1(v1: list[Any | None], v2: list[int | str]):

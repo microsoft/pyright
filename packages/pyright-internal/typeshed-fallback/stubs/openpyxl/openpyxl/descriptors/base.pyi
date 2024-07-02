@@ -12,7 +12,7 @@ from openpyxl.worksheet.cell_range import CellRange, MultiCellRange
 
 _T = TypeVar("_T")
 _P = TypeVar("_P", str, ReadableBuffer)
-_N = TypeVar("_N", bound=bool)
+_N = TypeVar("_N", bound=bool, default=Literal[False])
 _L = TypeVar("_L", bound=Sized)
 _M = TypeVar("_M", int, float)
 

@@ -1,7 +1,8 @@
 # This sample file tests various aspects of type analysis for tuples.
 
 import os
-from typing import Any, Callable
+from typing import Any, Callable, Never
+
 from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
     TypeVarTuple,
     Unpack,
@@ -270,3 +271,13 @@ def func19(a: tuple[int, ...], b: tuple[int, *tuple[int, ...]]):
 
     # This should generate an error.
     b5: tuple[int, int, *tuple[int, ...]] = b
+
+
+def func20(v: tuple[Never]):
+    # This should generate an error.
+    x1: tuple[Never] = (1,)
+
+    # This should generate an error.
+    x2: tuple[Never] = ()
+
+    x3: tuple[Never] = v

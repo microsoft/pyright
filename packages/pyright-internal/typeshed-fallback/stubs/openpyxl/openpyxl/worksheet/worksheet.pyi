@@ -51,8 +51,8 @@ class Worksheet(_WorkbookChild):
     ORIENTATION_PORTRAIT: Final = "portrait"
     ORIENTATION_LANDSCAPE: Final = "landscape"
 
-    row_dimensions: DimensionHolder[RowDimension]
-    column_dimensions: DimensionHolder[ColumnDimension]
+    row_dimensions: DimensionHolder[int, RowDimension]
+    column_dimensions: DimensionHolder[str, ColumnDimension]
     row_breaks: RowBreak
     col_breaks: ColBreak
     merged_cells: MultiCellRange
@@ -190,6 +190,8 @@ class Worksheet(_WorkbookChild):
     ) -> Generator[tuple[Cell, ...], None, None] | Generator[tuple[str | float | datetime | None, ...], None, None]: ...
     @property
     def columns(self) -> Generator[tuple[Cell, ...], None, None]: ...
+    @property
+    def column_groups(self) -> list[str]: ...
     def set_printer_settings(
         self, paper_size: int | None, orientation: Literal["default", "portrait", "landscape"] | None
     ) -> None: ...

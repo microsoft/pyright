@@ -1020,7 +1020,7 @@ function assignTypeToParamSpec(
 // performs this reverse mapping of type arguments and populates the type var
 // map for the target type. If the type is not assignable to the expected type,
 // it returns false.
-export function populateTypeVarContextBasedOnExpectedType(
+export function addConstraintsForExpectedType(
     evaluator: TypeEvaluator,
     type: ClassType,
     expectedType: Type,

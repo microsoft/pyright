@@ -4,28 +4,24 @@
 from typing import Callable, Sequence, TypeVar
 
 
-class A:
-    ...
+class A: ...
 
 
 class B:
-    def __call__(self, x: str) -> int:
-        ...
+    def __call__(self, x: str) -> int: ...
 
 
-class C:
-    ...
+class C: ...
 
 
-class D(C):
-    ...
+class D(C): ...
 
 
 TCall1 = TypeVar("TCall1", bound=Callable[..., int])
 
 
 def func1(
-    obj: Callable[[int, str], int] | list[int] | A | B | C | D | TCall1
+    obj: Callable[[int, str], int] | list[int] | A | B | C | D | TCall1,
 ) -> TCall1 | None:
     if isinstance(obj, (Callable, Sequence, C)):
         reveal_type(

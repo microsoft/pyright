@@ -29,7 +29,7 @@ import {
     PatternValueNode,
 } from '../parser/parseNodes';
 import { CodeFlowReferenceExpressionNode } from './codeFlowTypes';
-import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
+import { addConstraintsForExpectedType } from './constraintSolver';
 import { getTypeVarScopesForNode, isMatchingExpression } from './parseTreeUtils';
 import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
@@ -685,7 +685,7 @@ function narrowTypeBasedOnClassPattern(
     // specialize it with Unknown type arguments.
     if (isClass(exprType) && !exprType.typeAliasInfo) {
         exprType = ClassType.cloneRemoveTypePromotions(exprType);
-        exprType = specializeWithUnknownTypeArgs(exprType);
+        exprType = specializeWithUnknownTypeArgs(exprType, evaluator.getTupleClassType());
     }
 
     // Are there any positional arguments? If so, try to get the mappings for
@@ -921,7 +921,7 @@ function narrowTypeBasedOnClassPattern(
 
                                     const matchTypeInstance = ClassType.cloneAsInstance(unspecializedMatchType);
                                     if (
-                                        populateTypeVarContextBasedOnExpectedType(
+                                        addConstraintsForExpectedType(
                                             evaluator,
                                             matchTypeInstance,
                                             subjectSubtypeExpanded,
@@ -932,6 +932,7 @@ function narrowTypeBasedOnClassPattern(
                                     ) {
                                         resultType = applySolvedTypeVars(matchTypeInstance, typeVarContext, {
                                             unknownIfNotFound: true,
+                                            tupleClassType: evaluator.getTupleClassType(),
                                         }) as ClassType;
                                     }
                                 }
@@ -1454,7 +1455,7 @@ function getSequencePatternInfo(
             if (sequenceType && isInstantiableClass(sequenceType)) {
                 const sequenceTypeVarContext = new TypeVarContext(getTypeVarScopeId(sequenceType));
                 if (
-                    populateTypeVarContextBasedOnExpectedType(
+                    addConstraintsForExpectedType(
                         evaluator,
                         ClassType.cloneAsInstance(sequenceType),
                         subtype,

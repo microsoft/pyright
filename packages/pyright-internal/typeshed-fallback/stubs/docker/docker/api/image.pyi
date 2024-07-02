@@ -1,4 +1,5 @@
 from _typeshed import Incomplete
+from typing import Any
 
 log: Incomplete
 
@@ -39,9 +40,9 @@ class ImageApiMixin:
         repository: str,
         tag: str | None = None,
         stream: bool = False,
-        auth_config: Incomplete | None = None,
+        auth_config: dict[str, Any] | None = None,
         decode: bool = False,
-        platform: Incomplete | None = None,
+        platform: str | None = None,
         all_tags: bool = False,
     ): ...
     def push(

@@ -34,7 +34,7 @@ def generator2() -> Iterator[ClassB]:
 
 
 def generator3(
-    arg: Generator[int, None, T] | Generator[str, None, T]
+    arg: Generator[int, None, T] | Generator[str, None, T],
 ) -> Generator[int | str, None, T]:
     x = yield from arg
     reveal_type(x, expected_text="T@generator3")
@@ -42,7 +42,7 @@ def generator3(
 
 
 def generator4(
-    arg: Generator[int, None, int] | Generator[str, None, str]
+    arg: Generator[int, None, int] | Generator[str, None, str],
 ) -> Generator[int | str, None, int | str]:
     x = yield from arg
     reveal_type(x, expected_text="int | str")
@@ -55,6 +55,7 @@ def generator5() -> Generator[None, float, None]:
 
 def generator6() -> Generator[None, int, None]:
     yield from generator5()
+
 
 def generator7() -> Generator[None, int, None]:
     x: float = yield

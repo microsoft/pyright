@@ -29,3 +29,11 @@ def func1(t: type[TA]) -> TA: ...
 
 b = B(func1, A)
 reveal_type(b, expected_text="B[(t: type[A]), A]")
+
+
+class C(Generic[TA]):
+    def __init__(self, _type: type[TA]) -> None: ...
+
+
+c = B(C, A)
+reveal_type(c, expected_text="B[(_type: type[A]), C[A]]")

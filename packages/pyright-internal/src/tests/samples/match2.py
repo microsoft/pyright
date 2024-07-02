@@ -4,7 +4,7 @@
 
 def func1(subj: int | dict[str, str] | tuple[int] | str, cond: bool):
     match subj:
-        case (3 | "hi"):
+        case 3 | "hi":
             reveal_type(subj, expected_text="Literal[3, 'hi']")
             return
 

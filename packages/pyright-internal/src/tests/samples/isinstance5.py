@@ -11,20 +11,17 @@ from typing import Any, Protocol, runtime_checkable
 class DataProtocol(Protocol):
     name: str
 
-    def method1(self) -> int:
-        ...
+    def method1(self) -> int: ...
 
 
 @runtime_checkable
 class DataProtocol2(DataProtocol, Protocol):
-    def method2(self) -> int:
-        ...
+    def method2(self) -> int: ...
 
 
 @runtime_checkable
 class NonDataProtocol(Protocol):
-    def method1(self) -> int:
-        ...
+    def method1(self) -> int: ...
 
 
 def func2(a: Any):

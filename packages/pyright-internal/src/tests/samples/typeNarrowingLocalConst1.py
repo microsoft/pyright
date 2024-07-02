@@ -85,12 +85,10 @@ def func6(x: A | B) -> None:
             x = B()
 
 
-def get_string() -> str:
-    ...
+def get_string() -> str: ...
 
 
-def get_optional_string() -> str | None:
-    ...
+def get_optional_string() -> str | None: ...
 
 
 def func7(val: str | None = None):

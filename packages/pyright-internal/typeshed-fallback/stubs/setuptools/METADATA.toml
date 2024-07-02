@@ -1,4 +1,4 @@
-version = "70.0.*"
+version = "70.1.*"
 upstream_repository = "https://github.com/pypa/setuptools"
 
 [tool.stubtest]

@@ -22,7 +22,7 @@ import {
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
-import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
+import { addConstraintsForExpectedType } from './constraintSolver';
 import { Declaration, DeclarationType } from './declaration';
 import { transformTypeForEnumMember } from './enums';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -638,7 +638,7 @@ export function getTypeNarrowingCallback(
                     );
                     const arg1Type = arg1TypeResult.type;
 
-                    const classTypeList = getIsInstanceClassTypes(arg1Type);
+                    const classTypeList = getIsInstanceClassTypes(evaluator, arg1Type);
                     const isIncomplete = !!callTypeResult.isIncomplete || !!arg1TypeResult.isIncomplete;
 
                     if (classTypeList) {
@@ -1146,7 +1146,10 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
 // that accepts a single class, and a more complex form that accepts a tuple
 // of classes (including arbitrarily-nested tuples). This method determines
 // which form and returns a list of classes or undefined.
-function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | FunctionType)[] | undefined {
+function getIsInstanceClassTypes(
+    evaluator: TypeEvaluator,
+    argType: Type
+): (ClassType | TypeVarType | FunctionType)[] | undefined {
     let foundNonClassType = false;
     const classTypeList: (ClassType | TypeVarType | FunctionType)[] = [];
 
@@ -1155,7 +1158,7 @@ function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | Func
     const addClassTypesToList = (types: Type[]) => {
         types.forEach((subtype) => {
             if (isClass(subtype)) {
-                subtype = specializeWithUnknownTypeArgs(subtype);
+                subtype = specializeWithUnknownTypeArgs(subtype, evaluator.getTupleClassType());
 
                 if (isInstantiableClass(subtype) && ClassType.isBuiltIn(subtype, 'Callable')) {
                     subtype = convertToInstantiable(getUnknownTypeForCallable());
@@ -1359,7 +1362,8 @@ function narrowTypeForIsInstanceInternal(
                                 concreteFilterType,
                                 /* typeArguments */ undefined,
                                 /* isTypeArgumentExplicit */ false
-                            )
+                            ),
+                            evaluator.getTupleClassType()
                         );
                     }
 
@@ -1451,7 +1455,7 @@ function narrowTypeForIsInstanceInternal(
                                         );
 
                                         if (
-                                            populateTypeVarContextBasedOnExpectedType(
+                                            addConstraintsForExpectedType(
                                                 evaluator,
                                                 unspecializedFilterType,
                                                 concreteVarType,
@@ -1463,7 +1467,11 @@ function narrowTypeForIsInstanceInternal(
                                             specializedFilterType = applySolvedTypeVars(
                                                 unspecializedFilterType,
                                                 typeVarContext,
-                                                { unknownIfNotFound: true, useUnknownOverDefault: true }
+                                                {
+                                                    unknownIfNotFound: true,
+                                                    useUnknownOverDefault: true,
+                                                    tupleClassType: evaluator.getTupleClassType(),
+                                                }
                                             ) as ClassType;
                                         }
                                     }
@@ -1764,7 +1772,11 @@ function narrowTypeForIsInstanceInternal(
 
     const filteredType = evaluator.mapSubtypesExpandTypeVars(
         expandedTypes,
-        /* options */ undefined,
+        {
+            expandCallback: (type) => {
+                return evaluator.expandPromotionTypes(errorNode, type);
+            },
+        },
         (subtype, unexpandedSubtype) => {
             // If we fail to filter anything in the negative case, we need to decide
             // whether to retain the original TypeVar or replace it with its specialized
@@ -2459,33 +2471,69 @@ function narrowTypeForClassComparison(
     isPositiveTest: boolean
 ): Type {
     return mapSubtypes(referenceType, (subtype) => {
-        const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
+        let concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
         if (isPositiveTest) {
             if (isNoneInstance(concreteSubtype)) {
-                return undefined;
+                return isNoneTypeClass(classType) ? classType : undefined;
             }
 
-            if (isClassInstance(concreteSubtype) && TypeBase.isInstance(subtype)) {
-                if (ClassType.isBuiltIn(concreteSubtype, 'type')) {
-                    return classType;
+            if (
+                isClassInstance(concreteSubtype) &&
+                TypeBase.isInstance(subtype) &&
+                ClassType.isBuiltIn(concreteSubtype, 'type')
+            ) {
+                concreteSubtype =
+                    concreteSubtype.typeArguments && concreteSubtype.typeArguments.length > 0
+                        ? convertToInstantiable(concreteSubtype.typeArguments[0])
+                        : UnknownType.create();
+            }
+
+            if (isAnyOrUnknown(concreteSubtype)) {
+                return classType;
+            }
+
+            if (isClass(concreteSubtype)) {
+                if (TypeBase.isInstance(concreteSubtype)) {
+                    return ClassType.isBuiltIn(concreteSubtype, 'object') ? classType : undefined;
                 }
 
-                return undefined;
-            }
+                const isSuperType = isIsinstanceFilterSuperclass(
+                    evaluator,
+                    subtype,
+                    concreteSubtype,
+                    classType,
+                    classType,
+                    /* isInstanceCheck */ false
+                );
 
-            if (isInstantiableClass(concreteSubtype) && ClassType.isFinal(concreteSubtype)) {
-                if (
-                    !ClassType.isSameGenericClass(concreteSubtype, classType) &&
-                    !isIsinstanceFilterSuperclass(
+                if (!classType.includeSubclasses) {
+                    // Handle the case where the LHS and RHS operands are specific
+                    // classes, as opposed to types that represent classes and their
+                    // subclasses.
+                    if (!concreteSubtype.includeSubclasses) {
+                        return ClassType.isSameGenericClass(concreteSubtype, classType) ? classType : undefined;
+                    }
+
+                    const isSubType = isIsinstanceFilterSubclass(
                         evaluator,
-                        subtype,
                         concreteSubtype,
                         classType,
-                        classType,
                         /* isInstanceCheck */ false
-                    )
-                ) {
+                    );
+
+                    if (isSuperType) {
+                        return classType;
+                    }
+
+                    if (isSubType) {
+                        return addConditionToType(classType, getTypeCondition(concreteSubtype));
+                    }
+
+                    return undefined;
+                }
+
+                if (ClassType.isFinal(concreteSubtype) && !isSuperType) {
                     return undefined;
                 }
             }

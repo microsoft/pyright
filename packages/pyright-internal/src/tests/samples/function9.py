@@ -7,19 +7,16 @@ from typing import Callable, TypeVar, Literal
 _A = TypeVar("_A")
 
 
-def wrapper1(fn: Callable[[_A], int]) -> _A:
-    ...
+def wrapper1(fn: Callable[[_A], int]) -> _A: ...
 
 
-def f1(a: Literal[0]) -> int:
-    ...
+def f1(a: Literal[0]) -> int: ...
 
 
 reveal_type(wrapper1(f1), expected_text="Literal[0]")
 
 
-def wrapper2(fn: Callable[..., _A]) -> Callable[..., _A]:
-    ...
+def wrapper2(fn: Callable[..., _A]) -> Callable[..., _A]: ...
 
 
 def f2() -> Literal["Foo"]:

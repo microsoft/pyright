@@ -4,11 +4,14 @@
 from dataclasses import dataclass
 from typing import Any, overload
 
+
 class ClassA: ...
+
 
 @dataclass
 class ClassB[T: ClassA = ClassA]:
     owner: T
+
 
 def post_comment[T: ClassA](owner: T) -> ClassB[T]:
     return ClassB(owner)

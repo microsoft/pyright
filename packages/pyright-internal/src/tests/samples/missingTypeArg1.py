@@ -42,8 +42,7 @@ a = Class3[int]
 
 
 # This should generate an error when reportMissingTypeArgument is enabled.
-def func1() -> collections.deque:
-    ...
+def func1() -> collections.deque: ...
 
 
 def func2(obj: object):

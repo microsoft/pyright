@@ -107,8 +107,7 @@ class Class5(Generic[_T1]):
         return None
 
 
-class Class6(Class5[int]):
-    ...
+class Class6(Class5[int]): ...
 
 
 async def do():

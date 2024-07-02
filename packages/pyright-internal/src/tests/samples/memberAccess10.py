@@ -13,8 +13,7 @@ class _IntDescriptorMeta(type):
         pass
 
 
-class IntDescriptorClass(metaclass=_IntDescriptorMeta):
-    ...
+class IntDescriptorClass(metaclass=_IntDescriptorMeta): ...
 
 
 class X:

@@ -50,16 +50,13 @@ reveal_type(x2[0], expected_text="str | int")
 
 class ClassC:
     @property
-    def x(self) -> str:
-        ...
+    def x(self) -> str: ...
 
     @x.setter
-    def x(self, value: str) -> None:
-        ...
+    def x(self, value: str) -> None: ...
 
     @x.deleter
-    def x(self) -> None:
-        ...
+    def x(self) -> None: ...
 
 
 c = ClassC()

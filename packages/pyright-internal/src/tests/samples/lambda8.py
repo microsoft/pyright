@@ -8,13 +8,11 @@ R = TypeVar("R")
 
 
 class A(Generic[T, R]):
-    def __init__(self, x: Callable[[T], R], y: T):
-        ...
+    def __init__(self, x: Callable[[T], R], y: T): ...
 
 
 class B(Generic[R]):
-    def __init__(self, x: Callable[[T], R], y: T):
-        ...
+    def __init__(self, x: Callable[[T], R], y: T): ...
 
 
 reveal_type(A(lambda x: x, 123), expected_text="A[int, int]")

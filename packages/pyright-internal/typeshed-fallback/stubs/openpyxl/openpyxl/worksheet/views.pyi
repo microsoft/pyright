@@ -4,6 +4,7 @@ from typing_extensions import TypeAlias
 
 from openpyxl.descriptors.base import Bool, Float, Integer, NoneSet, Set, String, Typed, _ConvertibleToBool
 from openpyxl.descriptors.excel import ExtensionList
+from openpyxl.descriptors.sequence import Sequence
 from openpyxl.descriptors.serialisable import Serialisable
 
 _Pane: TypeAlias = Literal["bottomRight", "topRight", "bottomLeft", "topLeft"]
@@ -90,7 +91,9 @@ class SheetView(Serialisable):
 
 class SheetViewList(Serialisable):
     tagname: ClassVar[str]
-    sheetView: Incomplete
+    sheetView: Sequence[list[SheetView]]
     extLst: Typed[ExtensionList, Literal[True]]
     __elements__: ClassVar[tuple[str, ...]]
-    def __init__(self, sheetView: Incomplete | None = None, extLst: Unused = None) -> None: ...
+    def __init__(self, sheetView: SheetView | None = None, extLst: Unused = None) -> None: ...
+    @property
+    def active(self) -> SheetView: ...

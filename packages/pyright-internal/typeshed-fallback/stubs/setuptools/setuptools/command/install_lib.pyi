@@ -1,5 +1,4 @@
 from _typeshed import StrPath, Unused
-from typing import Literal
 
 from .._distutils.command import install_lib as orig
 
@@ -10,9 +9,9 @@ class install_lib(orig.install_lib):
         self,
         infile: StrPath,
         outfile: str,
-        preserve_mode: bool | Literal[0, 1] = 1,
-        preserve_times: bool | Literal[0, 1] = 1,
-        preserve_symlinks: bool | Literal[0, 1] = 0,
+        preserve_mode: bool = True,  # type: ignore[override]
+        preserve_times: bool = True,  # type: ignore[override]
+        preserve_symlinks: bool = False,  # type: ignore[override]
         level: Unused = 1,
     ): ...
     def get_outputs(self): ...

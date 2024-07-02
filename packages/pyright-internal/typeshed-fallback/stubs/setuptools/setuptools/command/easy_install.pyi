@@ -16,7 +16,7 @@ class easy_install(Command):
     boolean_options: Incomplete
     negative_opt: Incomplete
     create_index: Incomplete
-    user: int
+    user: bool
     zip_ok: Incomplete
     install_dir: Incomplete
     index_url: Incomplete

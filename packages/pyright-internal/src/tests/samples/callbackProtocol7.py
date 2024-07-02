@@ -5,11 +5,10 @@ from typing import Any, Protocol
 
 
 class X(Protocol):
-    def __call__(self, x: int, /, y: str) -> Any:
-        ...
+    def __call__(self, x: int, /, y: str) -> Any: ...
 
-def f1(x: int, /, y: str, z: None = None) -> Any:
-    ...
+
+def f1(x: int, /, y: str, z: None = None) -> Any: ...
 
 
 x: X = f1

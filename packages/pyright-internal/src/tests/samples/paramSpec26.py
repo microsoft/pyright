@@ -7,16 +7,13 @@ P = ParamSpec("P")
 
 
 class A(Generic[P]):
-    def __init__(self, func: Callable[P, Any]) -> None:
-        ...
+    def __init__(self, func: Callable[P, Any]) -> None: ...
 
 
-def func1(a: A[Concatenate[int, P]]) -> A[P]:
-    ...
+def func1(a: A[Concatenate[int, P]]) -> A[P]: ...
 
 
-def func2(a: int, b: str) -> str:
-    ...
+def func2(a: int, b: str) -> str: ...
 
 
 val1 = A(func2)

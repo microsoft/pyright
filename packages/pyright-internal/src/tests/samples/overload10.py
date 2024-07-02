@@ -10,24 +10,20 @@ _T2 = TypeVar("_T2")
 
 
 @overload
-def func1(__iter1: Iterable[_T1]) -> Tuple[_T1]:
-    ...
+def func1(__iter1: Iterable[_T1]) -> Tuple[_T1]: ...
 
 
 @overload
-def func1(__iter1: Iterable[_T1], __iter2: Iterable[_T2]) -> Tuple[_T1, _T2]:
-    ...
+def func1(__iter1: Iterable[_T1], __iter2: Iterable[_T2]) -> Tuple[_T1, _T2]: ...
 
 
 # This should generate an error because this overload overlaps
 # with the first one and returns a different type.
 @overload
-def func1(*iterables: Iterable[_T1]) -> Tuple[_T1, ...]:
-    ...
+def func1(*iterables: Iterable[_T1]) -> Tuple[_T1, ...]: ...
 
 
-def func1(*iterables: Iterable[_T1]) -> Tuple[_T1, ...]:
-    ...
+def func1(*iterables: Iterable[_T1]) -> Tuple[_T1, ...]: ...
 
 
 def func2(x: Iterable[int]):

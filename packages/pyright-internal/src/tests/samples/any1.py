@@ -11,12 +11,10 @@ v1 = cast(Any, 0)
 v2 = cast(typing.Any, 0)
 
 
-class A(Any):
-    ...
+class A(Any): ...
 
 
-class B(typing.Any):
-    ...
+class B(typing.Any): ...
 
 
 # This should generate an error because Any is not callable.

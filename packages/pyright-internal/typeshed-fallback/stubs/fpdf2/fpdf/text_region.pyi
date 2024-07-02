@@ -4,7 +4,7 @@ from typing import NamedTuple
 from typing_extensions import Self
 
 from .enums import Align, WrapMode
-from .image_datastructures import RasterImageInfo, VectorImageInfo, _AlignLiteral
+from .image_datastructures import RasterImageInfo, VectorImageInfo, _TextAlign
 
 class Extents(NamedTuple):
     left: float
@@ -24,7 +24,7 @@ class LineWrapper(NamedTuple):
 
 class Paragraph:
     pdf: Incomplete
-    text_align: Incomplete
+    text_align: Align
     line_height: Incomplete
     top_margin: Incomplete
     bottom_margin: Incomplete
@@ -34,7 +34,7 @@ class Paragraph:
     def __init__(
         self,
         region,
-        text_align: Incomplete | None = None,
+        text_align: _TextAlign | None = None,
         line_height: Incomplete | None = None,
         top_margin: float = 0,
         bottom_margin: float = 0,
@@ -67,7 +67,7 @@ class ImageParagraph:
         self,
         region,
         name,
-        align: Align | _AlignLiteral | None = None,
+        align: _TextAlign | None = None,
         width: float | None = None,
         height: float | None = None,
         fill_width: bool = False,
@@ -93,7 +93,7 @@ class ParagraphCollectorMixin:
         pdf,
         *args,
         text: str | None = None,
-        text_align: Align | _AlignLiteral = "LEFT",
+        text_align: _TextAlign = "LEFT",
         line_height: float = 1.0,
         print_sh: bool = False,
         skip_leading_spaces: bool = False,
@@ -108,7 +108,7 @@ class ParagraphCollectorMixin:
     def ln(self, h: float | None = None) -> None: ...
     def paragraph(
         self,
-        text_align: Incomplete | None = None,
+        text_align: _TextAlign | None = None,
         line_height: Incomplete | None = None,
         skip_leading_spaces: bool = False,
         top_margin: int = 0,
@@ -119,7 +119,7 @@ class ParagraphCollectorMixin:
     def image(
         self,
         name,
-        align: Align | _AlignLiteral | None = None,
+        align: _TextAlign | None = None,
         width: float | None = None,
         height: float | None = None,
         fill_width: bool = False,

@@ -76,8 +76,8 @@ class ExtendedProperties(Serialisable):
         HLinks: Unused = None,
         HyperlinksChanged: object = None,
         DigSig: Unused = None,
-        Application: object = "Microsoft Excel",
-        AppVersion: object = None,
+        Application: Unused = None,
+        AppVersion: str | None = None,
         DocSecurity: ConvertibleToInt | None = None,
     ) -> None: ...
     def to_tree(self) -> Element: ...  # type: ignore[override]

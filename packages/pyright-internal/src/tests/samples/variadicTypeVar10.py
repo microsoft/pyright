@@ -26,7 +26,7 @@ class Array(Generic[DType, Unpack[Shape]]):
 
 
 def process_batch_channels(
-    x: Array[Batch, Unpack[tuple[Any, ...]], Channels]
+    x: Array[Batch, Unpack[tuple[Any, ...]], Channels],
 ) -> None: ...
 
 

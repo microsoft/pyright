@@ -9,16 +9,14 @@ RecList = Union[Mapping[str, "RecList[S]"], Sequence["RecList[S]"], S]
 T3 = TypeVar("T3", RecList[int], RecList[str])
 
 
-def f3(x: RecList[int] | RecList[str]) -> None:
-    ...
+def f3(x: RecList[int] | RecList[str]) -> None: ...
 
 
 def g3(x: T3):
     return f3(x)
 
 
-def f4(x: RecList[str] | RecList[int]) -> None:
-    ...
+def f4(x: RecList[str] | RecList[int]) -> None: ...
 
 
 def g4(x: T3):

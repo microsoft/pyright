@@ -310,7 +310,14 @@ export abstract class BackgroundAnalysisRunnerBase extends BackgroundThreadBase 
         const console = this.getConsole();
         this.logTracker = new LogTracker(console, `BG(${threadId})`);
 
-        this._program = new Program(this.importResolver, this._configOptions, serviceProvider, this.logTracker);
+        this._program = new Program(
+            this.importResolver,
+            this._configOptions,
+            serviceProvider,
+            this.logTracker,
+            undefined,
+            data.serviceId
+        );
     }
 
     get program(): Program {

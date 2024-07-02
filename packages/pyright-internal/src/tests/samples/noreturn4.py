@@ -7,12 +7,10 @@ from typing import Callable, NoReturn, TypeVar
 _T = TypeVar("_T", int, str)
 
 
-def func1(x: Callable[[NoReturn], None]):
-    ...
+def func1(x: Callable[[NoReturn], None]): ...
 
 
-def func2(x: int) -> NoReturn:
-    ...
+def func2(x: int) -> NoReturn: ...
 
 
 def func3(x: _T) -> _T:

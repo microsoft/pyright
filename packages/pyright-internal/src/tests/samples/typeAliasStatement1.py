@@ -37,8 +37,7 @@ else:
     type TA7 = int
 
 
-def func1() -> type[int]:
-    ...
+def func1() -> type[int]: ...
 
 
 # This should generate an error because a call expression is not

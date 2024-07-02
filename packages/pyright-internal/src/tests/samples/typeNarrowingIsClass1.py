@@ -5,17 +5,14 @@ from typing import Any, TypeVar, final
 
 
 @final
-class A:
-    ...
+class A: ...
 
 
 @final
-class B:
-    ...
+class B: ...
 
 
-class C:
-    ...
+class C: ...
 
 
 def func1(x: type[A] | type[B] | None | int):
@@ -34,7 +31,7 @@ def func2(x: type[A] | type[B] | None | int, y: type[A]):
 
 def func3(x: type[A] | type[B] | Any):
     if x is A:
-        reveal_type(x, expected_text="type[A] | Any")
+        reveal_type(x, expected_text="type[A]")
     else:
         reveal_type(x, expected_text="type[B] | Any")
 
@@ -51,7 +48,7 @@ T = TypeVar("T")
 
 def func5(x: type[A] | type[B] | type[T]) -> type[A] | type[B] | type[T]:
     if x is A:
-        reveal_type(x, expected_text="type[A] | type[T@func5]")
+        reveal_type(x, expected_text="type[A] | type[A]*")
     else:
         reveal_type(x, expected_text="type[B] | type[T@func5]")
 
@@ -63,3 +60,10 @@ def func6(x: type):
         reveal_type(x, expected_text="type[str]")
     else:
         reveal_type(x, expected_text="type")
+
+
+def func7(x: type[A | B]):
+    if x is A:
+        reveal_type(x, expected_text="type[A]")
+    else:
+        reveal_type(x, expected_text="type[B]")

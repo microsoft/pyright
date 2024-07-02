@@ -97,7 +97,7 @@ import {
     isCodeFlowSupportedForReference,
     wildcardImportReferenceKey,
 } from './codeFlowTypes';
-import { assignTypeToTypeVar, populateTypeVarContextBasedOnExpectedType, updateTypeVarType } from './constraintSolver';
+import { addConstraintsForExpectedType, assignTypeToTypeVar, updateTypeVarType } from './constraintSolver';
 import {
     createFunctionFromConstructor,
     getBoundInitMethod,
@@ -1266,7 +1266,7 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.AssignmentExpression: {
-                if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                     addError(LocMessage.walrusNotAllowed(), node);
                 }
 
@@ -1294,7 +1294,7 @@ export function createTypeEvaluator(
                 typeResult = getTypeOfExpression(
                     node.typeAnnotation,
                     EvaluatorFlags.ExpectingInstantiableType |
-                        EvaluatorFlags.ExpectingTypeAnnotation |
+                        EvaluatorFlags.ExpectingTypeExpression |
                         EvaluatorFlags.EvaluateStringLiteralAsType |
                         EvaluatorFlags.DisallowParamSpec |
                         EvaluatorFlags.DisallowTypeVarTuple |
@@ -1337,7 +1337,7 @@ export function createTypeEvaluator(
 
         // If this is a PEP 695 type alias, remove the special form so the type
         // printer prints it as its aliased type rather than TypeAliasType.
-        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+        if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
             if (typeResult.type.specialForm && ClassType.isBuiltIn(typeResult.type.specialForm, 'TypeAliasType')) {
                 typeResult.type = TypeBase.cloneAsSpecialForm(typeResult.type, undefined);
             }
@@ -1404,7 +1404,7 @@ export function createTypeEvaluator(
     }
 
     function getTypeOfAwaitOperator(node: AwaitNode, flags: EvaluatorFlags, inferenceContext?: InferenceContext) {
-        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+        if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
             addError(LocMessage.awaitNotAllowed(), node);
             return { type: UnknownType.create() };
         }
@@ -1484,7 +1484,7 @@ export function createTypeEvaluator(
             ClassType.isBuiltIn(iterType, 'tuple')
         ) {
             typeResult = { type: ClassType.cloneForUnpacked(iterType) };
-        } else if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+        } else if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
             addError(LocMessage.unpackInAnnotation(), node, node.starToken);
             typeResult = { type: UnknownType.create() };
         } else {
@@ -1726,7 +1726,7 @@ export function createTypeEvaluator(
 
         let evaluatorFlags =
             EvaluatorFlags.ExpectingInstantiableType |
-            EvaluatorFlags.ExpectingTypeAnnotation |
+            EvaluatorFlags.ExpectingTypeExpression |
             EvaluatorFlags.ConvertEllipsisToAny |
             EvaluatorFlags.EvaluateStringLiteralAsType;
 
@@ -4411,7 +4411,7 @@ export function createTypeEvaluator(
             node,
             name,
             !allowForwardReferences,
-            allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
+            allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0
         );
 
         if (!symbolWithScope) {
@@ -4424,7 +4424,7 @@ export function createTypeEvaluator(
                     alias,
                     alias.value,
                     !allowForwardReferences,
-                    allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
+                    allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0
                 );
             }
         }
@@ -4517,7 +4517,7 @@ export function createTypeEvaluator(
                 const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
                     targetSymbolId: symbol.id,
                     typeAtStart: { type: typeAtStart, isIncomplete: isTypeAtStartIncomplete },
-                    skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                    skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0,
                 });
 
                 if (codeFlowTypeResult.type) {
@@ -4532,7 +4532,7 @@ export function createTypeEvaluator(
             // Detect, report, and fill in missing type arguments if appropriate.
             type = reportMissingTypeArguments(node, type, flags);
 
-            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                 // Verify that the name does not refer to a (non type alias) variable.
                 if (effectiveTypeInfo.includesVariableDecl && !type.typeAliasInfo) {
                     let isAllowedTypeForVariable = isTypeVar(type) || isTypeAliasPlaceholder(type);
@@ -4593,7 +4593,7 @@ export function createTypeEvaluator(
 
         type = convertTypeVarToRuntimeInstance(node, type, flags);
 
-        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) === 0) {
+        if ((flags & EvaluatorFlags.ExpectingTypeExpression) === 0) {
             reportUseOfTypeCheckOnly(type, node);
         }
 
@@ -4926,7 +4926,10 @@ export function createTypeEvaluator(
 
                 let defaultType: Type;
                 if (param.details.isDefaultExplicit || param.details.isParamSpec) {
-                    defaultType = applySolvedTypeVars(param, typeVarContext, { unknownIfNotFound: true });
+                    defaultType = applySolvedTypeVars(param, typeVarContext, {
+                        unknownIfNotFound: true,
+                        tupleClassType: getTupleClassType(),
+                    });
                 } else if (param.details.isVariadic && tupleClass && isInstantiableClass(tupleClass)) {
                     defaultType = makeTupleObject(
                         [{ type: UnknownType.create(), isUnbounded: true }],
@@ -4951,7 +4954,10 @@ export function createTypeEvaluator(
             }
 
             type = TypeBase.cloneForTypeAlias(
-                applySolvedTypeVars(type, typeVarContext, { unknownIfNotFound: true }),
+                applySolvedTypeVars(type, typeVarContext, {
+                    unknownIfNotFound: true,
+                    tupleClassType: getTupleClassType(),
+                }),
                 type.typeAliasInfo.name,
                 type.typeAliasInfo.fullName,
                 type.typeAliasInfo.moduleName,
@@ -5088,7 +5094,7 @@ export function createTypeEvaluator(
         let leftExprFlags = EvaluatorFlags.MemberAccessBaseDefaults;
         leftExprFlags |=
             flags &
-            (EvaluatorFlags.ExpectingTypeAnnotation |
+            (EvaluatorFlags.ExpectingTypeExpression |
                 EvaluatorFlags.VariableTypeAnnotation |
                 EvaluatorFlags.AllowForwardReferences |
                 EvaluatorFlags.NotParsedByInterpreter |
@@ -5155,7 +5161,7 @@ export function createTypeEvaluator(
             const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
                 targetSymbolId: indeterminateSymbolId,
                 typeAtStart: { type: typeAtStart, isIncomplete: isTypeAtStartIncomplete },
-                skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0,
             });
 
             if (codeFlowTypeResult.type) {
@@ -5288,7 +5294,7 @@ export function createTypeEvaluator(
                 }
 
                 // It's illegal to reference a member from a type variable.
-                if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                     if (!isIncomplete) {
                         addDiagnostic(
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -5632,7 +5638,7 @@ export function createTypeEvaluator(
             type = isFunctionRule ? AnyType.create() : UnknownType.create();
         }
 
-        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) === 0) {
+        if ((flags & EvaluatorFlags.ExpectingTypeExpression) === 0) {
             reportUseOfTypeCheckOnly(type, node.memberName);
         }
 
@@ -6515,7 +6521,7 @@ export function createTypeEvaluator(
                         type: indexTypeResult.type,
                         isIncomplete: !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete,
                     },
-                    skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                    skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0,
                 });
 
                 if (codeFlowTypeResult.type) {
@@ -6855,7 +6861,10 @@ export function createTypeEvaluator(
                 if (index < typeArgs.length) {
                     typeArgType = convertToInstance(typeArgs[index].type);
                 } else if (param.details.isDefaultExplicit) {
-                    typeArgType = applySolvedTypeVars(param, typeVarContext, { unknownIfNotFound: true });
+                    typeArgType = applySolvedTypeVars(param, typeVarContext, {
+                        unknownIfNotFound: true,
+                        tupleClassType: getTupleClassType(),
+                    });
                 } else {
                     typeArgType = UnknownType.create();
                 }
@@ -7018,7 +7027,7 @@ export function createTypeEvaluator(
                             getIndexAccessMagicMethodName(usage)
                         );
 
-                        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                        if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                             // If the class doesn't derive from Generic, a type argument should not be allowed.
                             addDiagnostic(
                                 DiagnosticRule.reportInvalidTypeArguments,
@@ -7059,7 +7068,7 @@ export function createTypeEvaluator(
                         // Special-case InitVar, used in dataclasses.
                         const typeArgs = getTypeArgs(node, flags);
 
-                        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                        if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                             if ((flags & EvaluatorFlags.VariableTypeAnnotation) === 0) {
                                 addError(LocMessage.initVarNotAllowed(), node.baseExpression);
                             }
@@ -7743,7 +7752,7 @@ export function createTypeEvaluator(
         signatureTracker: UniqueSignatureTracker | undefined
     ): TypeResult {
         if (
-            (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0 &&
+            (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0 &&
             node.parent?.nodeType !== ParseNodeType.Argument
         ) {
             // This is allowed inside of an index trailer, specifically
@@ -7769,7 +7778,7 @@ export function createTypeEvaluator(
         }
 
         flags &= ~(
-            EvaluatorFlags.ExpectingTypeAnnotation |
+            EvaluatorFlags.ExpectingTypeExpression |
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.ExpectingInstantiableType
         );
@@ -7872,7 +7881,7 @@ export function createTypeEvaluator(
         } else {
             const tupleTypeVarContext = new TypeVarContext(getTypeVarScopeId(tupleClass));
             if (
-                !populateTypeVarContextBasedOnExpectedType(
+                !addConstraintsForExpectedType(
                     evaluatorInterface,
                     ClassType.cloneAsInstance(tupleClass),
                     inferenceContext.expectedType,
@@ -8001,7 +8010,7 @@ export function createTypeEvaluator(
         // allowed, and it's a common mistake, so we want to emit a diagnostic
         // that guides the user to the right solution.
         if (
-            (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0 &&
+            (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0 &&
             node.leftExpression.nodeType === ParseNodeType.Name &&
             node.leftExpression.value === 'type'
         ) {
@@ -8129,7 +8138,7 @@ export function createTypeEvaluator(
             }
         }
 
-        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+        if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
             addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeAnnotationCall(), node);
 
             typeResult = { type: UnknownType.create() };
@@ -11316,7 +11325,7 @@ export function createTypeEvaluator(
                 if (isClassInstance(effectiveExpectedType) && !isTypeSame(effectiveReturnType, effectiveExpectedType)) {
                     const tempTypeVarContext = new TypeVarContext(getTypeVarScopeId(effectiveReturnType));
                     if (
-                        populateTypeVarContextBasedOnExpectedType(
+                        addConstraintsForExpectedType(
                             evaluatorInterface,
                             effectiveReturnType,
                             effectiveExpectedType,
@@ -11333,6 +11342,7 @@ export function createTypeEvaluator(
 
                         effectiveExpectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
                             unknownIfNotFound: true,
+                            tupleClassType: getTupleClassType(),
                         });
 
                         effectiveFlags |= AssignTypeFlags.SkipPopulateUnknownExpectedType;
@@ -11633,6 +11643,7 @@ export function createTypeEvaluator(
 
         let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
             unknownIfNotFound,
+            tupleClassType: getTupleClassType(),
             unknownExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
             eliminateUnsolvedInUnions,
             applyInScopePlaceholders: true,
@@ -12067,7 +12078,7 @@ export function createTypeEvaluator(
                       EvaluatorFlags.DisallowTypeVarTuple |
                       EvaluatorFlags.DisallowFinal |
                       EvaluatorFlags.DoNotSpecialize
-                    : EvaluatorFlags.DoNotSpecialize | EvaluatorFlags.DisallowFinal;
+                    : EvaluatorFlags.DisallowFinal | EvaluatorFlags.DoNotSpecialize;
                 const exprTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
                     flags,
@@ -12516,6 +12527,7 @@ export function createTypeEvaluator(
         const concreteDefaultType = makeTopLevelTypeVarsConcrete(
             applySolvedTypeVars(typeVar.details.defaultType, typeVarContext, {
                 unknownIfNotFound: true,
+                tupleClassType: getTupleClassType(),
             })
         );
 
@@ -13006,14 +13018,12 @@ export function createTypeEvaluator(
             );
         }
 
-        let classFlags = baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
-        classFlags |= ClassTypeFlags.Final | ClassTypeFlags.NewTypeClass | ClassTypeFlags.ValidTypeAliasClass;
         const classType = ClassType.createInstantiable(
             className,
             ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             fileInfo.fileUri,
-            classFlags,
+            ClassTypeFlags.Final | ClassTypeFlags.NewTypeClass | ClassTypeFlags.ValidTypeAliasClass,
             ParseTreeUtils.getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
             baseClass.details.effectiveMetaclass
@@ -13255,7 +13265,7 @@ export function createTypeEvaluator(
         inferenceContext: InferenceContext | undefined
     ): TypeResult {
         if (
-            (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0 &&
+            (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0 &&
             node.parent?.nodeType !== ParseNodeType.Argument
         ) {
             const diag = new DiagnosticAddendum();
@@ -13397,7 +13407,7 @@ export function createTypeEvaluator(
 
             const dictTypeVarContext = new TypeVarContext(getTypeVarScopeId(builtInDict));
             if (
-                !populateTypeVarContextBasedOnExpectedType(
+                !addConstraintsForExpectedType(
                     evaluatorInterface,
                     builtInDict,
                     inferenceContext.expectedType,
@@ -13575,7 +13585,7 @@ export function createTypeEvaluator(
         const keyFlags =
             flags &
             ~(
-                EvaluatorFlags.ExpectingTypeAnnotation |
+                EvaluatorFlags.ExpectingTypeExpression |
                 EvaluatorFlags.EvaluateStringLiteralAsType |
                 EvaluatorFlags.ExpectingInstantiableType
             );
@@ -13837,7 +13847,7 @@ export function createTypeEvaluator(
         inferenceContext: InferenceContext | undefined
     ): TypeResult {
         if (
-            (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0 &&
+            (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0 &&
             node.nodeType === ParseNodeType.List &&
             node.parent?.nodeType !== ParseNodeType.Argument
         ) {
@@ -13847,7 +13857,7 @@ export function createTypeEvaluator(
         }
 
         flags &= ~(
-            EvaluatorFlags.ExpectingTypeAnnotation |
+            EvaluatorFlags.ExpectingTypeExpression |
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.ExpectingInstantiableType
         );
@@ -14016,7 +14026,7 @@ export function createTypeEvaluator(
 
         const typeVarContext = new TypeVarContext(getTypeVarScopeId(expectedClassType));
         if (
-            !populateTypeVarContextBasedOnExpectedType(
+            !addConstraintsForExpectedType(
                 evaluatorInterface,
                 ClassType.cloneAsInstance(expectedClassType),
                 inferenceContext.expectedType,
@@ -14921,7 +14931,7 @@ export function createTypeEvaluator(
             // If no type arguments are provided, the resulting type
             // depends on whether we're evaluating a type annotation or
             // we're in some other context.
-            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                 addError(LocMessage.optionalExtraArgs(), errorNode);
                 return UnknownType.create();
             }
@@ -15139,7 +15149,7 @@ export function createTypeEvaluator(
         // depends on whether we're evaluating a type annotation or
         // we're in some other context.
         if (!typeArgs) {
-            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                 addError(LocMessage.typeGuardArgCount(), errorNode);
             }
 
@@ -15184,7 +15194,7 @@ export function createTypeEvaluator(
 
         const enclosingClassTypeResult = enclosingClass ? getTypeOfClass(enclosingClass) : undefined;
         if (!enclosingClassTypeResult) {
-            if ((flags & (EvaluatorFlags.ExpectingTypeAnnotation | EvaluatorFlags.ExpectingInstantiableType)) !== 0) {
+            if ((flags & (EvaluatorFlags.ExpectingTypeExpression | EvaluatorFlags.ExpectingInstantiableType)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.selfTypeContext(), errorNode);
             }
 
@@ -15246,7 +15256,7 @@ export function createTypeEvaluator(
         // If no type arguments are provided, the resulting type
         // depends on whether we're evaluating a type annotation or
         // we're in some other context.
-        if (!typeArgs && (flags & EvaluatorFlags.ExpectingTypeAnnotation) === 0) {
+        if (!typeArgs && (flags & EvaluatorFlags.ExpectingTypeExpression) === 0) {
             return { type: classType };
         }
 
@@ -15330,7 +15340,7 @@ export function createTypeEvaluator(
         // If no type arguments are provided, the resulting type
         // depends on whether we're evaluating a type annotation or
         // we're in some other context.
-        if (!typeArgs && (flags & EvaluatorFlags.ExpectingTypeAnnotation) === 0) {
+        if (!typeArgs && (flags & EvaluatorFlags.ExpectingTypeExpression) === 0) {
             return classType;
         }
 
@@ -15654,7 +15664,7 @@ export function createTypeEvaluator(
             // If no type arguments are provided, the resulting type
             // depends on whether we're evaluating a type annotation or
             // we're in some other context.
-            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                 addError(LocMessage.unionTypeArgCount(), errorNode);
                 return NeverType.createNever();
             }
@@ -15741,7 +15751,7 @@ export function createTypeEvaluator(
             // If no type arguments are provided, the resulting type
             // depends on whether we're evaluating a type annotation or
             // we're in some other context.
-            if ((flags & (EvaluatorFlags.ExpectingTypeAnnotation | EvaluatorFlags.DisallowNakedGeneric)) !== 0) {
+            if ((flags & (EvaluatorFlags.ExpectingTypeExpression | EvaluatorFlags.DisallowNakedGeneric)) !== 0) {
                 addError(LocMessage.genericTypeArgMissing(), errorNode);
             }
 
@@ -16113,19 +16123,8 @@ export function createTypeEvaluator(
             flags |= EvaluatorFlags.DoNotSpecialize;
         }
 
-        if (isDeclaredTypeAlias(node.leftExpression)) {
-            flags |=
-                EvaluatorFlags.ExpectingInstantiableType |
-                EvaluatorFlags.ExpectingTypeAnnotation |
-                EvaluatorFlags.EvaluateStringLiteralAsType |
-                EvaluatorFlags.DisallowParamSpec |
-                EvaluatorFlags.DisallowTypeVarTuple |
-                EvaluatorFlags.DisallowClassVar;
-            flags &= ~EvaluatorFlags.DoNotSpecialize;
-        }
-
         // Is this type already cached?
-        let rightHandType = readTypeCache(node.rightExpression, flags);
+        let rightHandType = readTypeCache(node.rightExpression, /* flags */ undefined);
         let isIncomplete = false;
         let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
 
@@ -16138,76 +16137,118 @@ export function createTypeEvaluator(
                     writeTypeCache(node.rightExpression, { type: rightHandType }, EvaluatorFlags.None);
                 }
             }
+        }
 
-            if (!rightHandType) {
-                // Determine whether there is a declared type.
-                const declaredType = getDeclaredTypeForExpression(node.leftExpression, {
-                    method: 'set',
-                });
+        if (!rightHandType) {
+            // Determine whether there is a declared type.
+            const declaredType = getDeclaredTypeForExpression(node.leftExpression, { method: 'set' });
 
-                let typeAliasNameNode: NameNode | undefined;
-                let isSpeculativeTypeAlias = false;
+            let typeAliasNameNode: NameNode | undefined;
+            let isSpeculativeTypeAlias = false;
+            let typeAliasPlaceholder: TypeVarType | undefined;
 
-                if (isDeclaredTypeAlias(node.leftExpression)) {
-                    typeAliasNameNode = (node.leftExpression as TypeAnnotationNode).valueExpression as NameNode;
+            if (isDeclaredTypeAlias(node.leftExpression)) {
+                flags =
+                    EvaluatorFlags.ExpectingInstantiableType |
+                    EvaluatorFlags.ExpectingTypeExpression |
+                    EvaluatorFlags.EvaluateStringLiteralAsType |
+                    EvaluatorFlags.DisallowParamSpec |
+                    EvaluatorFlags.DisallowTypeVarTuple |
+                    EvaluatorFlags.DisallowClassVar;
 
-                    if (!isLegalTypeAliasExpressionForm(node.rightExpression)) {
-                        addDiagnostic(
-                            DiagnosticRule.reportInvalidTypeForm,
-                            LocMessage.typeAliasIllegalExpressionForm(),
-                            node.rightExpression
-                        );
-                    }
-                } else if (node.leftExpression.nodeType === ParseNodeType.Name) {
-                    const symbolWithScope = lookUpSymbolRecursive(
-                        node.leftExpression,
-                        node.leftExpression.value,
-                        /* honorCodeFlow */ false
+                typeAliasNameNode = (node.leftExpression as TypeAnnotationNode).valueExpression as NameNode;
+
+                if (!isLegalTypeAliasExpressionForm(node.rightExpression)) {
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.typeAliasIllegalExpressionForm(),
+                        node.rightExpression
                     );
-                    if (symbolWithScope) {
-                        const decls = symbolWithScope.symbol.getDeclarations();
-                        if (decls.length === 1 && isPossibleTypeAliasOrTypedDict(decls[0])) {
+                }
+            } else if (node.leftExpression.nodeType === ParseNodeType.Name) {
+                const symbolWithScope = lookUpSymbolRecursive(
+                    node.leftExpression,
+                    node.leftExpression.value,
+                    /* honorCodeFlow */ false
+                );
+
+                if (symbolWithScope) {
+                    const decls = symbolWithScope.symbol.getDeclarations();
+
+                    if (decls.length === 1) {
+                        if (isPossibleTypeAliasDeclaration(decls[0])) {
                             typeAliasNameNode = node.leftExpression;
                             isSpeculativeTypeAlias = true;
+                        } else if (isPossibleTypeDictFactoryCall(decls[0])) {
+                            // Handle calls to TypedDict factory functions like type
+                            // aliases to support recursive field type definitions.
+                            typeAliasNameNode = node.leftExpression;
                         }
                     }
                 }
+            }
 
-                // Synthesize a type variable that represents the type alias while we're
-                // evaluating it. This allows us to handle recursive definitions.
-                let typeAliasTypeVar: TypeVarType | undefined;
-                if (typeAliasNameNode) {
-                    typeAliasTypeVar = TypeVarType.createInstantiable(`__type_alias_${typeAliasNameNode.value}`);
-                    typeAliasTypeVar.details.isSynthesized = true;
-                    typeAliasTypeVar.details.recursiveTypeAliasName = typeAliasNameNode.value;
-                    const scopeId = ParseTreeUtils.getScopeIdForNode(typeAliasNameNode);
-                    typeAliasTypeVar.details.recursiveTypeAliasScopeId = scopeId;
-                    typeAliasTypeVar.details.recursiveTypeAliasIsPep695Syntax = false;
-                    typeAliasTypeVar.scopeId = scopeId;
+            if (typeAliasNameNode) {
+                typeAliasPlaceholder = synthesizeTypeAliasPlaceholder(typeAliasNameNode);
 
-                    // Write the type back to the type cache. It will be replaced below.
-                    writeTypeCache(node, { type: typeAliasTypeVar }, /* flags */ undefined);
-                    writeTypeCache(node.leftExpression, { type: typeAliasTypeVar }, /* flags */ undefined);
-                    if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
-                        writeTypeCache(
-                            node.leftExpression.valueExpression,
-                            { type: typeAliasTypeVar },
-                            /* flags */ undefined
-                        );
-                    }
+                writeTypeCache(node, { type: typeAliasPlaceholder }, /* flags */ undefined);
+                writeTypeCache(node.leftExpression, { type: typeAliasPlaceholder }, /* flags */ undefined);
+
+                if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
+                    writeTypeCache(
+                        node.leftExpression.valueExpression,
+                        { type: typeAliasPlaceholder },
+                        /* flags */ undefined
+                    );
                 }
+            }
 
-                const srcTypeResult = getTypeOfExpression(
-                    node.rightExpression,
-                    flags,
-                    makeInferenceContext(declaredType)
+            const srcTypeResult = getTypeOfExpression(node.rightExpression, flags, makeInferenceContext(declaredType));
+
+            rightHandType = srcTypeResult.type;
+            expectedTypeDiagAddendum = srcTypeResult.expectedTypeDiagAddendum;
+            if (srcTypeResult.isIncomplete) {
+                isIncomplete = true;
+            }
+
+            // If this was a speculative type alias, it becomes a real type alias
+            // only if the evaluated type is an instantiable type.
+            if (isSpeculativeTypeAlias && !isLegalImplicitTypeAliasType(rightHandType)) {
+                typeAliasNameNode = undefined;
+            }
+
+            if (typeAliasNameNode) {
+                assert(typeAliasPlaceholder !== undefined);
+
+                // If this is a type alias, record its name based on the assignment target.
+                rightHandType = transformTypeForTypeAlias(
+                    rightHandType,
+                    typeAliasNameNode,
+                    typeAliasNameNode,
+                    /* isPep695Syntax */ false,
+                    /* isPep695TypeVarType */ false
                 );
-                let srcType = srcTypeResult.type;
-                expectedTypeDiagAddendum = srcTypeResult.expectedTypeDiagAddendum;
-                if (srcTypeResult.isIncomplete) {
-                    isIncomplete = true;
+
+                if (isTypeAliasRecursive(typeAliasPlaceholder, rightHandType)) {
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typeAliasIsRecursiveDirect().format({
+                            name: typeAliasNameNode.value,
+                        }),
+                        node.rightExpression
+                    );
+
+                    rightHandType = UnknownType.create();
                 }
 
+                // Set the resulting type to the boundType of the original type alias
+                // to support recursive type aliases.
+                typeAliasPlaceholder.details.boundType = rightHandType;
+
+                // Record the type parameters within the recursive type alias so it
+                // can be specialized.
+                typeAliasPlaceholder.details.recursiveTypeParameters = rightHandType.typeAliasInfo?.typeParameters;
+            } else {
                 // If the RHS is a constant boolean expression, assign it a literal type.
                 const constExprValue = evaluateStaticBoolExpression(
                     node.rightExpression,
@@ -16218,46 +16259,7 @@ export function createTypeEvaluator(
                 if (constExprValue !== undefined) {
                     const boolType = getBuiltInObject(node, 'bool');
                     if (isClassInstance(boolType)) {
-                        srcType = ClassType.cloneWithLiteral(boolType, constExprValue);
-                    }
-                }
-
-                // If this is an enum, transform the type as required.
-                rightHandType = srcType;
-
-                if (typeAliasNameNode) {
-                    // If this was a speculative type alias, it becomes a real type alias
-                    // only if the evaluated type is an instantiable type.
-                    if (!isSpeculativeTypeAlias || isLegalImplicitTypeAliasType(rightHandType)) {
-                        // If this is a type alias, record its name based on the assignment target.
-                        rightHandType = transformTypeForTypeAlias(
-                            rightHandType,
-                            typeAliasNameNode,
-                            typeAliasNameNode,
-                            /* isPep695Syntax */ false,
-                            /* isPep695TypeVarType */ false
-                        );
-
-                        assert(typeAliasTypeVar !== undefined);
-                        if (isTypeAliasRecursive(typeAliasTypeVar, rightHandType)) {
-                            addDiagnostic(
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                LocMessage.typeAliasIsRecursiveDirect().format({
-                                    name: typeAliasNameNode.value,
-                                }),
-                                node.rightExpression
-                            );
-
-                            rightHandType = UnknownType.create();
-                        }
-
-                        // Set the resulting type to the boundType of the original type alias
-                        // to support recursive type aliases.
-                        typeAliasTypeVar.details.boundType = rightHandType;
-
-                        // Record the type parameters within the recursive type alias so it
-                        // can be specialized.
-                        typeAliasTypeVar.details.recursiveTypeParameters = rightHandType.typeAliasInfo?.typeParameters;
+                        rightHandType = ClassType.cloneWithLiteral(boolType, constExprValue);
                     }
                 }
             }
@@ -16275,39 +16277,18 @@ export function createTypeEvaluator(
         writeTypeCache(node, { type: rightHandType, isIncomplete }, EvaluatorFlags.None);
     }
 
-    function isPossibleTypeAliasOrTypedDict(decl: Declaration) {
-        if (isPossibleTypeAliasDeclaration(decl)) {
-            return true;
-        }
+    // Synthesize a TypeVar that acts as a placeholder for a type alias. This allows
+    // the type alias definition to refer to itself.
+    function synthesizeTypeAliasPlaceholder(nameNode: NameNode): TypeVarType {
+        const placeholder = TypeVarType.createInstantiable(`__type_alias_${nameNode.value}`);
+        placeholder.details.isSynthesized = true;
+        placeholder.details.recursiveTypeAliasName = nameNode.value;
+        const scopeId = ParseTreeUtils.getScopeIdForNode(nameNode);
+        placeholder.details.recursiveTypeAliasScopeId = scopeId;
+        placeholder.details.recursiveTypeAliasIsPep695Syntax = false;
+        placeholder.scopeId = scopeId;
 
-        if (
-            decl.type === DeclarationType.Variable &&
-            decl.node.parent &&
-            decl.node.parent.nodeType === ParseNodeType.Assignment &&
-            decl.node.parent.rightExpression?.nodeType === ParseNodeType.Call
-        ) {
-            const callLeftNode = decl.node.parent.rightExpression.leftExpression;
-
-            // Use a simple heuristic to determine whether this is potentially
-            // a call to the TypedDict call. This avoids the expensive (and potentially
-            // recursive) call to getTypeOfExpression in cases where it's not needed.
-            if (
-                (callLeftNode.nodeType === ParseNodeType.Name && callLeftNode.value) === 'TypedDict' ||
-                (callLeftNode.nodeType === ParseNodeType.MemberAccess &&
-                    callLeftNode.memberName.value === 'TypedDict' &&
-                    callLeftNode.leftExpression.nodeType === ParseNodeType.Name)
-            ) {
-                // See if this is a call to TypedDict. We want to support
-                // recursive type references in a TypedDict call.
-                const callType = getTypeOfExpression(callLeftNode, EvaluatorFlags.CallBaseDefaults).type;
-
-                if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'TypedDict')) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return placeholder;
     }
 
     // Evaluates the type of a type alias (i.e. "type") statement. This code
@@ -16346,15 +16327,9 @@ export function createTypeEvaluator(
 
         // Synthesize a type variable that represents the type alias while we're
         // evaluating it. This allows us to handle recursive definitions.
-        const typeAliasTypeVar = TypeVarType.createInstantiable(`__type_alias_${nameNode.value}`);
-        typeAliasTypeVar.details.isSynthesized = true;
-        typeAliasTypeVar.details.recursiveTypeAliasName = nameNode.value;
-        const scopeId = ParseTreeUtils.getScopeIdForNode(nameNode);
-        typeAliasTypeVar.details.recursiveTypeAliasScopeId = scopeId;
-        typeAliasTypeVar.details.recursiveTypeAliasIsPep695Syntax = isPep695Syntax;
-        typeAliasTypeVar.scopeId = scopeId;
+        const typeAliasTypeVar = synthesizeTypeAliasPlaceholder(nameNode);
 
-        // Write the type to the type cache. It will be replaced below.
+        // Write the type to the type cache to support recursive type alias definitions.
         writeTypeCache(nameNode, { type: typeAliasTypeVar }, /* flags */ undefined);
 
         // Set a partial type to handle recursive (self-referential) type aliases.
@@ -18340,6 +18315,7 @@ export function createTypeEvaluator(
                                 // Replace any unsolved TypeVars with Unknown (including all function-scoped TypeVars).
                                 inferredParamType = applySolvedTypeVars(inferredParamType, typeVarContext, {
                                     unknownIfNotFound: true,
+                                    tupleClassType: getTupleClassType(),
                                 });
                             }
 
@@ -18761,6 +18737,11 @@ export function createTypeEvaluator(
             functionDecl.yieldStatements ||
             !functionDecl.raiseStatements
         ) {
+            return false;
+        }
+
+        const statements = functionDecl.node.suite.statements;
+        if (statements.some((statement) => statement.nodeType !== ParseNodeType.StatementList)) {
             return false;
         }
 
@@ -19494,6 +19475,16 @@ export function createTypeEvaluator(
                 continue;
             }
 
+            // Forward-declared type annotation expressions need to be be evaluated
+            // in context so they have the appropriate flags set. Most of these cases
+            // will have been detected above when calling getParentAnnotationNode,
+            // but TypeAlias expressions are not handled there.
+            const stringEnclosure = ParseTreeUtils.getParentNodeOfType(parent, ParseNodeType.StringList);
+            if (stringEnclosure) {
+                nodeToEvaluate = stringEnclosure as StringListNode;
+                continue;
+            }
+
             // The left expression of a call or member access expression is not generally contextual.
             if (parent.nodeType === ParseNodeType.Call || parent.nodeType === ParseNodeType.MemberAccess) {
                 if (nodeToEvaluate === parent.leftExpression) {
@@ -19520,15 +19511,7 @@ export function createTypeEvaluator(
                 // The base expression of an index expression is not contextual.
                 if (nodeToEvaluate === parent.baseExpression) {
                     flags = EvaluatorFlags.IndexBaseDefaults;
-                    break;
                 }
-            } else if (parent.nodeType === ParseNodeType.StringList && nodeToEvaluate === parent.typeAnnotation) {
-                // Forward-declared type annotation expressions need to be be evaluated
-                // in context so they have the appropriate flags set. Most of these cases
-                // will have been detected above when calling getParentAnnotationNode,
-                // but TypeAlias expressions are not handled there.
-                nodeToEvaluate = parent;
-                continue;
             }
 
             if (!isExpressionNode(parent)) {
@@ -19873,7 +19856,19 @@ export function createTypeEvaluator(
         // don't bother doing additional work.
         let cacheEntry = readTypeCacheEntry(subnode);
         if (cacheEntry && !cacheEntry.typeResult.isIncomplete) {
-            return cacheEntry.typeResult;
+            const typeResult = cacheEntry.typeResult;
+
+            // Handle the special case where a function or class is partially evaluated.
+            // Indicate that these are not complete types.
+            if (isFunction(typeResult.type) && FunctionType.isPartiallyEvaluated(typeResult.type)) {
+                return { ...typeResult, isIncomplete: true };
+            }
+
+            if (isClass(typeResult.type) && ClassType.isPartiallyEvaluated(typeResult.type)) {
+                return { ...typeResult, isIncomplete: true };
+            }
+
+            return typeResult;
         }
 
         callback();
@@ -20024,7 +20019,7 @@ export function createTypeEvaluator(
                 case 'Protocol': {
                     if (
                         (flags &
-                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeAnnotation)) !==
+                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeExpression)) !==
                         0
                     ) {
                         addError(LocMessage.protocolNotAllowed(), errorNode);
@@ -20049,7 +20044,7 @@ export function createTypeEvaluator(
                 case 'TypedDict': {
                     if (
                         (flags &
-                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeAnnotation)) !==
+                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeExpression)) !==
                         0
                     ) {
                         addError(LocMessage.typedDictNotAllowed(), errorNode);
@@ -20060,7 +20055,7 @@ export function createTypeEvaluator(
                 case 'Literal': {
                     if (
                         (flags &
-                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeAnnotation)) !==
+                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeExpression)) !==
                         0
                     ) {
                         addError(LocMessage.literalNotAllowed(), errorNode);
@@ -20375,7 +20370,10 @@ export function createTypeEvaluator(
                 return;
             }
 
-            const solvedDefaultType = applySolvedTypeVars(typeParam, typeVarContext, { unknownIfNotFound: true });
+            const solvedDefaultType = applySolvedTypeVars(typeParam, typeVarContext, {
+                unknownIfNotFound: true,
+                tupleClassType: getTupleClassType(),
+            });
             typeArgTypes.push(solvedDefaultType);
             if (isParamSpec(typeParam)) {
                 typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(solvedDefaultType));
@@ -20510,7 +20508,7 @@ export function createTypeEvaluator(
         }
 
         if (options?.allowRequired) {
-            flags |= EvaluatorFlags.AllowRequired | EvaluatorFlags.ExpectingTypeAnnotation;
+            flags |= EvaluatorFlags.AllowRequired | EvaluatorFlags.ExpectingTypeExpression;
         }
 
         if (options?.allowUnpackedTuple) {
@@ -20524,7 +20522,7 @@ export function createTypeEvaluator(
         }
 
         if (options?.enforceTypeAnnotationRules) {
-            flags |= EvaluatorFlags.ExpectingTypeAnnotation;
+            flags |= EvaluatorFlags.ExpectingTypeExpression;
         }
 
         if (options?.disallowProtocolAndTypedDict) {
@@ -22347,7 +22345,7 @@ export function createTypeEvaluator(
                 getEffectiveTypeOfSymbol(member.symbol),
                 member.classType,
                 /* selfClass */ undefined,
-                typeClass ?? UnknownType.create()
+                typeClass && isInstantiableClass(typeClass) ? typeClass : undefined
             );
         }
         return UnknownType.create();
@@ -25944,7 +25942,7 @@ export function createTypeEvaluator(
             !assignedType.tupleTypeArguments
         ) {
             const typeVarContext = new TypeVarContext(getTypeVarScopeId(assignedType));
-            populateTypeVarContextBasedOnExpectedType(
+            addConstraintsForExpectedType(
                 evaluatorInterface,
                 ClassType.cloneForSpecialization(
                     assignedType,
@@ -27116,6 +27114,43 @@ export function createTypeEvaluator(
         });
 
         return isLegal;
+    }
+
+    function isPossibleTypeAliasOrTypedDict(decl: Declaration) {
+        return isPossibleTypeAliasDeclaration(decl) || isPossibleTypeDictFactoryCall(decl);
+    }
+
+    function isPossibleTypeDictFactoryCall(decl: Declaration) {
+        if (
+            decl.type !== DeclarationType.Variable ||
+            !decl.node.parent ||
+            decl.node.parent.nodeType !== ParseNodeType.Assignment ||
+            decl.node.parent.rightExpression?.nodeType !== ParseNodeType.Call
+        ) {
+            return false;
+        }
+
+        const callLeftNode = decl.node.parent.rightExpression.leftExpression;
+
+        // Use a simple heuristic to determine whether this is potentially
+        // a call to the TypedDict call. This avoids the expensive (and potentially
+        // recursive) call to getTypeOfExpression in cases where it's not needed.
+        if (
+            (callLeftNode.nodeType === ParseNodeType.Name && callLeftNode.value) === 'TypedDict' ||
+            (callLeftNode.nodeType === ParseNodeType.MemberAccess &&
+                callLeftNode.memberName.value === 'TypedDict' &&
+                callLeftNode.leftExpression.nodeType === ParseNodeType.Name)
+        ) {
+            // See if this is a call to TypedDict. We want to support
+            // recursive type references in a TypedDict call.
+            const callType = getTypeOfExpression(callLeftNode, EvaluatorFlags.CallBaseDefaults).type;
+
+            if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'TypedDict')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     function printObjectTypeForClass(type: ClassType): string {

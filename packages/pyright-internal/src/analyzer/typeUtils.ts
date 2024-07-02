@@ -245,12 +245,13 @@ export const enum AssignTypeFlags {
 }
 
 export interface ApplyTypeVarOptions {
+    typeClassType?: ClassType;
+    tupleClassType?: ClassType;
     unknownIfNotFound?: boolean;
     useUnknownOverDefault?: boolean;
     unknownExemptTypeVars?: TypeVarType[];
     useNarrowBoundOnly?: boolean;
     eliminateUnsolvedInUnions?: boolean;
-    typeClassType?: Type;
     applyInScopePlaceholders?: boolean;
 }
 
@@ -1073,7 +1074,7 @@ export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
 
 // Specializes the class with "Unknown" type args (or the equivalent for ParamSpecs
 // or TypeVarTuples).
-export function specializeWithUnknownTypeArgs(type: ClassType): ClassType {
+export function specializeWithUnknownTypeArgs(type: ClassType, tupleClassType?: ClassType): ClassType {
     if (type.details.typeParameters.length === 0) {
         return type;
     }
@@ -1091,16 +1092,20 @@ export function specializeWithUnknownTypeArgs(type: ClassType): ClassType {
 
     return ClassType.cloneForSpecialization(
         type,
-        type.details.typeParameters.map((param) => getUnknownTypeForTypeVar(param)),
+        type.details.typeParameters.map((param) => getUnknownTypeForTypeVar(param, tupleClassType)),
         /* isTypeArgumentExplicit */ false,
         /* includeSubclasses */ type.includeSubclasses
     );
 }
 
 // Returns "Unknown" for simple TypeVars or the equivalent for a ParamSpec.
-export function getUnknownTypeForTypeVar(typeVar: TypeVarType): Type {
+export function getUnknownTypeForTypeVar(typeVar: TypeVarType, tupleClassType?: ClassType): Type {
     if (typeVar.details.isParamSpec) {
         return getUnknownTypeForParamSpec();
+    }
+
+    if (typeVar.details.isVariadic && tupleClassType) {
+        return getUnknownTypeForVariadicTypeVar(tupleClassType);
     }
 
     return UnknownType.create();
@@ -1116,6 +1121,19 @@ export function getUnknownTypeForParamSpec(): FunctionType {
     );
     FunctionType.addDefaultParameters(newFunction);
     return newFunction;
+}
+
+export function getUnknownTypeForVariadicTypeVar(tupleClassType: ClassType): Type {
+    assert(isInstantiableClass(tupleClassType) && ClassType.isBuiltIn(tupleClassType, 'tuple'));
+
+    return ClassType.cloneAsInstance(
+        specializeTupleClass(
+            tupleClassType,
+            [{ type: UnknownType.create(), isUnbounded: true }],
+            /* isTypeArgumentExplicit */ true,
+            /* isUnpackedTuple */ true
+        )
+    );
 }
 
 // Returns the equivalent of "Callable[..., Unknown]".
@@ -1374,7 +1392,7 @@ export function partiallySpecializeType(
     type: Type,
     contextClassType: ClassType,
     selfClass?: ClassType | TypeVarType,
-    typeClassType?: Type
+    typeClassType?: ClassType
 ): Type {
     // If the context class is not specialized (or doesn't need specialization),
     // then there's no need to do any more work.
@@ -3115,7 +3133,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
     // The first class in the MRO is the class itself.
     const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
     let specializedClassType = applySolvedTypeVars(classType, typeVarContext);
-    if (!isClass(specializedClassType) && !isAny(specializedClassType) && !isUnknown(specializedClassType)) {
+    if (!isClass(specializedClassType) && !isAnyOrUnknown(specializedClassType)) {
         specializedClassType = UnknownType.create();
     }
 
@@ -3159,11 +3177,16 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
                 if (!isInstantiableClass(classList[0])) {
                     foundValidHead = true;
-                    assert(isClass(classList[0]) || isAnyOrUnknown(classList[0]));
-                    classType.details.mro.push(classList[0]);
+                    let head = classList[0];
+                    if (!isClass(head) && !isAnyOrUnknown(head)) {
+                        head = UnknownType.create();
+                    }
+                    classType.details.mro.push(head);
                     classList.shift();
                     break;
-                } else if (!isInTail(classList[0], classListsToMerge)) {
+                }
+
+                if (!isInTail(classList[0], classListsToMerge)) {
                     foundValidHead = true;
                     classType.details.mro.push(classList[0]);
                     filterClass(classList[0], classListsToMerge);
@@ -3186,8 +3209,11 @@ export function computeMroLinearization(classType: ClassType): boolean {
             // Handle the situation by pull the head off the first empty list.
             // This allows us to make forward progress.
             if (!isInstantiableClass(nonEmptyList[0])) {
-                assert(isClass(nonEmptyList[0]) || isAnyOrUnknown(nonEmptyList[0]));
-                classType.details.mro.push(nonEmptyList[0]);
+                let head = nonEmptyList[0];
+                if (!isClass(head) && !isAnyOrUnknown(head)) {
+                    head = UnknownType.create();
+                }
+                classType.details.mro.push(head);
                 nonEmptyList.shift();
             } else {
                 classType.details.mro.push(nonEmptyList[0]);
@@ -3290,6 +3316,8 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
             newFunction.details.typeVarScopeId = newFunction.details.higherOrderTypeVarScopeIds.pop();
         }
 
+        newFunction.details.constructorTypeVarScopeId = type.details.constructorTypeVarScopeId;
+
         return newFunction;
     }
 
@@ -3328,6 +3356,7 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
 
     FunctionType.addHigherOrderTypeVarScopeIds(functionType, withoutParamSpec.details.typeVarScopeId);
     FunctionType.addHigherOrderTypeVarScopeIds(functionType, withoutParamSpec.details.higherOrderTypeVarScopeIds);
+    functionType.details.constructorTypeVarScopeId = withoutParamSpec.details.constructorTypeVarScopeId;
 
     withoutParamSpec.details.parameters.forEach((entry, index) => {
         FunctionType.addParameter(functionType, {
@@ -4122,7 +4151,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
                             if (this._options.unknownIfNotFound) {
                                 return this._options.useUnknownOverDefault
-                                    ? specializeWithUnknownTypeArgs(subtype)
+                                    ? specializeWithUnknownTypeArgs(subtype, this._options.tupleClassType)
                                     : specializeWithDefaultTypeArgs(subtype);
                             }
                         }
@@ -4160,7 +4189,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                     return this._solveDefaultType(typeVar.details.defaultType, recursionCount);
                 }
 
-                return UnknownType.create();
+                return getUnknownTypeForTypeVar(typeVar, this._options.tupleClassType);
             }
         }
 

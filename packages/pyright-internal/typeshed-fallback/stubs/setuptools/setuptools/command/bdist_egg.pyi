@@ -1,6 +1,5 @@
 from _typeshed import Incomplete
 from collections.abc import Generator
-from typing import Literal
 
 from .. import Command
 
@@ -14,9 +13,9 @@ class bdist_egg(Command):
     boolean_options: Incomplete
     bdist_dir: Incomplete
     plat_name: Incomplete
-    keep_temp: int
+    keep_temp: bool
     dist_dir: Incomplete
-    skip_build: int
+    skip_build: bool
     egg_output: Incomplete
     exclude_source_files: Incomplete
     def initialize_options(self) -> None: ...
@@ -48,10 +47,5 @@ def can_scan(): ...
 INSTALL_DIRECTORY_ATTRS: Incomplete
 
 def make_zipfile(
-    zip_filename,
-    base_dir,
-    verbose: bool | Literal[0, 1] = 0,
-    dry_run: bool | Literal[0, 1] = 0,
-    compress: bool = True,
-    mode: str = "w",
+    zip_filename, base_dir, verbose: bool = False, dry_run: bool = False, compress: bool = True, mode: str = "w"
 ): ...

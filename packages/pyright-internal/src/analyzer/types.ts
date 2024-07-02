@@ -825,9 +825,7 @@ export namespace ClassType {
             newClassType.includeSubclasses = true;
         }
 
-        newClassType.tupleTypeArguments = tupleTypeArguments?.map((t) =>
-            isNever(t.type) ? { type: UnknownType.create(), isUnbounded: t.isUnbounded, isOptional: t.isOptional } : t
-        );
+        newClassType.tupleTypeArguments = tupleTypeArguments ? [...tupleTypeArguments] : undefined;
 
         if (isEmptyContainer !== undefined) {
             newClassType.isEmptyContainer = isEmptyContainer;
@@ -1766,6 +1764,7 @@ export namespace FunctionType {
 
         FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.details.typeVarScopeId);
         FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.details.higherOrderTypeVarScopeIds);
+        newFunction.details.constructorTypeVarScopeId = paramSpecValue.details.constructorTypeVarScopeId;
 
         if (!newFunction.details.methodClass && paramSpecValue.details.methodClass) {
             newFunction.details.methodClass = paramSpecValue.details.methodClass;

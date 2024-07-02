@@ -14,8 +14,7 @@ class Y(Protocol):
     y: int
 
 
-def funcY(x: Y) -> Y:
-    ...
+def funcY(x: Y) -> Y: ...
 
 
 # This should generate an error
@@ -31,8 +30,7 @@ class X(Protocol):
     x: Final[int] = field()
 
 
-def funcX(x: X) -> X:
-    ...
+def funcX(x: X) -> X: ...
 
 
 # This should generate an error

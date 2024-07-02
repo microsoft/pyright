@@ -18,8 +18,8 @@ __all__ = ["from_geojson", "from_ragged_array", "from_wkb", "from_wkt", "to_geoj
 DecodingErrorOptions: Incomplete
 
 class WKBFlavorOptions(ParamEnum):
-    extended = 1  # noqa: Y052
-    iso = 2  # noqa: Y052
+    extended = 1
+    iso = 2
 
 @overload
 def to_wkt(

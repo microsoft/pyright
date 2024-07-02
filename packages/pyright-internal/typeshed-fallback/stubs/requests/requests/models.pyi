@@ -1,5 +1,5 @@
 import datetime
-from _typeshed import Incomplete, Unused
+from _typeshed import Incomplete, MaybeNone, Unused
 from collections.abc import Callable, Iterator
 from json import JSONDecoder
 from typing import Any
@@ -144,7 +144,7 @@ class Response:
         self, chunk_size: int | None = 512, decode_unicode: bool = False, delimiter: str | bytes | None = None
     ) -> Iterator[Incomplete]: ...
     @property
-    def content(self) -> bytes: ...
+    def content(self) -> bytes | MaybeNone: ...
     @property
     def text(self) -> str: ...
     def json(

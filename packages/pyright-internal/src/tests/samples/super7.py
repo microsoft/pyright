@@ -8,8 +8,7 @@ T = TypeVar("T")
 
 
 class BaseClass:
-    def my_method(self, value: int) -> int:
-        ...
+    def my_method(self, value: int) -> int: ...
 
 
 class SubClass(BaseClass):
@@ -57,12 +56,10 @@ class SubClass(BaseClass):
         return super(__class__, self).my_method(self, value)
 
 
-class A(Generic[T]):
-    ...
+class A(Generic[T]): ...
 
 
-class B(Generic[T]):
-    ...
+class B(Generic[T]): ...
 
 
 class C(A[int], B[T]):

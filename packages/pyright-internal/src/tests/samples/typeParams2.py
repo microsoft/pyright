@@ -3,10 +3,8 @@
 # is < 3.12.
 
 # This should generate an error if <3.12
-class ClassA[T, S]:
-    ...
+class ClassA[T, S]: ...
+
 
 # This should generate an error if <3.12
-def func1[T, S]():
-    ...
-
+def func1[T, S](): ...
