@@ -1,7 +1,7 @@
 # This sample tests various illegal forms of Literal.
 
-from typing import Any, Literal, TypeVar
 from pathlib import Path
+from typing import Any, Literal, TypeVar
 
 # This should generate an error.
 Wrong1 = Literal[3 + 4]
@@ -38,7 +38,8 @@ Wrong10 = Literal[Any]
 Wrong11 = Literal[...]
 
 
-def func(): ...
+def func():
+    ...
 
 
 # This should generate an error.
@@ -70,7 +71,7 @@ var6: Literal[{"a": "b", "c": "d"}]
 # This should generate an error.
 var7: Literal[Path("abcd")]
 
-# This should generate an error.
+# This should generate two errors.
 var8: Literal[T]
 
 # This should generate an error.

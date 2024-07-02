@@ -578,7 +578,7 @@ test('Literals5', () => {
 test('Literals6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals6.py']);
 
-    TestUtils.validateResults(analysisResults, 26);
+    TestUtils.validateResults(analysisResults, 27);
 });
 
 test('Literals7', () => {

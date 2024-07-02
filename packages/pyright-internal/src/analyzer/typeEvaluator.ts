@@ -15057,8 +15057,8 @@ export function createTypeEvaluator(
             if (!type) {
                 const exprType = getTypeOfExpression(
                     itemExpr,
-                    flags &
-                        (EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.SkipConvertSpecialFormToRuntimeObject)
+                    (flags & EvaluatorFlags.AllowForwardReferences) |
+                        EvaluatorFlags.SkipConvertSpecialFormToRuntimeObject
                 );
 
                 // Is this an enum type?
