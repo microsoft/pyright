@@ -388,6 +388,7 @@ interface AliasMapEntry {
     alias: string;
     module: 'builtins' | 'collections' | 'self';
     isSpecialForm?: boolean;
+    isIllegalInIsinstance?: boolean;
     typeParamVariance?: Variance;
 }
 
@@ -980,7 +981,9 @@ export function createTypeEvaluator(
                     'typing.Any',
                     'typing',
                     Uri.empty(),
-                    ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialFormClass,
+                    ClassTypeFlags.BuiltInClass |
+                        ClassTypeFlags.SpecialFormClass |
+                        ClassTypeFlags.IllegalIsinstanceClass,
                     /* typeSourceId */ -1,
                     /* declaredMetaclass */ undefined,
                     /* effectiveMetaclass */ typeClass
@@ -4591,7 +4594,7 @@ export function createTypeEvaluator(
             }
         }
 
-        type = convertTypeVarToRuntimeInstance(node, type, flags);
+        type = convertSpecialFormToRuntimeValue(type, flags);
 
         if ((flags & EvaluatorFlags.ExpectingTypeExpression) === 0) {
             reportUseOfTypeCheckOnly(type, node);
@@ -4612,31 +4615,20 @@ export function createTypeEvaluator(
         return { type, isIncomplete };
     }
 
-    // If the type is a TypeVar and we're not expecting a type, convert
-    // a TypeVar, TypeVarTuple or ParamSpec into a runtime type.
-    function convertTypeVarToRuntimeInstance(node: ExpressionNode, type: Type, flags: EvaluatorFlags) {
-        if (!type.specialForm || type.typeAliasInfo) {
+    // If the value is a special form (like a TypeVar or `Any`) and is being
+    // evaluated in a value expression context, convert it from its special
+    // meaning to its runtime value.
+    function convertSpecialFormToRuntimeValue(type: Type, flags: EvaluatorFlags) {
+        const exemptFlags =
+            EvaluatorFlags.ExpectingTypeExpression |
+            EvaluatorFlags.ExpectingInstantiableType |
+            EvaluatorFlags.SkipConvertSpecialFormToRuntimeObject;
+
+        if ((flags & exemptFlags) !== 0) {
             return type;
         }
 
-        if (!isTypeVar(type) || type.isVariadicInUnion || (flags & EvaluatorFlags.ExpectingInstantiableType) !== 0) {
-            return type;
-        }
-
-        if ((flags & EvaluatorFlags.SkipConvertParamSpecToRuntimeObject) !== 0 && type.details.isParamSpec) {
-            return TypeBase.cloneAsSpecialForm(type, undefined);
-        }
-
-        // Handle the special case of a PEP 604 union. These can appear within
-        // an implied type alias where we are not expecting a type.
-        const isPep604Union =
-            node.parent?.nodeType === ParseNodeType.BinaryOperation && node.parent.operator === OperatorType.BitwiseOr;
-
-        if (isPep604Union) {
-            return TypeBase.cloneAsSpecialForm(type, undefined);
-        }
-
-        return ClassType.cloneAsInstance(type.specialForm);
+        return type.specialForm ?? type;
     }
 
     // Handles the case where a variable or parameter is defined in an outer
@@ -5105,7 +5097,7 @@ export function createTypeEvaluator(
         if ((flags & EvaluatorFlags.ExpectingInstantiableType) !== 0) {
             const memberName = node.memberName.value;
             if (memberName === 'args' || memberName === 'kwargs') {
-                leftExprFlags |= EvaluatorFlags.SkipConvertParamSpecToRuntimeObject;
+                leftExprFlags |= EvaluatorFlags.SkipConvertSpecialFormToRuntimeObject;
             }
         }
         const baseTypeResult = getTypeOfExpression(node.leftExpression, leftExprFlags);
@@ -5240,7 +5232,7 @@ export function createTypeEvaluator(
             return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
         }
 
-        if (baseType.specialForm) {
+        if (baseType.specialForm && (flags & EvaluatorFlags.ExpectingTypeExpression) === 0) {
             baseType = baseType.specialForm;
         }
 
@@ -5641,6 +5633,8 @@ export function createTypeEvaluator(
         if ((flags & EvaluatorFlags.ExpectingTypeExpression) === 0) {
             reportUseOfTypeCheckOnly(type, node.memberName);
         }
+
+        type = convertSpecialFormToRuntimeValue(type, flags);
 
         return {
             type,
@@ -6994,6 +6988,13 @@ export function createTypeEvaluator(
                 const selfType = isTypeVar(unexpandedSubtype) ? unexpandedSubtype : undefined;
 
                 if (isAnyOrUnknown(concreteSubtype)) {
+                    if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
+                        // If we are expecting a type annotation here, assume that
+                        // the subscripts are type arguments and evaluate them
+                        // accordingly.
+                        getTypeArgs(node, flags);
+                    }
+
                     return concreteSubtype;
                 }
 
@@ -15054,7 +15055,11 @@ export function createTypeEvaluator(
             }
 
             if (!type) {
-                const exprType = getTypeOfExpression(itemExpr, flags & EvaluatorFlags.AllowForwardReferences);
+                const exprType = getTypeOfExpression(
+                    itemExpr,
+                    (flags & EvaluatorFlags.AllowForwardReferences) |
+                        EvaluatorFlags.SkipConvertSpecialFormToRuntimeObject
+                );
 
                 // Is this an enum type?
                 if (
@@ -15440,8 +15445,15 @@ export function createTypeEvaluator(
     function createAnnotatedType(
         classType: ClassType,
         errorNode: ExpressionNode,
-        typeArgs: TypeResultWithNode[] | undefined
+        typeArgs: TypeResultWithNode[] | undefined,
+        flags: EvaluatorFlags
     ): TypeResult {
+        const typeExprFlags =
+            EvaluatorFlags.ExpectingTypeExpression | EvaluatorFlags.SkipConvertSpecialFormToRuntimeObject;
+        if ((flags & typeExprFlags) === 0) {
+            return { type: classType };
+        }
+
         if (typeArgs) {
             if (typeArgs.length < 2) {
                 addError(LocMessage.annotatedTypeArgMissing(), errorNode);
@@ -15920,6 +15932,10 @@ export function createTypeEvaluator(
             specialClassType.details.flags |= ClassTypeFlags.SpecialFormClass;
         }
 
+        if (aliasMapEntry.isIllegalInIsinstance) {
+            specialClassType.details.flags |= ClassTypeFlags.IllegalIsinstanceClass;
+        }
+
         // Synthesize a single type parameter with the specified variance if
         // specified in the alias map entry.
         if (aliasMapEntry.typeParamVariance !== undefined) {
@@ -16013,7 +16029,7 @@ export function createTypeEvaluator(
             ['TypedDict', { alias: '_TypedDict', module: 'self' }],
             ['Union', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Optional', { alias: '', module: 'builtins', isSpecialForm: true }],
-            ['Annotated', { alias: '', module: 'builtins', isSpecialForm: true }],
+            ['Annotated', { alias: '', module: 'builtins', isSpecialForm: true, isIllegalInIsinstance: true }],
             ['TypeAlias', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Concatenate', { alias: '', module: 'builtins', isSpecialForm: true }],
             [
@@ -16144,8 +16160,8 @@ export function createTypeEvaluator(
             const declaredType = getDeclaredTypeForExpression(node.leftExpression, { method: 'set' });
 
             let typeAliasNameNode: NameNode | undefined;
-            let isSpeculativeTypeAlias = false;
             let typeAliasPlaceholder: TypeVarType | undefined;
+            let isSpeculativeTypeAlias = false;
 
             if (isDeclaredTypeAlias(node.leftExpression)) {
                 flags =
@@ -16179,6 +16195,7 @@ export function createTypeEvaluator(
                         if (isPossibleTypeAliasDeclaration(decls[0])) {
                             typeAliasNameNode = node.leftExpression;
                             isSpeculativeTypeAlias = true;
+                            flags |= EvaluatorFlags.SkipConvertSpecialFormToRuntimeObject;
                         } else if (isPossibleTypeDictFactoryCall(decls[0])) {
                             // Handle calls to TypedDict factory functions like type
                             // aliases to support recursive field type definitions.
@@ -20088,7 +20105,7 @@ export function createTypeEvaluator(
                 }
 
                 case 'Annotated': {
-                    return createAnnotatedType(classType, errorNode, typeArgs);
+                    return createAnnotatedType(classType, errorNode, typeArgs, flags);
                 }
 
                 case 'Concatenate': {
