@@ -16123,19 +16123,8 @@ export function createTypeEvaluator(
             flags |= EvaluatorFlags.DoNotSpecialize;
         }
 
-        if (isDeclaredTypeAlias(node.leftExpression)) {
-            flags |=
-                EvaluatorFlags.ExpectingInstantiableType |
-                EvaluatorFlags.ExpectingTypeAnnotation |
-                EvaluatorFlags.EvaluateStringLiteralAsType |
-                EvaluatorFlags.DisallowParamSpec |
-                EvaluatorFlags.DisallowTypeVarTuple |
-                EvaluatorFlags.DisallowClassVar;
-            flags &= ~EvaluatorFlags.DoNotSpecialize;
-        }
-
         // Is this type already cached?
-        let rightHandType = readTypeCache(node.rightExpression, flags);
+        let rightHandType = readTypeCache(node.rightExpression, /* flags */ undefined);
         let isIncomplete = false;
         let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
 
@@ -16152,14 +16141,21 @@ export function createTypeEvaluator(
 
         if (!rightHandType) {
             // Determine whether there is a declared type.
-            const declaredType = getDeclaredTypeForExpression(node.leftExpression, {
-                method: 'set',
-            });
+            const declaredType = getDeclaredTypeForExpression(node.leftExpression, { method: 'set' });
 
             let typeAliasNameNode: NameNode | undefined;
             let isSpeculativeTypeAlias = false;
 
             if (isDeclaredTypeAlias(node.leftExpression)) {
+                flags |=
+                    EvaluatorFlags.ExpectingInstantiableType |
+                    EvaluatorFlags.ExpectingTypeAnnotation |
+                    EvaluatorFlags.EvaluateStringLiteralAsType |
+                    EvaluatorFlags.DisallowParamSpec |
+                    EvaluatorFlags.DisallowTypeVarTuple |
+                    EvaluatorFlags.DisallowClassVar;
+                flags &= ~EvaluatorFlags.DoNotSpecialize;
+
                 typeAliasNameNode = (node.leftExpression as TypeAnnotationNode).valueExpression as NameNode;
 
                 if (!isLegalTypeAliasExpressionForm(node.rightExpression)) {
@@ -16175,6 +16171,7 @@ export function createTypeEvaluator(
                     node.leftExpression.value,
                     /* honorCodeFlow */ false
                 );
+
                 if (symbolWithScope) {
                     const decls = symbolWithScope.symbol.getDeclarations();
                     if (decls.length === 1 && isPossibleTypeAliasOrTypedDict(decls[0])) {
@@ -16188,17 +16185,12 @@ export function createTypeEvaluator(
             // evaluating it. This allows us to handle recursive definitions.
             let typeAliasTypeVar: TypeVarType | undefined;
             if (typeAliasNameNode) {
-                typeAliasTypeVar = TypeVarType.createInstantiable(`__type_alias_${typeAliasNameNode.value}`);
-                typeAliasTypeVar.details.isSynthesized = true;
-                typeAliasTypeVar.details.recursiveTypeAliasName = typeAliasNameNode.value;
-                const scopeId = ParseTreeUtils.getScopeIdForNode(typeAliasNameNode);
-                typeAliasTypeVar.details.recursiveTypeAliasScopeId = scopeId;
-                typeAliasTypeVar.details.recursiveTypeAliasIsPep695Syntax = false;
-                typeAliasTypeVar.scopeId = scopeId;
+                typeAliasTypeVar = synthesizeTypeAliasPlaceholder(typeAliasNameNode);
 
-                // Write the type back to the type cache. It will be replaced below.
+                // Write the type to the type cache to support recursive type alias definitions.
                 writeTypeCache(node, { type: typeAliasTypeVar }, /* flags */ undefined);
                 writeTypeCache(node.leftExpression, { type: typeAliasTypeVar }, /* flags */ undefined);
+
                 if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
                     writeTypeCache(
                         node.leftExpression.valueExpression,
@@ -16281,39 +16273,18 @@ export function createTypeEvaluator(
         writeTypeCache(node, { type: rightHandType, isIncomplete }, EvaluatorFlags.None);
     }
 
-    function isPossibleTypeAliasOrTypedDict(decl: Declaration) {
-        if (isPossibleTypeAliasDeclaration(decl)) {
-            return true;
-        }
+    // Synthesize a TypeVar that acts as a placeholder for a type alias. This allows
+    // the type alias definition to refer to itself.
+    function synthesizeTypeAliasPlaceholder(nameNode: NameNode): TypeVarType {
+        const placeholder = TypeVarType.createInstantiable(`__type_alias_${nameNode.value}`);
+        placeholder.details.isSynthesized = true;
+        placeholder.details.recursiveTypeAliasName = nameNode.value;
+        const scopeId = ParseTreeUtils.getScopeIdForNode(nameNode);
+        placeholder.details.recursiveTypeAliasScopeId = scopeId;
+        placeholder.details.recursiveTypeAliasIsPep695Syntax = false;
+        placeholder.scopeId = scopeId;
 
-        if (
-            decl.type === DeclarationType.Variable &&
-            decl.node.parent &&
-            decl.node.parent.nodeType === ParseNodeType.Assignment &&
-            decl.node.parent.rightExpression?.nodeType === ParseNodeType.Call
-        ) {
-            const callLeftNode = decl.node.parent.rightExpression.leftExpression;
-
-            // Use a simple heuristic to determine whether this is potentially
-            // a call to the TypedDict call. This avoids the expensive (and potentially
-            // recursive) call to getTypeOfExpression in cases where it's not needed.
-            if (
-                (callLeftNode.nodeType === ParseNodeType.Name && callLeftNode.value) === 'TypedDict' ||
-                (callLeftNode.nodeType === ParseNodeType.MemberAccess &&
-                    callLeftNode.memberName.value === 'TypedDict' &&
-                    callLeftNode.leftExpression.nodeType === ParseNodeType.Name)
-            ) {
-                // See if this is a call to TypedDict. We want to support
-                // recursive type references in a TypedDict call.
-                const callType = getTypeOfExpression(callLeftNode, EvaluatorFlags.CallBaseDefaults).type;
-
-                if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'TypedDict')) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return placeholder;
     }
 
     // Evaluates the type of a type alias (i.e. "type") statement. This code
@@ -16352,15 +16323,9 @@ export function createTypeEvaluator(
 
         // Synthesize a type variable that represents the type alias while we're
         // evaluating it. This allows us to handle recursive definitions.
-        const typeAliasTypeVar = TypeVarType.createInstantiable(`__type_alias_${nameNode.value}`);
-        typeAliasTypeVar.details.isSynthesized = true;
-        typeAliasTypeVar.details.recursiveTypeAliasName = nameNode.value;
-        const scopeId = ParseTreeUtils.getScopeIdForNode(nameNode);
-        typeAliasTypeVar.details.recursiveTypeAliasScopeId = scopeId;
-        typeAliasTypeVar.details.recursiveTypeAliasIsPep695Syntax = isPep695Syntax;
-        typeAliasTypeVar.scopeId = scopeId;
+        const typeAliasTypeVar = synthesizeTypeAliasPlaceholder(nameNode);
 
-        // Write the type to the type cache. It will be replaced below.
+        // Write the type to the type cache to support recursive type alias definitions.
         writeTypeCache(nameNode, { type: typeAliasTypeVar }, /* flags */ undefined);
 
         // Set a partial type to handle recursive (self-referential) type aliases.
@@ -27145,6 +27110,43 @@ export function createTypeEvaluator(
         });
 
         return isLegal;
+    }
+
+    function isPossibleTypeAliasOrTypedDict(decl: Declaration) {
+        return isPossibleTypeAliasDeclaration(decl) || isPossibleTypeDictFactoryCall(decl);
+    }
+
+    function isPossibleTypeDictFactoryCall(decl: Declaration) {
+        if (
+            decl.type !== DeclarationType.Variable ||
+            !decl.node.parent ||
+            decl.node.parent.nodeType !== ParseNodeType.Assignment ||
+            decl.node.parent.rightExpression?.nodeType !== ParseNodeType.Call
+        ) {
+            return false;
+        }
+
+        const callLeftNode = decl.node.parent.rightExpression.leftExpression;
+
+        // Use a simple heuristic to determine whether this is potentially
+        // a call to the TypedDict call. This avoids the expensive (and potentially
+        // recursive) call to getTypeOfExpression in cases where it's not needed.
+        if (
+            (callLeftNode.nodeType === ParseNodeType.Name && callLeftNode.value) === 'TypedDict' ||
+            (callLeftNode.nodeType === ParseNodeType.MemberAccess &&
+                callLeftNode.memberName.value === 'TypedDict' &&
+                callLeftNode.leftExpression.nodeType === ParseNodeType.Name)
+        ) {
+            // See if this is a call to TypedDict. We want to support
+            // recursive type references in a TypedDict call.
+            const callType = getTypeOfExpression(callLeftNode, EvaluatorFlags.CallBaseDefaults).type;
+
+            if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'TypedDict')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     function printObjectTypeForClass(type: ClassType): string {
