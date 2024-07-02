@@ -18,7 +18,8 @@ def foo() -> ValidationResult[str]:
 
 
 class ClassA(Generic[T]):
-    def __new__(cls, value: T) -> "ClassA[T]": ...
+    def __new__(cls, value: T) -> "ClassA[T]":
+        ...
 
 
 TypeAliasA = ClassA[T]
@@ -31,4 +32,4 @@ reveal_type(a2, expected_text="ClassA[float]")
 
 Func = Callable[P, T]
 AnyFunc = Func[P, int]
-AnyFunc[...]
+x: AnyFunc[...]

@@ -38,8 +38,8 @@ class MyClass2(SuperClass):
         self.property2: None = None
 
 
-def f(instance: Union[SuperClass, UnrelatedClass]) -> None:
-    if isinstance(instance, (MyClass1, UnrelatedSubclass, Any)):
+def f(instance: Union[SuperClass, UnrelatedClass], a: Any) -> None:
+    if isinstance(instance, (MyClass1, UnrelatedSubclass, a)):
         print(instance.property)
 
         # This should generate two errors:
@@ -55,8 +55,8 @@ def f(instance: Union[SuperClass, UnrelatedClass]) -> None:
         print(instance.property2)
 
 
-def g(cls: Union[type[SuperClass], type[UnrelatedClass]]) -> None:
-    if issubclass(cls, (MyClass1, UnrelatedSubclass, Any)):
+def g(cls: Union[type[SuperClass], type[UnrelatedClass]], a: Any) -> None:
+    if issubclass(cls, (MyClass1, UnrelatedSubclass, a)):
         print(cls.class_var1)
 
         # This should generate two errors:
@@ -130,7 +130,8 @@ def func7(a: Union[list[int], int]):
 # on isinstance checks.
 
 
-class Base1: ...
+class Base1:
+    ...
 
 
 class Sub1_1(Base1):
@@ -182,12 +183,14 @@ def func10(val: Sub2[str] | Base2[str, float]):
 
 @runtime_checkable
 class Proto1(Protocol):
-    def f0(self, /) -> None: ...
+    def f0(self, /) -> None:
+        ...
 
 
 @runtime_checkable
 class Proto2(Proto1, Protocol):
-    def f1(self, /) -> None: ...
+    def f1(self, /) -> None:
+        ...
 
 
 def func11(x: Proto1):

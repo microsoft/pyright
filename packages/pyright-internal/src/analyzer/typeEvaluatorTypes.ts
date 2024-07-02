@@ -88,6 +88,7 @@ export const enum EvaluatorFlags {
 
     // A type expression imposes grammatical and semantic limits on an
     // expression. If this flag is set, illegal type expressions are
+    // flagged as errors.
     ExpectingTypeExpression = 1 << 8,
 
     // Suppress the reportMissingTypeArgument diagnostic in this context.
@@ -142,9 +143,9 @@ export const enum EvaluatorFlags {
     // Allow Unpack annotation for TypedDict.
     AllowUnpackedTypedDict = 1 << 23,
 
-    // If evaluation is a TypeVarType that is a ParamSpec, do
-    // not convert it to its corresponding ParamSpec runtime object.
-    SkipConvertParamSpecToRuntimeObject = 1 << 25,
+    // Do not convert special forms to their corresponding runtime
+    // objects even when expecting a type expression.
+    SkipConvertSpecialFormToRuntimeObject = 1 << 25,
 
     // Protocol and TypedDict are not allowed in this context.
     DisallowNonTypeSpecialForms = 1 << 26,

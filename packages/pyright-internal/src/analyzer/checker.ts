@@ -4119,6 +4119,11 @@ export class Checker extends ParseTreeWalker {
                         // type arguments. This will result in a TypeError exception.
                         diag.addMessage(LocAddendum.genericClassNotAllowed());
                         isSupported = false;
+                    } else if (ClassType.isIllegalIsinstanceClass(subtype)) {
+                        diag.addMessage(
+                            LocAddendum.isinstanceClassNotSupported().format({ type: subtype.details.name })
+                        );
+                        isSupported = false;
                     } else if (
                         ClassType.isProtocolClass(subtype) &&
                         !ClassType.isRuntimeCheckable(subtype) &&

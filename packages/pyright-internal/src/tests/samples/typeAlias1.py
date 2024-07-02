@@ -23,8 +23,12 @@ class A:
     Value2 = 1
 
 
-reveal_type(A.Value1, expected_text="type[Literal[1]]")
+reveal_type(A.Value1, expected_text="type[Literal]")
 reveal_type(A.Value2, expected_text="int")
+
+
+def func1(x: A.Value1):
+    reveal_type(x, expected_text="Literal[1]")
 
 
 Alias1 = Literal[0, 1]
@@ -42,11 +46,11 @@ Alias3 = int
 Alias4 = type[int]
 
 
-def func1(x: Alias2):
+def func2(x: Alias2):
     reveal_type(type(x), expected_text="type[int] | type[str]")
 
 
-def func2(v2: type[Alias2], v3: type[Alias3], v4: type[Alias4]):
+def func3(v2: type[Alias2], v3: type[Alias3], v4: type[Alias4]):
     reveal_type(v2, expected_text="type[int] | type[str]")
     reveal_type(v3, expected_text="type[int]")
     reveal_type(v4, expected_text="type[type[int]]")

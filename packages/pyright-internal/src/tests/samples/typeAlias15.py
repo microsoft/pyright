@@ -18,7 +18,6 @@ def func1(errs: MaybeSequence[type[Exception]]):
 func1(HttpError)
 func1(Exception)
 
-reveal_type(
-    MaybeSequence[type[HttpError]],
-    expected_text="type[type[HttpError]] | type[Sequence[type[HttpError]]]",
-)
+
+def func2(x: MaybeSequence[type[HttpError]]):
+    reveal_type(x, expected_text="type[HttpError] | Sequence[type[HttpError]]")

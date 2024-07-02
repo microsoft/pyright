@@ -16,19 +16,23 @@ class ClassWithNoMeta2:
 
 
 NoMetaUnion = ClassWithNoMeta1 | ClassWithNoMeta2
-reveal_type(
-    NoMetaUnion, expected_text="type[ClassWithNoMeta1] | type[ClassWithNoMeta2]"
-)
+
+
+def func1(x: NoMetaUnion):
+    reveal_type(x, expected_text="ClassWithNoMeta1 | ClassWithNoMeta2")
+
 
 _T = TypeVar("_T")
 
 
 class Metaclass1(type):
-    def __or__(cls: _T, other: type) -> _T: ...
+    def __or__(cls: _T, other: type) -> _T:
+        ...
 
 
 class Metaclass2(type):
-    def __ror__(cls: _T, other: type) -> _T: ...
+    def __ror__(cls: _T, other: type) -> _T:
+        ...
 
 
 class ClassWithMeta1(metaclass=Metaclass1):
