@@ -235,4 +235,95 @@ describe(`Basic language server tests`, () => {
         // Make sure the error has a special rule
         assert.equal(diagnostic.diagnostics[0].code, 'reportUnknownParameterType');
     });
+    test('Diagnostic severity overrides command line adding', async () => {
+        const code = `
+// @filename: test.py
+//// def test([|/*marker*/x|]): ...
+//// 
+// @filename: pyrightconfig.json
+//// {
+////     "reportUnusedImport": "error"
+//// }
+    `;
+        const settings = [
+            {
+                item: {
+                    scopeUri: `file://${normalizeSlashes(DEFAULT_WORKSPACE_ROOT, '/')}`,
+                    section: 'python.analysis',
+                },
+                value: {
+                    diagnosticSeverityOverrides: {
+                        reportUnknownParameterType: 'warning',
+                    },
+                },
+            },
+        ];
+
+        const info = await runLanguageServer(
+            DEFAULT_WORKSPACE_ROOT,
+            code,
+            /* callInitialize */ true,
+            settings,
+            undefined,
+            /* supportsBackgroundThread */ true
+        );
+
+        // get the file containing the marker that also contains our task list comments
+        await openFile(info, 'marker');
+
+        // Wait for the diagnostics to publish
+        const diagnostics = await waitForDiagnostics(info);
+        const diagnostic = diagnostics.find((d) => d.uri.includes('test.py'));
+        assert(diagnostic);
+
+        // Make sure the error has a special rule
+        assert.equal(diagnostic.diagnostics[0].code, 'reportUnknownParameterType');
+    });
+    test('Diagnostic severity overrides command line doesnt override', async () => {
+        const code = `
+// @filename: test.py
+//// def test([|/*marker*/x|]): ...
+//// 
+// @filename: pyrightconfig.json
+//// {
+////     "reportUnknownParameterType": "error"
+//// }
+    `;
+        const settings = [
+            {
+                item: {
+                    scopeUri: `file://${normalizeSlashes(DEFAULT_WORKSPACE_ROOT, '/')}`,
+                    section: 'python.analysis',
+                },
+                value: {
+                    diagnosticSeverityOverrides: {
+                        reportUnknownParameterType: 'warning',
+                    },
+                },
+            },
+        ];
+
+        const info = await runLanguageServer(
+            DEFAULT_WORKSPACE_ROOT,
+            code,
+            /* callInitialize */ true,
+            settings,
+            undefined,
+            /* supportsBackgroundThread */ true
+        );
+
+        // get the file containing the marker that also contains our task list comments
+        await openFile(info, 'marker');
+
+        // Wait for the diagnostics to publish
+        const diagnostics = await waitForDiagnostics(info);
+        const diagnostic = diagnostics.find((d) => d.uri.includes('test.py'));
+        assert(diagnostic);
+
+        // Make sure the error has a special rule
+        assert.equal(diagnostic.diagnostics[0].code, 'reportUnknownParameterType');
+
+        // Make sure it's marked as an error
+        assert.equal(diagnostic.diagnostics[0].severity, 1);
+    });
 });

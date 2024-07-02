@@ -640,6 +640,7 @@ export class AnalyzerService {
         configOptions.disableTaggedHints = !!commandLineOptions.disableTaggedHints;
 
         configOptions.initializeTypeCheckingMode(commandLineOptions.typeCheckingMode ?? 'standard');
+        configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
 
         const configs = this._getExtendedConfigurations(configFilePath ?? pyprojectFilePath);
 
@@ -653,8 +654,6 @@ export class AnalyzerService {
                     commandLineOptions
                 );
             }
-        } else {
-            configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
         }
 
         // If no include paths were provided, assume that all files within

@@ -135,7 +135,8 @@ class TestServer extends PyrightServer {
     constructor(
         connection: Connection,
         fs: FileSystem,
-        private readonly _supportsBackgroundAnalysis: boolean | undefined
+        private readonly _supportsBackgroundAnalysis: boolean | undefined,
+        private readonly _name: string
     ) {
         super(connection, _supportsBackgroundAnalysis ? 1 : 0, fs);
     }
@@ -190,7 +191,7 @@ async function runServer(
         // Create a host so we can control the file system for the PyrightServer.
         const disposables: Disposable[] = [];
         const host = createTestHost(testServerData);
-        const server = new TestServer(connection, host.fs, testServerData.backgroundAnalysis);
+        const server = new TestServer(connection, host.fs, testServerData.backgroundAnalysis, testServerData.testName);
 
         // Listen for the test messages from the client. These messages
         // are how the test code queries the state of the server.
@@ -325,7 +326,7 @@ class ServerStateManager {
             if (serverIndex >= 0) {
                 try {
                     instance.disposables[serverIndex].dispose();
-                    instance.disposables = instance.disposables.splice(serverIndex, 1);
+                    instance.disposables.splice(serverIndex, 1);
                 } catch (e) {
                     // Dispose failures don't matter.
                 }

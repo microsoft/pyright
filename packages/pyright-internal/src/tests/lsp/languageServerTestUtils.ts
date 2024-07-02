@@ -211,7 +211,7 @@ export function createFileSystem(projectRoot: string, testData: FourSlashData, o
         mountedPaths.set(bundledStubsFolder, bundledStubsFolderPathTestServer);
     }
 
-    const vfsInfo = createVfsInfoFromFourSlashData(projectRoot, testData);
+    const vfsInfo = createVfsInfoFromFourSlashData(projectRoot, testData, /* ignoreRawConfigJson */ true);
     return createFromFileSystem(
         optionalHost ?? host.HOST,
         vfsInfo.ignoreCase,

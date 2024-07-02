@@ -16,7 +16,11 @@ import { getStringComparer } from '../../../common/stringUtils';
 import * as vfs from '../vfs/filesystem';
 import { FourSlashData, FourSlashFile, GlobalMetadataOptionNames, Marker, MetadataOptionNames } from './fourSlashTypes';
 
-export function createVfsInfoFromFourSlashData(projectRoot: string, testData: FourSlashData) {
+export function createVfsInfoFromFourSlashData(
+    projectRoot: string,
+    testData: FourSlashData,
+    ignoreRawConfigJson = false
+) {
     const metaProjectRoot = testData.globalOptions[GlobalMetadataOptionNames.projectRoot];
     projectRoot = metaProjectRoot ? combinePaths(projectRoot, metaProjectRoot) : projectRoot;
 
@@ -28,7 +32,7 @@ export function createVfsInfoFromFourSlashData(projectRoot: string, testData: Fo
 
     for (const file of testData.files) {
         // if one of file is configuration file, set config options from the given json
-        if (isConfig(file, ignoreCase)) {
+        if (isConfig(file, ignoreCase) && !ignoreRawConfigJson) {
             try {
                 rawConfigJson = JSONC.parse(file.content);
             } catch (e: any) {
