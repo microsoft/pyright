@@ -41,7 +41,7 @@ import { isMatchingExpression, isPartialMatchingExpression, printExpression } fr
 import { getPatternSubtypeNarrowingCallback } from './patternMatching';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment } from './typedDicts';
-import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { getTypeNarrowingCallback } from './typeGuards';
 import {
     ClassType,
@@ -1485,7 +1485,7 @@ export function getCodeFlowEngine(
 
                                 const classType = evaluator.getTypeOfExpression(
                                     classPatternNode.className,
-                                    EvaluatorFlags.CallBaseDefaults
+                                    EvalFlags.CallBaseDefaults
                                 ).type;
 
                                 if (isInstantiableClass(classType)) {
@@ -1534,12 +1534,12 @@ export function getCodeFlowEngine(
                             const arg1Expr = testExpression.arguments[1].valueExpression;
                             const arg1Type = evaluator.getTypeOfExpression(
                                 arg1Expr,
-                                EvaluatorFlags.AllowMissingTypeArgs |
-                                    EvaluatorFlags.EvaluateStringLiteralAsType |
-                                    EvaluatorFlags.DisallowParamSpec |
-                                    EvaluatorFlags.DisallowTypeVarTuple |
-                                    EvaluatorFlags.DisallowFinal |
-                                    EvaluatorFlags.DoNotSpecialize
+                                EvalFlags.AllowMissingTypeArgs |
+                                    EvalFlags.StrLiteralAsType |
+                                    EvalFlags.NoParamSpec |
+                                    EvalFlags.NoTypeVarTuple |
+                                    EvalFlags.NoFinal |
+                                    EvalFlags.NoSpecialize
                             ).type;
 
                             if (isInstantiableClass(arg1Type)) {
@@ -1659,7 +1659,7 @@ export function getCodeFlowEngine(
             let subtypeCount = 0;
 
             // Evaluate the call base type.
-            const callTypeResult = evaluator.getTypeOfExpression(node.leftExpression, EvaluatorFlags.CallBaseDefaults);
+            const callTypeResult = evaluator.getTypeOfExpression(node.leftExpression, EvalFlags.CallBaseDefaults);
             const callType = callTypeResult.type;
 
             doForEachSubtype(callType, (callSubtype) => {

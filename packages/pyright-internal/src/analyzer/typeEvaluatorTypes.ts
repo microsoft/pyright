@@ -56,7 +56,7 @@ import {
 // a list) before the type is considered an "Any".
 export const maxSubtypesForInferredType = 64;
 
-export const enum EvaluatorFlags {
+export const enum EvalFlags {
     None = 0,
 
     // Interpret an ellipsis type annotation to mean "Any".
@@ -65,106 +65,107 @@ export const enum EvaluatorFlags {
     // Normally a generic named type is specialized with "Any"
     // types. This flag indicates that specialization shouldn't take
     // place.
-    DoNotSpecialize = 1 << 1,
+    NoSpecialize = 1 << 1,
 
     // Allow forward references. Don't report unbound errors.
-    AllowForwardReferences = 1 << 2,
+    ForwardRefs = 1 << 2,
 
     // Treat string literal as a type.
-    EvaluateStringLiteralAsType = 1 << 3,
+    StrLiteralAsType = 1 << 3,
 
     // 'Final' is not allowed in this context.
-    DisallowFinal = 1 << 4,
+    NoFinal = 1 << 4,
 
     // A ParamSpec isn't allowed in this context.
-    DisallowParamSpec = 1 << 5,
+    NoParamSpec = 1 << 5,
 
     // A TypeVarTuple isn't allowed in this context.
-    DisallowTypeVarTuple = 1 << 6,
+    NoTypeVarTuple = 1 << 6,
 
     // Expression is expected to be an instantiable type rather
     // than an instance (object)
-    ExpectingInstantiableType = 1 << 7,
+    InstantiableType = 1 << 7,
 
     // A type expression imposes grammatical and semantic limits on an
     // expression. If this flag is set, illegal type expressions are
     // flagged as errors.
-    ExpectingTypeExpression = 1 << 8,
+    TypeExpression = 1 << 8,
 
     // Suppress the reportMissingTypeArgument diagnostic in this context.
     AllowMissingTypeArgs = 1 << 9,
 
     // The Generic class type is allowed in this context. It is
     // normally not allowed if ExpectingType is set.
-    AllowGenericClassType = 1 << 10,
+    AllowGeneric = 1 << 10,
 
     // TypeVars within this expression must not refer to type vars
     // used in an outer scope.
-    DisallowTypeVarsWithScopeId = 1 << 11,
+    NoTypeVarWithScopeId = 1 << 11,
 
     // TypeVars within this expression do not need to refer to type vars
     // used in an outer scope.
-    AllowTypeVarsWithoutScopeId = 1 << 12,
+    AllowTypeVarWithoutScopeId = 1 << 12,
 
     // TypeVars within this expression that are otherwise not
     // associated with an outer scope should be associated with
     // the containing function's scope.
-    AssociateTypeVarsWithCurrentScope = 1 << 13,
+    TypeVarGetsCurScope = 1 << 13,
 
     // When a new class-scoped TypeVar is used within a class
     // declaration, make sure that it is not used to parameterize
     // a base class whose TypeVar variance is inconsistent.
-    EnforceTypeVarVarianceConsistency = 1 << 14,
+    EnforceVarianceConsistency = 1 << 14,
 
     // Used for PEP 526-style variable type annotations
-    VariableTypeAnnotation = 1 << 15,
+    VarTypeAnnotation = 1 << 15,
 
     // 'ClassVar' is not allowed in this context.
-    DisallowClassVar = 1 << 17,
+    NoClassVar = 1 << 17,
 
     // 'Generic' cannot be used without type arguments in this context.
-    DisallowNakedGeneric = 1 << 18,
+    NoNakedGeneric = 1 << 18,
 
     // The node is not parsed by the interpreter because it is within
     // a comment or a string literal.
-    NotParsedByInterpreter = 1 << 19,
+    NotParsed = 1 << 19,
 
     // Required and NotRequired are allowed in this context.
     AllowRequired = 1 << 20,
 
     // Allow Unpack annotation for a tuple or TypeVarTuple.
-    AllowUnpackedTupleOrTypeVarTuple = 1 << 21,
+    AllowUnpackedTuple = 1 << 21,
+
+    // Allow Unpack annotation for TypedDict.
+    AllowUnpackedTypedDict = 1 << 22,
 
     // Even though an expression is enclosed in a string literal,
     // the interpreter (within a source file, not a stub) still
     // parses the expression and generates parse errors.
-    InterpreterParsesStringLiteral = 1 << 22,
-
-    // Allow Unpack annotation for TypedDict.
-    AllowUnpackedTypedDict = 1 << 23,
+    ParsesStringLiteral = 1 << 23,
 
     // Do not convert special forms to their corresponding runtime
     // objects even when expecting a type expression.
-    SkipConvertSpecialFormToRuntimeObject = 1 << 25,
+    NoConvertSpecialForm = 1 << 25,
 
-    // Protocol and TypedDict are not allowed in this context.
-    DisallowNonTypeSpecialForms = 1 << 26,
+    // Certain special forms (Protocol, TypedDict, etc.) are not allowed
+    // in this context.
+    NoNonTypeSpecialForms = 1 << 26,
 
     // Allow use of the Concatenate special form.
     AllowConcatenate = 1 << 27,
 
     // Do not infer literal types within a tuple (used for tuples nested within
     // other container classes).
-    StripLiteralTypeForTuple = 1 << 28,
+    StripTupleLiterals = 1 << 28,
 
     // Defaults used for evaluating the LHS of a call expression.
-    CallBaseDefaults = DoNotSpecialize,
+    CallBaseDefaults = NoSpecialize,
 
     // Defaults used for evaluating the LHS of a member access expression.
-    IndexBaseDefaults = DoNotSpecialize,
+    IndexBaseDefaults = NoSpecialize,
 
     // Defaults used for evaluating the LHS of a member access expression.
-    MemberAccessBaseDefaults = DoNotSpecialize,
+    MemberAccessBaseDefaults = NoSpecialize,
 }
 
 export interface TypeResult<T extends Type = Type> {
@@ -470,7 +471,7 @@ export interface TypeEvaluator {
     getTypeResult: (node: ExpressionNode) => TypeResult | undefined;
     getTypeResultForDecorator: (node: DecoratorNode) => TypeResult | undefined;
     getCachedType: (node: ExpressionNode) => Type | undefined;
-    getTypeOfExpression: (node: ExpressionNode, flags?: EvaluatorFlags, context?: InferenceContext) => TypeResult;
+    getTypeOfExpression: (node: ExpressionNode, flags?: EvalFlags, context?: InferenceContext) => TypeResult;
     getTypeOfAnnotation: (node: ExpressionNode, options?: AnnotationTypeOptions) => Type;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
@@ -648,7 +649,7 @@ export interface TypeEvaluator {
         flags: AssignTypeFlags,
         recursionCount: number
     ) => boolean;
-    reportMissingTypeArguments: (node: ExpressionNode, type: Type, flags: EvaluatorFlags) => Type;
+    reportMissingTypeArguments: (node: ExpressionNode, type: Type, flags: EvalFlags) => Type;
 
     isFinalVariable: (symbol: Symbol) => boolean;
     isFinalVariableDeclaration: (decl: Declaration) => boolean;
@@ -680,7 +681,7 @@ export interface TypeEvaluator {
     disposeEvaluator: () => void;
     useSpeculativeMode: <T>(speculativeNode: ParseNode | undefined, callback: () => T) => T;
     isSpeculativeModeInUse: (node: ParseNode | undefined) => boolean;
-    setTypeResultForNode: (node: ParseNode, typeResult: TypeResult, flags?: EvaluatorFlags) => void;
+    setTypeResultForNode: (node: ParseNode, typeResult: TypeResult, flags?: EvalFlags) => void;
 
     checkForCancellation: () => void;
     printControlFlowGraph: (

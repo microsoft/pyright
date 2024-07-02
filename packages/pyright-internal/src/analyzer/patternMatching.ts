@@ -31,7 +31,7 @@ import {
 import { CodeFlowReferenceExpressionNode } from './codeFlowTypes';
 import { addConstraintsForExpectedType } from './constraintSolver';
 import { getTypeVarScopesForNode, isMatchingExpression } from './parseTreeUtils';
-import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     enumerateLiteralsForType,
     narrowTypeForDiscriminatedDictEntryComparison,
@@ -679,7 +679,7 @@ function narrowTypeBasedOnClassPattern(
     pattern: PatternClassNode,
     isPositiveTest: boolean
 ): Type {
-    let exprType = evaluator.getTypeOfExpression(pattern.className, EvaluatorFlags.CallBaseDefaults).type;
+    let exprType = evaluator.getTypeOfExpression(pattern.className, EvalFlags.CallBaseDefaults).type;
 
     // If this is a class (but not a type alias that refers to a class),
     // specialize it with Unknown type arguments.
@@ -1829,7 +1829,7 @@ function wrapTypeInList(evaluator: TypeEvaluator, node: ParseNode, type: Type): 
 }
 
 export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternClassNode) {
-    let exprType = evaluator.getTypeOfExpression(pattern.className, EvaluatorFlags.CallBaseDefaults).type;
+    let exprType = evaluator.getTypeOfExpression(pattern.className, EvalFlags.CallBaseDefaults).type;
 
     // If the expression is a type alias or other special form, treat it
     // as the special form rather than the class.
@@ -1931,7 +1931,7 @@ export function getPatternSubtypeNarrowingCallback(
             if (ClassType.isBuiltIn(indexType, ['int', 'str'])) {
                 const unnarrowedReferenceTypeResult = evaluator.getTypeOfExpression(
                     subjectExpression.baseExpression,
-                    EvaluatorFlags.CallBaseDefaults
+                    EvalFlags.CallBaseDefaults
                 );
                 const unnarrowedReferenceType = unnarrowedReferenceTypeResult.type;
 
@@ -2027,7 +2027,7 @@ export function getPatternSubtypeNarrowingCallback(
     ) {
         const unnarrowedReferenceTypeResult = evaluator.getTypeOfExpression(
             subjectExpression.leftExpression,
-            EvaluatorFlags.CallBaseDefaults
+            EvalFlags.CallBaseDefaults
         );
         const unnarrowedReferenceType = unnarrowedReferenceTypeResult.type;
 
