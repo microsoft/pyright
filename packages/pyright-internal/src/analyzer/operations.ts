@@ -703,7 +703,7 @@ export function getTypeOfBinaryOperation(
         }
     }
 
-    if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+    if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
         // Exempt "|" because it might be a union operation involving unknowns.
         if (node.operator !== OperatorType.BitwiseOr) {
             evaluator.addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.binaryOperationNotAllowed(), node);
@@ -950,7 +950,7 @@ export function getTypeOfUnaryOperation(
     flags: EvaluatorFlags,
     inferenceContext: InferenceContext | undefined
 ): TypeResult {
-    if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+    if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
         evaluator.addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unaryOperationNotAllowed(), node);
         return { type: UnknownType.create() };
     }
@@ -1087,7 +1087,7 @@ export function getTypeOfTernaryOperation(
 ): TypeResult {
     const fileInfo = getFileInfo(node);
 
-    if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+    if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
         evaluator.addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.ternaryNotAllowed(), node);
         return { type: UnknownType.create() };
     }

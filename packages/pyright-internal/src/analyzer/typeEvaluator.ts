@@ -1266,7 +1266,7 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.AssignmentExpression: {
-                if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                     addError(LocMessage.walrusNotAllowed(), node);
                 }
 
@@ -1294,7 +1294,7 @@ export function createTypeEvaluator(
                 typeResult = getTypeOfExpression(
                     node.typeAnnotation,
                     EvaluatorFlags.ExpectingInstantiableType |
-                        EvaluatorFlags.ExpectingTypeAnnotation |
+                        EvaluatorFlags.ExpectingTypeExpression |
                         EvaluatorFlags.EvaluateStringLiteralAsType |
                         EvaluatorFlags.DisallowParamSpec |
                         EvaluatorFlags.DisallowTypeVarTuple |
@@ -1337,7 +1337,7 @@ export function createTypeEvaluator(
 
         // If this is a PEP 695 type alias, remove the special form so the type
         // printer prints it as its aliased type rather than TypeAliasType.
-        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+        if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
             if (typeResult.type.specialForm && ClassType.isBuiltIn(typeResult.type.specialForm, 'TypeAliasType')) {
                 typeResult.type = TypeBase.cloneAsSpecialForm(typeResult.type, undefined);
             }
@@ -1404,7 +1404,7 @@ export function createTypeEvaluator(
     }
 
     function getTypeOfAwaitOperator(node: AwaitNode, flags: EvaluatorFlags, inferenceContext?: InferenceContext) {
-        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+        if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
             addError(LocMessage.awaitNotAllowed(), node);
             return { type: UnknownType.create() };
         }
@@ -1484,7 +1484,7 @@ export function createTypeEvaluator(
             ClassType.isBuiltIn(iterType, 'tuple')
         ) {
             typeResult = { type: ClassType.cloneForUnpacked(iterType) };
-        } else if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+        } else if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
             addError(LocMessage.unpackInAnnotation(), node, node.starToken);
             typeResult = { type: UnknownType.create() };
         } else {
@@ -1726,7 +1726,7 @@ export function createTypeEvaluator(
 
         let evaluatorFlags =
             EvaluatorFlags.ExpectingInstantiableType |
-            EvaluatorFlags.ExpectingTypeAnnotation |
+            EvaluatorFlags.ExpectingTypeExpression |
             EvaluatorFlags.ConvertEllipsisToAny |
             EvaluatorFlags.EvaluateStringLiteralAsType;
 
@@ -4411,7 +4411,7 @@ export function createTypeEvaluator(
             node,
             name,
             !allowForwardReferences,
-            allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
+            allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0
         );
 
         if (!symbolWithScope) {
@@ -4424,7 +4424,7 @@ export function createTypeEvaluator(
                     alias,
                     alias.value,
                     !allowForwardReferences,
-                    allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0
+                    allowForwardReferences && (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0
                 );
             }
         }
@@ -4517,7 +4517,7 @@ export function createTypeEvaluator(
                 const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
                     targetSymbolId: symbol.id,
                     typeAtStart: { type: typeAtStart, isIncomplete: isTypeAtStartIncomplete },
-                    skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                    skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0,
                 });
 
                 if (codeFlowTypeResult.type) {
@@ -4532,7 +4532,7 @@ export function createTypeEvaluator(
             // Detect, report, and fill in missing type arguments if appropriate.
             type = reportMissingTypeArguments(node, type, flags);
 
-            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                 // Verify that the name does not refer to a (non type alias) variable.
                 if (effectiveTypeInfo.includesVariableDecl && !type.typeAliasInfo) {
                     let isAllowedTypeForVariable = isTypeVar(type) || isTypeAliasPlaceholder(type);
@@ -4593,7 +4593,7 @@ export function createTypeEvaluator(
 
         type = convertTypeVarToRuntimeInstance(node, type, flags);
 
-        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) === 0) {
+        if ((flags & EvaluatorFlags.ExpectingTypeExpression) === 0) {
             reportUseOfTypeCheckOnly(type, node);
         }
 
@@ -5094,7 +5094,7 @@ export function createTypeEvaluator(
         let leftExprFlags = EvaluatorFlags.MemberAccessBaseDefaults;
         leftExprFlags |=
             flags &
-            (EvaluatorFlags.ExpectingTypeAnnotation |
+            (EvaluatorFlags.ExpectingTypeExpression |
                 EvaluatorFlags.VariableTypeAnnotation |
                 EvaluatorFlags.AllowForwardReferences |
                 EvaluatorFlags.NotParsedByInterpreter |
@@ -5161,7 +5161,7 @@ export function createTypeEvaluator(
             const codeFlowTypeResult = getFlowTypeOfReference(node, /* startNode */ undefined, {
                 targetSymbolId: indeterminateSymbolId,
                 typeAtStart: { type: typeAtStart, isIncomplete: isTypeAtStartIncomplete },
-                skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0,
             });
 
             if (codeFlowTypeResult.type) {
@@ -5294,7 +5294,7 @@ export function createTypeEvaluator(
                 }
 
                 // It's illegal to reference a member from a type variable.
-                if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                     if (!isIncomplete) {
                         addDiagnostic(
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -5638,7 +5638,7 @@ export function createTypeEvaluator(
             type = isFunctionRule ? AnyType.create() : UnknownType.create();
         }
 
-        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) === 0) {
+        if ((flags & EvaluatorFlags.ExpectingTypeExpression) === 0) {
             reportUseOfTypeCheckOnly(type, node.memberName);
         }
 
@@ -6521,7 +6521,7 @@ export function createTypeEvaluator(
                         type: indexTypeResult.type,
                         isIncomplete: !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete,
                     },
-                    skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0,
+                    skipConditionalNarrowing: (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0,
                 });
 
                 if (codeFlowTypeResult.type) {
@@ -7027,7 +7027,7 @@ export function createTypeEvaluator(
                             getIndexAccessMagicMethodName(usage)
                         );
 
-                        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                        if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                             // If the class doesn't derive from Generic, a type argument should not be allowed.
                             addDiagnostic(
                                 DiagnosticRule.reportInvalidTypeArguments,
@@ -7068,7 +7068,7 @@ export function createTypeEvaluator(
                         // Special-case InitVar, used in dataclasses.
                         const typeArgs = getTypeArgs(node, flags);
 
-                        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                        if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                             if ((flags & EvaluatorFlags.VariableTypeAnnotation) === 0) {
                                 addError(LocMessage.initVarNotAllowed(), node.baseExpression);
                             }
@@ -7752,7 +7752,7 @@ export function createTypeEvaluator(
         signatureTracker: UniqueSignatureTracker | undefined
     ): TypeResult {
         if (
-            (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0 &&
+            (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0 &&
             node.parent?.nodeType !== ParseNodeType.Argument
         ) {
             // This is allowed inside of an index trailer, specifically
@@ -7778,7 +7778,7 @@ export function createTypeEvaluator(
         }
 
         flags &= ~(
-            EvaluatorFlags.ExpectingTypeAnnotation |
+            EvaluatorFlags.ExpectingTypeExpression |
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.ExpectingInstantiableType
         );
@@ -8010,7 +8010,7 @@ export function createTypeEvaluator(
         // allowed, and it's a common mistake, so we want to emit a diagnostic
         // that guides the user to the right solution.
         if (
-            (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0 &&
+            (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0 &&
             node.leftExpression.nodeType === ParseNodeType.Name &&
             node.leftExpression.value === 'type'
         ) {
@@ -8138,7 +8138,7 @@ export function createTypeEvaluator(
             }
         }
 
-        if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+        if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
             addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeAnnotationCall(), node);
 
             typeResult = { type: UnknownType.create() };
@@ -12078,7 +12078,7 @@ export function createTypeEvaluator(
                       EvaluatorFlags.DisallowTypeVarTuple |
                       EvaluatorFlags.DisallowFinal |
                       EvaluatorFlags.DoNotSpecialize
-                    : EvaluatorFlags.DoNotSpecialize | EvaluatorFlags.DisallowFinal;
+                    : EvaluatorFlags.DisallowFinal | EvaluatorFlags.DoNotSpecialize;
                 const exprTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
                     flags,
@@ -13265,7 +13265,7 @@ export function createTypeEvaluator(
         inferenceContext: InferenceContext | undefined
     ): TypeResult {
         if (
-            (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0 &&
+            (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0 &&
             node.parent?.nodeType !== ParseNodeType.Argument
         ) {
             const diag = new DiagnosticAddendum();
@@ -13585,7 +13585,7 @@ export function createTypeEvaluator(
         const keyFlags =
             flags &
             ~(
-                EvaluatorFlags.ExpectingTypeAnnotation |
+                EvaluatorFlags.ExpectingTypeExpression |
                 EvaluatorFlags.EvaluateStringLiteralAsType |
                 EvaluatorFlags.ExpectingInstantiableType
             );
@@ -13847,7 +13847,7 @@ export function createTypeEvaluator(
         inferenceContext: InferenceContext | undefined
     ): TypeResult {
         if (
-            (flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0 &&
+            (flags & EvaluatorFlags.ExpectingTypeExpression) !== 0 &&
             node.nodeType === ParseNodeType.List &&
             node.parent?.nodeType !== ParseNodeType.Argument
         ) {
@@ -13857,7 +13857,7 @@ export function createTypeEvaluator(
         }
 
         flags &= ~(
-            EvaluatorFlags.ExpectingTypeAnnotation |
+            EvaluatorFlags.ExpectingTypeExpression |
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.ExpectingInstantiableType
         );
@@ -14931,7 +14931,7 @@ export function createTypeEvaluator(
             // If no type arguments are provided, the resulting type
             // depends on whether we're evaluating a type annotation or
             // we're in some other context.
-            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                 addError(LocMessage.optionalExtraArgs(), errorNode);
                 return UnknownType.create();
             }
@@ -15149,7 +15149,7 @@ export function createTypeEvaluator(
         // depends on whether we're evaluating a type annotation or
         // we're in some other context.
         if (!typeArgs) {
-            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                 addError(LocMessage.typeGuardArgCount(), errorNode);
             }
 
@@ -15194,7 +15194,7 @@ export function createTypeEvaluator(
 
         const enclosingClassTypeResult = enclosingClass ? getTypeOfClass(enclosingClass) : undefined;
         if (!enclosingClassTypeResult) {
-            if ((flags & (EvaluatorFlags.ExpectingTypeAnnotation | EvaluatorFlags.ExpectingInstantiableType)) !== 0) {
+            if ((flags & (EvaluatorFlags.ExpectingTypeExpression | EvaluatorFlags.ExpectingInstantiableType)) !== 0) {
                 addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.selfTypeContext(), errorNode);
             }
 
@@ -15256,7 +15256,7 @@ export function createTypeEvaluator(
         // If no type arguments are provided, the resulting type
         // depends on whether we're evaluating a type annotation or
         // we're in some other context.
-        if (!typeArgs && (flags & EvaluatorFlags.ExpectingTypeAnnotation) === 0) {
+        if (!typeArgs && (flags & EvaluatorFlags.ExpectingTypeExpression) === 0) {
             return { type: classType };
         }
 
@@ -15340,7 +15340,7 @@ export function createTypeEvaluator(
         // If no type arguments are provided, the resulting type
         // depends on whether we're evaluating a type annotation or
         // we're in some other context.
-        if (!typeArgs && (flags & EvaluatorFlags.ExpectingTypeAnnotation) === 0) {
+        if (!typeArgs && (flags & EvaluatorFlags.ExpectingTypeExpression) === 0) {
             return classType;
         }
 
@@ -15664,7 +15664,7 @@ export function createTypeEvaluator(
             // If no type arguments are provided, the resulting type
             // depends on whether we're evaluating a type annotation or
             // we're in some other context.
-            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+            if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
                 addError(LocMessage.unionTypeArgCount(), errorNode);
                 return NeverType.createNever();
             }
@@ -15751,7 +15751,7 @@ export function createTypeEvaluator(
             // If no type arguments are provided, the resulting type
             // depends on whether we're evaluating a type annotation or
             // we're in some other context.
-            if ((flags & (EvaluatorFlags.ExpectingTypeAnnotation | EvaluatorFlags.DisallowNakedGeneric)) !== 0) {
+            if ((flags & (EvaluatorFlags.ExpectingTypeExpression | EvaluatorFlags.DisallowNakedGeneric)) !== 0) {
                 addError(LocMessage.genericTypeArgMissing(), errorNode);
             }
 
@@ -16145,11 +16145,12 @@ export function createTypeEvaluator(
 
             let typeAliasNameNode: NameNode | undefined;
             let isSpeculativeTypeAlias = false;
+            let typeAliasPlaceholder: TypeVarType | undefined;
 
             if (isDeclaredTypeAlias(node.leftExpression)) {
                 flags =
                     EvaluatorFlags.ExpectingInstantiableType |
-                    EvaluatorFlags.ExpectingTypeAnnotation |
+                    EvaluatorFlags.ExpectingTypeExpression |
                     EvaluatorFlags.EvaluateStringLiteralAsType |
                     EvaluatorFlags.DisallowParamSpec |
                     EvaluatorFlags.DisallowTypeVarTuple |
@@ -16187,13 +16188,9 @@ export function createTypeEvaluator(
                 }
             }
 
-            // Synthesize a type variable that represents the type alias while we're
-            // evaluating it. This allows us to handle recursive definitions.
-            let typeAliasPlaceholder: TypeVarType | undefined;
             if (typeAliasNameNode) {
                 typeAliasPlaceholder = synthesizeTypeAliasPlaceholder(typeAliasNameNode);
 
-                // Write the type to the type cache to support recursive type alias definitions.
                 writeTypeCache(node, { type: typeAliasPlaceholder }, /* flags */ undefined);
                 writeTypeCache(node.leftExpression, { type: typeAliasPlaceholder }, /* flags */ undefined);
 
@@ -20022,7 +20019,7 @@ export function createTypeEvaluator(
                 case 'Protocol': {
                     if (
                         (flags &
-                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeAnnotation)) !==
+                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeExpression)) !==
                         0
                     ) {
                         addError(LocMessage.protocolNotAllowed(), errorNode);
@@ -20047,7 +20044,7 @@ export function createTypeEvaluator(
                 case 'TypedDict': {
                     if (
                         (flags &
-                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeAnnotation)) !==
+                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeExpression)) !==
                         0
                     ) {
                         addError(LocMessage.typedDictNotAllowed(), errorNode);
@@ -20058,7 +20055,7 @@ export function createTypeEvaluator(
                 case 'Literal': {
                     if (
                         (flags &
-                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeAnnotation)) !==
+                            (EvaluatorFlags.DisallowNonTypeSpecialForms | EvaluatorFlags.ExpectingTypeExpression)) !==
                         0
                     ) {
                         addError(LocMessage.literalNotAllowed(), errorNode);
@@ -20511,7 +20508,7 @@ export function createTypeEvaluator(
         }
 
         if (options?.allowRequired) {
-            flags |= EvaluatorFlags.AllowRequired | EvaluatorFlags.ExpectingTypeAnnotation;
+            flags |= EvaluatorFlags.AllowRequired | EvaluatorFlags.ExpectingTypeExpression;
         }
 
         if (options?.allowUnpackedTuple) {
@@ -20525,7 +20522,7 @@ export function createTypeEvaluator(
         }
 
         if (options?.enforceTypeAnnotationRules) {
-            flags |= EvaluatorFlags.ExpectingTypeAnnotation;
+            flags |= EvaluatorFlags.ExpectingTypeExpression;
         }
 
         if (options?.disallowProtocolAndTypedDict) {

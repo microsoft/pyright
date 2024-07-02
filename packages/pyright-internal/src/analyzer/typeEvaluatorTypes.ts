@@ -86,10 +86,9 @@ export const enum EvaluatorFlags {
     // than an instance (object)
     ExpectingInstantiableType = 1 << 7,
 
-    // A type annotation restricts the types of expressions that are
-    // allowed. If this flag is set, illegal type expressions are
-    // flagged as errors.
-    ExpectingTypeAnnotation = 1 << 8,
+    // A type expression imposes grammatical and semantic limits on an
+    // expression. If this flag is set, illegal type expressions are
+    ExpectingTypeExpression = 1 << 8,
 
     // Suppress the reportMissingTypeArgument diagnostic in this context.
     AllowMissingTypeArgs = 1 << 9,
