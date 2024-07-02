@@ -10867,25 +10867,36 @@ export function createTypeEvaluator(
                             paramSpecArgList.push(argList[argIndex]);
                         } else if (paramDetails.kwargsIndex !== undefined) {
                             const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
-                            validateArgTypeParams.push({
-                                paramCategory: ParameterCategory.KwargsDict,
-                                paramType,
-                                requiresTypeVarMatching: requiresSpecialization(paramType),
-                                argument: argList[argIndex],
-                                errorNode: argList[argIndex].valueExpression ?? errorNode,
-                                paramName: paramNameValue,
-                            });
+                            if (isParamSpec(paramType)) {
+                                if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
+                                    addDiagnostic(
+                                        DiagnosticRule.reportCallIssue,
+                                        LocMessage.paramNameMissing().format({ name: paramName.value }),
+                                        paramName
+                                    );
+                                }
+                                reportedArgError = true;
+                            } else {
+                                validateArgTypeParams.push({
+                                    paramCategory: ParameterCategory.KwargsDict,
+                                    paramType,
+                                    requiresTypeVarMatching: requiresSpecialization(paramType),
+                                    argument: argList[argIndex],
+                                    errorNode: argList[argIndex].valueExpression ?? errorNode,
+                                    paramName: paramNameValue,
+                                });
 
-                            // Remember that this parameter has already received a value.
-                            paramMap.set(paramNameValue, {
-                                argsNeeded: 1,
-                                argsReceived: 1,
-                                isPositionalOnly: false,
-                            });
-                            assert(
-                                paramDetails.params[paramDetails.kwargsIndex],
-                                'paramDetails.kwargsIndex params entry is undefined'
-                            );
+                                // Remember that this parameter has already received a value.
+                                paramMap.set(paramNameValue, {
+                                    argsNeeded: 1,
+                                    argsReceived: 1,
+                                    isPositionalOnly: false,
+                                });
+                                assert(
+                                    paramDetails.params[paramDetails.kwargsIndex],
+                                    'paramDetails.kwargsIndex params entry is undefined'
+                                );
+                            }
                             trySetActive(argList[argIndex], paramDetails.params[paramDetails.kwargsIndex].param);
                         } else {
                             if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
