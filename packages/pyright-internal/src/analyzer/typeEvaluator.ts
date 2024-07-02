@@ -16147,14 +16147,13 @@ export function createTypeEvaluator(
             let isSpeculativeTypeAlias = false;
 
             if (isDeclaredTypeAlias(node.leftExpression)) {
-                flags |=
+                flags =
                     EvaluatorFlags.ExpectingInstantiableType |
                     EvaluatorFlags.ExpectingTypeAnnotation |
                     EvaluatorFlags.EvaluateStringLiteralAsType |
                     EvaluatorFlags.DisallowParamSpec |
                     EvaluatorFlags.DisallowTypeVarTuple |
                     EvaluatorFlags.DisallowClassVar;
-                flags &= ~EvaluatorFlags.DoNotSpecialize;
 
                 typeAliasNameNode = (node.leftExpression as TypeAnnotationNode).valueExpression as NameNode;
 
@@ -16174,89 +16173,97 @@ export function createTypeEvaluator(
 
                 if (symbolWithScope) {
                     const decls = symbolWithScope.symbol.getDeclarations();
-                    if (decls.length === 1 && isPossibleTypeAliasOrTypedDict(decls[0])) {
-                        typeAliasNameNode = node.leftExpression;
-                        isSpeculativeTypeAlias = true;
+
+                    if (decls.length === 1) {
+                        if (isPossibleTypeAliasDeclaration(decls[0])) {
+                            typeAliasNameNode = node.leftExpression;
+                            isSpeculativeTypeAlias = true;
+                        } else if (isPossibleTypeDictFactoryCall(decls[0])) {
+                            // Handle calls to TypedDict factory functions like type
+                            // aliases to support recursive field type definitions.
+                            typeAliasNameNode = node.leftExpression;
+                        }
                     }
                 }
             }
 
             // Synthesize a type variable that represents the type alias while we're
             // evaluating it. This allows us to handle recursive definitions.
-            let typeAliasTypeVar: TypeVarType | undefined;
+            let typeAliasPlaceholder: TypeVarType | undefined;
             if (typeAliasNameNode) {
-                typeAliasTypeVar = synthesizeTypeAliasPlaceholder(typeAliasNameNode);
+                typeAliasPlaceholder = synthesizeTypeAliasPlaceholder(typeAliasNameNode);
 
                 // Write the type to the type cache to support recursive type alias definitions.
-                writeTypeCache(node, { type: typeAliasTypeVar }, /* flags */ undefined);
-                writeTypeCache(node.leftExpression, { type: typeAliasTypeVar }, /* flags */ undefined);
+                writeTypeCache(node, { type: typeAliasPlaceholder }, /* flags */ undefined);
+                writeTypeCache(node.leftExpression, { type: typeAliasPlaceholder }, /* flags */ undefined);
 
                 if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
                     writeTypeCache(
                         node.leftExpression.valueExpression,
-                        { type: typeAliasTypeVar },
+                        { type: typeAliasPlaceholder },
                         /* flags */ undefined
                     );
                 }
             }
 
             const srcTypeResult = getTypeOfExpression(node.rightExpression, flags, makeInferenceContext(declaredType));
-            let srcType = srcTypeResult.type;
+
+            rightHandType = srcTypeResult.type;
             expectedTypeDiagAddendum = srcTypeResult.expectedTypeDiagAddendum;
             if (srcTypeResult.isIncomplete) {
                 isIncomplete = true;
             }
 
-            // If the RHS is a constant boolean expression, assign it a literal type.
-            const constExprValue = evaluateStaticBoolExpression(
-                node.rightExpression,
-                fileInfo.executionEnvironment,
-                fileInfo.definedConstants
-            );
-
-            if (constExprValue !== undefined) {
-                const boolType = getBuiltInObject(node, 'bool');
-                if (isClassInstance(boolType)) {
-                    srcType = ClassType.cloneWithLiteral(boolType, constExprValue);
-                }
+            // If this was a speculative type alias, it becomes a real type alias
+            // only if the evaluated type is an instantiable type.
+            if (isSpeculativeTypeAlias && !isLegalImplicitTypeAliasType(rightHandType)) {
+                typeAliasNameNode = undefined;
             }
 
-            // If this is an enum, transform the type as required.
-            rightHandType = srcType;
-
             if (typeAliasNameNode) {
-                // If this was a speculative type alias, it becomes a real type alias
-                // only if the evaluated type is an instantiable type.
-                if (!isSpeculativeTypeAlias || isLegalImplicitTypeAliasType(rightHandType)) {
-                    // If this is a type alias, record its name based on the assignment target.
-                    rightHandType = transformTypeForTypeAlias(
-                        rightHandType,
-                        typeAliasNameNode,
-                        typeAliasNameNode,
-                        /* isPep695Syntax */ false,
-                        /* isPep695TypeVarType */ false
+                assert(typeAliasPlaceholder !== undefined);
+
+                // If this is a type alias, record its name based on the assignment target.
+                rightHandType = transformTypeForTypeAlias(
+                    rightHandType,
+                    typeAliasNameNode,
+                    typeAliasNameNode,
+                    /* isPep695Syntax */ false,
+                    /* isPep695TypeVarType */ false
+                );
+
+                if (isTypeAliasRecursive(typeAliasPlaceholder, rightHandType)) {
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typeAliasIsRecursiveDirect().format({
+                            name: typeAliasNameNode.value,
+                        }),
+                        node.rightExpression
                     );
 
-                    assert(typeAliasTypeVar !== undefined);
-                    if (isTypeAliasRecursive(typeAliasTypeVar, rightHandType)) {
-                        addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            LocMessage.typeAliasIsRecursiveDirect().format({
-                                name: typeAliasNameNode.value,
-                            }),
-                            node.rightExpression
-                        );
+                    rightHandType = UnknownType.create();
+                }
 
-                        rightHandType = UnknownType.create();
+                // Set the resulting type to the boundType of the original type alias
+                // to support recursive type aliases.
+                typeAliasPlaceholder.details.boundType = rightHandType;
+
+                // Record the type parameters within the recursive type alias so it
+                // can be specialized.
+                typeAliasPlaceholder.details.recursiveTypeParameters = rightHandType.typeAliasInfo?.typeParameters;
+            } else {
+                // If the RHS is a constant boolean expression, assign it a literal type.
+                const constExprValue = evaluateStaticBoolExpression(
+                    node.rightExpression,
+                    fileInfo.executionEnvironment,
+                    fileInfo.definedConstants
+                );
+
+                if (constExprValue !== undefined) {
+                    const boolType = getBuiltInObject(node, 'bool');
+                    if (isClassInstance(boolType)) {
+                        rightHandType = ClassType.cloneWithLiteral(boolType, constExprValue);
                     }
-
-                    // Set the resulting type to the boundType of the original type alias
-                    // to support recursive type aliases.
-                    typeAliasTypeVar.details.boundType = rightHandType;
-
-                    // Record the type parameters within the recursive type alias so it
-                    // can be specialized.
-                    typeAliasTypeVar.details.recursiveTypeParameters = rightHandType.typeAliasInfo?.typeParameters;
                 }
             }
         }
