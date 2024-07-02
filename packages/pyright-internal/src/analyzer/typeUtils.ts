@@ -2596,6 +2596,10 @@ export function containsAnyOrUnknown(type: Type, recurse: boolean): AnyType | Un
             super();
         }
 
+        override visitTypeAlias(type: Type) {
+            // Don't explore type aliases.
+        }
+
         override visitUnknown(type: UnknownType) {
             this.anyOrUnknownType = this.anyOrUnknownType ? preserveUnknown(this.anyOrUnknownType, type) : type;
         }
