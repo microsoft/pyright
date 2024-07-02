@@ -6988,6 +6988,13 @@ export function createTypeEvaluator(
                 const selfType = isTypeVar(unexpandedSubtype) ? unexpandedSubtype : undefined;
 
                 if (isAnyOrUnknown(concreteSubtype)) {
+                    if ((flags & EvaluatorFlags.ExpectingTypeExpression) !== 0) {
+                        // If we are expecting a type annotation here, assume that
+                        // the subscripts are type arguments and evaluate them
+                        // accordingly.
+                        getTypeArgs(node, flags);
+                    }
+
                     return concreteSubtype;
                 }
 
@@ -15438,8 +15445,15 @@ export function createTypeEvaluator(
     function createAnnotatedType(
         classType: ClassType,
         errorNode: ExpressionNode,
-        typeArgs: TypeResultWithNode[] | undefined
+        typeArgs: TypeResultWithNode[] | undefined,
+        flags: EvaluatorFlags
     ): TypeResult {
+        const typeExprFlags =
+            EvaluatorFlags.ExpectingTypeExpression | EvaluatorFlags.SkipConvertSpecialFormToRuntimeObject;
+        if ((flags & typeExprFlags) === 0) {
+            return { type: classType };
+        }
+
         if (typeArgs) {
             if (typeArgs.length < 2) {
                 addError(LocMessage.annotatedTypeArgMissing(), errorNode);
@@ -20091,7 +20105,7 @@ export function createTypeEvaluator(
                 }
 
                 case 'Annotated': {
-                    return createAnnotatedType(classType, errorNode, typeArgs);
+                    return createAnnotatedType(classType, errorNode, typeArgs, flags);
                 }
 
                 case 'Concatenate': {

@@ -46,7 +46,7 @@ def func1() -> type[int]:
 # allowed in a type alias definition.
 type TA8 = func1()
 
-# This should generate an error because a tuple and index expression is not
+# This should generate two errors because a tuple and index expression is not
 # allowed in a type alias definition.
 type TA9 = (int, str, str)[0]
 
