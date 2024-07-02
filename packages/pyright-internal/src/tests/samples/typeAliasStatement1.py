@@ -8,6 +8,8 @@ T1 = 0
 
 type TA1[T1] = int
 
+reveal_type(TA1, expected_text="TypeAliasType")
+
 
 class ClassA[T2]:
     type TA2 = int
@@ -19,7 +21,6 @@ class ClassA[T2]:
 
 
 T2 = 4
-
 
 type TA5[S1, *S2, **S3] = Callable[S3, S1] | tuple[*S2]
 
@@ -37,7 +38,8 @@ else:
     type TA7 = int
 
 
-def func1() -> type[int]: ...
+def func1() -> type[int]:
+    ...
 
 
 # This should generate an error because a call expression is not
@@ -66,7 +68,7 @@ class DerivedInt(TA10):
 
 
 def func2(x: object):
-    # This should generate two errors.
+    # This should generate an error.
     if isinstance(x, TA10):
         reveal_type(x)
 

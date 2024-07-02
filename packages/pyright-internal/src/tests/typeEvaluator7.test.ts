@@ -950,7 +950,7 @@ test('Del2', () => {
 test('Any1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['any1.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('Type1', () => {
