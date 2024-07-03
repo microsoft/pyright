@@ -9960,7 +9960,7 @@ export function createTypeEvaluator(
                 (baseClass) => isInstantiableClass(baseClass) && ClassType.isBuiltIn(baseClass, 'type')
             )
         ) {
-            let newClassName = returnType.details.name
+            let newClassName = '__class_' + returnType.details.name;
             if (argList.length === 3) {
                 const firstArgType = getTypeOfArgument(
                     argList[0],
