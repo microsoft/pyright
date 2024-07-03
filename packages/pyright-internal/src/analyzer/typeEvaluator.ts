@@ -8396,7 +8396,6 @@ export function createTypeEvaluator(
 
                     if ((functionInfo?.flags & FunctionTypeFlags.StaticMethod) !== 0) {
                         addError(LocMessage.superCallZeroArgFormStaticMethod(), node.leftExpression);
-                        targetClassType = UnknownType.create();
                     }
                 }
             } else {
@@ -8404,6 +8403,8 @@ export function createTypeEvaluator(
                 targetClassType = UnknownType.create();
             }
         }
+
+        const concreteTargetClassType = makeTopLevelTypeVarsConcrete(targetClassType);
 
         // Determine whether to further narrow the type.
         let bindToType: ClassType | undefined;
@@ -8417,11 +8418,11 @@ export function createTypeEvaluator(
             if (isAnyOrUnknown(secondArgType)) {
                 // Ignore unknown or any types.
             } else if (isClassInstance(secondArgType)) {
-                if (isInstantiableClass(targetClassType)) {
+                if (isInstantiableClass(concreteTargetClassType)) {
                     if (
                         !derivesFromClassRecursive(
                             ClassType.cloneAsInstantiable(secondArgType),
-                            targetClassType,
+                            concreteTargetClassType,
                             /* ignoreUnknown */ true
                         )
                     ) {
@@ -8430,10 +8431,10 @@ export function createTypeEvaluator(
                 }
                 bindToType = secondArgType;
             } else if (isInstantiableClass(secondArgType)) {
-                if (isInstantiableClass(targetClassType)) {
+                if (isInstantiableClass(concreteTargetClassType)) {
                     if (
-                        !ClassType.isBuiltIn(targetClassType, 'type') &&
-                        !derivesFromClassRecursive(secondArgType, targetClassType, /* ignoreUnknown */ true)
+                        !ClassType.isBuiltIn(concreteTargetClassType, 'type') &&
+                        !derivesFromClassRecursive(secondArgType, concreteTargetClassType, /* ignoreUnknown */ true)
                     ) {
                         reportError = true;
                     }
@@ -8514,7 +8515,7 @@ export function createTypeEvaluator(
         const parentNode = node.parent;
         if (parentNode?.nodeType === ParseNodeType.MemberAccess) {
             const memberName = parentNode.memberName.value;
-            let effectiveTargetClass = isClass(targetClassType) ? targetClassType : undefined;
+            let effectiveTargetClass = isClass(concreteTargetClassType) ? concreteTargetClassType : undefined;
 
             // If the bind-to type is a protocol, don't use the effective target class.
             // This pattern is used for mixins, where the mixin type is a protocol class
@@ -8568,7 +8569,7 @@ export function createTypeEvaluator(
         }
 
         // Handle the super() call when used outside of a member access expression.
-        if (isInstantiableClass(targetClassType)) {
+        if (isInstantiableClass(concreteTargetClassType)) {
             // We don't know which member is going to be accessed, so we cannot
             // deterministically determine the correct type in this case. We'll
             // use a heuristic that produces the "correct" (desired) behavior in
@@ -8578,14 +8579,15 @@ export function createTypeEvaluator(
             if (bindToType) {
                 let nextBaseClassType: Type | undefined;
 
-                if (ClassType.isSameGenericClass(bindToType, targetClassType)) {
+                if (ClassType.isSameGenericClass(bindToType, concreteTargetClassType)) {
                     if (bindToType.details.baseClasses.length > 0) {
                         nextBaseClassType = bindToType.details.baseClasses[0];
                     }
                 } else {
                     const baseClassIndex = bindToType.details.baseClasses.findIndex(
                         (baseClass) =>
-                            isClass(baseClass) && ClassType.isSameGenericClass(baseClass, targetClassType as ClassType)
+                            isClass(baseClass) &&
+                            ClassType.isSameGenericClass(baseClass, concreteTargetClassType as ClassType)
                     );
 
                     if (baseClassIndex >= 0 && baseClassIndex < bindToType.details.baseClasses.length - 1) {
@@ -8609,11 +8611,11 @@ export function createTypeEvaluator(
             } else {
                 // If the class derives from one or more unknown classes,
                 // return unknown here to prevent spurious errors.
-                if (targetClassType.details.mro.some((mroBase) => isAnyOrUnknown(mroBase))) {
+                if (concreteTargetClassType.details.mro.some((mroBase) => isAnyOrUnknown(mroBase))) {
                     return { type: UnknownType.create() };
                 }
 
-                const baseClasses = targetClassType.details.baseClasses;
+                const baseClasses = concreteTargetClassType.details.baseClasses;
                 if (baseClasses.length > 0) {
                     const baseClassType = baseClasses[0];
                     if (isInstantiableClass(baseClassType)) {
@@ -20977,10 +20979,14 @@ export function createTypeEvaluator(
                     return { type: AnyType.create() };
                 }
 
-                if (declaration.intrinsicType === 'class') {
+                if (declaration.intrinsicType === 'type[self]') {
                     const classNode = ParseTreeUtils.getEnclosingClass(declaration.node) as ClassNode;
                     const classTypeInfo = getTypeOfClass(classNode);
-                    return { type: classTypeInfo?.classType };
+                    return {
+                        type: classTypeInfo
+                            ? synthesizeTypeVarForSelfCls(classTypeInfo.classType, /* isClsParam */ true)
+                            : UnknownType.create(),
+                    };
                 }
 
                 const strType = getBuiltInObject(declaration.node, 'str');
