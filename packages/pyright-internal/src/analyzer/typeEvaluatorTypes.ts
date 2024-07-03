@@ -158,6 +158,10 @@ export const enum EvalFlags {
     // other container classes).
     StripTupleLiterals = 1 << 28,
 
+    // Interpret the expression using the specialized behaviors associated
+    // with the second argument to isinstance and issubclass calls.
+    IsinstanceParam = 1 << 29,
+
     // Defaults used for evaluating the LHS of a call expression.
     CallBaseDefaults = NoSpecialize,
 
