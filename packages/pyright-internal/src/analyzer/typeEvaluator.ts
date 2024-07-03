@@ -4617,6 +4617,14 @@ export function createTypeEvaluator(
             return type;
         }
 
+        // Isinstance treats traditional (non-PEP 695) type aliases that are unions
+        // as tuples of classes rather than unions.
+        if ((flags & EvalFlags.IsinstanceParam) !== 0) {
+            if (isUnion(type) && type.typeAliasInfo && !type.typeAliasInfo.isPep695Syntax) {
+                return type;
+            }
+        }
+
         return type.specialForm ?? type;
     }
 
@@ -12055,7 +12063,8 @@ export function createTypeEvaluator(
                       EvalFlags.NoParamSpec |
                       EvalFlags.NoTypeVarTuple |
                       EvalFlags.NoFinal |
-                      EvalFlags.NoSpecialize
+                      EvalFlags.NoSpecialize |
+                      EvalFlags.IsinstanceParam
                     : EvalFlags.NoFinal | EvalFlags.NoSpecialize;
                 const exprTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
