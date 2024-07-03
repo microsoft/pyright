@@ -38,7 +38,7 @@ class F(E):
 
 class G(E, metaclass=type):
     def my_method(self):
-        print(__class__)
+        reveal_type(__class__, expected_text="type[Self@G]")
 
 
 # This should generate an error because only one metaclass is supported.

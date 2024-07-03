@@ -29,6 +29,7 @@ import {
     VariableDeclaration,
 } from '../analyzer/declaration';
 import { isDefinedInFile } from '../analyzer/declarationUtils';
+import { transformTypeForEnumMember } from '../analyzer/enums';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import { ImportResult } from '../analyzer/importResult';
 import { getParameterListDetails, ParameterKind } from '../analyzer/parameterUtils';
@@ -80,6 +81,7 @@ import { ProgramView } from '../common/extensibility';
 import { fromLSPAny, toLSPAny } from '../common/lspUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { PythonVersion, pythonVersion3_10, pythonVersion3_5 } from '../common/pythonVersion';
+import '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
 import { comparePositions, Position, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -127,8 +129,6 @@ import {
 } from './completionProviderUtils';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
-import '../common/serviceProviderExtensions';
-import { transformTypeForEnumMember } from '../analyzer/enums';
 
 namespace Keywords {
     const base: string[] = [
@@ -3033,7 +3033,7 @@ export class CompletionProvider {
 
         switch (resolvedDeclaration.type) {
             case DeclarationType.Intrinsic:
-                return resolvedDeclaration.intrinsicType === 'class'
+                return resolvedDeclaration.intrinsicType === 'type[self]'
                     ? CompletionItemKind.Class
                     : CompletionItemKind.Variable;
 
