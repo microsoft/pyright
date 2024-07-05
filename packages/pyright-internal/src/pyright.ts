@@ -582,8 +582,8 @@ async function runMultiThreaded(
         affinityQueues[affinityIndex].push(sourceFilesToAnalyze[i]);
     }
 
-    console.info(`Found ${sourceFilesToAnalyze.length} files to analyze`);
-    console.info(`Using ${workerCount} threads`);
+    output.info(`Found ${sourceFilesToAnalyze.length} files to analyze`);
+    output.info(`Using ${workerCount} threads`);
 
     const fileDiagnostics: FileDiagnostics[] = [];
     let pendingAnalysisCount = 0;
@@ -663,8 +663,7 @@ async function runMultiThreaded(
             try {
                 messageObj = JSON.parse(message as string);
             } catch {
-                console.error(`Invalid message from worker: ${message}`);
-                console.error(`Resolved exitStatus: FatalError`);
+                output.error(`Invalid message from worker: ${message}`);
                 exitStatus.resolve(ExitStatus.FatalError);
             }
 
@@ -680,14 +679,12 @@ async function runMultiThreaded(
                     const results = messageObj.data as AnalysisResults;
 
                     if (results.fatalErrorOccurred) {
-                        console.error(`Fatal error from worker`);
-                        console.error(`Resolved exitStatus: FatalError`);
+                        output.error(`Fatal error from worker`);
                         exitStatus.resolve(ExitStatus.FatalError);
                         return;
                     }
 
                     if (results.configParseErrorOccurred) {
-                        console.error(`Resolved exitStatus: ConfigFileParseError`);
                         exitStatus.resolve(ExitStatus.ConfigFileParseError);
                         return;
                     }
@@ -701,8 +698,7 @@ async function runMultiThreaded(
                 }
 
                 default: {
-                    console.error(`Unknown message from worker: ${message}`);
-                    console.error(`Resolved exitStatus: FatalError`);
+                    output.error(`Unknown message from worker: ${message}`);
                     exitStatus.resolve(ExitStatus.FatalError);
                     break;
                 }
@@ -710,8 +706,7 @@ async function runMultiThreaded(
         });
 
         worker.on('error', (err) => {
-            console.error('Failed to start child process:', err);
-            console.error(`Resolved exitStatus: FatalError`);
+            output.error(`Failed to start child process: ${err}`);
             exitStatus.resolve(ExitStatus.FatalError);
         });
 
