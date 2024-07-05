@@ -86,6 +86,26 @@ export interface DiagnosticRelatedInfo {
     priority: TaskListPriority;
 }
 
+export namespace DiagnosticRelatedInfo {
+    export function toJsonObj(info: DiagnosticRelatedInfo): any {
+        return {
+            message: info.message,
+            uri: info.uri.toJsonObj(),
+            range: info.range,
+            priority: info.priority,
+        };
+    }
+
+    export function fromJsonObj(obj: any): DiagnosticRelatedInfo {
+        return {
+            message: obj.message,
+            uri: Uri.fromJsonObj(obj.uri),
+            range: obj.range,
+            priority: obj.priority,
+        };
+    }
+}
+
 // Represents a single error or warning.
 export class Diagnostic {
     private _actions: DiagnosticAction[] | undefined;
@@ -98,6 +118,26 @@ export class Diagnostic {
         readonly range: Range,
         readonly priority: TaskListPriority = TaskListPriority.Normal
     ) {}
+
+    toJsonObj() {
+        return {
+            category: this.category,
+            message: this.message,
+            range: this.range,
+            priority: this.priority,
+            actions: this._actions,
+            rule: this._rule,
+            relatedInfo: this._relatedInfo.map((info) => DiagnosticRelatedInfo.toJsonObj(info)),
+        };
+    }
+
+    static fromJsonObj(obj: any) {
+        const diag = new Diagnostic(obj.category, obj.message, obj.range, obj.priority);
+        diag._actions = obj.actions;
+        diag._rule = obj.rule;
+        diag._relatedInfo = obj.relatedInfo.map((info: any) => DiagnosticRelatedInfo.fromJsonObj(info));
+        return diag;
+    }
 
     addAction(action: DiagnosticAction) {
         if (this._actions === undefined) {
