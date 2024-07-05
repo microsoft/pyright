@@ -4391,9 +4391,13 @@ export class Parser {
 
             const rightExpr =
                 this._tryParseYieldExpression() ??
-                this._parseTestListAsExpression(ErrorExpressionCategory.MissingExpression, () =>
-                    LocMessage.expectedBinaryRightHandExpr()
+                this._parseTestOrStarListAsExpression(
+                    /* allowAssignmentExpression */ false,
+                    /* allowMultipleUnpack */ true,
+                    ErrorExpressionCategory.MissingExpression,
+                    () => LocMessage.expectedBinaryRightHandExpr()
                 );
+            this._reportConditionalErrorForStarTupleElement(rightExpr, pythonVersion3_9);
 
             // Make a shallow copy of the dest expression but give it a new ID.
             const destExpr = Object.assign({}, leftExpr);
@@ -4954,7 +4958,10 @@ export class Parser {
     // Python 3.8 added support for star (unpack) expressions in tuples
     // following a return or yield statement in cases where the tuple
     // wasn't surrounded in parentheses.
-    private _reportConditionalErrorForStarTupleElement(possibleTupleExpr: ExpressionNode) {
+    private _reportConditionalErrorForStarTupleElement(
+        possibleTupleExpr: ExpressionNode,
+        pythonVersion = pythonVersion3_8
+    ) {
         if (possibleTupleExpr.nodeType !== ParseNodeType.Tuple) {
             return;
         }
@@ -4963,7 +4970,7 @@ export class Parser {
             return;
         }
 
-        if (this._parseOptions.pythonVersion.isGreaterOrEqualTo(pythonVersion3_8)) {
+        if (this._parseOptions.pythonVersion.isGreaterOrEqualTo(pythonVersion)) {
             return;
         }
 
