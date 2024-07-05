@@ -8,8 +8,7 @@ class GenericNT(NamedTuple, Generic[AnyStr]):
 
 
 class SpecializedNT(GenericNT[str]):
-    def geturl(self) -> str:
-        ...
+    def geturl(self) -> str: ...
 
 
 def func(x: SpecializedNT):

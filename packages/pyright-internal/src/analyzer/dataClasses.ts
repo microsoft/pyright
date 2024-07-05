@@ -33,7 +33,7 @@ import { getClassFullName, getEnclosingClassOrFunction, getScopeIdForNode, getTy
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName } from './symbolNameUtils';
-import { EvaluatorFlags, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { EvalFlags, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -225,7 +225,7 @@ export function synthesizeDataClassMethods(
                 if (statement.rightExpression.nodeType === ParseNodeType.Call) {
                     const callTypeResult = evaluator.getTypeOfExpression(
                         statement.rightExpression.leftExpression,
-                        EvaluatorFlags.CallBaseDefaults
+                        EvalFlags.CallBaseDefaults
                     );
                     const callType = callTypeResult.type;
 
@@ -458,7 +458,7 @@ export function synthesizeDataClassMethods(
             if (statement.rightExpression.nodeType === ParseNodeType.Call) {
                 const callType = evaluator.getTypeOfExpression(
                     statement.rightExpression.leftExpression,
-                    EvaluatorFlags.CallBaseDefaults
+                    EvalFlags.CallBaseDefaults
                 ).type;
 
                 if (
@@ -821,7 +821,10 @@ function getConverterInputType(
             const inputTypeVarContext = new TypeVarContext(typeVar.scopeId);
 
             if (evaluator.assignType(targetFunction, signature, diagAddendum, inputTypeVarContext)) {
-                const overloadSolution = applySolvedTypeVars(typeVar, inputTypeVarContext, { unknownIfNotFound: true });
+                const overloadSolution = applySolvedTypeVars(typeVar, inputTypeVarContext, {
+                    unknownIfNotFound: true,
+                    tupleClassType: evaluator.getTupleClassType(),
+                });
                 acceptedTypes.push(overloadSolution);
             }
         });

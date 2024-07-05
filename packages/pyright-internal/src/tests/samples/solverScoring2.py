@@ -8,20 +8,17 @@ from typing import Any, Generic, TypeVar, Union
 T1 = TypeVar("T1")
 
 
-class Wrapper(Generic[T1]):
-    ...
+class Wrapper(Generic[T1]): ...
 
 
-def ensure_wrapped(item: Union[T1, Wrapper[T1]]) -> Wrapper[T1]:
-    ...
+def ensure_wrapped(item: Union[T1, Wrapper[T1]]) -> Wrapper[T1]: ...
 
 
 def some_func(x: Wrapper[T1]) -> Wrapper[T1]:
     return ensure_wrapped(x)
 
 
-def func1a(value: list[Union[T1, list[T1]]]) -> T1:
-    ...
+def func1a(value: list[Union[T1, list[T1]]]) -> T1: ...
 
 
 def func2a(value: list[Union[float, list[float]]]):
@@ -39,8 +36,7 @@ def func4a(value: list[Union[float, str, list[Union[float, str]]]]):
     reveal_type(x, expected_text="float | str")
 
 
-def func1b(value: list[Union[int, list[T1]]]) -> T1:
-    ...
+def func1b(value: list[Union[int, list[T1]]]) -> T1: ...
 
 
 def func2b(value: list[Union[int, list[float]]]):
@@ -53,8 +49,7 @@ def func3b(value: list[Union[str, list[float]]]):
     func1b(value)
 
 
-def ensure_list(value: Union[T1, list[T1]]) -> list[T1]:
-    ...
+def ensure_list(value: Union[T1, list[T1]]) -> list[T1]: ...
 
 
 def func4(

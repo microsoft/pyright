@@ -25,7 +25,7 @@ import { getFileInfo } from './analyzerNodeInfo';
 import { getEnclosingLambda, isWithinLoop, operatorSupportsChaining, printOperator } from './parseTreeUtils';
 import { getScopeForNode } from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
-import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     InferenceContext,
     convertToInstantiable,
@@ -501,7 +501,7 @@ export function validateBinaryOperation(
 export function getTypeOfBinaryOperation(
     evaluator: TypeEvaluator,
     node: BinaryOperationNode,
-    flags: EvaluatorFlags,
+    flags: EvalFlags,
     inferenceContext: InferenceContext | undefined
 ): TypeResult {
     const leftExpression = node.leftExpression;
@@ -622,7 +622,7 @@ export function getTypeOfBinaryOperation(
             const fileInfo = getFileInfo(node);
             const unionNotationSupported =
                 fileInfo.isStubFile ||
-                (flags & EvaluatorFlags.AllowForwardReferences) !== 0 ||
+                (flags & EvalFlags.ForwardRefs) !== 0 ||
                 fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(pythonVersion3_10);
 
             if (!unionNotationSupported) {
@@ -648,12 +648,12 @@ export function getTypeOfBinaryOperation(
             adjustedLeftType = evaluator.reportMissingTypeArguments(
                 node.leftExpression,
                 adjustedLeftType,
-                flags | EvaluatorFlags.ExpectingInstantiableType
+                flags | EvalFlags.InstantiableType
             );
             adjustedRightType = evaluator.reportMissingTypeArguments(
                 node.rightExpression,
                 adjustedRightType,
-                flags | EvaluatorFlags.ExpectingInstantiableType
+                flags | EvalFlags.InstantiableType
             );
 
             let newUnion = combineTypes([adjustedLeftType, adjustedRightType]);
@@ -703,7 +703,7 @@ export function getTypeOfBinaryOperation(
         }
     }
 
-    if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+    if ((flags & EvalFlags.TypeExpression) !== 0) {
         // Exempt "|" because it might be a union operation involving unknowns.
         if (node.operator !== OperatorType.BitwiseOr) {
             evaluator.addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.binaryOperationNotAllowed(), node);
@@ -947,10 +947,10 @@ export function getTypeOfAugmentedAssignment(
 export function getTypeOfUnaryOperation(
     evaluator: TypeEvaluator,
     node: UnaryOperationNode,
-    flags: EvaluatorFlags,
+    flags: EvalFlags,
     inferenceContext: InferenceContext | undefined
 ): TypeResult {
-    if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+    if ((flags & EvalFlags.TypeExpression) !== 0) {
         evaluator.addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unaryOperationNotAllowed(), node);
         return { type: UnknownType.create() };
     }
@@ -1082,12 +1082,12 @@ export function getTypeOfUnaryOperation(
 export function getTypeOfTernaryOperation(
     evaluator: TypeEvaluator,
     node: TernaryNode,
-    flags: EvaluatorFlags,
+    flags: EvalFlags,
     inferenceContext: InferenceContext | undefined
 ): TypeResult {
     const fileInfo = getFileInfo(node);
 
-    if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+    if ((flags & EvalFlags.TypeExpression) !== 0) {
         evaluator.addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.ternaryNotAllowed(), node);
         return { type: UnknownType.create() };
     }

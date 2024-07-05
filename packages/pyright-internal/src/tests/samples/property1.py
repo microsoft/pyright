@@ -82,8 +82,7 @@ p3: property = ClassA.deletable_prop
 
 class ClassC:
     @property
-    def prop1(self) -> type[Self]:
-        ...
+    def prop1(self) -> type[Self]: ...
 
     def method1(self) -> None:
         reveal_type(self.prop1, expected_text="type[Self@ClassC]")

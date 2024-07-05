@@ -4,6 +4,7 @@
 
 # pyright: reportUnnecessaryComparison=true
 
+
 def func1():
     a = None
     b = ""

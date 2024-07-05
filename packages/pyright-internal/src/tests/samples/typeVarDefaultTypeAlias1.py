@@ -84,11 +84,15 @@ Ts5 = TypeVarTuple("Ts5")
 TA7 = tuple[*Ts5] | Callable[P4, Any] | Callable[P5, Any]
 
 
-reveal_type(
-    TA7[int, str, complex],
-    expected_text="type[tuple[int, str, complex]] | type[(float, bool) -> Any] | type[(bool) -> Any]",
-)
-reveal_type(
-    TA7[int, str, [str, complex]],
-    expected_text="type[tuple[int, str]] | type[(str, complex) -> Any] | type[(bool) -> Any]",
-)
+def func_d1(x: TA7[int, str, complex]):
+    reveal_type(
+        x,
+        expected_text="tuple[int, str, complex] | ((float, bool) -> Any) | ((bool) -> Any)",
+    )
+
+
+def func_d2(x: TA7[int, str, [str, complex]]):
+    reveal_type(
+        x,
+        expected_text="tuple[int, str] | ((str, complex) -> Any) | ((bool) -> Any)",
+    )

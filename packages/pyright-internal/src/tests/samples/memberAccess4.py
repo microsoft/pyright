@@ -79,8 +79,7 @@ TFoo2 = TypeVar("TFoo2", bound="Foo2")
 
 class Foo2:
     @classmethod
-    def bar(cls: type[TFoo2]) -> TFoo2:
-        ...
+    def bar(cls: type[TFoo2]) -> TFoo2: ...
 
     def baz(self) -> None:
         self.bar()

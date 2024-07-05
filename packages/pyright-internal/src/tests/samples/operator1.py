@@ -104,8 +104,7 @@ _ = e + e
 
 
 class F:
-    def __add__(self, other: object) -> NoReturn:
-        ...
+    def __add__(self, other: object) -> NoReturn: ...
 
 
 f = F() + ""

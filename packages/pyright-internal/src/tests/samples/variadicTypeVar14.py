@@ -18,7 +18,7 @@ def call_with_params(func: Callable[[*Ts], R], *params: *Ts) -> R:
 def callback1(*args: int) -> int: ...
 
 
-def callback2(*args: * tuple[int, int]) -> int: ...
+def callback2(*args: *tuple[int, int]) -> int: ...
 
 
 call_with_params(callback1)
@@ -36,7 +36,7 @@ call_with_params(callback2, 1, 1)
 call_with_params(callback2, 1, "")
 
 
-def callback3(*args: * tuple[int, *tuple[str, ...], int]) -> int: ...
+def callback3(*args: *tuple[int, *tuple[str, ...], int]) -> int: ...
 
 
 # This should generate an error.

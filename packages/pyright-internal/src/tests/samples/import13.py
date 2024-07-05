@@ -2,5 +2,4 @@
 # PEP 562 (module-level __getattr__) support.
 
 
-def __getattr__(name: str) -> int:
-    ...
+def __getattr__(name: str) -> int: ...

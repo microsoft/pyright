@@ -29,6 +29,7 @@ import {
     VariableDeclaration,
 } from '../analyzer/declaration';
 import { isDefinedInFile } from '../analyzer/declarationUtils';
+import { transformTypeForEnumMember } from '../analyzer/enums';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import { ImportResult } from '../analyzer/importResult';
 import { getParameterListDetails, ParameterKind } from '../analyzer/parameterUtils';
@@ -46,6 +47,7 @@ import { printLiteralValue } from '../analyzer/typePrinter';
 import {
     ClassType,
     combineTypes,
+    EnumLiteral,
     FunctionType,
     isClass,
     isClassInstance,
@@ -79,6 +81,7 @@ import { ProgramView } from '../common/extensibility';
 import { fromLSPAny, toLSPAny } from '../common/lspUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { PythonVersion, pythonVersion3_10, pythonVersion3_5 } from '../common/pythonVersion';
+import '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
 import { comparePositions, Position, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -126,7 +129,6 @@ import {
 } from './completionProviderUtils';
 import { DocumentSymbolCollector } from './documentSymbolCollector';
 import { getAutoImportText, getDocumentationPartsForTypeAndDecl } from './tooltipUtils';
-import '../common/serviceProviderExtensions';
 
 namespace Keywords {
     const base: string[] = [
@@ -705,13 +707,7 @@ export class CompletionProvider {
             // Handle enum members specially. Enum members normally look like
             // variables, but the are declared using assignment expressions
             // within an enum class.
-            if (
-                primaryDecl.type === DeclarationType.Variable &&
-                detail.boundObjectOrClass &&
-                isInstantiableClass(detail.boundObjectOrClass) &&
-                ClassType.isEnumClass(detail.boundObjectOrClass) &&
-                primaryDecl.node.parent?.nodeType === ParseNodeType.Assignment
-            ) {
+            if (this._isEnumMember(detail.boundObjectOrClass, name)) {
                 itemKind = CompletionItemKind.EnumMember;
             }
 
@@ -757,19 +753,16 @@ export class CompletionProvider {
 
             if (isClass(subtype)) {
                 const instance = TypeBase.isInstance(subtype);
-                if (ClassType.isEnumClass(subtype) && instance) {
-                    // We don't add members for instances of enum members, but do add members of `enum.Enum` itself.
-                    // ex) 'MyEnum.member.' <= here
-                    const enumType = subtype.details.baseClasses.find(
-                        (t) => isClass(t) && ClassType.isBuiltIn(t, 'Enum')
-                    ) as ClassType | undefined;
-                    if (!enumType) {
-                        return;
-                    }
+                getMembersForClass(subtype, symbolTable, instance);
 
-                    getMembersForClass(enumType, symbolTable, /* instance */ true);
-                } else {
-                    getMembersForClass(subtype, symbolTable, instance);
+                if (ClassType.isEnumClass(subtype) && instance) {
+                    // Don't show enum member out of another enum member
+                    // ex) Enum.Member. <= shouldn't show `Member` again.
+                    for (const name of symbolTable.keys()) {
+                        if (this._isEnumMember(subtype, name)) {
+                            symbolTable.delete(name);
+                        }
+                    }
                 }
             } else if (isModule(subtype)) {
                 getMembersForModule(subtype, symbolTable);
@@ -3040,7 +3033,7 @@ export class CompletionProvider {
 
         switch (resolvedDeclaration.type) {
             case DeclarationType.Intrinsic:
-                return resolvedDeclaration.intrinsicType === 'class'
+                return resolvedDeclaration.intrinsicType === 'type[self]'
                     ? CompletionItemKind.Class
                     : CompletionItemKind.Variable;
 
@@ -3142,6 +3135,21 @@ export class CompletionProvider {
         // Do cheap check using only nodes that will cover 99.9% cases
         // before doing more expensive type evaluation.
         return decl.isMethod && decl.node.decorators.length > 0;
+    }
+
+    private _isEnumMember(containingType: ClassType | undefined, name: string) {
+        if (!containingType || !ClassType.isEnumClass(containingType)) {
+            return false;
+        }
+
+        const symbolType = transformTypeForEnumMember(this.evaluator, containingType, name);
+
+        return (
+            symbolType &&
+            isClassInstance(symbolType) &&
+            ClassType.isSameGenericClass(symbolType, containingType) &&
+            symbolType.literalValue instanceof EnumLiteral
+        );
     }
 }
 

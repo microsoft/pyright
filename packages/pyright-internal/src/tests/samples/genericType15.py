@@ -10,8 +10,7 @@ T2 = TypeVar("T2")
 T3 = TypeVar("T3")
 
 
-class ClassA(Generic[T1]):
-    ...
+class ClassA(Generic[T1]): ...
 
 
 class ClassB(Generic[T2]):
@@ -22,5 +21,4 @@ class ClassB(Generic[T2]):
 def func(
     p0: ClassA[T3],
     p1: Callable[[T3], object],
-):
-    ...
+): ...

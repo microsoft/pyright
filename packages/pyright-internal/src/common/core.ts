@@ -102,8 +102,11 @@ const hasOwnProperty = Object.prototype.hasOwnProperty;
  * The `in` and `for-in` operators can *not* be safely used,
  * since `Object.prototype` may be modified by outside code.
  */
-export interface MapLike<T> {
-    [index: string]: T;
+export interface MapLike<K, V> {
+    readonly [Symbol.toStringTag]: string;
+    get(key: K): V | undefined;
+    has(key: K): boolean;
+    set(key: K, value: V): this;
 }
 
 /**
@@ -112,7 +115,7 @@ export interface MapLike<T> {
  * @param map A map-like.
  * @param key A property key.
  */
-export function hasProperty(map: MapLike<any>, key: string): boolean {
+export function hasProperty(map: { [index: string]: any }, key: string): boolean {
     return hasOwnProperty.call(map, key);
 }
 

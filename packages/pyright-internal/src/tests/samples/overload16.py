@@ -10,12 +10,10 @@ T = TypeVar("T")
 
 class A(Generic[T]):
     @overload
-    def func1(self: "A[bool]", x: "A[bool]") -> list[LiteralString]:
-        ...
+    def func1(self: "A[bool]", x: "A[bool]") -> list[LiteralString]: ...
 
     @overload
-    def func1(self, x: "A[Any]") -> list[str]:
-        ...
+    def func1(self, x: "A[Any]") -> list[str]: ...
 
     def func1(self, x: "A[Any]") -> list[str] | list[LiteralString]:
         return []

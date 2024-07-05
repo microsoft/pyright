@@ -251,10 +251,10 @@ export function getBackgroundWaiter<T>(port: MessagePort, deserializer: (v: any)
 
 export interface InitializationData {
     rootUri: string;
+    serviceId: string;
+    workerIndex: number;
     cancellationFolderName: string | undefined;
     runner: string | undefined;
-    title?: string;
-    workerIndex: number;
 }
 
 export interface RequestResponse {

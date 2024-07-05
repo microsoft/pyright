@@ -9,8 +9,7 @@ ABC = Literal["a", "b", "c"]
 T = TypeVar("T")
 
 
-def func1(x: T | Callable[[], T]) -> Callable[[], T]:
-    ...
+def func1(x: T | Callable[[], T]) -> Callable[[], T]: ...
 
 
 def func2(a: Callable[[], ABC] | ABC, b: ABC | Callable[[], ABC]):

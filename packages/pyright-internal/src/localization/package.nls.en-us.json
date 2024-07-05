@@ -660,6 +660,7 @@
         "invariantSuggestionDict": "Consider switching from \"dict\" to \"Mapping\" which is covariant in the value type",
         "invariantSuggestionList": "Consider switching from \"list\" to \"Sequence\" which is covariant",
         "invariantSuggestionSet": "Consider switching from \"set\" to \"Container\" which is covariant",
+        "isinstanceClassNotSupported": "\"{type}\" is not supported for instance and class checks",
         "kwargsParamMissing": "Parameter \"**{paramName}\" has no corresponding parameter",
         "listAssignmentMismatch": "Type \"{type}\" is incompatible with target list",
         "literalAssignmentMismatch": "\"{sourceType}\" is incompatible with type \"{destType}\"",

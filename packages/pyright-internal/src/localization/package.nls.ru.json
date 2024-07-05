@@ -403,7 +403,7 @@
         "protocolBaseClassWithTypeArgs": "Аргументы типа не допускаются с классом протокола при использовании синтаксиса параметра типа",
         "protocolIllegal": "Ключевое слово \"Protocol\" можно использовать в Python версии не ниже 3.7",
         "protocolNotAllowed": "Невозможно использовать \"Protocol\" в этом контексте",
-        "protocolTypeArgMustBeTypeParam": "Type argument for \"Protocol\" must be a type parameter",
+        "protocolTypeArgMustBeTypeParam": "Аргумент типа для параметра \"Protocol\" должен быть параметром типа",
         "protocolUnsafeOverlap": "Класс небезопасно перекрывает \"{name}\" и может вызвать совпадение во время выполнения",
         "protocolVarianceContravariant": "Переменная типа \"{variable}\", используемая в универсальном протоколе \"{class}\", должна быть контравариантной.",
         "protocolVarianceCovariant": "Переменная типа \"{variable}\", используемая в универсальном протоколе \"{class}\", должна быть ковариантной",

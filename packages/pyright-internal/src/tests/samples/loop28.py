@@ -26,4 +26,3 @@ class A:
                 future_id.result()
                 if self.foo:
                     pass
- 

@@ -29,8 +29,7 @@ ClassA().var1 = "hi"
 
 
 class MetaB(type):
-    def __setattr__(cls, key: str, value: Any) -> None:
-        ...
+    def __setattr__(cls, key: str, value: Any) -> None: ...
 
 
 class ClassB(metaclass=MetaB):

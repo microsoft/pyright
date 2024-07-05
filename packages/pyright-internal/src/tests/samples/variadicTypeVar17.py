@@ -10,27 +10,27 @@ Ts = TypeVarTuple("Ts")
 def call0(*args: *Ts) -> tuple[*Ts]: ...
 
 
-def call1(*args: * tuple[int, *Ts]) -> tuple[*Ts]: ...
+def call1(*args: *tuple[int, *Ts]) -> tuple[*Ts]: ...
 
 
-def call2(*args: * tuple[*Ts, float]) -> tuple[*Ts]: ...
+def call2(*args: *tuple[*Ts, float]) -> tuple[*Ts]: ...
 
 
-def call3(*args: * tuple[int, *Ts, float]) -> tuple[*Ts]: ...
+def call3(*args: *tuple[int, *Ts, float]) -> tuple[*Ts]: ...
 
 
-def call4(*args: * tuple[*tuple[int, *tuple[*Ts], float]]) -> tuple[*Ts]: ...
+def call4(*args: *tuple[*tuple[int, *tuple[*Ts], float]]) -> tuple[*Ts]: ...
 
 
-def func1(*args: * tuple[int, str]):
+def func1(*args: *tuple[int, str]):
     reveal_type(call0(*args), expected_text="tuple[int, str]")
 
 
-def func2(*args: * tuple[int, ...]):
+def func2(*args: *tuple[int, ...]):
     reveal_type(call0(*args), expected_text="tuple[int, ...]")
 
 
-def func3(*args: * tuple[int, *tuple[str, ...], float]):
+def func3(*args: *tuple[int, *tuple[str, ...], float]):
     reveal_type(call0(*args), expected_text="tuple[int, *tuple[str, ...], float]")
 
 
@@ -53,5 +53,5 @@ def func5(x: int, y: str, z: float):
     reveal_type(v4, expected_text="tuple[str]")
 
 
-def func6(*args: * tuple[int, *tuple[None, ...], float]):
+def func6(*args: *tuple[int, *tuple[None, ...], float]):
     reveal_type(call2(*args), expected_text="tuple[int, *tuple[None, ...]]")

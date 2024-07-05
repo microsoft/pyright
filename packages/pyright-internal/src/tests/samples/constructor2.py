@@ -178,8 +178,7 @@ def s18():
 
 
 class Plant(Generic[_T1]):
-    def __new__(cls, o: _T1) -> Self:
-        ...
+    def __new__(cls, o: _T1) -> Self: ...
 
 
 plant: Plant[float] = Plant(0)

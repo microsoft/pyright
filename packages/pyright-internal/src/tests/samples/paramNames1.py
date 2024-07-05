@@ -37,19 +37,16 @@ class Class1:
     @overload
     # This should generate an error or warning if the setting
     # is enabled because "self" is expected.
-    def foo6(x: "Class1") -> int:
-        ...
+    def foo6(x: "Class1") -> int: ...
 
     @overload
     # This should generate an error or warning if the setting
     # is enabled because "self" is expected.
-    def foo6(x: int) -> str:
-        ...
+    def foo6(x: int) -> str: ...
 
     # This should generate an error or warning if the setting
     # is enabled because "self" is expected.
-    def foo6(x) -> int | str:
-        ...
+    def foo6(x) -> int | str: ...
 
 
 class Metaclass(type):

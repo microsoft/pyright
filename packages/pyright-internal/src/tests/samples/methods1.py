@@ -16,7 +16,7 @@ def deco1(x: Callable[P, R]) -> Callable[P, R]:
 
 
 def deco2(
-    func: Callable[P, Any]
+    func: Callable[P, Any],
 ) -> Callable[[Callable[..., Any]], Callable[Concatenate["ClassA", P], None]]:
     return lambda f: f  # type: ignore
 

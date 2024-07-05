@@ -1,5 +1,6 @@
 # This sample tests the handling of the `__call__` attribute.
 
+
 class A:
     def __init__(self):
         self.__call__ = self.method1

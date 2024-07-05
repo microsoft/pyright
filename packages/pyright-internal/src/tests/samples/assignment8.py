@@ -7,12 +7,10 @@ from typing import Any, TypeVar, overload
 
 class Foo:
     @overload
-    def bar(self, obj: None) -> object:
-        ...
+    def bar(self, obj: None) -> object: ...
 
     @overload
-    def bar(self, obj: object) -> Any:
-        ...
+    def bar(self, obj: object) -> Any: ...
 
     def bar(self, obj: object | None) -> Any:
         pass

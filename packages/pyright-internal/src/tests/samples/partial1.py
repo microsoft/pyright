@@ -165,12 +165,10 @@ p8_1(3, "", foo=4, bar=5)
 
 
 class Partial(Protocol[_T2]):
-    def __new__(cls, __func: Callable[..., _T2]) -> Self:
-        ...
+    def __new__(cls, __func: Callable[..., _T2]) -> Self: ...
 
 
-def func9() -> int:
-    ...
+def func9() -> int: ...
 
 
 # This should generate an error.

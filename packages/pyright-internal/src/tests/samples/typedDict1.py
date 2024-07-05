@@ -89,4 +89,3 @@ class TD8(TypedDict, metaclass=type):
 # other __init_subclass__ parameters.
 class TD9(TypedDict, other=True):
     name: str
-

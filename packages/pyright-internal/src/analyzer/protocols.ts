@@ -102,7 +102,7 @@ export function assignClassToProtocol(
                 // If the caller has provided a destination type var context,
                 // we can't use the cached value unless the dest has no type
                 // parameters to solve.
-                if (!destTypeVarContext || destType.details.typeParameters.length === 0) {
+                if (!destTypeVarContext || !requiresSpecialization(destType)) {
                     return true;
                 }
             }

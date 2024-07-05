@@ -22,8 +22,7 @@ def func2(struct: Any):
 T = TypeVar("T")
 
 
-class A(Generic[T]):
-    ...
+class A(Generic[T]): ...
 
 
 def func3(val: A[Any]):

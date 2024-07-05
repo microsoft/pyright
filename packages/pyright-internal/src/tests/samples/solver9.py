@@ -27,8 +27,7 @@ c = func2(None)
 
 
 class ClassA(Generic[_T1]):
-    def __init__(self, value: _T1) -> None:
-        ...
+    def __init__(self, value: _T1) -> None: ...
 
     @classmethod
     def get(cls: type[_T3]) -> type[_T3]:

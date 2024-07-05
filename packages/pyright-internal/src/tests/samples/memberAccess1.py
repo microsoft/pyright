@@ -26,8 +26,7 @@ class DescriptorA(Generic[_T]):
         ...
 
     @overload
-    def __get__(self, instance: Any, owner: Any) -> _T:
-        ...
+    def __get__(self, instance: Any, owner: Any) -> _T: ...
 
 
 class ClassA:
@@ -67,11 +66,9 @@ reveal_type(ClassC.instance, expected_text="ClassC")
 class DescriptorD(Generic[_T]):
     value: _T
 
-    def __get__(self, instance: object | None, cls: type[object]) -> _T:
-        ...
+    def __get__(self, instance: object | None, cls: type[object]) -> _T: ...
 
-    def __set__(self, instance: object, value: _T) -> None:
-        ...
+    def __set__(self, instance: object, value: _T) -> None: ...
 
 
 class ClassD:
@@ -110,23 +107,21 @@ class Decorator(Generic[_T, _P, _R]):
         self.func = func
 
     @overload
-    def __get__(self, obj: None, objtype: type[_T]) -> "Decorator[_T, _P, _R]":
-        ...
+    def __get__(self, obj: None, objtype: type[_T]) -> "Decorator[_T, _P, _R]": ...
 
     @overload
-    def __get__(self, obj: _T, objtype: type[_T] | None) -> Callable[_P, Awaitable[_R]]:
-        ...
+    def __get__(
+        self, obj: _T, objtype: type[_T] | None
+    ) -> Callable[_P, Awaitable[_R]]: ...
 
     def __get__(
         self, obj: _T | None, objtype: type[_T] | None = None
-    ) -> "Decorator[_T, _P, _R] | Callable[_P, Awaitable[_R]]":
-        ...
+    ) -> "Decorator[_T, _P, _R] | Callable[_P, Awaitable[_R]]": ...
 
 
 class ClassF:
     @Decorator
-    async def method1(self, a: int, *, b: str) -> str:
-        ...
+    async def method1(self, a: int, *, b: str) -> str: ...
 
     def method2(self):
         reveal_type(self.method1, expected_text="(a: int, *, b: str) -> Awaitable[str]")
@@ -137,5 +132,3 @@ class ClassF:
             cls.method1,
             expected_text="Decorator[Self@ClassF, (a: int, *, b: str), str]",
         )
-
-

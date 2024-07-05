@@ -4,12 +4,10 @@
 from typing import Any, Hashable, Mapping, Protocol
 
 
-def requires_hashable_tuple(p1: tuple[Hashable, ...]):
-    ...
+def requires_hashable_tuple(p1: tuple[Hashable, ...]): ...
 
 
-def requires_hashable_dict(p1: dict[str, Hashable]):
-    ...
+def requires_hashable_dict(p1: dict[str, Hashable]): ...
 
 
 def test_args(*args: Hashable):
@@ -24,8 +22,7 @@ def test_kwargs(**kwargs: Hashable):
     requires_hashable_dict(kwargs)
 
 
-class StrSubclass(str):
-    ...
+class StrSubclass(str): ...
 
 
 def test_kwargs2(
@@ -51,30 +48,26 @@ def test_kwargs2(
 
 
 class Callback1(Protocol):
-    def __call__(self) -> None:
-        ...
+    def __call__(self) -> None: ...
 
 
 def func1(
     value: str = ...,
     *args: object,
-) -> None:
-    ...
+) -> None: ...
 
 
 def func2(
     value: str = ...,
     **kwargs: object,
-) -> None:
-    ...
+) -> None: ...
 
 
 def func3(
     value: str = ...,
     *args: object,
     **kwargs: object,
-) -> None:
-    ...
+) -> None: ...
 
 
 v1: Callback1 = func1

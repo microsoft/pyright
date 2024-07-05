@@ -18,5 +18,3 @@ def func1(nodes: list[int]):
                 break
         else:
             return
-
-

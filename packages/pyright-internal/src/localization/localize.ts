@@ -118,7 +118,7 @@ export function setLocaleOverride(locale: string) {
     localeOverride = locale.toLowerCase();
 }
 
-export function getLocaleFromEnv() {
+export function getLocaleFromEnv(): string {
     if (localeOverride) {
         return localeOverride;
     }
@@ -130,7 +130,7 @@ export function getLocaleFromEnv() {
         const vscodeConfigString = env?.VSCODE_NLS_CONFIG;
         if (vscodeConfigString) {
             try {
-                return JSON.parse(vscodeConfigString).locale;
+                return JSON.parse(vscodeConfigString).locale || defaultLocale;
             } catch {
                 // Fall through
             }
@@ -142,7 +142,7 @@ export function getLocaleFromEnv() {
             // This string may contain a local followed by an encoding (e.g. "en-us.UTF-8").
             const localeStringSplit = localeString.split('.');
             if (localeStringSplit.length > 0 && localeStringSplit[0]) {
-                return localeStringSplit[0];
+                return localeStringSplit[0] || defaultLocale;
             }
         }
     } catch {
@@ -1263,6 +1263,8 @@ export namespace Localizer {
         export const invariantSuggestionDict = () => getRawString('DiagnosticAddendum.invariantSuggestionDict');
         export const invariantSuggestionList = () => getRawString('DiagnosticAddendum.invariantSuggestionList');
         export const invariantSuggestionSet = () => getRawString('DiagnosticAddendum.invariantSuggestionSet');
+        export const isinstanceClassNotSupported = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.isinstanceClassNotSupported'));
         export const functionTooManyParams = () =>
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('DiagnosticAddendum.functionTooManyParams')

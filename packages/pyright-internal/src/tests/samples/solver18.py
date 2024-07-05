@@ -9,8 +9,7 @@ _T = TypeVar("_T")
 _P = ParamSpec("_P")
 
 
-def func1(x: str | None | _T) -> str | None | _T:
-    ...
+def func1(x: str | None | _T) -> str | None | _T: ...
 
 
 reveal_type(func1(None), expected_text="str | None")
@@ -18,8 +17,7 @@ reveal_type(func1("hi"), expected_text="str | None")
 reveal_type(func1(3), expected_text="str | int | None")
 
 
-def func2(x: str | None | _T) -> list[str | None | _T]:
-    ...
+def func2(x: str | None | _T) -> list[str | None | _T]: ...
 
 
 reveal_type(func2(None), expected_text="list[str | None]")
@@ -31,17 +29,14 @@ Callback = Callable[..., Awaitable[None]]
 _C = TypeVar("_C", bound=Callback)
 
 
-class ClassA(Generic[_C]):
-    ...
+class ClassA(Generic[_C]): ...
 
 
-def decorator1() -> Callable[[_C | ClassA[_C]], ClassA[_C]]:
-    ...
+def decorator1() -> Callable[[_C | ClassA[_C]], ClassA[_C]]: ...
 
 
 @decorator1()
-async def func3() -> None:
-    ...
+async def func3() -> None: ...
 
 
 def func4(l: list):
@@ -52,12 +47,10 @@ val = func4([])
 reveal_type(val, expected_text="Unknown | None")
 
 
-def func5() -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
-    ...
+def func5() -> Callable[[Callable[_P, _T]], Callable[_P, _T]]: ...
 
 
-def func6(x: int) -> str:
-    ...
+def func6(x: int) -> str: ...
 
 
 reveal_type(func5()(func6), expected_text="(x: int) -> str")
@@ -68,8 +61,7 @@ class ClassB(Generic[_P]):
         pass
 
 
-def decorator2() -> Callable[[Callable[_P, None]], ClassB[_P]]:
-    ...
+def decorator2() -> Callable[[Callable[_P, None]], ClassB[_P]]: ...
 
 
 @decorator2()

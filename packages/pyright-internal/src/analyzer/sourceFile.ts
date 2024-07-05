@@ -22,6 +22,8 @@ import { LogTracker, getPathForLogging } from '../common/logTracker';
 import { stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange, convertTextRangeToRange } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceKeys';
+import { ServiceProvider } from '../common/serviceProvider';
+import '../common/serviceProviderExtensions';
 import * as StringUtils from '../common/stringUtils';
 import { Range, TextRange, getEmptyRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -46,15 +48,13 @@ import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
-import '../common/serviceProviderExtensions';
-import { ServiceProvider } from '../common/serviceProvider';
 
 // Limit the number of import cycles tracked per source file.
 const _maxImportCyclesPerFile = 4;
 
 // Allow files up to 50MB in length, same as VS Code.
 // https://github.com/microsoft/vscode/blob/1e750a7514f365585d8dab1a7a82e0938481ea2f/src/vs/editor/common/model/textModel.ts#L194
-const _maxSourceFileSize = 50 * 1024 * 1024;
+export const maxSourceFileSize = 50 * 1024 * 1024;
 
 interface ResolveImportResult {
     imports: ImportResult[];
@@ -498,10 +498,10 @@ export class SourceFile {
         try {
             // Check the file's length before attempting to read its full contents.
             const fileStat = this.fileSystem.statSync(this._uri);
-            if (fileStat.size > _maxSourceFileSize) {
+            if (fileStat.size > maxSourceFileSize) {
                 this._console.error(
                     `File length of "${this._uri}" is ${fileStat.size} ` +
-                        `which exceeds the maximum supported file size of ${_maxSourceFileSize}`
+                        `which exceeds the maximum supported file size of ${maxSourceFileSize}`
                 );
                 throw new Error('File larger than max');
             }

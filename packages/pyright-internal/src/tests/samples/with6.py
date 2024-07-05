@@ -15,8 +15,7 @@ class ClassA(type):
         print("Exit A")
 
 
-class ClassB(metaclass=ClassA):
-    ...
+class ClassB(metaclass=ClassA): ...
 
 
 with ClassB as b:

@@ -8,18 +8,15 @@ Value = TypeVar("Value")
 
 
 class Base1(Protocol[Value]):
-    def method1(self, default: Value) -> Value:
-        ...
+    def method1(self, default: Value) -> Value: ...
 
 
 class Base2(Base1[Value], Protocol):
-    def method2(self, default: Value) -> Value:
-        ...
+    def method2(self, default: Value) -> Value: ...
 
 
 class Interface(Base2[Value], Protocol[Arg, Value]):
-    def another(self, arg: Arg) -> None:
-        ...
+    def another(self, arg: Arg) -> None: ...
 
 
 class Implementation1(Generic[Arg, Value]):
@@ -70,16 +67,13 @@ def func3(arg: Arg, value: Value) -> Interface[Arg, Value]:
 
 class Base4(Protocol):
     @overload
-    def method3(self, message: int) -> int:
-        ...
+    def method3(self, message: int) -> int: ...
 
     @overload
-    def method3(self, message: str) -> str:
-        ...
+    def method3(self, message: str) -> str: ...
 
     def method3(self, message: str | int):
         return message
 
 
-class Implementation4(Base4):
-    ...
+class Implementation4(Base4): ...

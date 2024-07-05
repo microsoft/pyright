@@ -29,9 +29,9 @@ import {
     PatternValueNode,
 } from '../parser/parseNodes';
 import { CodeFlowReferenceExpressionNode } from './codeFlowTypes';
-import { populateTypeVarContextBasedOnExpectedType } from './constraintSolver';
+import { addConstraintsForExpectedType } from './constraintSolver';
 import { getTypeVarScopesForNode, isMatchingExpression } from './parseTreeUtils';
-import { EvaluatorFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     enumerateLiteralsForType,
     narrowTypeForDiscriminatedDictEntryComparison,
@@ -679,13 +679,13 @@ function narrowTypeBasedOnClassPattern(
     pattern: PatternClassNode,
     isPositiveTest: boolean
 ): Type {
-    let exprType = evaluator.getTypeOfExpression(pattern.className, EvaluatorFlags.CallBaseDefaults).type;
+    let exprType = evaluator.getTypeOfExpression(pattern.className, EvalFlags.CallBaseDefaults).type;
 
     // If this is a class (but not a type alias that refers to a class),
     // specialize it with Unknown type arguments.
     if (isClass(exprType) && !exprType.typeAliasInfo) {
         exprType = ClassType.cloneRemoveTypePromotions(exprType);
-        exprType = specializeWithUnknownTypeArgs(exprType);
+        exprType = specializeWithUnknownTypeArgs(exprType, evaluator.getTupleClassType());
     }
 
     // Are there any positional arguments? If so, try to get the mappings for
@@ -921,7 +921,7 @@ function narrowTypeBasedOnClassPattern(
 
                                     const matchTypeInstance = ClassType.cloneAsInstance(unspecializedMatchType);
                                     if (
-                                        populateTypeVarContextBasedOnExpectedType(
+                                        addConstraintsForExpectedType(
                                             evaluator,
                                             matchTypeInstance,
                                             subjectSubtypeExpanded,
@@ -932,6 +932,7 @@ function narrowTypeBasedOnClassPattern(
                                     ) {
                                         resultType = applySolvedTypeVars(matchTypeInstance, typeVarContext, {
                                             unknownIfNotFound: true,
+                                            tupleClassType: evaluator.getTupleClassType(),
                                         }) as ClassType;
                                     }
                                 }
@@ -1454,7 +1455,7 @@ function getSequencePatternInfo(
             if (sequenceType && isInstantiableClass(sequenceType)) {
                 const sequenceTypeVarContext = new TypeVarContext(getTypeVarScopeId(sequenceType));
                 if (
-                    populateTypeVarContextBasedOnExpectedType(
+                    addConstraintsForExpectedType(
                         evaluator,
                         ClassType.cloneAsInstance(sequenceType),
                         subtype,
@@ -1828,7 +1829,7 @@ function wrapTypeInList(evaluator: TypeEvaluator, node: ParseNode, type: Type): 
 }
 
 export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternClassNode) {
-    let exprType = evaluator.getTypeOfExpression(pattern.className, EvaluatorFlags.CallBaseDefaults).type;
+    let exprType = evaluator.getTypeOfExpression(pattern.className, EvalFlags.CallBaseDefaults).type;
 
     // If the expression is a type alias or other special form, treat it
     // as the special form rather than the class.
@@ -1930,7 +1931,7 @@ export function getPatternSubtypeNarrowingCallback(
             if (ClassType.isBuiltIn(indexType, ['int', 'str'])) {
                 const unnarrowedReferenceTypeResult = evaluator.getTypeOfExpression(
                     subjectExpression.baseExpression,
-                    EvaluatorFlags.CallBaseDefaults
+                    EvalFlags.CallBaseDefaults
                 );
                 const unnarrowedReferenceType = unnarrowedReferenceTypeResult.type;
 
@@ -2026,7 +2027,7 @@ export function getPatternSubtypeNarrowingCallback(
     ) {
         const unnarrowedReferenceTypeResult = evaluator.getTypeOfExpression(
             subjectExpression.leftExpression,
-            EvaluatorFlags.CallBaseDefaults
+            EvalFlags.CallBaseDefaults
         );
         const unnarrowedReferenceType = unnarrowedReferenceTypeResult.type;
 
