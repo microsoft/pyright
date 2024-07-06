@@ -277,6 +277,10 @@ export interface RequiresSpecializationOptions {
     ignoreImplicitTypeArgs?: boolean;
 }
 
+export interface IsInstantiableOptions {
+    honorTypeVarBounds?: boolean;
+}
+
 // Tracks whether a function signature has been seen before within
 // an expression. For example, in the expression "foo(foo, foo)", the
 // signature for "foo" will be seen three times at three different
@@ -2352,9 +2356,21 @@ export function isMetaclassInstance(type: Type): boolean {
     );
 }
 
-export function isEffectivelyInstantiable(type: Type): boolean {
+export function isEffectivelyInstantiable(type: Type, options?: IsInstantiableOptions, recursionCount = 0): boolean {
+    if (recursionCount > maxTypeRecursionCount) {
+        return false;
+    }
+
+    recursionCount++;
+
     if (TypeBase.isInstantiable(type)) {
         return true;
+    }
+
+    if (options?.honorTypeVarBounds && isTypeVar(type) && type.details.boundType) {
+        if (isEffectivelyInstantiable(type.details.boundType, options, recursionCount)) {
+            return true;
+        }
     }
 
     // Handle the special case of 'type' (or subclasses thereof),
@@ -2364,7 +2380,7 @@ export function isEffectivelyInstantiable(type: Type): boolean {
     }
 
     if (isUnion(type)) {
-        return type.subtypes.every((subtype) => isEffectivelyInstantiable(subtype));
+        return type.subtypes.every((subtype) => isEffectivelyInstantiable(subtype, options, recursionCount));
     }
 
     return false;

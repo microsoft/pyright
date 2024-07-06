@@ -1381,28 +1381,44 @@ export function createTypeEvaluator(
             return;
         }
 
-        if (flags & EvalFlags.NoTypeVarTuple) {
+        if ((flags & EvalFlags.NoTypeVarTuple) !== 0) {
             if (isVariadicTypeVar(typeResult.type) && !typeResult.type.isVariadicInUnion) {
                 addError(LocMessage.typeVarTupleContext(), node);
                 typeResult.type = UnknownType.create();
             }
         }
 
-        if (!isEffectivelyInstantiable(typeResult.type)) {
-            const isEmptyVariadic =
-                isClassInstance(typeResult.type) &&
-                ClassType.isTupleClass(typeResult.type) &&
-                typeResult.type.tupleTypeArguments?.length === 0;
-
-            const isEllipsis =
-                isClassInstance(typeResult.type) && ClassType.isBuiltIn(typeResult.type, ['EllipsisType', 'ellipsis']);
-
-            if (!isEmptyVariadic && !isEllipsis) {
-                addExpectedClassDiagnostic(typeResult.type, node);
-                typeResult.type = UnknownType.create();
-                typeResult.typeErrors = true;
-            }
+        if (isEffectivelyInstantiable(typeResult.type, { honorTypeVarBounds: true })) {
+            return;
         }
+
+        // Exempt ellipses.
+        if (isClassInstance(typeResult.type) && ClassType.isBuiltIn(typeResult.type, ['EllipsisType', 'ellipsis'])) {
+            return;
+        }
+
+        // Exempt empty tuples, which can be used for specializing a TypeVarTuple.
+        if (isClassInstance(typeResult.type) && typeResult.type.tupleTypeArguments?.length === 0) {
+            return;
+        }
+
+        const diag = new DiagnosticAddendum();
+        if (isUnion(typeResult.type)) {
+            doForEachSubtype(typeResult.type, (subtype) => {
+                if (!isEffectivelyInstantiable(subtype, { honorTypeVarBounds: true })) {
+                    diag.addMessage(LocAddendum.typeNotClass().format({ type: printType(subtype) }));
+                }
+            });
+        }
+
+        addDiagnostic(
+            DiagnosticRule.reportGeneralTypeIssues,
+            LocMessage.typeExpectedClass().format({ type: printType(typeResult.type) }) + diag.getString(),
+            node
+        );
+
+        typeResult.type = UnknownType.create();
+        typeResult.typeErrors = true;
     }
 
     function getTypeOfAwaitOperator(node: AwaitNode, flags: EvalFlags, inferenceContext?: InferenceContext) {
@@ -3285,23 +3301,6 @@ export function createTypeEvaluator(
         }
 
         return diagnostic;
-    }
-
-    function addExpectedClassDiagnostic(type: Type, node: ParseNode) {
-        const diag = new DiagnosticAddendum();
-        if (isUnion(type)) {
-            doForEachSubtype(type, (subtype) => {
-                if (!isEffectivelyInstantiable(subtype)) {
-                    diag.addMessage(LocAddendum.typeNotClass().format({ type: printType(subtype) }));
-                }
-            });
-        }
-
-        addDiagnostic(
-            DiagnosticRule.reportGeneralTypeIssues,
-            LocMessage.typeExpectedClass().format({ type: printType(type) }) + diag.getString(),
-            node
-        );
     }
 
     function assignTypeToNameNode(
@@ -14912,9 +14911,6 @@ export function createTypeEvaluator(
         let typeArg0Type = typeArgs[0].type;
         if (!validateTypeArg(typeArgs[0])) {
             typeArg0Type = UnknownType.create();
-        } else if (!isEffectivelyInstantiable(typeArg0Type)) {
-            addExpectedClassDiagnostic(typeArg0Type, typeArgs[0].node);
-            typeArg0Type = UnknownType.create();
         }
 
         let optionalType = combineTypes([typeArg0Type, noneTypeClass ?? UnknownType.create()]);
@@ -15655,9 +15651,6 @@ export function createTypeEvaluator(
                     allowVariadicTypeVar: fileInfo.diagnosticRuleSet.enableExperimentalFeatures,
                 })
             ) {
-                typeArgType = UnknownType.create();
-            } else if (!isEffectivelyInstantiable(typeArgType)) {
-                addExpectedClassDiagnostic(typeArgType, typeArg.node);
                 typeArgType = UnknownType.create();
             }
 
