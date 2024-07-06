@@ -4527,42 +4527,9 @@ export function createTypeEvaluator(
             // Detect, report, and fill in missing type arguments if appropriate.
             type = reportMissingTypeArguments(node, type, flags);
 
+            // Report inappropriate use of variables in type expressions.
             if ((flags & EvalFlags.TypeExpression) !== 0) {
-                // Verify that the name does not refer to a (non type alias) variable.
-                if (effectiveTypeInfo.includesVariableDecl && !type.typeAliasInfo) {
-                    let isAllowedTypeForVariable = isTypeVar(type) || isTypeAliasPlaceholder(type);
-
-                    if (
-                        isClass(type) &&
-                        !type.includeSubclasses &&
-                        !symbol.hasTypedDeclarations() &&
-                        ClassType.isValidTypeAliasClass(type)
-                    ) {
-                        // This check exempts class types that are created by calling
-                        // NewType, NamedTuple, etc.
-                        isAllowedTypeForVariable = true;
-                    }
-
-                    // Disable for assignments in the typings.pyi file, since it defines special forms.
-                    if (!isAllowedTypeForVariable && !fileInfo.isTypingStubFile) {
-                        // This might be a union that was previously a type alias
-                        // but was reconstituted in such a way that we lost the
-                        // typeAliasInfo. Avoid the false positive error by suppressing
-                        // the error when it looks like a plausible type alias type.
-                        if (
-                            effectiveTypeInfo.includesIllegalTypeAliasDecl ||
-                            !TypeBase.isInstantiable(type) ||
-                            (flags & EvalFlags.NoSpecialize) !== 0
-                        ) {
-                            addDiagnostic(
-                                DiagnosticRule.reportInvalidTypeForm,
-                                LocMessage.typeAnnotationVariable(),
-                                node
-                            );
-                            type = UnknownType.create();
-                        }
-                    }
-                }
+                type = validateSymbolIsTypeExpression(node, type, !!effectiveTypeInfo.includesVariableDecl);
             }
         } else {
             // Handle the special case of "reveal_type" and "reveal_locals".
@@ -4605,6 +4572,33 @@ export function createTypeEvaluator(
         }
 
         return { type, isIncomplete };
+    }
+
+    // Reports diagnostics if type isn't valid within a type expression.
+    function validateSymbolIsTypeExpression(node: ExpressionNode, type: Type, includesVariableDecl: boolean): Type {
+        // Verify that the name does not refer to a (non type alias) variable.
+        if (!includesVariableDecl || type.typeAliasInfo) {
+            return type;
+        }
+
+        if (isTypeVar(type) || isTypeAliasPlaceholder(type)) {
+            return type;
+        }
+
+        // Exempts class types that are created by calling
+        // NewType, NamedTuple, etc.
+        if (isClass(type) && !type.includeSubclasses && ClassType.isValidTypeAliasClass(type)) {
+            return type;
+        }
+
+        // Disable for assignments in the typings.pyi file, since it defines special forms.
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+        if (fileInfo.isTypingStubFile) {
+            return type;
+        }
+
+        addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeAnnotationVariable(), node);
+        return UnknownType.create();
     }
 
     // If the value is a special form (like a TypeVar or `Any`) and is being
@@ -5358,7 +5352,7 @@ export function createTypeEvaluator(
                         memberName,
                         usage,
                         diag,
-                        /* memberAccessFlags */ undefined,
+                        flags & EvalFlags.TypeExpression,
                         baseTypeResult.bindToSelfType
                     );
                 }
@@ -5404,11 +5398,16 @@ export function createTypeEvaluator(
                         setSymbolAccessed(fileInfo, symbol, node.memberName);
                     }
 
-                    type = getEffectiveTypeOfSymbolForUsage(
+                    const typeResult = getEffectiveTypeOfSymbolForUsage(
                         symbol,
                         /* usageNode */ undefined,
                         /* useLastDecl */ true
-                    ).type;
+                    );
+                    type = typeResult.type;
+
+                    if ((flags & EvalFlags.TypeExpression) !== 0) {
+                        type = validateSymbolIsTypeExpression(node, type, !!typeResult.includesVariableDecl);
+                    }
 
                     if (isTypeVar(type)) {
                         type = validateTypeVarUsage(node, type, flags);
@@ -15022,7 +15021,7 @@ export function createTypeEvaluator(
             if (!type) {
                 const exprType = getTypeOfExpression(
                     itemExpr,
-                    (flags & EvalFlags.ForwardRefs) | EvalFlags.NoConvertSpecialForm
+                    (flags & EvalFlags.ForwardRefs) | EvalFlags.NoConvertSpecialForm | EvalFlags.TypeExpression
                 );
 
                 // Is this an enum type?
@@ -22318,61 +22317,74 @@ export function createTypeEvaluator(
         selfClass: ClassType | TypeVarType | undefined,
         flags: MemberAccessFlags
     ): TypeResult | undefined {
-        if (isInstantiableClass(member.classType)) {
-            const typeResult = getEffectiveTypeOfSymbolForUsage(member.symbol);
-
-            if (typeResult) {
-                // If the type is a function or overloaded function, infer
-                // and cache the return type if necessary. This needs to be done
-                // prior to specializing.
-                inferReturnTypeIfNecessary(typeResult.type);
-
-                // Check for ambiguous accesses to attributes with generic types?
-                if (
-                    errorNode &&
-                    selfClass &&
-                    isClass(selfClass) &&
-                    member.isInstanceMember &&
-                    isClass(member.unspecializedClassType) &&
-                    (flags & MemberAccessFlags.DisallowGenericInstanceVariableAccess) !== 0 &&
-                    requiresSpecialization(typeResult.type, { ignoreSelf: true, ignoreImplicitTypeArgs: true })
-                ) {
-                    const specializedType = partiallySpecializeType(
-                        typeResult.type,
-                        member.unspecializedClassType,
-                        selfSpecializeClass(selfClass, /* overrideTypeArgs */ true)
-                    );
-
-                    if (
-                        findSubtype(
-                            specializedType,
-                            (subtype) =>
-                                !isFunction(subtype) &&
-                                !isOverloadedFunction(subtype) &&
-                                requiresSpecialization(subtype, { ignoreSelf: true, ignoreImplicitTypeArgs: true })
-                        )
-                    ) {
-                        addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            LocMessage.genericInstanceVariableAccess(),
-                            errorNode
-                        );
-                    }
-                }
-
-                return {
-                    type: partiallySpecializeType(typeResult.type, member.classType, selfClass),
-                    isIncomplete: !!typeResult.isIncomplete,
-                };
-            }
-        } else if (isAnyOrUnknown(member.classType)) {
+        if (isAnyOrUnknown(member.classType)) {
             return {
                 type: member.classType,
                 isIncomplete: false,
             };
         }
 
-        return undefined;
+        if (!isInstantiableClass(member.classType)) {
+            return undefined;
+        }
+
+        const typeResult = getEffectiveTypeOfSymbolForUsage(member.symbol);
+
+        if (!typeResult) {
+            return undefined;
+        }
+
+        // Report inappropriate use of variables in type expressions.
+        if ((flags & EvalFlags.TypeExpression) !== 0 && errorNode) {
+            typeResult.type = validateSymbolIsTypeExpression(
+                errorNode,
+                typeResult.type,
+                !!typeResult.includesVariableDecl
+            );
+        }
+
+        // If the type is a function or overloaded function, infer
+        // and cache the return type if necessary. This needs to be done
+        // prior to specializing.
+        inferReturnTypeIfNecessary(typeResult.type);
+
+        // Check for ambiguous accesses to attributes with generic types?
+        if (
+            errorNode &&
+            selfClass &&
+            isClass(selfClass) &&
+            member.isInstanceMember &&
+            isClass(member.unspecializedClassType) &&
+            (flags & MemberAccessFlags.DisallowGenericInstanceVariableAccess) !== 0 &&
+            requiresSpecialization(typeResult.type, { ignoreSelf: true, ignoreImplicitTypeArgs: true })
+        ) {
+            const specializedType = partiallySpecializeType(
+                typeResult.type,
+                member.unspecializedClassType,
+                selfSpecializeClass(selfClass, /* overrideTypeArgs */ true)
+            );
+
+            if (
+                findSubtype(
+                    specializedType,
+                    (subtype) =>
+                        !isFunction(subtype) &&
+                        !isOverloadedFunction(subtype) &&
+                        requiresSpecialization(subtype, { ignoreSelf: true, ignoreImplicitTypeArgs: true })
+                )
+            ) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.genericInstanceVariableAccess(),
+                    errorNode
+                );
+            }
+        }
+
+        return {
+            type: partiallySpecializeType(typeResult.type, member.classType, selfClass),
+            isIncomplete: !!typeResult.isIncomplete,
+        };
     }
 
     function assignClass(
