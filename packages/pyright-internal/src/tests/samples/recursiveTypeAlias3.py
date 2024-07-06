@@ -10,8 +10,6 @@ GenericClass0 = list[GenericClass0 | int]
 # refers to itself.
 RecursiveUnion = Union["RecursiveUnion", int]
 
-a1: RecursiveUnion = 3
-
 # This should generate an error because the type alias refers
 # to itself through a mutually-referential type alias.
 MutualReference1 = Union["MutualReference2", int]

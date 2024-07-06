@@ -143,6 +143,11 @@ export const enum MemberAccessFlags {
     // Report an error if a symbol is an instance variable whose
     // type is parameterized by a class TypeVar.
     DisallowGenericInstanceVariableAccess = 1 << 10,
+
+    // The member access should be treated as if it's within a type
+    // expression, and errors should be reported if it doesn't conform
+    // with type expression rules.
+    TypeExpression = 1 << 11,
 }
 
 export const enum ClassIteratorFlags {
