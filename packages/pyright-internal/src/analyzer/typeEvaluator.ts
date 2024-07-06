@@ -13303,7 +13303,7 @@ export function createTypeEvaluator(
             }
         }
 
-        const result = getTypeOfDictionaryInferred(node, flags, /* hasExpectedType */ !!inferenceContext);
+        const result = getTypeOfDictionaryInferred(node, flags, /* hasExpectedType */ !!inferenceContext?.expectedType);
         return { ...result, expectedTypeDiagAddendum };
     }
 
@@ -13877,7 +13877,7 @@ export function createTypeEvaluator(
         const typeResult = getTypeOfListOrSetInferred(
             node,
             flags,
-            /* hasExpectedType */ inferenceContext !== undefined
+            /* hasExpectedType */ !!inferenceContext?.expectedType
         );
         return { ...typeResult, expectedTypeDiagAddendum };
     }
@@ -14043,7 +14043,7 @@ export function createTypeEvaluator(
                 typeErrors = true;
             }
 
-            if (index < maxEntriesToUseForInference) {
+            if (hasExpectedType || index < maxEntriesToUseForInference) {
                 entryTypes.push(entryTypeResult.type);
             }
 
