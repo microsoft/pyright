@@ -226,12 +226,17 @@ function narrowTypeBasedOnSequencePattern(
                 canNarrowTuple = false;
             }
 
-            if (
-                isClassInstance(entry.subtype) &&
-                entry.subtype.tupleTypeArguments &&
-                entry.subtype.tupleTypeArguments.some((typeArg) => typeArg.isUnbounded)
-            ) {
-                canNarrowTuple = false;
+            if (isClassInstance(entry.subtype) && entry.subtype.tupleTypeArguments) {
+                const unboundedIndex = entry.subtype.tupleTypeArguments.findIndex((typeArg) => typeArg.isUnbounded);
+
+                if (unboundedIndex >= 0) {
+                    // If the pattern includes a "star" entry that aligns exactly with
+                    // the corresponding unbounded entry in the tuple, we can narrow
+                    // the tuple type.
+                    if (pattern.starEntryIndex === undefined || pattern.starEntryIndex !== unboundedIndex) {
+                        canNarrowTuple = false;
+                    }
+                }
             }
         }
 
@@ -1319,9 +1324,13 @@ function getSequencePatternInfo(
                         (t) => t.isUnbounded || isUnpackedVariadicTypeVar(t.type)
                     );
 
+                    let tupleDeterminateEntryCount = typeArgs.length;
+
                     // If the tuple contains an indeterminate entry, expand or remove that
                     // entry to match the length of the pattern if possible.
                     if (tupleIndeterminateIndex >= 0) {
+                        tupleDeterminateEntryCount--;
+
                         while (typeArgs.length < patternEntryCount) {
                             typeArgs.splice(tupleIndeterminateIndex, 0, typeArgs[tupleIndeterminateIndex]);
                         }
@@ -1351,7 +1360,16 @@ function getSequencePatternInfo(
                     if (typeArgs.length === patternEntryCount) {
                         let isDefiniteNoMatch = false;
                         let isPotentialNoMatch = tupleIndeterminateIndex >= 0;
-                        if (patternStarEntryIndex !== undefined && patternEntryCount === 1) {
+
+                        // If the pattern includes a "star entry" and the tuple includes an
+                        // indeterminate-length entry that aligns to the star entry, we can
+                        // assume it will always match.
+                        if (
+                            patternStarEntryIndex !== undefined &&
+                            tupleIndeterminateIndex >= 0 &&
+                            pattern.entries.length - 1 === tupleDeterminateEntryCount &&
+                            patternStarEntryIndex === tupleIndeterminateIndex
+                        ) {
                             isPotentialNoMatch = false;
                         }
 
