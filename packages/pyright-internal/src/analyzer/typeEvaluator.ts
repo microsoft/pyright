@@ -22355,7 +22355,7 @@ export function createTypeEvaluator(
             const specializedType = partiallySpecializeType(
                 typeResult.type,
                 member.unspecializedClassType,
-                selfSpecializeClass(selfClass, /* overrideTypeArgs */ true)
+                selfSpecializeClass(selfClass, { overrideTypeArgs: true })
             );
 
             if (

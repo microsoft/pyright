@@ -281,6 +281,12 @@ export interface IsInstantiableOptions {
     honorTypeVarBounds?: boolean;
 }
 
+export interface SelfSpecializeOptions {
+    // Override any existing type arguments? By default,
+    // existing type arguments are left as is.
+    overrideTypeArgs?: boolean;
+}
+
 // Tracks whether a function signature has been seen before within
 // an expression. For example, in the expression "foo(foo, foo)", the
 // signature for "foo" will be seen three times at three different
@@ -1156,16 +1162,17 @@ export function getUnknownTypeForCallable(): FunctionType {
 // If the class is generic and not already specialized, this function
 // "self specializes" the class, filling in its own type parameters
 // as type arguments.
-export function selfSpecializeClass(type: ClassType, overrideTypeArgs = false): ClassType {
+export function selfSpecializeClass(type: ClassType, options?: SelfSpecializeOptions): ClassType {
     if (type.details.typeParameters.length === 0) {
         return type;
     }
 
-    if (type.typeArguments && !overrideTypeArgs) {
+    if (type.typeArguments && !options?.overrideTypeArgs) {
         return type;
     }
 
-    return ClassType.cloneForSpecialization(type, type.details.typeParameters, /* isTypeArgumentExplicit */ true);
+    const typeParams = type.details.typeParameters;
+    return ClassType.cloneForSpecialization(type, typeParams, /* isTypeArgumentExplicit */ true);
 }
 
 // Determines whether the type derives from tuple. If so, it returns
