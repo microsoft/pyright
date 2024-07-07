@@ -47,6 +47,7 @@ import {
     ConstantNode,
     DecoratorNode,
     DictionaryNode,
+    ErrorExpressionCategory,
     ExceptNode,
     ExpressionNode,
     ForNode,
@@ -1397,11 +1398,6 @@ export function createTypeEvaluator(
             return;
         }
 
-        // Exempt empty tuples, which can be used for specializing a TypeVarTuple.
-        if (isClassInstance(typeResult.type) && typeResult.type.tupleTypeArguments?.length === 0) {
-            return;
-        }
-
         const diag = new DiagnosticAddendum();
         if (isUnion(typeResult.type)) {
             doForEachSubtype(typeResult.type, (subtype) => {
@@ -1941,11 +1937,9 @@ export function createTypeEvaluator(
                     return false;
                 }
 
-                // Check for Tuple[()] (an empty tuple).
-                if (isTupleClass(type)) {
-                    if (type.tupleTypeArguments && type.tupleTypeArguments.length === 0) {
-                        return false;
-                    }
+                // // Check for tuple[()] (an empty tuple).
+                if (type.tupleTypeArguments && type.tupleTypeArguments.length === 0) {
+                    return false;
                 }
 
                 // Check for Literal[False], Literal[0], Literal[""].
@@ -7642,13 +7636,12 @@ export function createTypeEvaluator(
             return typeResult;
         };
 
-        // A single (non-empty) tuple is treated the same as a list of items in the index.
+        // A tuple is treated the same as a list of items in the index.
         if (
             node.items.length === 1 &&
             !node.trailingComma &&
             !node.items[0].name &&
-            node.items[0].valueExpression.nodeType === ParseNodeType.Tuple &&
-            node.items[0].valueExpression.expressions.length > 0
+            node.items[0].valueExpression.nodeType === ParseNodeType.Tuple
         ) {
             node.items[0].valueExpression.expressions.forEach((item, index) => {
                 typeArgs.push(getTypeArgTypeResult(item, index));
@@ -7682,7 +7675,12 @@ export function createTypeEvaluator(
                     addError(LocMessage.keywordArgInTypeArgument(), arg.valueExpression);
                 }
 
-                typeArgs.push(typeResult);
+                if (
+                    arg.valueExpression.nodeType !== ParseNodeType.Error ||
+                    arg.valueExpression.category !== ErrorExpressionCategory.MissingIndexOrSlice
+                ) {
+                    typeArgs.push(typeResult);
+                }
             });
         }
 
