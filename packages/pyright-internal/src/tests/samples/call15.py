@@ -9,9 +9,16 @@ T = TypeVar("T")
 default_value: dict[str, int] = {}
 
 
-def func1(x: T, y: Mapping[str, T] = default_value, /) -> T: ...
-def func2(x: T, y: Mapping[str, T] = default_value) -> T: ...
-def func3(x: T, *, y: Mapping[str, T] = default_value) -> T: ...
+def func1(x: T, y: Mapping[str, T] = default_value, /) -> T:
+    ...
+
+
+def func2(x: T, y: Mapping[str, T] = default_value) -> T:
+    ...
+
+
+def func3(x: T, *, y: Mapping[str, T] = default_value) -> T:
+    ...
 
 
 def test1(func: Callable[[T], T], value: T) -> T:
@@ -32,9 +39,16 @@ reveal_type(test1(func2, 1), expected_text="int")
 reveal_type(test1(func3, 1), expected_text="int")
 
 
-def func4(x: T, y: Iterable[T] = default_value, z: T = "", /) -> T: ...
-def func5(x: T, y: Iterable[T] = default_value, z: T = "") -> T: ...
-def func6(x: T, *, y: Iterable[T] = default_value, z: T = "") -> T: ...
+def func4(x: T, y: Iterable[T] = default_value, z: T = "", /) -> T:
+    ...
+
+
+def func5(x: T, y: Iterable[T] = default_value, z: T = "") -> T:
+    ...
+
+
+def func6(x: T, *, y: Iterable[T] = default_value, z: T = "") -> T:
+    ...
 
 
 # This should generate an error.

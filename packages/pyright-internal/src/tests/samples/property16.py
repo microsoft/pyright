@@ -11,18 +11,22 @@ T = TypeVar("T")
 
 class Parent(Generic[T]):
     @property
-    def prop1(self) -> T: ...
+    def prop1(self) -> T:
+        ...
 
     @property
-    def prop2(self) -> Self: ...
+    def prop2(self) -> Self:
+        ...
 
 
 class Child(Parent[str]):
     @Parent.prop1.setter
-    def prop1(self, value: str) -> None: ...
+    def prop1(self, value: str) -> None:
+        ...
 
     @Parent.prop2.setter
-    def prop2(self, value: str) -> None: ...
+    def prop2(self, value: str) -> None:
+        ...
 
 
 parent = Parent[int]()

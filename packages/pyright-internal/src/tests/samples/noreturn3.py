@@ -5,7 +5,8 @@ from typing import NoReturn
 
 
 class MyClass:
-    def no_return(self) -> NoReturn: ...
+    def no_return(self) -> NoReturn:
+        ...
 
 
 def client_code() -> NoReturn:

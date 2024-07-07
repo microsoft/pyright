@@ -27,7 +27,8 @@ class MyEnum(Enum):
 class MyClass:
     class_var_1: "MyClass"
 
-    def __eq__(self, object: "MyClass") -> bool: ...
+    def __eq__(self, object: "MyClass") -> bool:
+        ...
 
 
 def test_unknown(value_to_match):

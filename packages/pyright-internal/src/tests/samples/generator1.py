@@ -130,7 +130,8 @@ def generator14() -> Iterator[TD1]:
 
 
 class IntIterator(Protocol):
-    def __next__(self, /) -> int: ...
+    def __next__(self, /) -> int:
+        ...
 
 
 def generator15() -> IntIterator:
@@ -138,7 +139,8 @@ def generator15() -> IntIterator:
 
 
 class AsyncIntIterator(Protocol):
-    def __anext__(self, /) -> Awaitable[int]: ...
+    def __anext__(self, /) -> Awaitable[int]:
+        ...
 
 
 async def generator16() -> AsyncIntIterator:

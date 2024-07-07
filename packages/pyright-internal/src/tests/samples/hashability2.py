@@ -3,7 +3,8 @@
 # pyright: reportIncompatibleMethodOverride=false
 
 
-class A: ...
+class A:
+    ...
 
 
 s1 = {A()}
@@ -11,7 +12,8 @@ d1 = {A(): 100}
 
 
 class B:
-    def __eq__(self, other): ...
+    def __eq__(self, other):
+        ...
 
 
 # Both of these should generate an error because a class that
@@ -24,7 +26,8 @@ class C:
     __hash__: None = None
 
 
-class D(B, C): ...
+class D(B, C):
+    ...
 
 
 # Both of these should generate an error because B is unhashable.
@@ -33,10 +36,12 @@ d3 = {D(): 100}
 
 
 class E:
-    def __hash__(self): ...
+    def __hash__(self):
+        ...
 
 
-class F(D, E): ...
+class F(D, E):
+    ...
 
 
 # Both of these should generate an error because D is unhashable.
@@ -44,7 +49,8 @@ s4 = {F()}
 d4 = {F(): 100}
 
 
-class G(E, D): ...
+class G(E, D):
+    ...
 
 
 s5 = {G()}

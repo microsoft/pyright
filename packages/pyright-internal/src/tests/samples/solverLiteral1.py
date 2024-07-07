@@ -31,13 +31,15 @@ def func2() -> TA1[bool]:
     return func1(True)
 
 
-def func3(value: _T) -> Callable[[_T], None]: ...
+def func3(value: _T) -> Callable[[_T], None]:
+    ...
 
 
 x: Callable[[tuple[bool]], None] = func3((True,))
 
 
-def func4(v: _T, f: Callable[[_T], None]): ...
+def func4(v: _T, f: Callable[[_T], None]):
+    ...
 
 
 def func5(v: Literal[1, 2], f: Callable[[Literal[1, 2]], None]):
@@ -49,7 +51,8 @@ class ClassB(Generic[_S, _T]):
     right: _T
 
 
-def func6(s: _S, t: _T) -> ClassB[_S, _T]: ...
+def func6(s: _S, t: _T) -> ClassB[_S, _T]:
+    ...
 
 
 def func7(t: _T, f: Callable[[ClassB[_T, Literal[2]]], None]) -> None:

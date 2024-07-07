@@ -16,7 +16,8 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-class Request: ...
+class Request:
+    ...
 
 
 def with_request(f: Callable[Concatenate[Request, P], R]) -> Callable[P, R]:
@@ -45,35 +46,43 @@ takes_int_str(1, "A", 2)
 
 # This should generate an error because a ParamSpec can appear
 # only within the last type arg for Concatenate
-def decorator1(f: Callable[Concatenate[P, P], int]) -> Callable[P, int]: ...
+def decorator1(f: Callable[Concatenate[P, P], int]) -> Callable[P, int]:
+    ...
 
 
 # This should generate an error because the last type arg
 # for Concatenate should be a ParamSpec.
-def decorator2(f: Callable[Concatenate[int, int], int]) -> Callable[P, int]: ...
+def decorator2(f: Callable[Concatenate[int, int], int]) -> Callable[P, int]:
+    ...
 
 
 # This should generate an error because Concatenate is missing
 # its type arguments.
-def decorator3(f: Callable[Concatenate, int]) -> Callable[P, int]: ...
+def decorator3(f: Callable[Concatenate, int]) -> Callable[P, int]:
+    ...
 
 
 def decorator4(func: Callable[P, None]) -> Callable[Concatenate[int, P], None]:
-    def wrapper(x: int, /, *args: P.args, **kwargs: P.kwargs) -> None: ...
+    def wrapper(x: int, /, *args: P.args, **kwargs: P.kwargs) -> None:
+        ...
 
     return wrapper
 
 
-def func1(func: Callable[Concatenate[int, P], None]) -> Callable[P, None]: ...
+def func1(func: Callable[Concatenate[int, P], None]) -> Callable[P, None]:
+    ...
 
 
-def func2(a: int, b: str, c: str) -> None: ...
+def func2(a: int, b: str, c: str) -> None:
+    ...
 
 
-def func3(a: int, /, b: str, c: str) -> None: ...
+def func3(a: int, /, b: str, c: str) -> None:
+    ...
 
 
-def func4(a: int, b: str, /, c: str) -> None: ...
+def func4(a: int, b: str, /, c: str) -> None:
+    ...
 
 
 v1 = func1(func2)
@@ -86,10 +95,12 @@ v3 = func1(func4)
 reveal_type(v3, expected_text="(b: str, /, c: str) -> None")
 
 
-def func5(__fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R: ...
+def func5(__fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    ...
 
 
-def func6(name: str, *args: str): ...
+def func6(name: str, *args: str):
+    ...
 
 
 v5 = func5(func6, "a", "b", "c")
@@ -98,7 +109,8 @@ v5 = func5(func6, "a", "b", "c")
 v6 = func5(func6, "a", "b", "c", 1)
 
 
-def func7(name: str, **kwargs: str): ...
+def func7(name: str, **kwargs: str):
+    ...
 
 
 v7 = func5(func7, "a", b="b", c="c")
@@ -112,7 +124,8 @@ X = TypeVar("X")
 
 
 class DecoProto(Protocol[P, T]):
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T: ...
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
+        ...
 
 
 def func8(cb: Callable[Concatenate[X, P], T]) -> DecoProto[Concatenate[X, P], T]:
@@ -137,7 +150,8 @@ class A(Generic[R, P]):
         self.prop = prop
 
 
-def func10(q: int, /) -> str: ...
+def func10(q: int, /) -> str:
+    ...
 
 
 y1 = A(func10, 1)

@@ -51,9 +51,8 @@ def func6(x: TA4):
 Ts = TypeVarTuple("Ts")
 
 
-def func3(
-    path: str, *args: Unpack[tuple[Unpack[Ts], str]]
-) -> tuple[Unpack[Ts], int]: ...
+def func3(path: str, *args: Unpack[tuple[Unpack[Ts], str]]) -> tuple[Unpack[Ts], int]:
+    ...
 
 
 v3 = func3("", 1, "2", 3.3, None, "")
@@ -73,14 +72,16 @@ func3("", 1, 2, 3, "hi", 1)
 
 def func4(
     path: str, *args: Unpack[tuple[Unpack[Ts], str]]
-) -> tuple[Unpack[Ts], complex]: ...
+) -> tuple[Unpack[Ts], complex]:
+    ...
 
 
 v4 = func4("", 1, "2", 3.3, None, "")
 reveal_type(v4, expected_text="tuple[int, str, float, None, complex]")
 
 
-def func5(path: str, *args: Unpack[tuple[str, ...]]) -> None: ...
+def func5(path: str, *args: Unpack[tuple[str, ...]]) -> None:
+    ...
 
 
 # This should generate an errors.

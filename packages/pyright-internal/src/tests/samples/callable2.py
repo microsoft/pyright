@@ -9,14 +9,16 @@ from typing import Any, Awaitable, Callable, Iterable, Sequence, TypeVar
 _T1 = TypeVar("_T1")
 
 
-def func1(__iterable: Iterable[_T1]) -> _T1: ...
+def func1(__iterable: Iterable[_T1]) -> _T1:
+    ...
 
 
 a: Callable[[Sequence[float]], float] = func1
 b: Callable[[Sequence[Any]], Any] = func1
 
 
-def func2(__iterable: Sequence[_T1]) -> _T1: ...
+def func2(__iterable: Sequence[_T1]) -> _T1:
+    ...
 
 
 # This should generate an error because an Iterable parameter
@@ -27,7 +29,8 @@ c: Callable[[Iterable[float]], float] = func2
 _T2 = TypeVar("_T2", bound=float)
 
 
-def func3(__iterable: Iterable[_T2]) -> _T2: ...
+def func3(__iterable: Iterable[_T2]) -> _T2:
+    ...
 
 
 d: Callable[[Sequence[int]], int] = func3

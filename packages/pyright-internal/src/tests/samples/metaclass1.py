@@ -12,13 +12,16 @@ T = TypeVar("T")
 
 
 class CustomMeta(type):
-    def __getitem__(self, key: Any) -> "type[int]": ...
+    def __getitem__(self, key: Any) -> "type[int]":
+        ...
 
 
-class Custom(metaclass=CustomMeta): ...
+class Custom(metaclass=CustomMeta):
+    ...
 
 
-class OtherMeta(type): ...
+class OtherMeta(type):
+    ...
 
 
 # This should generate an error because the class isn't

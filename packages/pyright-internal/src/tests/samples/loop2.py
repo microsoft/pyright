@@ -2,7 +2,8 @@
 # of cyclical dependencies for type resolution.
 
 
-def needs_str(a: str) -> tuple[str, str]: ...
+def needs_str(a: str) -> tuple[str, str]:
+    ...
 
 
 def xxx():

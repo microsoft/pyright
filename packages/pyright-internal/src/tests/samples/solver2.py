@@ -13,7 +13,8 @@ class ProtoA(Iterator[_T], Protocol):
     pass
 
 
-def decorator1(func: Callable[..., Iterator[_T]]) -> Callable[..., ProtoA[_T]]: ...
+def decorator1(func: Callable[..., Iterator[_T]]) -> Callable[..., ProtoA[_T]]:
+    ...
 
 
 @decorator1

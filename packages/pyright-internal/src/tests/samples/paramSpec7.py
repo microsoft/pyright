@@ -7,11 +7,13 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def func1(f: Callable[P, R]) -> Callable[P, R]: ...
+def func1(f: Callable[P, R]) -> Callable[P, R]:
+    ...
 
 
 class ClassA(Generic[R]):
-    def method1(self, v: R) -> None: ...
+    def method1(self, v: R) -> None:
+        ...
 
 
 v1: ClassA[int] = ClassA()

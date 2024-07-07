@@ -9,7 +9,8 @@ T = TypeVar("T")
 
 
 class ClassA(Protocol[R]):
-    def __call__(self, n: int, /, *args: Any, **kwargs: Any) -> list[R]: ...
+    def __call__(self, n: int, /, *args: Any, **kwargs: Any) -> list[R]:
+        ...
 
 
 def noop(v: T) -> T:

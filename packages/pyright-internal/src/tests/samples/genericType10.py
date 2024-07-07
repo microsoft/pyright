@@ -8,9 +8,8 @@ _Configuration = TypeVar("_Configuration", bound="Configuration")
 
 class Configuration:
     @classmethod
-    def _create(
-        cls: Type[_Configuration], data: Mapping[str, Any]
-    ) -> _Configuration: ...
+    def _create(cls: Type[_Configuration], data: Mapping[str, Any]) -> _Configuration:
+        ...
 
     @classmethod
     def _from_dict(

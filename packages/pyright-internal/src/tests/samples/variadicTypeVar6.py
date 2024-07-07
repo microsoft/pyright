@@ -14,7 +14,8 @@ _T = TypeVar("_T")
 
 
 class Array(Generic[Unpack[_Xs]]):
-    def __init__(self, *args: Unpack[_Xs]): ...
+    def __init__(self, *args: Unpack[_Xs]):
+        ...
 
 
 Alias1 = Array[Unpack[_Xs]]
@@ -54,7 +55,8 @@ y2: Alias4[float, str, str] = Array("3.4", 2, "hi", "hi")
 y3 = Alias4[float, str, str](3, 2, "hi", "hi")
 
 
-def func1(a: Alias4[_T, Unpack[_Xs]]) -> tuple[_T, Unpack[_Xs]]: ...
+def func1(a: Alias4[_T, Unpack[_Xs]]) -> tuple[_T, Unpack[_Xs]]:
+    ...
 
 
 z1 = func1(Array(3, 4, "hi", 3j))
@@ -82,10 +84,12 @@ def func2(x: Alias6[float, bool], y: Alias6, z: Alias6[()]):
 Alias7 = Callable[[Unpack[_Xs]], None]
 
 
-def func3(cb: Alias7[int, Unpack[_Xs]]) -> tuple[Unpack[_Xs]]: ...
+def func3(cb: Alias7[int, Unpack[_Xs]]) -> tuple[Unpack[_Xs]]:
+    ...
 
 
-def func4(a: int, b: str) -> None: ...
+def func4(a: int, b: str) -> None:
+    ...
 
 
 reveal_type(func3(func4), expected_text="tuple[str]")

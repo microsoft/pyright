@@ -6,7 +6,8 @@ from typing import TypeVar
 T = TypeVar("T")
 
 
-def to_list(t: list[T] | T) -> list[T]: ...
+def to_list(t: list[T] | T) -> list[T]:
+    ...
 
 
 x = to_list([1, 2, 3])

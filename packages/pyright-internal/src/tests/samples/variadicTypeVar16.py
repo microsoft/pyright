@@ -13,13 +13,16 @@ T2 = TypeVarTuple("T2")
 
 class Base(Generic[Unpack[T2]]):
     @classmethod
-    def method1(cls, *args: Unpack[T2]) -> int: ...
+    def method1(cls, *args: Unpack[T2]) -> int:
+        ...
 
     @staticmethod
-    def method2(*args: Unpack[T2]) -> int: ...
+    def method2(*args: Unpack[T2]) -> int:
+        ...
 
 
-class Child(Base[int, str]): ...
+class Child(Base[int, str]):
+    ...
 
 
 Child.method1(1, "")

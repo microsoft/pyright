@@ -6,7 +6,8 @@ from typing import Any, Callable, ParamSpec
 P = ParamSpec("P")
 
 
-def func1(f: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> str: ...
+def func1(f: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> str:
+    ...
 
 
 def func2(a: int) -> int:

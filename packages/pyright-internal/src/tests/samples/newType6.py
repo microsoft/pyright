@@ -9,4 +9,5 @@ MyStr = NewType("MyStr", str)
 
 
 # This should generate an error.
-class A(MyStr): ...
+class A(MyStr):
+    ...

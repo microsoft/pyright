@@ -7,9 +7,11 @@ A = TypeVar("A")
 
 
 class Iter(Generic[A]):
-    def __iter__(self) -> Iterator[A]: ...
+    def __iter__(self) -> Iterator[A]:
+        ...
 
-    def enumerate(self) -> "Iter[tuple[int, A]]": ...
+    def enumerate(self) -> "Iter[tuple[int, A]]":
+        ...
 
     def method1(self) -> None:
         for x in self.enumerate():

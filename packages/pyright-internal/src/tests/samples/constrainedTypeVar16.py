@@ -13,10 +13,12 @@ _T1 = TypeVar("_T1")
 AnyStr = TypeVar("AnyStr", str, bytes)
 
 
-def exists2(path: AnyStr) -> bool: ...
+def exists2(path: AnyStr) -> bool:
+    ...
 
 
-def filter2(f: Callable[[_T1], Any], i: Iterable[_T1]) -> Iterator[_T1]: ...
+def filter2(f: Callable[[_T1], Any], i: Iterable[_T1]) -> Iterator[_T1]:
+    ...
 
 
 result = filter2(exists2, ["hello", "world"])

@@ -8,14 +8,17 @@ S = TypeVar("S", covariant=True)
 
 
 class P1Parent(Protocol[S]):
-    def f0(self, /) -> Self: ...
+    def f0(self, /) -> Self:
+        ...
 
 
-class P1Child(P1Parent[S], Protocol[S]): ...
+class P1Child(P1Parent[S], Protocol[S]):
+    ...
 
 
 class C1(Generic[T]):
-    def f0(self, /) -> Self: ...
+    def f0(self, /) -> Self:
+        ...
 
 
 a1: P1Parent[str] = C1[str]()
@@ -27,7 +30,8 @@ class P2Parent(Protocol[T]):
         return right
 
 
-class P2Child(P2Parent[T], Protocol[T]): ...
+class P2Child(P2Parent[T], Protocol[T]):
+    ...
 
 
 class C2(Generic[S]):

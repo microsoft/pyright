@@ -16,7 +16,8 @@ Ts = TypeVarTuple("Ts")
 
 
 class CallbackA(Protocol[*Ts, T]):
-    def __call__(self, *args: *Ts, keyed: T) -> tuple[Unpack[Ts], T]: ...
+    def __call__(self, *args: *Ts, keyed: T) -> tuple[Unpack[Ts], T]:
+        ...
 
 
 def example(a: int, b: str, *, keyed: bool) -> tuple[int, str, bool]:

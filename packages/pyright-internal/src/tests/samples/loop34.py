@@ -7,11 +7,13 @@ _T_contra = TypeVar("_T_contra", contravariant=True)
 
 
 class SupportsDunderGT(Protocol[_T_contra]):
-    def __gt__(self, __other: _T_contra) -> bool: ...
+    def __gt__(self, __other: _T_contra) -> bool:
+        ...
 
 
 class SupportsDunderLT(Protocol[_T_contra]):
-    def __lt__(self, __other: _T_contra) -> bool: ...
+    def __lt__(self, __other: _T_contra) -> bool:
+        ...
 
 
 SupportsRichComparison: TypeAlias = SupportsDunderLT[Any] | SupportsDunderGT[Any]
@@ -23,7 +25,8 @@ SupportsRichComparisonT = TypeVar(
 
 def max(
     __arg1: SupportsRichComparisonT, __arg2: SupportsRichComparisonT
-) -> SupportsRichComparisonT: ...
+) -> SupportsRichComparisonT:
+    ...
 
 
 a: int = 1

@@ -8,7 +8,8 @@ from typing import Any, Generic, TypeAlias, TypeVar
 _T = TypeVar("_T")
 
 
-class A(Generic[_T]): ...
+class A(Generic[_T]):
+    ...
 
 
 # This should generate an error if reportMissingTypeArgument is enabled.
@@ -32,7 +33,8 @@ v4: C[int]
 
 
 class D(Generic[_T]):
-    def __getitem__(self, key: Any) -> int: ...
+    def __getitem__(self, key: Any) -> int:
+        ...
 
 
 D_Alias = D[_T]

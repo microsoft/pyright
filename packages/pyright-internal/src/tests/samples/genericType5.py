@@ -28,10 +28,12 @@ _X = TypeVar("_X")
 
 class A(Generic[_KT, _VT]):
     @classmethod
-    def method1(cls, i: Iterable[_T], v: _S) -> "A[_T, _S]": ...
+    def method1(cls, i: Iterable[_T], v: _S) -> "A[_T, _S]":
+        ...
 
 
-def func1(__x: A[int, _X] | A[str, _X] | A[str | int, _X]) -> A[int, _X]: ...
+def func1(__x: A[int, _X] | A[str, _X] | A[str | int, _X]) -> A[int, _X]:
+    ...
 
 
 v3 = func1(A.method1("a", "b"))

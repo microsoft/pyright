@@ -4,7 +4,8 @@
 from typing import NoReturn, Optional
 
 
-def get_optional_int() -> Optional[int]: ...
+def get_optional_int() -> Optional[int]:
+    ...
 
 
 v0 = get_optional_int()
@@ -100,7 +101,8 @@ def func7():
         v1: Optional[int] = 3
 
 
-def func8() -> NoReturn: ...
+def func8() -> NoReturn:
+    ...
 
 
 def func9(x: str | None):

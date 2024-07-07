@@ -8,11 +8,13 @@ T_contra = TypeVar("T_contra", contravariant=True)
 
 
 class Box(Protocol[T_co]):
-    def content(self) -> T_co: ...
+    def content(self) -> T_co:
+        ...
 
 
 class Box_Impl:
-    def content(self) -> int: ...
+    def content(self) -> int:
+        ...
 
 
 box: Box[float]
@@ -23,11 +25,13 @@ box = second_box
 
 
 class Sender(Protocol[T_contra]):
-    def send(self, data: T_contra) -> int: ...
+    def send(self, data: T_contra) -> int:
+        ...
 
 
 class Sender_Impl:
-    def send(self, data: float) -> int: ...
+    def send(self, data: float) -> int:
+        ...
 
 
 sender: Sender[float] = Sender_Impl()
@@ -73,7 +77,8 @@ var2: list[Protocol] = []
 
 
 class Abstract1(Protocol[T_contra]):
-    def do(self, x: T_contra | None): ...
+    def do(self, x: T_contra | None):
+        ...
 
 
 class Concrete1:
@@ -90,28 +95,34 @@ use_protocol1(Concrete1())
 
 # This should generate an error because TypeVars cannot
 # be defined in both Protocol and Generic.
-class Proto2(Protocol[T_co], Generic[T_co]): ...
+class Proto2(Protocol[T_co], Generic[T_co]):
+    ...
 
 
-class Proto3(Protocol, Generic[T_co]): ...
+class Proto3(Protocol, Generic[T_co]):
+    ...
 
 
 _A = TypeVar("_A", covariant=True)
 _B = TypeVar("_B", covariant=True, bound=int)
 
 
-class ProtoBase1(Protocol[_A, _B]): ...
+class ProtoBase1(Protocol[_A, _B]):
+    ...
 
 
 # This should generate an error because Protocol must
 # include all of the TypeVars.
-class Proto4(ProtoBase1[_A, _B], Protocol[_A]): ...
+class Proto4(ProtoBase1[_A, _B], Protocol[_A]):
+    ...
 
 
-class ProtoBase2(Protocol[_B]): ...
+class ProtoBase2(Protocol[_B]):
+    ...
 
 
-class Proto5(ProtoBase2[_B], Protocol[_A, _B]): ...
+class Proto5(ProtoBase2[_B], Protocol[_A, _B]):
+    ...
 
 
 p5_1: Proto5[float, int]

@@ -8,9 +8,11 @@ U = TypeVar("U", covariant=True)
 
 
 class AProto(Generic[T, U], Protocol):
-    def f(self) -> T | U: ...
+    def f(self) -> T | U:
+        ...
 
-    def g(self) -> "AProto[T, U]": ...
+    def g(self) -> "AProto[T, U]":
+        ...
 
 
 class A(Generic[T, U]):
@@ -22,9 +24,11 @@ class A(Generic[T, U]):
 
 
 class BProto(Generic[T, U], Protocol):
-    def f(self) -> T | U: ...
+    def f(self) -> T | U:
+        ...
 
-    def g(self) -> "BProto[T, U]": ...
+    def g(self) -> "BProto[T, U]":
+        ...
 
 
 class B(Generic[T, U]):

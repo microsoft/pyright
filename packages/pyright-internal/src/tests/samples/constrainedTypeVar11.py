@@ -18,7 +18,8 @@ def add1(value: _T1) -> _T1:
 
 
 class IntSubclass2(int):
-    def __add__(self, value: object) -> "IntSubclass2": ...
+    def __add__(self, value: object) -> "IntSubclass2":
+        ...
 
 
 _T2 = TypeVar("_T2", int, IntSubclass2)

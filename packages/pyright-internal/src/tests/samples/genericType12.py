@@ -48,7 +48,8 @@ reveal_type(v4(""), expected_text="str")
 _U = TypeVar("_U")
 
 
-def dec() -> Callable[[_U], _U]: ...
+def dec() -> Callable[[_U], _U]:
+    ...
 
 
 @dec()

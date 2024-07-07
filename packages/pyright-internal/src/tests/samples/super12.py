@@ -6,7 +6,8 @@ from typing import Protocol
 
 
 class BaseProto(Protocol):
-    def method1(self) -> None: ...
+    def method1(self) -> None:
+        ...
 
 
 class ProtoImpl(BaseProto):

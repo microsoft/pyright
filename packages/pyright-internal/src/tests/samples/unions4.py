@@ -12,7 +12,8 @@ z = Union
 
 
 # This should generate an error.
-def func1() -> Union: ...
+def func1() -> Union:
+    ...
 
 
 # This should generate an error.

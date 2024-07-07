@@ -14,7 +14,8 @@ Ts = TypeVarTuple("Ts")
 
 
 class CallbackPosOnly(Protocol[Unpack[Ts]]):
-    def __call__(self, *args: *Ts) -> tuple[Unpack[Ts]]: ...
+    def __call__(self, *args: *Ts) -> tuple[Unpack[Ts]]:
+        ...
 
 
 def invoke_posonly(fn: CallbackPosOnly[Unpack[Ts]], *args: *Ts) -> tuple[Unpack[Ts]]:
@@ -22,7 +23,8 @@ def invoke_posonly(fn: CallbackPosOnly[Unpack[Ts]], *args: *Ts) -> tuple[Unpack[
 
 
 class CallbackKeyed(Protocol[Unpack[Ts]]):
-    def __call__(self, *args: *Ts, keyed: bool) -> tuple[Unpack[Ts]]: ...
+    def __call__(self, *args: *Ts, keyed: bool) -> tuple[Unpack[Ts]]:
+        ...
 
 
 def invoke_keyed(fn: CallbackKeyed[Unpack[Ts]], *args: *Ts) -> tuple[Unpack[Ts]]:

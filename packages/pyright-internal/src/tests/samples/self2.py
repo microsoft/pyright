@@ -48,7 +48,8 @@ class Shape1:
         return cls()
 
 
-class Circle1(Shape1): ...
+class Circle1(Shape1):
+    ...
 
 
 x1 = Shape1().set_scale(3.4)
@@ -67,12 +68,15 @@ class Shape2:
     def from_config(cls: type[Self], config: dict[str, float]) -> Self:
         return cls()
 
-    def difference(self: Self, other: Self) -> float: ...
+    def difference(self: Self, other: Self) -> float:
+        ...
 
-    def apply(self: Self, f: Callable[[Self], None]) -> None: ...
+    def apply(self: Self, f: Callable[[Self], None]) -> None:
+        ...
 
 
-class Circle2(Shape2): ...
+class Circle2(Shape2):
+    ...
 
 
 s2 = Shape2()
@@ -119,7 +123,8 @@ if xs.next is not None:
 class Container(Generic[_T]):
     value: _T
 
-    def set_value(self, value: _T) -> Self: ...
+    def set_value(self, value: _T) -> Self:
+        ...
 
 
 def object_with_concrete_type(
@@ -134,7 +139,8 @@ def object_with_generic_type(container: Container[_T], value: _T) -> Container[_
 
 
 class ShapeProtocol(Protocol):
-    def set_scale(self, scale: float) -> Self: ...
+    def set_scale(self, scale: float) -> Self:
+        ...
 
 
 class ReturnSelf:

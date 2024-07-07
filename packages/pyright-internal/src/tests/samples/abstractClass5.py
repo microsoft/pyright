@@ -18,7 +18,8 @@ class Foo(ABC):
 
     @overload
     @abstractmethod
-    def func1(self, a: str) -> str: ...
+    def func1(self, a: str) -> str:
+        ...
 
     # This should generate an error because this overload is
     # missing an abstractmethod overload.
@@ -26,7 +27,8 @@ class Foo(ABC):
         raise NotImplementedError()
 
     @overload
-    def func2(self, a: str) -> str: ...
+    def func2(self, a: str) -> str:
+        ...
 
     @overload
     @abstractmethod

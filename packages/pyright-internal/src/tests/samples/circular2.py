@@ -15,7 +15,8 @@ class A:
 _T = TypeVar("_T", bound=A)
 
 
-class B(Generic[_T]): ...
+class B(Generic[_T]):
+    ...
 
 
 class C(A):

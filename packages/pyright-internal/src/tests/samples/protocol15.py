@@ -8,9 +8,11 @@ T = TypeVar("T")
 
 class Proto(Protocol):
     @property
-    def f(self: T) -> T: ...
+    def f(self: T) -> T:
+        ...
 
-    def m(self, item: T, callback: Callable[[T], str]) -> str: ...
+    def m(self, item: T, callback: Callable[[T], str]) -> str:
+        ...
 
 
 class Concrete:
@@ -18,7 +20,8 @@ class Concrete:
     def f(self: T) -> T:
         return self
 
-    def m(self, item: T, callback: Callable[[T], str]) -> str: ...
+    def m(self, item: T, callback: Callable[[T], str]) -> str:
+        ...
 
 
 x: Proto = Concrete()

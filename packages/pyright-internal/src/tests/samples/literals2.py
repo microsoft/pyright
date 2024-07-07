@@ -23,7 +23,8 @@ LetterGrade = Literal["A", "B", "C", "D", "F"]
 _T = TypeVar("_T")
 
 
-def func1(x: _T) -> _T: ...
+def func1(x: _T) -> _T:
+    ...
 
 
 grade: LetterGrade = func1("A")

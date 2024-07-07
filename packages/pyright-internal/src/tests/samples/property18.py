@@ -8,7 +8,8 @@ R = TypeVar("R")
 S = TypeVar("S", bound="HasAttr")
 
 
-def deco1(func: Callable[P, R]) -> Callable[P, R]: ...
+def deco1(func: Callable[P, R]) -> Callable[P, R]:
+    ...
 
 
 class ClassA:
@@ -28,7 +29,8 @@ class HasAttr(Protocol):
 
 def decorate(
     func: Callable[Concatenate[S, P], R],
-) -> Callable[Concatenate[S, P], R]: ...
+) -> Callable[Concatenate[S, P], R]:
+    ...
 
 
 class ClassB:

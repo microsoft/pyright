@@ -8,7 +8,8 @@ b = a + 4
 c = 1.2 * a
 
 
-def requires_complex(val: complex): ...
+def requires_complex(val: complex):
+    ...
 
 
 requires_complex(a)

@@ -29,14 +29,17 @@ class MyClass:
         self._lock = RLock()
 
     @with_lock
-    def test_1(self, param1: int) -> str: ...
+    def test_1(self, param1: int) -> str:
+        ...
 
     @with_lock
-    def test_2(self) -> str: ...
+    def test_2(self) -> str:
+        ...
 
 
 @with_lock
-def test_3(cls: MyClass, param1: int) -> str: ...
+def test_3(cls: MyClass, param1: int) -> str:
+    ...
 
 
 testClass = MyClass()

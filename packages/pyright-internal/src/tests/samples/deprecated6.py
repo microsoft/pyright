@@ -6,7 +6,8 @@ from typing_extensions import deprecated  # pyright: ignore[reportMissingModuleS
 
 class A:
     @deprecated("Use ClassB instead")
-    def __call__(self) -> None: ...
+    def __call__(self) -> None:
+        ...
 
 
 a = A()

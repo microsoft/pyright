@@ -12,9 +12,11 @@ S = TypeVar("S", bound="A[Any]")
 TA1: TypeAlias = Callable[Concatenate[S, P], R]
 
 
-def deco(func: TA1[S, P, R], /) -> TA1[S, P, R]: ...
+def deco(func: TA1[S, P, R], /) -> TA1[S, P, R]:
+    ...
 
 
 class A(Generic[T]):
     @deco
-    def select_all(self, *args: object) -> list[Any]: ...
+    def select_all(self, *args: object) -> list[Any]:
+        ...

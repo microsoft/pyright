@@ -30,7 +30,8 @@ if TYPE_CHECKING:
             pass
 
     @type_check_only
-    def func1() -> None: ...
+    def func1() -> None:
+        ...
 
 
 # This should generate an error.

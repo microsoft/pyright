@@ -9,15 +9,18 @@ T = TypeVar("T")
 
 class Proto1(Protocol[P, R]):
     @classmethod
-    def collect(cls, *args: P.args, **kwargs: P.kwargs) -> R: ...
+    def collect(cls, *args: P.args, **kwargs: P.kwargs) -> R:
+        ...
 
 
 class Class1:
     @classmethod
-    def collect(cls, n: type[T]) -> Callable[[Callable[[T], int]], None]: ...
+    def collect(cls, n: type[T]) -> Callable[[Callable[[T], int]], None]:
+        ...
 
 
-def func1(a: Proto1[P, R], *args: P.args, **kwargs: P.kwargs) -> R: ...
+def func1(a: Proto1[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    ...
 
 
 reveal_type(func1(Class1, float), expected_text="((float) -> int) -> None")

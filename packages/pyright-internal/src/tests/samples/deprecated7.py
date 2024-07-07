@@ -10,7 +10,8 @@ todo = deprecated("This needs to be implemented!!")
 
 
 @todo
-class ClassA: ...
+class ClassA:
+    ...
 
 
 # This should generate an error if reportDeprecated is enabled.

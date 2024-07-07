@@ -17,7 +17,8 @@ class MyPartial(Generic[P, R]):
         self.first = first
         self.func = func
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R: ...
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
+        ...
 
 
 class MyPartialCreator(Generic[P, R]):

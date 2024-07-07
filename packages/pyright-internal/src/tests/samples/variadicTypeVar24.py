@@ -14,7 +14,8 @@ class ClassA(Generic[*Ts]):
 
         reveal_type(self.x, expected_text="list[Union[*Ts@ClassA]]")
 
-    def method(self) -> Union[*Ts]: ...
+    def method(self) -> Union[*Ts]:
+        ...
 
 
 a1 = ClassA[int, bool, str]()

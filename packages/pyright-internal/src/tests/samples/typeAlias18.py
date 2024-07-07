@@ -19,15 +19,18 @@ A_Alias_2: TypeAlias = A_Alias_1[T2 | int]
 
 
 # This should generate an error because the variance is incompatible.
-class A_1(A_Alias_1[T2]): ...
+class A_1(A_Alias_1[T2]):
+    ...
 
 
 # This should generate an error because the variance is incompatible.
-class A_2(A_Alias_2[T2]): ...
+class A_2(A_Alias_2[T2]):
+    ...
 
 
 # This should generate an error because the variance is incompatible.
-class A_3(A[T2]): ...
+class A_3(A[T2]):
+    ...
 
 
 class B(Generic[T1, T2]):
@@ -38,4 +41,5 @@ B_Alias_1 = B[T2, T3]
 
 
 # This should generate an error because the variance is incompatible.
-class C(B_Alias_1[T3, T2]): ...
+class C(B_Alias_1[T3, T2]):
+    ...

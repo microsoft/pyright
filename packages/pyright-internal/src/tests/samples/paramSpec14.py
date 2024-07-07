@@ -33,15 +33,17 @@ reveal_type(ClassA.identity_static(1.2), expected_text="int")
 class ClassB(Generic[P, T]):
     @overload
     @classmethod
-    def method1(
-        cls, run: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs
-    ) -> Self: ...
+    def method1(cls, run: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs) -> Self:
+        ...
+
     @overload
     @classmethod
-    def method1(cls) -> "ClassB[[], None]": ...
+    def method1(cls) -> "ClassB[[], None]":
+        ...
 
     @classmethod
-    def method1(cls, *args: Any, **kwargs: Any) -> Any: ...
+    def method1(cls, *args: Any, **kwargs: Any) -> Any:
+        ...
 
 
 def func1() -> None:

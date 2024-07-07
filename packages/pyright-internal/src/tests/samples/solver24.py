@@ -31,19 +31,23 @@ def func1(a: ClassA[V], b: ClassA[U], c: bool) -> ClassB[V | U]:
     return r
 
 
-class ClassC(Generic[AnyStr]): ...
+class ClassC(Generic[AnyStr]):
+    ...
 
 
-class ClassD(Iterator[ClassC[AnyStr]], Protocol): ...
+class ClassD(Iterator[ClassC[AnyStr]], Protocol):
+    ...
 
 
 GenericPath: TypeAlias = AnyStr | PathLike[AnyStr]
 
 
-def func2(iter: Iterable[object]) -> bool: ...
+def func2(iter: Iterable[object]) -> bool:
+    ...
 
 
-def func3(path: GenericPath[AnyStr]) -> ClassD[AnyStr]: ...
+def func3(path: GenericPath[AnyStr]) -> ClassD[AnyStr]:
+    ...
 
 
 def func4(val: str):

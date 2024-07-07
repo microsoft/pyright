@@ -10,9 +10,11 @@ _T = TypeVar("_T")
 
 
 class A(Iterator[_T_co]):
-    def __new__(cls, __iterable: Iterable[_T]) -> "A[tuple[_T, _T]]": ...
+    def __new__(cls, __iterable: Iterable[_T]) -> "A[tuple[_T, _T]]":
+        ...
 
-    def __next__(self) -> _T_co: ...
+    def __next__(self) -> _T_co:
+        ...
 
 
 def func1(iterable: Iterable[_T]) -> Iterator[tuple[_T, _T, _T]]:
@@ -21,7 +23,8 @@ def func1(iterable: Iterable[_T]) -> Iterator[tuple[_T, _T, _T]]:
 
 
 class B(Generic[_T_co]):
-    def __new__(cls, __iter1: Iterable[_T]) -> "B[_T]": ...
+    def __new__(cls, __iter1: Iterable[_T]) -> "B[_T]":
+        ...
 
 
 def func2(p1: list[dict]):

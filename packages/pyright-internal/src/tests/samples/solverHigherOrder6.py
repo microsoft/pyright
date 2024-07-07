@@ -23,21 +23,24 @@ v1 = min(1, max(2, 0.5))
 reveal_type(v1, expected_text="float")
 
 
-class Future(Generic[_T]): ...
+class Future(Generic[_T]):
+    ...
 
 
-def func1(future: Future[_T]) -> Future[_T]: ...
+def func1(future: Future[_T]) -> Future[_T]:
+    ...
 
 
-def func2(
-    __fn: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs
-) -> Future[_T]: ...
+def func2(__fn: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> Future[_T]:
+    ...
 
 
-def func3() -> int: ...
+def func3() -> int:
+    ...
 
 
-def func4(a: int, b: int) -> str: ...
+def func4(a: int, b: int) -> str:
+    ...
 
 
 reveal_type(func1(func2(func3)), expected_text="Future[int]")
@@ -46,7 +49,8 @@ reveal_type(func1(func2(func4, a=1, b=2)), expected_text="Future[str]")
 
 
 class Proto(Protocol):
-    def __call__(self, func: _T) -> _T: ...
+    def __call__(self, func: _T) -> _T:
+        ...
 
 
 def func5(cb: Proto, names: Any):

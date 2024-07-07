@@ -4,7 +4,8 @@
 from typing import Iterator, Optional, Sequence, TypeVar, Union
 
 
-def func0(a: Union[int, float]): ...
+def func0(a: Union[int, float]):
+    ...
 
 
 _T1 = TypeVar("_T1", int, float)
@@ -38,10 +39,12 @@ def func5(xs: Sequence[Optional[_T2]]) -> Iterator[_T2]:
     return func3(xs)
 
 
-class A: ...
+class A:
+    ...
 
 
-class B(A): ...
+class B(A):
+    ...
 
 
 _T4 = TypeVar("_T4", A, B)

@@ -6,20 +6,24 @@ from typing import Any, Callable, Concatenate, Generic, ParamSpec
 P = ParamSpec("P")
 
 
-class Context: ...
+class Context:
+    ...
 
 
 CommandHandler = Callable[Concatenate[Context, P], Any]
 
 
 class Command(Generic[P]):
-    def __init__(self, handler: CommandHandler[P]) -> None: ...
+    def __init__(self, handler: CommandHandler[P]) -> None:
+        ...
 
 
-def handler_no_args(ctx: Context) -> None: ...
+def handler_no_args(ctx: Context) -> None:
+    ...
 
 
-def handler_one_arg(ctx: Context, a: int) -> None: ...
+def handler_one_arg(ctx: Context, a: int) -> None:
+    ...
 
 
 cmd_no_args = Command(handler_no_args)

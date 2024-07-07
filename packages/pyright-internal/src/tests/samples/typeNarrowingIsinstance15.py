@@ -4,7 +4,8 @@
 from typing import TypeVar, Generic
 
 
-class Operator: ...
+class Operator:
+    ...
 
 
 OpType = TypeVar("OpType", bound=Operator)

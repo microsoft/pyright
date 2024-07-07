@@ -4,19 +4,23 @@ from typing import AnyStr, Iterable, Literal, NamedTuple, TypeVar
 from enum import Enum, IntEnum
 
 
-class A: ...
+class A:
+    ...
 
 
 class B:
-    def __bool__(self) -> bool: ...
+    def __bool__(self) -> bool:
+        ...
 
 
 class C:
-    def __bool__(self) -> Literal[False]: ...
+    def __bool__(self) -> Literal[False]:
+        ...
 
 
 class D:
-    def __bool__(self) -> Literal[True]: ...
+    def __bool__(self) -> Literal[True]:
+        ...
 
 
 def func1(x: int | list[int] | A | B | C | D | None) -> None:

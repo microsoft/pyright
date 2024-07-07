@@ -10,7 +10,8 @@ TResult = TypeVar("TResult")
 
 
 class ResolveFunc(Protocol[T_contra]):
-    def __call__(self, resolve_value: T_contra) -> None: ...
+    def __call__(self, resolve_value: T_contra) -> None:
+        ...
 
 
 FullfillFunc = Callable[[T], TResult | "Promise[TResult]"]
@@ -19,11 +20,14 @@ ExecutorFunc = Callable[[ResolveFunc[T]], None]
 
 class Promise(Generic[T]):
     @staticmethod
-    def resolve(resolve_value: S) -> "Promise[S]": ...
+    def resolve(resolve_value: S) -> "Promise[S]":
+        ...
 
-    def __init__(self, executor_func: ExecutorFunc[T]) -> None: ...
+    def __init__(self, executor_func: ExecutorFunc[T]) -> None:
+        ...
 
-    def then(self, onfullfilled: FullfillFunc[T, TResult]) -> "Promise[TResult]": ...
+    def then(self, onfullfilled: FullfillFunc[T, TResult]) -> "Promise[TResult]":
+        ...
 
 
 Promise.resolve(1).then(lambda result: reveal_type(result, expected_text="int"))

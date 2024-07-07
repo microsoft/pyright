@@ -9,11 +9,13 @@ T = TypeVar("T")
 
 
 class Async:
-    def fn(self, returnable: T) -> Awaitable[T]: ...
+    def fn(self, returnable: T) -> Awaitable[T]:
+        ...
 
 
 class Sync:
-    def fn(self, returnable: T) -> T: ...
+    def fn(self, returnable: T) -> T:
+        ...
 
 
 T = TypeVar("T", Async, Sync)

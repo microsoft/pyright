@@ -3,10 +3,12 @@
 from typing import Hashable
 
 
-def func1(x: list[Hashable]): ...
+def func1(x: list[Hashable]):
+    ...
 
 
-def func2(x: list[object]): ...
+def func2(x: list[object]):
+    ...
 
 
 v1: list[int] = [1]

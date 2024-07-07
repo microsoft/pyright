@@ -6,11 +6,13 @@ from typing import overload
 
 
 @overload
-def func1(val1: float, val2: float) -> float: ...
+def func1(val1: float, val2: float) -> float:
+    ...
 
 
 @overload
-def func1(val1: str, val2: str) -> str: ...
+def func1(val1: str, val2: str) -> str:
+    ...
 
 
 def func1(val1: float | str, val2: float | str) -> float | str:

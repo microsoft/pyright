@@ -3,7 +3,8 @@
 # encounters are covariant or invariant.
 
 
-def func1(value: object) -> bool: ...
+def func1(value: object) -> bool:
+    ...
 
 
 v1 = filter(func1, ["b", "a", "r"])

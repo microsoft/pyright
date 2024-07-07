@@ -5,11 +5,13 @@ from . import typePrinter2
 
 
 class A:
-    class Inner: ...
+    class Inner:
+        ...
 
 
 class B:
-    class Inner: ...
+    class Inner:
+        ...
 
 
 def func1(v: A.Inner | None):
@@ -20,7 +22,8 @@ def func2(v: A.Inner | B.Inner | None):
     reveal_type(v, expected_text="typePrinter1.A.Inner | typePrinter1.B.Inner | None")
 
 
-class IntOrStr: ...
+class IntOrStr:
+    ...
 
 
 def func3(v: typePrinter2.IntOrStr | IntOrStr | None):

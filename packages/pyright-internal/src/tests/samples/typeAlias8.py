@@ -10,7 +10,8 @@ F = Callable[[T], T]
 
 
 def func1() -> F[T]:
-    def g(x: T) -> T: ...
+    def g(x: T) -> T:
+        ...
 
     return g
 

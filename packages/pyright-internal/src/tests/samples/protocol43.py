@@ -7,7 +7,8 @@ A = TypeVar("A")
 
 
 class HasAdd1(Protocol[A]):
-    def __add__(self: A, other: A) -> A: ...
+    def __add__(self: A, other: A) -> A:
+        ...
 
 
 T1 = TypeVar("T1", bound=HasAdd1)
@@ -23,7 +24,8 @@ def merge_element_lists1(a: Sequence[T1], b: Sequence[T1]) -> Sequence[T1]:
 
 # This is similar to HasAdd1 except that the class isn't generic.
 class HasAdd2(Protocol):
-    def __add__(self: A, other: A) -> A: ...
+    def __add__(self: A, other: A) -> A:
+        ...
 
 
 T2 = TypeVar("T2", bound=HasAdd2)

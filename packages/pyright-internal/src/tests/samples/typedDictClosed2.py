@@ -21,7 +21,8 @@ class Movie2(TypedDict, closed=True):
     __extra_items__: int
 
 
-def func2(**kwargs: Unpack[Movie2]) -> None: ...
+def func2(**kwargs: Unpack[Movie2]) -> None:
+    ...
 
 
 func2(name="")

@@ -3,7 +3,8 @@
 
 
 class GetAttrTest:
-    def __getattr__(self, name: str) -> int: ...
+    def __getattr__(self, name: str) -> int:
+        ...
 
 
 def test_get_attr() -> None:

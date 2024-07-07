@@ -5,14 +5,17 @@ from typing import Any, TypeVar, final
 
 
 @final
-class A: ...
+class A:
+    ...
 
 
 @final
-class B: ...
+class B:
+    ...
 
 
-class C: ...
+class C:
+    ...
 
 
 def func1(x: type[A] | type[B] | None | int):

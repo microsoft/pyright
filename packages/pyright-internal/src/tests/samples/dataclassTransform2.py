@@ -10,12 +10,14 @@ _T = TypeVar("_T")
 
 
 class ModelField:
-    def __init__(self, *, init: bool = True, default: Any | None = None) -> None: ...
+    def __init__(self, *, init: bool = True, default: Any | None = None) -> None:
+        ...
 
 
 def model_field(
     *, init: bool = True, default: Any | None = None, alias: str | None = None
-) -> Any: ...
+) -> Any:
+    ...
 
 
 @dataclass_transform(
@@ -33,7 +35,8 @@ class ModelBase(metaclass=ModelMeta):
         frozen: bool = False,
         kw_only: bool = True,
         order: bool = True,
-    ) -> None: ...
+    ) -> None:
+        ...
 
 
 class Customer1(ModelBase, frozen=True):
@@ -84,7 +87,8 @@ class ModelMetaFrozen(type):
     pass
 
 
-class ModelBaseFrozen(metaclass=ModelMetaFrozen): ...
+class ModelBaseFrozen(metaclass=ModelMetaFrozen):
+    ...
 
 
 class Customer3(ModelBaseFrozen):

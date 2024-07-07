@@ -9,7 +9,8 @@ from typing import NamedTuple
 class ClassA(ABC):
     @property
     @abstractmethod
-    def myproperty(self) -> str: ...
+    def myproperty(self) -> str:
+        ...
 
 
 MixinB = NamedTuple("MixinB", [("myproperty", str)])

@@ -2,14 +2,16 @@
 # __hash__ isn't set but __eq__ is.
 
 
-class A: ...
+class A:
+    ...
 
 
 A().__hash__()
 
 
 class B:
-    def __eq__(self, value: object) -> bool: ...
+    def __eq__(self, value: object) -> bool:
+        ...
 
     ...
 

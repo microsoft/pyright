@@ -11,7 +11,8 @@ class ClassA(Generic[T]):
     x: T
     y: int
 
-    def __init__(self, label: T | None = None) -> None: ...
+    def __init__(self, label: T | None = None) -> None:
+        ...
 
 
 ClassA[int].y = 1

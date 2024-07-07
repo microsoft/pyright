@@ -71,7 +71,8 @@ def func6(x: Any | object | None):
 
 
 class NoneProto(Protocol):
-    def __bool__(self) -> Literal[False]: ...
+    def __bool__(self) -> Literal[False]:
+        ...
 
 
 def func7(x: NoneProto | None):

@@ -7,7 +7,8 @@ from typing import Self, TypeVar
 
 
 class A:
-    def __init__(self, x: int, y: int) -> None: ...
+    def __init__(self, x: int, y: int) -> None:
+        ...
 
 
 # This should generate an error because "y" has the wrong type.

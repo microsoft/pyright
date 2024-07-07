@@ -19,11 +19,13 @@ class MyPartial[**P, R]:
         self.first = first
         self.func = func
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R: ...
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
+        ...
 
 
 class CallbackKeyed[*Ts](Protocol):
-    def __call__(self, *args: *Ts, keyed: bool) -> tuple[*Ts]: ...
+    def __call__(self, *args: *Ts, keyed: bool) -> tuple[*Ts]:
+        ...
 
 
 def invoke_keyed[*Ts](fn: CallbackKeyed[*Ts], *args: *Ts) -> tuple[*Ts]:

@@ -9,7 +9,8 @@ OutputT = TypeVar("OutputT", covariant=True)
 
 
 class MyCallable(Protocol[InputT, OutputT]):
-    def __call__(self, inputs: InputT) -> OutputT: ...
+    def __call__(self, inputs: InputT) -> OutputT:
+        ...
 
 
 class Class1:

@@ -5,10 +5,12 @@ from typing import Any, Literal, Protocol, TypeVar
 
 
 class Negatable(Protocol):
-    def __neg__(self) -> "Negatable": ...
+    def __neg__(self) -> "Negatable":
+        ...
 
 
-def func1(x: Negatable) -> None: ...
+def func1(x: Negatable) -> None:
+    ...
 
 
 func1(0)
@@ -22,7 +24,8 @@ T = TypeVar("T", covariant=True)
 
 
 class SupportsGetItem(Protocol[T]):
-    def __getitem__(self, __k: int) -> T: ...
+    def __getitem__(self, __k: int) -> T:
+        ...
 
 
 def func3(a: tuple[Any, ...]):

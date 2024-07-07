@@ -8,7 +8,8 @@ T = TypeVar("T")
 
 
 class X(Protocol):
-    def f(self) -> int: ...
+    def f(self) -> int:
+        ...
 
 
 class Y(Generic[T]):

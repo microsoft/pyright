@@ -7,7 +7,8 @@ from typing_extensions import Never  # pyright: ignore[reportMissingModuleSource
 T = TypeVar("T")
 
 
-class ClassA(Generic[T]): ...
+class ClassA(Generic[T]):
+    ...
 
 
 def func1(val: ClassA[Never]):
@@ -25,11 +26,13 @@ def assert_never2(val: NoReturn) -> NoReturn:
 
 
 # This should generate an error because Never doesn't accept type arguments.
-def assert_never3(val: Never[int]): ...
+def assert_never3(val: Never[int]):
+    ...
 
 
 # This should generate an error because NoReturn doesn't accept type arguments.
-def assert_never4(val: NoReturn[int]): ...
+def assert_never4(val: NoReturn[int]):
+    ...
 
 
 def func2(val: str | int) -> str:

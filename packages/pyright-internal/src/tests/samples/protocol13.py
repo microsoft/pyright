@@ -6,11 +6,13 @@ from typing import Protocol
 
 
 class CollectionProtocol(Protocol):
-    def watch(self, *, max_time: int | None = ..., key: str | None = ...) -> None: ...
+    def watch(self, *, max_time: int | None = ..., key: str | None = ...) -> None:
+        ...
 
 
 class Collection:
-    def watch(self, key: str | None = None, max_time: int | None = None) -> None: ...
+    def watch(self, key: str | None = None, max_time: int | None = None) -> None:
+        ...
 
 
 # This should not generate an error even though the "keys" and

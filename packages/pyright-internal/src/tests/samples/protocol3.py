@@ -110,12 +110,14 @@ _Self = TypeVar("_Self")
 
 class Class5:
     @property
-    def real(self: _Self) -> _Self: ...
+    def real(self: _Self) -> _Self:
+        ...
 
 
 class MockClass5(Protocol[_T_co]):
     @property
-    def real(self) -> _T_co: ...
+    def real(self) -> _T_co:
+        ...
 
 
 foo5 = Class5()
@@ -128,12 +130,14 @@ C6 = TypeVar("C6", bound="Class6")
 
 class MockClass6(Protocol):
     @property
-    def bar(self: P6) -> ContextManager[P6]: ...
+    def bar(self: P6) -> ContextManager[P6]:
+        ...
 
 
 class Class6:
     @property
-    def bar(self: C6) -> ContextManager[C6]: ...
+    def bar(self: C6) -> ContextManager[C6]:
+        ...
 
 
 i: MockClass6 = Class6()
@@ -154,7 +158,8 @@ a: Proto7 = Class7("")
 
 class Proto8(Protocol):
     @property
-    def x(self) -> str: ...
+    def x(self) -> str:
+        ...
 
 
 class Class8(NamedTuple):
@@ -166,10 +171,12 @@ b: Proto8 = Class8("")
 
 class Proto9(Protocol):
     @property
-    def x(self) -> str: ...
+    def x(self) -> str:
+        ...
 
     @x.setter
-    def x(self, n: str) -> None: ...
+    def x(self, n: str) -> None:
+        ...
 
 
 class Proto10(Protocol):
@@ -248,10 +255,12 @@ T13 = TypeVar("T13", covariant=True)
 
 class Proto13(Protocol[T13]):
     @property
-    def prop1(self) -> T13: ...
+    def prop1(self) -> T13:
+        ...
 
 
-class Proto14(Proto13[T13], Protocol): ...
+class Proto14(Proto13[T13], Protocol):
+    ...
 
 
 class Concrete14(Generic[T13]):
@@ -259,7 +268,8 @@ class Concrete14(Generic[T13]):
         self.prop1 = val
 
 
-def func14(val: Proto14[T13]): ...
+def func14(val: Proto14[T13]):
+    ...
 
 
 func14(Concrete14(1))

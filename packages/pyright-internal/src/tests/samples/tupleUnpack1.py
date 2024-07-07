@@ -65,7 +65,8 @@ def func13(t: type):
 def func14(
     *args: Unpack[tuple[int]],
     other: str,
-) -> None: ...
+) -> None:
+    ...
 
 
 func14(1, other="hi")

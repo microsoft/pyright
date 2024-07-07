@@ -5,11 +5,13 @@ from typing import overload
 
 
 @overload
-async def func(x: int) -> int: ...
+async def func(x: int) -> int:
+    ...
 
 
 @overload
-async def func(x: str) -> str: ...
+async def func(x: str) -> str:
+    ...
 
 
 async def func(x) -> int | str:

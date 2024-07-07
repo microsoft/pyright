@@ -7,10 +7,12 @@ A = TypeVar("A")
 B = TypeVar("B")
 
 
-def func1(fn: Callable[[A, B], A], b: B) -> A: ...
+def func1(fn: Callable[[A, B], A], b: B) -> A:
+    ...
 
 
-def func2(a: A, x: A) -> A: ...
+def func2(a: A, x: A) -> A:
+    ...
 
 
 def func3(a: A) -> A:

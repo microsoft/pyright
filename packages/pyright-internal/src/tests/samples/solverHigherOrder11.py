@@ -12,14 +12,17 @@ T = TypeVar("T")
 
 
 class Proto1(Protocol[T]):
-    def method(self, v: T) -> T: ...
+    def method(self, v: T) -> T:
+        ...
 
 
 class Impl1:
-    def method(self, v: T) -> T: ...
+    def method(self, v: T) -> T:
+        ...
 
 
-def func1(a: Proto1[T], b: T) -> T: ...
+def func1(a: Proto1[T], b: T) -> T:
+    ...
 
 
 v1 = func1(a=Impl1(), b="abc")

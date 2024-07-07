@@ -5,15 +5,18 @@ from datetime import datetime, timezone, timedelta
 
 
 @overload
-def func1(ts: int) -> datetime: ...
+def func1(ts: int) -> datetime:
+    ...
 
 
 @overload
-def func1(ts: None) -> None: ...
+def func1(ts: None) -> None:
+    ...
 
 
 @overload
-def func1(ts: complex): ...
+def func1(ts: complex):
+    ...
 
 
 def func1(ts: int | complex | None) -> datetime | None:
@@ -30,11 +33,13 @@ reveal_type(func1(3j), expected_text="Unknown")
 
 
 @overload
-def func2(x: int) -> int: ...
+def func2(x: int) -> int:
+    ...
 
 
 @overload
-def func2(x: float) -> float: ...
+def func2(x: float) -> float:
+    ...
 
 
 def func2(x):
