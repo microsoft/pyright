@@ -1794,6 +1794,7 @@ export namespace FunctionType {
     export function cloneWithNewTypeVarScopeId(
         type: FunctionType,
         newScopeId: TypeVarScopeId,
+        newConstructorScopeId: TypeVarScopeId | undefined,
         typeParameters: TypeVarType[],
         trackedSignatures?: SignatureWithOffsets[]
     ): FunctionType {
@@ -1802,6 +1803,7 @@ export namespace FunctionType {
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
         newFunction.details.typeVarScopeId = newScopeId;
+        newFunction.details.constructorTypeVarScopeId = newConstructorScopeId;
         newFunction.details.typeParameters = typeParameters;
         newFunction.trackedSignatures = trackedSignatures;
 

@@ -9434,18 +9434,18 @@ export function createTypeEvaluator(
     function validateCallForFunction(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
-        expandedCallType: FunctionType,
+        type: FunctionType,
         isCallTypeIncomplete: boolean,
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined,
         signatureTracker: UniqueSignatureTracker | undefined
     ): CallResult {
-        if (TypeBase.isInstantiable(expandedCallType)) {
+        if (TypeBase.isInstantiable(type)) {
             addDiagnostic(
                 DiagnosticRule.reportCallIssue,
                 LocMessage.callableNotInstantiable().format({
-                    type: printType(expandedCallType),
+                    type: printType(type),
                 }),
                 errorNode
             );
@@ -9455,12 +9455,12 @@ export function createTypeEvaluator(
         let effectiveTypeVarContext = typeVarContext;
         if (!effectiveTypeVarContext) {
             // If a typeVarContext wasn't provided by the caller, allocate one here.
-            effectiveTypeVarContext = new TypeVarContext(getTypeVarScopeIds(expandedCallType));
+            effectiveTypeVarContext = new TypeVarContext(getTypeVarScopeIds(type));
         }
 
         // The stdlib collections/__init__.pyi stub file defines namedtuple
         // as a function rather than a class, so we need to check for it here.
-        if (expandedCallType.details.builtInName === 'namedtuple') {
+        if (type.details.builtInName === 'namedtuple') {
             addDiagnostic(DiagnosticRule.reportUntypedNamedTuple, LocMessage.namedTupleNoTypes(), errorNode);
 
             const result: CallResult = {
@@ -9470,7 +9470,7 @@ export function createTypeEvaluator(
             validateFunctionArguments(
                 errorNode,
                 argList,
-                { type: expandedCallType },
+                { type: type },
                 effectiveTypeVarContext,
                 skipUnknownArgCheck,
                 inferenceContext,
@@ -9481,14 +9481,14 @@ export function createTypeEvaluator(
         }
 
         // Handle the NewType specially, replacing the normal return type.
-        if (expandedCallType.details.builtInName === 'NewType') {
+        if (type.details.builtInName === 'NewType') {
             return { returnType: createNewType(errorNode, argList) };
         }
 
         const functionResult = validateFunctionArguments(
             errorNode,
             argList,
-            { type: expandedCallType, isIncomplete: isCallTypeIncomplete },
+            { type, isIncomplete: isCallTypeIncomplete },
             effectiveTypeVarContext,
             skipUnknownArgCheck,
             inferenceContext,
@@ -9501,7 +9501,7 @@ export function createTypeEvaluator(
         let argumentErrors = !!functionResult.argumentErrors;
         if (!argumentErrors) {
             // Call the function transform logic to handle special-cased functions.
-            const transformed = applyFunctionTransform(evaluatorInterface, errorNode, argList, expandedCallType, {
+            const transformed = applyFunctionTransform(evaluatorInterface, errorNode, argList, type, {
                 argumentErrors: !!functionResult.argumentErrors,
                 returnType: functionResult.returnType ?? UnknownType.create(isTypeIncomplete),
                 isTypeIncomplete,
@@ -9516,7 +9516,7 @@ export function createTypeEvaluator(
             }
         }
 
-        if (expandedCallType.details.builtInName === '__import__') {
+        if (type.details.builtInName === '__import__') {
             // For the special __import__ type, we'll override the return type to be "Any".
             // This is required because we don't know what module was imported, and we don't
             // want to fail type checks when accessing members of the resulting module type.
@@ -11778,6 +11778,7 @@ export function createTypeEvaluator(
                 return FunctionType.cloneWithNewTypeVarScopeId(
                     returnType,
                     callableType.details.typeVarScopeId,
+                    callableType.details.constructorTypeVarScopeId,
                     typeVarsInReturnType,
                     trackedSignatures
                 );
