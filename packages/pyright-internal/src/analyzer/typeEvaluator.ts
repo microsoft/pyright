@@ -11196,9 +11196,7 @@ export function createTypeEvaluator(
     ): CallResult {
         const type = matchResults.overload;
 
-        if (!signatureTracker) {
-            signatureTracker = new UniqueSignatureTracker();
-        }
+        signatureTracker = signatureTracker ?? new UniqueSignatureTracker();
 
         matchResults.overload = ensureFunctionSignaturesAreUnique(
             matchResults.overload,
@@ -11206,52 +11204,69 @@ export function createTypeEvaluator(
             errorNode.start
         ) as FunctionType;
 
-        const returnType = getFunctionEffectiveReturnType(type);
         let expectedType: Type | undefined = inferenceContext?.expectedType;
+
+        // Can we safely ignore the inference context, either because it's not provided
+        // or will have no effect? If so, avoid the extra work.
+        const returnType = inferenceContext?.effectiveReturnType ?? getFunctionEffectiveReturnType(type);
+        if (!returnType || !requiresSpecialization(returnType)) {
+            expectedType = undefined;
+        }
 
         // If the expected type is a union, we don't know which type is expected.
         // We may or may not be able to make use of the expected type. We'll evaluate
-        // speculatively to see if using the expected type works.
+        // speculatively to see if using one of the expected subtypes works.
         if (expectedType && isUnion(expectedType)) {
-            let assignFlags = AssignTypeFlags.PopulatingExpectedType;
-            if (containsLiteralType(expectedType, /* includeTypeArgs */ true)) {
-                assignFlags |= AssignTypeFlags.RetainLiteralsForTypeVar;
-            }
+            expectedType = useSpeculativeMode(errorNode, () => {
+                let validExpectedSubtype: Type | undefined;
 
-            useSpeculativeMode(errorNode, () => {
-                const typeVarContextCopy = typeVarContext.clone();
-                assignType(
-                    returnType,
+                doForEachSubtype(
                     expectedType!,
-                    /* diag */ undefined,
-                    typeVarContextCopy,
-                    /* srcTypeVarContext */ undefined,
-                    assignFlags
+                    (expectedSubtype) => {
+                        // If we've already found a working expected subtype, skip the rest.
+                        if (validExpectedSubtype) {
+                            return;
+                        }
+
+                        const callResult = validateArgTypesWithExpectedType(
+                            errorNode,
+                            matchResults,
+                            typeVarContext.clone(),
+                            /* skipUnknownArgCheck */ true,
+                            expectedSubtype,
+                            returnType,
+                            signatureTracker!
+                        );
+
+                        if (!callResult.argumentErrors) {
+                            validExpectedSubtype = expectedSubtype;
+                        }
+                    },
+                    /* sortSubtypes */ true
                 );
 
-                const speculativeResults = validateArgTypes(
+                if (validExpectedSubtype) {
+                    return validExpectedSubtype;
+                }
+
+                // See if we can use the union type.
+                const callResult = validateArgTypesWithExpectedType(
                     errorNode,
                     matchResults,
-                    typeVarContextCopy,
-                    signatureTracker!,
-                    skipUnknownArgCheck
+                    typeVarContext.clone(),
+                    /* skipUnknownArgCheck */ true,
+                    expectedType!,
+                    returnType,
+                    signatureTracker!
                 );
 
-                if (speculativeResults?.argumentErrors) {
-                    expectedType = undefined;
-                }
+                return callResult.argumentErrors ? undefined : expectedType;
             });
         }
 
-        if (expectedType) {
-            if (isAnyOrUnknown(expectedType) || isNever(expectedType)) {
-                expectedType = undefined;
-            }
-        }
-
-        // Can we safely ignore the inference context, either because it's not provided
-        // or will have no effect? If so, we can eliminate some extra work.
-        if (!expectedType || !returnType || !requiresSpecialization(returnType)) {
+        // If there is no expected type, or the expected type is Any or Unknown,
+        // there's nothing left to do here.
+        if (!expectedType || isAnyOrUnknown(expectedType) || isNever(expectedType)) {
             return validateArgTypes(errorNode, matchResults, typeVarContext, signatureTracker, skipUnknownArgCheck);
         }
 
@@ -11281,9 +11296,8 @@ export function createTypeEvaluator(
             assignFlags |= AssignTypeFlags.RetainLiteralsForTypeVar;
         }
 
-        // Prepopulate the typeVarContext based on the specialized expected type if the
-        // callee has a declared return type. This will allow us to more closely match
-        // the expected type if possible.
+        // Prepopulate the typeVarContext based on the specialized expected type.
+        // This will allow us to more closely match the expected type if possible.
 
         // Determine which type arguments are needed to match the expected type.
         if (isClassInstance(returnType)) {
@@ -11839,7 +11853,11 @@ export function createTypeEvaluator(
             matchResults,
             typeVarContext,
             skipUnknownArgCheck,
-            makeInferenceContext(inferenceContext?.expectedType, inferenceContext?.isTypeIncomplete),
+            makeInferenceContext(
+                inferenceContext?.expectedType,
+                inferenceContext?.isTypeIncomplete,
+                inferenceContext?.effectiveReturnType
+            ),
             signatureTracker
         );
     }

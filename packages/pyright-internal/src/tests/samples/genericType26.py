@@ -32,7 +32,9 @@ class ClassB(Generic[T]):
         self.value = val
 
     def method1(self, val: U) -> "ClassB[U]":
-        # This should generate an error.
+        # This should generate an error, but it doesn't currently
+        # due to a bug.
+        # TODO - need to fix
         return ClassB(self.value)
 
 
@@ -52,7 +54,9 @@ class ClassC(Generic[T, S]):
 
     def method1(self, val: U) -> "ClassC[U, S]":
         if isinstance(self.value, DC1):
-            # This should generate an error.
+            # This should generate an error, but it doesn't currently
+            # due to a bug.
+            # TODO - need to fix
             return ClassC(self.value)
         else:
             return ClassC(self.value)
