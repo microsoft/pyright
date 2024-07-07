@@ -10158,13 +10158,15 @@ export function createTypeEvaluator(
         overloadIndex: number,
         signatureTracker: UniqueSignatureTracker | undefined
     ): MatchArgsToParamsResult {
-        const paramDetails = getParameterListDetails(typeResult.type);
+        const overload = typeResult.type;
+        const paramDetails = getParameterListDetails(overload);
+        const paramSpec = FunctionType.getParamSpecFromArgsKwargs(overload);
+
         let argIndex = 0;
         let matchedUnpackedListOfUnknownLength = false;
         let reportedArgError = false;
         let isTypeIncomplete = !!typeResult.isIncomplete;
         let isVariadicTypeVarFullyMatched = false;
-        const paramSpec = FunctionType.getParamSpecFromArgsKwargs(typeResult.type);
 
         // Expand any unpacked tuples in the arg list.
         argList = expandArgList(argList, signatureTracker);
@@ -10225,7 +10227,7 @@ export function createTypeEvaluator(
                 // spec? We need to handle these two cases differently.
                 const paramSpecScopeId = varArgListParam.type.scopeId;
 
-                if (getTypeVarScopeIds(typeResult.type)?.some((id) => id === paramSpecScopeId)) {
+                if (getTypeVarScopeIds(overload)?.some((id) => id === paramSpecScopeId)) {
                     paramSpecArgList = [];
                     paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParam.type, /* access */ undefined);
                 } else {
@@ -10235,7 +10237,7 @@ export function createTypeEvaluator(
                 }
             }
         } else if (paramSpec) {
-            if (getTypeVarScopeIds(typeResult.type)?.some((id) => id === paramSpec.scopeId)) {
+            if (getTypeVarScopeIds(overload)?.some((id) => id === paramSpec.scopeId)) {
                 hasParamSpecArgsKwargs = true;
                 paramSpecArgList = [];
                 paramSpecTarget = paramSpec;
@@ -11005,7 +11007,7 @@ export function createTypeEvaluator(
             // but have not yet received them. If we received a dictionary argument
             // (i.e. an arg starting with a "**"), we will assume that all parameters
             // are matched.
-            if (!unpackedDictionaryArgType && !FunctionType.isDefaultParameterCheckDisabled(typeResult.type)) {
+            if (!unpackedDictionaryArgType && !FunctionType.isDefaultParameterCheckDisabled(overload)) {
                 const unassignedParams = Array.from(paramMap.keys()).filter((name) => {
                     const entry = paramMap.get(name)!;
                     return !entry || entry.argsReceived < entry.argsNeeded;
@@ -11168,14 +11170,14 @@ export function createTypeEvaluator(
 
         // Special-case the builtin isinstance and issubclass functions.
         if (
-            ['isinstance', 'issubclass'].some((name) => name === typeResult.type.details.builtInName) &&
+            ['isinstance', 'issubclass'].some((name) => name === overload.details.builtInName) &&
             validateArgTypeParams.length === 2
         ) {
             validateArgTypeParams[1].isinstanceParam = true;
         }
 
         return {
-            overload: typeResult.type,
+            overload,
             overloadIndex,
             argumentErrors: reportedArgError,
             isTypeIncomplete,
@@ -11732,7 +11734,7 @@ export function createTypeEvaluator(
                 let typeVarsInReturnType = getTypeVarArgumentsRecursive(returnType);
 
                 // Remove any type variables that appear in the function's input parameters.
-                functionType.details.parameters.forEach((param, index) => {
+                functionType.details.parameters.forEach((param) => {
                     if (param.hasDeclaredType) {
                         const typeVarsInInputParam = getTypeVarArgumentsRecursive(param.type);
                         typeVarsInReturnType = typeVarsInReturnType.filter(

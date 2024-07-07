@@ -3913,6 +3913,23 @@ class TypeVarTransformer {
                 }
             }
 
+            // Do we need to update the boundToType?
+            if (functionType.boundToType) {
+                const newBoundToType = this.apply(functionType.boundToType, recursionCount);
+                if (newBoundToType !== functionType.boundToType && isClass(newBoundToType)) {
+                    functionType = FunctionType.clone(functionType, /* stripFirstParam */ false, newBoundToType);
+                }
+            }
+
+            // Do we need to update the strippedFirstParamType?
+            if (functionType.strippedFirstParamType) {
+                const newStrippedType = this.apply(functionType.strippedFirstParamType, recursionCount);
+                if (newStrippedType !== functionType.strippedFirstParamType) {
+                    functionType = TypeBase.cloneType(functionType);
+                    functionType.strippedFirstParamType = newStrippedType;
+                }
+            }
+
             this._isTransformingTypeArg = wasTransformingTypeArg;
 
             if (!typesRequiredSpecialization) {
