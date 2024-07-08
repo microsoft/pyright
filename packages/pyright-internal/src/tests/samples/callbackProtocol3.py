@@ -7,14 +7,17 @@ TE = TypeVar("TE", bound=Exception)
 
 
 class CallbackProtocol1(Protocol[TE]):
-    def __call__(self, s_exc: Exception, t_exc_class: Type[TE]) -> TE: ...
+    def __call__(self, s_exc: Exception, t_exc_class: Type[TE]) -> TE:
+        ...
 
 
-def func1(s_exc: Exception, t_exc_class: Type[TE]) -> TE: ...
+def func1(s_exc: Exception, t_exc_class: Type[TE]) -> TE:
+    ...
 
 
 def func2(
     s_exc_class: Exception,
     t_exc_class: Type[TE],
     mapper: CallbackProtocol1[TE] = func1,
-): ...
+):
+    ...

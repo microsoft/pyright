@@ -15,7 +15,8 @@ def func1(val: Union[str, int]):
         reveal_type(val, expected_text="int")
 
 
-def is_true(o: object) -> TypeIs[Literal[True]]: ...
+def is_true(o: object) -> TypeIs[Literal[True]]:
+    ...
 
 
 def func2(val: bool):
@@ -71,13 +72,16 @@ def func6(direction: Literal["NW", "E"]):
         reveal_type(direction, expected_text="Literal['NW']")
 
 
-class Animal: ...
+class Animal:
+    ...
 
 
-class Kangaroo(Animal): ...
+class Kangaroo(Animal):
+    ...
 
 
-class Koala(Animal): ...
+class Koala(Animal):
+    ...
 
 
 T = TypeVar("T")
@@ -121,7 +125,8 @@ def func7(names: tuple[str, ...]):
         reveal_type(names, expected_text="tuple[str, ...]")
 
 
-def is_int(obj: type) -> TypeIs[type[int]]: ...
+def is_int(obj: type) -> TypeIs[type[int]]:
+    ...
 
 
 def func8(x: type) -> None:

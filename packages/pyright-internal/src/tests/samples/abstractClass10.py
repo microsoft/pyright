@@ -7,7 +7,8 @@ from abc import ABC, abstractmethod
 class A(ABC):
     @staticmethod
     @abstractmethod
-    def method1() -> None: ...
+    def method1() -> None:
+        ...
 
     @staticmethod
     @abstractmethod
@@ -65,7 +66,8 @@ def func1(a: type[A]):
     a.method3()
 
 
-class C(A): ...
+class C(A):
+    ...
 
 
 # This should generate an error.

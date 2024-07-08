@@ -20,11 +20,13 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def func1(callback: Callable[[T1], T2], val: T1) -> T2: ...
+def func1(callback: Callable[[T1], T2], val: T1) -> T2:
+    ...
 
 
 class A(Generic[T1]):
-    def __new__(cls, x: T1) -> "A[T1]": ...
+    def __new__(cls, x: T1) -> "A[T1]":
+        ...
 
 
 a1 = func1(A[float], 3.4)
@@ -39,12 +41,15 @@ reveal_type(a3, expected_text="A[int]")
 
 class B(Generic[T1]):
     @overload
-    def __new__(cls, x: int, y: Literal[True]) -> "B[None]": ...
+    def __new__(cls, x: int, y: Literal[True]) -> "B[None]":
+        ...
 
     @overload
-    def __new__(cls, x: T1, y: bool = ...) -> "B[T1]": ...
+    def __new__(cls, x: T1, y: bool = ...) -> "B[T1]":
+        ...
 
-    def __new__(cls, x: Union[T1, int], y: bool = False) -> "B[Any]": ...
+    def __new__(cls, x: Union[T1, int], y: bool = False) -> "B[Any]":
+        ...
 
 
 b1 = func1(B[int], 3)
@@ -64,7 +69,8 @@ reveal_type(b5, expected_text="B[int | str]")
 
 
 class C(Generic[T1]):
-    def __init__(self, x: T1) -> None: ...
+    def __init__(self, x: T1) -> None:
+        ...
 
 
 c1 = func1(C[float], 3.4)
@@ -79,12 +85,15 @@ reveal_type(c3, expected_text="C[int]")
 
 class D(Generic[T1]):
     @overload
-    def __init__(self: "D[None]", x: int, y: Literal[True]) -> None: ...
+    def __init__(self: "D[None]", x: int, y: Literal[True]) -> None:
+        ...
 
     @overload
-    def __init__(self, x: T1, y: bool = ...) -> None: ...
+    def __init__(self, x: T1, y: bool = ...) -> None:
+        ...
 
-    def __init__(self, x: Any, y: bool = False) -> None: ...
+    def __init__(self, x: Any, y: bool = False) -> None:
+        ...
 
 
 d1 = func1(D[int], 3)
@@ -111,7 +120,8 @@ class E(Generic[T1]):
 e1: Callable[[int], E[int]] = E
 
 
-def func2(x: T1) -> E[T1]: ...
+def func2(x: T1) -> E[T1]:
+    ...
 
 
 e2: Callable[[int], E[int]] = func2

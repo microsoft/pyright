@@ -6,7 +6,8 @@ from typing_extensions import Unpack  # pyright: ignore[reportMissingModuleSourc
 
 
 class SupportsSum(Protocol):
-    def __add__(self, __x: Any) -> Any: ...
+    def __add__(self, __x: Any) -> Any:
+        ...
 
 
 T = TypeVar("T", bound=SupportsSum)

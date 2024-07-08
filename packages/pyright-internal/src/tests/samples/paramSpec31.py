@@ -8,7 +8,8 @@ T = TypeVar("T")
 P = ParamSpec("P")
 
 
-def func1(f: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T: ...
+def func1(f: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+    ...
 
 
 def func2(a: Any) -> None:

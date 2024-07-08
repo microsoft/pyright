@@ -8,7 +8,8 @@ R = TypeVar("R")
 
 
 class Decorator(Protocol):
-    def __call__(self, __x: Callable[P, R]) -> Callable[P, R]: ...
+    def __call__(self, __x: Callable[P, R]) -> Callable[P, R]:
+        ...
 
 
 def func1(deco: Decorator):

@@ -17,7 +17,8 @@ class Thing2:
 
 
 class ClassA(Generic[T_contra]):
-    def __init__(self, callback: Callable[[T_contra], Any]) -> None: ...
+    def __init__(self, callback: Callable[[T_contra], Any]) -> None:
+        ...
 
 
 def func1(cb: Callable[[Thing1], Any] | Callable[[Thing1 | Thing2], Any]):

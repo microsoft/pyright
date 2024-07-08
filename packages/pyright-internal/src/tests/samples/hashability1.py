@@ -15,7 +15,8 @@ s2: set[Any] = {{}, 2, dict, frozenset(), []}
 
 
 class StrList(list[str]):
-    def __hash__(self) -> int: ...
+    def __hash__(self) -> int:
+        ...
 
 
 s3 = {StrList()}

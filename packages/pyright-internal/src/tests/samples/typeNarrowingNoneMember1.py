@@ -47,7 +47,8 @@ def func2(a: Union[UnionFirst, StrSecond]):
 
 class A:
     @property
-    def prop1(self) -> int | None: ...
+    def prop1(self) -> int | None:
+        ...
 
     member1: None
     member2: int | None
@@ -57,7 +58,8 @@ class A:
 
 class B:
     @property
-    def prop1(self) -> int: ...
+    def prop1(self) -> int:
+        ...
 
     member1: int
     member2: int | None

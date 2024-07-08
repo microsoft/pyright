@@ -7,7 +7,8 @@ T_contra = TypeVar("T_contra", contravariant=True)
 
 
 class MyClass(Generic[T_contra]):
-    def __new__(cls: type[Self]) -> Self: ...
+    def __new__(cls: type[Self]) -> Self:
+        ...
 
 
 MyClass[int]()

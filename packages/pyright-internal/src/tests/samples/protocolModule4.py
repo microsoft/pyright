@@ -11,7 +11,8 @@ Z = TypeVar("Z")
 
 
 class FnHandler(Protocol[X]):
-    def __call__(self, x: Fn[X]) -> None: ...
+    def __call__(self, x: Fn[X]) -> None:
+        ...
 
 
 class ModuleSpec(Protocol[Z]):

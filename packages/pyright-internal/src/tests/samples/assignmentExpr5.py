@@ -17,7 +17,8 @@ def func1() -> Tuple[str, int]:
     return (a, y)
 
 
-def get_value(x: int) -> int: ...
+def get_value(x: int) -> int:
+    ...
 
 
 x = sum(max(value for x in range(10) if (value := get_value(x))) for _ in range(10))

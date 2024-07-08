@@ -560,7 +560,7 @@ test('Literals2', () => {
 test('Literals3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals3.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Literals4', () => {
@@ -578,7 +578,7 @@ test('Literals5', () => {
 test('Literals6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals6.py']);
 
-    TestUtils.validateResults(analysisResults, 26);
+    TestUtils.validateResults(analysisResults, 45);
 });
 
 test('Literals7', () => {
@@ -602,7 +602,7 @@ test('TypeAlias2', () => {
 test('TypeAlias3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias3.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('TypeAlias4', () => {

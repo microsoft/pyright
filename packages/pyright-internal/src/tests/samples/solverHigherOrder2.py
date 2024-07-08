@@ -16,7 +16,8 @@ def not_identity(x: Any) -> int:
 
 
 class Test(Generic[T]):
-    def fun(self, x: Iterable[T], f: Callable[[T], T]): ...
+    def fun(self, x: Iterable[T], f: Callable[[T], T]):
+        ...
 
     def caller(self, x: Iterable[T]):
         self.fun(x, identity)

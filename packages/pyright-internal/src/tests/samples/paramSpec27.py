@@ -11,18 +11,22 @@ from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
 P = ParamSpec("P")
 
 
-def func1(a: int, b: str) -> None: ...
+def func1(a: int, b: str) -> None:
+    ...
 
 
-def func2(a: str, b: str) -> None: ...
+def func2(a: str, b: str) -> None:
+    ...
 
 
 class Handler(Protocol[P]):
-    def __call__(self, /, *args: P.args, **kwargs: P.kwargs) -> None: ...
+    def __call__(self, /, *args: P.args, **kwargs: P.kwargs) -> None:
+        ...
 
 
 class ConcatHandler(Protocol[P]):
-    def __call__(self, a: int, /, *args: P.args, **kwargs: P.kwargs) -> None: ...
+    def __call__(self, a: int, /, *args: P.args, **kwargs: P.kwargs) -> None:
+        ...
 
 
 ConcatCallableHandler: TypeAlias = Callable[Concatenate[int, P], None]

@@ -11,7 +11,8 @@ from typing import Protocol, runtime_checkable
 
 @runtime_checkable
 class Proto3(Protocol):
-    def method1(self, a: int) -> int: ...
+    def method1(self, a: int) -> int:
+        ...
 
 
 class Concrete3A:
@@ -21,7 +22,8 @@ class Concrete3A:
 
 @runtime_checkable
 class Proto2(Protocol):
-    def other(self) -> None: ...
+    def other(self) -> None:
+        ...
 
 
 class Concrete3B:

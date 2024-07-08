@@ -12,7 +12,8 @@ R = TypeVar("R")
 class TakesFunctionWithArguments(Protocol):
     def __call__(
         self, func: Callable[P, R], *args: P.args, **kwargs: P.kwargs
-    ) -> Future[R]: ...
+    ) -> Future[R]:
+        ...
 
 
 @contextlib.contextmanager

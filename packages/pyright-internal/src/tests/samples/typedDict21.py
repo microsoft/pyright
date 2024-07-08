@@ -19,7 +19,8 @@ class TD3(TypedDict):
     v1: NotRequired[int]
 
 
-class TD4(TD1, TD2): ...
+class TD4(TD1, TD2):
+    ...
 
 
 td1: TD1 = {"v1": 0}

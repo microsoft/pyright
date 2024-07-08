@@ -10,17 +10,20 @@ S = TypeVar("S")
 T = TypeVar("T")
 
 
-def deco1(func: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T: ...
+def deco1(func: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+    ...
 
 
-def func1(val1: T, val2: S, val3: S) -> T: ...
+def func1(val1: T, val2: S, val3: S) -> T:
+    ...
 
 
 reveal_type(deco1(func1, val1=1, val2=3, val3="s"), expected_text="int")
 reveal_type(deco1(func1, 1, 3, "s"), expected_text="int")
 
 
-def func2(val1: T, val2: S) -> T | list[S]: ...
+def func2(val1: T, val2: S) -> T | list[S]:
+    ...
 
 
 reveal_type(deco1(func2, val1=1, val2="s"), expected_text="int | list[str]")

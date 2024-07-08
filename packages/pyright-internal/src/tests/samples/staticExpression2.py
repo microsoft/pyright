@@ -13,11 +13,13 @@ if sys.version_info < (3, 5, 2):
 
 
 @overload
-def from_json_timestamp(ts: int) -> datetime: ...
+def from_json_timestamp(ts: int) -> datetime:
+    ...
 
 
 @overload
-def from_json_timestamp(ts: None) -> None: ...
+def from_json_timestamp(ts: None) -> None:
+    ...
 
 
 def from_json_timestamp(ts: Optional[int]) -> Optional[datetime]:

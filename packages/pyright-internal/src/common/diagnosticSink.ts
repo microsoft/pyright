@@ -23,6 +23,24 @@ export interface FileDiagnostics {
     diagnostics: Diagnostic[];
 }
 
+export namespace FileDiagnostics {
+    export function toJsonObj(fileDiag: FileDiagnostics): any {
+        return {
+            fileUri: fileDiag.fileUri.toJsonObj(),
+            version: fileDiag.version,
+            diagnostics: fileDiag.diagnostics.map((d) => d.toJsonObj()),
+        };
+    }
+
+    export function fromJsonObj(fileDiagObj: any): FileDiagnostics {
+        return {
+            fileUri: Uri.fromJsonObj(fileDiagObj.fileUri),
+            version: fileDiagObj.version,
+            diagnostics: fileDiagObj.diagnostics.map((d: any) => Diagnostic.fromJsonObj(d)),
+        };
+    }
+}
+
 // Creates and tracks a list of diagnostics.
 export class DiagnosticSink {
     private _diagnosticList: Diagnostic[];

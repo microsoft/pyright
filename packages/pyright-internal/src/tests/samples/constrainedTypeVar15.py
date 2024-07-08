@@ -5,7 +5,8 @@ from typing import AnyStr, Iterable, TypeVar, Generic
 from dataclasses import dataclass
 
 
-class ClassA: ...
+class ClassA:
+    ...
 
 
 _T = TypeVar("_T", int | float, ClassA)

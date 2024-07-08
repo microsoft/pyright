@@ -2,7 +2,8 @@
 # has a dependency on itself when evaluating its effective type.
 
 
-def func1(arg: str): ...
+def func1(arg: str):
+    ...
 
 
 def func2(arg: int):

@@ -5,7 +5,8 @@ from typing import Annotated, Any, Callable, Literal, Protocol, overload
 
 
 class SupportsGt[T](Protocol):
-    def __gt__(self, __other: T) -> bool: ...
+    def __gt__(self, __other: T) -> bool:
+        ...
 
 
 class Gt[T]:
@@ -36,10 +37,12 @@ s1: Annotated[str, MetaString] = ""
 s2: Annotated[int, MetaString] = 1
 
 
-class ParentA: ...
+class ParentA:
+    ...
 
 
-class ChildA(ParentA): ...
+class ChildA(ParentA):
+    ...
 
 
 class MetaA:
@@ -66,12 +69,19 @@ i2: Annotated[float, MetaInt()] = 1.0
 
 class MetaWithOverload:
     @overload
-    def __supports_type__(self, obj: int, /) -> bool: ...
+    def __supports_type__(self, obj: int, /) -> bool:
+        ...
+
     @overload
-    def __supports_type__(self, obj: None, /) -> Literal[True]: ...
+    def __supports_type__(self, obj: None, /) -> Literal[True]:
+        ...
+
     @overload
-    def __supports_type__(self, obj: str, /) -> Literal[False]: ...
-    def __supports_type__(self, obj: Any, /) -> bool: ...
+    def __supports_type__(self, obj: str, /) -> Literal[False]:
+        ...
+
+    def __supports_type__(self, obj: Any, /) -> bool:
+        ...
 
 
 v1: Annotated[int, MetaWithOverload()] = 1

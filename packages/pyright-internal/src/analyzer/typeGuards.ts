@@ -30,7 +30,7 @@ import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { getTypedDictMembersForClass } from './typedDicts';
-import { EvaluatorFlags, TypeEvaluator } from './typeEvaluatorTypes';
+import { EvalFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
     ClassTypeFlags,
@@ -219,7 +219,7 @@ export function getTypeNarrowingCallback(
                     if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                         const callType = evaluator.getTypeOfExpression(
                             testExpression.leftExpression.leftExpression,
-                            EvaluatorFlags.CallBaseDefaults
+                            EvalFlags.CallBaseDefaults
                         ).type;
 
                         if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'type')) {
@@ -512,7 +512,7 @@ export function getTypeNarrowingCallback(
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.leftExpression.leftExpression,
-                    EvaluatorFlags.CallBaseDefaults
+                    EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
@@ -618,7 +618,7 @@ export function getTypeNarrowingCallback(
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.leftExpression,
-                    EvaluatorFlags.CallBaseDefaults
+                    EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
@@ -629,12 +629,12 @@ export function getTypeNarrowingCallback(
                     const isInstanceCheck = callType.details.builtInName === 'isinstance';
                     const arg1TypeResult = evaluator.getTypeOfExpression(
                         arg1Expr,
-                        EvaluatorFlags.AllowMissingTypeArgs |
-                            EvaluatorFlags.EvaluateStringLiteralAsType |
-                            EvaluatorFlags.DisallowParamSpec |
-                            EvaluatorFlags.DisallowTypeVarTuple |
-                            EvaluatorFlags.DisallowFinal |
-                            EvaluatorFlags.DoNotSpecialize
+                        EvalFlags.AllowMissingTypeArgs |
+                            EvalFlags.StrLiteralAsType |
+                            EvalFlags.NoParamSpec |
+                            EvalFlags.NoTypeVarTuple |
+                            EvalFlags.NoFinal |
+                            EvalFlags.NoSpecialize
                     );
                     const arg1Type = arg1TypeResult.type;
 
@@ -676,7 +676,7 @@ export function getTypeNarrowingCallback(
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.leftExpression,
-                    EvaluatorFlags.CallBaseDefaults
+                    EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
@@ -711,7 +711,7 @@ export function getTypeNarrowingCallback(
             if (ParseTreeUtils.isMatchingExpression(reference, testExpression.arguments[0].valueExpression)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.leftExpression,
-                    EvaluatorFlags.CallBaseDefaults
+                    EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
@@ -743,7 +743,7 @@ export function getTypeNarrowingCallback(
 
                 const callTypeResult = evaluator.getTypeOfExpression(
                     testExpression.leftExpression,
-                    EvaluatorFlags.CallBaseDefaults
+                    EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 

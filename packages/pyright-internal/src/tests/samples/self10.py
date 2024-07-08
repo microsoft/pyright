@@ -4,7 +4,8 @@ from typing import Self
 
 
 class A:
-    def self_arg(self, other: Self): ...
+    def self_arg(self, other: Self):
+        ...
 
     def call_self_arg(self):
         # This should generate an error.

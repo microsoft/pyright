@@ -6,7 +6,8 @@ from typing import Any, Coroutine
 from dataclasses import dataclass
 
 
-def cond() -> bool: ...
+def cond() -> bool:
+    ...
 
 
 # This should generate a diagnostic when reportUnnecessaryComparison is enabled.
@@ -78,7 +79,8 @@ async def func5() -> None:
         pass
 
 
-def func6() -> Coroutine[Any, Any, int] | None: ...
+def func6() -> Coroutine[Any, Any, int] | None:
+    ...
 
 
 def func7():

@@ -17,7 +17,8 @@ def func1(a: int | None):
     a.__doc__
 
 
-def func2(x: type[None]): ...
+def func2(x: type[None]):
+    ...
 
 
 func2(None.__class__)

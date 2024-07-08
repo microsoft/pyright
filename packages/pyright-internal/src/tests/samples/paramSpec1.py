@@ -36,7 +36,8 @@ def func2(x: Callable[P, Any]):
 
 
 class SomeWrapper(Protocol[P]):
-    def __call__(self, *args: P.args, **kwargs: P.kwargs): ...
+    def __call__(self, *args: P.args, **kwargs: P.kwargs):
+        ...
 
 
 # This should generate an error because P cannot be used with other

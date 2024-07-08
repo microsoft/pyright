@@ -9,7 +9,8 @@ T = TypeVar("T")
 VT = TypeVar("VT")
 
 
-def func1(container: Container[T]) -> Callable[[T], bool]: ...
+def func1(container: Container[T]) -> Callable[[T], bool]:
+    ...
 
 
 def func2(a: T, b: Container[VT]) -> T:

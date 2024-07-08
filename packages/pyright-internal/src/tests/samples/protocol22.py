@@ -18,22 +18,26 @@ _T2_contra = TypeVar("_T2_contra", contravariant=True)
 # This is right, as `_T1_co` and `_T2_co` are only covariant with
 # return type.
 class P1(Protocol[_T1_co, _T2_co]):
-    def m1(self) -> _T1_co | _T2_co: ...
+    def m1(self) -> _T1_co | _T2_co:
+        ...
 
 
 # This is right, as `_T1_contra` and `_T2_contra` are only covariant
 # with the argument type.
 class P2(Protocol[_T1_contra, _T2_contra]):
-    def m1(self, a: _T1_contra | _T2_contra) -> None: ...
+    def m1(self, a: _T1_contra | _T2_contra) -> None:
+        ...
 
 
 # This is right, as `_T1` and `_T2` are both covariant with the
 # argument type and the return type.
 class P3(Protocol[_T1, _T2]):
-    def m1(self, a: _T1, b: _T2) -> _T1 | _T2: ...
+    def m1(self, a: _T1, b: _T2) -> _T1 | _T2:
+        ...
 
 
 # This is right, as `_T1` and `_T2` are both covariant with the
 # argument type and the return type.
 class P4(Protocol[_T1, _T2]):
-    def m2(self, a: _T1 | _T2) -> tuple[_T1, _T2]: ...
+    def m2(self, a: _T1 | _T2) -> tuple[_T1, _T2]:
+        ...

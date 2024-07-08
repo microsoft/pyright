@@ -4,7 +4,8 @@
 from typing import Any
 
 
-def func1(__a: int, __b: int, c: int) -> None: ...
+def func1(__a: int, __b: int, c: int) -> None:
+    ...
 
 
 func1(1, 2, c=3)
@@ -15,16 +16,19 @@ func1(1, __b=2, c=3)
 
 # This should generate an error because a position-only parameter cannot
 # follow a non-position-only parameter.
-def func2(a: int, __b: int) -> None: ...
+def func2(a: int, __b: int) -> None:
+    ...
 
 
-def func3(a: int, *args: Any, __b: int) -> None: ...
+def func3(a: int, *args: Any, __b: int) -> None:
+    ...
 
 
 func3(a=1, __b=2)
 
 
-def func4(a: int, /, __b: int) -> None: ...
+def func4(a: int, /, __b: int) -> None:
+    ...
 
 
 func4(1, __b=2)

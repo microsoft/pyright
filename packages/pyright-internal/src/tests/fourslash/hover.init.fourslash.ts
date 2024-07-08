@@ -15,7 +15,7 @@
 //// c1 = [|/*marker1*/C1|]()
 ////
 //// unionType = Union[C1, C2]
-//// c2 = [|/*marker2*/unionType|]()
+//// c2 = [|/*marker2*/unionType|]
 ////
 //// T = TypeVar("T")
 //// class G(Generic[T]):

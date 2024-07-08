@@ -8,10 +8,12 @@ from typing import Pattern, Sequence, TypeVar
 _T = TypeVar("_T")
 
 
-def func1(v: list[_T | None]) -> _T: ...
+def func1(v: list[_T | None]) -> _T:
+    ...
 
 
-def func2(v: list[_T | str | None]) -> _T: ...
+def func2(v: list[_T | str | None]) -> _T:
+    ...
 
 
 v1: list[int | None] = [1, None]

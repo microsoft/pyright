@@ -8,7 +8,8 @@ T_LS = TypeVar("T_LS", bound=LiteralString)
 
 
 class ClassA(Generic[T]):
-    def __init__(self, val: T) -> None: ...
+    def __init__(self, val: T) -> None:
+        ...
 
 
 def func1(x: T) -> ClassA[T]:

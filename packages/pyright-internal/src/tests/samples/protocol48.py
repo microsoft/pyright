@@ -6,14 +6,17 @@ T = TypeVar("T", covariant=True)
 
 
 class SupportsMethod1(Protocol[T]):
-    def method1(self) -> T: ...
+    def method1(self) -> T:
+        ...
 
 
-def apply_method1(__x: SupportsMethod1[T]) -> T: ...
+def apply_method1(__x: SupportsMethod1[T]) -> T:
+    ...
 
 
 class A:
-    def method1(self) -> tuple[Self, Self]: ...
+    def method1(self) -> tuple[Self, Self]:
+        ...
 
     def method2(self):
         x = apply_method1(self)

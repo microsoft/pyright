@@ -13,10 +13,12 @@ class Base1:
 
 class Derived1(Base1):
     @overload
-    def foo(self, x: int) -> int: ...
+    def foo(self, x: int) -> int:
+        ...
 
     @overload
-    def foo(self, x: str) -> str: ...
+    def foo(self, x: str) -> str:
+        ...
 
     def foo(self, x: int | str) -> int | str:
         return x
@@ -29,10 +31,12 @@ class Base2:
 
 class Derived2(Base2):
     @overload
-    def foo(self, x: int) -> int: ...
+    def foo(self, x: int) -> int:
+        ...
 
     @overload
-    def foo(self, x: str) -> str: ...
+    def foo(self, x: str) -> str:
+        ...
 
     def foo(self, x: int | str) -> int | str:
         return x
@@ -45,10 +49,12 @@ class Base3:
 
 class Derived3(Base3):
     @overload
-    def foo(self, x: float) -> float: ...
+    def foo(self, x: float) -> float:
+        ...
 
     @overload
-    def foo(self, x: str) -> str: ...
+    def foo(self, x: str) -> str:
+        ...
 
     # This should generate an error because no overloaded signature
     # is compatible with the base method, nor is the implementation.

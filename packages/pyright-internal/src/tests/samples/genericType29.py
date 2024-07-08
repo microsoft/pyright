@@ -8,10 +8,12 @@ T1 = TypeVar("T1", contravariant=True)
 T2 = TypeVar("T2")
 
 
-class A(Generic[T1]): ...
+class A(Generic[T1]):
+    ...
 
 
-def func1(x: A[T2]) -> A[T2 | None]: ...
+def func1(x: A[T2]) -> A[T2 | None]:
+    ...
 
 
 x1: A[int | None] = func1(A[int]())

@@ -7,7 +7,8 @@ _T = TypeVar("_T")
 
 
 class ClassA(tuple[int, str, int, _T]):
-    def __new__(cls) -> Self: ...
+    def __new__(cls) -> Self:
+        ...
 
 
 objA = ClassA[complex]()
@@ -33,7 +34,8 @@ for aaa in objA:
 
 
 class ClassB(tuple[_T, ...]):
-    def __new__(cls) -> Self: ...
+    def __new__(cls) -> Self:
+        ...
 
 
 objB = ClassB[complex]()

@@ -8,10 +8,12 @@ T = TypeVar("T")
 
 
 class A(Generic[T]):
-    def __init__(self, i: Iterable[T]): ...
+    def __init__(self, i: Iterable[T]):
+        ...
 
 
-def func1(i: Iterable[T]) -> T: ...
+def func1(i: Iterable[T]) -> T:
+    ...
 
 
 reveal_type(func1([0] + [""]), expected_text="str | int")

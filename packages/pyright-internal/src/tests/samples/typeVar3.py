@@ -15,7 +15,8 @@ class OuterClass(Generic[_T, AnyStr]):
 
     # This should generate an error because _T
     # is already in use.
-    class InnerClass1(Generic[_T]): ...
+    class InnerClass1(Generic[_T]):
+        ...
 
     # This should generate an error because AnyStr
     # is already in use.
@@ -30,7 +31,8 @@ class OuterClass(Generic[_T, AnyStr]):
         # This should generate an error.
         x: list[_T]
 
-        def f(self, x: _T, y: _S, z: _S) -> _T: ...
+        def f(self, x: _T, y: _S, z: _S) -> _T:
+            ...
 
         def g(self, x: AnyStr) -> None:
             # This should generate an error.
@@ -45,7 +47,8 @@ def func1(a: _T) -> _T | None:
 
     # This should generate an error because _T
     # is already in use.
-    class InnerClass3(Generic[_T]): ...
+    class InnerClass3(Generic[_T]):
+        ...
 
 
 # This should generate an error.

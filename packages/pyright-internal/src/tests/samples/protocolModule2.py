@@ -11,10 +11,12 @@ class P1(Protocol):
     var_1: int
     var_2: int | str
 
-    def func_1(self, a: int, b: str) -> str: ...
+    def func_1(self, a: int, b: str) -> str:
+        ...
 
     @staticmethod
-    def func_2() -> str: ...
+    def func_2() -> str:
+        ...
 
 
 v1: P1 = protocolModule1
@@ -31,7 +33,8 @@ v2: P2 = protocolModule1
 
 
 class P3(Protocol):
-    def func_1(self, a: int, b: str) -> int: ...
+    def func_1(self, a: int, b: str) -> int:
+        ...
 
 
 # This should generate an error because func_1 has the
@@ -40,7 +43,8 @@ v3: P3 = protocolModule1
 
 
 class P4(Protocol):
-    def func_2(self) -> str: ...
+    def func_2(self) -> str:
+        ...
 
     y: int
 
@@ -52,7 +56,8 @@ v4: P4 = protocolModule1
 _T = TypeVar("_T", bound=P2)
 
 
-class NonProtocol: ...
+class NonProtocol:
+    ...
 
 
 # Test type narrowing of module symbols for isinstance checks.
@@ -82,10 +87,12 @@ _T1 = TypeVar("_T1")
 
 
 class P5(Protocol[_T1]):
-    def func_1(self, a: int, b: _T1) -> _T1: ...
+    def func_1(self, a: int, b: _T1) -> _T1:
+        ...
 
 
-def func4(x: P5[_T1]) -> _T1: ...
+def func4(x: P5[_T1]) -> _T1:
+    ...
 
 
 v5 = func4(protocolModule1)
@@ -94,7 +101,8 @@ reveal_type(v5, expected_text="str")
 
 class P6(Protocol):
     @property
-    def var_1(self) -> int: ...
+    def var_1(self) -> int:
+        ...
 
 
 v6: P6 = protocolModule1

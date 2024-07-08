@@ -10,10 +10,12 @@ from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
 Shape = TypeVarTuple("Shape")
 
 
-class Array(Generic[Unpack[Shape]]): ...
+class Array(Generic[Unpack[Shape]]):
+    ...
 
 
-def func0(x: Array[Unpack[Shape]]) -> Array[Unpack[Shape]]: ...
+def func0(x: Array[Unpack[Shape]]) -> Array[Unpack[Shape]]:
+    ...
 
 
 def func1(y: Array[int, Unpack[tuple[Any, ...]]]):

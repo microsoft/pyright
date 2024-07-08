@@ -38,7 +38,8 @@ d4: dict[str, tuple[int, Callable[[int], int]]] = {
 
 
 class Adder(Protocol):
-    def __call__(self, x: int, y: dict[str, int]) -> int: ...
+    def __call__(self, x: int, y: dict[str, int]) -> int:
+        ...
 
 
 v1: Adder = lambda x, y: x + y["hi"]

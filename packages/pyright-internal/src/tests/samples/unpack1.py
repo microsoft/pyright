@@ -3,10 +3,12 @@
 # pyright: strictListInference=true
 
 
-class Class1: ...
+class Class1:
+    ...
 
 
-class Class2: ...
+class Class2:
+    ...
 
 
 a = [1, "hello", 3.4, Class1()]
@@ -14,7 +16,8 @@ a = [1, "hello", 3.4, Class1()]
 b = [*a]
 
 
-def int_only(a: int): ...
+def int_only(a: int):
+    ...
 
 
 for c in b:

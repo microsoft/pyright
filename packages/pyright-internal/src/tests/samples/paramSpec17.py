@@ -17,13 +17,15 @@ def func1(func: Callable[P, object], *args: P.args, **kwargs: P.kwargs) -> str:
     return func.__name__ + "(" + ", ".join(arg_reprs) + ")"
 
 
-def func2(*values: object, sep: str | None = ..., end: str | None = ...) -> None: ...
+def func2(*values: object, sep: str | None = ..., end: str | None = ...) -> None:
+    ...
 
 
 func1(func2)
 
 
-def func3(a: int, b: int): ...
+def func3(a: int, b: int):
+    ...
 
 
 def func4(*args: Any, **kwargs: Any):

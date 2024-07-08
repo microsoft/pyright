@@ -8,10 +8,12 @@ class TreeLike(Protocol):
     value: int
 
     @property
-    def left(self) -> "TreeLike | None": ...
+    def left(self) -> "TreeLike | None":
+        ...
 
     @property
-    def right(self) -> "TreeLike | None": ...
+    def right(self) -> "TreeLike | None":
+        ...
 
 
 class SimpleTree:
@@ -35,7 +37,8 @@ root: TreeLike = SimpleTree(0)
 
 
 class ProtoA(Protocol):
-    def method1(self) -> "ProtoA": ...
+    def method1(self) -> "ProtoA":
+        ...
 
 
 class ImplA:

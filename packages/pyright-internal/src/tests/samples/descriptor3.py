@@ -10,14 +10,15 @@ T = TypeVar("T")
 
 
 class Desc1(Generic[T]):
-    def __get__(
-        self, instance: object | None, owner: type | None = None
-    ) -> list[T]: ...
+    def __get__(self, instance: object | None, owner: type | None = None) -> list[T]:
+        ...
 
-    def __set__(self, instance: object, value: list[T]) -> None: ...
+    def __set__(self, instance: object, value: list[T]) -> None:
+        ...
 
 
-def func1(factory: Callable[[], list[T]]) -> Desc1[T]: ...
+def func1(factory: Callable[[], list[T]]) -> Desc1[T]:
+    ...
 
 
 class ClassA:

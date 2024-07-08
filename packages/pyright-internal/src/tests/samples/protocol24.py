@@ -5,15 +5,18 @@ from typing import Any, ClassVar, Protocol
 
 
 class ProtoA(Protocol):
-    def meth(_self, x: int) -> int: ...
+    def meth(_self, x: int) -> int:
+        ...
 
 
 class ProtoB(Protocol):
-    def meth(_self, self: Any, x: int) -> int: ...
+    def meth(_self, self: Any, x: int) -> int:
+        ...
 
 
 class C:
-    def meth(self, x: int) -> int: ...
+    def meth(self, x: int) -> int:
+        ...
 
 
 # This should generate an error because C.meth isn't compatible
@@ -27,7 +30,8 @@ class ProtoD(Protocol):
     var1: int
 
     @property
-    def var2(self) -> str: ...
+    def var2(self) -> str:
+        ...
 
 
 class E:
@@ -47,16 +51,19 @@ e: ProtoD = F
 
 
 class Jumps(Protocol):
-    def jump(self) -> int: ...
+    def jump(self) -> int:
+        ...
 
 
 class Jumper1:
     @classmethod
-    def jump(cls) -> int: ...
+    def jump(cls) -> int:
+        ...
 
 
 class Jumper2:
-    def jump(self) -> int: ...
+    def jump(self) -> int:
+        ...
 
 
 def do_jump(j: Jumps):

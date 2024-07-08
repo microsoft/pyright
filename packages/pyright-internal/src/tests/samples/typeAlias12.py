@@ -9,12 +9,13 @@ U = TypeVar("U")
 Alias = V | U
 
 
-def fn(x: Alias[V, V]) -> V:
+def func1(x: Alias[V, V]) -> V:
     return x
 
 
-def fn2(x: list[Alias[V, V]]) -> list[V]:
+def func2(x: list[Alias[V, V]]) -> list[V]:
     return x
 
 
-reveal_type(Alias[int, int], expected_text="type[int]")
+def func3(x: Alias[int, int]):
+    reveal_type(x, expected_text="int")

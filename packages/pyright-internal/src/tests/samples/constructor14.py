@@ -14,7 +14,8 @@ ThingT = TypeVar("ThingT", bound="Thing[Any]")
 
 
 class Callback(Protocol[T_contra]):
-    def __call__(self, message: T_contra, /) -> Any: ...
+    def __call__(self, message: T_contra, /) -> Any:
+        ...
 
 
 class Thing(Generic[T_contra]):

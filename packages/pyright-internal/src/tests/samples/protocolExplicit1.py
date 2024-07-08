@@ -26,7 +26,8 @@ class Protocol3(Protocol2, Protocol):
     cm11: int
 
 
-class Concrete1(Protocol1): ...
+class Concrete1(Protocol1):
+    ...
 
 
 # This should generate an error because some attributes are not implemented.
@@ -66,7 +67,8 @@ Concrete4()
 
 
 class Protocol5(Protocol):
-    def method1(self) -> int: ...
+    def method1(self) -> int:
+        ...
 
 
 # This should generate an error because "method1" is
@@ -91,7 +93,8 @@ class Concrete6(Mixin, Protocol6):
 
 class Protocol7(Protocol):
     @abstractmethod
-    def method1(self): ...
+    def method1(self):
+        ...
 
 
 class Mixin7(Protocol7, ABC):

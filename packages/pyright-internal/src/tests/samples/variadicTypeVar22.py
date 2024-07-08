@@ -9,9 +9,8 @@ from typing import Callable, Literal, TypeVarTuple, Union, Unpack
 Ts = TypeVarTuple("Ts")
 
 
-def func1(
-    f: Callable[[Unpack[Ts]], None], vs: tuple[Unpack[Ts]]
-) -> Union[Unpack[Ts]]: ...
+def func1(f: Callable[[Unpack[Ts]], None], vs: tuple[Unpack[Ts]]) -> Union[Unpack[Ts]]:
+    ...
 
 
 def func2(f: Callable[[Literal[1, 2]], None], vs: tuple[Literal[1, 2]]):

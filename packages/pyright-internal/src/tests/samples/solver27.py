@@ -35,12 +35,14 @@ class ClassA(Generic[T]):
 reveal_type(ClassA[int], expected_text="type[ClassA[int]]")
 
 
-def deco4() -> Callable[[type[T]], type[T]]: ...
+def deco4() -> Callable[[type[T]], type[T]]:
+    ...
 
 
 @deco4()
 class ClassB:
-    def get_features(self) -> list[str]: ...
+    def get_features(self) -> list[str]:
+        ...
 
 
 def func1(specs: Iterable[str] | ClassB) -> None:

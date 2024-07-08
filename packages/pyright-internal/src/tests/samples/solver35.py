@@ -7,7 +7,8 @@ T1 = TypeVar("T1")
 T2 = TypeVar("T2")
 
 
-def func1(v1: T1, v2: T2, v1_list: list[T1], v2_list: list[T2]): ...
+def func1(v1: T1, v2: T2, v1_list: list[T1], v2_list: list[T2]):
+    ...
 
 
 def func2(v1: int, v2: str, v1_list: list[int], v2_list: list[str]):

@@ -13,21 +13,24 @@ class A(Generic[T]):
 
 
 class B(Generic[T]):
-    def __init__(self): ...
+    def __init__(self):
+        ...
 
 
 class C(Generic[T]):
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls, *args, **kwargs)
 
-    def __init__(self): ...
+    def __init__(self):
+        ...
 
 
 class D(Generic[T]):
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls, *args, **kwargs)
 
-    def __init__(self, a: T): ...
+    def __init__(self, a: T):
+        ...
 
 
 class E(Generic[T]):

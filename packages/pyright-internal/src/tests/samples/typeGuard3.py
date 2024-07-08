@@ -16,18 +16,22 @@ class TypeGuardMode(Enum):
 
 
 @overload
-def is_int(obj: object, mode: Literal[TypeGuardMode.NoTypeGuard]) -> bool: ...
+def is_int(obj: object, mode: Literal[TypeGuardMode.NoTypeGuard]) -> bool:
+    ...
 
 
 @overload
-def is_int(obj: object, mode: Literal[TypeGuardMode.TypeGuard]) -> TypeGuard[int]: ...
+def is_int(obj: object, mode: Literal[TypeGuardMode.TypeGuard]) -> TypeGuard[int]:
+    ...
 
 
 @overload
-def is_int(obj: object, mode: Literal[TypeGuardMode.TypeIs]) -> TypeIs[int]: ...
+def is_int(obj: object, mode: Literal[TypeGuardMode.TypeIs]) -> TypeIs[int]:
+    ...
 
 
-def is_int(obj: object, mode: TypeGuardMode) -> bool | TypeGuard[int] | TypeIs[int]: ...
+def is_int(obj: object, mode: TypeGuardMode) -> bool | TypeGuard[int] | TypeIs[int]:
+    ...
 
 
 def func_no_typeguard(val: int | str):

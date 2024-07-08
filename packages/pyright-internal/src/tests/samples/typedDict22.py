@@ -3,7 +3,8 @@
 from typing import TypedDict
 
 
-class TD1(TypedDict): ...
+class TD1(TypedDict):
+    ...
 
 
 reveal_type(TD1.__required_keys__, expected_text="frozenset[str]")

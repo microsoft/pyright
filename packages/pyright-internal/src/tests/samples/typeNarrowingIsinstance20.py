@@ -8,7 +8,8 @@ from typing_extensions import TypeVar  # pyright: ignore[reportMissingModuleSour
 T = TypeVar("T", bound=int, default=int)
 
 
-class ClassA(Generic[T]): ...
+class ClassA(Generic[T]):
+    ...
 
 
 def func1(obj: object):

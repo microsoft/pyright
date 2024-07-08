@@ -7,9 +7,11 @@ T = TypeVar("T")
 S = TypeVar("S", bound="MyClass[Any]")
 
 
-def my_generic_wrapper(f: Callable[[S], str]) -> Callable[[S], int]: ...
+def my_generic_wrapper(f: Callable[[S], str]) -> Callable[[S], int]:
+    ...
 
 
 class MyClass(Generic[T]):
     @my_generic_wrapper
-    def do_something(self) -> str: ...
+    def do_something(self) -> str:
+        ...

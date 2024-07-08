@@ -8,7 +8,8 @@ P = ParamSpec("P", default=...)
 R = TypeVar("R", default=Any)
 
 
-class ParentA(Generic[P, R]): ...
+class ParentA(Generic[P, R]):
+    ...
 
 
 class ChildA(ParentA[P, R]):

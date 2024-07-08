@@ -1,7 +1,7 @@
 # This sample exercises the type analyzer's isinstance type narrowing logic.
 
 from types import NoneType
-from typing import Generic, Protocol, Sized, TypeVar, Union, Any, runtime_checkable
+from typing import Any, Generic, Protocol, Sized, TypeVar, Union, runtime_checkable
 
 S = TypeVar("S")
 T = TypeVar("T")
@@ -38,8 +38,8 @@ class MyClass2(SuperClass):
         self.property2: None = None
 
 
-def f(instance: Union[SuperClass, UnrelatedClass]) -> None:
-    if isinstance(instance, (MyClass1, UnrelatedSubclass, Any)):
+def f(instance: Union[SuperClass, UnrelatedClass], a: Any) -> None:
+    if isinstance(instance, (MyClass1, UnrelatedSubclass, a)):
         print(instance.property)
 
         # This should generate two errors:
@@ -55,8 +55,8 @@ def f(instance: Union[SuperClass, UnrelatedClass]) -> None:
         print(instance.property2)
 
 
-def g(cls: Union[type[SuperClass], type[UnrelatedClass]]) -> None:
-    if issubclass(cls, (MyClass1, UnrelatedSubclass, Any)):
+def g(cls: Union[type[SuperClass], type[UnrelatedClass]], a: Any) -> None:
+    if issubclass(cls, (MyClass1, UnrelatedSubclass, a)):
         print(cls.class_var1)
 
         # This should generate two errors:
@@ -130,7 +130,8 @@ def func7(a: Union[list[int], int]):
 # on isinstance checks.
 
 
-class Base1: ...
+class Base1:
+    ...
 
 
 class Sub1_1(Base1):
@@ -150,11 +151,25 @@ def handler(node: Base1) -> Any:
             reveal_type(node.value, expected_text="Sub1_1")
 
 
-def func8(a: int | list[int] | dict[str, int] | None):
-    if isinstance(
-        a,
-        (str, (int, list, type(None))),
-    ):
+def func8a(a: int | list[int] | dict[str, int] | None):
+    if isinstance(a, (str, (int, list, type(None)))):
+        reveal_type(a, expected_text="int | list[int] | None")
+    else:
+        reveal_type(a, expected_text="dict[str, int]")
+
+
+def func8b(a: int | list[int] | dict[str, int] | None):
+    if isinstance(a, str | int | list | type(None)):
+        reveal_type(a, expected_text="int | list[int] | None")
+    else:
+        reveal_type(a, expected_text="dict[str, int]")
+
+
+TA1 = str | int | list | None
+
+
+def func8c(a: int | list[int] | dict[str, int] | None):
+    if isinstance(a, TA1):
         reveal_type(a, expected_text="int | list[int] | None")
     else:
         reveal_type(a, expected_text="dict[str, int]")
@@ -182,12 +197,14 @@ def func10(val: Sub2[str] | Base2[str, float]):
 
 @runtime_checkable
 class Proto1(Protocol):
-    def f0(self, /) -> None: ...
+    def f0(self, /) -> None:
+        ...
 
 
 @runtime_checkable
 class Proto2(Proto1, Protocol):
-    def f1(self, /) -> None: ...
+    def f1(self, /) -> None:
+        ...
 
 
 def func11(x: Proto1):
@@ -197,12 +214,12 @@ def func11(x: Proto1):
         reveal_type(x, expected_text="Proto1")
 
 
-TA1 = list["TA2"] | dict[str, "TA2"]
-TA2 = str | TA1
+TA2 = list["TA3"] | dict[str, "TA3"]
+TA3 = str | TA2
 
 
-def func12(x: TA2) -> None:
+def func12(x: TA3) -> None:
     if isinstance(x, dict):
-        reveal_type(x, expected_text="dict[str, str | list[TA2] | dict[str, TA2]]")
+        reveal_type(x, expected_text="dict[str, str | list[TA3] | dict[str, TA3]]")
     else:
-        reveal_type(x, expected_text="str | list[str | list[TA2] | dict[str, TA2]]")
+        reveal_type(x, expected_text="str | list[str | list[TA3] | dict[str, TA3]]")

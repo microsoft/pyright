@@ -10,7 +10,8 @@ from typing import final
 from .protocolExplicit2 import Protocol1, Protocol3, Protocol5, Protocol6, Protocol7
 
 
-class Concrete1(Protocol1): ...
+class Concrete1(Protocol1):
+    ...
 
 
 # This should generate an error because some attributes are not implemented.

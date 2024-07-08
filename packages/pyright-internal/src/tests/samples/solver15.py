@@ -4,13 +4,15 @@
 from typing import Callable, Generic, TypeVar
 
 
-class Base: ...
+class Base:
+    ...
 
 
 T = TypeVar("T", bound=Base)
 
 
-def register(state_name: str, state: type[T]): ...
+def register(state_name: str, state: type[T]):
+    ...
 
 
 def register_state(state_name: str) -> Callable[[type[T]], type[T]]:
@@ -21,13 +23,15 @@ def register_state(state_name: str) -> Callable[[type[T]], type[T]]:
     return decorator
 
 
-class F: ...
+class F:
+    ...
 
 
 E = TypeVar("E", bound=F)
 
 
-def coercer_method(value: E | str, enum: type[E]) -> E: ...
+def coercer_method(value: E | str, enum: type[E]) -> E:
+    ...
 
 
 class C(Generic[E]):

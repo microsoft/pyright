@@ -14,7 +14,7 @@ import { VariableDeclaration } from './declaration';
 import { getClassFullName, getEnclosingClass, getTypeSourceId } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName, isSingleDunderName } from './symbolNameUtils';
-import { EvaluatorFlags, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { EvalFlags, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
 import { MemberAccessFlags, computeMroLinearization, lookUpClassMember, makeInferenceContext } from './typeUtils';
 import {
@@ -369,7 +369,7 @@ export function transformTypeForEnumMember(
     let assignedType: Type | undefined;
 
     if (valueTypeExprNode) {
-        const evalFlags = getFileInfo(valueTypeExprNode).isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined;
+        const evalFlags = getFileInfo(valueTypeExprNode).isStubFile ? EvalFlags.ConvertEllipsisToAny : undefined;
         assignedType = evaluator.getTypeOfExpression(valueTypeExprNode, evalFlags).type;
     }
 

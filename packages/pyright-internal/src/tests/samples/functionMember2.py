@@ -4,7 +4,8 @@
 # pyright: reportFunctionMemberAccess=error
 
 
-def func1(a: int) -> str: ...
+def func1(a: int) -> str:
+    ...
 
 
 # This should generate an error because func1 isn't
@@ -13,13 +14,16 @@ s1 = func1.__self__
 
 
 class A:
-    def method1(self) -> None: ...
+    def method1(self) -> None:
+        ...
 
     @classmethod
-    def method2(cls) -> None: ...
+    def method2(cls) -> None:
+        ...
 
     @staticmethod
-    def method3() -> None: ...
+    def method3() -> None:
+        ...
 
 
 s2 = A().method1.__self__

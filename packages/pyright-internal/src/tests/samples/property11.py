@@ -36,7 +36,8 @@ class Class2:
         return cls
 
 
-class Class3(Class2): ...
+class Class3(Class2):
+    ...
 
 
 reveal_type(Class2.prop1, expected_text="type[Class2]")

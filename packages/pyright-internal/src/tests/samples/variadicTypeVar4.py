@@ -18,9 +18,11 @@ class Array(Generic[Unpack[Shape]]):
     def __init__(self, *shape: Unpack[Shape]):
         self.shape = shape
 
-    def __abs__(self) -> "Array[Unpack[Shape]]": ...
+    def __abs__(self) -> "Array[Unpack[Shape]]":
+        ...
 
-    def __add__(self, other: "Array[Unpack[Shape]]") -> "Array[Unpack[Shape]]": ...
+    def __add__(self, other: "Array[Unpack[Shape]]") -> "Array[Unpack[Shape]]":
+        ...
 
 
 Height = NewType("Height", int)
@@ -34,12 +36,12 @@ reveal_type(x + abs(x), expected_text="Array[Height, Width]")
 _Xs = TypeVarTuple("_Xs")
 
 
-def func1(a: tuple[Unpack[_Xs]], b: tuple[Unpack[_Xs]]) -> Union[Unpack[_Xs]]: ...
+def func1(a: tuple[Unpack[_Xs]], b: tuple[Unpack[_Xs]]) -> Union[Unpack[_Xs]]:
+    ...
 
 
-def func2(
-    a: tuple[int, Unpack[_Xs]], b: tuple[int, Unpack[_Xs]]
-) -> Union[Unpack[_Xs]]: ...
+def func2(a: tuple[int, Unpack[_Xs]], b: tuple[int, Unpack[_Xs]]) -> Union[Unpack[_Xs]]:
+    ...
 
 
 def func3(p1: tuple[int], p2: tuple[int, str], p3: tuple[int, int]):
@@ -62,7 +64,8 @@ def func3(p1: tuple[int], p2: tuple[int, str], p3: tuple[int, int]):
     reveal_type(v5, expected_text="int")
 
 
-def func4(a: int, *args: Unpack[_Xs], **kwargs: str) -> tuple[int, Unpack[_Xs]]: ...
+def func4(a: int, *args: Unpack[_Xs], **kwargs: str) -> tuple[int, Unpack[_Xs]]:
+    ...
 
 
 c1 = func4(4, 5.4, 6j, b="3", c="5")

@@ -143,6 +143,11 @@ export const enum MemberAccessFlags {
     // Report an error if a symbol is an instance variable whose
     // type is parameterized by a class TypeVar.
     DisallowGenericInstanceVariableAccess = 1 << 10,
+
+    // The member access should be treated as if it's within a type
+    // expression, and errors should be reported if it doesn't conform
+    // with type expression rules.
+    TypeExpression = 1 << 11,
 }
 
 export const enum ClassIteratorFlags {
@@ -270,6 +275,16 @@ export interface RequiresSpecializationOptions {
 
     // Ignore classes whose isTypeArgumentExplicit flag is false?
     ignoreImplicitTypeArgs?: boolean;
+}
+
+export interface IsInstantiableOptions {
+    honorTypeVarBounds?: boolean;
+}
+
+export interface SelfSpecializeOptions {
+    // Override any existing type arguments? By default,
+    // existing type arguments are left as is.
+    overrideTypeArgs?: boolean;
 }
 
 // Tracks whether a function signature has been seen before within
@@ -1147,16 +1162,17 @@ export function getUnknownTypeForCallable(): FunctionType {
 // If the class is generic and not already specialized, this function
 // "self specializes" the class, filling in its own type parameters
 // as type arguments.
-export function selfSpecializeClass(type: ClassType, overrideTypeArgs = false): ClassType {
+export function selfSpecializeClass(type: ClassType, options?: SelfSpecializeOptions): ClassType {
     if (type.details.typeParameters.length === 0) {
         return type;
     }
 
-    if (type.typeArguments && !overrideTypeArgs) {
+    if (type.typeArguments && !options?.overrideTypeArgs) {
         return type;
     }
 
-    return ClassType.cloneForSpecialization(type, type.details.typeParameters, /* isTypeArgumentExplicit */ true);
+    const typeParams = type.details.typeParameters;
+    return ClassType.cloneForSpecialization(type, typeParams, /* isTypeArgumentExplicit */ true);
 }
 
 // Determines whether the type derives from tuple. If so, it returns
@@ -2347,9 +2363,21 @@ export function isMetaclassInstance(type: Type): boolean {
     );
 }
 
-export function isEffectivelyInstantiable(type: Type): boolean {
+export function isEffectivelyInstantiable(type: Type, options?: IsInstantiableOptions, recursionCount = 0): boolean {
+    if (recursionCount > maxTypeRecursionCount) {
+        return false;
+    }
+
+    recursionCount++;
+
     if (TypeBase.isInstantiable(type)) {
         return true;
+    }
+
+    if (options?.honorTypeVarBounds && isTypeVar(type) && type.details.boundType) {
+        if (isEffectivelyInstantiable(type.details.boundType, options, recursionCount)) {
+            return true;
+        }
     }
 
     // Handle the special case of 'type' (or subclasses thereof),
@@ -2359,7 +2387,7 @@ export function isEffectivelyInstantiable(type: Type): boolean {
     }
 
     if (isUnion(type)) {
-        return type.subtypes.every((subtype) => isEffectivelyInstantiable(subtype));
+        return type.subtypes.every((subtype) => isEffectivelyInstantiable(subtype, options, recursionCount));
     }
 
     return false;
@@ -2594,6 +2622,10 @@ export function containsAnyOrUnknown(type: Type, recurse: boolean): AnyType | Un
 
         constructor(private _recurse: boolean) {
             super();
+        }
+
+        override visitTypeAlias(type: Type) {
+            // Don't explore type aliases.
         }
 
         override visitUnknown(type: UnknownType) {
@@ -3885,6 +3917,23 @@ class TypeVarTransformer {
                 specializedInferredReturnType = this.apply(functionType.inferredReturnType, recursionCount);
                 if (specializedInferredReturnType !== functionType.inferredReturnType) {
                     typesRequiredSpecialization = true;
+                }
+            }
+
+            // Do we need to update the boundToType?
+            if (functionType.boundToType) {
+                const newBoundToType = this.apply(functionType.boundToType, recursionCount);
+                if (newBoundToType !== functionType.boundToType && isClass(newBoundToType)) {
+                    functionType = FunctionType.clone(functionType, /* stripFirstParam */ false, newBoundToType);
+                }
+            }
+
+            // Do we need to update the strippedFirstParamType?
+            if (functionType.strippedFirstParamType) {
+                const newStrippedType = this.apply(functionType.strippedFirstParamType, recursionCount);
+                if (newStrippedType !== functionType.strippedFirstParamType) {
+                    functionType = TypeBase.cloneType(functionType);
+                    functionType.strippedFirstParamType = newStrippedType;
                 }
             }
 

@@ -8,7 +8,8 @@ class A:
     parent: Self | None
 
 
-class B: ...
+class B:
+    ...
 
 
 def foo(v: A | B | None) -> Generator[A, None, None]:

@@ -114,7 +114,8 @@ var4: TestClass4 = test_func4
 
 
 class TestClass5(Protocol):
-    def __call__(self, *, a: int, b: str) -> int: ...
+    def __call__(self, *, a: int, b: str) -> int:
+        ...
 
 
 def test_func5(a: int, b: str) -> int:
@@ -125,7 +126,8 @@ f5: TestClass5 = test_func5
 
 
 class TestClass6(Protocol):
-    def __call__(self, a: int, /, *, b: str) -> int: ...
+    def __call__(self, a: int, /, *, b: str) -> int:
+        ...
 
 
 def test_func6(a: int, b: str) -> int:

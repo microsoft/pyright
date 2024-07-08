@@ -16,9 +16,8 @@ _P = ParamSpec("_P")
 @overload
 def error_decorator(
     error_codes: None = None,
-) -> Callable[
-    [Callable[Concatenate[_T, _P], _R]], Callable[Concatenate[_T, _P], _R]
-]: ...
+) -> Callable[[Callable[Concatenate[_T, _P], _R]], Callable[Concatenate[_T, _P], _R]]:
+    ...
 
 
 @overload
@@ -26,7 +25,8 @@ def error_decorator(
     error_codes: list[str],
 ) -> Callable[
     [Callable[Concatenate[_T, _P], _R]], Callable[Concatenate[_T, _P], _R | None]
-]: ...
+]:
+    ...
 
 
 def error_decorator(

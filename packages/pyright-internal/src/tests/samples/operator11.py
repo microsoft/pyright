@@ -5,7 +5,8 @@ from typing import Protocol
 
 
 class ComparisonOp(Protocol):
-    def __call__(self, other: object, /) -> bool: ...
+    def __call__(self, other: object, /) -> bool:
+        ...
 
 
 class Number:

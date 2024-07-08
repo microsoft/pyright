@@ -9,14 +9,16 @@ class HasName(Protocol):
 
 
 class SupportsClear(Protocol):
-    def clear(self) -> None: ...
+    def clear(self) -> None:
+        ...
 
 
 _T = TypeVar("_T")
 
 
 class SupportsUpdate(Protocol):
-    def update(self: _T, __m: _T) -> None: ...
+    def update(self: _T, __m: _T) -> None:
+        ...
 
 
 class B(TypedDict):

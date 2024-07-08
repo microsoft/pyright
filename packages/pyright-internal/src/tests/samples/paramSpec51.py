@@ -17,12 +17,14 @@ class A:
         cb: Callable[Concatenate[Self, P], None],
         *args: P.args,
         **kwargs: P.kwargs,
-    ) -> None: ...
+    ) -> None:
+        ...
 
     @overload
     def method1(
         self, cb: tuple[Callable[..., None], str], *args: Any, **kwargs: Any
-    ) -> None: ...
+    ) -> None:
+        ...
 
     def method1(self, cb, *args, **kwargs) -> None:
         if isinstance(cb, tuple):
@@ -31,13 +33,16 @@ class A:
             cb(self, *args, **kwargs)
 
 
-def func1(fo: A, x: int) -> None: ...
+def func1(fo: A, x: int) -> None:
+    ...
 
 
-def func2(fo: A, x: int, /, y: str) -> None: ...
+def func2(fo: A, x: int, /, y: str) -> None:
+    ...
 
 
-def func3(fo: A, x: int, /, y: str, *, z: tuple[int, int]) -> None: ...
+def func3(fo: A, x: int, /, y: str, *, z: tuple[int, int]) -> None:
+    ...
 
 
 a = A()

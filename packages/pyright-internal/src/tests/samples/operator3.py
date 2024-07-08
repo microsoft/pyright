@@ -8,14 +8,17 @@ _T = TypeVar("_T", bound=str)
 
 
 @overload
-def func1(cmd: _T) -> _T: ...
+def func1(cmd: _T) -> _T:
+    ...
 
 
 @overload
-def func1(cmd: bytes) -> None: ...
+def func1(cmd: bytes) -> None:
+    ...
 
 
-def func1(cmd: Any) -> Any: ...
+def func1(cmd: Any) -> Any:
+    ...
 
 
 def func2(x: bool):

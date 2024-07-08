@@ -8,10 +8,12 @@ _T = TypeVar("_T")
 
 
 class Foo(Generic[_T]):
-    def __init__(self, x: _T = 1) -> None: ...
+    def __init__(self, x: _T = 1) -> None:
+        ...
 
 
-class Bar(Foo[int]): ...
+class Bar(Foo[int]):
+    ...
 
 
 class Baz(Bar):

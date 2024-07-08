@@ -7,7 +7,8 @@ from typing import Protocol
 
 class A(Protocol):
     @property
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
 
 class B:

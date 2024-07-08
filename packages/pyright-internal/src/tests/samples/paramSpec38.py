@@ -16,7 +16,8 @@ class ClassA(Generic[P, R]):
         return self.callback(*args, **kwargs)
 
 
-def func1(obj: object, **kwargs: object) -> object: ...
+def func1(obj: object, **kwargs: object) -> object:
+    ...
 
 
 reveal_type(

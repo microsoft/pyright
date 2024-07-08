@@ -27,10 +27,12 @@ def func2(a: SomeEnum) -> Literal[3]:
         return a.value
 
 
-def must_be_true(a: Literal[True]): ...
+def must_be_true(a: Literal[True]):
+    ...
 
 
-def must_be_false(a: Literal[False]): ...
+def must_be_false(a: Literal[False]):
+    ...
 
 
 def func3(a: bool):

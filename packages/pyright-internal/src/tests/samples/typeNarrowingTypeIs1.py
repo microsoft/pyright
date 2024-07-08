@@ -93,10 +93,12 @@ def func7(val: Any):
     reveal_type(val, expected_text="int | Any")
 
 
-class CParent: ...
+class CParent:
+    ...
 
 
-class CChild(CParent): ...
+class CChild(CParent):
+    ...
 
 
 _TC = TypeVar("_TC", bound=CParent)

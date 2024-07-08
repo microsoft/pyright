@@ -72,7 +72,8 @@ _T_co = TypeVar("_T_co", covariant=True)
 
 
 class SeqProto(Protocol[_T_co]):
-    def __reversed__(self) -> Iterator[_T_co]: ...
+    def __reversed__(self) -> Iterator[_T_co]:
+        ...
 
 
 def test_protocol(value_to_match: SeqProto[str]):
@@ -277,8 +278,11 @@ def test_union(
 
 
 class SupportsLessThan(Protocol):
-    def __lt__(self, __other: Any) -> bool: ...
-    def __le__(self, __other: Any) -> bool: ...
+    def __lt__(self, __other: Any) -> bool:
+        ...
+
+    def __le__(self, __other: Any) -> bool:
+        ...
 
 
 SupportsLessThanT = TypeVar("SupportsLessThanT", bound=SupportsLessThan)
@@ -397,10 +401,12 @@ class A(Generic[_T]):
     a: _T
 
 
-class B: ...
+class B:
+    ...
 
 
-class C: ...
+class C:
+    ...
 
 
 AAlias = A
@@ -524,7 +530,7 @@ def test_tuple_with_subpattern(
             reveal_type(b, expected_text="str")
 
 
-def test_unbounded_tuple(
+def test_unbounded_tuple1(
     subj: tuple[int] | tuple[str, str] | tuple[int, Unpack[tuple[str, ...]], complex],
 ):
     match subj:
@@ -569,3 +575,13 @@ def test_unbounded_tuple_4(subj: tuple[str, ...]):
             reveal_type(subj, expected_text="tuple[str]")
         case x:
             reveal_type(subj, expected_text="tuple[str, ...]")
+
+
+def test_unbounded_tuple_5(subj: tuple[int, Unpack[tuple[str, ...]]]):
+    match subj:
+        case x, *rest:
+            reveal_type(subj, expected_text="tuple[int, *tuple[str, ...]]")
+            reveal_type(x, expected_text="int")
+            reveal_type(rest, expected_text="list[str]")
+        case x:
+            reveal_type(x, expected_text="Never")

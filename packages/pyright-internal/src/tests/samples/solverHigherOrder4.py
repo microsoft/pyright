@@ -9,16 +9,20 @@ _T_co = TypeVar("_T_co", covariant=True)
 _U = TypeVar("_U")
 
 
-class MyIterable(Protocol[_T_co]): ...
+class MyIterable(Protocol[_T_co]):
+    ...
 
 
-class MySupportsAbs(Protocol[_T_co]): ...
+class MySupportsAbs(Protocol[_T_co]):
+    ...
 
 
-def my_abs(x: MySupportsAbs[_T], /) -> _T: ...
+def my_abs(x: MySupportsAbs[_T], /) -> _T:
+    ...
 
 
-def my_map(a: Callable[[_T], _U], b: MyIterable[_T]) -> MyIterable[_U]: ...
+def my_map(a: Callable[[_T], _U], b: MyIterable[_T]) -> MyIterable[_U]:
+    ...
 
 
 def func1(xs: MyIterable[MySupportsAbs[int]]):
@@ -33,7 +37,8 @@ def ident(x: _U) -> _U:
     return x
 
 
-def func2(__cb: Callable[[_T1], _T], __arg0: _T1) -> _T: ...
+def func2(__cb: Callable[[_T1], _T], __arg0: _T1) -> _T:
+    ...
 
 
 x1_0 = func2(ident, "hi")
@@ -47,7 +52,8 @@ _P = ParamSpec("_P")
 _R = TypeVar("_R")
 
 
-def func3(__obj: Callable[_P, _R], *args: _P.args, **kwargs: _P.kwargs) -> _R: ...
+def func3(__obj: Callable[_P, _R], *args: _P.args, **kwargs: _P.kwargs) -> _R:
+    ...
 
 
 x2_0 = func3(ident, "hi")

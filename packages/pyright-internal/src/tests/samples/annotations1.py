@@ -64,7 +64,8 @@ class ClassD:
 
     str: "str"
 
-    def int(self): ...
+    def int(self):
+        ...
 
     foo: "int"
 

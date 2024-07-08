@@ -6,7 +6,8 @@ from typing import Any, Protocol
 
 class SupportsGet(Protocol):
     @property
-    def __get__(self) -> Any: ...
+    def __get__(self) -> Any:
+        ...
 
 
 def func1(cls: Any) -> None:

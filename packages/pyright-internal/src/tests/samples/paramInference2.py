@@ -11,7 +11,8 @@ R = TypeVar("R")
 
 
 class Parent1(Generic[T]):
-    def method1(self, a: T, b: list[T]) -> None: ...
+    def method1(self, a: T, b: list[T]) -> None:
+        ...
 
 
 class Child1(Parent1[float]):

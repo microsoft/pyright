@@ -4,7 +4,8 @@
 from typing import TypeVar
 
 
-class ClassA: ...
+class ClassA:
+    ...
 
 
 T = TypeVar("T", bound=ClassA)

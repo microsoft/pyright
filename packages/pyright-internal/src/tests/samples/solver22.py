@@ -6,10 +6,12 @@ from typing import Any, TypeVar
 T = TypeVar("T")
 
 
-def f(x: type[T]) -> T: ...
+def f(x: type[T]) -> T:
+    ...
 
 
-def g() -> type | Any: ...
+def g() -> type | Any:
+    ...
 
 
 y = g()

@@ -565,6 +565,10 @@ export const enum ClassTypeFlags {
     // A special form is not compatible with type[T] and cannot
     // be directly instantiated.
     SpecialFormClass = 1 << 23,
+
+    // This class is rejected when used as the second argument to
+    // an isinstance or issubclass call.
+    IllegalIsinstanceClass = 1 << 24,
 }
 
 export interface DataClassBehaviors {
@@ -1084,6 +1088,10 @@ export namespace ClassType {
 
     export function isSpecialFormClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.SpecialFormClass);
+    }
+
+    export function isIllegalIsinstanceClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.IllegalIsinstanceClass);
     }
 
     export function isTypedDictClass(classType: ClassType) {
@@ -1786,6 +1794,7 @@ export namespace FunctionType {
     export function cloneWithNewTypeVarScopeId(
         type: FunctionType,
         newScopeId: TypeVarScopeId,
+        newConstructorScopeId: TypeVarScopeId | undefined,
         typeParameters: TypeVarType[],
         trackedSignatures?: SignatureWithOffsets[]
     ): FunctionType {
@@ -1794,6 +1803,7 @@ export namespace FunctionType {
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
         newFunction.details.typeVarScopeId = newScopeId;
+        newFunction.details.constructorTypeVarScopeId = newConstructorScopeId;
         newFunction.details.typeParameters = typeParameters;
         newFunction.trackedSignatures = trackedSignatures;
 

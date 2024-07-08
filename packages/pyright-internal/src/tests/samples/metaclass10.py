@@ -15,7 +15,8 @@ class EnumMeta2(EnumMeta):
 
 class MyMeta(type):
     @classmethod
-    def meta_method(cls) -> None: ...
+    def meta_method(cls) -> None:
+        ...
 
 
 MyMeta.meta_method()

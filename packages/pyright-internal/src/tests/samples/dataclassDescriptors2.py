@@ -12,17 +12,21 @@ from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
 _T = TypeVar("_T")
 
 
-class A(Generic[_T]): ...
+class A(Generic[_T]):
+    ...
 
 
 class Desc(Generic[_T]):
     @overload
-    def __get__(self, instance: None, owner: Any) -> A[_T]: ...
+    def __get__(self, instance: None, owner: Any) -> A[_T]:
+        ...
 
     @overload
-    def __get__(self, instance: object, owner: Any) -> _T: ...
+    def __get__(self, instance: object, owner: Any) -> _T:
+        ...
 
-    def __get__(self, instance: Optional[object], owner: Any) -> Union[A[_T], _T]: ...
+    def __get__(self, instance: Optional[object], owner: Any) -> Union[A[_T], _T]:
+        ...
 
 
 @dataclass_transform(field_specifiers=(Desc[Any],))
@@ -33,7 +37,8 @@ def dataclass_like(
     eq: bool = True,
     order: bool = False,
     unsafe_hash: bool = False,
-) -> Callable[[Type[_T]], Type[_T]]: ...
+) -> Callable[[Type[_T]], Type[_T]]:
+    ...
 
 
 @dataclass_like()

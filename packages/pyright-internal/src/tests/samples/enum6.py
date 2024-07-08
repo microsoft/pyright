@@ -20,7 +20,8 @@ class Color(Enum):
             self.foo = True
 
 
-class NonEnum: ...
+class NonEnum:
+    ...
 
 
 # This should generate an error because enums cannot

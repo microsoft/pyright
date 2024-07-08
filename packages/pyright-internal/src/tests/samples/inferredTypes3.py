@@ -4,7 +4,8 @@
 from abc import ABC, abstractmethod
 
 
-class OtherError(NotImplementedError): ...
+class OtherError(NotImplementedError):
+    ...
 
 
 class A(ABC):

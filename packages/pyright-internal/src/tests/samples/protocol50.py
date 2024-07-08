@@ -7,11 +7,13 @@ V_co = TypeVar("V_co", covariant=True)
 
 
 class Proto1(Generic[V_co]):
-    def f(self, /) -> V_co: ...
+    def f(self, /) -> V_co:
+        ...
 
 
 class Proto2(Protocol[V_co]):
-    def f(self, /) -> V_co: ...
+    def f(self, /) -> V_co:
+        ...
 
 
 def func1(v0: Proto1[Proto1[object]]):

@@ -18,7 +18,8 @@ def field1(
     default: str | None = None,
     resolver: Callable[[], Any],
     init: Literal[False] = False,
-) -> Any: ...
+) -> Any:
+    ...
 
 
 @overload
@@ -27,7 +28,8 @@ def field1(
     default: str | None = None,
     resolver: None = None,
     init: Literal[True] = True,
-) -> Any: ...
+) -> Any:
+    ...
 
 
 def field1(
@@ -35,10 +37,12 @@ def field1(
     default: str | None = None,
     resolver: Callable[[], Any] | None = None,
     init: bool = True,
-) -> Any: ...
+) -> Any:
+    ...
 
 
-def field2(*, init=False, kw_only=True) -> Any: ...
+def field2(*, init=False, kw_only=True) -> Any:
+    ...
 
 
 def __dataclass_transform__(
@@ -54,7 +58,8 @@ def __dataclass_transform__(
 
 
 @__dataclass_transform__(kw_only_default=True, field_specifiers=(field1, field2))
-def create_model(*, init: bool = True) -> Callable[[type[T]], type[T]]: ...
+def create_model(*, init: bool = True) -> Callable[[type[T]], type[T]]:
+    ...
 
 
 @create_model()

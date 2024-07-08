@@ -5,7 +5,8 @@ _DEFAULT_VALUE = object()
 
 
 class ClassA:
-    def __init__(self, name, description=_DEFAULT_VALUE): ...
+    def __init__(self, name, description=_DEFAULT_VALUE):
+        ...
 
 
 a1: list[ClassA] = [ClassA("a", description="b")]

@@ -14,4 +14,5 @@ class Foo(Generic[T]):
         # This should generate an error.
         val(1)
 
-    def method1(self) -> type[T]: ...
+    def method1(self) -> type[T]:
+        ...

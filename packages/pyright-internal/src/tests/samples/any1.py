@@ -1,20 +1,24 @@
 # This sample tests certain uses of Any that should be flagged as illegal.
 
-from typing import Any, cast
 import typing
+from typing import Any, cast
 
-
+# This should generate an error because Any is not valid for isinstance.
 isinstance(0, Any)
+
+# This should generate an error because Any is not valid for isinstance.
 isinstance(0, typing.Any)
 
 v1 = cast(Any, 0)
 v2 = cast(typing.Any, 0)
 
 
-class A(Any): ...
+class A(Any):
+    ...
 
 
-class B(typing.Any): ...
+class B(typing.Any):
+    ...
 
 
 # This should generate an error because Any is not callable.

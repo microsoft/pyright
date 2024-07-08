@@ -3,10 +3,12 @@
 from typing import ContextManager
 
 
-def create_context() -> ContextManager[str]: ...
+def create_context() -> ContextManager[str]:
+    ...
 
 
-def possible_exception() -> None: ...
+def possible_exception() -> None:
+    ...
 
 
 def func1():
