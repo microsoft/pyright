@@ -126,6 +126,13 @@ export function validateConstructorArguments(
     inferenceContext: InferenceContext | undefined,
     signatureTracker: UniqueSignatureTracker | undefined
 ): CallResult {
+    // If this is an unspecialized generic type alias, specialize it now
+    // using default type argument values.
+    if (type.typeAliasInfo?.typeParameters && !type.typeAliasInfo.typeArguments) {
+        const typeAliasTypeVarContext = new TypeVarContext(type.typeAliasInfo.typeVarScopeId);
+        type = applySolvedTypeVars(type, typeAliasTypeVarContext, { unknownIfNotFound: true }) as ClassType;
+    }
+
     const metaclassResult = validateMetaclassCall(
         evaluator,
         errorNode,
@@ -429,9 +436,6 @@ function validateNewMethod(
 
     const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
     typeVarContext.addSolveForScope(getTypeVarScopeId(newMethodTypeResult.type));
-    if (type.typeAliasInfo) {
-        typeVarContext.addSolveForScope(type.typeAliasInfo.typeVarScopeId);
-    }
 
     const callResult = evaluator.useSpeculativeMode(useSpeculativeModeForArgs ? errorNode : undefined, () => {
         return evaluator.validateCallArguments(
