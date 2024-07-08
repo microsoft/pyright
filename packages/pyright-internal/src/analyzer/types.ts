@@ -2631,8 +2631,8 @@ export namespace TypeVarType {
     export function cloneForScopeId(
         type: TypeVarType,
         scopeId: string,
-        scopeName: string,
-        scopeType: TypeVarScopeType
+        scopeName: string | undefined,
+        scopeType: TypeVarScopeType | undefined
     ): TypeVarType {
         const newInstance = TypeBase.cloneType(type);
         newInstance.nameWithScope = makeNameWithScope(type.details.name, scopeId);

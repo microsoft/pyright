@@ -15,11 +15,8 @@
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { LocMessage } from '../localization/localize';
-import { ArgumentCategory, ExpressionNode, ParameterCategory } from '../parser/parseNodes';
-import { addConstraintsForExpectedType } from './constraintSolver';
+import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
-import { getTypeVarScopesForNode } from './parseTreeUtils';
 import { CallResult, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     InferenceContext,
@@ -64,7 +61,6 @@ import {
     isOverloadedFunction,
     isParamSpec,
     isTypeVar,
-    isUnion,
     isUnknown,
 } from './types';
 
@@ -558,68 +554,22 @@ function validateFallbackConstructorCall(
     type: ClassType,
     inferenceContext: InferenceContext | undefined
 ): CallResult {
-    let reportedErrors = false;
+    // Synthesize a __new__ method that reflects the type of object.__new__.
+    const newMethodType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
+    newMethodType.details.declaredReturnType = ClassType.cloneAsInstance(type);
+    newMethodType.details.constructorTypeVarScopeId = getTypeVarScopeId(type);
 
-    // It's OK if the argument list consists only of `*args` and `**kwargs`.
-    if (argList.length > 0 && argList.some((arg) => arg.argumentCategory === ArgumentCategory.Simple)) {
-        evaluator.addDiagnostic(
-            DiagnosticRule.reportCallIssue,
-            LocMessage.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
-            errorNode
-        );
-        reportedErrors = true;
-    }
-
-    if (!inferenceContext && type.typeArguments) {
-        // If there was no expected type but the type was already specialized,
-        // assume that we're constructing an instance of the specialized type.
-        return {
-            argumentErrors: reportedErrors,
-            overloadsUsedForCall: [],
-            returnType: convertToInstance(type),
-        };
-    }
-
-    // Do our best to specialize the instantiated class based on the expected
-    // type if provided.
-    const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
-
-    if (inferenceContext) {
-        let expectedType: Type | undefined = inferenceContext.expectedType;
-
-        // If the expectedType is a union, try to pick one that is likely to
-        // be the best choice.
-        if (isUnion(expectedType)) {
-            expectedType = findSubtype(expectedType, (subtype) => {
-                if (isAnyOrUnknown(subtype) || isNever(subtype)) {
-                    return false;
-                }
-
-                if (isClass(subtype) && evaluator.assignType(subtype, ClassType.cloneAsInstance(type))) {
-                    return true;
-                }
-
-                return false;
-            });
-        }
-
-        if (expectedType) {
-            addConstraintsForExpectedType(
-                evaluator,
-                ClassType.cloneAsInstance(type),
-                expectedType,
-                typeVarContext,
-                getTypeVarScopesForNode(errorNode),
-                errorNode.start
-            );
-        }
-    }
-
-    return {
-        argumentErrors: reportedErrors,
-        overloadsUsedForCall: [],
-        returnType: applyExpectedTypeForConstructor(evaluator, type, inferenceContext, typeVarContext),
-    };
+    return validateNewMethod(
+        evaluator,
+        errorNode,
+        argList,
+        type,
+        /* skipUnknownArgCheck */ false,
+        inferenceContext,
+        /* signatureTracker */ undefined,
+        { type: newMethodType },
+        /* useSpeculativeModeForArgs */ false
+    );
 }
 
 function validateMetaclassCall(
