@@ -9,8 +9,8 @@ resources:
       name: 1ESPipelineTemplates/MicroBuildTemplate
       ref: refs/tags/release
 variables:
-  - name: SigningType
-    value: 'real'
+  - name: SignType
+    value: 'Real'
   - name: TeamName
     value: Pyright
   - name: VSIX_NAME
