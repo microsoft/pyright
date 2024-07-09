@@ -11,7 +11,7 @@ resources:
 variables:
   - name: SigningType
     value: 'real'
-  - name: TeamName 
+  - name: TeamName
     value: Pyright
   - name: VSIX_NAME
     value: vscode-pyright.vsix
