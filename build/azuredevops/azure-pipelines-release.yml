@@ -9,10 +9,14 @@ resources:
       name: 1ESPipelineTemplates/MicroBuildTemplate
       ref: refs/tags/release
 variables:
-  - SigningType: 'real'
-  - TeamName: Pyright
-  - VSIX_NAME: vscode-pyright.vsix
-  - ARTIFACT_NAME_VSIX: vsix
+  - name: SigningType
+    value: 'real'
+  - name: TeamName
+    value: Pyright
+  - name: VSIX_NAME
+    value: vscode-pyright.vsix
+  - name: ARTIFACT_NAME_VSIX
+    value: vsix
 
 extends:
   template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
