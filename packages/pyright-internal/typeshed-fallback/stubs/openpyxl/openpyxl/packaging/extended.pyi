@@ -6,8 +6,6 @@ from openpyxl.descriptors.nested import NestedText
 from openpyxl.descriptors.serialisable import Serialisable
 from openpyxl.xml.functions import Element
 
-def get_version(): ...
-
 class DigSigBlob(Serialisable):
     __elements__: ClassVar[tuple[str, ...]]
     __attrs__: ClassVar[tuple[str, ...]]

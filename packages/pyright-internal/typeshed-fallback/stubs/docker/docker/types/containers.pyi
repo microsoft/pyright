@@ -1,14 +1,10 @@
 from _typeshed import Incomplete
-from pathlib import Path
-from typing import Literal, TypedDict, type_check_only
+from typing import Literal
+
+from docker._types import ContainerWeightDevice
 
 from .base import DictType
 from .services import Mount
-
-@type_check_only
-class ContainerWeightDevice(TypedDict):
-    Path: Path
-    Weight: int
 
 class LogConfigTypesEnum:
     JSON: Incomplete

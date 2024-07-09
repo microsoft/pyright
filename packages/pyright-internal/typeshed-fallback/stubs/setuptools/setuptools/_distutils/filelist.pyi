@@ -17,29 +17,21 @@ class FileList:
     def process_template_line(self, line: str) -> None: ...
     @overload
     def include_pattern(
-        self, pattern: str, anchor: bool | Literal[0, 1] = 1, prefix: str | None = ..., is_regex: Literal[0, False] = 0
+        self, pattern: str, anchor: bool = True, prefix: str | None = ..., is_regex: Literal[0, False] = 0
     ) -> bool: ...
     @overload
     def include_pattern(self, pattern: str | Pattern[str], *, is_regex: Literal[True, 1]) -> bool: ...
     @overload
     def include_pattern(
-        self,
-        pattern: str | Pattern[str],
-        anchor: bool | Literal[0, 1] = 1,
-        prefix: str | None = ...,
-        is_regex: bool | Literal[0, 1] = 0,
+        self, pattern: str | Pattern[str], anchor: bool = True, prefix: str | None = ..., is_regex: bool = False
     ) -> bool: ...
     @overload
     def exclude_pattern(
-        self, pattern: str, anchor: bool | Literal[0, 1] = 1, prefix: str | None = ..., is_regex: Literal[0, False] = 0
+        self, pattern: str, anchor: bool = True, prefix: str | None = ..., is_regex: Literal[0, False] = 0
     ) -> bool: ...
     @overload
     def exclude_pattern(self, pattern: str | Pattern[str], *, is_regex: Literal[True, 1]) -> bool: ...
     @overload
     def exclude_pattern(
-        self,
-        pattern: str | Pattern[str],
-        anchor: bool | Literal[0, 1] = 1,
-        prefix: str | None = ...,
-        is_regex: bool | Literal[0, 1] = 0,
+        self, pattern: str | Pattern[str], anchor: bool = True, prefix: str | None = ..., is_regex: bool = False
     ) -> bool: ...

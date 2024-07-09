@@ -6,7 +6,7 @@ from networkx.classes.graph import Graph, _Node
 from networkx.utils.backends import _dispatch
 
 @_dispatch
-def has_path(G, source, target): ...
+def has_path(G: Graph[_Node], source: _Node, target: _Node) -> bool: ...
 @overload
 def shortest_path(
     G: Graph[_Node], source: _Node, target: _Node, weight: Incomplete | None = None, method: str = "dijkstra"

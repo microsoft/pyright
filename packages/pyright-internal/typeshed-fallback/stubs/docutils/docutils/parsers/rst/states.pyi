@@ -6,10 +6,57 @@ from typing import Any
 from typing_extensions import TypeAlias
 
 from docutils import nodes
+from docutils.statemachine import StateMachineWS, StateWS
 from docutils.utils import Reporter
 
 class Struct:
     def __init__(self, **keywordargs) -> None: ...
+
+class RSTState(StateWS[list[str]]):
+    nested_sm: type[StateMachineWS[list[str]]]
+    nested_sm_cache: Incomplete
+    nested_sm_kwargs: Incomplete
+    def __init__(self, state_machine, debug: bool = False) -> None: ...
+    memo: Incomplete
+    reporter: Incomplete
+    inliner: Incomplete
+    document: nodes.document
+    parent: Incomplete
+    def runtime_init(self) -> None: ...
+    def goto_line(self, abs_line_offset) -> None: ...
+    def no_match(self, context, transitions): ...
+    def bof(self, context): ...
+    def nested_parse(
+        self,
+        block,
+        input_offset,
+        node,
+        match_titles: bool = False,
+        state_machine_class: Incomplete | None = None,
+        state_machine_kwargs: Incomplete | None = None,
+    ): ...
+    def nested_list_parse(
+        self,
+        block,
+        input_offset,
+        node,
+        initial_state,
+        blank_finish,
+        blank_finish_state: Incomplete | None = None,
+        extra_settings={},
+        match_titles: bool = False,
+        state_machine_class: Incomplete | None = None,
+        state_machine_kwargs: Incomplete | None = None,
+    ): ...
+    def section(self, title, source, style, lineno, messages) -> None: ...
+    def check_subsection(self, source, style, lineno): ...
+    def title_inconsistent(self, sourcetext, lineno): ...
+    def new_subsection(self, title, lineno, messages) -> None: ...
+    def paragraph(self, lines, lineno): ...
+    def inline_text(self, text, lineno): ...
+    def unindent_warning(self, node_name): ...
+
+def build_regexp(definition, compile: bool = True): ...
 
 _BasicDefinition: TypeAlias = tuple[str, str, str, list[Pattern[str]]]
 _DefinitionParts: TypeAlias = tuple[str, str, str, list[Pattern[str] | _BasicDefinition]]
