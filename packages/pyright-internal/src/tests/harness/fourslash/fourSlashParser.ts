@@ -145,7 +145,7 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
                     }
                 }
             }
-        } else if (line !== '') {
+        } else if (line !== '' || i === lines.length) {
             // Previously blank lines between fourslash content caused it to be considered as 2 files,
             // Remove this behavior since it just causes errors now
             //

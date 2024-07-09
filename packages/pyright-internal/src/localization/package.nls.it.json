@@ -804,5 +804,8 @@
         "useTypeInstead": "In alternativa, usare Type[T]",
         "varianceMismatchForClass": "La varianza dell'argomento tipo \"{typeVarName}\" non è compatibile con la classe di base \"{className}\"",
         "varianceMismatchForTypeAlias": "La varianza dell'argomento tipo \"{typeVarName}\" non è compatibile con \"{typeAliasParam}\""
+    },
+    "Service": {
+        "longOperation": "Enumeration of workspace source files is taking a long time. Consider opening a sub-folder instead. [Learn more](https://aka.ms/workspace-too-many-files)"
     }
 }

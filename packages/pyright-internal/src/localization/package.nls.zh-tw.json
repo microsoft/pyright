@@ -804,5 +804,8 @@
         "useTypeInstead": "改為使用 Type[T]",
         "varianceMismatchForClass": "型別引數 \"{typeVarName}\" 的變異數與基底類別 \"{className}\" 不相容",
         "varianceMismatchForTypeAlias": "型別引數 \"{typeVarName}\" 的變異數與 \"{typeAliasParam}\" 不相容"
+    },
+    "Service": {
+        "longOperation": "Enumeration of workspace source files is taking a long time. Consider opening a sub-folder instead. [Learn more](https://aka.ms/workspace-too-many-files)"
     }
 }

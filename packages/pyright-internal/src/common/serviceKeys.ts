@@ -19,6 +19,7 @@ import {
     SymbolUsageProviderFactory,
 } from './extensibility';
 import { FileSystem, TempFile } from './fileSystem';
+import { CommandService, WindowService } from './languageServerInterface';
 import { GroupServiceKey, ServiceKey } from './serviceProvider';
 
 export namespace ServiceKeys {
@@ -34,4 +35,6 @@ export namespace ServiceKeys {
     export const debugInfoInspector = new ServiceKey<DebugInfoInspector>();
     export const caseSensitivityDetector = new ServiceKey<CaseSensitivityDetector>();
     export const docStringService = new ServiceKey<DocStringService>();
+    export const windowService = new ServiceKey<WindowService>();
+    export const commandService = new ServiceKey<CommandService>();
 }

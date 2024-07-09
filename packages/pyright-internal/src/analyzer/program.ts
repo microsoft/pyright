@@ -1482,12 +1482,21 @@ export class Program {
 
         // Update the imports list. It should now map the set of imports
         // specified by the source file.
-        sourceFileInfo.mutate((s) => (s.imports = []));
+        const newImports: SourceFileInfo[] = [];
         newImportPathMap.forEach((_, key) => {
-            if (this._getSourceFileInfoFromKey(key)) {
-                sourceFileInfo.mutate((s) => s.imports.push(this._getSourceFileInfoFromKey(key)!));
+            const newImport = this._getSourceFileInfoFromKey(key);
+            if (newImport) {
+                newImports.push(newImport);
             }
         });
+        // Only mutate if absolutely necessary otherwise we
+        // can end up rebinding a lot of files we don't need to.
+        if (
+            newImports.length > sourceFileInfo.imports.length ||
+            !newImports.every((i) => sourceFileInfo.imports.includes(i))
+        ) {
+            sourceFileInfo.mutate((s) => (s.imports = newImports));
+        }
 
         // Resolve the builtins import for the file. This needs to be
         // analyzed before the file can be analyzed.

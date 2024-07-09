@@ -315,7 +315,7 @@ export class CompletionProvider {
     resolveCompletionItem(completionItem: CompletionItem) {
         throwIfCancellationRequested(this.cancellationToken);
 
-        const completionItemData = fromLSPAny<CompletionItemData>(completionItem.data);
+        const completionItemData = this.getCompletionItemData(completionItem);
 
         const label = completionItem.label;
         let autoImportText = '';
@@ -407,6 +407,10 @@ export class CompletionProvider {
 
     protected get configOptions() {
         return this.program.configOptions;
+    }
+
+    protected getCompletionItemData(item: CompletionItem): CompletionItemData {
+        return fromLSPAny<CompletionItemData>(item.data);
     }
 
     protected getMethodOverrideCompletions(
@@ -639,7 +643,7 @@ export class CompletionProvider {
         // Are we resolving a completion item? If so, see if this symbol
         // is the one that we're trying to match.
         if (this.itemToResolve) {
-            const completionItemData = fromLSPAny<CompletionItemData>(this.itemToResolve.data);
+            const completionItemData = this.getCompletionItemData(this.itemToResolve);
 
             if (completionItemData.symbolLabel !== name) {
                 // It's not what we are looking for.
@@ -792,6 +796,26 @@ export class CompletionProvider {
         return completionMap;
     }
 
+    protected createAutoImporter(completionMap: CompletionMap, lazyEdit: boolean) {
+        const currentFile = this.program.getSourceFileInfo(this.fileUri);
+        const moduleSymbolMap = buildModuleSymbolsMap(
+            this.program.getSourceFileInfoList().filter((s) => s !== currentFile)
+        );
+
+        return new AutoImporter(
+            this.execEnv,
+            this.program,
+            this.importResolver,
+            this.parseResults,
+            this.position,
+            completionMap,
+            moduleSymbolMap,
+            {
+                lazyEdit,
+            }
+        );
+    }
+
     protected addAutoImportCompletions(
         priorWord: string,
         similarityLimit: number,
@@ -804,23 +828,7 @@ export class CompletionProvider {
             return;
         }
 
-        const currentFile = this.program.getSourceFileInfo(this.fileUri);
-        const moduleSymbolMap = buildModuleSymbolsMap(
-            this.program.getSourceFileInfoList().filter((s) => s !== currentFile)
-        );
-
-        const autoImporter = new AutoImporter(
-            this.execEnv,
-            this.program,
-            this.importResolver,
-            this.parseResults,
-            this.position,
-            completionMap,
-            moduleSymbolMap,
-            {
-                lazyEdit,
-            }
-        );
+        const autoImporter = this.createAutoImporter(completionMap, lazyEdit);
 
         const results: AutoImportResult[] = [];
         appendArray(
@@ -885,7 +893,12 @@ export class CompletionProvider {
         }
 
         if (
-            completionMap.has(name, CompletionMap.matchKindAndImportText, itemKind, detail?.autoImportText?.importText)
+            completionMap.has(
+                name,
+                (i) => CompletionMap.matchKindAndImportText(i, this.getCompletionItemData.bind(this)),
+                itemKind,
+                detail?.autoImportText?.importText
+            )
         ) {
             return;
         }
@@ -1023,7 +1036,7 @@ export class CompletionProvider {
 
             // This is for auto import entries from indices which skip symbols.
             if (this.itemToResolve) {
-                const data = fromLSPAny<CompletionItemData>(this.itemToResolve.data);
+                const data = this.getCompletionItemData(this.itemToResolve);
                 if (data.autoImportText === completionItemData.autoImportText) {
                     this.itemToResolve.additionalTextEdits = completionItem.additionalTextEdits;
                 }
@@ -3220,36 +3233,36 @@ export class CompletionMap {
 
     static matchKindAndImportText(
         completionItemOrItems: CompletionItem | CompletionItem[],
+        getCompletionData: (d: CompletionItem) => CompletionItemData | undefined,
         kind?: CompletionItemKind,
         autoImportText?: string
     ): boolean {
         if (!Array.isArray(completionItemOrItems)) {
             return (
                 completionItemOrItems.kind === kind &&
-                _getCompletionData(completionItemOrItems)?.autoImportText === autoImportText
+                getCompletionData(completionItemOrItems)?.autoImportText === autoImportText
             );
         } else {
             return !!completionItemOrItems.find(
-                (c) => c.kind === kind && _getCompletionData(c)?.autoImportText === autoImportText
+                (c) => c.kind === kind && getCompletionData(c)?.autoImportText === autoImportText
             );
         }
     }
 
-    static labelOnlyIgnoringAutoImports(completionItemOrItems: CompletionItem | CompletionItem[]): boolean {
+    static labelOnlyIgnoringAutoImports(
+        completionItemOrItems: CompletionItem | CompletionItem[],
+        getCompletionData: (d: CompletionItem) => CompletionItemData | undefined
+    ): boolean {
         if (!Array.isArray(completionItemOrItems)) {
-            if (!_getCompletionData(completionItemOrItems)?.autoImportText) {
+            if (!getCompletionData(completionItemOrItems)?.autoImportText) {
                 return true;
             }
         } else {
-            if (completionItemOrItems.find((c) => !_getCompletionData(c)?.autoImportText)) {
+            if (completionItemOrItems.find((c) => !getCompletionData(c)?.autoImportText)) {
                 return true;
             }
         }
 
         return false;
     }
-}
-
-function _getCompletionData(completionItem: CompletionItem): CompletionItemData | undefined {
-    return fromLSPAny(completionItem.data);
 }

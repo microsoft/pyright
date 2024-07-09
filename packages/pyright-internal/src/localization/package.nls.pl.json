@@ -804,5 +804,8 @@
         "useTypeInstead": "Zamiast tego użyj typu Type[T].",
         "varianceMismatchForClass": "Wariancja argumentu typu „{typeVarName}” jest niezgodna z klasą bazową „{className}”",
         "varianceMismatchForTypeAlias": "Wariancja argumentu typu „{typeVarName}” jest niezgodna z parametrem „{typeAliasParam}”"
+    },
+    "Service": {
+        "longOperation": "Enumeration of workspace source files is taking a long time. Consider opening a sub-folder instead. [Learn more](https://aka.ms/workspace-too-many-files)"
     }
 }

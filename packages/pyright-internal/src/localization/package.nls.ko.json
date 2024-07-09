@@ -804,5 +804,8 @@
         "useTypeInstead": "대신 Type[T] 사용",
         "varianceMismatchForClass": "‘{typeVarName}’ 형식 인수의 차이는 ‘{className}’ 기본 클래스와 호환되지 않습니다.",
         "varianceMismatchForTypeAlias": "‘{typeVarName}’ 형식 인수의 차이는 ‘{typeAliasParam}’와(과) 호환되지 않습니다."
+    },
+    "Service": {
+        "longOperation": "Enumeration of workspace source files is taking a long time. Consider opening a sub-folder instead. [Learn more](https://aka.ms/workspace-too-many-files)"
     }
 }

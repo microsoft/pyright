@@ -804,5 +804,8 @@
         "useTypeInstead": "代わりに Type[T] を使用する",
         "varianceMismatchForClass": "型引数 \"{typeVarName}\" の分散は、基底クラス \"{className}\" と互換性がありません",
         "varianceMismatchForTypeAlias": "型引数 \"{typeVarName}\" の分散は \"{typeAliasParam}\" と互換性がありません"
+    },
+    "Service": {
+        "longOperation": "Enumeration of workspace source files is taking a long time. Consider opening a sub-folder instead. [Learn more](https://aka.ms/workspace-too-many-files)"
     }
 }
