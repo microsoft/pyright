@@ -15,15 +15,15 @@ import { FullAccessHost } from '../common/fullAccessHost';
 import { Host } from '../common/host';
 import { lib, sitePackages, typeshedFallback } from '../common/pathConsts';
 import { combinePaths, getDirectoryPath, normalizeSlashes } from '../common/pathUtils';
-import { createFromRealFileSystem } from '../common/realFileSystem';
+import { createFromRealFileSystem, RealTempFile } from '../common/realFileSystem';
+import { ServiceKeys } from '../common/serviceKeys';
 import { ServiceProvider } from '../common/serviceProvider';
 import { createServiceProvider } from '../common/serviceProviderExtensions';
-import { ServiceKeys } from '../common/serviceKeys';
 import { Uri } from '../common/uri/uri';
+import { UriEx } from '../common/uri/uriUtils';
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { TestAccessHost } from './harness/testAccessHost';
 import { TestFileSystem } from './harness/vfs/filesystem';
-import { UriEx } from '../common/uri/uriUtils';
 
 const libraryRoot = combinePaths(normalizeSlashes('/'), lib, sitePackages);
 
@@ -836,9 +836,10 @@ function createServiceProviderWithCombinedFs(files: { path: string; content: str
 
 class TruePythonTestAccessHost extends FullAccessHost {
     constructor(sp: ServiceProvider) {
-        // Make sure the service provide in use is using a real file system
+        // Make sure the service provide in use is using a real file system and real temporary file provider.
         const clone = sp.clone();
         clone.add(ServiceKeys.fs, createFromRealFileSystem(sp.get(ServiceKeys.caseSensitivityDetector)));
+        clone.add(ServiceKeys.tempFile, new RealTempFile());
         super(clone);
     }
 }

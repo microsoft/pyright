@@ -85,6 +85,7 @@ export interface TempFile {
     // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
     tmpdir(): Uri;
     tmpfile(options?: TmpfileOptions): Uri;
+    mktmpdir(): Uri;
 }
 
 export namespace FileSystem {

@@ -515,6 +515,11 @@ export class RealTempFile implements TempFile, CaseSensitivityDetector {
         return Uri.file(f.name, this);
     }
 
+    mktmpdir(): Uri {
+        const d = tmp.dirSync();
+        return Uri.file(d.name, this);
+    }
+
     dispose(): void {
         try {
             this._tmpdir?.removeCallback();
