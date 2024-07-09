@@ -1,4 +1,7 @@
-trigger: none
+trigger:
+  branches:
+    include:
+      - refs/tags/*
 resources:
   repositories:
     - repository: MicroBuildTemplate
@@ -98,11 +101,11 @@ extends:
             pool: server
             steps:
               - task: ManualValidation@0
-                timeoutInMinutes: 1440 # task times out in 1 day
+                timeoutInMinutes: 120 # task times out in 2 hours
                 inputs:
-                  notifyUsers: 'plseng@microsoft.com'
-                  instructions: 'Please test the latest draft release of Pyright.'
-                  onTimeout: 'reject'
+                  notifyUsers: 'plseng@microsoft.com,eric@traut.com'
+                  instructions: 'In the next 2 hours please test the latest draft release of Pyright, then Publish the release in GitHub.'
+                  onTimeout: 'resume'
 
       - stage: PublishExtension
         dependsOn:
