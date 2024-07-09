@@ -1,5 +1,5 @@
 from _typeshed import ConvertibleToInt, Incomplete, Unused
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import ClassVar, Literal
 
 from openpyxl.descriptors.base import Bool, Integer, String, Typed, _ConvertibleToBool
@@ -44,6 +44,7 @@ class NamedStyle(Serialisable):
     def as_name(self) -> _NamedCellStyle: ...
 
 class NamedStyleList(list[NamedStyle]):
+    def __init__(self, iterable: Iterable[NamedStyle] = ()) -> None: ...  # type: ignore[override]
     @property
     def names(self) -> list[str]: ...
     def __getitem__(self, key: int | str) -> NamedStyle: ...  # type: ignore[override]

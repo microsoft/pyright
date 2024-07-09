@@ -8,6 +8,6 @@ class ExtractingMixin:
     def extracting(
         self,
         *names: str,
-        filter: str | Mapping[str, Any] | Callable[[Any], bool],
-        sort: str | _Iterable[str] | Callable[[Any], Any],
+        filter: str | Mapping[str, Any] | Callable[[Any], bool] = ...,
+        sort: str | _Iterable[str] | Callable[[Any], Any] = ...,
     ) -> Self: ...
