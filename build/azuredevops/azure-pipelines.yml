@@ -47,11 +47,12 @@ extends:
               - task: CmdLine@2
                 displayName: npm install
                 inputs:
-                  script: npm install
+                  script: npm run install:all
               - task: CmdLine@2
                 displayName: Package VSIX
                 inputs:
-                  script: npm run package
+                  script: |
+                    npm run package
                   workingDirectory: packages/vscode-pyright
               - task: CopyFiles@2
                 displayName: 'Copy vsix to: build_output'
