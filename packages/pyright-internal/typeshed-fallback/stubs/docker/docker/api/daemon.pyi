@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from datetime import datetime
 from typing import Any
 
@@ -11,7 +12,7 @@ class DaemonApiMixin:
         until: datetime | int | None = None,
         filters: dict[str, Any] | None = None,
         decode: bool | None = None,
-    ) -> CancellableStream: ...
+    ) -> CancellableStream[Incomplete]: ...
     def info(self) -> dict[str, Any]: ...
     def login(
         self,

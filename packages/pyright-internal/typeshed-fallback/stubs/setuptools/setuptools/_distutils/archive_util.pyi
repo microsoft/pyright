@@ -1,5 +1,5 @@
 from _typeshed import StrOrBytesPath, StrPath
-from typing import Literal, overload
+from typing import overload
 
 @overload
 def make_archive(
@@ -7,8 +7,8 @@ def make_archive(
     format: str,
     root_dir: StrOrBytesPath | None = None,
     base_dir: str | None = None,
-    verbose: bool | Literal[0, 1] = 0,
-    dry_run: bool | Literal[0, 1] = 0,
+    verbose: bool = False,
+    dry_run: bool = False,
     owner: str | None = None,
     group: str | None = None,
 ) -> str: ...
@@ -18,8 +18,8 @@ def make_archive(
     format: str,
     root_dir: StrOrBytesPath,
     base_dir: str | None = None,
-    verbose: bool | Literal[0, 1] = 0,
-    dry_run: bool | Literal[0, 1] = 0,
+    verbose: bool = False,
+    dry_run: bool = False,
     owner: str | None = None,
     group: str | None = None,
 ) -> str: ...
@@ -27,9 +27,9 @@ def make_tarball(
     base_name: str,
     base_dir: StrPath,
     compress: str | None = ...,
-    verbose: bool | Literal[0, 1] = 0,
-    dry_run: bool | Literal[0, 1] = 0,
+    verbose: bool = False,
+    dry_run: bool = False,
     owner: str | None = ...,
     group: str | None = ...,
 ) -> str: ...
-def make_zipfile(base_name: str, base_dir: str, verbose: bool | Literal[0, 1] = 0, dry_run: bool | Literal[0, 1] = 0) -> str: ...
+def make_zipfile(base_name: str, base_dir: str, verbose: bool = False, dry_run: bool = False) -> str: ...

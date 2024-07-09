@@ -9,16 +9,16 @@
 /* eslint-disable no-dupe-class-members */
 import { Dirent, ReadStream, WriteStream } from 'fs';
 
+import { CaseSensitivityDetector } from '../../../common/caseSensitivityDetector';
 import { FileSystem, MkDirOptions, TempFile, TmpfileOptions } from '../../../common/fileSystem';
 import { FileWatcher, FileWatcherEventHandler, FileWatcherEventType } from '../../../common/fileWatcher';
 import * as pathUtil from '../../../common/pathUtils';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../../common/stringUtils';
+import { FileUriSchema } from '../../../common/uri/fileUri';
+import { Uri } from '../../../common/uri/uri';
 import { bufferFrom, createIOError } from '../utils';
 import { Metadata, SortedMap, closeIterator, getIterator, nextResult } from './../utils';
 import { ValidationFlags, validate } from './pathValidation';
-import { FileUriSchema } from '../../../common/uri/fileUri';
-import { Uri } from '../../../common/uri/uri';
-import { CaseSensitivityDetector } from '../../../common/caseSensitivityDetector';
 
 export const MODULE_PATH = pathUtil.normalizeSlashes('/');
 
@@ -373,6 +373,11 @@ export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDete
         const path = this.tmpdir().combinePaths(name);
         this.writeFileSync(path, '');
         return path;
+    }
+
+    mktmpdir(): Uri {
+        this.mkdirpSync('/tmp/1');
+        return Uri.parse('file:///tmp/1', this);
     }
 
     realCasePath(path: Uri): Uri {

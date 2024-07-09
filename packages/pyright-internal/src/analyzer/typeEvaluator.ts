@@ -17486,7 +17486,7 @@ export function createTypeEvaluator(
             }
         });
 
-        const errorNode = argList.length > 0 ? argList[0].node?.name ?? node.name : node.name;
+        const errorNode = argList.length > 0 ? argList[0].node?.valueExpression ?? node.name : node.name;
         let newMethodMember: ClassMember | undefined;
 
         // See if the class has a metaclass that overrides `__new__`. If so, we

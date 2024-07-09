@@ -1,21 +1,23 @@
 import ast
 import math
+import re
 import time
 from _typeshed import Incomplete
 from collections.abc import Generator
 from typing import NoReturn
 
-eval_debug: Incomplete
-strTypes: Incomplete
-isPy39: Incomplete
-haveNameConstant: Incomplete
+eval_debug: int
+strTypes: tuple[type[bytes], type[str]]
+isPy39: bool
+isPy313: bool
+haveNameConstant: bool
 
 class BadCode(ValueError): ...
 
-augOps: Incomplete
-__allowed_magic_methods__: Incomplete
-__rl_unsafe__: Incomplete
-__rl_unsafe_re__: Incomplete
+augOps: dict[ast.operator, str]
+__allowed_magic_methods__: frozenset[str]
+__rl_unsafe__: frozenset[str]
+__rl_unsafe_re__: re.Pattern[str]
 
 def copy_locations(new_node, old_node) -> None: ...
 
@@ -175,7 +177,12 @@ class __RL_SAFE_ENV__:
     real_bi: Incomplete
     bi_replace: Incomplete
     __rl_builtins__: Incomplete
-    def __init__(self, timeout: Incomplete | None = None, allowed_magic_methods: Incomplete | None = None) -> None: ...
+    def __init__(
+        self,
+        timeout: Incomplete | None = None,
+        allowed_magic_methods: Incomplete | None = None,
+        allowed_magic_names: Incomplete | None = None,
+    ) -> None: ...
     def __rl_type__(self, *args): ...
     def __rl_check__(self) -> None: ...
     def __rl_sd__(self, obj): ...
@@ -194,10 +201,10 @@ class __RL_SAFE_ENV__:
     def __rl_reversed__(self, seq): ...
     def __rl_range__(self, start, *args): ...
     def __rl_set__(self, it): ...
-    def __rl_frozenset__(self, it): ...
+    def __rl_frozenset__(self, it=()): ...
     def __rl_iter_unpack_sequence__(self, it, spec, _getiter_) -> Generator[Incomplete, None, None]: ...
     def __rl_unpack_sequence__(self, it, spec, _getiter_): ...
-    def __rl_is_allowed_name__(self, name) -> None: ...
+    def __rl_is_allowed_name__(self, name, crash: bool = True) -> bool: ...
     def __rl_getattr__(self, obj, a, *args): ...
     def __rl_getitem__(self, obj, a): ...
     __rl_tmax__: int
@@ -229,6 +236,7 @@ class __RL_SAFE_ENV__:
         timeout: Incomplete | None = None,
         allowed_magic_methods: Incomplete | None = None,
         __frame_depth__: int = 3,
+        allowed_magic_names: Incomplete | None = None,
     ): ...
 
 class __rl_safe_eval__:
@@ -242,6 +250,7 @@ class __rl_safe_eval__:
         l: Incomplete | None = None,
         timeout: Incomplete | None = None,
         allowed_magic_methods: Incomplete | None = None,
+        allowed_magic_names: Incomplete | None = None,
     ): ...
 
 class __rl_safe_exec__(__rl_safe_eval__):
@@ -251,3 +260,6 @@ def rl_extended_literal_eval(expr, safe_callables: Incomplete | None = None, saf
 
 rl_safe_exec: __rl_safe_exec__
 rl_safe_eval: __rl_safe_eval__
+
+def __fix_set__(value, default=...): ...
+def rl_less_safe_eval(expr, NS): ...
