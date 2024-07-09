@@ -35,7 +35,7 @@ extends:
         jobs:
           - job: build
             displayName: Build VSIX
-            timeoutInMinutes: 720
+            timeoutInMinutes: 60
             templateContext:
               outputs:
                 - output: pipelineArtifact
