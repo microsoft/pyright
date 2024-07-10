@@ -84,6 +84,7 @@ import {
     isTypeSame,
     isUnknown,
     isUnpackedVariadicTypeVar,
+    isVariadicTypeVar,
 } from './types';
 
 // PEP 634 indicates that several built-in classes are handled differently
@@ -1587,7 +1588,17 @@ function getTypeOfPatternSequenceEntry(
         // Note that we strip literal types here.
         const starEntryTypes = sequenceInfo.entryTypes
             .slice(starEntryIndex, starEntryIndex + sequenceInfo.entryTypes.length - entryCount + 1)
-            .map((type) => evaluator.stripLiteralValue(type));
+            .map((type) => {
+                // If this is a variadic TypeVar, there's not much we can say about
+                // its type other than it's "Unknown". We could evaluate it as an
+                // "object", but that will cause problems given that this type will
+                // be wrapped in a "list" below, and lists are invariant.
+                if (isVariadicTypeVar(type) && !type.isVariadicInUnion) {
+                    return UnknownType.create();
+                }
+
+                return evaluator.stripLiteralValue(type);
+            });
 
         let entryType = combineTypes(starEntryTypes);
 

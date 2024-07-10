@@ -1,6 +1,8 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain sequence patterns.
 
+# pyright: reportMissingModuleSource=false
+
 from enum import Enum
 from typing import (
     Any,
@@ -15,8 +17,9 @@ from typing import (
     TypeVar,
     Union,
 )
+from typing_extensions import TypeVarTuple, Unpack
 
-from typing_extensions import Unpack  # pyright: ignore[reportMissingModuleSource]
+Ts = TypeVarTuple("Ts")
 
 
 def test_unknown(value_to_match):
@@ -585,3 +588,10 @@ def test_unbounded_tuple_5(subj: tuple[int, Unpack[tuple[str, ...]]]):
             reveal_type(rest, expected_text="list[str]")
         case x:
             reveal_type(x, expected_text="Never")
+
+
+def test_variadic_tuple(subj: tuple[int, Unpack[Ts]]) -> tuple[Unpack[Ts]]:
+    match subj:
+        case _, *rest:
+            reveal_type(rest, expected_text="list[Unknown]")
+            return (*rest,)

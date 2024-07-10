@@ -281,3 +281,8 @@ def func20(v: tuple[Never]):
     x2: tuple[Never] = ()
 
     x3: tuple[Never] = v
+
+
+def func21(x: tuple[Any, ...], *args: *Ts) -> tuple[*Ts]:
+    args = x
+    return args

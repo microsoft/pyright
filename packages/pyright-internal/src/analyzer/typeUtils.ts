@@ -1364,6 +1364,17 @@ export function isMaybeDescriptorInstance(type: Type, requireSetter = false): bo
     return true;
 }
 
+export function isTupleGradualForm(type: Type) {
+    return (
+        isClassInstance(type) &&
+        isTupleClass(type) &&
+        type.tupleTypeArguments &&
+        type.tupleTypeArguments.length === 1 &&
+        isAnyOrUnknown(type.tupleTypeArguments[0].type) &&
+        type.tupleTypeArguments[0].isUnbounded
+    );
+}
+
 export function isTupleClass(type: ClassType) {
     return ClassType.isBuiltIn(type, 'tuple');
 }
