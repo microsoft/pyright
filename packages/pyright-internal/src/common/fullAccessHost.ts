@@ -235,10 +235,8 @@ export class FullAccessHost extends LimitedAccessHost {
         try {
             const commandLineArgs: string[] = ['-c', extractSys];
             importFailureInfo.push(`Executing interpreter: '${interpreterPath}'`);
-            const temp = this.serviceProvider.get(ServiceKeys.tempFile).mktmpdir();
             const execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, {
                 encoding: 'utf8',
-                cwd: temp.getFilePath(),
             });
             const caseDetector = this.serviceProvider.get(ServiceKeys.caseSensitivityDetector);
 
@@ -253,8 +251,7 @@ export class FullAccessHost extends LimitedAccessHost {
                         // Skip non-existent paths and broken zips/eggs.
                         if (
                             this.serviceProvider.fs().existsSync(normalizedUri) &&
-                            isDirectory(this.serviceProvider.fs(), normalizedUri) &&
-                            !normalizedUri.equals(temp)
+                            isDirectory(this.serviceProvider.fs(), normalizedUri)
                         ) {
                             result.paths.push(normalizedUri);
                         } else {
