@@ -38,7 +38,7 @@ extends:
               mb:
                 signing:
                   enabled: true
-                  signType: "real"
+                  signType: 'real'
               outputs:
                 - output: pipelineArtifact
                   displayName: 'publish vsix artifact'
