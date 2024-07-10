@@ -113,6 +113,8 @@ interface SequencePatternInfo {
 
 interface MappingPatternInfo {
     subtype: Type;
+    isDefinitelyMapping: boolean;
+    isDefinitelyNotMapping: boolean;
     typedDict?: ClassType;
     dictTypeArgs?: {
         key: Type;
@@ -423,13 +425,18 @@ function narrowTypeBasedOnMappingPattern(
     type = transformPossibleRecursiveTypeAlias(type);
 
     if (!isPositiveTest) {
-        // Our ability to narrow in the negative case for mapping patterns is
-        // limited, but we can do it if the type is a union that includes a
-        // TypedDict with a field discriminated by a literal.
+        // Handle the case where the pattern consists only of a "**x" entry.
+        if (pattern.entries.length === 1 && pattern.entries[0].nodeType === ParseNodeType.PatternMappingExpandEntry) {
+            const mappingInfo = getMappingPatternInfo(evaluator, type, pattern);
+            return combineTypes(mappingInfo.filter((m) => !m.isDefinitelyMapping).map((m) => m.subtype));
+        }
+
         if (pattern.entries.length !== 1 || pattern.entries[0].nodeType !== ParseNodeType.PatternMappingKeyEntry) {
             return type;
         }
 
+        // Handle the case where the type is a union that includes a TypedDict with
+        // a field discriminated by a literal.
         const keyPattern = pattern.entries[0].keyPattern;
         const valuePattern = pattern.entries[0].valuePattern;
         if (
@@ -483,7 +490,12 @@ function narrowTypeBasedOnMappingPattern(
 
     // Further narrow based on pattern entry types.
     mappingInfo = mappingInfo.filter((mappingSubtypeInfo) => {
+        if (mappingSubtypeInfo.isDefinitelyNotMapping) {
+            return false;
+        }
+
         let isPlausibleMatch = true;
+
         pattern.entries.forEach((mappingEntry) => {
             if (mappingSubtypeInfo.typedDict) {
                 if (mappingEntry.nodeType === ParseNodeType.PatternMappingKeyEntry) {
@@ -1199,6 +1211,8 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
         if (isAnyOrUnknown(concreteSubtype)) {
             mappingInfo.push({
                 subtype,
+                isDefinitelyMapping: false,
+                isDefinitelyNotMapping: false,
                 dictTypeArgs: {
                     key: concreteSubtype,
                     value: concreteSubtype,
@@ -1212,6 +1226,8 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
             if (ClassType.isTypedDictClass(concreteSubtype)) {
                 mappingInfo.push({
                     subtype,
+                    isDefinitelyMapping: true,
+                    isDefinitelyNotMapping: false,
                     typedDict: concreteSubtype,
                 });
                 return;
@@ -1232,6 +1248,8 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
                 if (specializedMapping.typeArguments && specializedMapping.typeArguments.length >= 2) {
                     mappingInfo.push({
                         subtype,
+                        isDefinitelyMapping: true,
+                        isDefinitelyNotMapping: false,
                         dictTypeArgs: {
                             key: specializedMapping.typeArguments[0],
                             value: specializedMapping.typeArguments[1],
@@ -1246,9 +1264,11 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
             const mappingType = evaluator.getTypingType(node, 'Mapping');
             if (mappingType && isInstantiableClass(mappingType)) {
                 const mappingObject = ClassType.cloneAsInstance(mappingType);
-                if (evaluator.assignType(type, mappingObject)) {
+                if (evaluator.assignType(subtype, mappingObject)) {
                     mappingInfo.push({
                         subtype,
+                        isDefinitelyMapping: false,
+                        isDefinitelyNotMapping: false,
                         dictTypeArgs: {
                             key: UnknownType.create(),
                             value: UnknownType.create(),
@@ -1256,6 +1276,12 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
                     });
                 }
             }
+
+            mappingInfo.push({
+                subtype,
+                isDefinitelyMapping: false,
+                isDefinitelyNotMapping: true,
+            });
         }
     });
 
@@ -1712,7 +1738,7 @@ export function assignTypeToPatternTargets(
                             });
                         } else if (mappingEntry.nodeType === ParseNodeType.PatternMappingExpandEntry) {
                             keyTypes.push(evaluator.getBuiltInObject(pattern, 'str'));
-                            valueTypes.push(UnknownType.create());
+                            valueTypes.push(evaluator.getObjectType());
                         }
                     } else if (mappingSubtypeInfo.dictTypeArgs) {
                         if (mappingEntry.nodeType === ParseNodeType.PatternMappingKeyEntry) {
