@@ -2,6 +2,7 @@
 # described in PEP 634) that contain mapping patterns.
 
 from typing import Literal, TypedDict
+
 from typing_extensions import NotRequired  # pyright: ignore[reportMissingModuleSource]
 
 
@@ -53,7 +54,7 @@ def test_typed_dict(value_to_match: Movie):
         case {"title": a1, "release_year": a2, **a3}:
             reveal_type(a1, expected_text="str")
             reveal_type(a2, expected_text="int")
-            reveal_type(a3, expected_text="dict[str, Unknown]")
+            reveal_type(a3, expected_text="dict[str, object]")
             reveal_type(value_to_match, expected_text="Movie")
 
         case {3: b1, "title": b2}:
@@ -70,7 +71,7 @@ def test_typed_dict(value_to_match: Movie):
             reveal_type(value_to_match, expected_text="Movie")
 
 
-def test_union(value_to_match: dict[str | int, str | int] | Movie | str):
+def test_union1(value_to_match: dict[str | int, str | int] | Movie | str):
     match value_to_match:
         case {3: a1}:
             reveal_type(a1, expected_text="str | int")
@@ -81,6 +82,16 @@ def test_union(value_to_match: dict[str | int, str | int] | Movie | str):
             reveal_type(
                 value_to_match, expected_text="dict[str | int, str | int] | Movie"
             )
+
+
+def test_union2(value_to_match: dict[int, int] | Movie | str):
+    match value_to_match:
+        case {**kw}:
+            reveal_type(kw, expected_text="dict[int | str, int | object]")
+            reveal_type(value_to_match, expected_text="dict[int, int] | Movie")
+
+        case x:
+            reveal_type(x, expected_text="str")
 
 
 class IntValue(TypedDict):

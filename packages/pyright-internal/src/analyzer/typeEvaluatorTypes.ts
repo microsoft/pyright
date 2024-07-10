@@ -160,7 +160,7 @@ export const enum EvalFlags {
 
     // Interpret the expression using the specialized behaviors associated
     // with the second argument to isinstance and issubclass calls.
-    IsinstanceParam = 1 << 29,
+    IsinstanceArg = 1 << 29,
 
     // Defaults used for evaluating the LHS of a call expression.
     CallBaseDefaults = NoSpecialize,
@@ -170,6 +170,16 @@ export const enum EvalFlags {
 
     // Defaults used for evaluating the LHS of a member access expression.
     MemberAccessBaseDefaults = NoSpecialize,
+
+    // Defaults used for evaluating the second argument of an 'isinstance'
+    // or 'issubclass' call.
+    IsInstanceArgDefaults = AllowMissingTypeArgs |
+        StrLiteralAsType |
+        NoParamSpec |
+        NoTypeVarTuple |
+        NoFinal |
+        NoSpecialize |
+        IsinstanceArg,
 }
 
 export interface TypeResult<T extends Type = Type> {
