@@ -249,6 +249,7 @@ import {
     isPartlyUnknown,
     isProperty,
     isTupleClass,
+    isTupleGradualForm,
     isTupleIndexUnambiguous,
     isTypeAliasPlaceholder,
     isTypeAliasRecursive,
@@ -22913,11 +22914,24 @@ export function createTypeEvaluator(
         if (adjustTupleTypeArgs(destTypeArgs, srcTypeArgs, flags)) {
             for (let argIndex = 0; argIndex < srcTypeArgs.length; argIndex++) {
                 const entryDiag = diag?.createAddendum();
+                const destArgType = destTypeArgs[argIndex].type;
+                const srcArgType = srcTypeArgs[argIndex].type;
+
+                // Handle the special case where the dest is a TypeVarTuple
+                // and the source is a `*tuple[Any, ...]`. This is allowed.
+                if (
+                    isVariadicTypeVar(destArgType) &&
+                    destArgType.isVariadicUnpacked &&
+                    !destArgType.isVariadicInUnion &&
+                    isTupleGradualForm(srcArgType)
+                ) {
+                    return true;
+                }
 
                 if (
                     !assignType(
-                        destTypeArgs[argIndex].type,
-                        srcTypeArgs[argIndex].type,
+                        destArgType,
+                        srcArgType,
                         entryDiag?.createAddendum(),
                         destTypeVarContext,
                         srcTypeVarContext,
