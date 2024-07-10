@@ -9,8 +9,8 @@ resources:
       name: 1ESPipelineTemplates/MicroBuildTemplate
       ref: refs/tags/release
 variables:
-  - name: SigningType
-    value: 'real'
+  - name: SignType
+    value: 'Real'
   - name: TeamName
     value: Pyright
   - name: VSIX_NAME
@@ -35,7 +35,7 @@ extends:
         jobs:
           - job: build
             displayName: Build VSIX
-            timeoutInMinutes: 720
+            timeoutInMinutes: 60
             templateContext:
               outputs:
                 - output: pipelineArtifact
