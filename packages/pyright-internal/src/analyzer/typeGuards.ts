@@ -627,15 +627,7 @@ export function getTypeNarrowingCallback(
                     (callType.details.builtInName === 'isinstance' || callType.details.builtInName === 'issubclass')
                 ) {
                     const isInstanceCheck = callType.details.builtInName === 'isinstance';
-                    const arg1TypeResult = evaluator.getTypeOfExpression(
-                        arg1Expr,
-                        EvalFlags.AllowMissingTypeArgs |
-                            EvalFlags.StrLiteralAsType |
-                            EvalFlags.NoParamSpec |
-                            EvalFlags.NoTypeVarTuple |
-                            EvalFlags.NoFinal |
-                            EvalFlags.NoSpecialize
-                    );
+                    const arg1TypeResult = evaluator.getTypeOfExpression(arg1Expr, EvalFlags.IsInstanceArgDefaults);
                     const arg1Type = arg1TypeResult.type;
 
                     const classTypeList = getIsInstanceClassTypes(evaluator, arg1Type);
