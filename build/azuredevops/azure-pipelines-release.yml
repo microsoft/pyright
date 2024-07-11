@@ -24,10 +24,9 @@ extends:
     sdl:
       sourceAnalysisPool: VSEngSS-MicroBuild2022-1ES
     pool:
-      name: AzurePipelines-EO
-      demands:
-        - ImageOverride -equals 1ESPT-Ubuntu22.04
-      os: Linux
+      pool:
+      name: VSEngSS-MicroBuild2022-1ES
+      os: windows
     customBuildTags:
       - ES365AIMigrationTooling
     stages:
@@ -68,7 +67,7 @@ extends:
                 inputs:
                   script: |
                     npm run package
-                    mv pyright-*.vsix $(VSIX_NAME)
+                    move pyright-*.vsix %VSIX_NAME%
                   workingDirectory: packages/vscode-pyright
               - task: CopyFiles@2
                 displayName: 'Copy vsix to: build_output'
