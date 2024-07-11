@@ -8,13 +8,13 @@
 import assert from 'assert';
 import { CancellationToken, CancellationTokenSource } from 'vscode-jsonrpc';
 
-import { buildImportTree as buildImportTreeImpl } from '../analyzer/sourceMapperUtils';
-import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
-import { ParseNodeType } from '../parser/parseNodes';
-import { TypeCategory } from '../analyzer/types';
 import { VariableDeclaration, isVariableDeclaration } from '../analyzer/declaration';
+import { buildImportTree as buildImportTreeImpl } from '../analyzer/sourceMapperUtils';
+import { TypeCategory } from '../analyzer/types';
 import { TextRange } from '../common/textRange';
 import { UriEx } from '../common/uri/uriUtils';
+import { ParseNodeType } from '../parser/parseNodes';
+import { getNodeAtMarker, parseAndGetTestState } from './harness/fourslash/testState';
 
 function buildImportTree(
     sourceFile: string,
@@ -232,7 +232,7 @@ function assertTypeAlias(code: string) {
     const range = state.getRangeByMarkerName('decl')!;
     const decls = mapper.findDeclarationsByType(markerUri, type, /* userTypeAlias */ true);
 
-    const decl = decls.find((d) => isVariableDeclaration(d) && d.typeAliasName && d.typeAliasName.value === 'M') as
+    const decl = decls.find((d) => isVariableDeclaration(d) && d.typeAliasName && d.typeAliasName.d.value === 'M') as
         | VariableDeclaration
         | undefined;
     assert(decl);

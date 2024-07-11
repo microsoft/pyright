@@ -14,10 +14,10 @@
 import { ConsoleInterface } from '../common/console';
 import { assert, fail } from '../common/debug';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { ArgumentCategory, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ArgumentCategory, ExprNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo, getImportInfo } from './analyzerNodeInfo';
 import {
-    CodeFlowReferenceExpressionNode,
+    CodeFlowReferenceExprNode,
     createKeyForReference,
     createKeysForReferenceSubexpressions,
     FlowAssignment,
@@ -37,11 +37,11 @@ import {
 } from './codeFlowTypes';
 import { formatControlFlowGraph } from './codeFlowUtils';
 import { getBoundCallMethod, getBoundNewMethod } from './constructors';
-import { isMatchingExpression, isPartialMatchingExpression, printExpression } from './parseTreeUtils';
+import { isMatchingExpr, isPartialMatchingExpr, printExpr } from './parseTreeUtils';
 import { getPatternSubtypeNarrowingCallback } from './patternMatching';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment } from './typedDicts';
-import { EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { EvalFlags, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { getTypeNarrowingCallback } from './typeGuards';
 import {
     ClassType,
@@ -89,7 +89,7 @@ export interface FlowNodeTypeOptions {
 export interface CodeFlowAnalyzer {
     getTypeFromCodeFlow: (
         flowNode: FlowNode,
-        reference: CodeFlowReferenceExpressionNode | undefined,
+        reference: CodeFlowReferenceExprNode | undefined,
         options?: FlowNodeTypeOptions
     ) => FlowNodeTypeResult;
 }
@@ -100,7 +100,7 @@ export interface CodeFlowEngine {
     narrowConstrainedTypeVar: (flowNode: FlowNode, typeVar: TypeVarType) => Type | undefined;
     printControlFlowGraph: (
         flowNode: FlowNode,
-        reference: CodeFlowReferenceExpressionNode | undefined,
+        reference: CodeFlowReferenceExprNode | undefined,
         callName: string,
         logger: ConsoleInterface
     ) => void;
@@ -222,7 +222,7 @@ export function getCodeFlowEngine(
         // the specified flowNode is reachable when "never narrowing" is applied.
         function getTypeFromCodeFlow(
             flowNode: FlowNode,
-            reference: CodeFlowReferenceExpressionNode | undefined,
+            reference: CodeFlowReferenceExprNode | undefined,
             options?: FlowNodeTypeOptions
         ): FlowNodeTypeResult {
             if (enablePrintControlFlowGraph) {
@@ -472,7 +472,7 @@ export function getCodeFlowEngine(
                         if (reference) {
                             if (
                                 options?.targetSymbolId === assignmentFlowNode.targetSymbolId &&
-                                isMatchingExpression(reference, targetNode)
+                                isMatchingExpr(reference, targetNode)
                             ) {
                                 // Is this a special "unbind" assignment? If so,
                                 // we can handle it immediately without any further evaluation.
@@ -523,19 +523,19 @@ export function getCodeFlowEngine(
                             // base type.
                             if (
                                 targetNode.nodeType === ParseNodeType.Index &&
-                                isMatchingExpression(reference, targetNode.baseExpression)
+                                isMatchingExpr(reference, targetNode.d.baseExpr)
                             ) {
                                 if (
                                     targetNode.parent?.nodeType === ParseNodeType.Assignment &&
-                                    targetNode.items.length === 1 &&
-                                    !targetNode.trailingComma &&
-                                    !targetNode.items[0].name &&
-                                    targetNode.items[0].argumentCategory === ArgumentCategory.Simple &&
-                                    targetNode.items[0].valueExpression.nodeType === ParseNodeType.StringList &&
-                                    targetNode.items[0].valueExpression.strings.length === 1 &&
-                                    targetNode.items[0].valueExpression.strings[0].nodeType === ParseNodeType.String
+                                    targetNode.d.items.length === 1 &&
+                                    !targetNode.d.trailingComma &&
+                                    !targetNode.d.items[0].d.name &&
+                                    targetNode.d.items[0].d.argumentCategory === ArgumentCategory.Simple &&
+                                    targetNode.d.items[0].d.valueExpr.nodeType === ParseNodeType.StringList &&
+                                    targetNode.d.items[0].d.valueExpr.d.strings.length === 1 &&
+                                    targetNode.d.items[0].d.valueExpr.d.strings[0].nodeType === ParseNodeType.String
                                 ) {
-                                    const keyValue = targetNode.items[0].valueExpression.strings[0].value;
+                                    const keyValue = targetNode.d.items[0].d.valueExpr.d.strings[0].d.value;
                                     const narrowedResult = preventRecursion(assignmentFlowNode, () => {
                                         const flowTypeResult = getTypeFromFlowNode(assignmentFlowNode.antecedent);
 
@@ -559,7 +559,7 @@ export function getCodeFlowEngine(
                                 }
                             }
 
-                            if (isPartialMatchingExpression(reference, targetNode)) {
+                            if (isPartialMatchingExpr(reference, targetNode)) {
                                 // If the node partially matches the reference, we need to "kill" any narrowed
                                 // types further above this point. For example, if we see the sequence
                                 //    a.b = 3
@@ -693,7 +693,7 @@ export function getCodeFlowEngine(
                                 // too expensive.
                                 const symbolWithScope = evaluator.lookUpSymbolRecursive(
                                     conditionalFlowNode.reference,
-                                    conditionalFlowNode.reference.value,
+                                    conditionalFlowNode.reference.d.value,
                                     /* honorCodeFlow */ false
                                 );
 
@@ -710,9 +710,7 @@ export function getCodeFlowEngine(
                                         );
 
                                         if (typeNarrowingCallback) {
-                                            const refTypeInfo = evaluator.getTypeOfExpression(
-                                                conditionalFlowNode.reference!
-                                            );
+                                            const refTypeInfo = evaluator.getTypeOfExpr(conditionalFlowNode.reference!);
 
                                             let narrowedType = refTypeInfo.type;
                                             let isIncomplete = !!refTypeInfo.isIncomplete;
@@ -789,7 +787,7 @@ export function getCodeFlowEngine(
 
                     if (curFlowNode.flags & FlowFlags.NarrowForPattern) {
                         const patternFlowNode = curFlowNode as FlowNarrowForPattern;
-                        if (!reference || isMatchingExpression(reference, patternFlowNode.subjectExpression)) {
+                        if (!reference || isMatchingExpr(reference, patternFlowNode.subjectExpression)) {
                             const typeResult = evaluator.evaluateTypeForSubnode(patternFlowNode.statement, () => {
                                 if (patternFlowNode.statement.nodeType === ParseNodeType.Case) {
                                     evaluator.evaluateTypesForCaseStatement(patternFlowNode.statement);
@@ -862,7 +860,7 @@ export function getCodeFlowEngine(
                     if (curFlowNode.flags & FlowFlags.WildcardImport) {
                         const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
                         if (reference && reference.nodeType === ParseNodeType.Name) {
-                            const nameValue = reference.value;
+                            const nameValue = reference.d.value;
                             if (wildcardImportFlowNode.names.some((name) => name === nameValue)) {
                                 return preventRecursion(curFlowNode, () => {
                                     const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
@@ -1284,7 +1282,7 @@ export function getCodeFlowEngine(
                         // too expensive.
                         const symbolWithScope = evaluator.lookUpSymbolRecursive(
                             conditionalFlowNode.reference,
-                            conditionalFlowNode.reference.value,
+                            conditionalFlowNode.reference.d.value,
                             /* honorCodeFlow */ false
                         );
 
@@ -1299,7 +1297,7 @@ export function getCodeFlowEngine(
                             );
 
                             if (typeNarrowingCallback) {
-                                const refTypeInfo = evaluator.getTypeOfExpression(conditionalFlowNode.reference!);
+                                const refTypeInfo = evaluator.getTypeOfExpr(conditionalFlowNode.reference!);
 
                                 const narrowedTypeResult = typeNarrowingCallback(refTypeInfo.type);
                                 const narrowedType = narrowedTypeResult?.type ?? refTypeInfo.type;
@@ -1469,22 +1467,20 @@ export function getCodeFlowEngine(
                 if (curFlowNode.flags & FlowFlags.NarrowForPattern) {
                     const narrowForPatternFlowNode = curFlowNode as FlowNarrowForPattern;
                     if (narrowForPatternFlowNode.statement.nodeType === ParseNodeType.Case) {
-                        const subjectType = evaluator.getTypeOfExpression(
-                            narrowForPatternFlowNode.subjectExpression
-                        ).type;
+                        const subjectType = evaluator.getTypeOfExpr(narrowForPatternFlowNode.subjectExpression).type;
 
                         if (isCompatibleWithConstrainedTypeVar(subjectType, typeVar)) {
-                            const patternNode = narrowForPatternFlowNode.statement.pattern;
+                            const patternNode = narrowForPatternFlowNode.statement.d.pattern;
 
                             if (
                                 patternNode.nodeType === ParseNodeType.PatternAs &&
-                                patternNode.orPatterns.length === 1 &&
-                                patternNode.orPatterns[0].nodeType === ParseNodeType.PatternClass
+                                patternNode.d.orPatterns.length === 1 &&
+                                patternNode.d.orPatterns[0].nodeType === ParseNodeType.PatternClass
                             ) {
-                                const classPatternNode = patternNode.orPatterns[0];
+                                const classPatternNode = patternNode.d.orPatterns[0];
 
-                                const classType = evaluator.getTypeOfExpression(
-                                    classPatternNode.className,
+                                const classType = evaluator.getTypeOfExpr(
+                                    classPatternNode.d.className,
                                     EvalFlags.CallBaseDefaults
                                 ).type;
 
@@ -1514,13 +1510,13 @@ export function getCodeFlowEngine(
 
                     if (
                         testExpression.nodeType === ParseNodeType.Call &&
-                        testExpression.leftExpression.nodeType === ParseNodeType.Name &&
-                        testExpression.leftExpression.value === 'isinstance' &&
-                        testExpression.arguments.length === 2
+                        testExpression.d.leftExpr.nodeType === ParseNodeType.Name &&
+                        testExpression.d.leftExpr.d.value === 'isinstance' &&
+                        testExpression.d.arguments.length === 2
                     ) {
-                        const arg0Expr = testExpression.arguments[0].valueExpression;
+                        const arg0Expr = testExpression.d.arguments[0].d.valueExpr;
 
-                        const arg0Type = evaluator.getTypeOfExpression(arg0Expr).type;
+                        const arg0Type = evaluator.getTypeOfExpr(arg0Expr).type;
 
                         if (isCompatibleWithConstrainedTypeVar(arg0Type, typeVar)) {
                             // Prevent infinite recursion by noting that we've been here before.
@@ -1531,8 +1527,8 @@ export function getCodeFlowEngine(
                             );
                             visitedFlowNodeMap.delete(curFlowNode.id);
 
-                            const arg1Expr = testExpression.arguments[1].valueExpression;
-                            const arg1Type = evaluator.getTypeOfExpression(
+                            const arg1Expr = testExpression.d.arguments[1].d.valueExpr;
+                            const arg1Type = evaluator.getTypeOfExpr(
                                 arg1Expr,
                                 EvalFlags.AllowMissingTypeArgs |
                                     EvalFlags.StrLiteralAsType |
@@ -1645,7 +1641,7 @@ export function getCodeFlowEngine(
 
         // Don't attempt to evaluate a lambda call. We need to evaluate these in the
         // context of its arguments.
-        if (node.leftExpression.nodeType === ParseNodeType.Lambda) {
+        if (node.d.leftExpr.nodeType === ParseNodeType.Lambda) {
             return false;
         }
 
@@ -1659,7 +1655,7 @@ export function getCodeFlowEngine(
             let subtypeCount = 0;
 
             // Evaluate the call base type.
-            const callTypeResult = evaluator.getTypeOfExpression(node.leftExpression, EvalFlags.CallBaseDefaults);
+            const callTypeResult = evaluator.getTypeOfExpr(node.d.leftExpr, EvalFlags.CallBaseDefaults);
             const callType = callTypeResult.type;
 
             doForEachSubtype(callType, (callSubtype) => {
@@ -1712,11 +1708,19 @@ export function getCodeFlowEngine(
                         if (noReturnOverloadCount === overloadCount) {
                             noReturnTypeCount++;
                         } else {
+                            const args: FunctionArgument[] = node.d.arguments.map((arg) => {
+                                return {
+                                    argumentCategory: arg.d.argumentCategory,
+                                    name: arg.d.name,
+                                    valueExpr: arg.d.valueExpr,
+                                };
+                            });
+
                             // Perform a more complete evaluation to determine whether
                             // the applicable overload returns a NoReturn.
                             const callResult = evaluator.validateOverloadedFunctionArguments(
                                 node,
-                                node.arguments,
+                                args,
                                 { type: callSubtype, isIncomplete: callTypeResult.isIncomplete },
                                 /* typeVarContext */ undefined,
                                 /* skipUnknownArgCheck */ false,
@@ -1777,22 +1781,22 @@ export function getCodeFlowEngine(
             ) {
                 // Check specifically for a common idiom where the only statement
                 // (other than a possible docstring) is a "raise NotImplementedError".
-                const functionStatements = functionType.details.declaration.node.suite.statements;
+                const functionStatements = functionType.details.declaration.node.d.suite.d.statements;
 
                 let foundRaiseNotImplemented = false;
                 for (const statement of functionStatements) {
-                    if (statement.nodeType !== ParseNodeType.StatementList || statement.statements.length !== 1) {
+                    if (statement.nodeType !== ParseNodeType.StatementList || statement.d.statements.length !== 1) {
                         break;
                     }
 
-                    const simpleStatement = statement.statements[0];
+                    const simpleStatement = statement.d.statements[0];
                     if (simpleStatement.nodeType === ParseNodeType.StringList) {
                         continue;
                     }
 
-                    if (simpleStatement.nodeType === ParseNodeType.Raise && simpleStatement.typeExpression) {
+                    if (simpleStatement.nodeType === ParseNodeType.Raise && simpleStatement.d.typeExpr) {
                         // Check for a raising about 'NotImplementedError' or a subtype thereof.
-                        const exceptionType = evaluator.getType(simpleStatement.typeExpression);
+                        const exceptionType = evaluator.getType(simpleStatement.d.typeExpr);
 
                         if (
                             exceptionType &&
@@ -1829,7 +1833,7 @@ export function getCodeFlowEngine(
     // that returns a bool response (as opposed to a None). This function is
     // called during code flow, so it can't rely on full type evaluation. It
     // makes some simplifying assumptions that work in most cases.
-    function isExceptionContextManager(evaluator: TypeEvaluator, node: ExpressionNode, isAsync: boolean) {
+    function isExceptionContextManager(evaluator: TypeEvaluator, node: ExprNode, isAsync: boolean) {
         // See if this information is cached already.
         if (isExceptionContextManagerCache.has(node.id)) {
             return isExceptionContextManagerCache.get(node.id);
@@ -1847,7 +1851,7 @@ export function getCodeFlowEngine(
         let cmSwallowsExceptions = false;
 
         try {
-            const cmType = evaluator.getTypeOfExpression(node).type;
+            const cmType = evaluator.getTypeOfExpr(node).type;
 
             if (cmType && isClassInstance(cmType)) {
                 const exitMethodName = isAsync ? '__aexit__' : '__exit__';
@@ -1889,9 +1893,9 @@ export function getCodeFlowEngine(
     }
 
     function getTypeFromWildcardImport(flowNode: FlowWildcardImport, name: string): Type {
-        const importInfo = getImportInfo(flowNode.node.module);
+        const importInfo = getImportInfo(flowNode.node.d.module);
         assert(importInfo !== undefined && importInfo.isImportFound);
-        assert(flowNode.node.isWildcardImport);
+        assert(flowNode.node.d.isWildcardImport);
 
         const symbolWithScope = evaluator.lookUpSymbolRecursive(flowNode.node, name, /* honorCodeFlow */ false);
         assert(symbolWithScope !== undefined);
@@ -1907,7 +1911,7 @@ export function getCodeFlowEngine(
 
     function printControlFlowGraph(
         flowNode: FlowNode,
-        reference: CodeFlowReferenceExpressionNode | undefined,
+        reference: CodeFlowReferenceExprNode | undefined,
         callName: string,
         logger: ConsoleInterface = console
     ) {
@@ -1915,7 +1919,7 @@ export function getCodeFlowEngine(
         if (reference) {
             const fileInfo = getFileInfo(reference);
             const pos = convertOffsetToPosition(reference.start, fileInfo.lines);
-            referenceText = `${printExpression(reference)}[${pos.line + 1}:${pos.character + 1}]`;
+            referenceText = `${printExpr(reference)}[${pos.line + 1}:${pos.character + 1}]`;
         }
 
         logger.log(`${callName}@${flowNode.id}: ${referenceText || '(none)'}`);

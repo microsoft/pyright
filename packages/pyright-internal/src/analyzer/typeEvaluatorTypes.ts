@@ -20,7 +20,7 @@ import {
     CaseNode,
     ClassNode,
     DecoratorNode,
-    ExpressionNode,
+    ExprNode,
     FunctionNode,
     MatchNode,
     NameNode,
@@ -31,7 +31,7 @@ import {
     StringNode,
 } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
-import { CodeFlowReferenceExpressionNode, FlowNode } from './codeFlowTypes';
+import { CodeFlowReferenceExprNode, FlowNode } from './codeFlowTypes';
 import { Declaration } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { SymbolWithScope } from './scope';
@@ -89,7 +89,7 @@ export const enum EvalFlags {
     // A type expression imposes grammatical and semantic limits on an
     // expression. If this flag is set, illegal type expressions are
     // flagged as errors.
-    TypeExpression = 1 << 8,
+    TypeExpr = 1 << 8,
 
     // Suppress the reportMissingTypeArgument diagnostic in this context.
     AllowMissingTypeArgs = 1 << 9,
@@ -255,7 +255,7 @@ export interface EvaluatorUsage {
 
     // Used only for set methods
     setType?: TypeResult | undefined;
-    setErrorNode?: ExpressionNode | undefined;
+    setErrorNode?: ExprNode | undefined;
     setExpectedTypeDiag?: DiagnosticAddendum | undefined;
 }
 
@@ -293,7 +293,7 @@ export interface FunctionArgumentBase {
     node?: ArgumentNode | undefined;
     name?: NameNode | undefined;
     typeResult?: TypeResult | undefined;
-    valueExpression?: ExpressionNode | undefined;
+    valueExpr?: ExprNode | undefined;
     active?: boolean | undefined;
 }
 
@@ -301,11 +301,11 @@ export interface FunctionArgumentWithType extends FunctionArgumentBase {
     typeResult: TypeResult;
 }
 
-export interface FunctionArgumentWithExpression extends FunctionArgumentBase {
-    valueExpression: ExpressionNode;
+export interface FunctionArgumentWithExpr extends FunctionArgumentBase {
+    valueExpr: ExprNode;
 }
 
-export type FunctionArgument = FunctionArgumentWithType | FunctionArgumentWithExpression;
+export type FunctionArgument = FunctionArgumentWithType | FunctionArgumentWithExpr;
 
 export interface EffectiveTypeResult {
     type: Type;
@@ -324,7 +324,7 @@ export interface ValidateArgTypeParams {
     argument: FunctionArgument;
     isDefaultArg?: boolean;
     argType?: Type | undefined;
-    errorNode: ExpressionNode;
+    errorNode: ExprNode;
     paramName?: string | undefined;
     isParamNameSynthesized?: boolean;
     mapsToVarArgList?: boolean | undefined;
@@ -474,22 +474,22 @@ export interface MapSubtypesOptions {
 }
 
 export interface CallSiteEvaluationInfo {
-    errorNode: ExpressionNode;
+    errorNode: ExprNode;
     args: ValidateArgTypeParams[];
 }
 
 export interface TypeEvaluator {
     runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
 
-    getType: (node: ExpressionNode) => Type | undefined;
-    getTypeResult: (node: ExpressionNode) => TypeResult | undefined;
+    getType: (node: ExprNode) => Type | undefined;
+    getTypeResult: (node: ExprNode) => TypeResult | undefined;
     getTypeResultForDecorator: (node: DecoratorNode) => TypeResult | undefined;
-    getCachedType: (node: ExpressionNode) => Type | undefined;
-    getTypeOfExpression: (node: ExpressionNode, flags?: EvalFlags, context?: InferenceContext) => TypeResult;
-    getTypeOfAnnotation: (node: ExpressionNode, options?: AnnotationTypeOptions) => Type;
+    getCachedType: (node: ExprNode) => Type | undefined;
+    getTypeOfExpr: (node: ExprNode, flags?: EvalFlags, context?: InferenceContext) => TypeResult;
+    getTypeOfAnnotation: (node: ExprNode, options?: AnnotationTypeOptions) => Type;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
-    getTypeOfExpressionExpectingType: (node: ExpressionNode, options?: ExpectedTypeOptions) => TypeResult;
+    getTypeOfExprExpectingType: (node: ExprNode, options?: ExpectedTypeOptions) => TypeResult;
     evaluateTypeForSubnode: (subnode: ParseNode, callback: () => void) => TypeResult | undefined;
     evaluateTypesForStatement: (node: ParseNode) => void;
     evaluateTypesForMatchStatement: (node: MatchNode) => void;
@@ -502,11 +502,11 @@ export interface TypeEvaluator {
     removeTruthinessFromType: (type: Type) => Type;
     removeFalsinessFromType: (type: Type) => Type;
 
-    getExpectedType: (node: ExpressionNode) => ExpectedTypeResult | undefined;
+    getExpectedType: (node: ExprNode) => ExpectedTypeResult | undefined;
     verifyRaiseExceptionType: (node: RaiseNode) => void;
-    verifyDeleteExpression: (node: ExpressionNode) => void;
+    verifyDeleteExpr: (node: ExprNode) => void;
     validateOverloadedFunctionArguments: (
-        errorNode: ExpressionNode,
+        errorNode: ExprNode,
         argList: FunctionArgument[],
         typeResult: TypeResult<OverloadedFunctionType>,
         typeVarContext: TypeVarContext | undefined,
@@ -538,13 +538,13 @@ export interface TypeEvaluator {
     getTypeOfIterable: (
         typeResult: TypeResult,
         isAsync: boolean,
-        errorNode: ExpressionNode,
+        errorNode: ExprNode,
         emitNotIterableError?: boolean
     ) => TypeResult | undefined;
     getTypeOfIterator: (
         typeResult: TypeResult,
         isAsync: boolean,
-        errorNode: ExpressionNode,
+        errorNode: ExprNode,
         emitNotIterableError?: boolean
     ) => TypeResult | undefined;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
@@ -571,18 +571,18 @@ export interface TypeEvaluator {
         useLastDecl?: boolean
     ) => EffectiveTypeResult;
     getInferredTypeOfDeclaration: (symbol: Symbol, decl: Declaration) => Type | undefined;
-    getDeclaredTypeForExpression: (expression: ExpressionNode, usage?: EvaluatorUsage) => Type | undefined;
+    getDeclaredTypeForExpr: (expression: ExprNode, usage?: EvaluatorUsage) => Type | undefined;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
     getFunctionInferredReturnType: (type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) => Type;
     getBestOverloadForArguments: (
-        errorNode: ExpressionNode,
+        errorNode: ExprNode,
         typeResult: TypeResult<OverloadedFunctionType>,
         argList: FunctionArgument[]
     ) => FunctionType | undefined;
     getBuiltInType: (node: ParseNode, name: string) => Type;
     getTypeOfMember: (member: ClassMember) => Type;
     getTypeOfBoundMember(
-        errorNode: ExpressionNode,
+        errorNode: ExprNode,
         objectType: ClassType,
         memberName: string,
         usage?: EvaluatorUsage,
@@ -601,7 +601,7 @@ export interface TypeEvaluator {
         objType: Type,
         methodName: string,
         argList: TypeResult[],
-        errorNode: ExpressionNode,
+        errorNode: ExprNode,
         inferenceContext: InferenceContext | undefined
     ) => Type | undefined;
     bindFunctionToClassOrObject: (
@@ -634,7 +634,7 @@ export interface TypeEvaluator {
         enforceParamNames?: boolean
     ) => boolean;
     validateCallArguments: (
-        errorNode: ExpressionNode,
+        errorNode: ExprNode,
         argList: FunctionArgument[],
         callTypeResult: TypeResult,
         typeVarContext: TypeVarContext | undefined,
@@ -643,7 +643,7 @@ export interface TypeEvaluator {
         signatureTracker: UniqueSignatureTracker | undefined
     ) => CallResult;
     validateTypeArg: (argResult: TypeResultWithNode, options?: ValidateTypeArgsOptions) => boolean;
-    assignTypeToExpression: (target: ExpressionNode, typeResult: TypeResult, srcExpr: ExpressionNode) => void;
+    assignTypeToExpr: (target: ExprNode, typeResult: TypeResult, srcExpr: ExprNode) => void;
     assignClassToSelf: (destType: ClassType, srcType: ClassType, assumedVariance: Variance) => boolean;
     getBuiltInObject: (node: ParseNode, name: string, typeArguments?: Type[]) => Type;
     getTypedDictClassType: () => ClassType | undefined;
@@ -663,7 +663,7 @@ export interface TypeEvaluator {
         flags: AssignTypeFlags,
         recursionCount: number
     ) => boolean;
-    reportMissingTypeArguments: (node: ExpressionNode, type: Type, flags: EvalFlags) => Type;
+    reportMissingTypeArguments: (node: ExprNode, type: Type, flags: EvalFlags) => Type;
 
     isFinalVariable: (symbol: Symbol) => boolean;
     isFinalVariableDeclaration: (decl: Declaration) => boolean;
@@ -700,7 +700,7 @@ export interface TypeEvaluator {
     checkForCancellation: () => void;
     printControlFlowGraph: (
         flowNode: FlowNode,
-        reference: CodeFlowReferenceExpressionNode | undefined,
+        reference: CodeFlowReferenceExprNode | undefined,
         callName: string,
         logger: ConsoleInterface
     ) => void;

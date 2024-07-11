@@ -11,7 +11,7 @@ import { assertNever } from '../common/debug';
 import { stripFileExtension } from '../common/pathUtils';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { Uri } from '../common/uri/uri';
-import { ParseNode, ParseNodeType, isExpressionNode } from '../parser/parseNodes';
+import { ParseNode, ParseNodeType, isExprNode } from '../parser/parseNodes';
 import { AbsoluteModuleDescriptor } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType } from './declaration';
@@ -180,39 +180,41 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
             path += ` [${position.line + 1}:${position.character + 1}]`;
         }
 
-        if (isExpressionNode(node)) {
-            return wrap(getText(ParseTreeUtils.printExpression(node)), '"') + ` ${path}`;
+        if (isExprNode(node)) {
+            return wrap(getText(ParseTreeUtils.printExpr(node)), '"') + ` ${path}`;
         }
 
         switch (node.nodeType) {
             case ParseNodeType.ImportAs:
-                return `importAs '${printNode(node.module)}' ${wrap(node.alias ? printNode(node.alias) : '')} ${path}`;
+                return `importAs '${printNode(node.d.module)}' ${wrap(
+                    node.d.alias ? printNode(node.d.alias) : ''
+                )} ${path}`;
 
             case ParseNodeType.ImportFrom:
-                return `importFrom [${node.imports.map((i) => wrap(printNode(i), '"')).join(',')}]`;
+                return `importFrom [${node.d.imports.map((i) => wrap(printNode(i), '"')).join(',')}]`;
 
             case ParseNodeType.ImportFromAs:
-                return `ImportFromAs '${printNode(node.name)}' ${wrap(
-                    node.alias ? printNode(node.alias) : ''
+                return `ImportFromAs '${printNode(node.d.name)}' ${wrap(
+                    node.d.alias ? printNode(node.d.alias) : ''
                 )} ${path}`;
 
             case ParseNodeType.Module:
                 return `module ${path}`;
 
             case ParseNodeType.Class:
-                return `class '${printNode(node.name)}' ${path}`;
+                return `class '${printNode(node.d.name)}' ${path}`;
 
             case ParseNodeType.Function:
-                return `function '${printNode(node.name)}' ${path}`;
+                return `function '${printNode(node.d.name)}' ${path}`;
 
             case ParseNodeType.ModuleName:
-                return `moduleName '${node.nameParts.map((n) => printNode(n)).join('.')}' ${path}`;
+                return `moduleName '${node.d.nameParts.map((n) => printNode(n)).join('.')}' ${path}`;
 
             case ParseNodeType.Argument:
-                return `argument '${node.name ? printNode(node.name) : 'N/A'}' ${path}`;
+                return `argument '${node.d.name ? printNode(node.d.name) : 'N/A'}' ${path}`;
 
             case ParseNodeType.Parameter:
-                return `parameter '${node.name ? printNode(node.name) : 'N/A'}' ${path}`;
+                return `parameter '${node.d.name ? printNode(node.d.name) : 'N/A'}' ${path}`;
 
             default:
                 return `${ParseTreeUtils.printParseNodeType(node.nodeType)} ${path}`;

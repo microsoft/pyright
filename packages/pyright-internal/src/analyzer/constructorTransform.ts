@@ -14,7 +14,7 @@ import { appendArray } from '../common/collectionUtils';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
-import { ArgumentCategory, ExpressionNode, ParameterCategory } from '../parser/parseNodes';
+import { ArgumentCategory, ExprNode, ParameterCategory } from '../parser/parseNodes';
 import { createFunctionFromConstructor } from './constructors';
 import { getParameterListDetails, ParameterKind } from './parameterUtils';
 import { Symbol, SymbolFlags } from './symbol';
@@ -54,7 +54,7 @@ export function hasConstructorTransform(classType: ClassType): boolean {
 
 export function applyConstructorTransform(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     argList: FunctionArgument[],
     classType: ClassType,
     result: FunctionResult,
@@ -71,7 +71,7 @@ export function applyConstructorTransform(
 // Applies a transform for the functools.partial class constructor.
 function applyPartialTransform(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     argList: FunctionArgument[],
     result: FunctionResult,
     signatureTracker: UniqueSignatureTracker | undefined
@@ -220,7 +220,7 @@ function applyPartialTransform(
 
 function applyPartialTransformToFunction(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode | undefined,
+    errorNode: ExprNode | undefined,
     argList: FunctionArgument[],
     partialCallMemberType: FunctionType,
     origFunctionType: FunctionType
@@ -237,7 +237,7 @@ function applyPartialTransformToFunction(
 
     const remainingArgsList = argList.slice(1);
     remainingArgsList.forEach((arg, argIndex) => {
-        if (!arg.valueExpression) {
+        if (!arg.valueExpr) {
             return;
         }
 
@@ -255,8 +255,8 @@ function applyPartialTransformToFunction(
                     );
                     const diag = new DiagnosticAddendum();
 
-                    const argTypeResult = evaluator.getTypeOfExpression(
-                        arg.valueExpression,
+                    const argTypeResult = evaluator.getTypeOfExpr(
+                        arg.valueExpr,
                         /* flags */ undefined,
                         makeInferenceContext(paramType)
                     );
@@ -271,7 +271,7 @@ function applyPartialTransformToFunction(
                                     functionName: origFunctionType.details.name,
                                     paramName: paramListDetails.params[paramListDetails.argsIndex].param.name ?? '',
                                 }),
-                                arg.valueExpression ?? errorNode
+                                arg.valueExpr ?? errorNode
                             );
                         }
 
@@ -288,7 +288,7 @@ function applyPartialTransformToFunction(
                                     : LocMessage.argPositionalExpectedCount().format({
                                           expected: paramListDetails.positionParamCount,
                                       }),
-                                arg.valueExpression ?? errorNode
+                                arg.valueExpr ?? errorNode
                             );
                         }
                     }
@@ -301,8 +301,8 @@ function applyPartialTransformToFunction(
                 const diag = new DiagnosticAddendum();
                 const paramName = paramListDetails.params[argIndex].param.name ?? '';
 
-                const argTypeResult = evaluator.getTypeOfExpression(
-                    arg.valueExpression,
+                const argTypeResult = evaluator.getTypeOfExpr(
+                    arg.valueExpr,
                     /* flags */ undefined,
                     makeInferenceContext(paramType)
                 );
@@ -317,7 +317,7 @@ function applyPartialTransformToFunction(
                                 functionName: origFunctionType.details.name,
                                 paramName,
                             }),
-                            arg.valueExpression ?? errorNode
+                            arg.valueExpr ?? errorNode
                         );
                     }
 
@@ -329,7 +329,7 @@ function applyPartialTransformToFunction(
             }
         } else {
             const matchingParam = paramListDetails.params.find(
-                (paramInfo) => paramInfo.param.name === arg.name?.value && paramInfo.kind !== ParameterKind.Positional
+                (paramInfo) => paramInfo.param.name === arg.name?.d.value && paramInfo.kind !== ParameterKind.Positional
             );
 
             if (!matchingParam) {
@@ -338,7 +338,7 @@ function applyPartialTransformToFunction(
                     if (errorNode) {
                         evaluator.addDiagnostic(
                             DiagnosticRule.reportCallIssue,
-                            LocMessage.paramNameMissing().format({ name: arg.name.value }),
+                            LocMessage.paramNameMissing().format({ name: arg.name.d.value }),
                             arg.name
                         );
                     }
@@ -350,8 +350,8 @@ function applyPartialTransformToFunction(
                     );
                     const diag = new DiagnosticAddendum();
 
-                    const argTypeResult = evaluator.getTypeOfExpression(
-                        arg.valueExpression,
+                    const argTypeResult = evaluator.getTypeOfExpr(
+                        arg.valueExpr,
                         /* flags */ undefined,
                         makeInferenceContext(paramType)
                     );
@@ -366,7 +366,7 @@ function applyPartialTransformToFunction(
                                     functionName: origFunctionType.details.name,
                                     paramName: paramListDetails.params[paramListDetails.kwargsIndex].param.name ?? '',
                                 }),
-                                arg.valueExpression ?? errorNode
+                                arg.valueExpr ?? errorNode
                             );
                         }
 
@@ -381,7 +381,7 @@ function applyPartialTransformToFunction(
                     if (errorNode) {
                         evaluator.addDiagnostic(
                             DiagnosticRule.reportCallIssue,
-                            LocMessage.paramAlreadyAssigned().format({ name: arg.name.value }),
+                            LocMessage.paramAlreadyAssigned().format({ name: arg.name.d.value }),
                             arg.name
                         );
                     }
@@ -390,8 +390,8 @@ function applyPartialTransformToFunction(
                 } else {
                     const diag = new DiagnosticAddendum();
 
-                    const argTypeResult = evaluator.getTypeOfExpression(
-                        arg.valueExpression,
+                    const argTypeResult = evaluator.getTypeOfExpr(
+                        arg.valueExpr,
                         /* flags */ undefined,
                         makeInferenceContext(paramType)
                     );
@@ -406,7 +406,7 @@ function applyPartialTransformToFunction(
                                     functionName: origFunctionType.details.name,
                                     paramName,
                                 }),
-                                arg.valueExpression ?? errorNode
+                                arg.valueExpr ?? errorNode
                             );
                         }
 

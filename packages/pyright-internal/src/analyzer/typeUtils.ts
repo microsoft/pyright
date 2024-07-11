@@ -147,7 +147,7 @@ export const enum MemberAccessFlags {
     // The member access should be treated as if it's within a type
     // expression, and errors should be reported if it doesn't conform
     // with type expression rules.
-    TypeExpression = 1 << 11,
+    TypeExpr = 1 << 11,
 }
 
 export const enum ClassIteratorFlags {
@@ -306,7 +306,7 @@ export class UniqueSignatureTracker {
 
     addTrackedSignatures(signatures: SignatureWithOffsets[]) {
         signatures.forEach((s) => {
-            s.expressionOffsets.forEach((offset) => {
+            s.exprOffsets.forEach((offset) => {
                 this.addSignature(s.type, offset);
             });
         });
@@ -330,11 +330,11 @@ export class UniqueSignatureTracker {
 
         const existingSignature = this.findSignature(effectiveSignature);
         if (existingSignature) {
-            if (!existingSignature.expressionOffsets.some((o) => o === offset)) {
-                existingSignature.expressionOffsets.push(offset);
+            if (!existingSignature.exprOffsets.some((o) => o === offset)) {
+                existingSignature.exprOffsets.push(offset);
             }
         } else {
-            this._trackedSignatures.push({ type: effectiveSignature, expressionOffsets: [offset] });
+            this._trackedSignatures.push({ type: effectiveSignature, exprOffsets: [offset] });
         }
     }
 }
@@ -1496,9 +1496,9 @@ export function populateTypeVarContextForSelfType(
 export function ensureFunctionSignaturesAreUnique(
     type: Type,
     signatureTracker: UniqueSignatureTracker,
-    expressionOffset: number
+    exprOffset: number
 ): Type {
-    const transformer = new UniqueFunctionSignatureTransformer(signatureTracker, expressionOffset);
+    const transformer = new UniqueFunctionSignatureTransformer(signatureTracker, exprOffset);
     return transformer.apply(type, 0);
 }
 
@@ -2219,7 +2219,7 @@ export function buildTypeVarContext(
                                 category: param.category,
                                 name: param.name,
                                 hasDefault: !!param.hasDefault,
-                                defaultValueExpression: param.defaultValueExpression,
+                                defaultValueExpr: param.defaultValueExpr,
                                 isNameSynthesized: param.isNameSynthesized,
                                 type: FunctionType.getEffectiveParameterType(typeArgFunctionType, paramIndex),
                             });
@@ -3348,7 +3348,7 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
                 category: param.category,
                 name: param.name,
                 hasDefault: param.hasDefault,
-                defaultValueExpression: param.defaultValueExpression,
+                defaultValueExpr: param.defaultValueExpr,
                 isNameSynthesized: param.isNameSynthesized,
                 type: FunctionType.getEffectiveParameterType(type, index),
             });
@@ -3406,7 +3406,7 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
             category: entry.category,
             name: entry.name,
             hasDefault: entry.hasDefault,
-            defaultValueExpression: entry.defaultValueExpression,
+            defaultValueExpr: entry.defaultValueExpr,
             isNameSynthesized: entry.isNameSynthesized,
             hasDeclaredType: true,
             type: FunctionType.getEffectiveParameterType(withoutParamSpec, index),
@@ -4081,7 +4081,7 @@ class TypeVarDefaultValidator extends TypeVarTransformer {
 }
 
 class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
-    constructor(private _signatureTracker: UniqueSignatureTracker, private _expressionOffset: number) {
+    constructor(private _signatureTracker: UniqueSignatureTracker, private _exprOffset: number) {
         super();
     }
 
@@ -4111,11 +4111,9 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
         let updatedSourceType: Type = sourceType;
         const existingSignature = this._signatureTracker.findSignature(sourceType);
         if (existingSignature) {
-            let offsetIndex = existingSignature.expressionOffsets.findIndex(
-                (offset) => offset === this._expressionOffset
-            );
+            let offsetIndex = existingSignature.exprOffsets.findIndex((offset) => offset === this._exprOffset);
             if (offsetIndex < 0) {
-                offsetIndex = existingSignature.expressionOffsets.length;
+                offsetIndex = existingSignature.exprOffsets.length;
             }
 
             if (offsetIndex > 0) {
@@ -4143,7 +4141,7 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
             }
         }
 
-        this._signatureTracker.addSignature(sourceType, this._expressionOffset);
+        this._signatureTracker.addSignature(sourceType, this._exprOffset);
 
         return updatedSourceType;
     }

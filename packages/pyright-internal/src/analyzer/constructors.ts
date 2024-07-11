@@ -16,7 +16,7 @@ import { appendArray } from '../common/collectionUtils';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
-import { ArgumentCategory, ExpressionNode, ParameterCategory } from '../parser/parseNodes';
+import { ArgumentCategory, ExprNode, ParameterCategory } from '../parser/parseNodes';
 import { addConstraintsForExpectedType } from './constraintSolver';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
 import { getTypeVarScopesForNode } from './parseTreeUtils';
@@ -72,7 +72,7 @@ import {
 // Fetches and binds the __new__ method from a class.
 export function getBoundNewMethod(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     type: ClassType,
     diag: DiagnosticAddendum | undefined = undefined,
     additionalFlags = MemberAccessFlags.SkipObjectBaseClass
@@ -89,7 +89,7 @@ export function getBoundNewMethod(
 // Fetches and binds the __init__ method from a class instance.
 export function getBoundInitMethod(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     type: ClassType,
     diag: DiagnosticAddendum | undefined = undefined,
     additionalFlags = MemberAccessFlags.SkipObjectBaseClass
@@ -101,7 +101,7 @@ export function getBoundInitMethod(
 }
 
 // Fetches and binds the __call__ method from a class or its metaclass.
-export function getBoundCallMethod(evaluator: TypeEvaluator, errorNode: ExpressionNode, type: ClassType) {
+export function getBoundCallMethod(evaluator: TypeEvaluator, errorNode: ExprNode, type: ClassType) {
     return evaluator.getTypeOfBoundMember(
         errorNode,
         type,
@@ -119,7 +119,7 @@ export function getBoundCallMethod(evaluator: TypeEvaluator, errorNode: Expressi
 // is allocated by the constructor. If unsuccessful, it reports diagnostics.
 export function validateConstructorArguments(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     argList: FunctionArgument[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
@@ -231,8 +231,8 @@ export function validateConstructorArguments(
     // to mark symbols referenced and report expression evaluation errors.
     if (!validatedArgExpressions) {
         argList.forEach((arg) => {
-            if (arg.valueExpression && !evaluator.isSpeculativeModeInUse(arg.valueExpression)) {
-                evaluator.getTypeOfExpression(arg.valueExpression);
+            if (arg.valueExpr && !evaluator.isSpeculativeModeInUse(arg.valueExpr)) {
+                evaluator.getTypeOfExpr(arg.valueExpr);
             }
         });
     }
@@ -242,7 +242,7 @@ export function validateConstructorArguments(
 
 function validateNewAndInitMethods(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     argList: FunctionArgument[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
@@ -412,7 +412,7 @@ function validateNewAndInitMethods(
 // error is produced, in which case it's OK to use speculative mode).
 function validateNewMethod(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     argList: FunctionArgument[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
@@ -496,7 +496,7 @@ function validateNewMethod(
 
 function validateInitMethod(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     argList: FunctionArgument[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
@@ -663,7 +663,7 @@ function validateInitMethod(
 
 function validateFallbackConstructorCall(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     argList: FunctionArgument[],
     type: ClassType,
     inferenceContext: InferenceContext | undefined
@@ -734,7 +734,7 @@ function validateFallbackConstructorCall(
 
 function validateMetaclassCall(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     argList: FunctionArgument[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,

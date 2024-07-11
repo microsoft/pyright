@@ -93,13 +93,13 @@ import {
     DecoratorNode,
     DictionaryKeyEntryNode,
     DictionaryNode,
-    ErrorExpressionCategory,
+    ErrorExprCategory,
     ErrorNode,
-    ExpressionNode,
+    ExprNode,
     FormatStringNode,
     ImportFromNode,
     IndexNode,
-    isExpressionNode,
+    isExprNode,
     ModuleNameNode,
     NameNode,
     ParameterCategory,
@@ -440,7 +440,7 @@ export class CompletionProvider {
         symbolTable.forEach((symbol, name) => {
             let decl = getLastTypedDeclarationForSymbol(symbol);
             if (decl && decl.type === DeclarationType.Function) {
-                if (StringUtils.isPatternInSymbol(partialName.value, name)) {
+                if (StringUtils.isPatternInSymbol(partialName.d.value, name)) {
                     const declaredType = this.evaluator.getTypeForDeclaration(decl)?.type;
                     if (!declaredType) {
                         return;
@@ -491,14 +491,14 @@ export class CompletionProvider {
                             isDeclaredStaticMethod,
                             isProperty,
                             decl,
-                            decl.node.isAsync
+                            decl.node.d.isAsync
                         );
                         text = `${methodSignature}:\n${methodBody}`;
                     }
 
                     const textEdit = this.createReplaceEdits(priorWord, partialName, text);
 
-                    this.addSymbol(name, symbol, partialName.value, completionMap, {
+                    this.addSymbol(name, symbol, partialName.d.value, completionMap, {
                         // method signature already contains ()
                         funcParensDisabled: true,
                         edits: {
@@ -531,13 +531,13 @@ export class CompletionProvider {
             return sb;
         }
 
-        if (decl.node.parameters.length === 0) {
+        if (decl.node.d.parameters.length === 0) {
             sb += this.options.snippet ? '${0:pass}' : 'pass';
             return sb;
         }
 
-        const parameters = getParameters(isStaticMethod ? decl.node.parameters : decl.node.parameters.slice(1));
-        if (decl.node.name.value !== '__init__') {
+        const parameters = getParameters(isStaticMethod ? decl.node.d.parameters : decl.node.d.parameters.slice(1));
+        if (decl.node.d.name.d.value !== '__init__') {
             sb += 'return ';
         }
 
@@ -546,26 +546,28 @@ export class CompletionProvider {
         }
 
         if (isProperty) {
-            return sb + `super().${decl.node.name.value}`;
+            return sb + `super().${decl.node.d.name.d.value}`;
         }
 
-        return sb + `super().${decl.node.name.value}(${parameters.map(convertToString).join(', ')})`;
+        return sb + `super().${decl.node.d.name.d.value}(${parameters.map(convertToString).join(', ')})`;
 
         function getParameters(parameters: ParameterNode[]) {
             const results: [node: ParameterNode, keywordOnly: boolean][] = [];
 
             let sawKeywordOnlySeparator = false;
             for (const parameter of parameters) {
-                if (parameter.name) {
+                if (parameter.d.name) {
                     results.push([
                         parameter,
-                        parameter.category === ParameterCategory.Simple && !!parameter.name && sawKeywordOnlySeparator,
+                        parameter.d.category === ParameterCategory.Simple &&
+                            !!parameter.d.name &&
+                            sawKeywordOnlySeparator,
                     ]);
                 }
 
                 // All simple parameters after a `*` or `*args` parameter
                 // are considered keyword only.
-                if (parameter.category === ParameterCategory.ArgsList) {
+                if (parameter.d.category === ParameterCategory.ArgsList) {
                     sawKeywordOnlySeparator = true;
                 }
             }
@@ -574,12 +576,12 @@ export class CompletionProvider {
         }
 
         function convertToString(parameter: [node: ParameterNode, keywordOnly: boolean]) {
-            const name = parameter[0].name?.value;
-            if (parameter[0].category === ParameterCategory.ArgsList) {
+            const name = parameter[0].d.name?.d.value;
+            if (parameter[0].d.category === ParameterCategory.ArgsList) {
                 return `*${name}`;
             }
 
-            if (parameter[0].category === ParameterCategory.KwargsDict) {
+            if (parameter[0].d.category === ParameterCategory.KwargsDict) {
                 return `**${name}`;
             }
 
@@ -590,7 +592,7 @@ export class CompletionProvider {
     protected createReplaceEdits(priorWord: string, node: ParseNode | undefined, text: string) {
         const replaceOrInsertEndChar =
             node?.nodeType === ParseNodeType.Name
-                ? this.position.character - priorWord.length + node.value.length
+                ? this.position.character - priorWord.length + node.d.value.length
                 : this.position.character;
 
         const range: Range = {
@@ -731,7 +733,7 @@ export class CompletionProvider {
         }
     }
 
-    protected getMemberAccessCompletions(leftExprNode: ExpressionNode, priorWord: string): CompletionMap | undefined {
+    protected getMemberAccessCompletions(leftExprNode: ExprNode, priorWord: string): CompletionMap | undefined {
         const symbolTable = new Map<string, Symbol>();
         const completionMap = new CompletionMap();
 
@@ -1078,7 +1080,7 @@ export class CompletionProvider {
                 ParseNodeType.FormatString
             );
             if (fStringContainer) {
-                this._stringLiteralContainer = fStringContainer.token;
+                this._stringLiteralContainer = fStringContainer.d.token;
             }
         }
 
@@ -1171,7 +1173,7 @@ export class CompletionProvider {
             }
 
             if (curNode.nodeType === ParseNodeType.MemberAccess) {
-                return this.getMemberAccessCompletions(curNode.leftExpression, priorWord);
+                return this.getMemberAccessCompletions(curNode.d.leftExpr, priorWord);
             }
 
             if (curNode.nodeType === ParseNodeType.Dictionary) {
@@ -1197,7 +1199,7 @@ export class CompletionProvider {
             if (dictionaryEntry) {
                 if (dictionaryEntry.parent?.nodeType === ParseNodeType.Dictionary) {
                     const dictionaryNode = dictionaryEntry.parent;
-                    if (dictionaryNode.trailingCommaToken && dictionaryNode.trailingCommaToken.start < offset) {
+                    if (dictionaryNode.d.trailingCommaToken && dictionaryNode.d.trailingCommaToken.start < offset) {
                         const completionMap = new CompletionMap();
                         if (
                             this._tryAddTypedDictKeysFromDictionary(
@@ -1234,7 +1236,7 @@ export class CompletionProvider {
                 return this._getImportFromCompletions(curNode, offset, priorWord);
             }
 
-            if (isExpressionNode(curNode)) {
+            if (isExprNode(curNode)) {
                 return this._getExpressionCompletions(curNode, priorWord, priorText, postText);
             }
 
@@ -1242,10 +1244,10 @@ export class CompletionProvider {
                 if (
                     curNode.parent &&
                     curNode.parent.nodeType === ParseNodeType.Except &&
-                    !curNode.parent.name &&
-                    curNode.parent.typeExpression &&
-                    TextRange.getEnd(curNode.parent.typeExpression) < offset &&
-                    offset <= curNode.parent.exceptSuite.start
+                    !curNode.parent.d.name &&
+                    curNode.parent.d.typeExpr &&
+                    TextRange.getEnd(curNode.parent.d.typeExpr) < offset &&
+                    offset <= curNode.parent.d.exceptSuite.start
                 ) {
                     // except Exception as [<empty>]
                     return undefined;
@@ -1254,9 +1256,9 @@ export class CompletionProvider {
                 if (
                     curNode.parent &&
                     curNode.parent.nodeType === ParseNodeType.Class &&
-                    (!curNode.parent.name || !curNode.parent.name.value) &&
-                    curNode.parent.arguments.length === 0 &&
-                    offset <= curNode.parent.suite.start
+                    (!curNode.parent.d.name || !curNode.parent.d.name.d.value) &&
+                    curNode.parent.d.arguments.length === 0 &&
+                    offset <= curNode.parent.d.suite.start
                 ) {
                     // class [<empty>]
                     return undefined;
@@ -1303,7 +1305,7 @@ export class CompletionProvider {
             return false;
         }
 
-        if (curNode.parent.nodeType === ParseNodeType.ImportAs && curNode.parent.alias === curNode) {
+        if (curNode.parent.nodeType === ParseNodeType.ImportAs && curNode.parent.d.alias === curNode) {
             // Are we within a "import Y as [Z]"?
             return undefined;
         }
@@ -1313,7 +1315,7 @@ export class CompletionProvider {
             if (
                 curNode.parent.parent &&
                 curNode.parent.parent.nodeType === ParseNodeType.ImportAs &&
-                !curNode.parent.parent.alias &&
+                !curNode.parent.parent.d.alias &&
                 TextRange.getEnd(curNode.parent.parent) < offset
             ) {
                 return undefined;
@@ -1325,7 +1327,7 @@ export class CompletionProvider {
         }
 
         if (curNode.parent.nodeType === ParseNodeType.ImportFromAs) {
-            if (curNode.parent.alias === curNode) {
+            if (curNode.parent.d.alias === curNode) {
                 // Are we within a "from X import Y as [Z]"?
                 return undefined;
             }
@@ -1333,11 +1335,11 @@ export class CompletionProvider {
             const parentNode = curNode.parent.parent;
             if (parentNode && parentNode.nodeType === ParseNodeType.ImportFrom) {
                 // Are we within a "from X import Y as [<empty>]"?
-                if (!curNode.parent.alias && TextRange.getEnd(curNode.parent) < offset) {
+                if (!curNode.parent.d.alias && TextRange.getEnd(curNode.parent) < offset) {
                     return undefined;
                 }
 
-                if (curNode.parent.name === curNode) {
+                if (curNode.parent.d.name === curNode) {
                     return this._getImportFromCompletions(parentNode, offset, priorWord);
                 }
 
@@ -1347,40 +1349,40 @@ export class CompletionProvider {
             return false;
         }
 
-        if (curNode.parent.nodeType === ParseNodeType.MemberAccess && curNode === curNode.parent.memberName) {
-            return this.getMemberAccessCompletions(curNode.parent.leftExpression, priorWord);
+        if (curNode.parent.nodeType === ParseNodeType.MemberAccess && curNode === curNode.parent.d.memberName) {
+            return this.getMemberAccessCompletions(curNode.parent.d.leftExpr, priorWord);
         }
 
-        if (curNode.parent.nodeType === ParseNodeType.Except && curNode === curNode.parent.name) {
+        if (curNode.parent.nodeType === ParseNodeType.Except && curNode === curNode.parent.d.name) {
             return undefined;
         }
 
-        if (curNode.parent.nodeType === ParseNodeType.Function && curNode === curNode.parent.name) {
-            if (curNode.parent.decorators?.some((d) => this._isOverload(d))) {
+        if (curNode.parent.nodeType === ParseNodeType.Function && curNode === curNode.parent.d.name) {
+            if (curNode.parent.d.decorators?.some((d) => this._isOverload(d))) {
                 return this._getMethodOverloadsCompletions(priorWord, curNode);
             }
 
             return undefined;
         }
 
-        if (curNode.parent.nodeType === ParseNodeType.Parameter && curNode === curNode.parent.name) {
+        if (curNode.parent.nodeType === ParseNodeType.Parameter && curNode === curNode.parent.d.name) {
             return undefined;
         }
 
-        if (curNode.parent.nodeType === ParseNodeType.Class && curNode === curNode.parent.name) {
+        if (curNode.parent.nodeType === ParseNodeType.Class && curNode === curNode.parent.d.name) {
             return undefined;
         }
 
         if (
             curNode.parent.nodeType === ParseNodeType.For &&
-            TextRange.contains(curNode.parent.targetExpression, curNode.start)
+            TextRange.contains(curNode.parent.d.targetExpr, curNode.start)
         ) {
             return undefined;
         }
 
         if (
             curNode.parent.nodeType === ParseNodeType.ComprehensionFor &&
-            TextRange.contains(curNode.parent.targetExpression, curNode.start)
+            TextRange.contains(curNode.parent.d.targetExpr, curNode.start)
         ) {
             return undefined;
         }
@@ -1388,12 +1390,12 @@ export class CompletionProvider {
         // For assignments that implicitly declare variables, remove itself (var decl) from completion.
         if (
             curNode.parent.nodeType === ParseNodeType.Assignment ||
-            curNode.parent.nodeType === ParseNodeType.AssignmentExpression
+            curNode.parent.nodeType === ParseNodeType.AssignmentExpr
         ) {
             const leftNode =
-                curNode.parent.nodeType === ParseNodeType.AssignmentExpression
-                    ? curNode.parent.name
-                    : curNode.parent.leftExpression;
+                curNode.parent.nodeType === ParseNodeType.AssignmentExpr
+                    ? curNode.parent.d.name
+                    : curNode.parent.d.leftExpr;
 
             if (leftNode !== curNode || priorWord.length === 0) {
                 return false;
@@ -1406,7 +1408,7 @@ export class CompletionProvider {
 
             const completionMap = this._getExpressionCompletions(curNode, priorWord, priorText, postText);
             if (completionMap) {
-                completionMap.delete(curNode.value);
+                completionMap.delete(curNode.d.value);
             }
 
             return completionMap;
@@ -1483,17 +1485,17 @@ export class CompletionProvider {
         // Is the error due to a missing member access name? If so,
         // we can evaluate the left side of the member access expression
         // to determine its type and offer suggestions based on it.
-        switch (node.category) {
-            case ErrorExpressionCategory.MissingIn: {
+        switch (node.d.category) {
+            case ErrorExprCategory.MissingIn: {
                 return this._createSingleKeywordCompletion('in');
             }
 
-            case ErrorExpressionCategory.MissingElse: {
+            case ErrorExprCategory.MissingElse: {
                 return this._createSingleKeywordCompletion('else');
             }
 
-            case ErrorExpressionCategory.MissingMemberAccessName:
-            case ErrorExpressionCategory.MissingExpression: {
+            case ErrorExprCategory.MissingMemberAccessName:
+            case ErrorExprCategory.MissingExpression: {
                 // Don't show completion after random dots.
                 const tokenizerOutput = this.parseResults.tokenizerOutput;
                 const offset = convertPositionToOffset(this.position, tokenizerOutput.lines);
@@ -1501,7 +1503,7 @@ export class CompletionProvider {
                 const token = ParseTreeUtils.getTokenAtIndex(tokenizerOutput.tokens, index);
                 const prevToken = ParseTreeUtils.getTokenAtIndex(tokenizerOutput.tokens, index - 1);
 
-                if (node.category === ErrorExpressionCategory.MissingExpression) {
+                if (node.d.category === ErrorExprCategory.MissingExpression) {
                     // Skip dots on expressions.
                     if (token?.type === TokenType.Dot || token?.type === TokenType.Ellipsis) {
                         break;
@@ -1531,14 +1533,14 @@ export class CompletionProvider {
                     );
                     if (
                         previousNode?.nodeType !== ParseNodeType.Error ||
-                        previousNode.category !== ErrorExpressionCategory.MissingMemberAccessName
+                        previousNode.d.category !== ErrorExprCategory.MissingMemberAccessName
                     ) {
                         return this._getExpressionCompletions(node, priorWord, priorText, postText);
                     } else {
                         // Update node to previous node so we get the member access completions.
                         node = previousNode;
                     }
-                } else if (node.category === ErrorExpressionCategory.MissingMemberAccessName) {
+                } else if (node.d.category === ErrorExprCategory.MissingMemberAccessName) {
                     // Skip double dots on member access.
                     if (
                         (token?.type === TokenType.Dot || token?.type === TokenType.Ellipsis) &&
@@ -1551,12 +1553,12 @@ export class CompletionProvider {
                 return this._getMissingMemberAccessNameCompletions(node, priorWord);
             }
 
-            case ErrorExpressionCategory.MissingDecoratorCallName: {
+            case ErrorExprCategory.MissingDecoratorCallName: {
                 return this._getExpressionCompletions(node, priorWord, priorText, postText);
             }
 
-            case ErrorExpressionCategory.MissingPattern:
-            case ErrorExpressionCategory.MissingIndexOrSlice: {
+            case ErrorExprCategory.MissingPattern:
+            case ErrorExprCategory.MissingIndexOrSlice: {
                 let completionResults = this._getLiteralCompletions(node, offset, priorWord, priorText, postText);
 
                 if (!completionResults) {
@@ -1566,15 +1568,15 @@ export class CompletionProvider {
                 return completionResults;
             }
 
-            case ErrorExpressionCategory.MissingFunctionParameterList: {
-                if (node.child && node.child.nodeType === ParseNodeType.Name) {
-                    if (node.decorators?.some((d) => this._isOverload(d))) {
-                        return this._getMethodOverloadsCompletions(priorWord, node.child);
+            case ErrorExprCategory.MissingFunctionParameterList: {
+                if (node.d.child && node.d.child.nodeType === ParseNodeType.Name) {
+                    if (node.d.decorators?.some((d) => this._isOverload(d))) {
+                        return this._getMethodOverloadsCompletions(priorWord, node.d.child);
                     }
 
                     // Determine if the partial name is a method that's overriding
                     // a method in a base class.
-                    return this.getMethodOverrideCompletions(priorWord, node.child, node.decorators);
+                    return this.getMethodOverrideCompletions(priorWord, node.d.child, node.d.decorators);
                 }
                 break;
             }
@@ -1584,11 +1586,11 @@ export class CompletionProvider {
     }
 
     private _getMissingMemberAccessNameCompletions(node: ErrorNode, priorWord: string) {
-        if (!node.child || !isExpressionNode(node.child)) {
+        if (!node.d.child || !isExprNode(node.d.child)) {
             return undefined;
         }
 
-        return this.getMemberAccessCompletions(node.child, priorWord);
+        return this.getMemberAccessCompletions(node.d.child, priorWord);
     }
 
     private _isOverload(node: DecoratorNode): boolean {
@@ -1613,8 +1615,8 @@ export class CompletionProvider {
         //    f: |<= here
         const isTypeAnnotationOfClassVariable =
             parseNode.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-            parseNode.parent.valueExpression.nodeType === ParseNodeType.Name &&
-            parseNode.parent.typeAnnotation === parseNode &&
+            parseNode.parent.d.valueExpr.nodeType === ParseNodeType.Name &&
+            parseNode.parent.d.typeAnnotation === parseNode &&
             parseNode.parent.parent?.nodeType === ParseNodeType.StatementList &&
             parseNode.parent.parent.parent?.nodeType === ParseNodeType.Suite &&
             parseNode.parent.parent.parent.parent?.nodeType === ParseNodeType.Class;
@@ -1633,7 +1635,7 @@ export class CompletionProvider {
             return undefined;
         }
 
-        const classVariableName = ((parseNode.parent as TypeAnnotationNode).valueExpression as NameNode).value;
+        const classVariableName = ((parseNode.parent as TypeAnnotationNode).d.valueExpr as NameNode).d.value;
         const classMember = lookUpClassMember(
             classResults.classType,
             classVariableName,
@@ -1691,11 +1693,10 @@ export class CompletionProvider {
         }
 
         const printFlags = isStubFile(this.fileUri)
-            ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations |
-              ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength
-            : ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength;
+            ? ParseTreeUtils.PrintExprFlags.ForwardDeclarations | ParseTreeUtils.PrintExprFlags.DoNotLimitStringLength
+            : ParseTreeUtils.PrintExprFlags.DoNotLimitStringLength;
 
-        const text = `${ParseTreeUtils.printExpression(
+        const text = `${ParseTreeUtils.printExpr(
             declWithTypeAnnotations[declWithTypeAnnotations.length - 1].typeAnnotationNode!,
             printFlags
         )}`;
@@ -1729,7 +1730,7 @@ export class CompletionProvider {
                 SymbolNameUtils.isPrivateName(name) ||
                 symbol.isPrivateMember() ||
                 symbol.isExternallyHidden() ||
-                !StringUtils.isPatternInSymbol(partialName.value, name)
+                !StringUtils.isPatternInSymbol(partialName.d.value, name)
             ) {
                 return;
             }
@@ -1746,7 +1747,7 @@ export class CompletionProvider {
                 return;
             }
 
-            this.addSymbol(name, symbol, partialName.value, completionMap, {});
+            this.addSymbol(name, symbol, partialName.d.value, completionMap, {});
         });
 
         return completionMap.size > 0 ? completionMap : undefined;
@@ -1768,7 +1769,7 @@ export class CompletionProvider {
                 return;
             }
 
-            if (!decl.node.decorators.some((d) => this._isOverload(d))) {
+            if (!decl.node.d.decorators.some((d) => this._isOverload(d))) {
                 // Only consider ones that have overload decorator.
                 return;
             }
@@ -1779,9 +1780,9 @@ export class CompletionProvider {
                 return;
             }
 
-            if (StringUtils.isPatternInSymbol(partialName.value, name)) {
-                const textEdit = this.createReplaceEdits(priorWord, partialName, decl.node.name.value);
-                this.addSymbol(name, symbol, partialName.value, completionMap, {
+            if (StringUtils.isPatternInSymbol(partialName.d.value, name)) {
+                const textEdit = this.createReplaceEdits(priorWord, partialName, decl.node.d.name.d.value);
+                this.addSymbol(name, symbol, partialName.d.value, completionMap, {
                     funcParensDisabled,
                     edits: { textEdit },
                 });
@@ -1832,38 +1833,37 @@ export class CompletionProvider {
         }
 
         const printFlags = isStubFile(this.fileUri)
-            ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations |
-              ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength
-            : ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength;
+            ? ParseTreeUtils.PrintExprFlags.ForwardDeclarations | ParseTreeUtils.PrintExprFlags.DoNotLimitStringLength
+            : ParseTreeUtils.PrintExprFlags.DoNotLimitStringLength;
 
-        const paramList = node.parameters
+        const paramList = node.d.parameters
             .map((param, index) => {
                 let paramString = '';
-                if (param.category === ParameterCategory.ArgsList) {
+                if (param.d.category === ParameterCategory.ArgsList) {
                     paramString += '*';
-                } else if (param.category === ParameterCategory.KwargsDict) {
+                } else if (param.d.category === ParameterCategory.KwargsDict) {
                     paramString += '**';
                 }
 
-                if (param.name) {
-                    paramString += param.name.value;
+                if (param.d.name) {
+                    paramString += param.d.name.d.value;
                 }
 
                 // Currently, we don't automatically add import if the type used in the annotation is not imported
                 // in current file.
                 const paramTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParameter(node, index);
                 if (paramTypeAnnotation) {
-                    paramString += ': ' + ParseTreeUtils.printExpression(paramTypeAnnotation, printFlags);
+                    paramString += ': ' + ParseTreeUtils.printExpr(paramTypeAnnotation, printFlags);
                 }
 
-                if (param.defaultValue) {
+                if (param.d.defaultValue) {
                     paramString += paramTypeAnnotation ? ' = ' : '=';
 
-                    const useEllipsis = ellipsisForDefault ?? !ParseTreeUtils.isSimpleDefault(param.defaultValue);
-                    paramString += useEllipsis ? '...' : ParseTreeUtils.printExpression(param.defaultValue, printFlags);
+                    const useEllipsis = ellipsisForDefault ?? !ParseTreeUtils.isSimpleDefault(param.d.defaultValue);
+                    paramString += useEllipsis ? '...' : ParseTreeUtils.printExpr(param.d.defaultValue, printFlags);
                 }
 
-                if (!paramString && !param.name && param.category === ParameterCategory.Simple) {
+                if (!paramString && !param.d.name && param.d.category === ParameterCategory.Simple) {
                     return '/';
                 }
 
@@ -1871,14 +1871,13 @@ export class CompletionProvider {
             })
             .join(', ');
 
-        let methodSignature = node.name.value + '(' + paramList + ')';
+        let methodSignature = node.d.name.d.value + '(' + paramList + ')';
 
-        if (node.returnTypeAnnotation) {
-            methodSignature += ' -> ' + ParseTreeUtils.printExpression(node.returnTypeAnnotation, printFlags);
-        } else if (node.functionAnnotationComment) {
+        if (node.d.returnTypeAnnotation) {
+            methodSignature += ' -> ' + ParseTreeUtils.printExpr(node.d.returnTypeAnnotation, printFlags);
+        } else if (node.d.functionAnnotationComment) {
             methodSignature +=
-                ' -> ' +
-                ParseTreeUtils.printExpression(node.functionAnnotationComment.returnTypeAnnotation, printFlags);
+                ' -> ' + ParseTreeUtils.printExpr(node.d.functionAnnotationComment.d.returnTypeAnnotation, printFlags);
         }
 
         return methodSignature;
@@ -1912,7 +1911,7 @@ export class CompletionProvider {
         // Don't add any completion options.
         if (
             parseNode.parent?.nodeType === ParseNodeType.WithItem &&
-            parseNode.parent === parseNode.parent.target?.parent
+            parseNode.parent === parseNode.parent.d.target?.parent
         ) {
             return undefined;
         }
@@ -1970,11 +1969,11 @@ export class CompletionProvider {
         return (
             currentNode &&
             currentNode.nodeType === ParseNodeType.Argument &&
-            currentNode.argumentCategory === ArgumentCategory.Simple &&
+            currentNode.d.argumentCategory === ArgumentCategory.Simple &&
             currentNode.parent &&
             currentNode.parent.nodeType === ParseNodeType.Index &&
-            currentNode.parent.baseExpression &&
-            currentNode.parent.baseExpression.nodeType === ParseNodeType.Name
+            currentNode.parent.d.baseExpr &&
+            currentNode.parent.d.baseExpr.nodeType === ParseNodeType.Name
         );
     }
 
@@ -2007,7 +2006,7 @@ export class CompletionProvider {
         if (signatureInfo) {
             // Are we past the call expression and within the argument list?
             const callNameEnd = convertOffsetToPosition(
-                signatureInfo.callNode.leftExpression.start + signatureInfo.callNode.leftExpression.length,
+                signatureInfo.callNode.d.leftExpr.start + signatureInfo.callNode.d.leftExpr.length,
                 this.parseResults.tokenizerOutput.lines
             );
 
@@ -2080,13 +2079,13 @@ export class CompletionProvider {
             return [];
         }
 
-        return node.entries.flatMap((entry) => {
-            if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry || excludeIds?.has(entry.keyExpression.id)) {
+        return node.d.entries.flatMap((entry) => {
+            if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry || excludeIds?.has(entry.d.keyExpr.id)) {
                 return [];
             }
 
-            if (entry.keyExpression.nodeType === ParseNodeType.StringList) {
-                return [entry.keyExpression.strings.map((s) => s.value).join('')];
+            if (entry.d.keyExpr.nodeType === ParseNodeType.StringList) {
+                return [entry.d.keyExpr.d.strings.map((s) => s.d.value).join('')];
             }
 
             return [];
@@ -2147,7 +2146,7 @@ export class CompletionProvider {
     }
 
     private _getIndexKeys(indexNode: IndexNode, invocationNode: ParseNode) {
-        const baseType = this.evaluator.getType(indexNode.baseExpression);
+        const baseType = this.evaluator.getType(indexNode.d.baseExpr);
         if (!baseType || !isClassInstance(baseType)) {
             return [];
         }
@@ -2176,13 +2175,13 @@ export class CompletionProvider {
             }
         }
 
-        if (indexNode.baseExpression.nodeType !== ParseNodeType.Name) {
+        if (indexNode.d.baseExpr.nodeType !== ParseNodeType.Name) {
             // This completion only supports simple name case
             return [];
         }
 
         // Must be local variable/parameter
-        const declarations = this.evaluator.getDeclarationsForNameNode(indexNode.baseExpression) ?? [];
+        const declarations = this.evaluator.getDeclarationsForNameNode(indexNode.d.baseExpr) ?? [];
         const declaration = declarations.length > 0 ? declarations[0] : undefined;
         if (
             !declaration ||
@@ -2195,7 +2194,7 @@ export class CompletionProvider {
             return [];
         }
 
-        let startingNode: ParseNode = indexNode.baseExpression;
+        let startingNode: ParseNode = indexNode.d.baseExpr;
         if (declaration.node) {
             const scopeRoot = ParseTreeUtils.getEvaluationScopeNode(declaration.node).node;
 
@@ -2211,7 +2210,7 @@ export class CompletionProvider {
 
         const results = DocumentSymbolCollector.collectFromNode(
             this.program,
-            indexNode.baseExpression,
+            indexNode.d.baseExpr,
             this.cancellationToken,
             startingNode
         );
@@ -2223,29 +2222,27 @@ export class CompletionProvider {
 
             if (
                 node.parent?.nodeType === ParseNodeType.Assignment ||
-                node.parent?.nodeType === ParseNodeType.AssignmentExpression
+                node.parent?.nodeType === ParseNodeType.AssignmentExpr
             ) {
-                if (node.parent.rightExpression.nodeType === ParseNodeType.Dictionary) {
-                    const dictionary = node.parent.rightExpression;
-                    for (const entry of dictionary.entries.filter(
+                if (node.parent.d.rightExpr.nodeType === ParseNodeType.Dictionary) {
+                    const dictionary = node.parent.d.rightExpr;
+                    for (const entry of dictionary.d.entries.filter(
                         (e) => e.nodeType === ParseNodeType.DictionaryKeyEntry
                     ) as DictionaryKeyEntryNode[]) {
-                        const key = this.parseResults.text
-                            .substr(entry.keyExpression.start, entry.keyExpression.length)
-                            .trim();
+                        const key = this.parseResults.text.substr(entry.d.keyExpr.start, entry.d.keyExpr.length).trim();
                         if (key.length > 0) keys.add(key);
                     }
                 }
 
-                if (node.parent.rightExpression.nodeType === ParseNodeType.Call) {
-                    const call = node.parent.rightExpression;
-                    const type = this.evaluator.getType(call.leftExpression);
+                if (node.parent.d.rightExpr.nodeType === ParseNodeType.Call) {
+                    const call = node.parent.d.rightExpr;
+                    const type = this.evaluator.getType(call.d.leftExpr);
                     if (!type || !isInstantiableClass(type) || !ClassType.isBuiltIn(type, 'dict')) {
                         continue;
                     }
 
-                    for (const arg of call.arguments) {
-                        const key = arg.name?.value.trim() ?? '';
+                    for (const arg of call.d.arguments) {
+                        const key = arg.d.name?.d.value.trim() ?? '';
                         const quote = this.parseResults.tokenizerOutput.predominantSingleQuoteCharacter;
                         if (key.length > 0) {
                             keys.add(`${quote}${key}${quote}`);
@@ -2256,13 +2253,13 @@ export class CompletionProvider {
 
             if (
                 node.parent?.nodeType === ParseNodeType.Index &&
-                node.parent.items.length === 1 &&
-                node.parent.items[0].valueExpression.nodeType !== ParseNodeType.Error &&
+                node.parent.d.items.length === 1 &&
+                node.parent.d.items[0].d.valueExpr.nodeType !== ParseNodeType.Error &&
                 !TextRange.containsRange(node.parent, invocationNode)
             ) {
-                const indexArgument = node.parent.items[0];
+                const indexArgument = node.parent.d.items[0];
                 const key = this.parseResults.text
-                    .substr(indexArgument.valueExpression.start, indexArgument.valueExpression.length)
+                    .substr(indexArgument.d.valueExpr.start, indexArgument.d.valueExpr.length)
                     .trim();
                 if (key.length > 0) keys.add(key);
             }
@@ -2310,10 +2307,10 @@ export class CompletionProvider {
         // ex) a: Literal["str"] = /* here */
         const nodeForExpectedType =
             parentAndChild.parent.nodeType === ParseNodeType.Assignment
-                ? parentAndChild.parent.rightExpression === parentAndChild.child
+                ? parentAndChild.parent.d.rightExpr === parentAndChild.child
                     ? parentAndChild.child
                     : undefined
-                : isExpressionNode(parentAndChild.child)
+                : isExprNode(parentAndChild.child)
                 ? parentAndChild.child
                 : undefined;
 
@@ -2340,7 +2337,7 @@ export class CompletionProvider {
 
             if (
                 nodeForKey.nodeType === ParseNodeType.DictionaryKeyEntry &&
-                nodeForKey.keyExpression === parentAndChild.child &&
+                nodeForKey.d.keyExpr === parentAndChild.child &&
                 nodeForKey.parent?.nodeType === ParseNodeType.Dictionary
             ) {
                 dictOrSet = nodeForKey.parent;
@@ -2426,8 +2423,11 @@ export class CompletionProvider {
         // if c == "/* here */"
         const comparison = parentAndChild.parent;
         const supportedOperators = [OperatorType.Assign, OperatorType.Equals, OperatorType.NotEquals];
-        if (comparison.nodeType === ParseNodeType.BinaryOperation && supportedOperators.includes(comparison.operator)) {
-            const type = this.evaluator.getType(comparison.leftExpression);
+        if (
+            comparison.nodeType === ParseNodeType.BinaryOperation &&
+            supportedOperators.includes(comparison.d.operator)
+        ) {
+            const type = this.evaluator.getType(comparison.d.leftExpr);
             if (type && containsLiteralType(type)) {
                 this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
                 return true;
@@ -2437,10 +2437,10 @@ export class CompletionProvider {
         // if c := "/* here */"
         const assignmentExpression = parentAndChild.parent;
         if (
-            assignmentExpression.nodeType === ParseNodeType.AssignmentExpression &&
-            assignmentExpression.rightExpression === parentAndChild.child
+            assignmentExpression.nodeType === ParseNodeType.AssignmentExpr &&
+            assignmentExpression.d.rightExpr === parentAndChild.child
         ) {
-            const type = this.evaluator.getType(assignmentExpression.name);
+            const type = this.evaluator.getType(assignmentExpression.d.name);
             if (type && containsLiteralType(type)) {
                 this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
                 return true;
@@ -2453,12 +2453,12 @@ export class CompletionProvider {
         const caseNode = parentAndChild.parent;
         if (
             caseNode.nodeType === ParseNodeType.Case &&
-            caseNode.pattern.nodeType === ParseNodeType.Error &&
-            caseNode.pattern.category === ErrorExpressionCategory.MissingPattern &&
-            caseNode.suite === parentAndChild.child &&
+            caseNode.d.pattern.nodeType === ParseNodeType.Error &&
+            caseNode.d.pattern.d.category === ErrorExprCategory.MissingPattern &&
+            caseNode.d.suite === parentAndChild.child &&
             caseNode.parent?.nodeType === ParseNodeType.Match
         ) {
-            const type = this.evaluator.getType(caseNode.parent.subjectExpression);
+            const type = this.evaluator.getType(caseNode.parent.d.subjectExpr);
             if (type && containsLiteralType(type)) {
                 this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
                 return true;
@@ -2476,7 +2476,7 @@ export class CompletionProvider {
             patternLiteral.parent.parent?.nodeType === ParseNodeType.Case &&
             patternLiteral.parent.parent.parent?.nodeType === ParseNodeType.Match
         ) {
-            const type = this.evaluator.getType(patternLiteral.parent.parent.parent.subjectExpression);
+            const type = this.evaluator.getType(patternLiteral.parent.parent.parent.d.subjectExpr);
             if (type && containsLiteralType(type)) {
                 this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
                 return true;
@@ -2505,7 +2505,7 @@ export class CompletionProvider {
                 return undefined;
             }
 
-            if (node.parent?.nodeType !== ParseNodeType.StringList || node.parent.strings.length > 1) {
+            if (node.parent?.nodeType !== ParseNodeType.StringList || node.parent.d.strings.length > 1) {
                 return undefined;
             }
 
@@ -2666,7 +2666,7 @@ export class CompletionProvider {
             return false;
         }
 
-        const baseType = this.evaluator.getType(indexNode.baseExpression);
+        const baseType = this.evaluator.getType(indexNode.d.baseExpr);
         if (!baseType) {
             return false;
         }
@@ -2726,13 +2726,13 @@ export class CompletionProvider {
         priorWord: string
     ): CompletionMap | undefined {
         // Don't attempt to provide completions for "from X import *".
-        if (importFromNode.isWildcardImport) {
+        if (importFromNode.d.isWildcardImport) {
             return undefined;
         }
 
         // Access the imported module information, which is hanging
         // off the ImportFromNode.
-        const importInfo = AnalyzerNodeInfo.getImportInfo(importFromNode.module);
+        const importInfo = AnalyzerNodeInfo.getImportInfo(importFromNode.d.module);
         if (!importInfo) {
             return undefined;
         }
@@ -2763,9 +2763,9 @@ export class CompletionProvider {
                     symbol.getDeclarations().some((d) => !isIntrinsicDeclaration(d)) &&
                     // Don't suggest symbols that have already been imported elsewhere
                     // in this import statement.
-                    !importFromNode.imports.find(
+                    !importFromNode.d.imports.find(
                         (imp) =>
-                            imp.name.value === name &&
+                            imp.d.name.d.value === name &&
                             !(TextRange.contains(imp, offset) || TextRange.getEnd(imp) === offset)
                     )
                 );
@@ -2789,7 +2789,7 @@ export class CompletionProvider {
         completionMap: CompletionMap
     ) {
         importInfo.implicitImports.forEach((implImport) => {
-            if (!importFromNode.imports.find((imp) => imp.name.value === implImport.name)) {
+            if (!importFromNode.d.imports.find((imp) => imp.d.name.d.value === implImport.name)) {
                 this.addNameToCompletions(implImport.name, CompletionItemKind.Module, priorWord, completionMap, {
                     moduleUri: implImport.uri,
                 });
@@ -2823,9 +2823,9 @@ export class CompletionProvider {
         });
 
         // Remove any named parameters that are already provided.
-        signatureInfo.callNode.arguments!.forEach((arg) => {
-            if (arg.name) {
-                argNameSet.delete(arg.name.value);
+        signatureInfo.callNode.d.arguments!.forEach((arg) => {
+            if (arg.d.name) {
+                argNameSet.delete(arg.d.name.d.value);
             }
         });
 
@@ -3096,9 +3096,9 @@ export class CompletionProvider {
 
     private _getImportModuleCompletions(node: ModuleNameNode): CompletionMap {
         const moduleDescriptor: ImportedModuleDescriptor = {
-            leadingDots: node.leadingDots,
-            hasTrailingDot: node.hasTrailingDot || false,
-            nameParts: node.nameParts.map((part) => part.value),
+            leadingDots: node.d.leadingDots,
+            hasTrailingDot: node.d.hasTrailingDot || false,
+            nameParts: node.d.nameParts.map((part) => part.d.value),
             importedSymbols: new Set<string>(),
         };
 
@@ -3109,10 +3109,10 @@ export class CompletionProvider {
         // If we're in the middle of a "from X import Y" statement, offer
         // the "import" keyword as a completion.
         if (
-            !node.hasTrailingDot &&
+            !node.d.hasTrailingDot &&
             node.parent &&
             node.parent.nodeType === ParseNodeType.ImportFrom &&
-            node.parent.missingImportKeyword
+            node.parent.d.missingImportKeyword
         ) {
             const keyword = 'import';
             const completionItem = CompletionItem.create(keyword);
@@ -3134,7 +3134,7 @@ export class CompletionProvider {
     private _isPossiblePropertyDeclaration(decl: FunctionDeclaration) {
         // Do cheap check using only nodes that will cover 99.9% cases
         // before doing more expensive type evaluation.
-        return decl.isMethod && decl.node.decorators.length > 0;
+        return decl.isMethod && decl.node.d.decorators.length > 0;
     }
 
     private _isEnumMember(containingType: ClassType | undefined, name: string) {

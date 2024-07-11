@@ -17,7 +17,7 @@ import {
     ArgumentNode,
     CallNode,
     ClassNode,
-    ExpressionNode,
+    ExprNode,
     NameNode,
     ParameterCategory,
     ParseNode,
@@ -30,7 +30,7 @@ import { createFunctionFromConstructor, getBoundInitMethod } from './constructor
 import { DeclarationType } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
 import { getClassFullName, getEnclosingClassOrFunction, getScopeIdForNode, getTypeSourceId } from './parseTreeUtils';
-import { evaluateStaticBoolExpression } from './staticExpressions';
+import { evaluateStaticBoolExpr } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName } from './symbolNameUtils';
 import { EvalFlags, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
@@ -195,20 +195,20 @@ export function synthesizeDataClassMethods(
             let variableTypeEvaluator: EntryTypeEvaluator | undefined;
             let hasDefaultValue = false;
             let isKeywordOnly = ClassType.isDataClassKeywordOnly(classType) || sawKeywordOnlySeparator;
-            let defaultValueExpression: ExpressionNode | undefined;
+            let defaultValueExpr: ExprNode | undefined;
             let includeInInit = true;
             let converter: ArgumentNode | undefined;
 
             if (statement.nodeType === ParseNodeType.Assignment) {
                 if (
-                    statement.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
-                    statement.leftExpression.valueExpression.nodeType === ParseNodeType.Name
+                    statement.d.leftExpr.nodeType === ParseNodeType.TypeAnnotation &&
+                    statement.d.leftExpr.d.valueExpr.nodeType === ParseNodeType.Name
                 ) {
-                    variableNameNode = statement.leftExpression.valueExpression;
+                    variableNameNode = statement.d.leftExpr.d.valueExpr;
                     const assignmentStatement = statement;
                     variableTypeEvaluator = () =>
                         evaluator.getTypeOfAnnotation(
-                            (assignmentStatement.leftExpression as TypeAnnotationNode).typeAnnotation,
+                            (assignmentStatement.d.leftExpr as TypeAnnotationNode).d.typeAnnotation,
                             {
                                 isVariableAnnotation: true,
                                 allowFinal: true,
@@ -218,13 +218,13 @@ export function synthesizeDataClassMethods(
                 }
 
                 hasDefaultValue = true;
-                defaultValueExpression = statement.rightExpression;
+                defaultValueExpr = statement.d.rightExpr;
 
                 // If the RHS of the assignment is assigning a field instance where the
                 // "init" parameter is set to false, do not include it in the init method.
-                if (statement.rightExpression.nodeType === ParseNodeType.Call) {
-                    const callTypeResult = evaluator.getTypeOfExpression(
-                        statement.rightExpression.leftExpression,
+                if (statement.d.rightExpr.nodeType === ParseNodeType.Call) {
+                    const callTypeResult = evaluator.getTypeOfExpr(
+                        statement.d.rightExpr.d.leftExpr,
                         EvalFlags.CallBaseDefaults
                     );
                     const callType = callTypeResult.type;
@@ -236,12 +236,12 @@ export function synthesizeDataClassMethods(
                             classType.details.dataClassBehaviors?.fieldDescriptorNames || []
                         )
                     ) {
-                        const initArg = statement.rightExpression.arguments.find((arg) => arg.name?.value === 'init');
-                        if (initArg && initArg.valueExpression) {
+                        const initArg = statement.d.rightExpr.d.arguments.find((arg) => arg.d.name?.d.value === 'init');
+                        if (initArg && initArg.d.valueExpr) {
                             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                             includeInInit =
-                                evaluateStaticBoolExpression(
-                                    initArg.valueExpression,
+                                evaluateStaticBoolExpr(
+                                    initArg.d.valueExpr,
                                     fileInfo.executionEnvironment,
                                     fileInfo.definedConstants
                                 ) ?? includeInInit;
@@ -249,20 +249,20 @@ export function synthesizeDataClassMethods(
                             includeInInit =
                                 getDefaultArgValueForFieldSpecifier(
                                     evaluator,
-                                    statement.rightExpression,
+                                    statement.d.rightExpr,
                                     callTypeResult,
                                     'init'
                                 ) ?? includeInInit;
                         }
 
-                        const kwOnlyArg = statement.rightExpression.arguments.find(
-                            (arg) => arg.name?.value === 'kw_only'
+                        const kwOnlyArg = statement.d.rightExpr.d.arguments.find(
+                            (arg) => arg.d.name?.d.value === 'kw_only'
                         );
-                        if (kwOnlyArg && kwOnlyArg.valueExpression) {
+                        if (kwOnlyArg && kwOnlyArg.d.valueExpr) {
                             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                             isKeywordOnly =
-                                evaluateStaticBoolExpression(
-                                    kwOnlyArg.valueExpression,
+                                evaluateStaticBoolExpr(
+                                    kwOnlyArg.d.valueExpr,
                                     fileInfo.executionEnvironment,
                                     fileInfo.definedConstants
                                 ) ?? isKeywordOnly;
@@ -270,27 +270,29 @@ export function synthesizeDataClassMethods(
                             isKeywordOnly =
                                 getDefaultArgValueForFieldSpecifier(
                                     evaluator,
-                                    statement.rightExpression,
+                                    statement.d.rightExpr,
                                     callTypeResult,
                                     'kw_only'
                                 ) ?? isKeywordOnly;
                         }
 
-                        const defaultArg = statement.rightExpression.arguments.find(
+                        const defaultArg = statement.d.rightExpr.d.arguments.find(
                             (arg) =>
-                                arg.name?.value === 'default' ||
-                                arg.name?.value === 'default_factory' ||
-                                arg.name?.value === 'factory'
+                                arg.d.name?.d.value === 'default' ||
+                                arg.d.name?.d.value === 'default_factory' ||
+                                arg.d.name?.d.value === 'factory'
                         );
 
                         hasDefaultValue = !!defaultArg;
-                        if (defaultArg?.valueExpression) {
-                            defaultValueExpression = defaultArg.valueExpression;
+                        if (defaultArg?.d.valueExpr) {
+                            defaultValueExpr = defaultArg.d.valueExpr;
                         }
 
-                        const aliasArg = statement.rightExpression.arguments.find((arg) => arg.name?.value === 'alias');
+                        const aliasArg = statement.d.rightExpr.d.arguments.find(
+                            (arg) => arg.d.name?.d.value === 'alias'
+                        );
                         if (aliasArg) {
-                            const valueType = evaluator.getTypeOfExpression(aliasArg.valueExpression).type;
+                            const valueType = evaluator.getTypeOfExpr(aliasArg.d.valueExpr).type;
                             if (
                                 isClassInstance(valueType) &&
                                 ClassType.isBuiltIn(valueType, 'str') &&
@@ -300,10 +302,10 @@ export function synthesizeDataClassMethods(
                             }
                         }
 
-                        const converterArg = statement.rightExpression.arguments.find(
-                            (arg) => arg.name?.value === 'converter'
+                        const converterArg = statement.d.rightExpr.d.arguments.find(
+                            (arg) => arg.d.name?.d.value === 'converter'
                         );
-                        if (converterArg && converterArg.valueExpression) {
+                        if (converterArg && converterArg.d.valueExpr) {
                             // Converter support is dependent on PEP 712, which has not yet been approved.
                             if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
                                 converter = converterArg;
@@ -312,18 +314,18 @@ export function synthesizeDataClassMethods(
                     }
                 }
             } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
-                if (statement.valueExpression.nodeType === ParseNodeType.Name) {
-                    variableNameNode = statement.valueExpression;
+                if (statement.d.valueExpr.nodeType === ParseNodeType.Name) {
+                    variableNameNode = statement.d.valueExpr;
                     const annotationStatement = statement;
                     variableTypeEvaluator = () =>
-                        evaluator.getTypeOfAnnotation(annotationStatement.typeAnnotation, {
+                        evaluator.getTypeOfAnnotation(annotationStatement.d.typeAnnotation, {
                             isVariableAnnotation: true,
                             allowFinal: true,
                             allowClassVar: true,
                         });
 
                     // Is this a KW_ONLY separator introduced in Python 3.10?
-                    if (!isNamedTuple && statement.valueExpression.value === '_') {
+                    if (!isNamedTuple && statement.d.valueExpr.d.value === '_') {
                         const annotatedType = variableTypeEvaluator();
 
                         if (isClassInstance(annotatedType) && ClassType.isBuiltIn(annotatedType, 'KW_ONLY')) {
@@ -336,7 +338,7 @@ export function synthesizeDataClassMethods(
             }
 
             if (variableNameNode && variableTypeEvaluator) {
-                const variableName = variableNameNode.value;
+                const variableName = variableNameNode.d.value;
 
                 // Don't include class vars. PEP 557 indicates that they shouldn't
                 // be considered data class entries.
@@ -357,7 +359,7 @@ export function synthesizeDataClassMethods(
                         alias: aliasName,
                         isKeywordOnly: false,
                         hasDefault: hasDefaultValue,
-                        defaultValueExpression,
+                        defaultValueExpr,
                         includeInInit,
                         nameNode: variableNameNode,
                         type: UnknownType.create(),
@@ -375,7 +377,7 @@ export function synthesizeDataClassMethods(
                         alias: aliasName,
                         isKeywordOnly,
                         hasDefault: hasDefaultValue,
-                        defaultValueExpression,
+                        defaultValueExpr,
                         includeInInit,
                         nameNode: variableNameNode,
                         type: UnknownType.create(),
@@ -401,7 +403,7 @@ export function synthesizeDataClassMethods(
                         // causes overridden variables to "inherit" default values from parent classes.
                         if (!dataClassEntry.hasDefault && oldEntry.hasDefault && oldEntry.includeInInit) {
                             dataClassEntry.hasDefault = true;
-                            dataClassEntry.defaultValueExpression = oldEntry.defaultValueExpression;
+                            dataClassEntry.defaultValueExpr = oldEntry.defaultValueExpr;
                             hasDefaultValue = true;
 
                             // Warn the user of this case because it can result in type errors if the
@@ -455,9 +457,9 @@ export function synthesizeDataClassMethods(
 
             // If the RHS of the assignment is assigning a field instance where the
             // "init" parameter is set to false, do not include it in the init method.
-            if (statement.rightExpression.nodeType === ParseNodeType.Call) {
-                const callType = evaluator.getTypeOfExpression(
-                    statement.rightExpression.leftExpression,
+            if (statement.d.rightExpr.nodeType === ParseNodeType.Call) {
+                const callType = evaluator.getTypeOfExpr(
+                    statement.d.rightExpr.d.leftExpr,
                     EvalFlags.CallBaseDefaults
                 ).type;
 
@@ -470,7 +472,7 @@ export function synthesizeDataClassMethods(
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.dataClassFieldWithoutAnnotation(),
-                        statement.rightExpression
+                        statement.d.rightExpr
                     );
                 }
             }
@@ -528,7 +530,7 @@ export function synthesizeDataClassMethods(
 
                     const effectiveName = entry.alias || entry.name;
 
-                    if (!entry.alias && entry.nameNode && isPrivateName(entry.nameNode.value)) {
+                    if (!entry.alias && entry.nameNode && isPrivateName(entry.nameNode.d.value)) {
                         evaluator.addDiagnostic(
                             DiagnosticRule.reportGeneralTypeIssues,
                             LocMessage.dataClassFieldWithPrivateName(),
@@ -540,7 +542,7 @@ export function synthesizeDataClassMethods(
                         category: ParameterCategory.Simple,
                         name: effectiveName,
                         hasDefault: entry.hasDefault,
-                        defaultValueExpression: entry.defaultValueExpression,
+                        defaultValueExpr: entry.defaultValueExpr,
                         type: effectiveType,
                         hasDeclaredType: true,
                     };
@@ -724,7 +726,13 @@ function getDefaultArgValueForFieldSpecifier(
         callTarget = evaluator.getBestOverloadForArguments(
             callNode,
             { type: callType, isIncomplete: callTypeResult.isIncomplete },
-            callNode.arguments
+            callNode.d.arguments.map((arg) => {
+                return {
+                    argumentCategory: arg.d.argumentCategory,
+                    name: arg.d.name,
+                    valueExpr: arg.d.valueExpr,
+                };
+            })
         );
     } else if (isInstantiableClass(callType)) {
         const initMethodResult = getBoundInitMethod(evaluator, callNode, callType);
@@ -735,7 +743,13 @@ function getDefaultArgValueForFieldSpecifier(
                 callTarget = evaluator.getBestOverloadForArguments(
                     callNode,
                     { type: initMethodResult.type },
-                    callNode.arguments
+                    callNode.d.arguments.map((arg) => {
+                        return {
+                            argumentCategory: arg.d.argumentCategory,
+                            name: arg.d.name,
+                            valueExpr: arg.d.valueExpr,
+                        };
+                    })
                 );
             }
         }
@@ -755,7 +769,7 @@ function getDefaultArgValueForFieldSpecifier(
 
             // Is the default argument value a literal bool?
             if (
-                initParam.defaultValueExpression &&
+                initParam.defaultValueExpr &&
                 initParam.defaultType &&
                 isClass(initParam.defaultType) &&
                 typeof initParam.defaultType.literalValue === 'boolean'
@@ -776,10 +790,7 @@ function getConverterInputType(
     fieldType: Type,
     fieldName: string
 ): Type {
-    const converterType = getConverterAsFunction(
-        evaluator,
-        evaluator.getTypeOfExpression(converterNode.valueExpression).type
-    );
+    const converterType = getConverterAsFunction(evaluator, evaluator.getTypeOfExpr(converterNode.d.valueExpr).type);
 
     if (!converterType) {
         return fieldType;
@@ -1073,8 +1084,8 @@ export function validateDataClassTransformDecorator(
     const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
     // Parse the arguments to the call.
-    node.arguments.forEach((arg) => {
-        if (!arg.name || arg.argumentCategory !== ArgumentCategory.Simple) {
+    node.d.arguments.forEach((arg) => {
+        if (!arg.d.name || arg.d.argumentCategory !== ArgumentCategory.Simple) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportCallIssue,
                 LocMessage.dataClassTransformPositionalParam(),
@@ -1083,10 +1094,10 @@ export function validateDataClassTransformDecorator(
             return;
         }
 
-        switch (arg.name.value) {
+        switch (arg.d.name.d.value) {
             case 'kw_only_default': {
-                const value = evaluateStaticBoolExpression(
-                    arg.valueExpression,
+                const value = evaluateStaticBoolExpr(
+                    arg.d.valueExpr,
                     fileInfo.executionEnvironment,
                     fileInfo.definedConstants
                 );
@@ -1094,7 +1105,7 @@ export function validateDataClassTransformDecorator(
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.dataClassTransformExpectedBoolLiteral(),
-                        arg.valueExpression
+                        arg.d.valueExpr
                     );
                     return;
                 }
@@ -1104,8 +1115,8 @@ export function validateDataClassTransformDecorator(
             }
 
             case 'eq_default': {
-                const value = evaluateStaticBoolExpression(
-                    arg.valueExpression,
+                const value = evaluateStaticBoolExpr(
+                    arg.d.valueExpr,
                     fileInfo.executionEnvironment,
                     fileInfo.definedConstants
                 );
@@ -1113,7 +1124,7 @@ export function validateDataClassTransformDecorator(
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.dataClassTransformExpectedBoolLiteral(),
-                        arg.valueExpression
+                        arg.d.valueExpr
                     );
                     return;
                 }
@@ -1123,8 +1134,8 @@ export function validateDataClassTransformDecorator(
             }
 
             case 'order_default': {
-                const value = evaluateStaticBoolExpression(
-                    arg.valueExpression,
+                const value = evaluateStaticBoolExpr(
+                    arg.d.valueExpr,
                     fileInfo.executionEnvironment,
                     fileInfo.definedConstants
                 );
@@ -1132,7 +1143,7 @@ export function validateDataClassTransformDecorator(
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.dataClassTransformExpectedBoolLiteral(),
-                        arg.valueExpression
+                        arg.d.valueExpr
                     );
                     return;
                 }
@@ -1142,8 +1153,8 @@ export function validateDataClassTransformDecorator(
             }
 
             case 'frozen_default': {
-                const value = evaluateStaticBoolExpression(
-                    arg.valueExpression,
+                const value = evaluateStaticBoolExpr(
+                    arg.d.valueExpr,
                     fileInfo.executionEnvironment,
                     fileInfo.definedConstants
                 );
@@ -1151,7 +1162,7 @@ export function validateDataClassTransformDecorator(
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.dataClassTransformExpectedBoolLiteral(),
-                        arg.valueExpression
+                        arg.d.valueExpr
                     );
                     return;
                 }
@@ -1171,7 +1182,7 @@ export function validateDataClassTransformDecorator(
             // form that supported this older parameter name.
             case 'field_descriptors':
             case 'field_specifiers': {
-                const valueType = evaluator.getTypeOfExpression(arg.valueExpression).type;
+                const valueType = evaluator.getTypeOfExpr(arg.d.valueExpr).type;
                 if (
                     !isClassInstance(valueType) ||
                     !ClassType.isBuiltIn(valueType, 'tuple') ||
@@ -1188,7 +1199,7 @@ export function validateDataClassTransformDecorator(
                         LocMessage.dataClassTransformFieldSpecifier().format({
                             type: evaluator.printType(valueType),
                         }),
-                        arg.valueExpression
+                        arg.d.valueExpr
                     );
                     return;
                 }
@@ -1206,8 +1217,8 @@ export function validateDataClassTransformDecorator(
             default:
                 evaluator.addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
-                    LocMessage.dataClassTransformUnknownArgument().format({ name: arg.name.value }),
-                    arg.valueExpression
+                    LocMessage.dataClassTransformUnknownArgument().format({ name: arg.d.name.d.value }),
+                    arg.d.valueExpr
                 );
                 break;
         }
@@ -1251,11 +1262,11 @@ function applyDataClassBehaviorOverride(
     errorNode: ParseNode,
     classType: ClassType,
     argName: string,
-    argValueExpr: ExpressionNode,
+    argValueExpr: ExprNode,
     behaviors: DataClassBehaviors
 ) {
     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
-    const value = evaluateStaticBoolExpression(argValueExpr, fileInfo.executionEnvironment, fileInfo.definedConstants);
+    const value = evaluateStaticBoolExpr(argValueExpr, fileInfo.executionEnvironment, fileInfo.definedConstants);
 
     applyDataClassBehaviorOverrideValue(evaluator, errorNode, classType, argName, value, behaviors);
 }
@@ -1386,17 +1397,10 @@ export function applyDataClassClassBehaviorOverrides(
     classType.details.dataClassBehaviors = behaviors;
 
     args.forEach((arg) => {
-        if (arg.valueExpression && arg.name) {
-            applyDataClassBehaviorOverride(
-                evaluator,
-                arg.name,
-                classType,
-                arg.name.value,
-                arg.valueExpression,
-                behaviors
-            );
+        if (arg.valueExpr && arg.name) {
+            applyDataClassBehaviorOverride(evaluator, arg.name, classType, arg.name.d.value, arg.valueExpr, behaviors);
 
-            if (arg.name.value === 'frozen') {
+            if (arg.name.d.value === 'frozen') {
                 sawFrozenArg = true;
             }
         }
@@ -1424,5 +1428,9 @@ export function applyDataClassDecorator(
     defaultBehaviors: DataClassBehaviors,
     callNode: CallNode | undefined
 ) {
-    applyDataClassClassBehaviorOverrides(evaluator, errorNode, classType, callNode?.arguments ?? [], defaultBehaviors);
+    const args: FunctionArgument[] = (callNode?.d.arguments ?? []).map((arg) => {
+        return { argumentCategory: arg.d.argumentCategory, name: arg.d.name, valueExpr: arg.d.valueExpr };
+    });
+
+    applyDataClassClassBehaviorOverrides(evaluator, errorNode, classType, args, defaultBehaviors);
 }

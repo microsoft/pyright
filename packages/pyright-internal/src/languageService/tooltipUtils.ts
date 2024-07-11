@@ -40,7 +40,7 @@ import {
 } from '../analyzer/types';
 import { SignatureDisplayType } from '../common/configOptions';
 import { isDefined } from '../common/core';
-import { ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ExprNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 
 // The number of spaces to indent each parameter, after moving to a newline in tooltips.
 const functionParamIndentOffset = 4;
@@ -314,9 +314,9 @@ export function getDocumentationPartsForTypeAndDecl(
             resolvedDecl.node &&
             resolvedDecl.node.nodeType === ParseNodeType.ImportAs &&
             !!optional?.name &&
-            !resolvedDecl.node.alias
+            !resolvedDecl.node.d.alias
         ) {
-            const name = resolvedDecl.node.module.nameParts.find((n) => n.value === optional.name);
+            const name = resolvedDecl.node.d.module.d.nameParts.find((n) => n.d.value === optional.name);
             if (name) {
                 const aliasDecls = evaluator.getDeclarationsForNameNode(name) ?? [resolvedDecl];
                 resolvedDecl = aliasDecls.length > 0 ? aliasDecls[0] : resolvedDecl;
@@ -351,7 +351,7 @@ export function getAutoImportText(name: string, from?: string, alias?: string): 
     return text;
 }
 
-export function combineExpressionTypes(typeNodes: ExpressionNode[], evaluator: TypeEvaluator): Type {
+export function combineExpressionTypes(typeNodes: ExprNode[], evaluator: TypeEvaluator): Type {
     const typeList = typeNodes.map((n) => evaluator.getType(n) || UnknownType.create());
     let result = combineTypes(typeList);
 
@@ -382,7 +382,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
 
     // Allow the left to be a member access chain (e.g. a.b.c) if the
     // node in question is the last item in the chain.
-    if (callLeftNode?.parent?.nodeType === ParseNodeType.MemberAccess && node === callLeftNode.parent.memberName) {
+    if (callLeftNode?.parent?.nodeType === ParseNodeType.MemberAccess && node === callLeftNode.parent.d.memberName) {
         callLeftNode = node.parent;
         // Allow the left to be a generic class constructor (e.g. foo[int]())
     } else if (callLeftNode?.parent?.nodeType === ParseNodeType.Index) {
@@ -393,7 +393,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
         !callLeftNode ||
         !callLeftNode.parent ||
         callLeftNode.parent.nodeType !== ParseNodeType.Call ||
-        callLeftNode.parent.leftExpression !== callLeftNode
+        callLeftNode.parent.d.leftExpr !== callLeftNode
     ) {
         return;
     }
@@ -459,7 +459,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
 
 export function bindFunctionToClassOrObjectToolTip(
     evaluator: TypeEvaluator,
-    node: ExpressionNode,
+    node: ExprNode,
     baseType: ClassType | undefined,
     memberType: FunctionType | OverloadedFunctionType,
     treatConstructorAsClassMethod?: boolean
@@ -481,7 +481,7 @@ export function bindFunctionToClassOrObjectToolTip(
 export function limitOverloadBasedOnCall<T extends Type>(
     evaluator: TypeEvaluator,
     type: T,
-    node: ExpressionNode
+    node: ExprNode
 ): T | FunctionType | OverloadedFunctionType {
     // If it's an overloaded function, see if it's part of a call expression.
     // If so, we may be able to eliminate some of the overloads based on
@@ -507,7 +507,7 @@ export function limitOverloadBasedOnCall<T extends Type>(
     return OverloadedFunctionType.create(callTypeResult.overloadsUsedForCall);
 }
 
-export function getTypeForToolTip(evaluator: TypeEvaluator, node: ExpressionNode) {
+export function getTypeForToolTip(evaluator: TypeEvaluator, node: ExprNode) {
     // It does common work necessary for hover for a type we got
     // from raw type evaluator.
     const type = evaluator.getType(node) ?? UnknownType.create();

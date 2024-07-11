@@ -10,7 +10,7 @@
 
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
-import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
+import { ExprNode, ParameterCategory } from '../parser/parseNodes';
 import { Symbol, SymbolFlags } from './symbol';
 import { FunctionArgument, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
 import {
@@ -27,7 +27,7 @@ import { ClassMember, lookUpObjectMember, MemberAccessFlags, synthesizeTypeVarFo
 
 export function applyFunctionTransform(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     argList: FunctionArgument[],
     functionType: FunctionType | OverloadedFunctionType,
     result: FunctionResult
@@ -44,7 +44,7 @@ export function applyFunctionTransform(
 
 function applyTotalOrderingTransform(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     argList: FunctionArgument[],
     result: FunctionResult
 ) {

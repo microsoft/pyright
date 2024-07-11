@@ -81,65 +81,67 @@ export type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode | Co
 // Cleans out all fields that are added by the analyzer phases
 // (after the post-parse walker).
 export function cleanNodeAnalysisInfo(node: ParseNode) {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    delete analyzerNode.scope;
-    delete analyzerNode.declaration;
-    delete analyzerNode.flowNode;
-    delete analyzerNode.afterFlowNode;
-    delete analyzerNode.fileInfo;
-    delete analyzerNode.codeFlowExpressions;
-    delete analyzerNode.codeFlowComplexity;
-    delete analyzerNode.dunderAllInfo;
-    delete analyzerNode.typeParameterSymbol;
+    const analyzerNode = getAnalyzerInfo(node);
+    if (analyzerNode) {
+        delete analyzerNode.scope;
+        delete analyzerNode.declaration;
+        delete analyzerNode.flowNode;
+        delete analyzerNode.afterFlowNode;
+        delete analyzerNode.fileInfo;
+        delete analyzerNode.codeFlowExpressions;
+        delete analyzerNode.codeFlowComplexity;
+        delete analyzerNode.dunderAllInfo;
+        delete analyzerNode.typeParameterSymbol;
+    }
 }
 
 export function getImportInfo(node: ParseNode): ImportResult | undefined {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode.importInfo;
+    const analyzerNode = getAnalyzerInfo(node);
+    return analyzerNode?.importInfo;
 }
 
 export function setImportInfo(node: ParseNode, importInfo: ImportResult) {
-    const analyzerNode = node as AnalyzerNodeInfo;
+    const analyzerNode = getAnalyzerInfoForWrite(node);
     analyzerNode.importInfo = importInfo;
 }
 
 export function getScope(node: ParseNode): Scope | undefined {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode.scope;
+    const analyzerNode = getAnalyzerInfo(node);
+    return analyzerNode?.scope;
 }
 
 export function setScope(node: ParseNode, scope: Scope) {
-    const analyzerNode = node as AnalyzerNodeInfo;
+    const analyzerNode = getAnalyzerInfoForWrite(node);
     analyzerNode.scope = scope;
 }
 
 export function getDeclaration(node: ParseNode): Declaration | undefined {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode.declaration;
+    const analyzerNode = getAnalyzerInfo(node);
+    return analyzerNode?.declaration;
 }
 
 export function setDeclaration(node: ParseNode, decl: Declaration) {
-    const analyzerNode = node as AnalyzerNodeInfo;
+    const analyzerNode = getAnalyzerInfoForWrite(node);
     analyzerNode.declaration = decl;
 }
 
 export function getFlowNode(node: ParseNode): FlowNode | undefined {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode.flowNode;
+    const analyzerNode = getAnalyzerInfo(node);
+    return analyzerNode?.flowNode;
 }
 
 export function setFlowNode(node: ParseNode, flowNode: FlowNode) {
-    const analyzerNode = node as AnalyzerNodeInfo;
+    const analyzerNode = getAnalyzerInfoForWrite(node);
     analyzerNode.flowNode = flowNode;
 }
 
 export function getAfterFlowNode(node: ParseNode): FlowNode | undefined {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode.afterFlowNode;
+    const analyzerNode = getAnalyzerInfo(node);
+    return analyzerNode?.afterFlowNode;
 }
 
 export function setAfterFlowNode(node: ParseNode, flowNode: FlowNode) {
-    const analyzerNode = node as AnalyzerNodeInfo;
+    const analyzerNode = getAnalyzerInfoForWrite(node);
     analyzerNode.afterFlowNode = flowNode;
 }
 
@@ -147,42 +149,42 @@ export function getFileInfo(node: ParseNode): AnalyzerFileInfo {
     while (node.nodeType !== ParseNodeType.Module) {
         node = node.parent!;
     }
-    const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode.fileInfo!;
+    const analyzerNode = getAnalyzerInfo(node);
+    return analyzerNode!.fileInfo!;
 }
 
 export function setFileInfo(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
-    const analyzerNode = node as AnalyzerNodeInfo;
+    const analyzerNode = getAnalyzerInfoForWrite(node);
     analyzerNode.fileInfo = fileInfo;
 }
 
 export function getCodeFlowExpressions(node: ExecutionScopeNode): Set<string> | undefined {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode.codeFlowExpressions;
+    const analyzerNode = getAnalyzerInfo(node);
+    return analyzerNode?.codeFlowExpressions;
 }
 
 export function setCodeFlowExpressions(node: ExecutionScopeNode, expressions: Set<string>) {
-    const analyzerNode = node as AnalyzerNodeInfo;
+    const analyzerNode = getAnalyzerInfoForWrite(node);
     analyzerNode.codeFlowExpressions = expressions;
 }
 
 export function getCodeFlowComplexity(node: ExecutionScopeNode) {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode.codeFlowComplexity ?? 0;
+    const analyzerNode = getAnalyzerInfo(node);
+    return analyzerNode?.codeFlowComplexity ?? 0;
 }
 
 export function setCodeFlowComplexity(node: ExecutionScopeNode, complexity: number) {
-    const analyzerNode = node as AnalyzerNodeInfo;
+    const analyzerNode = getAnalyzerInfoForWrite(node);
     analyzerNode.codeFlowComplexity = complexity;
 }
 
 export function getDunderAllInfo(node: ModuleNode): DunderAllInfo | undefined {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode.dunderAllInfo;
+    const analyzerNode = getAnalyzerInfo(node);
+    return analyzerNode?.dunderAllInfo;
 }
 
 export function setDunderAllInfo(node: ModuleNode, names: DunderAllInfo | undefined) {
-    const analyzerNode = node as AnalyzerNodeInfo;
+    const analyzerNode = getAnalyzerInfoForWrite(node);
     analyzerNode.dunderAllInfo = names;
 }
 
@@ -200,4 +202,16 @@ export function isCodeUnreachable(node: ParseNode): boolean {
     }
 
     return false;
+}
+
+function getAnalyzerInfo(node: ParseNode): AnalyzerNodeInfo | undefined {
+    return node.a as AnalyzerNodeInfo | undefined;
+}
+
+function getAnalyzerInfoForWrite(node: ParseNode): AnalyzerNodeInfo {
+    let analyzerNode = node.a as AnalyzerNodeInfo | undefined;
+    if (!analyzerNode) {
+        node.a = analyzerNode = {};
+    }
+    return analyzerNode;
 }

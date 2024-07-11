@@ -1227,8 +1227,8 @@ function printFunctionPartsInternal(
         }
 
         if (param.hasDefault) {
-            if (param.defaultValueExpression) {
-                paramString += defaultValueAssignment + ParseTreeUtils.printExpression(param.defaultValueExpression);
+            if (param.defaultValueExpr) {
+                paramString += defaultValueAssignment + ParseTreeUtils.printExpr(param.defaultValueExpr);
             } else {
                 // If the function doesn't originate from a function declaration (e.g. it is
                 // synthesized), we can't get to the default declaration, but we can still indicate

@@ -141,7 +141,7 @@ test('property', () => {
         assert(isClassDeclaration(result.decoratedType.details.declaration));
 
         assert(result.decoratedType.details.declaration.moduleName === 'builtins');
-        assert(result.decoratedType.details.declaration.node.name.value === 'property');
+        assert(result.decoratedType.details.declaration.node.d.name.d.value === 'property');
     });
 });
 
@@ -154,7 +154,7 @@ function checkSpecialBuiltInClassDetail(code: string) {
     const type = state.program.evaluator!.getType(node);
     assert(type?.category === TypeCategory.Class);
 
-    assert.strictEqual(node.value, type.aliasName ?? type.details.name);
+    assert.strictEqual(node.d.value, type.aliasName ?? type.details.name);
 
     assert(type.details.declaration);
     if (type.aliasName) {
@@ -181,7 +181,7 @@ function _checkClassDetail(state: TestState, range: Range | undefined, name?: st
     const type = state.program.evaluator!.getType(node);
     assert(type?.category === TypeCategory.Class);
 
-    assert.strictEqual(name ?? node.value, type.aliasName ?? type.details.name);
+    assert.strictEqual(name ?? node.d.value, type.aliasName ?? type.details.name);
 
     if (range) {
         assert(type.details.declaration);

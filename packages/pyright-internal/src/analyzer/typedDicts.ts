@@ -19,7 +19,7 @@ import {
     ArgumentCategory,
     ClassNode,
     DictionaryNode,
-    ExpressionNode,
+    ExprNode,
     IndexNode,
     ParameterCategory,
     ParseNodeType,
@@ -70,7 +70,7 @@ import { TypeVarContext } from './typeVarContext';
 // Creates a new custom TypedDict "alternate syntax" factory class.
 export function createTypedDictType(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     typedDictClass: ClassType,
     argList: FunctionArgument[]
 ): ClassType {
@@ -86,16 +86,16 @@ export function createTypedDictType(
         const nameArg = argList[0];
         if (
             nameArg.argumentCategory !== ArgumentCategory.Simple ||
-            !nameArg.valueExpression ||
-            nameArg.valueExpression.nodeType !== ParseNodeType.StringList
+            !nameArg.valueExpr ||
+            nameArg.valueExpr.nodeType !== ParseNodeType.StringList
         ) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportArgumentType,
                 LocMessage.typedDictFirstArg(),
-                argList[0].valueExpression || errorNode
+                argList[0].valueExpr || errorNode
             );
         } else {
-            className = nameArg.valueExpression.strings.map((s) => s.value).join('');
+            className = nameArg.valueExpr.d.strings.map((s) => s.d.value).join('');
         }
     }
 
@@ -127,50 +127,46 @@ export function createTypedDictType(
 
         if (
             entriesArg.argumentCategory === ArgumentCategory.Simple &&
-            entriesArg.valueExpression &&
-            entriesArg.valueExpression.nodeType === ParseNodeType.Dictionary
+            entriesArg.valueExpr &&
+            entriesArg.valueExpr.nodeType === ParseNodeType.Dictionary
         ) {
             usingDictSyntax = true;
 
-            getTypedDictFieldsFromDictSyntax(evaluator, entriesArg.valueExpression, classFields, /* isInline */ false);
+            getTypedDictFieldsFromDictSyntax(evaluator, entriesArg.valueExpr, classFields, /* isInline */ false);
         } else if (entriesArg.name) {
             const entrySet = new Set<string>();
             for (let i = 1; i < argList.length; i++) {
                 const entry = argList[i];
-                if (!entry.name || !entry.valueExpression) {
+                if (!entry.name || !entry.valueExpr) {
                     continue;
                 }
 
-                if (entrySet.has(entry.name.value)) {
+                if (entrySet.has(entry.name.d.value)) {
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.typedDictEntryUnique(),
-                        entry.valueExpression
+                        entry.valueExpr
                     );
                     continue;
                 }
 
                 // Record names in a map to detect duplicates.
-                entrySet.add(entry.name.value);
+                entrySet.add(entry.name.d.value);
 
                 const newSymbol = new Symbol(SymbolFlags.InstanceMember);
                 const declaration: VariableDeclaration = {
                     type: DeclarationType.Variable,
                     node: entry.name,
                     uri: fileInfo.fileUri,
-                    typeAnnotationNode: entry.valueExpression,
+                    typeAnnotationNode: entry.valueExpr,
                     isRuntimeTypeExpression: true,
-                    range: convertOffsetsToRange(
-                        entry.name.start,
-                        TextRange.getEnd(entry.valueExpression),
-                        fileInfo.lines
-                    ),
+                    range: convertOffsetsToRange(entry.name.start, TextRange.getEnd(entry.valueExpr), fileInfo.lines),
                     moduleName: fileInfo.moduleName,
                     isInExceptSuite: false,
                 };
                 newSymbol.addDeclaration(declaration);
 
-                classFields.set(entry.name.value, newSymbol);
+                classFields.set(entry.name.d.value, newSymbol);
             }
         } else {
             evaluator.addDiagnostic(DiagnosticRule.reportArgumentType, LocMessage.typedDictSecondArgDict(), errorNode);
@@ -179,23 +175,20 @@ export function createTypedDictType(
 
     if (usingDictSyntax) {
         for (const arg of argList.slice(2)) {
-            if (arg.name?.value === 'total' || arg.name?.value === 'closed') {
+            if (arg.name?.d.value === 'total' || arg.name?.d.value === 'closed') {
                 if (
-                    !arg.valueExpression ||
-                    arg.valueExpression.nodeType !== ParseNodeType.Constant ||
-                    !(
-                        arg.valueExpression.constType === KeywordType.False ||
-                        arg.valueExpression.constType === KeywordType.True
-                    )
+                    !arg.valueExpr ||
+                    arg.valueExpr.nodeType !== ParseNodeType.Constant ||
+                    !(arg.valueExpr.d.constType === KeywordType.False || arg.valueExpr.d.constType === KeywordType.True)
                 ) {
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.typedDictBoolParam().format({ name: arg.name.value }),
-                        arg.valueExpression || errorNode
+                        LocMessage.typedDictBoolParam().format({ name: arg.name.d.value }),
+                        arg.valueExpr || errorNode
                     );
-                } else if (arg.name.value === 'total' && arg.valueExpression.constType === KeywordType.False) {
+                } else if (arg.name.d.value === 'total' && arg.valueExpr.d.constType === KeywordType.False) {
                     classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
-                } else if (arg.name.value === 'closed' && arg.valueExpression.constType === KeywordType.True) {
+                } else if (arg.name.d.value === 'closed' && arg.valueExpr.d.constType === KeywordType.True) {
                     // This is an experimental feature because PEP 728 hasn't been accepted yet.
                     if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
                         classType.details.flags |=
@@ -206,7 +199,7 @@ export function createTypedDictType(
                 evaluator.addDiagnostic(
                     DiagnosticRule.reportCallIssue,
                     LocMessage.typedDictExtraArgs(),
-                    arg.valueExpression || errorNode
+                    arg.valueExpr || errorNode
                 );
             }
         }
@@ -216,11 +209,11 @@ export function createTypedDictType(
 
     // Validate that the assigned variable name is consistent with the provided name.
     if (errorNode.parent?.nodeType === ParseNodeType.Assignment && className) {
-        const target = errorNode.parent.leftExpression;
-        const typedDictTarget = target.nodeType === ParseNodeType.TypeAnnotation ? target.valueExpression : target;
+        const target = errorNode.parent.d.leftExpr;
+        const typedDictTarget = target.nodeType === ParseNodeType.TypeAnnotation ? target.d.valueExpr : target;
 
         if (typedDictTarget.nodeType === ParseNodeType.Name) {
-            if (typedDictTarget.value !== className) {
+            if (typedDictTarget.d.value !== className) {
                 evaluator.addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
                     LocMessage.typedDictAssignedName().format({
@@ -237,7 +230,7 @@ export function createTypedDictType(
 
 export function synthesizeTypedDictClassMethods(
     evaluator: TypeEvaluator,
-    node: ClassNode | ExpressionNode,
+    node: ClassNode | ExprNode,
     classType: ClassType
 ) {
     assert(ClassType.isTypedDictClass(classType));
@@ -874,7 +867,7 @@ function getTypedDictFieldsFromDictSyntax(
     const entrySet = new Set<string>();
     const fileInfo = AnalyzerNodeInfo.getFileInfo(entryDict);
 
-    entryDict.entries.forEach((entry) => {
+    entryDict.d.entries.forEach((entry) => {
         if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -884,21 +877,21 @@ function getTypedDictFieldsFromDictSyntax(
             return;
         }
 
-        if (entry.keyExpression.nodeType !== ParseNodeType.StringList) {
+        if (entry.d.keyExpr.nodeType !== ParseNodeType.StringList) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.typedDictEntryName(),
-                entry.keyExpression
+                entry.d.keyExpr
             );
             return;
         }
 
-        const entryName = entry.keyExpression.strings.map((s) => s.value).join('');
+        const entryName = entry.d.keyExpr.d.strings.map((s) => s.d.value).join('');
         if (!entryName) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.typedDictEmptyName(),
-                entry.keyExpression
+                entry.d.keyExpr
             );
             return;
         }
@@ -907,7 +900,7 @@ function getTypedDictFieldsFromDictSyntax(
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.typedDictEntryUnique(),
-                entry.keyExpression
+                entry.d.keyExpr
             );
             return;
         }
@@ -918,15 +911,11 @@ function getTypedDictFieldsFromDictSyntax(
         const newSymbol = new Symbol(SymbolFlags.InstanceMember);
         const declaration: VariableDeclaration = {
             type: DeclarationType.Variable,
-            node: entry.keyExpression,
+            node: entry.d.keyExpr,
             uri: fileInfo.fileUri,
-            typeAnnotationNode: entry.valueExpression,
+            typeAnnotationNode: entry.d.valueExpr,
             isRuntimeTypeExpression: !isInline,
-            range: convertOffsetsToRange(
-                entry.keyExpression.start,
-                TextRange.getEnd(entry.keyExpression),
-                fileInfo.lines
-            ),
+            range: convertOffsetsToRange(entry.d.keyExpr.start, TextRange.getEnd(entry.d.keyExpr), fileInfo.lines),
             moduleName: fileInfo.moduleName,
             isInExceptSuite: false,
         };
@@ -1392,23 +1381,27 @@ export function getTypeOfIndexedTypedDict(
     baseType: ClassType,
     usage: EvaluatorUsage
 ): TypeResult | undefined {
-    if (node.items.length !== 1) {
+    if (node.d.items.length !== 1) {
         evaluator.addDiagnostic(
             DiagnosticRule.reportGeneralTypeIssues,
-            LocMessage.typeArgsMismatchOne().format({ received: node.items.length }),
+            LocMessage.typeArgsMismatchOne().format({ received: node.d.items.length }),
             node
         );
         return { type: UnknownType.create() };
     }
 
     // Look for subscript types that are not supported by TypedDict.
-    if (node.trailingComma || node.items[0].name || node.items[0].argumentCategory !== ArgumentCategory.Simple) {
+    if (
+        node.d.trailingComma ||
+        node.d.items[0].d.name ||
+        node.d.items[0].d.argumentCategory !== ArgumentCategory.Simple
+    ) {
         return undefined;
     }
 
     const entries = getTypedDictMembersForClass(evaluator, baseType, /* allowNarrowed */ usage.method === 'get');
 
-    const indexTypeResult = evaluator.getTypeOfExpression(node.items[0].valueExpression);
+    const indexTypeResult = evaluator.getTypeOfExpr(node.d.items[0].d.valueExpr);
     const indexType = indexTypeResult.type;
     let diag = new DiagnosticAddendum();
     let allDiagsInvolveNotRequiredKeys = true;
@@ -1542,7 +1535,7 @@ function isRequiredTypedDictVariable(evaluator: TypeEvaluator, symbol: Symbol, a
             return false;
         }
 
-        const annotatedType = evaluator.getTypeOfExpressionExpectingType(decl.typeAnnotationNode, {
+        const annotatedType = evaluator.getTypeOfExprExpectingType(decl.typeAnnotationNode, {
             allowFinal: true,
             allowRequired: true,
         });
@@ -1569,7 +1562,7 @@ function isNotRequiredTypedDictVariable(evaluator: TypeEvaluator, symbol: Symbol
             return false;
         }
 
-        const annotatedType = evaluator.getTypeOfExpressionExpectingType(decl.typeAnnotationNode, {
+        const annotatedType = evaluator.getTypeOfExprExpectingType(decl.typeAnnotationNode, {
             allowFinal: true,
             allowRequired: true,
         });
@@ -1596,7 +1589,7 @@ function isReadOnlyTypedDictVariable(evaluator: TypeEvaluator, symbol: Symbol) {
             return false;
         }
 
-        const annotatedType = evaluator.getTypeOfExpressionExpectingType(decl.typeAnnotationNode, {
+        const annotatedType = evaluator.getTypeOfExprExpectingType(decl.typeAnnotationNode, {
             allowFinal: true,
             allowRequired: true,
         });

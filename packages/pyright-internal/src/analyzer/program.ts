@@ -1861,7 +1861,7 @@ export class Program {
             dunderAllNames: dunderAllInfo?.names,
             usesUnsupportedDunderAllForm: dunderAllInfo?.usesUnsupportedDunderAllForm ?? false,
             get docString() {
-                return getDocString(moduleNode.statements);
+                return getDocString(moduleNode.d.statements);
             },
             isInPyTypedPackage: fileInfo.isInPyTypedPackage,
         };

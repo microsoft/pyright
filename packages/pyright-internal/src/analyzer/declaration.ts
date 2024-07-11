@@ -13,7 +13,7 @@ import { Range } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import {
     ClassNode,
-    ExpressionNode,
+    ExprNode,
     FunctionNode,
     ImportAsNode,
     ImportFromAsNode,
@@ -115,7 +115,7 @@ export interface ParameterDeclaration extends DeclarationBase {
     inferredName?: string;
 
     // Nodes that potentially makeup the type of an inferred parameter.
-    inferredTypeNodes?: ExpressionNode[];
+    inferredTypeNodes?: ExprNode[];
 }
 
 export interface TypeParameterDeclaration extends DeclarationBase {
@@ -136,7 +136,7 @@ export interface VariableDeclaration extends DeclarationBase {
     node: NameNode | StringListNode;
 
     // An explicit type annotation, if provided
-    typeAnnotationNode?: ExpressionNode | undefined;
+    typeAnnotationNode?: ExprNode | undefined;
 
     // A source of the inferred type
     inferredTypeSource?: ParseNode | undefined;
@@ -174,7 +174,7 @@ export interface VariableDeclaration extends DeclarationBase {
     docString?: string | undefined;
 
     // If set, indicates an alternative node to use to determine the type of the variable.
-    alternativeTypeNode?: ExpressionNode;
+    alternativeTypeNode?: ExprNode;
 
     // Is the declaration an assignment through an explicit nonlocal or global binding?
     isExplicitBinding?: boolean;

@@ -124,9 +124,9 @@ export function getTopLevelImports(parseTree: ModuleNode, includeImplicitImports
     let followsNonImportStatement = false;
     let foundFirstImportStatement = false;
 
-    parseTree.statements.forEach((statement) => {
+    parseTree.d.statements.forEach((statement) => {
         if (statement.nodeType === ParseNodeType.StatementList) {
-            statement.statements.forEach((subStatement) => {
+            statement.d.statements.forEach((subStatement) => {
                 if (subStatement.nodeType === ParseNodeType.Import) {
                     foundFirstImportStatement = true;
                     _processImportNode(subStatement, localImports, followsNonImportStatement);
@@ -173,7 +173,7 @@ export function getTextEditsForAutoImportSymbolAddition(
     if (
         !importStatement.node ||
         importStatement.node.nodeType !== ParseNodeType.ImportFrom ||
-        importStatement.node.isWildcardImport
+        importStatement.node.d.isWildcardImport
     ) {
         return additionEdits;
     }
@@ -184,8 +184,8 @@ export function getTextEditsForAutoImportSymbolAddition(
     importNameInfo = (Array.isArray(importNameInfo) ? importNameInfo : [importNameInfo]).filter(
         (info) =>
             !!info.name &&
-            !importFrom.imports.some(
-                (importAs) => importAs.name.value === info.name && importAs.alias?.value === info.alias
+            !importFrom.d.imports.some(
+                (importAs) => importAs.d.name.d.value === info.name && importAs.d.alias?.d.value === info.alias
             )
     );
 
@@ -256,8 +256,8 @@ function _getTextEditsForAutoImportSymbolAddition(
     // Scan through the import symbols to find the right insertion point,
     // assuming we want to keep the imports alphabetized.
     let priorImport: ImportFromAsNode | undefined;
-    for (const curImport of node.imports) {
-        if (_compareImportNames(curImport.name.value, importName) > 0) {
+    for (const curImport of node.d.imports) {
+        if (_compareImportNames(curImport.d.name.d.value, importName) > 0) {
             break;
         }
 
@@ -274,12 +274,12 @@ function _getTextEditsForAutoImportSymbolAddition(
     //   )
     let useOnePerLineFormatting = false;
     let indentText = '';
-    if (node.imports.length > 0) {
+    if (node.d.imports.length > 0) {
         const importStatementPos = convertOffsetToPosition(node.start, parseFileResults.tokenizerOutput.lines);
-        const firstSymbolPos = convertOffsetToPosition(node.imports[0].start, parseFileResults.tokenizerOutput.lines);
+        const firstSymbolPos = convertOffsetToPosition(node.d.imports[0].start, parseFileResults.tokenizerOutput.lines);
         const secondSymbolPos =
-            node.imports.length > 1
-                ? convertOffsetToPosition(node.imports[1].start, parseFileResults.tokenizerOutput.lines)
+            node.d.imports.length > 1
+                ? convertOffsetToPosition(node.d.imports[1].start, parseFileResults.tokenizerOutput.lines)
                 : undefined;
 
         if (
@@ -301,8 +301,8 @@ function _getTextEditsForAutoImportSymbolAddition(
 
     const insertionOffset = priorImport
         ? TextRange.getEnd(priorImport)
-        : node.imports.length > 0
-        ? node.imports[0].start
+        : node.d.imports.length > 0
+        ? node.d.imports[0].start
         : node.start + node.length;
     const insertionPosition = convertOffsetToPosition(insertionOffset, parseFileResults.tokenizerOutput.lines);
 
@@ -581,17 +581,17 @@ function _getInsertionEditForAutoImportInsertion(
         insertionPosition = { line: 0, character: 0 };
         let addNewLineBefore = false;
 
-        for (const statement of parseFileResults.parserOutput.parseTree.statements) {
+        for (const statement of parseFileResults.parserOutput.parseTree.d.statements) {
             let stopHere = true;
-            if (statement.nodeType === ParseNodeType.StatementList && statement.statements.length === 1) {
-                const simpleStatement = statement.statements[0];
+            if (statement.nodeType === ParseNodeType.StatementList && statement.d.statements.length === 1) {
+                const simpleStatement = statement.d.statements[0];
 
                 if (simpleStatement.nodeType === ParseNodeType.StringList) {
                     // Assume that it's a file header doc string.
                     stopHere = false;
                 } else if (simpleStatement.nodeType === ParseNodeType.Assignment) {
-                    if (simpleStatement.leftExpression.nodeType === ParseNodeType.Name) {
-                        if (SymbolNameUtils.isDunderName(simpleStatement.leftExpression.value)) {
+                    if (simpleStatement.d.leftExpr.nodeType === ParseNodeType.Name) {
+                        if (SymbolNameUtils.isDunderName(simpleStatement.d.leftExpr.d.value)) {
                             // Assume that it's an assignment of __copyright__, __author__, etc.
                             stopHere = false;
                         }
@@ -628,8 +628,8 @@ function _getInsertionEditForAutoImportInsertion(
 }
 
 function _processImportNode(node: ImportNode, localImports: ImportStatements, followsNonImportStatement: boolean) {
-    node.list.forEach((importAsNode) => {
-        const importResult = AnalyzerNodeInfo.getImportInfo(importAsNode.module);
+    node.d.list.forEach((importAsNode) => {
+        const importResult = AnalyzerNodeInfo.getImportInfo(importAsNode.d.module);
         let resolvedPath: Uri | undefined;
 
         if (importResult && importResult.isImportFound) {
@@ -641,7 +641,7 @@ function _processImportNode(node: ImportNode, localImports: ImportStatements, fo
             subnode: importAsNode,
             importResult,
             resolvedPath,
-            moduleName: _formatModuleName(importAsNode.module),
+            moduleName: _formatModuleName(importAsNode.d.module),
             followsNonImportStatement,
         };
 
@@ -665,7 +665,7 @@ function _processImportFromNode(
     followsNonImportStatement: boolean,
     includeImplicitImports: boolean
 ) {
-    const importResult = AnalyzerNodeInfo.getImportInfo(node.module);
+    const importResult = AnalyzerNodeInfo.getImportInfo(node.d.module);
     let resolvedPath: Uri | undefined;
 
     if (importResult && importResult.isImportFound) {
@@ -676,7 +676,7 @@ function _processImportFromNode(
         localImports.implicitImports = localImports.implicitImports ?? new Map<string, ImportFromAsNode>();
 
         for (const implicitImport of importResult.implicitImports.values()) {
-            const importFromAs = node.imports.find((i) => i.name.value === implicitImport.name);
+            const importFromAs = node.d.imports.find((i) => i.d.name.d.value === implicitImport.name);
             if (importFromAs) {
                 localImports.implicitImports.set(implicitImport.uri.key, importFromAs);
             }
@@ -687,7 +687,7 @@ function _processImportFromNode(
         node,
         importResult,
         resolvedPath,
-        moduleName: _formatModuleName(node.module),
+        moduleName: _formatModuleName(node.d.module),
         followsNonImportStatement,
     };
 
@@ -711,11 +711,11 @@ function _processImportFromNode(
 
 function _formatModuleName(node: ModuleNameNode): string {
     let moduleName = '';
-    for (let i = 0; i < node.leadingDots; i++) {
+    for (let i = 0; i < node.d.leadingDots; i++) {
         moduleName = moduleName + '.';
     }
 
-    moduleName += node.nameParts.map((part) => part.value).join('.');
+    moduleName += node.d.nameParts.map((part) => part.d.value).join('.');
 
     return moduleName;
 }
@@ -737,11 +737,11 @@ export function getContainingImportStatement(node: ParseNode | undefined, token:
 export function getAllImportNames(node: ImportNode | ImportFromNode) {
     if (node.nodeType === ParseNodeType.Import) {
         const importNode = node as ImportNode;
-        return importNode.list;
+        return importNode.d.list;
     }
 
     const importFromNode = node as ImportFromNode;
-    return importFromNode.imports;
+    return importFromNode.d.imports;
 }
 
 export function getImportGroupFromModuleNameAndType(moduleNameAndType: ModuleNameAndType): ImportGroup {

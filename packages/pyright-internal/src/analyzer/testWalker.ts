@@ -57,7 +57,7 @@ export class TestWalker extends ParseTreeWalker {
                         case ParseNodeType.Assignment:
                             // There are a few exceptions we need to deal with here. Comment
                             // annotations can occur outside of an assignment node's range.
-                            if (child === node.typeAnnotationComment) {
+                            if (child === node.d.typeAnnotationComment) {
                                 skipCheck = true;
                             }
 
@@ -69,13 +69,10 @@ export class TestWalker extends ParseTreeWalker {
                             break;
 
                         case ParseNodeType.StringList:
-                            if (child === node.typeAnnotation) {
+                            if (child === node.d.typeAnnotation) {
                                 skipCheck = true;
                             }
                             break;
-
-                        default:
-                            fail(`node ${node.nodeType} is not marked as not following range rules.`);
                     }
                 }
 

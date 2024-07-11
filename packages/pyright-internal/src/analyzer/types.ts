@@ -9,7 +9,7 @@
 
 import { assert } from '../common/debug';
 import { Uri } from '../common/uri/uri';
-import { ArgumentNode, ExpressionNode, NameNode, ParameterCategory } from '../parser/parseNodes';
+import { ArgumentNode, ExprNode, NameNode, ParameterCategory } from '../parser/parseNodes';
 import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
@@ -446,7 +446,7 @@ export interface DataClassEntry {
     alias?: string | undefined;
     hasDefault?: boolean | undefined;
     nameNode: NameNode | undefined;
-    defaultValueExpression?: ExpressionNode | undefined;
+    defaultValueExpr?: ExprNode | undefined;
     includeInInit: boolean;
     type: Type;
     converter?: ArgumentNode | undefined;
@@ -1363,13 +1363,13 @@ export interface FunctionParameter {
     name?: string | undefined;
     isNameSynthesized?: boolean;
     hasDefault?: boolean | undefined;
-    defaultValueExpression?: ExpressionNode | undefined;
+    defaultValueExpr?: ExprNode | undefined;
     type: Type;
 
     isTypeInferred?: boolean | undefined;
     defaultType?: Type | undefined;
     hasDeclaredType?: boolean | undefined;
-    typeAnnotation?: ExpressionNode | undefined;
+    typeAnnotation?: ExprNode | undefined;
 }
 
 export function isPositionOnlySeparator(param: FunctionParameter) {
@@ -1508,7 +1508,7 @@ export interface CallSiteInferenceTypeCacheEntry {
 
 export interface SignatureWithOffsets {
     type: FunctionType | OverloadedFunctionType;
-    expressionOffsets: number[];
+    exprOffsets: number[];
 }
 
 export interface FunctionType extends TypeBase {
@@ -1717,15 +1717,17 @@ export namespace FunctionType {
         newFunction.details.parameters = [
             ...prevParams,
             ...paramSpecValue.details.parameters.map((param) => {
-                return {
+                const paramSpecParam: FunctionParameter = {
                     category: param.category,
                     name: param.name,
                     hasDefault: param.hasDefault,
-                    defaultValueExpression: param.defaultValueExpression,
+                    defaultValueExpr: param.defaultValueExpr,
                     isNameSynthesized: param.isNameSynthesized,
                     hasDeclaredType: true,
                     type: param.type,
                 };
+
+                return paramSpecParam;
             }),
         ];
 

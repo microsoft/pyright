@@ -8,7 +8,7 @@
  */
 
 import { assert } from '../common/debug';
-import { ArgumentCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ArgumentCategory, ExprNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { VariableDeclaration } from './declaration';
 import { getClassFullName, getEnclosingClass, getTypeSourceId } from './parseTreeUtils';
@@ -66,7 +66,7 @@ export function isEnumClassWithMembers(evaluator: TypeEvaluator, classType: Clas
 // Creates a new custom enum class with named values.
 export function createEnumType(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     enumClass: ClassType,
     argList: FunctionArgument[]
 ): ClassType | undefined {
@@ -79,15 +79,15 @@ export function createEnumType(
     const nameArg = argList[0];
     if (
         nameArg.argumentCategory !== ArgumentCategory.Simple ||
-        !nameArg.valueExpression ||
-        nameArg.valueExpression.nodeType !== ParseNodeType.StringList ||
-        nameArg.valueExpression.strings.length !== 1 ||
-        nameArg.valueExpression.strings[0].nodeType !== ParseNodeType.String
+        !nameArg.valueExpr ||
+        nameArg.valueExpr.nodeType !== ParseNodeType.StringList ||
+        nameArg.valueExpr.d.strings.length !== 1 ||
+        nameArg.valueExpr.d.strings[0].nodeType !== ParseNodeType.String
     ) {
         return undefined;
     }
 
-    const className = nameArg.valueExpression.strings.map((s) => s.value).join('');
+    const className = nameArg.valueExpr.d.strings.map((s) => s.d.value).join('');
     const classType = ClassType.createInstantiable(
         className,
         getClassFullName(errorNode, fileInfo.moduleName, className),
@@ -112,7 +112,7 @@ export function createEnumType(
     }
 
     const initArg = argList[1];
-    if (initArg.argumentCategory !== ArgumentCategory.Simple || !initArg.valueExpression) {
+    if (initArg.argumentCategory !== ArgumentCategory.Simple || !initArg.valueExpr) {
         return undefined;
     }
 
@@ -130,14 +130,14 @@ export function createEnumType(
     //   Enum('name', (('a', 1), ('b', 2), ('c', 3)))
     //   Enum('name', [('a', 1), ('b', 2), ('c', 3))]
     //   Enum('name', {'a': 1, 'b': 2, 'c': 3})
-    if (initArg.valueExpression.nodeType === ParseNodeType.StringList) {
+    if (initArg.valueExpr.nodeType === ParseNodeType.StringList) {
         // Don't allow format strings in the init arg.
-        if (!initArg.valueExpression.strings.every((str) => str.nodeType === ParseNodeType.String)) {
+        if (!initArg.valueExpr.d.strings.every((str) => str.nodeType === ParseNodeType.String)) {
             return undefined;
         }
 
-        const initStr = initArg.valueExpression.strings
-            .map((s) => s.value)
+        const initStr = initArg.valueExpr.d.strings
+            .map((s) => s.d.value)
             .join('')
             .trim();
 
@@ -169,14 +169,9 @@ export function createEnumType(
         return classType;
     }
 
-    if (
-        initArg.valueExpression.nodeType === ParseNodeType.List ||
-        initArg.valueExpression.nodeType === ParseNodeType.Tuple
-    ) {
+    if (initArg.valueExpr.nodeType === ParseNodeType.List || initArg.valueExpr.nodeType === ParseNodeType.Tuple) {
         const entries =
-            initArg.valueExpression.nodeType === ParseNodeType.List
-                ? initArg.valueExpression.entries
-                : initArg.valueExpression.expressions;
+            initArg.valueExpr.nodeType === ParseNodeType.List ? initArg.valueExpr.d.entries : initArg.valueExpr.d.exprs;
 
         if (entries.length === 0) {
             return undefined;
@@ -205,24 +200,24 @@ export function createEnumType(
                     return undefined;
                 }
 
-                if (entry.expressions.length !== 2) {
+                if (entry.d.exprs.length !== 2) {
                     return undefined;
                 }
-                nameNode = entry.expressions[0];
-                valueType = evaluator.getTypeOfExpression(entry.expressions[1]).type;
+                nameNode = entry.d.exprs[0];
+                valueType = evaluator.getTypeOfExpr(entry.d.exprs[1]).type;
             } else {
                 return undefined;
             }
 
             if (
                 nameNode.nodeType !== ParseNodeType.StringList ||
-                nameNode.strings.length !== 1 ||
-                nameNode.strings[0].nodeType !== ParseNodeType.String
+                nameNode.d.strings.length !== 1 ||
+                nameNode.d.strings[0].nodeType !== ParseNodeType.String
             ) {
                 return undefined;
             }
 
-            const entryName = nameNode.strings[0].value;
+            const entryName = nameNode.d.strings[0].d.value;
 
             const enumLiteral = new EnumLiteral(
                 classType.details.fullName,
@@ -240,8 +235,8 @@ export function createEnumType(
         }
     }
 
-    if (initArg.valueExpression.nodeType === ParseNodeType.Dictionary) {
-        const entries = initArg.valueExpression.entries;
+    if (initArg.valueExpr.nodeType === ParseNodeType.Dictionary) {
+        const entries = initArg.valueExpr.d.entries;
         if (entries.length === 0) {
             return undefined;
         }
@@ -252,18 +247,18 @@ export function createEnumType(
                 return undefined;
             }
 
-            const nameNode = entry.keyExpression;
-            const valueType = evaluator.getTypeOfExpression(entry.valueExpression).type;
+            const nameNode = entry.d.keyExpr;
+            const valueType = evaluator.getTypeOfExpr(entry.d.valueExpr).type;
 
             if (
                 nameNode.nodeType !== ParseNodeType.StringList ||
-                nameNode.strings.length !== 1 ||
-                nameNode.strings[0].nodeType !== ParseNodeType.String
+                nameNode.d.strings.length !== 1 ||
+                nameNode.d.strings[0].nodeType !== ParseNodeType.String
             ) {
                 return undefined;
             }
 
-            const entryName = nameNode.strings[0].value;
+            const entryName = nameNode.d.strings[0].d.value;
             const enumLiteral = new EnumLiteral(
                 classType.details.fullName,
                 classType.details.name,
@@ -321,37 +316,34 @@ export function transformTypeForEnumMember(
 
     let isMemberOfEnumeration = false;
     let isUnpackedTuple = false;
-    let valueTypeExprNode: ExpressionNode | undefined;
-    let declaredTypeNode: ExpressionNode | undefined;
+    let valueTypeExprNode: ExprNode | undefined;
+    let declaredTypeNode: ExprNode | undefined;
     let nameNode: NameNode | undefined;
 
     if (primaryDecl.node.nodeType === ParseNodeType.Name) {
         nameNode = primaryDecl.node;
     } else if (primaryDecl.node.nodeType === ParseNodeType.Function) {
         // Handle the case where a method is decorated with @enum.member.
-        nameNode = primaryDecl.node.name;
+        nameNode = primaryDecl.node.d.name;
     } else {
         return undefined;
     }
 
-    if (nameNode.parent?.nodeType === ParseNodeType.Assignment && nameNode.parent.leftExpression === nameNode) {
+    if (nameNode.parent?.nodeType === ParseNodeType.Assignment && nameNode.parent.d.leftExpr === nameNode) {
         isMemberOfEnumeration = true;
-        valueTypeExprNode = nameNode.parent.rightExpression;
+        valueTypeExprNode = nameNode.parent.d.rightExpr;
     } else if (
         nameNode.parent?.nodeType === ParseNodeType.Tuple &&
         nameNode.parent.parent?.nodeType === ParseNodeType.Assignment
     ) {
         isMemberOfEnumeration = true;
         isUnpackedTuple = true;
-        valueTypeExprNode = nameNode.parent.parent.rightExpression;
-    } else if (
-        nameNode.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-        nameNode.parent.valueExpression === nameNode
-    ) {
+        valueTypeExprNode = nameNode.parent.parent.d.rightExpr;
+    } else if (nameNode.parent?.nodeType === ParseNodeType.TypeAnnotation && nameNode.parent.d.valueExpr === nameNode) {
         if (ignoreAnnotation) {
             isMemberOfEnumeration = true;
         }
-        declaredTypeNode = nameNode.parent.typeAnnotation;
+        declaredTypeNode = nameNode.parent.d.typeAnnotation;
     }
 
     // The spec specifically excludes names that start and end with a single underscore.
@@ -370,15 +362,15 @@ export function transformTypeForEnumMember(
 
     if (valueTypeExprNode) {
         const evalFlags = getFileInfo(valueTypeExprNode).isStubFile ? EvalFlags.ConvertEllipsisToAny : undefined;
-        assignedType = evaluator.getTypeOfExpression(valueTypeExprNode, evalFlags).type;
+        assignedType = evaluator.getTypeOfExpr(valueTypeExprNode, evalFlags).type;
     }
 
     // Handle aliases to other enum members within the same enum.
-    if (valueTypeExprNode?.nodeType === ParseNodeType.Name && valueTypeExprNode.value !== memberName) {
+    if (valueTypeExprNode?.nodeType === ParseNodeType.Name && valueTypeExprNode.d.value !== memberName) {
         const aliasedEnumType = transformTypeForEnumMember(
             evaluator,
             classType,
-            valueTypeExprNode.value,
+            valueTypeExprNode.d.value,
             /* ignoreAnnotation */ false,
             recursionCount
         );
@@ -433,10 +425,10 @@ export function transformTypeForEnumMember(
     if (
         !assignedType &&
         nameNode.parent?.nodeType === ParseNodeType.Assignment &&
-        nameNode.parent.leftExpression === nameNode
+        nameNode.parent.d.leftExpr === nameNode
     ) {
-        assignedType = evaluator.getTypeOfExpression(
-            nameNode.parent.rightExpression,
+        assignedType = evaluator.getTypeOfExpr(
+            nameNode.parent.d.rightExpr,
             /* flags */ undefined,
             makeInferenceContext(declaredType)
         ).type;
@@ -660,7 +652,7 @@ export function getTypeOfEnumMember(
     return undefined;
 }
 
-export function getEnumAutoValueType(evaluator: TypeEvaluator, node: ExpressionNode) {
+export function getEnumAutoValueType(evaluator: TypeEvaluator, node: ExprNode) {
     const containingClassNode = getEnclosingClass(node);
 
     if (containingClassNode) {

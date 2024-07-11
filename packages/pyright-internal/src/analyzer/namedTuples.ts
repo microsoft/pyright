@@ -12,18 +12,12 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { LocMessage } from '../localization/localize';
-import {
-    ArgumentCategory,
-    ExpressionNode,
-    ParameterCategory,
-    ParseNodeType,
-    StringListNode,
-} from '../parser/parseNodes';
+import { ArgumentCategory, ExprNode, ParameterCategory, ParseNodeType, StringListNode } from '../parser/parseNodes';
 import { Tokenizer } from '../parser/tokenizer';
 import { getFileInfo } from './analyzerNodeInfo';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
-import { evaluateStaticBoolExpression } from './staticExpressions';
+import { evaluateStaticBoolExpr } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
 import {
@@ -56,7 +50,7 @@ import {
 
 export function createNamedTupleType(
     evaluator: TypeEvaluator,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     argList: FunctionArgument[],
     includesTypes: boolean
 ): ClassType {
@@ -67,12 +61,12 @@ export function createNamedTupleType(
     let allowRename = false;
     if (!includesTypes) {
         const renameArg = argList.find(
-            (arg) => arg.argumentCategory === ArgumentCategory.Simple && arg.name?.value === 'rename'
+            (arg) => arg.argumentCategory === ArgumentCategory.Simple && arg.name?.d.value === 'rename'
         );
 
-        if (renameArg?.valueExpression) {
-            const renameValue = evaluateStaticBoolExpression(
-                renameArg.valueExpression,
+        if (renameArg?.valueExpr) {
+            const renameValue = evaluateStaticBoolExpr(
+                renameArg.valueExpr,
                 fileInfo.executionEnvironment,
                 fileInfo.definedConstants
             );
@@ -90,19 +84,19 @@ export function createNamedTupleType(
             evaluator.addDiagnostic(
                 DiagnosticRule.reportArgumentType,
                 LocMessage.namedTupleFirstArg(),
-                argList[0].valueExpression || errorNode
+                argList[0].valueExpr || errorNode
             );
-        } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
-            className = nameArg.valueExpression.strings.map((s) => s.value).join('');
+        } else if (nameArg.valueExpr && nameArg.valueExpr.nodeType === ParseNodeType.StringList) {
+            className = nameArg.valueExpr.d.strings.map((s) => s.d.value).join('');
         }
     }
 
     // Is there is a default arg? If so, is it defined in a way that we
     // can determine its length statically?
-    const defaultsArg = argList.find((arg) => arg.name?.value === 'defaults');
+    const defaultsArg = argList.find((arg) => arg.name?.d.value === 'defaults');
     let defaultArgCount: number | undefined = 0;
-    if (defaultsArg && defaultsArg.valueExpression) {
-        const defaultsArgType = evaluator.getTypeOfExpression(defaultsArg.valueExpression).type;
+    if (defaultsArg && defaultsArg.valueExpr) {
+        const defaultsArgType = evaluator.getTypeOfExpr(defaultsArg.valueExpr).type;
         if (
             isClassInstance(defaultsArgType) &&
             isTupleClass(defaultsArgType) &&
@@ -171,13 +165,9 @@ export function createNamedTupleType(
         if (entriesArg.argumentCategory !== ArgumentCategory.Simple) {
             addGenericGetAttribute = true;
         } else {
-            if (
-                !includesTypes &&
-                entriesArg.valueExpression &&
-                entriesArg.valueExpression.nodeType === ParseNodeType.StringList
-            ) {
-                const entries = entriesArg.valueExpression.strings
-                    .map((s) => s.value)
+            if (!includesTypes && entriesArg.valueExpr && entriesArg.valueExpr.nodeType === ParseNodeType.StringList) {
+                const entries = entriesArg.valueExpr.d.strings
+                    .map((s) => s.d.value)
                     .join('')
                     .split(/[,\s]+/);
                 const firstParamWithDefaultIndex =
@@ -185,13 +175,7 @@ export function createNamedTupleType(
                 entries.forEach((entryName, index) => {
                     entryName = entryName.trim();
                     if (entryName) {
-                        entryName = renameKeyword(
-                            evaluator,
-                            entryName,
-                            allowRename,
-                            entriesArg.valueExpression!,
-                            index
-                        );
+                        entryName = renameKeyword(evaluator, entryName, allowRename, entriesArg.valueExpr!, index);
 
                         const entryType = UnknownType.create();
                         const paramInfo: FunctionParameter = {
@@ -210,7 +194,7 @@ export function createNamedTupleType(
                         // In this case it's just part of a string literal value.
                         // The definition provider won't necessarily take the
                         // user to the exact spot in the string, but it's close enough.
-                        const stringNode = entriesArg.valueExpression!;
+                        const stringNode = entriesArg.valueExpr!;
                         const declaration: VariableDeclaration = {
                             type: DeclarationType.Variable,
                             node: stringNode as StringListNode,
@@ -230,33 +214,31 @@ export function createNamedTupleType(
                     }
                 });
             } else if (
-                entriesArg.valueExpression?.nodeType === ParseNodeType.List ||
-                entriesArg.valueExpression?.nodeType === ParseNodeType.Tuple
+                entriesArg.valueExpr?.nodeType === ParseNodeType.List ||
+                entriesArg.valueExpr?.nodeType === ParseNodeType.Tuple
             ) {
-                const entryList = entriesArg.valueExpression;
+                const entryList = entriesArg.valueExpr;
                 const entryMap = new Map<string, string>();
                 const entryExpressions =
-                    entriesArg.valueExpression?.nodeType === ParseNodeType.List
-                        ? entriesArg.valueExpression.entries
-                        : entriesArg.valueExpression.expressions;
+                    entriesArg.valueExpr?.nodeType === ParseNodeType.List
+                        ? entriesArg.valueExpr.d.entries
+                        : entriesArg.valueExpr.d.exprs;
 
                 const firstParamWithDefaultIndex =
                     defaultArgCount === undefined ? 0 : Math.max(0, entryExpressions.length - defaultArgCount);
 
                 entryExpressions.forEach((entry, index) => {
-                    let entryTypeNode: ExpressionNode | undefined;
+                    let entryTypeNode: ExprNode | undefined;
                     let entryType: Type | undefined;
-                    let entryNameNode: ExpressionNode | undefined;
+                    let entryNameNode: ExprNode | undefined;
                     let entryName = '';
 
                     if (includesTypes) {
                         // Handle the variant that includes name/type tuples.
-                        if (entry.nodeType === ParseNodeType.Tuple && entry.expressions.length === 2) {
-                            entryNameNode = entry.expressions[0];
-                            entryTypeNode = entry.expressions[1];
-                            entryType = convertToInstance(
-                                evaluator.getTypeOfExpressionExpectingType(entryTypeNode).type
-                            );
+                        if (entry.nodeType === ParseNodeType.Tuple && entry.d.exprs.length === 2) {
+                            entryNameNode = entry.d.exprs[0];
+                            entryTypeNode = entry.d.exprs[1];
+                            entryType = convertToInstance(evaluator.getTypeOfExprExpectingType(entryTypeNode).type);
                         } else {
                             evaluator.addDiagnostic(
                                 DiagnosticRule.reportArgumentType,
@@ -270,7 +252,7 @@ export function createNamedTupleType(
                     }
 
                     if (entryNameNode) {
-                        const nameTypeResult = evaluator.getTypeOfExpression(entryNameNode);
+                        const nameTypeResult = evaluator.getTypeOfExpr(entryNameNode);
                         if (
                             isClassInstance(nameTypeResult.type) &&
                             ClassType.isBuiltIn(nameTypeResult.type, 'str') &&
@@ -357,11 +339,11 @@ export function createNamedTupleType(
                 addGenericGetAttribute = true;
             }
 
-            if (entriesArg.valueExpression && !addGenericGetAttribute) {
+            if (entriesArg.valueExpr && !addGenericGetAttribute) {
                 // Set the type of the value expression node to Any so we don't attempt to
                 // re-evaluate it later, potentially generating "partially unknown" errors
                 // in strict mode.
-                evaluator.setTypeResultForNode(entriesArg.valueExpression, { type: AnyType.create() });
+                evaluator.setTypeResultForNode(entriesArg.valueExpr, { type: AnyType.create() });
             }
         }
     }
@@ -481,7 +463,7 @@ function renameKeyword(
     evaluator: TypeEvaluator,
     name: string,
     allowRename: boolean,
-    errorNode: ExpressionNode,
+    errorNode: ExprNode,
     index: number
 ): string {
     // Determine whether the name is a keyword in python.

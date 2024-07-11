@@ -23,10 +23,10 @@ import {
     isImportAlias,
     isImportModuleName,
     isLastNameOfDottedName,
-    printExpression,
+    printExpr,
 } from '../analyzer/parseTreeUtils';
 import { TextRange, rangesAreEqual } from '../common/textRange';
-import { MemberAccessNode, NameNode, ParseNodeType, StringNode, isExpressionNode } from '../parser/parseNodes';
+import { MemberAccessNode, NameNode, ParseNodeType, StringNode, isExprNode } from '../parser/parseNodes';
 import { TestState, getNodeAtMarker, getNodeForRange, parseAndGetTestState } from './harness/fourslash/testState';
 
 test('isImportModuleName', () => {
@@ -133,7 +133,7 @@ test('getDottedName', () => {
     function getDottedNameString(marker: string) {
         const node = getNodeForRange(state, marker);
         return getDottedName(node as NameNode | MemberAccessNode)
-            ?.map((n) => n.value)
+            ?.map((n) => n.d.value)
             .join('.');
     }
 });
@@ -157,7 +157,7 @@ test('getFirstNameOfDottedName', () => {
 
     function getDottedNameString(marker: string) {
         const node = getNodeForRange(state, marker);
-        return getFirstNameOfDottedName(node as NameNode | MemberAccessNode)?.value ?? '';
+        return getFirstNameOfDottedName(node as NameNode | MemberAccessNode)?.d.value ?? '';
     }
 });
 
@@ -314,8 +314,8 @@ test('printExpression', () => {
 
     function checkExpression(marker: string, expected: string) {
         const node = getNodeAtMarker(state, marker);
-        assert(isExpressionNode(node));
-        assert.strictEqual(printExpression(node), expected);
+        assert(isExprNode(node));
+        assert.strictEqual(printExpr(node), expected);
     }
 });
 
@@ -336,7 +336,7 @@ test('findNodeByOffset', () => {
 
     const node = findNodeByOffset(sourceFile.getParseResults()!.parserOutput.parseTree, range.pos);
     assert.strictEqual(node?.nodeType, ParseNodeType.Name);
-    assert.strictEqual((node as NameNode).value, 'r');
+    assert.strictEqual((node as NameNode).d.value, 'r');
 });
 
 test('findNodeByOffset with binary search', () => {
@@ -374,7 +374,7 @@ test('findNodeByOffset with binary search', () => {
 
     const node = findNodeByOffset(sourceFile.getParseResults()!.parserOutput.parseTree, range.pos);
     assert.strictEqual(node?.nodeType, ParseNodeType.Name);
-    assert.strictEqual((node as NameNode).value, 'r');
+    assert.strictEqual((node as NameNode).d.value, 'r');
 });
 
 test('findNodeByOffset with binary search choose earliest match', () => {
@@ -414,7 +414,7 @@ test('findNodeByOffset with binary search choose earliest match', () => {
 
     const node = findNodeByOffset(sourceFile.getParseResults()!.parserOutput.parseTree, range.pos);
     assert.strictEqual(node?.nodeType, ParseNodeType.Name);
-    assert.strictEqual((node as NameNode).value, 'r');
+    assert.strictEqual((node as NameNode).d.value, 'r');
 });
 
 function testNodeRange(state: TestState, markerName: string, type: ParseNodeType, includeTrailingBlankLines = false) {

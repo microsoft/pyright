@@ -18,7 +18,7 @@ import {
     ArgumentCategory,
     CallNode,
     CaseNode,
-    ExpressionNode,
+    ExprNode,
     ImportFromNode,
     IndexNode,
     MatchNode,
@@ -54,7 +54,7 @@ export enum FlowFlags {
 
 let _nextFlowNodeId = 1;
 
-export type CodeFlowReferenceExpressionNode = NameNode | MemberAccessNode | IndexNode;
+export type CodeFlowReferenceExprNode = NameNode | MemberAccessNode | IndexNode;
 
 export function getUniqueFlowNodeId() {
     return _nextFlowNodeId++;
@@ -88,7 +88,7 @@ export interface FlowBranchLabel extends FlowLabel {
 
 // FlowAssignment represents a node that assigns a value.
 export interface FlowAssignment extends FlowNode {
-    node: CodeFlowReferenceExpressionNode;
+    node: CodeFlowReferenceExprNode;
     antecedent: FlowNode;
     targetSymbolId: number;
 }
@@ -115,13 +115,13 @@ export interface FlowWildcardImport extends FlowNode {
 // FlowCondition represents a condition that is known to
 // be true or false at the node's location in the control flow.
 export interface FlowCondition extends FlowNode {
-    expression: ExpressionNode;
+    expression: ExprNode;
     reference?: NameNode | undefined;
     antecedent: FlowNode;
 }
 
 export interface FlowNarrowForPattern extends FlowNode {
-    subjectExpression: ExpressionNode;
+    subjectExpression: ExprNode;
     statement: CaseNode | MatchNode;
     antecedent: FlowNode;
 }
@@ -131,7 +131,7 @@ export interface FlowNarrowForPattern extends FlowNode {
 // (i.e. the narrowed type of the subject expression is Never at the bottom).
 export interface FlowExhaustedMatch extends FlowNode {
     node: MatchNode;
-    subjectExpression: ExpressionNode;
+    subjectExpression: ExprNode;
     antecedent: FlowNode;
 }
 
@@ -155,7 +155,7 @@ export interface FlowPostFinally extends FlowNode {
 }
 
 export interface FlowPostContextManagerLabel extends FlowLabel {
-    expressions: ExpressionNode[];
+    expressions: ExprNode[];
     isAsync: boolean;
 
     // If the context manager swallows exceptions and this value
@@ -165,76 +165,76 @@ export interface FlowPostContextManagerLabel extends FlowLabel {
     blockIfSwallowsExceptions: boolean;
 }
 
-export function isCodeFlowSupportedForReference(
-    reference: ExpressionNode
-): reference is CodeFlowReferenceExpressionNode {
+export function isCodeFlowSupportedForReference(reference: ExprNode): reference is CodeFlowReferenceExprNode {
     if (reference.nodeType === ParseNodeType.Name) {
         return true;
     }
 
     if (reference.nodeType === ParseNodeType.MemberAccess) {
-        return isCodeFlowSupportedForReference(reference.leftExpression);
+        return isCodeFlowSupportedForReference(reference.d.leftExpr);
     }
 
     if (reference.nodeType === ParseNodeType.Index) {
         // Allow index expressions that have a single subscript that is a
         // literal integer or string value.
         if (
-            reference.items.length !== 1 ||
-            reference.trailingComma ||
-            reference.items[0].name !== undefined ||
-            reference.items[0].argumentCategory !== ArgumentCategory.Simple
+            reference.d.items.length !== 1 ||
+            reference.d.trailingComma ||
+            reference.d.items[0].d.name !== undefined ||
+            reference.d.items[0].d.argumentCategory !== ArgumentCategory.Simple
         ) {
             return false;
         }
 
-        const subscriptNode = reference.items[0].valueExpression;
+        const subscriptNode = reference.d.items[0].d.valueExpr;
         const isIntegerIndex =
-            subscriptNode.nodeType === ParseNodeType.Number && !subscriptNode.isImaginary && subscriptNode.isInteger;
+            subscriptNode.nodeType === ParseNodeType.Number &&
+            !subscriptNode.d.isImaginary &&
+            subscriptNode.d.isInteger;
         const isNegativeIntegerIndex =
             subscriptNode.nodeType === ParseNodeType.UnaryOperation &&
-            subscriptNode.operator === OperatorType.Subtract &&
-            subscriptNode.expression.nodeType === ParseNodeType.Number &&
-            !subscriptNode.expression.isImaginary &&
-            subscriptNode.expression.isInteger;
+            subscriptNode.d.operator === OperatorType.Subtract &&
+            subscriptNode.d.expr.nodeType === ParseNodeType.Number &&
+            !subscriptNode.d.expr.d.isImaginary &&
+            subscriptNode.d.expr.d.isInteger;
         const isStringIndex =
             subscriptNode.nodeType === ParseNodeType.StringList &&
-            subscriptNode.strings.length === 1 &&
-            subscriptNode.strings[0].nodeType === ParseNodeType.String;
+            subscriptNode.d.strings.length === 1 &&
+            subscriptNode.d.strings[0].nodeType === ParseNodeType.String;
 
         if (!isIntegerIndex && !isNegativeIntegerIndex && !isStringIndex) {
             return false;
         }
 
-        return isCodeFlowSupportedForReference(reference.baseExpression);
+        return isCodeFlowSupportedForReference(reference.d.baseExpr);
     }
 
     return false;
 }
 
-export function createKeyForReference(reference: CodeFlowReferenceExpressionNode): string {
+export function createKeyForReference(reference: CodeFlowReferenceExprNode): string {
     let key;
     if (reference.nodeType === ParseNodeType.Name) {
-        key = reference.value;
+        key = reference.d.value;
     } else if (reference.nodeType === ParseNodeType.MemberAccess) {
-        const leftKey = createKeyForReference(reference.leftExpression as CodeFlowReferenceExpressionNode);
-        key = `${leftKey}.${reference.memberName.value}`;
+        const leftKey = createKeyForReference(reference.d.leftExpr as CodeFlowReferenceExprNode);
+        key = `${leftKey}.${reference.d.memberName.d.value}`;
     } else if (reference.nodeType === ParseNodeType.Index) {
-        const leftKey = createKeyForReference(reference.baseExpression as CodeFlowReferenceExpressionNode);
-        assert(reference.items.length === 1);
-        const expr = reference.items[0].valueExpression;
+        const leftKey = createKeyForReference(reference.d.baseExpr as CodeFlowReferenceExprNode);
+        assert(reference.d.items.length === 1);
+        const expr = reference.d.items[0].d.valueExpr;
         if (expr.nodeType === ParseNodeType.Number) {
-            key = `${leftKey}[${(expr as NumberNode).value.toString()}]`;
+            key = `${leftKey}[${(expr as NumberNode).d.value.toString()}]`;
         } else if (expr.nodeType === ParseNodeType.StringList) {
             const valExpr = expr;
-            assert(valExpr.strings.length === 1 && valExpr.strings[0].nodeType === ParseNodeType.String);
-            key = `${leftKey}["${(valExpr.strings[0] as StringNode).value}"]`;
+            assert(valExpr.d.strings.length === 1 && valExpr.d.strings[0].nodeType === ParseNodeType.String);
+            key = `${leftKey}["${(valExpr.d.strings[0] as StringNode).d.value}"]`;
         } else if (
             expr.nodeType === ParseNodeType.UnaryOperation &&
-            expr.operator === OperatorType.Subtract &&
-            expr.expression.nodeType === ParseNodeType.Number
+            expr.d.operator === OperatorType.Subtract &&
+            expr.d.expr.nodeType === ParseNodeType.Number
         ) {
-            key = `${leftKey}[-${(expr.expression as NumberNode).value.toString()}]`;
+            key = `${leftKey}[-${(expr.d.expr as NumberNode).d.value.toString()}]`;
         } else {
             fail('createKeyForReference received unexpected index type');
         }
@@ -245,21 +245,21 @@ export function createKeyForReference(reference: CodeFlowReferenceExpressionNode
     return key;
 }
 
-export function createKeysForReferenceSubexpressions(reference: CodeFlowReferenceExpressionNode): string[] {
+export function createKeysForReferenceSubexpressions(reference: CodeFlowReferenceExprNode): string[] {
     if (reference.nodeType === ParseNodeType.Name) {
         return [createKeyForReference(reference)];
     }
 
     if (reference.nodeType === ParseNodeType.MemberAccess) {
         return [
-            ...createKeysForReferenceSubexpressions(reference.leftExpression as CodeFlowReferenceExpressionNode),
+            ...createKeysForReferenceSubexpressions(reference.d.leftExpr as CodeFlowReferenceExprNode),
             createKeyForReference(reference),
         ];
     }
 
     if (reference.nodeType === ParseNodeType.Index) {
         return [
-            ...createKeysForReferenceSubexpressions(reference.baseExpression as CodeFlowReferenceExpressionNode),
+            ...createKeysForReferenceSubexpressions(reference.d.baseExpr as CodeFlowReferenceExprNode),
             createKeyForReference(reference),
         ];
     }
