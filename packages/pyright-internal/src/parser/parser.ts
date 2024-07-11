@@ -3907,7 +3907,7 @@ export class Parser {
                 // to use comparison chaining, which isn't appropriate when the
                 // expression is parenthesized. Unary and await expressions
                 // are also marked to be able to display them unambiguously.
-                possibleTupleNode.parenthesized = true;
+                possibleTupleNode.isParenthesized = true;
             }
 
             if (

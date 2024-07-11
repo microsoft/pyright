@@ -2105,7 +2105,7 @@ export class Checker extends ParseTreeWalker {
         // Check for chained comparisons.
         if (
             rightExpression.nodeType === ParseNodeType.BinaryOperation &&
-            !rightExpression.parenthesized &&
+            !rightExpression.isParenthesized &&
             ParseTreeUtils.operatorSupportsChaining(rightExpression.operator)
         ) {
             // Use the left side of the right expression for comparison purposes.

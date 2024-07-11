@@ -515,7 +515,7 @@ export function getTypeOfBinaryOperation(
     if (operatorSupportsChaining(node.operator)) {
         if (
             rightExpression.nodeType === ParseNodeType.BinaryOperation &&
-            !rightExpression.parenthesized &&
+            !rightExpression.isParenthesized &&
             operatorSupportsChaining(rightExpression.operator)
         ) {
             // Evaluate the right expression so it is type checked.

@@ -613,7 +613,7 @@ class TreeDumper extends ParseTreeWalker {
                 this._uri,
                 node.operatorToken,
                 this._lines
-            )} ${getOperatorTypeString(node.operator)}} parenthesized:(${node.parenthesized})`
+            )} ${getOperatorTypeString(node.operator)}} parenthesized:(${node.isParenthesized})`
         );
         return true;
     }
