@@ -48,12 +48,13 @@ extends:
                 submodules: true
                 fetchTags: true
                 persistCredentials: True
-              - task: MicroBuildSigningPlugin@4
+              - task: MicroBuildSigningPlugin@3
+                displayName: 'Install Signing Plugin'
                 inputs:
-                  signType: '$(SignType)'
+                  signType: 'real'
                   feedSource: 'https://devdiv.pkgs.visualstudio.com/DefaultCollection/_packaging/MicroBuildToolset/nuget/v3/index.json'
                 env:
-                  TeamName: '$(TeamName)'
+                    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
               - task: NodeTool@0
                 displayName: Use Node 18.x
                 inputs:
