@@ -25004,20 +25004,22 @@ export function createTypeEvaluator(
 
         // Is an additional specialization step required?
         if (doSpecializationStep) {
-            assignType(
-                specializedSrcType,
-                specializedDestType,
-                /* diag */ undefined,
-                srcTypeVarContext,
-                destTypeVarContext,
-                (flags ^ AssignTypeFlags.ReverseTypeVarMatching) | AssignTypeFlags.RetainLiteralsForTypeVar,
-                recursionCount
-            );
-
-            if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
-                specializedDestType = applySolvedTypeVars(destType, destTypeVarContext);
-            } else {
-                specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext);
+            if (
+                assignType(
+                    specializedSrcType,
+                    specializedDestType,
+                    /* diag */ undefined,
+                    srcTypeVarContext,
+                    destTypeVarContext,
+                    (flags ^ AssignTypeFlags.ReverseTypeVarMatching) | AssignTypeFlags.RetainLiteralsForTypeVar,
+                    recursionCount
+                )
+            ) {
+                if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
+                    specializedDestType = applySolvedTypeVars(destType, destTypeVarContext);
+                } else {
+                    specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext);
+                }
             }
         }
 

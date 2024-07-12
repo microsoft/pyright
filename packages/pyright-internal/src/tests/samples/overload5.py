@@ -1,7 +1,23 @@
 # This sample tests the type checker's detection of overlapping
 # overload declarations.
 
-from typing import Any, AnyStr, Generic, Literal, Protocol, Sequence, TypeVar, overload
+from typing import (
+    Any,
+    AnyStr,
+    Callable,
+    Concatenate,
+    Generic,
+    Literal,
+    ParamSpec,
+    Protocol,
+    Sequence,
+    TypeVar,
+    overload,
+)
+
+_T1 = TypeVar("_T1")
+_T2 = TypeVar("_T2")
+_P = ParamSpec("_P")
 
 
 @overload
@@ -98,10 +114,6 @@ def func5(a: float, b: float = 3.4, *c: int, d: float = 4.5) -> str:
 
 def func5(*args: Any, **kwargs: Any) -> Any:
     pass
-
-
-_T1 = TypeVar("_T1")
-_T2 = TypeVar("_T2")
 
 
 class GenericClass(Generic[_T1, _T2]):
@@ -394,3 +406,17 @@ def func22(self, p1: int | list[int], /) -> int:
 
 def func22(self, p1: str | int | set[int] | list[int], /) -> str | int:
     return ""
+
+
+@overload
+def func23(f: Callable[Concatenate[_T1, _P], _T2]) -> int:
+    ...
+
+
+@overload
+def func23(f: Callable[_P, _T2]) -> int:
+    ...
+
+
+def func23(f: Any) -> int:
+    return 1
