@@ -21598,7 +21598,7 @@ export function createTypeEvaluator(
                 const result: EffectiveTypeResult = {
                     type: declaredType ?? UnknownType.create(),
                     isIncomplete,
-                    includesVariableDecl: typedDecls.some((decl) => decl.type === DeclarationType.Variable),
+                    includesVariableDecl: includesVariableTypeDecl(typedDecls),
                     includesIllegalTypeAliasDecl: !typedDecls.every((decl) => isPossibleTypeAliasDeclaration(decl)),
                     includesSpeculativeResult: false,
                     isRecursiveDefinition: !declaredType,
@@ -21609,6 +21609,24 @@ export function createTypeEvaluator(
         }
 
         return inferTypeOfSymbolForUsage(symbol, usageNode, useLastDecl);
+    }
+
+    // Determines whether the set of declarations includes a variable declaration
+    // that is not part of a typing.pyi or typingExtensions.pyi file.
+    function includesVariableTypeDecl(decls: Declaration[]): boolean {
+        return decls.some((decl) => {
+            if (decl.type === DeclarationType.Variable) {
+                // Exempt typing.pyi and typingExtensions.pyi, which use variables to
+                // define some special forms.
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(decl.node);
+
+                if (!fileInfo.isTypingStubFile && !fileInfo.isTypingExtensionsStubFile) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
     }
 
     function inferTypeOfSymbolForUsage(symbol: Symbol, usageNode?: NameNode, useLastDecl = false): EffectiveTypeResult {
@@ -21683,13 +21701,8 @@ export function createTypeEvaluator(
                 includesIllegalTypeAliasDecl = true;
             }
 
-            if (resolvedDecl.type === DeclarationType.Variable) {
-                // Exempt typing.pyi, which uses variables to define some
-                // special forms like Any.
-                const fileInfo = AnalyzerNodeInfo.getFileInfo(resolvedDecl.node);
-                if (!fileInfo.isTypingStubFile) {
-                    includesVariableDecl = true;
-                }
+            if (includesVariableTypeDecl([resolvedDecl])) {
+                includesVariableDecl = true;
             }
 
             if (declIndexToConsider !== undefined && declIndexToConsider !== index) {
