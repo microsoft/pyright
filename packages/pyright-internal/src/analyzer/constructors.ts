@@ -607,7 +607,7 @@ function validateInitMethod(
 
                 return applyExpectedSubtypeForConstructor(evaluator, type, expectedSubType, typeVarContext);
             },
-            /* sortSubtypes */ true
+            { sortSubtypes: true }
         );
 
         if (isNever(returnType) || argumentErrors) {

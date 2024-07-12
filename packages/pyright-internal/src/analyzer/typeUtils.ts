@@ -420,12 +420,25 @@ export function makeInferenceContext(
     return { expectedType, isTypeIncomplete };
 }
 
+export interface MapSubtypesOptions {
+    // Should subtypes in a union be sorted before iteration?
+    sortSubtypes?: boolean;
+
+    // Should unions retain redundant literal types if they
+    // are present in the original type?
+    skipElideRedundantLiterals?: boolean;
+}
+
 // Calls a callback for each subtype and combines the results
 // into a final type. It performs no memory allocations if the
 // transformed type is the same as the original.
-export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefined, sortSubtypes = false): Type {
+export function mapSubtypes(
+    type: Type,
+    callback: (type: Type) => Type | undefined,
+    options?: MapSubtypesOptions
+): Type {
     if (isUnion(type)) {
-        const subtypes = sortSubtypes ? sortTypes(type.subtypes) : type.subtypes;
+        const subtypes = options?.sortSubtypes ? sortTypes(type.subtypes) : type.subtypes;
 
         for (let i = 0; i < subtypes.length; i++) {
             const subtype = subtypes[i];
@@ -448,7 +461,9 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
                     accumulateSubtype(callback(subtypes[i]));
                 }
 
-                const newType = combineTypes(typesToCombine);
+                const newType = combineTypes(typesToCombine, {
+                    skipElideRedundantLiterals: options?.skipElideRedundantLiterals,
+                });
 
                 // Do our best to retain type aliases.
                 if (newType.category === TypeCategory.Union) {
@@ -2420,62 +2435,68 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
         return type.cached.instanceType;
     }
 
-    let result = mapSubtypes(type, (subtype) => {
-        switch (subtype.category) {
-            case TypeCategory.Class: {
-                // Handle type[x] as a special case.
-                if (ClassType.isBuiltIn(subtype, 'type')) {
-                    if (TypeBase.isInstance(subtype)) {
-                        if (!subtype.typeArguments || subtype.typeArguments.length < 1) {
-                            return UnknownType.create();
+    let result = mapSubtypes(
+        type,
+        (subtype) => {
+            switch (subtype.category) {
+                case TypeCategory.Class: {
+                    // Handle type[x] as a special case.
+                    if (ClassType.isBuiltIn(subtype, 'type')) {
+                        if (TypeBase.isInstance(subtype)) {
+                            if (!subtype.typeArguments || subtype.typeArguments.length < 1) {
+                                return UnknownType.create();
+                            } else {
+                                return subtype.typeArguments[0];
+                            }
                         } else {
-                            return subtype.typeArguments[0];
-                        }
-                    } else {
-                        if (subtype.typeArguments && subtype.typeArguments.length > 0) {
-                            if (!isAnyOrUnknown(subtype.typeArguments[0])) {
-                                return convertToInstantiable(subtype.typeArguments[0]);
+                            if (subtype.typeArguments && subtype.typeArguments.length > 0) {
+                                if (!isAnyOrUnknown(subtype.typeArguments[0])) {
+                                    return convertToInstantiable(subtype.typeArguments[0]);
+                                }
                             }
                         }
                     }
+
+                    return ClassType.cloneAsInstance(subtype, includeSubclasses);
                 }
 
-                return ClassType.cloneAsInstance(subtype, includeSubclasses);
-            }
-
-            case TypeCategory.Function: {
-                if (TypeBase.isInstantiable(subtype)) {
-                    return FunctionType.cloneAsInstance(subtype);
+                case TypeCategory.Function: {
+                    if (TypeBase.isInstantiable(subtype)) {
+                        return FunctionType.cloneAsInstance(subtype);
+                    }
+                    break;
                 }
-                break;
-            }
 
-            case TypeCategory.TypeVar: {
-                if (TypeBase.isInstantiable(subtype)) {
-                    return TypeVarType.cloneAsInstance(subtype);
+                case TypeCategory.TypeVar: {
+                    if (TypeBase.isInstantiable(subtype)) {
+                        return TypeVarType.cloneAsInstance(subtype);
+                    }
+                    break;
                 }
-                break;
+
+                case TypeCategory.Any: {
+                    return AnyType.convertToInstance(subtype);
+                }
+
+                case TypeCategory.Unknown: {
+                    return UnknownType.convertToInstance(subtype);
+                }
+
+                case TypeCategory.Never: {
+                    return NeverType.convertToInstance(subtype);
+                }
+
+                case TypeCategory.Unbound: {
+                    return UnboundType.convertToInstance(subtype);
+                }
             }
 
-            case TypeCategory.Any: {
-                return AnyType.convertToInstance(subtype);
-            }
-
-            case TypeCategory.Unknown: {
-                return UnknownType.convertToInstance(subtype);
-            }
-
-            case TypeCategory.Never: {
-                return NeverType.convertToInstance(subtype);
-            }
-
-            case TypeCategory.Unbound: {
-                return UnboundType.convertToInstance(subtype);
-            }
+            return subtype;
+        },
+        {
+            skipElideRedundantLiterals: true,
         }
-
-        return subtype;
-    });
+    );
 
     // Copy over any type alias information.
     if (type.typeAliasInfo && type !== result) {

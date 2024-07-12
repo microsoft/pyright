@@ -11325,7 +11325,7 @@ export function createTypeEvaluator(
 
                         return undefined;
                     },
-                    /* sortSubtypes */ true
+                    { sortSubtypes: true }
                 );
 
                 if (isClassInstance(filteredType)) {
@@ -14077,7 +14077,7 @@ export function createTypeEvaluator(
                 (builtInClassName === 'set' && fileInfo.diagnosticRuleSet.strictSetInference) ||
                 hasExpectedType
             ) {
-                inferredEntryType = combineTypes(entryTypes, maxSubtypesForInferredType);
+                inferredEntryType = combineTypes(entryTypes, { maxSubtypeCount: maxSubtypesForInferredType });
             } else {
                 // Is the list or set homogeneous? If so, use stricter rules. Otherwise relax the rules.
                 inferredEntryType = areTypesSame(entryTypes, { ignorePseudoGeneric: true })
@@ -15069,7 +15069,7 @@ export function createTypeEvaluator(
             literalTypes.push(type);
         }
 
-        let result = combineTypes(literalTypes);
+        let result = combineTypes(literalTypes, { skipElideRedundantLiterals: true });
 
         if (isUnion(result) && unionTypeClass && isInstantiableClass(unionTypeClass)) {
             result = TypeBase.cloneAsSpecialForm(result, ClassType.cloneAsInstance(unionTypeClass));
@@ -15714,7 +15714,7 @@ export function createTypeEvaluator(
             addDiagnostic(DiagnosticRule.reportInvalidTypeArguments, LocMessage.unionTypeArgCount(), errorNode);
         }
 
-        let unionType = combineTypes(types);
+        let unionType = combineTypes(types, { skipElideRedundantLiterals: true });
         if (unionTypeClass && isInstantiableClass(unionTypeClass)) {
             unionType = TypeBase.cloneAsSpecialForm(unionType, ClassType.cloneAsInstance(unionTypeClass));
         }
