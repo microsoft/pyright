@@ -9,8 +9,6 @@ resources:
       name: 1ESPipelineTemplates/MicroBuildTemplate
       ref: refs/tags/release
 variables:
-  - name: SignType
-    value: 'Real'
   - name: TeamName
     value: Pyright
   - name: VSIX_NAME
@@ -22,6 +20,10 @@ extends:
   template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
   parameters:
     sdl:
+      codeql:
+        compiled:
+          enabled: false
+          justificationForDisabling: 'Running a scan on the Pyright-Build'
       sourceAnalysisPool: VSEngSS-MicroBuild2022-1ES
     pool:
       pool:
@@ -36,6 +38,10 @@ extends:
             displayName: Build VSIX
             timeoutInMinutes: 60
             templateContext:
+              mb:
+                signing:
+                  enabled: true
+                  signType: 'real'
               outputs:
                 - output: pipelineArtifact
                   displayName: 'publish vsix artifact'
@@ -43,17 +49,11 @@ extends:
                   artifactName: $(ARTIFACT_NAME_VSIX)
             steps:
               - checkout: self
+                fetchDepth: 1
                 clean: true
                 submodules: true
-                fetchTags: true
+                fetchTags: false
                 persistCredentials: True
-              - task: MicroBuildSigningPlugin@3
-                displayName: 'Install Signing Plugin'
-                inputs:
-                  signType: 'real'
-                  feedSource: 'https://devdiv.pkgs.visualstudio.com/DefaultCollection/_packaging/MicroBuildToolset/nuget/v3/index.json'
-                env:
-                    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
               - task: NodeTool@0
                 displayName: Use Node 18.x
                 inputs:
