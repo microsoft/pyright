@@ -4,17 +4,15 @@
 # pyright: reportMissingModuleSource=false
 
 from typing import Literal, TypedDict, Annotated
-from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
-    NotRequired,
-    Required,
-)
+import typing_extensions as te
+from typing_extensions import Required, NotRequired
 
 
 class TD1(TypedDict, total=False):
-    a: Annotated["Required[int]", ""]
-    b: Annotated[NotRequired[str], ""]
-    c: "Required[int | str]"
-    d: Required[str | None]
+    a: Annotated["te.Required[int]", ""]
+    b: Annotated[te.NotRequired[str], ""]
+    c: "te.Required[int | str]"
+    d: te.Required[str | None]
     e: Required[Literal[1, 2, 3]]
     f: Required[None]
     g: Required[type[int]]
