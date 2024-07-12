@@ -20,6 +20,7 @@ import { getParameterListDetails, ParameterKind } from './parameterUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { FunctionArgument, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
 import {
+    AnyType,
     ClassType,
     FunctionParameter,
     FunctionType,
@@ -432,7 +433,7 @@ function applyPartialTransformToFunction(
         // If it's a keyword parameter that has been assigned a value through
         // the "partial" mechanism, mark it has having a default value.
         if (param.name && paramMap.get(param.name)) {
-            specializedParam.hasDefault = true;
+            specializedParam.defaultType = AnyType.create(/* isEllipsis */ true);
         }
         return specializedParam;
     });

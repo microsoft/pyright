@@ -199,7 +199,7 @@ export function createNamedTupleType(
                             name: entryName,
                             type: entryType,
                             hasDeclaredType: includesTypes,
-                            hasDefault: index >= firstParamWithDefaultIndex,
+                            defaultType: index >= firstParamWithDefaultIndex ? entryType : undefined,
                         };
 
                         FunctionType.addParameter(constructorType, paramInfo);
@@ -318,7 +318,7 @@ export function createNamedTupleType(
                         name: entryName,
                         type: entryType,
                         hasDeclaredType: includesTypes,
-                        hasDefault: index >= firstParamWithDefaultIndex,
+                        defaultType: index >= firstParamWithDefaultIndex ? entryType : undefined,
                     };
 
                     FunctionType.addParameter(constructorType, paramInfo);

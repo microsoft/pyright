@@ -136,14 +136,14 @@ export interface TypeAliasInfo {
     typeArguments?: Type[] | undefined;
 }
 
-interface TypeBase {
-    category: TypeCategory;
+interface TypeBase<T extends TypeCategory> {
+    category: T;
     flags: TypeFlags;
 
     // Used to handle nested references to instantiable classes
     // (e.g. type[type[type[T]]]). If the field isn't present,
     // it is assumed to be zero.
-    instantiableNestingLevel?: number;
+    instantiableDepth?: number;
 
     // Used in cases where the type is an instantiable special form such as
     // UnionType, Literal, or Required. These are not directly instantiable
@@ -180,25 +180,25 @@ interface TypeBase {
 }
 
 export namespace TypeBase {
-    export function isInstantiable(type: TypeBase) {
+    export function isInstantiable(type: TypeBase<any>) {
         return (type.flags & TypeFlags.Instantiable) !== 0;
     }
 
-    export function isInstance(type: TypeBase) {
+    export function isInstance(type: TypeBase<any>) {
         return (type.flags & TypeFlags.Instance) !== 0;
     }
 
-    export function isAmbiguous(type: TypeBase) {
+    export function isAmbiguous(type: TypeBase<any>) {
         return !!type.isAmbiguous;
     }
 
-    export function cloneType<T extends TypeBase>(type: T): T {
+    export function cloneType<T extends TypeBase<any>>(type: T): T {
         const clone = { ...type };
         delete clone.cached;
         return clone;
     }
 
-    export function cloneAsSpecialForm<T extends TypeBase>(type: T, specialForm: ClassType | undefined): T {
+    export function cloneAsSpecialForm<T extends TypeBase<any>>(type: T, specialForm: ClassType | undefined): T {
         const clone = { ...type };
         delete clone.cached;
 
@@ -216,15 +216,15 @@ export namespace TypeBase {
 
         const newInstance = TypeBase.cloneType(type);
 
-        if (newInstance.instantiableNestingLevel === undefined) {
+        if (newInstance.instantiableDepth === undefined) {
             newInstance.flags &= ~TypeFlags.Instantiable;
             newInstance.flags |= TypeFlags.Instance;
-            delete newInstance.instantiableNestingLevel;
+            delete newInstance.instantiableDepth;
         } else {
-            if (newInstance.instantiableNestingLevel === 1) {
-                delete newInstance.instantiableNestingLevel;
+            if (newInstance.instantiableDepth === 1) {
+                delete newInstance.instantiableDepth;
             } else {
-                newInstance.instantiableNestingLevel--;
+                newInstance.instantiableDepth--;
             }
         }
 
@@ -247,8 +247,8 @@ export namespace TypeBase {
             newInstance.flags &= ~TypeFlags.Instance;
             newInstance.flags |= TypeFlags.Instantiable;
         } else {
-            newInstance.instantiableNestingLevel =
-                newInstance.instantiableNestingLevel === undefined ? 1 : newInstance.instantiableNestingLevel;
+            newInstance.instantiableDepth =
+                newInstance.instantiableDepth === undefined ? 1 : newInstance.instantiableDepth;
         }
 
         // Remove type alias information because the type will no longer match
@@ -317,9 +317,7 @@ export namespace TypeBase {
     }
 }
 
-export interface UnboundType extends TypeBase {
-    category: TypeCategory.Unbound;
-}
+export interface UnboundType extends TypeBase<TypeCategory.Unbound> {}
 
 export namespace UnboundType {
     const _instance: UnboundType = {
@@ -338,15 +336,14 @@ export namespace UnboundType {
     }
 }
 
-export interface UnknownType extends TypeBase {
-    category: TypeCategory.Unknown;
+export interface UnknownType extends TypeBase<TypeCategory.Unknown> {
     isIncomplete: boolean;
 
     // A "possible type" is a form of a "weak union" where the actual
     // type is unknown, but it could be one of the subtypes in the union.
     // This is used for overload matching in cases where more than one
     // overload matches due to an argument that evaluates to Any or Unknown.
-    possibleType?: Type;
+    possibleType: Type | undefined;
 }
 
 export namespace UnknownType {
@@ -354,11 +351,13 @@ export namespace UnknownType {
         category: TypeCategory.Unknown,
         flags: TypeFlags.Instantiable | TypeFlags.Instance,
         isIncomplete: false,
+        possibleType: undefined,
     };
     const _incompleteInstance: UnknownType = {
         category: TypeCategory.Unknown,
         flags: TypeFlags.Instantiable | TypeFlags.Instance,
         isIncomplete: true,
+        possibleType: undefined,
     };
 
     export function create(isIncomplete = false) {
@@ -382,14 +381,13 @@ export namespace UnknownType {
     }
 }
 
-export interface ModuleType extends TypeBase {
-    category: TypeCategory.Module;
+export interface ModuleType extends TypeBase<TypeCategory.Module> {
     fields: SymbolTable;
-    docString?: string | undefined;
+    docString: string | undefined;
 
     // If a field lookup isn't found, should the type of the
     // resulting field be Any/Unknown or treated as an error?
-    notPresentFieldType?: AnyType | UnknownType;
+    notPresentFieldType: AnyType | UnknownType | undefined;
 
     // A "loader" module includes symbols that were injected by
     // the module loader. We keep these separate so we don't
@@ -407,6 +405,8 @@ export namespace ModuleType {
         const newModuleType: ModuleType = {
             category: TypeCategory.Module,
             fields: symbolTable || new Map<string, Symbol>(),
+            docString: undefined,
+            notPresentFieldType: undefined,
             loaderFields: new Map<string, Symbol>(),
             flags: TypeFlags.Instantiable | TypeFlags.Instantiable,
             moduleName,
@@ -656,9 +656,7 @@ export interface PropertyMethodInfo {
     classType: ClassType | undefined;
 }
 
-export interface ClassType extends TypeBase {
-    category: TypeCategory.Class;
-
+export interface ClassType extends TypeBase<TypeCategory.Class> {
     details: ClassDetails;
 
     // A generic class that has been completely or partially
@@ -1360,16 +1358,17 @@ export namespace ClassType {
 
 export interface FunctionParameter {
     category: ParameterCategory;
-    name?: string | undefined;
-    isNameSynthesized?: boolean;
-    hasDefault?: boolean | undefined;
-    defaultValueExpression?: ExpressionNode | undefined;
     type: Type;
 
-    isTypeInferred?: boolean | undefined;
+    name?: string | undefined;
+    isNameSynthesized?: boolean;
+
+    defaultValueExpression?: ExpressionNode | undefined;
     defaultType?: Type | undefined;
+
     hasDeclaredType?: boolean | undefined;
     typeAnnotation?: ExpressionNode | undefined;
+    isTypeInferred?: boolean | undefined;
 }
 
 export function isPositionOnlySeparator(param: FunctionParameter) {
@@ -1513,9 +1512,7 @@ export interface SignatureWithOffsets {
     expressionOffsets: number[];
 }
 
-export interface FunctionType extends TypeBase {
-    category: TypeCategory.Function;
-
+export interface FunctionType extends TypeBase<TypeCategory.Function> {
     details: FunctionDetails;
 
     // A function type can be specialized (i.e. generic type
@@ -1722,7 +1719,7 @@ export namespace FunctionType {
                 return {
                     category: param.category,
                     name: param.name,
-                    hasDefault: param.hasDefault,
+                    defaultType: param.defaultType,
                     defaultValueExpression: param.defaultValueExpression,
                     isNameSynthesized: param.isNameSynthesized,
                     hasDeclaredType: true,
@@ -2187,8 +2184,7 @@ export namespace FunctionType {
     }
 }
 
-export interface OverloadedFunctionType extends TypeBase {
-    category: TypeCategory.OverloadedFunction;
+export interface OverloadedFunctionType extends TypeBase<TypeCategory.OverloadedFunction> {
     overloads: FunctionType[];
 }
 
@@ -2222,8 +2218,7 @@ export namespace OverloadedFunctionType {
     }
 }
 
-export interface NeverType extends TypeBase {
-    category: TypeCategory.Never;
+export interface NeverType extends TypeBase<TypeCategory.Never> {
     isNoReturn: boolean;
 }
 
@@ -2258,8 +2253,7 @@ export namespace NeverType {
     }
 }
 
-export interface AnyType extends TypeBase {
-    category: TypeCategory.Any;
+export interface AnyType extends TypeBase<TypeCategory.Any> {
     isEllipsis: boolean;
 }
 
@@ -2401,12 +2395,12 @@ export interface LiteralTypes {
     literalEnumMap?: Map<string, UnionableType> | undefined;
 }
 
-export interface UnionType extends TypeBase {
+export interface UnionType extends TypeBase<TypeCategory.Union> {
     category: TypeCategory.Union;
     subtypes: UnionableType[];
     literalInstances: LiteralTypes;
     literalClasses: LiteralTypes;
-    typeAliasSources?: Set<UnionType>;
+    typeAliasSources: Set<UnionType> | undefined;
     includesRecursiveTypeAlias?: boolean;
 }
 
@@ -2414,10 +2408,12 @@ export namespace UnionType {
     export function create() {
         const newUnionType: UnionType = {
             category: TypeCategory.Union,
+            flags: TypeFlags.Instance | TypeFlags.Instantiable,
             subtypes: [],
             literalInstances: {},
             literalClasses: {},
-            flags: TypeFlags.Instance | TypeFlags.Instantiable,
+            typeAliasSources: undefined,
+            includesRecursiveTypeAlias: undefined,
         };
 
         return newUnionType;
@@ -2562,8 +2558,7 @@ export const enum TypeVarScopeType {
     TypeAlias,
 }
 
-export interface TypeVarType extends TypeBase {
-    category: TypeCategory.TypeVar;
+export interface TypeVarType extends TypeBase<TypeCategory.TypeVar> {
     details: TypeVarDetails;
 
     // An ID that uniquely identifies the scope to which this TypeVar is bound

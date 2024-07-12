@@ -2223,7 +2223,7 @@ export function buildTypeVarContext(
                             parameters.push({
                                 category: param.category,
                                 name: param.name,
-                                hasDefault: !!param.hasDefault,
+                                defaultType: param.defaultType,
                                 defaultValueExpression: param.defaultValueExpression,
                                 isNameSynthesized: param.isNameSynthesized,
                                 type: FunctionType.getEffectiveParameterType(typeArgFunctionType, paramIndex),
@@ -3352,7 +3352,7 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
             FunctionType.addParameter(newFunction, {
                 category: param.category,
                 name: param.name,
-                hasDefault: param.hasDefault,
+                defaultType: param.defaultType,
                 defaultValueExpression: param.defaultValueExpression,
                 isNameSynthesized: param.isNameSynthesized,
                 type: FunctionType.getEffectiveParameterType(type, index),
@@ -3410,7 +3410,7 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
         FunctionType.addParameter(functionType, {
             category: entry.category,
             name: entry.name,
-            hasDefault: entry.hasDefault,
+            defaultType: entry.defaultType,
             defaultValueExpression: entry.defaultValueExpression,
             isNameSynthesized: entry.isNameSynthesized,
             hasDeclaredType: true,
