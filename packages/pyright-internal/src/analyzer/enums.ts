@@ -8,6 +8,7 @@
  */
 
 import { assert } from '../common/debug';
+import { pythonVersion3_13 } from '../common/pythonVersion';
 import { ArgumentCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { VariableDeclaration } from './declaration';
@@ -327,8 +328,11 @@ export function transformTypeForEnumMember(
 
     if (primaryDecl.node.nodeType === ParseNodeType.Name) {
         nameNode = primaryDecl.node;
-    } else if (primaryDecl.node.nodeType === ParseNodeType.Function) {
-        // Handle the case where a method is decorated with @enum.member.
+    } else if (
+        primaryDecl.node.nodeType === ParseNodeType.Function ||
+        primaryDecl.node.nodeType === ParseNodeType.Class
+    ) {
+        // Handle the case where a method or class is decorated with @enum.member.
         nameNode = primaryDecl.node.name;
     } else {
         return undefined;
@@ -394,9 +398,36 @@ export function transformTypeForEnumMember(
     }
 
     if (primaryDecl.node.nodeType === ParseNodeType.Function) {
-        const functionType = evaluator.getTypeOfFunction(primaryDecl.node);
-        if (functionType) {
-            assignedType = functionType.decoratedType;
+        const functionTypeInfo = evaluator.getTypeOfFunction(primaryDecl.node);
+        if (functionTypeInfo) {
+            assignedType = functionTypeInfo.decoratedType;
+        }
+    } else if (primaryDecl.node.nodeType === ParseNodeType.Class) {
+        const classTypeInfo = evaluator.getTypeOfClass(primaryDecl.node);
+        if (classTypeInfo) {
+            const classType = classTypeInfo.classType;
+
+            // If the class is explicitly marked as a non-member, don't treat
+            // it as a member.
+            if (!isClass(classType) || ClassType.isEnumNonMember(classType)) {
+                return undefined;
+            }
+
+            // If the class is not marked as a member or a non-member, the behavior
+            // depends on the version of Python. In versions prior to 3.13, classes
+            // are treated as members.
+            if (!ClassType.isEnumMember(classType)) {
+                if (
+                    getFileInfo(primaryDecl.node).executionEnvironment.pythonVersion.isGreaterOrEqualTo(
+                        pythonVersion3_13
+                    )
+                ) {
+                    return undefined;
+                }
+            }
+
+            assignedType = classTypeInfo.decoratedType;
+            isMemberOfEnumeration = true;
         }
     }
 

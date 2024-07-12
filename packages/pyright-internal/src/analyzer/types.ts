@@ -569,6 +569,10 @@ export const enum ClassTypeFlags {
     // This class is rejected when used as the second argument to
     // an isinstance or issubclass call.
     IllegalIsinstanceClass = 1 << 24,
+
+    // Overloads specific to enums.
+    EnumMember = 1 << 25,
+    EnumNonMember = 1 << 26,
 }
 
 export interface DataClassBehaviors {
@@ -1092,6 +1096,14 @@ export namespace ClassType {
 
     export function isIllegalIsinstanceClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.IllegalIsinstanceClass);
+    }
+
+    export function isEnumMember(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.EnumMember);
+    }
+
+    export function isEnumNonMember(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.EnumNonMember);
     }
 
     export function isTypedDictClass(classType: ClassType) {

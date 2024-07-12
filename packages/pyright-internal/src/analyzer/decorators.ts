@@ -27,6 +27,7 @@ import {
 } from './dataClasses';
 import { DeclarationType, FunctionDeclaration } from './declaration';
 import { convertDocStringToPlainText } from './docStringConversion';
+import { getEnclosingClass } from './parseTreeUtils';
 import {
     clonePropertyWithDeleter,
     clonePropertyWithSetter,
@@ -383,6 +384,25 @@ export function applyClassDecorator(
         if (ClassType.isBuiltIn(decoratorType, 'deprecated')) {
             originalClassType.details.deprecatedMessage = decoratorType.deprecatedInstanceMessage;
             return inputClassType;
+        }
+    } else if (isInstantiableClass(decoratorType)) {
+        const isMember = ClassType.isBuiltIn(decoratorType, 'member');
+        const isNonMember = ClassType.isBuiltIn(decoratorType, 'nonmember');
+
+        if (isMember || isNonMember) {
+            // The special-case behavior applies only when the class is defined
+            // with the class body of an enum.
+            const containingClassNode = getEnclosingClass(decoratorNode.parent!, /* stopAtFunction */ true);
+            if (containingClassNode) {
+                const containingClassType = evaluator.getTypeOfClass(containingClassNode);
+                if (containingClassType && ClassType.isEnumClass(containingClassType.classType)) {
+                    originalClassType.details.flags |= isMember
+                        ? ClassTypeFlags.EnumMember
+                        : ClassTypeFlags.EnumNonMember;
+
+                    return inputClassType;
+                }
+            }
         }
     }
 
