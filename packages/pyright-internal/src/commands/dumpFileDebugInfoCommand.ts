@@ -14,7 +14,7 @@ import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import {
     ClassType,
     ClassTypeFlags,
-    FunctionParameter,
+    FunctionParam,
     FunctionType,
     FunctionTypeFlags,
     TypeBase,
@@ -421,7 +421,7 @@ function getTypeEvaluatorString(
         return type.name !== undefined && type.constraints && type.variance !== undefined;
     }
 
-    function isParameter(type: any): type is FunctionParameter {
+    function isParameter(type: any): type is FunctionParam {
         return type.category && type.type;
     }
 }
@@ -1016,9 +1016,9 @@ function getParameterCategoryString(type: ParameterCategory) {
         case ParameterCategory.Simple:
             return 'Simple';
         case ParameterCategory.ArgsList:
-            return 'VarArgList';
+            return 'ArgsList';
         case ParameterCategory.KwargsDict:
-            return 'VarArgDictionary';
+            return 'KwargsDict';
     }
 }
 

@@ -36,7 +36,8 @@ import {
     ClassTypeFlags,
     combineTypes,
     EnumLiteral,
-    FunctionParameter,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     isAnyOrUnknown,
     isClass,
@@ -2694,12 +2695,12 @@ function narrowTypeForCallable(
 
                         // Add a __call__ method to the new class.
                         const callMethod = FunctionType.createSynthesizedInstance('__call__');
-                        const selfParam: FunctionParameter = {
-                            category: ParameterCategory.Simple,
-                            name: 'self',
-                            type: ClassType.cloneAsInstance(newClassType),
-                            hasDeclaredType: true,
-                        };
+                        const selfParam = FunctionParam.create(
+                            ParameterCategory.Simple,
+                            ClassType.cloneAsInstance(newClassType),
+                            FunctionParamFlags.TypeDeclared,
+                            'self'
+                        );
                         FunctionType.addParameter(callMethod, selfParam);
                         FunctionType.addDefaultParameters(callMethod);
                         callMethod.details.declaredReturnType = UnknownType.create();

@@ -9,7 +9,7 @@
 
 import { assert } from '../common/debug';
 import { Uri } from '../common/uri/uri';
-import { ArgumentNode, ExpressionNode, NameNode, ParameterCategory } from '../parser/parseNodes';
+import { ArgumentNode, NameNode, ParameterCategory } from '../parser/parseNodes';
 import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
@@ -446,7 +446,6 @@ export interface DataClassEntry {
     alias?: string | undefined;
     hasDefault?: boolean | undefined;
     nameNode: NameNode | undefined;
-    defaultValueExpression?: ExpressionNode | undefined;
     includeInInit: boolean;
     type: Type;
     converter?: ArgumentNode | undefined;
@@ -1356,27 +1355,57 @@ export namespace ClassType {
     }
 }
 
-export interface FunctionParameter {
-    category: ParameterCategory;
-    type: Type;
+export enum FunctionParamFlags {
+    None = 0,
 
-    name?: string | undefined;
-    isNameSynthesized?: boolean;
+    // Is the name of the parameter synthesize internally?
+    NameSynthesized = 1 << 0,
 
-    defaultValueExpression?: ExpressionNode | undefined;
-    defaultType?: Type | undefined;
+    // Does the parameter have an explicitly-declared type?
+    TypeDeclared = 1 << 1,
 
-    hasDeclaredType?: boolean | undefined;
-    typeAnnotation?: ExpressionNode | undefined;
-    isTypeInferred?: boolean | undefined;
+    // Is the type of the parameter inferred?
+    TypeInferred = 1 << 2,
 }
 
-export function isPositionOnlySeparator(param: FunctionParameter) {
+export interface FunctionParam {
+    category: ParameterCategory;
+    type: Type;
+    flags: FunctionParamFlags;
+    name: string | undefined;
+    defaultType: Type | undefined;
+}
+
+export namespace FunctionParam {
+    export function create(
+        category: ParameterCategory,
+        type: Type,
+        flags = FunctionParamFlags.None,
+        name?: string,
+        defaultType?: Type
+    ): FunctionParam {
+        return { category, type, flags, name, defaultType };
+    }
+
+    export function isNameSynthesized(param: FunctionParam) {
+        return !!(param.flags & FunctionParamFlags.NameSynthesized);
+    }
+
+    export function isTypeDeclared(param: FunctionParam) {
+        return !!(param.flags & FunctionParamFlags.TypeDeclared);
+    }
+
+    export function isTypeInferred(param: FunctionParam) {
+        return !!(param.flags & FunctionParamFlags.TypeInferred);
+    }
+}
+
+export function isPositionOnlySeparator(param: FunctionParam) {
     // A simple parameter with no name is treated as a "/" separator.
     return param.category === ParameterCategory.Simple && !param.name;
 }
 
-export function isKeywordOnlySeparator(param: FunctionParameter) {
+export function isKeywordOnlySeparator(param: FunctionParam) {
     // An *args parameter with no name is treated as a "*" separator.
     return param.category === ParameterCategory.ArgsList && !param.name;
 }
@@ -1463,7 +1492,7 @@ interface FunctionDetails {
     moduleName: string;
     flags: FunctionTypeFlags;
     typeParameters: TypeVarType[];
-    parameters: FunctionParameter[];
+    parameters: FunctionParam[];
     declaredReturnType?: Type | undefined;
     declaration?: FunctionDeclaration | undefined;
     typeVarScopeId?: TypeVarScopeId | undefined;
@@ -1619,7 +1648,10 @@ export namespace FunctionType {
         if (stripFirstParam) {
             if (type.details.parameters.length > 0) {
                 if (type.details.parameters[0].category === ParameterCategory.Simple) {
-                    if (type.details.parameters.length > 0 && !type.details.parameters[0].isTypeInferred) {
+                    if (
+                        type.details.parameters.length > 0 &&
+                        !FunctionParam.isTypeInferred(type.details.parameters[0])
+                    ) {
                         // Stash away the effective type of the first parameter if it
                         // wasn't synthesized.
                         newFunction.strippedFirstParamType = getEffectiveParameterType(type, 0);
@@ -1716,15 +1748,13 @@ export namespace FunctionType {
         newFunction.details.parameters = [
             ...prevParams,
             ...paramSpecValue.details.parameters.map((param) => {
-                return {
-                    category: param.category,
-                    name: param.name,
-                    defaultType: param.defaultType,
-                    defaultValueExpression: param.defaultValueExpression,
-                    isNameSynthesized: param.isNameSynthesized,
-                    hasDeclaredType: true,
-                    type: param.type,
-                };
+                return FunctionParam.create(
+                    param.category,
+                    param.type,
+                    (param.flags & FunctionParamFlags.NameSynthesized) | FunctionParamFlags.TypeDeclared,
+                    param.name,
+                    param.defaultType
+                );
             }),
         ];
 
@@ -1932,19 +1962,25 @@ export namespace FunctionType {
     }
 
     export function addParamSpecVariadics(type: FunctionType, paramSpec: TypeVarType) {
-        FunctionType.addParameter(type, {
-            category: ParameterCategory.ArgsList,
-            name: 'args',
-            type: TypeVarType.cloneForParamSpecAccess(paramSpec, 'args'),
-            hasDeclaredType: true,
-        });
+        FunctionType.addParameter(
+            type,
+            FunctionParam.create(
+                ParameterCategory.ArgsList,
+                TypeVarType.cloneForParamSpecAccess(paramSpec, 'args'),
+                FunctionParamFlags.TypeDeclared,
+                'args'
+            )
+        );
 
-        FunctionType.addParameter(type, {
-            category: ParameterCategory.KwargsDict,
-            name: 'kwargs',
-            type: TypeVarType.cloneForParamSpecAccess(paramSpec, 'kwargs'),
-            hasDeclaredType: true,
-        });
+        FunctionType.addParameter(
+            type,
+            FunctionParam.create(
+                ParameterCategory.KwargsDict,
+                TypeVarType.cloneForParamSpecAccess(paramSpec, 'kwargs'),
+                FunctionParamFlags.TypeDeclared,
+                'kwargs'
+            )
+        );
     }
 
     export function addDefaultParameters(type: FunctionType, useUnknown = false) {
@@ -1981,20 +2017,20 @@ export namespace FunctionType {
         });
     }
 
-    export function getDefaultParameters(useUnknown = false): FunctionParameter[] {
+    export function getDefaultParameters(useUnknown = false): FunctionParam[] {
         return [
-            {
-                category: ParameterCategory.ArgsList,
-                name: 'args',
-                type: useUnknown ? UnknownType.create() : AnyType.create(),
-                hasDeclaredType: !useUnknown,
-            },
-            {
-                category: ParameterCategory.KwargsDict,
-                name: 'kwargs',
-                type: useUnknown ? UnknownType.create() : AnyType.create(),
-                hasDeclaredType: !useUnknown,
-            },
+            FunctionParam.create(
+                ParameterCategory.ArgsList,
+                useUnknown ? UnknownType.create() : AnyType.create(),
+                useUnknown ? FunctionParamFlags.None : FunctionParamFlags.TypeDeclared,
+                'args'
+            ),
+            FunctionParam.create(
+                ParameterCategory.KwargsDict,
+                useUnknown ? UnknownType.create() : AnyType.create(),
+                useUnknown ? FunctionParamFlags.None : FunctionParamFlags.TypeDeclared,
+                'kwargs'
+            ),
         ];
     }
 
@@ -2145,7 +2181,7 @@ export namespace FunctionType {
         return type.details.parameters[index].defaultType;
     }
 
-    export function addParameter(type: FunctionType, param: FunctionParameter) {
+    export function addParameter(type: FunctionType, param: FunctionParam) {
         type.details.parameters.push(param);
 
         if (type.specializedTypes) {
@@ -2154,17 +2190,11 @@ export namespace FunctionType {
     }
 
     export function addPositionOnlyParameterSeparator(type: FunctionType) {
-        addParameter(type, {
-            category: ParameterCategory.Simple,
-            type: AnyType.create(),
-        });
+        addParameter(type, FunctionParam.create(ParameterCategory.Simple, AnyType.create()));
     }
 
     export function addKeywordOnlyParameterSeparator(type: FunctionType) {
-        addParameter(type, {
-            category: ParameterCategory.ArgsList,
-            type: AnyType.create(),
-        });
+        addParameter(type, FunctionParam.create(ParameterCategory.ArgsList, AnyType.create()));
     }
 
     export function getEffectiveReturnType(type: FunctionType, includeInferred = true) {

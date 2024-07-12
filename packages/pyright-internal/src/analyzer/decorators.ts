@@ -39,6 +39,7 @@ import {
     ClassType,
     ClassTypeFlags,
     DataClassBehaviors,
+    FunctionParam,
     FunctionType,
     FunctionTypeFlags,
     OverloadedFunctionType,
@@ -441,7 +442,7 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
         if (
             !returnType.details.parameters.some((param, index) => {
                 // Don't allow * or / separators or params with declared types.
-                if (!param.name || param.hasDeclaredType) {
+                if (!param.name || FunctionParam.isTypeDeclared(param)) {
                     return true;
                 }
 
@@ -451,7 +452,7 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
                 }
 
                 // Allow inferred "self" or "cls" parameters.
-                return index !== 0 || !param.isTypeInferred;
+                return index !== 0 || !FunctionParam.isTypeInferred(param);
             })
         ) {
             return functionOrClassType;
@@ -464,7 +465,7 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
     if (isPartlyUnknown(returnType)) {
         if (isFunction(decoratorTypeResult.type)) {
             if (
-                !decoratorTypeResult.type.details.parameters.find((param) => param.typeAnnotation !== undefined) &&
+                !decoratorTypeResult.type.details.parameters.find((param) => FunctionParam.isTypeDeclared(param)) &&
                 decoratorTypeResult.type.details.declaredReturnType === undefined
             ) {
                 return functionOrClassType;
