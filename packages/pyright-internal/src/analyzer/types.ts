@@ -468,7 +468,7 @@ export const enum ClassTypeFlags {
     None = 0,
 
     // Class is defined in the "builtins" or "typing" file.
-    BuiltInClass = 1 << 0,
+    BuiltIn = 1 << 0,
 
     // Class requires special-case handling because it
     // exhibits non-standard behavior or is not defined
@@ -1023,7 +1023,7 @@ export namespace ClassType {
     }
 
     export function isBuiltIn(classType: ClassType, className?: string | string[]) {
-        if (!(classType.details.flags & ClassTypeFlags.BuiltInClass)) {
+        if (!(classType.details.flags & ClassTypeFlags.BuiltIn)) {
             return false;
         }
 
@@ -1453,6 +1453,9 @@ export const enum FunctionTypeFlags {
 
     // Decorated with @no_type_check.
     NoTypeCheck = 1 << 19,
+
+    // Function defined in one of the core stdlib modules.
+    BuiltIn = 1 << 20,
 }
 
 interface FunctionDetails {
@@ -1465,7 +1468,6 @@ interface FunctionDetails {
     declaredReturnType?: Type | undefined;
     declaration?: FunctionDeclaration | undefined;
     typeVarScopeId?: TypeVarScopeId | undefined;
-    builtInName?: string | undefined;
     docString?: string | undefined;
     deprecatedMessage?: string | undefined;
 
@@ -2108,6 +2110,19 @@ export namespace FunctionType {
 
     export function isOverridden(type: FunctionType) {
         return !!(type.details.flags & FunctionTypeFlags.Overridden);
+    }
+
+    export function isBuiltIn(type: FunctionType, name?: string | string[]) {
+        if (!(type.details.flags & FunctionTypeFlags.BuiltIn)) {
+            return false;
+        }
+
+        if (name !== undefined) {
+            const functionArray = Array.isArray(name) ? name : [name];
+            return functionArray.some((name) => name === type.details.name);
+        }
+
+        return true;
     }
 
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {

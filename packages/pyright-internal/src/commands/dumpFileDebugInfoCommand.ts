@@ -480,7 +480,7 @@ function getFunctionTypeFlagsString(flags: FunctionTypeFlags) {
 }
 
 const ClassTypeFlagsToString: [ClassTypeFlags, string][] = [
-    [ClassTypeFlags.BuiltInClass, 'BuiltInClass'],
+    [ClassTypeFlags.BuiltIn, 'BuiltIn'],
     [ClassTypeFlags.CanOmitDictValues, 'CanOmitDictValues'],
     [ClassTypeFlags.ClassProperty, 'ClassProperty'],
     [ClassTypeFlags.DefinedInStub, 'DefinedInStub'],

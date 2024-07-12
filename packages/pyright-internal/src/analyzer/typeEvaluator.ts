@@ -983,9 +983,7 @@ export function createTypeEvaluator(
                     'typing.Any',
                     'typing',
                     Uri.empty(),
-                    ClassTypeFlags.BuiltInClass |
-                        ClassTypeFlags.SpecialFormClass |
-                        ClassTypeFlags.IllegalIsinstanceClass,
+                    ClassTypeFlags.BuiltIn | ClassTypeFlags.SpecialFormClass | ClassTypeFlags.IllegalIsinstanceClass,
                     /* typeSourceId */ -1,
                     /* declaredMetaclass */ undefined,
                     /* effectiveMetaclass */ typeClass
@@ -8030,10 +8028,10 @@ export function createTypeEvaluator(
             ) {
                 // Handle the implicit "reveal_type" call.
                 typeResult = getTypeOfRevealType(node, inferenceContext, signatureTracker);
-            } else if (isFunction(baseTypeResult.type) && baseTypeResult.type.details.builtInName === 'reveal_type') {
+            } else if (isFunction(baseTypeResult.type) && FunctionType.isBuiltIn(baseTypeResult.type, 'reveal_type')) {
                 // Handle the "typing.reveal_type" call.
                 typeResult = getTypeOfRevealType(node, inferenceContext, signatureTracker);
-            } else if (isFunction(baseTypeResult.type) && baseTypeResult.type.details.builtInName === 'assert_type') {
+            } else if (isFunction(baseTypeResult.type) && FunctionType.isBuiltIn(baseTypeResult.type, 'assert_type')) {
                 // Handle the "typing.assert_type" call.
                 typeResult = getTypeOfAssertType(node, inferenceContext, signatureTracker);
             } else if (
@@ -9456,7 +9454,7 @@ export function createTypeEvaluator(
 
         // The stdlib collections/__init__.pyi stub file defines namedtuple
         // as a function rather than a class, so we need to check for it here.
-        if (type.details.builtInName === 'namedtuple') {
+        if (FunctionType.isBuiltIn(type, 'namedtuple')) {
             addDiagnostic(DiagnosticRule.reportUntypedNamedTuple, LocMessage.namedTupleNoTypes(), errorNode);
 
             const result: CallResult = {
@@ -9477,7 +9475,7 @@ export function createTypeEvaluator(
         }
 
         // Handle the NewType specially, replacing the normal return type.
-        if (type.details.builtInName === 'NewType') {
+        if (FunctionType.isBuiltIn(type, 'NewType')) {
             return { returnType: createNewType(errorNode, argList) };
         }
 
@@ -9512,7 +9510,7 @@ export function createTypeEvaluator(
             }
         }
 
-        if (type.details.builtInName === '__import__') {
+        if (FunctionType.isBuiltIn(type, '__import__')) {
             // For the special __import__ type, we'll override the return type to be "Any".
             // This is required because we don't know what module was imported, and we don't
             // want to fail type checks when accessing members of the resulting module type.
@@ -9630,7 +9628,7 @@ export function createTypeEvaluator(
         signatureTracker: UniqueSignatureTracker | undefined
     ): CallResult {
         // Handle the 'cast' call as a special case.
-        if (expandedCallType.overloads[0].details.builtInName === 'cast' && argList.length === 2) {
+        if (FunctionType.isBuiltIn(expandedCallType.overloads[0], 'cast') && argList.length === 2) {
             return { returnType: evaluateCastCall(argList, errorNode) };
         }
 
@@ -11163,10 +11161,7 @@ export function createTypeEvaluator(
         }
 
         // Special-case the builtin isinstance and issubclass functions.
-        if (
-            ['isinstance', 'issubclass'].some((name) => name === overload.details.builtInName) &&
-            validateArgTypeParams.length === 2
-        ) {
+        if (FunctionType.isBuiltIn(overload, ['isinstance', 'issubclass']) && validateArgTypeParams.length === 2) {
             validateArgTypeParams[1].isinstanceParam = true;
         }
 
@@ -11428,7 +11423,7 @@ export function createTypeEvaluator(
 
         // Special-case a few built-in calls that are often used for
         // casting or checking for unknown types.
-        if (['cast', 'isinstance', 'issubclass'].some((name) => name === type.details.builtInName)) {
+        if (FunctionType.isBuiltIn(type, ['cast', 'isinstance', 'issubclass'])) {
             skipUnknownArgCheck = true;
         }
 
@@ -15873,7 +15868,7 @@ export function createTypeEvaluator(
             ParseTreeUtils.getClassFullName(node, fileInfo.moduleName, assignedName),
             fileInfo.moduleName,
             fileInfo.fileUri,
-            ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
+            ClassTypeFlags.BuiltIn | ClassTypeFlags.SpecialBuiltIn,
             /* typeSourceId */ 0,
             /* declaredMetaclass */ undefined,
             /* effectiveMetaclass */ undefined
@@ -16397,7 +16392,7 @@ export function createTypeEvaluator(
             fileInfo.isBuiltInStubFile ||
             fileInfo.isTypeshedStubFile
         ) {
-            classFlags |= ClassTypeFlags.BuiltInClass;
+            classFlags |= ClassTypeFlags.BuiltIn;
 
             if (fileInfo.isTypingExtensionsStubFile) {
                 classFlags |= ClassTypeFlags.TypingExtensionClass;
@@ -17788,10 +17783,8 @@ export function createTypeEvaluator(
         }
 
         if (fileInfo.isBuiltInStubFile || fileInfo.isTypingStubFile || fileInfo.isTypingExtensionsStubFile) {
-            // Stash away the name of the function since we need to handle
-            // 'namedtuple', 'abstractmethod', 'dataclass' and 'NewType'
-            // specially.
-            functionType.details.builtInName = node.name.value;
+            // Mark the function as a built-in stdlib function.
+            functionType.details.flags |= FunctionTypeFlags.BuiltIn;
         }
 
         functionType.details.declaration = functionDecl;
@@ -21398,7 +21391,7 @@ export function createTypeEvaluator(
                         isUnambiguousType = true;
                     } else if (
                         isFunction(callType) &&
-                        exemptBuiltins.some((name) => callType.details.builtInName === name)
+                        exemptBuiltins.some((name) => FunctionType.isBuiltIn(callType, name))
                     ) {
                         isUnambiguousType = true;
                     }
