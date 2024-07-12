@@ -168,6 +168,7 @@ import {
     ClassTypeFlags,
     DataClassEntry,
     EnumLiteral,
+    FunctionParam,
     FunctionType,
     FunctionTypeFlags,
     OverloadedFunctionType,
@@ -371,7 +372,7 @@ export class Checker extends ParseTreeWalker {
 
             this._validateFinalClassNotAbstract(classTypeResult.classType, node);
 
-            this._validateDataClassPostInit(classTypeResult.classType, node);
+            this._validateDataClassPostInit(classTypeResult.classType);
 
             this._validateEnumMembers(classTypeResult.classType, node);
 
@@ -425,7 +426,7 @@ export class Checker extends ParseTreeWalker {
 
                     // Determine whether this is a P.args parameter.
                     if (param.category === ParameterCategory.ArgsList) {
-                        const annotationExpr = param.typeAnnotation || param.typeAnnotationComment;
+                        const annotationExpr = param.typeAnnotation ?? param.typeAnnotationComment;
                         if (
                             annotationExpr &&
                             annotationExpr.nodeType === ParseNodeType.MemberAccess &&
@@ -489,7 +490,7 @@ export class Checker extends ParseTreeWalker {
 
                         let hasAnnotation = false;
 
-                        if (functionTypeParam.typeAnnotation) {
+                        if (FunctionParam.isTypeDeclared(functionTypeParam)) {
                             hasAnnotation = true;
                         } else {
                             // See if this is a "self" and "cls" parameter. They are exempt from this rule.
@@ -536,7 +537,7 @@ export class Checker extends ParseTreeWalker {
 
             // Check for invalid use of ParamSpec P.args and P.kwargs.
             const paramSpecParams = functionTypeResult.functionType.details.parameters.filter((param) => {
-                if (param.typeAnnotation && isTypeVar(param.type) && isParamSpec(param.type)) {
+                if (FunctionParam.isTypeDeclared(param) && isTypeVar(param.type) && isParamSpec(param.type)) {
                     if (param.category !== ParameterCategory.Simple && param.name && param.type.paramSpecAccess) {
                         return true;
                     }
@@ -545,12 +546,17 @@ export class Checker extends ParseTreeWalker {
                 return false;
             });
 
-            if (paramSpecParams.length === 1 && paramSpecParams[0].typeAnnotation) {
-                this._evaluator.addDiagnostic(
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    LocMessage.paramSpecArgsKwargsUsage(),
-                    paramSpecParams[0].typeAnnotation
-                );
+            if (paramSpecParams.length === 1 && paramSpecParams[0].name) {
+                const paramNode = node.parameters.find((param) => param.name?.value === paramSpecParams[0].name);
+                const annotationNode = paramNode?.typeAnnotation ?? paramNode?.typeAnnotationComment;
+
+                if (annotationNode) {
+                    this._evaluator.addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.paramSpecArgsKwargsUsage(),
+                        annotationNode
+                    );
+                }
             }
 
             // If this is a stub, ensure that the return type is specified.
@@ -2105,7 +2111,7 @@ export class Checker extends ParseTreeWalker {
         // Check for chained comparisons.
         if (
             rightExpression.nodeType === ParseNodeType.BinaryOperation &&
-            !rightExpression.parenthesized &&
+            !rightExpression.isParenthesized &&
             ParseTreeUtils.operatorSupportsChaining(rightExpression.operator)
         ) {
             // Use the left side of the right expression for comparison purposes.
@@ -5131,7 +5137,7 @@ export class Checker extends ParseTreeWalker {
 
     // If a class is a dataclass with a `__post_init__` method, verify that its
     // signature is correct.
-    private _validateDataClassPostInit(classType: ClassType, errorNode: ClassNode) {
+    private _validateDataClassPostInit(classType: ClassType) {
         if (!ClassType.isDataClass(classType)) {
             return;
         }
@@ -5185,16 +5191,17 @@ export class Checker extends ParseTreeWalker {
         }
 
         // Verify that the parameter count matches.
-        const nonDefaultParams = paramListDetails.params.filter((paramInfo) => !paramInfo.param.hasDefault);
+        const nonDefaultParams = paramListDetails.params.filter((paramInfo) => !paramInfo.param.defaultType);
 
         // We expect to see one param for "self" plus one for each of the InitVars.
         const expectedParamCount = initOnlySymbolMap.size + 1;
+        const postInitNode = postInitType.details.declaration.node;
 
         if (expectedParamCount < nonDefaultParams.length || expectedParamCount > paramListDetails.params.length) {
             this._evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.dataClassPostInitParamCount().format({ expected: initOnlySymbolMap.size }),
-                postInitType.details.declaration.node.name
+                postInitNode.name
             );
         }
 
@@ -5207,8 +5214,10 @@ export class Checker extends ParseTreeWalker {
             }
 
             const param = paramListDetails.params[paramIndex].param;
+            const paramNode = postInitNode.parameters.find((node) => node.name?.value === param.name);
+            const annotationNode = paramNode?.typeAnnotation ?? paramNode?.typeAnnotationComment;
 
-            if (param.hasDeclaredType && param.typeAnnotation) {
+            if (FunctionParam.isTypeDeclared(param) && annotationNode) {
                 const fieldType = this._evaluator.getDeclaredTypeOfSymbol(symbol)?.type;
                 const paramType = FunctionType.getEffectiveParameterType(
                     postInitType,
@@ -5220,7 +5229,7 @@ export class Checker extends ParseTreeWalker {
                     const diagnostic = this._evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.dataClassPostInitType().format({ fieldName }) + assignTypeDiag.getString(),
-                        param.typeAnnotation
+                        annotationNode
                     );
 
                     if (diagnostic) {
@@ -7092,7 +7101,7 @@ export class Checker extends ParseTreeWalker {
             }
 
             if (classType) {
-                this._validateClsSelfParameterType(functionType, classType, /* isCls */ true);
+                this._validateClsSelfParameterType(node, functionType, classType, /* isCls */ true);
             }
         } else if (node.name?.value === '_generate_next_value_') {
             // Skip this check for _generate_next_value_.
@@ -7127,7 +7136,7 @@ export class Checker extends ParseTreeWalker {
             }
 
             if (classType) {
-                this._validateClsSelfParameterType(functionType, classType, /* isCls */ true);
+                this._validateClsSelfParameterType(node, functionType, classType, /* isCls */ true);
             }
         } else {
             const decoratorIsPresent = node.decorators.length > 0;
@@ -7185,7 +7194,7 @@ export class Checker extends ParseTreeWalker {
             }
 
             if (classType) {
-                this._validateClsSelfParameterType(functionType, classType, /* isCls */ false);
+                this._validateClsSelfParameterType(node, functionType, classType, /* isCls */ false);
             }
         }
     }
@@ -7257,15 +7266,21 @@ export class Checker extends ParseTreeWalker {
 
     // Validates that the annotated type of a "self" or "cls" parameter is
     // compatible with the type of the class that contains it.
-    private _validateClsSelfParameterType(functionType: FunctionType, classType: ClassType, isCls: boolean) {
-        if (functionType.details.parameters.length < 1) {
+    private _validateClsSelfParameterType(
+        node: FunctionNode,
+        functionType: FunctionType,
+        classType: ClassType,
+        isCls: boolean
+    ) {
+        if (node.parameters.length < 1 || functionType.details.parameters.length < 1) {
             return;
         }
 
         // If there is no type annotation, there's nothing to check because
         // the type will be inferred.
         const paramInfo = functionType.details.parameters[0];
-        if (!paramInfo.typeAnnotation || !paramInfo.name) {
+        const paramAnnotation = node.parameters[0].typeAnnotation ?? node.parameters[0].typeAnnotationComment;
+        if (!paramAnnotation || !paramInfo.name) {
             return;
         }
 
@@ -7281,7 +7296,7 @@ export class Checker extends ParseTreeWalker {
                 this._evaluator.addDiagnostic(
                     DiagnosticRule.reportInvalidTypeVarUse,
                     LocMessage.initMethodSelfParamTypeVar(),
-                    paramInfo.typeAnnotation
+                    paramAnnotation
                 );
             }
         }
@@ -7341,7 +7356,7 @@ export class Checker extends ParseTreeWalker {
                         name: paramInfo.name,
                         classType: this._evaluator.printType(expectedType),
                     }),
-                    paramInfo.typeAnnotation
+                    paramAnnotation
                 );
             }
         }

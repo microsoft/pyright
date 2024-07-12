@@ -20,6 +20,8 @@ import {
     ClassType,
     ClassTypeFlags,
     combineTypes,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
     isAnyOrUnknown,
@@ -65,7 +67,7 @@ export function createProperty(
         getClassFullName(decoratorNode, fileInfo.moduleName, `__property_${fget.details.name}`),
         fileInfo.moduleName,
         fileInfo.fileUri,
-        ClassTypeFlags.PropertyClass | ClassTypeFlags.BuiltInClass,
+        ClassTypeFlags.PropertyClass | ClassTypeFlags.BuiltIn,
         typeSourceId,
         /* declaredMetaclass */ undefined,
         isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
@@ -274,26 +276,24 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     // The first overload is for accesses through a class object (where
     // the instance argument is None).
     const getFunction1 = FunctionType.createSynthesizedInstance('__get__', FunctionTypeFlags.Overloaded);
-    FunctionType.addParameter(getFunction1, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
-    FunctionType.addParameter(getFunction1, {
-        category: ParameterCategory.Simple,
-        name: 'obj',
-        type: evaluator.getNoneType(),
-        hasDeclaredType: true,
-    });
-    FunctionType.addParameter(getFunction1, {
-        category: ParameterCategory.Simple,
-        name: 'objtype',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-        hasDefault: true,
-        defaultType: AnyType.create(),
-    });
+    FunctionType.addParameter(
+        getFunction1,
+        FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
+    );
+    FunctionType.addParameter(
+        getFunction1,
+        FunctionParam.create(ParameterCategory.Simple, evaluator.getNoneType(), FunctionParamFlags.TypeDeclared, 'obj')
+    );
+    FunctionType.addParameter(
+        getFunction1,
+        FunctionParam.create(
+            ParameterCategory.Simple,
+            AnyType.create(),
+            FunctionParamFlags.TypeDeclared,
+            'objtype',
+            AnyType.create(/* isEllipsis */ true)
+        )
+    );
     getFunction1.details.declaredReturnType = FunctionType.isClassMethod(fget)
         ? FunctionType.getEffectiveReturnType(fget)
         : propertyObject;
@@ -306,31 +306,29 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
 
     // The second overload is for accesses through a class instance.
     const getFunction2 = FunctionType.createSynthesizedInstance('__get__', FunctionTypeFlags.Overloaded);
-    FunctionType.addParameter(getFunction2, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        getFunction2,
+        FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
+    );
 
     const objType =
         fget.details.parameters.length > 0 ? FunctionType.getEffectiveParameterType(fget, 0) : AnyType.create();
 
-    FunctionType.addParameter(getFunction2, {
-        category: ParameterCategory.Simple,
-        name: 'obj',
-        type: objType,
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        getFunction2,
+        FunctionParam.create(ParameterCategory.Simple, objType, FunctionParamFlags.TypeDeclared, 'obj')
+    );
 
-    FunctionType.addParameter(getFunction2, {
-        category: ParameterCategory.Simple,
-        name: 'objtype',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-        hasDefault: true,
-        defaultType: AnyType.create(),
-    });
+    FunctionType.addParameter(
+        getFunction2,
+        FunctionParam.create(
+            ParameterCategory.Simple,
+            AnyType.create(),
+            FunctionParamFlags.TypeDeclared,
+            'objtype',
+            AnyType.create(/* isEllipsis */ true)
+        )
+    );
     getFunction2.details.declaredReturnType = FunctionType.getEffectiveReturnType(fget);
     getFunction2.details.declaration = fget.details.declaration;
     getFunction2.details.deprecatedMessage = fget.details.deprecatedMessage;
@@ -352,12 +350,10 @@ function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     const fields = ClassType.getSymbolTable(propertyObject);
 
     const setFunction = FunctionType.createSynthesizedInstance('__set__');
-    FunctionType.addParameter(setFunction, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        setFunction,
+        FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
+    );
 
     let objType =
         fset.details.parameters.length > 0 ? FunctionType.getEffectiveParameterType(fset, 0) : AnyType.create();
@@ -365,12 +361,15 @@ function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
     }
 
-    FunctionType.addParameter(setFunction, {
-        category: ParameterCategory.Simple,
-        name: 'obj',
-        type: combineTypes([objType, evaluator.getNoneType()]),
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        setFunction,
+        FunctionParam.create(
+            ParameterCategory.Simple,
+            combineTypes([objType, evaluator.getNoneType()]),
+            FunctionParamFlags.TypeDeclared,
+            'obj'
+        )
+    );
 
     setFunction.details.declaredReturnType = evaluator.getNoneType();
 
@@ -388,12 +387,10 @@ function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     ) {
         setParamType = fset.details.parameters[1].type;
     }
-    FunctionType.addParameter(setFunction, {
-        category: ParameterCategory.Simple,
-        name: 'value',
-        type: setParamType,
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        setFunction,
+        FunctionParam.create(ParameterCategory.Simple, setParamType, FunctionParamFlags.TypeDeclared, 'value')
+    );
     const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
     fields.set('__set__', setSymbol);
 }
@@ -402,12 +399,10 @@ function addDelMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     const fields = ClassType.getSymbolTable(propertyObject);
 
     const delFunction = FunctionType.createSynthesizedInstance('__delete__');
-    FunctionType.addParameter(delFunction, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        delFunction,
+        FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
+    );
 
     // Adopt the TypeVarScopeId of the fdel function in case it has any
     // TypeVars that need to be solved.
@@ -421,12 +416,15 @@ function addDelMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
     }
 
-    FunctionType.addParameter(delFunction, {
-        category: ParameterCategory.Simple,
-        name: 'obj',
-        type: combineTypes([objType, evaluator.getNoneType()]),
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        delFunction,
+        FunctionParam.create(
+            ParameterCategory.Simple,
+            combineTypes([objType, evaluator.getNoneType()]),
+            FunctionParamFlags.TypeDeclared,
+            'obj'
+        )
+    );
     delFunction.details.declaredReturnType = evaluator.getNoneType();
     const delSymbol = Symbol.createWithType(SymbolFlags.ClassMember, delFunction);
     fields.set('__delete__', delSymbol);
@@ -455,18 +453,19 @@ function addDecoratorMethodsToPropertySymbolTable(propertyObject: ClassType) {
     // Fill in the getter, setter and deleter methods.
     ['getter', 'setter', 'deleter'].forEach((accessorName) => {
         const accessorFunction = FunctionType.createSynthesizedInstance(accessorName);
-        FunctionType.addParameter(accessorFunction, {
-            category: ParameterCategory.Simple,
-            name: 'self',
-            type: AnyType.create(),
-            hasDeclaredType: true,
-        });
-        FunctionType.addParameter(accessorFunction, {
-            category: ParameterCategory.Simple,
-            name: 'accessor',
-            type: AnyType.create(),
-            hasDeclaredType: true,
-        });
+        FunctionType.addParameter(
+            accessorFunction,
+            FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
+        );
+        FunctionType.addParameter(
+            accessorFunction,
+            FunctionParam.create(
+                ParameterCategory.Simple,
+                AnyType.create(),
+                FunctionParamFlags.TypeDeclared,
+                'accessor'
+            )
+        );
         accessorFunction.details.declaredReturnType = propertyObject;
         const accessorSymbol = Symbol.createWithType(SymbolFlags.ClassMember, accessorFunction);
         fields.set(accessorName, accessorSymbol);

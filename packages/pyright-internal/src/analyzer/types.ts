@@ -9,7 +9,7 @@
 
 import { assert } from '../common/debug';
 import { Uri } from '../common/uri/uri';
-import { ArgumentNode, ExpressionNode, NameNode, ParameterCategory } from '../parser/parseNodes';
+import { ArgumentNode, NameNode, ParameterCategory } from '../parser/parseNodes';
 import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
@@ -136,14 +136,14 @@ export interface TypeAliasInfo {
     typeArguments?: Type[] | undefined;
 }
 
-interface TypeBase {
-    category: TypeCategory;
+interface TypeBase<T extends TypeCategory> {
+    category: T;
     flags: TypeFlags;
 
     // Used to handle nested references to instantiable classes
     // (e.g. type[type[type[T]]]). If the field isn't present,
     // it is assumed to be zero.
-    instantiableNestingLevel?: number;
+    instantiableDepth?: number;
 
     // Used in cases where the type is an instantiable special form such as
     // UnionType, Literal, or Required. These are not directly instantiable
@@ -180,25 +180,25 @@ interface TypeBase {
 }
 
 export namespace TypeBase {
-    export function isInstantiable(type: TypeBase) {
+    export function isInstantiable(type: TypeBase<any>) {
         return (type.flags & TypeFlags.Instantiable) !== 0;
     }
 
-    export function isInstance(type: TypeBase) {
+    export function isInstance(type: TypeBase<any>) {
         return (type.flags & TypeFlags.Instance) !== 0;
     }
 
-    export function isAmbiguous(type: TypeBase) {
+    export function isAmbiguous(type: TypeBase<any>) {
         return !!type.isAmbiguous;
     }
 
-    export function cloneType<T extends TypeBase>(type: T): T {
+    export function cloneType<T extends TypeBase<any>>(type: T): T {
         const clone = { ...type };
         delete clone.cached;
         return clone;
     }
 
-    export function cloneAsSpecialForm<T extends TypeBase>(type: T, specialForm: ClassType | undefined): T {
+    export function cloneAsSpecialForm<T extends TypeBase<any>>(type: T, specialForm: ClassType | undefined): T {
         const clone = { ...type };
         delete clone.cached;
 
@@ -216,15 +216,15 @@ export namespace TypeBase {
 
         const newInstance = TypeBase.cloneType(type);
 
-        if (newInstance.instantiableNestingLevel === undefined) {
+        if (newInstance.instantiableDepth === undefined) {
             newInstance.flags &= ~TypeFlags.Instantiable;
             newInstance.flags |= TypeFlags.Instance;
-            delete newInstance.instantiableNestingLevel;
+            delete newInstance.instantiableDepth;
         } else {
-            if (newInstance.instantiableNestingLevel === 1) {
-                delete newInstance.instantiableNestingLevel;
+            if (newInstance.instantiableDepth === 1) {
+                delete newInstance.instantiableDepth;
             } else {
-                newInstance.instantiableNestingLevel--;
+                newInstance.instantiableDepth--;
             }
         }
 
@@ -247,8 +247,8 @@ export namespace TypeBase {
             newInstance.flags &= ~TypeFlags.Instance;
             newInstance.flags |= TypeFlags.Instantiable;
         } else {
-            newInstance.instantiableNestingLevel =
-                newInstance.instantiableNestingLevel === undefined ? 1 : newInstance.instantiableNestingLevel;
+            newInstance.instantiableDepth =
+                newInstance.instantiableDepth === undefined ? 1 : newInstance.instantiableDepth;
         }
 
         // Remove type alias information because the type will no longer match
@@ -317,9 +317,7 @@ export namespace TypeBase {
     }
 }
 
-export interface UnboundType extends TypeBase {
-    category: TypeCategory.Unbound;
-}
+export interface UnboundType extends TypeBase<TypeCategory.Unbound> {}
 
 export namespace UnboundType {
     const _instance: UnboundType = {
@@ -338,15 +336,14 @@ export namespace UnboundType {
     }
 }
 
-export interface UnknownType extends TypeBase {
-    category: TypeCategory.Unknown;
+export interface UnknownType extends TypeBase<TypeCategory.Unknown> {
     isIncomplete: boolean;
 
     // A "possible type" is a form of a "weak union" where the actual
     // type is unknown, but it could be one of the subtypes in the union.
     // This is used for overload matching in cases where more than one
     // overload matches due to an argument that evaluates to Any or Unknown.
-    possibleType?: Type;
+    possibleType: Type | undefined;
 }
 
 export namespace UnknownType {
@@ -354,11 +351,13 @@ export namespace UnknownType {
         category: TypeCategory.Unknown,
         flags: TypeFlags.Instantiable | TypeFlags.Instance,
         isIncomplete: false,
+        possibleType: undefined,
     };
     const _incompleteInstance: UnknownType = {
         category: TypeCategory.Unknown,
         flags: TypeFlags.Instantiable | TypeFlags.Instance,
         isIncomplete: true,
+        possibleType: undefined,
     };
 
     export function create(isIncomplete = false) {
@@ -382,14 +381,13 @@ export namespace UnknownType {
     }
 }
 
-export interface ModuleType extends TypeBase {
-    category: TypeCategory.Module;
+export interface ModuleType extends TypeBase<TypeCategory.Module> {
     fields: SymbolTable;
-    docString?: string | undefined;
+    docString: string | undefined;
 
     // If a field lookup isn't found, should the type of the
     // resulting field be Any/Unknown or treated as an error?
-    notPresentFieldType?: AnyType | UnknownType;
+    notPresentFieldType: AnyType | UnknownType | undefined;
 
     // A "loader" module includes symbols that were injected by
     // the module loader. We keep these separate so we don't
@@ -407,6 +405,8 @@ export namespace ModuleType {
         const newModuleType: ModuleType = {
             category: TypeCategory.Module,
             fields: symbolTable || new Map<string, Symbol>(),
+            docString: undefined,
+            notPresentFieldType: undefined,
             loaderFields: new Map<string, Symbol>(),
             flags: TypeFlags.Instantiable | TypeFlags.Instantiable,
             moduleName,
@@ -446,7 +446,6 @@ export interface DataClassEntry {
     alias?: string | undefined;
     hasDefault?: boolean | undefined;
     nameNode: NameNode | undefined;
-    defaultValueExpression?: ExpressionNode | undefined;
     includeInInit: boolean;
     type: Type;
     converter?: ArgumentNode | undefined;
@@ -468,7 +467,7 @@ export const enum ClassTypeFlags {
     None = 0,
 
     // Class is defined in the "builtins" or "typing" file.
-    BuiltInClass = 1 << 0,
+    BuiltIn = 1 << 0,
 
     // Class requires special-case handling because it
     // exhibits non-standard behavior or is not defined
@@ -656,9 +655,7 @@ export interface PropertyMethodInfo {
     classType: ClassType | undefined;
 }
 
-export interface ClassType extends TypeBase {
-    category: TypeCategory.Class;
-
+export interface ClassType extends TypeBase<TypeCategory.Class> {
     details: ClassDetails;
 
     // A generic class that has been completely or partially
@@ -1023,7 +1020,7 @@ export namespace ClassType {
     }
 
     export function isBuiltIn(classType: ClassType, className?: string | string[]) {
-        if (!(classType.details.flags & ClassTypeFlags.BuiltInClass)) {
+        if (!(classType.details.flags & ClassTypeFlags.BuiltIn)) {
             return false;
         }
 
@@ -1358,26 +1355,57 @@ export namespace ClassType {
     }
 }
 
-export interface FunctionParameter {
-    category: ParameterCategory;
-    name?: string | undefined;
-    isNameSynthesized?: boolean;
-    hasDefault?: boolean | undefined;
-    defaultValueExpression?: ExpressionNode | undefined;
-    type: Type;
+export enum FunctionParamFlags {
+    None = 0,
 
-    isTypeInferred?: boolean | undefined;
-    defaultType?: Type | undefined;
-    hasDeclaredType?: boolean | undefined;
-    typeAnnotation?: ExpressionNode | undefined;
+    // Is the name of the parameter synthesize internally?
+    NameSynthesized = 1 << 0,
+
+    // Does the parameter have an explicitly-declared type?
+    TypeDeclared = 1 << 1,
+
+    // Is the type of the parameter inferred?
+    TypeInferred = 1 << 2,
 }
 
-export function isPositionOnlySeparator(param: FunctionParameter) {
+export interface FunctionParam {
+    category: ParameterCategory;
+    type: Type;
+    flags: FunctionParamFlags;
+    name: string | undefined;
+    defaultType: Type | undefined;
+}
+
+export namespace FunctionParam {
+    export function create(
+        category: ParameterCategory,
+        type: Type,
+        flags = FunctionParamFlags.None,
+        name?: string,
+        defaultType?: Type
+    ): FunctionParam {
+        return { category, type, flags, name, defaultType };
+    }
+
+    export function isNameSynthesized(param: FunctionParam) {
+        return !!(param.flags & FunctionParamFlags.NameSynthesized);
+    }
+
+    export function isTypeDeclared(param: FunctionParam) {
+        return !!(param.flags & FunctionParamFlags.TypeDeclared);
+    }
+
+    export function isTypeInferred(param: FunctionParam) {
+        return !!(param.flags & FunctionParamFlags.TypeInferred);
+    }
+}
+
+export function isPositionOnlySeparator(param: FunctionParam) {
     // A simple parameter with no name is treated as a "/" separator.
     return param.category === ParameterCategory.Simple && !param.name;
 }
 
-export function isKeywordOnlySeparator(param: FunctionParameter) {
+export function isKeywordOnlySeparator(param: FunctionParam) {
     // An *args parameter with no name is treated as a "*" separator.
     return param.category === ParameterCategory.ArgsList && !param.name;
 }
@@ -1453,6 +1481,9 @@ export const enum FunctionTypeFlags {
 
     // Decorated with @no_type_check.
     NoTypeCheck = 1 << 19,
+
+    // Function defined in one of the core stdlib modules.
+    BuiltIn = 1 << 20,
 }
 
 interface FunctionDetails {
@@ -1461,11 +1492,10 @@ interface FunctionDetails {
     moduleName: string;
     flags: FunctionTypeFlags;
     typeParameters: TypeVarType[];
-    parameters: FunctionParameter[];
+    parameters: FunctionParam[];
     declaredReturnType?: Type | undefined;
     declaration?: FunctionDeclaration | undefined;
     typeVarScopeId?: TypeVarScopeId | undefined;
-    builtInName?: string | undefined;
     docString?: string | undefined;
     deprecatedMessage?: string | undefined;
 
@@ -1511,9 +1541,7 @@ export interface SignatureWithOffsets {
     expressionOffsets: number[];
 }
 
-export interface FunctionType extends TypeBase {
-    category: TypeCategory.Function;
-
+export interface FunctionType extends TypeBase<TypeCategory.Function> {
     details: FunctionDetails;
 
     // A function type can be specialized (i.e. generic type
@@ -1620,7 +1648,10 @@ export namespace FunctionType {
         if (stripFirstParam) {
             if (type.details.parameters.length > 0) {
                 if (type.details.parameters[0].category === ParameterCategory.Simple) {
-                    if (type.details.parameters.length > 0 && !type.details.parameters[0].isTypeInferred) {
+                    if (
+                        type.details.parameters.length > 0 &&
+                        !FunctionParam.isTypeInferred(type.details.parameters[0])
+                    ) {
                         // Stash away the effective type of the first parameter if it
                         // wasn't synthesized.
                         newFunction.strippedFirstParamType = getEffectiveParameterType(type, 0);
@@ -1717,15 +1748,13 @@ export namespace FunctionType {
         newFunction.details.parameters = [
             ...prevParams,
             ...paramSpecValue.details.parameters.map((param) => {
-                return {
-                    category: param.category,
-                    name: param.name,
-                    hasDefault: param.hasDefault,
-                    defaultValueExpression: param.defaultValueExpression,
-                    isNameSynthesized: param.isNameSynthesized,
-                    hasDeclaredType: true,
-                    type: param.type,
-                };
+                return FunctionParam.create(
+                    param.category,
+                    param.type,
+                    (param.flags & FunctionParamFlags.NameSynthesized) | FunctionParamFlags.TypeDeclared,
+                    param.name,
+                    param.defaultType
+                );
             }),
         ];
 
@@ -1933,19 +1962,25 @@ export namespace FunctionType {
     }
 
     export function addParamSpecVariadics(type: FunctionType, paramSpec: TypeVarType) {
-        FunctionType.addParameter(type, {
-            category: ParameterCategory.ArgsList,
-            name: 'args',
-            type: TypeVarType.cloneForParamSpecAccess(paramSpec, 'args'),
-            hasDeclaredType: true,
-        });
+        FunctionType.addParameter(
+            type,
+            FunctionParam.create(
+                ParameterCategory.ArgsList,
+                TypeVarType.cloneForParamSpecAccess(paramSpec, 'args'),
+                FunctionParamFlags.TypeDeclared,
+                'args'
+            )
+        );
 
-        FunctionType.addParameter(type, {
-            category: ParameterCategory.KwargsDict,
-            name: 'kwargs',
-            type: TypeVarType.cloneForParamSpecAccess(paramSpec, 'kwargs'),
-            hasDeclaredType: true,
-        });
+        FunctionType.addParameter(
+            type,
+            FunctionParam.create(
+                ParameterCategory.KwargsDict,
+                TypeVarType.cloneForParamSpecAccess(paramSpec, 'kwargs'),
+                FunctionParamFlags.TypeDeclared,
+                'kwargs'
+            )
+        );
     }
 
     export function addDefaultParameters(type: FunctionType, useUnknown = false) {
@@ -1982,20 +2017,20 @@ export namespace FunctionType {
         });
     }
 
-    export function getDefaultParameters(useUnknown = false): FunctionParameter[] {
+    export function getDefaultParameters(useUnknown = false): FunctionParam[] {
         return [
-            {
-                category: ParameterCategory.ArgsList,
-                name: 'args',
-                type: useUnknown ? UnknownType.create() : AnyType.create(),
-                hasDeclaredType: !useUnknown,
-            },
-            {
-                category: ParameterCategory.KwargsDict,
-                name: 'kwargs',
-                type: useUnknown ? UnknownType.create() : AnyType.create(),
-                hasDeclaredType: !useUnknown,
-            },
+            FunctionParam.create(
+                ParameterCategory.ArgsList,
+                useUnknown ? UnknownType.create() : AnyType.create(),
+                useUnknown ? FunctionParamFlags.None : FunctionParamFlags.TypeDeclared,
+                'args'
+            ),
+            FunctionParam.create(
+                ParameterCategory.KwargsDict,
+                useUnknown ? UnknownType.create() : AnyType.create(),
+                useUnknown ? FunctionParamFlags.None : FunctionParamFlags.TypeDeclared,
+                'kwargs'
+            ),
         ];
     }
 
@@ -2110,6 +2145,19 @@ export namespace FunctionType {
         return !!(type.details.flags & FunctionTypeFlags.Overridden);
     }
 
+    export function isBuiltIn(type: FunctionType, name?: string | string[]) {
+        if (!(type.details.flags & FunctionTypeFlags.BuiltIn)) {
+            return false;
+        }
+
+        if (name !== undefined) {
+            const functionArray = Array.isArray(name) ? name : [name];
+            return functionArray.some((name) => name === type.details.name);
+        }
+
+        return true;
+    }
+
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {
         assert(index < type.details.parameters.length, 'Parameter types array overflow');
 
@@ -2133,7 +2181,7 @@ export namespace FunctionType {
         return type.details.parameters[index].defaultType;
     }
 
-    export function addParameter(type: FunctionType, param: FunctionParameter) {
+    export function addParameter(type: FunctionType, param: FunctionParam) {
         type.details.parameters.push(param);
 
         if (type.specializedTypes) {
@@ -2142,17 +2190,11 @@ export namespace FunctionType {
     }
 
     export function addPositionOnlyParameterSeparator(type: FunctionType) {
-        addParameter(type, {
-            category: ParameterCategory.Simple,
-            type: AnyType.create(),
-        });
+        addParameter(type, FunctionParam.create(ParameterCategory.Simple, AnyType.create()));
     }
 
     export function addKeywordOnlyParameterSeparator(type: FunctionType) {
-        addParameter(type, {
-            category: ParameterCategory.ArgsList,
-            type: AnyType.create(),
-        });
+        addParameter(type, FunctionParam.create(ParameterCategory.ArgsList, AnyType.create()));
     }
 
     export function getEffectiveReturnType(type: FunctionType, includeInferred = true) {
@@ -2172,8 +2214,7 @@ export namespace FunctionType {
     }
 }
 
-export interface OverloadedFunctionType extends TypeBase {
-    category: TypeCategory.OverloadedFunction;
+export interface OverloadedFunctionType extends TypeBase<TypeCategory.OverloadedFunction> {
     overloads: FunctionType[];
 }
 
@@ -2207,8 +2248,7 @@ export namespace OverloadedFunctionType {
     }
 }
 
-export interface NeverType extends TypeBase {
-    category: TypeCategory.Never;
+export interface NeverType extends TypeBase<TypeCategory.Never> {
     isNoReturn: boolean;
 }
 
@@ -2243,8 +2283,7 @@ export namespace NeverType {
     }
 }
 
-export interface AnyType extends TypeBase {
-    category: TypeCategory.Any;
+export interface AnyType extends TypeBase<TypeCategory.Any> {
     isEllipsis: boolean;
 }
 
@@ -2386,12 +2425,12 @@ export interface LiteralTypes {
     literalEnumMap?: Map<string, UnionableType> | undefined;
 }
 
-export interface UnionType extends TypeBase {
+export interface UnionType extends TypeBase<TypeCategory.Union> {
     category: TypeCategory.Union;
     subtypes: UnionableType[];
     literalInstances: LiteralTypes;
     literalClasses: LiteralTypes;
-    typeAliasSources?: Set<UnionType>;
+    typeAliasSources: Set<UnionType> | undefined;
     includesRecursiveTypeAlias?: boolean;
 }
 
@@ -2399,10 +2438,12 @@ export namespace UnionType {
     export function create() {
         const newUnionType: UnionType = {
             category: TypeCategory.Union,
+            flags: TypeFlags.Instance | TypeFlags.Instantiable,
             subtypes: [],
             literalInstances: {},
             literalClasses: {},
-            flags: TypeFlags.Instance | TypeFlags.Instantiable,
+            typeAliasSources: undefined,
+            includesRecursiveTypeAlias: undefined,
         };
 
         return newUnionType;
@@ -2547,8 +2588,7 @@ export const enum TypeVarScopeType {
     TypeAlias,
 }
 
-export interface TypeVarType extends TypeBase {
-    category: TypeCategory.TypeVar;
+export interface TypeVarType extends TypeBase<TypeCategory.TypeVar> {
     details: TypeVarDetails;
 
     // An ID that uniquely identifies the scope to which this TypeVar is bound
@@ -3274,11 +3314,21 @@ export function findSubtype(type: Type, filter: (type: UnionableType | NeverType
     return filter(type) ? type : undefined;
 }
 
+export interface CombineTypesOptions {
+    // By default, literals are elided (removed) from a union if the non-literal
+    // subtype is present. Should this be skipped?
+    skipElideRedundantLiterals?: boolean;
+
+    // If specified, the maximum number of subtypes that should be allowed
+    // in the union before it is converted to an "Any" type.
+    maxSubtypeCount?: number;
+}
+
 // Combines multiple types into a single type. If the types are
 // the same, only one is returned. If they differ, they
 // are combined into a UnionType. NeverTypes are filtered out.
 // If no types remain in the end, a NeverType is returned.
-export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
+export function combineTypes(subtypes: Type[], options?: CombineTypesOptions): Type {
     // Filter out any "Never" and "NoReturn" types.
     let sawNoReturn = false;
 
@@ -3372,8 +3422,8 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
         if (index === 0) {
             UnionType.addType(newUnionType, subtype as UnionableType);
         } else {
-            if (maxSubtypeCount === undefined || newUnionType.subtypes.length < maxSubtypeCount) {
-                _addTypeIfUnique(newUnionType, subtype as UnionableType);
+            if (options?.maxSubtypeCount === undefined || newUnionType.subtypes.length < options.maxSubtypeCount) {
+                _addTypeIfUnique(newUnionType, subtype as UnionableType, !options?.skipElideRedundantLiterals);
             } else {
                 hitMaxSubtypeCount = true;
             }
@@ -3416,7 +3466,7 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
     return false;
 }
 
-function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
+function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideRedundantLiterals: boolean) {
     // Handle the addition of a string literal in a special manner to
     // avoid n^2 behavior in unions that contain hundreds of string
     // literal types. Skip this for constrained types.
@@ -3481,10 +3531,10 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
             }
         }
 
-        // If the typeToAdd is a literal value and there's already
-        // a non-literal type that matches, don't add the literal value.
         if (isClassInstance(type) && isClassInstance(typeToAdd)) {
-            if (isSameWithoutLiteralValue(type, typeToAdd)) {
+            // If the typeToAdd is a literal value and there's already
+            // a non-literal type that matches, don't add the literal value.
+            if (elideRedundantLiterals && isSameWithoutLiteralValue(type, typeToAdd)) {
                 if (type.literalValue === undefined) {
                     return;
                 }

@@ -40,7 +40,8 @@ import {
     AnyType,
     ClassType,
     ClassTypeFlags,
-    FunctionParameter,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
     TupleTypeArgument,
@@ -144,21 +145,19 @@ export function createNamedTupleType(
         constructorType.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
     }
     constructorType.details.typeVarScopeId = classType.details.typeVarScopeId;
-    FunctionType.addParameter(constructorType, {
-        category: ParameterCategory.Simple,
-        name: 'cls',
-        type: classTypeVar,
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        constructorType,
+        FunctionParam.create(ParameterCategory.Simple, classTypeVar, FunctionParamFlags.TypeDeclared, 'cls')
+    );
 
     const matchArgsNames: string[] = [];
 
-    const selfParameter: FunctionParameter = {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false),
-        hasDeclaredType: true,
-    };
+    const selfParameter = FunctionParam.create(
+        ParameterCategory.Simple,
+        synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false),
+        FunctionParamFlags.TypeDeclared,
+        'self'
+    );
 
     let addGenericGetAttribute = false;
     const entryTypes: Type[] = [];
@@ -194,13 +193,13 @@ export function createNamedTupleType(
                         );
 
                         const entryType = UnknownType.create();
-                        const paramInfo: FunctionParameter = {
-                            category: ParameterCategory.Simple,
-                            name: entryName,
-                            type: entryType,
-                            hasDeclaredType: includesTypes,
-                            hasDefault: index >= firstParamWithDefaultIndex,
-                        };
+                        const paramInfo = FunctionParam.create(
+                            ParameterCategory.Simple,
+                            entryType,
+                            FunctionParamFlags.TypeDeclared,
+                            entryName,
+                            index >= firstParamWithDefaultIndex ? entryType : undefined
+                        );
 
                         FunctionType.addParameter(constructorType, paramInfo);
                         const newSymbol = Symbol.createWithType(SymbolFlags.InstanceMember, entryType);
@@ -313,13 +312,13 @@ export function createNamedTupleType(
                         entryType = UnknownType.create();
                     }
 
-                    const paramInfo: FunctionParameter = {
-                        category: ParameterCategory.Simple,
-                        name: entryName,
-                        type: entryType,
-                        hasDeclaredType: includesTypes,
-                        hasDefault: index >= firstParamWithDefaultIndex,
-                    };
+                    const paramInfo = FunctionParam.create(
+                        ParameterCategory.Simple,
+                        entryType,
+                        includesTypes ? FunctionParamFlags.TypeDeclared : FunctionParamFlags.None,
+                        entryName,
+                        index >= firstParamWithDefaultIndex ? entryType : undefined
+                    );
 
                     FunctionType.addParameter(constructorType, paramInfo);
                     entryTypes.push(entryType);
@@ -392,11 +391,15 @@ export function createNamedTupleType(
         const getAttribType = FunctionType.createSynthesizedInstance('__getattribute__');
         getAttribType.details.declaredReturnType = AnyType.create();
         FunctionType.addParameter(getAttribType, selfParameter);
-        FunctionType.addParameter(getAttribType, {
-            category: ParameterCategory.Simple,
-            name: 'name',
-            type: evaluator.getBuiltInObject(errorNode, 'str'),
-        });
+        FunctionType.addParameter(
+            getAttribType,
+            FunctionParam.create(
+                ParameterCategory.Simple,
+                evaluator.getBuiltInObject(errorNode, 'str'),
+                FunctionParamFlags.TypeDeclared,
+                'name'
+            )
+        );
         classFields.set('__getattribute__', Symbol.createWithType(SymbolFlags.ClassMember, getAttribType));
     }
 

@@ -36,7 +36,8 @@ import {
     ClassTypeFlags,
     combineTypes,
     EnumLiteral,
-    FunctionParameter,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     isAnyOrUnknown,
     isClass,
@@ -622,11 +623,8 @@ export function getTypeNarrowingCallback(
                 );
                 const callType = callTypeResult.type;
 
-                if (
-                    isFunction(callType) &&
-                    (callType.details.builtInName === 'isinstance' || callType.details.builtInName === 'issubclass')
-                ) {
-                    const isInstanceCheck = callType.details.builtInName === 'isinstance';
+                if (isFunction(callType) && FunctionType.isBuiltIn(callType, ['isinstance', 'issubclass'])) {
+                    const isInstanceCheck = FunctionType.isBuiltIn(callType, 'isinstance');
                     const arg1TypeResult = evaluator.getTypeOfExpression(arg1Expr, EvalFlags.IsInstanceArgDefaults);
                     const arg1Type = arg1TypeResult.type;
 
@@ -672,7 +670,7 @@ export function getTypeNarrowingCallback(
                 );
                 const callType = callTypeResult.type;
 
-                if (isFunction(callType) && callType.details.builtInName === 'callable') {
+                if (isFunction(callType) && FunctionType.isBuiltIn(callType, 'callable')) {
                     return (type: Type) => {
                         let narrowedType = narrowTypeForCallable(
                             evaluator,
@@ -2697,12 +2695,12 @@ function narrowTypeForCallable(
 
                         // Add a __call__ method to the new class.
                         const callMethod = FunctionType.createSynthesizedInstance('__call__');
-                        const selfParam: FunctionParameter = {
-                            category: ParameterCategory.Simple,
-                            name: 'self',
-                            type: ClassType.cloneAsInstance(newClassType),
-                            hasDeclaredType: true,
-                        };
+                        const selfParam = FunctionParam.create(
+                            ParameterCategory.Simple,
+                            ClassType.cloneAsInstance(newClassType),
+                            FunctionParamFlags.TypeDeclared,
+                            'self'
+                        );
                         FunctionType.addParameter(callMethod, selfParam);
                         FunctionType.addDefaultParameters(callMethod);
                         callMethod.details.declaredReturnType = UnknownType.create();

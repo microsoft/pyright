@@ -19,7 +19,8 @@ import {
     ClassTypeFlags,
     combineTypes,
     findSubtype,
-    FunctionParameter,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
     isAny,
@@ -419,12 +420,25 @@ export function makeInferenceContext(
     return { expectedType, isTypeIncomplete };
 }
 
+export interface MapSubtypesOptions {
+    // Should subtypes in a union be sorted before iteration?
+    sortSubtypes?: boolean;
+
+    // Should unions retain redundant literal types if they
+    // are present in the original type?
+    skipElideRedundantLiterals?: boolean;
+}
+
 // Calls a callback for each subtype and combines the results
 // into a final type. It performs no memory allocations if the
 // transformed type is the same as the original.
-export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefined, sortSubtypes = false): Type {
+export function mapSubtypes(
+    type: Type,
+    callback: (type: Type) => Type | undefined,
+    options?: MapSubtypesOptions
+): Type {
     if (isUnion(type)) {
-        const subtypes = sortSubtypes ? sortTypes(type.subtypes) : type.subtypes;
+        const subtypes = options?.sortSubtypes ? sortTypes(type.subtypes) : type.subtypes;
 
         for (let i = 0; i < subtypes.length; i++) {
             const subtype = subtypes[i];
@@ -447,7 +461,9 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
                     accumulateSubtype(callback(subtypes[i]));
                 }
 
-                const newType = combineTypes(typesToCombine);
+                const newType = combineTypes(typesToCombine, {
+                    skipElideRedundantLiterals: options?.skipElideRedundantLiterals,
+                });
 
                 // Do our best to retain type aliases.
                 if (newType.category === TypeCategory.Union) {
@@ -472,17 +488,17 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
 // caller to replace one or more signatures with new ones.
 export function mapSignatures(
     type: FunctionType | OverloadedFunctionType,
-    callback: (type: FunctionType, index: number) => FunctionType | undefined
+    callback: (type: FunctionType) => FunctionType | undefined
 ): OverloadedFunctionType | FunctionType | undefined {
     if (isFunction(type)) {
-        return callback(type, 0);
+        return callback(type);
     }
 
     const newSignatures: FunctionType[] = [];
     let changeMade = false;
 
     OverloadedFunctionType.getOverloads(type).forEach((overload, index) => {
-        const newOverload = callback(overload, index);
+        const newOverload = callback(overload);
         if (newOverload !== overload) {
             changeMade = true;
         }
@@ -499,7 +515,12 @@ export function mapSignatures(
     // Add the unmodified implementation if it's present.
     const implementation = OverloadedFunctionType.getImplementation(type);
     if (implementation) {
-        newSignatures.push(implementation);
+        const newImplementation = callback(implementation);
+
+        if (newImplementation) {
+            changeMade = true;
+            newSignatures.push(newImplementation);
+        }
     }
 
     if (!changeMade) {
@@ -1364,6 +1385,17 @@ export function isMaybeDescriptorInstance(type: Type, requireSetter = false): bo
     return true;
 }
 
+export function isTupleGradualForm(type: Type) {
+    return (
+        isClassInstance(type) &&
+        isTupleClass(type) &&
+        type.tupleTypeArguments &&
+        type.tupleTypeArguments.length === 1 &&
+        isAnyOrUnknown(type.tupleTypeArguments[0].type) &&
+        type.tupleTypeArguments[0].isUnbounded
+    );
+}
+
 export function isTupleClass(type: ClassType) {
     return ClassType.isBuiltIn(type, 'tuple');
 }
@@ -2201,17 +2233,18 @@ export function buildTypeVarContext(
                 if (index < typeArgs.length) {
                     typeArgType = typeArgs[index];
                     if (isFunction(typeArgType) && FunctionType.isParamSpecValue(typeArgType)) {
-                        const parameters: FunctionParameter[] = [];
+                        const parameters: FunctionParam[] = [];
                         const typeArgFunctionType = typeArgType;
                         typeArgType.details.parameters.forEach((param, paramIndex) => {
-                            parameters.push({
-                                category: param.category,
-                                name: param.name,
-                                hasDefault: !!param.hasDefault,
-                                defaultValueExpression: param.defaultValueExpression,
-                                isNameSynthesized: param.isNameSynthesized,
-                                type: FunctionType.getEffectiveParameterType(typeArgFunctionType, paramIndex),
-                            });
+                            parameters.push(
+                                FunctionParam.create(
+                                    param.category,
+                                    FunctionType.getEffectiveParameterType(typeArgFunctionType, paramIndex),
+                                    param.flags & FunctionParamFlags.NameSynthesized,
+                                    param.name,
+                                    param.defaultType
+                                )
+                            );
                         });
                         typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(typeArgType));
                     } else if (isParamSpec(typeArgType) || isAnyOrUnknown(typeArgType)) {
@@ -2402,62 +2435,68 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
         return type.cached.instanceType;
     }
 
-    let result = mapSubtypes(type, (subtype) => {
-        switch (subtype.category) {
-            case TypeCategory.Class: {
-                // Handle type[x] as a special case.
-                if (ClassType.isBuiltIn(subtype, 'type')) {
-                    if (TypeBase.isInstance(subtype)) {
-                        if (!subtype.typeArguments || subtype.typeArguments.length < 1) {
-                            return UnknownType.create();
+    let result = mapSubtypes(
+        type,
+        (subtype) => {
+            switch (subtype.category) {
+                case TypeCategory.Class: {
+                    // Handle type[x] as a special case.
+                    if (ClassType.isBuiltIn(subtype, 'type')) {
+                        if (TypeBase.isInstance(subtype)) {
+                            if (!subtype.typeArguments || subtype.typeArguments.length < 1) {
+                                return UnknownType.create();
+                            } else {
+                                return subtype.typeArguments[0];
+                            }
                         } else {
-                            return subtype.typeArguments[0];
-                        }
-                    } else {
-                        if (subtype.typeArguments && subtype.typeArguments.length > 0) {
-                            if (!isAnyOrUnknown(subtype.typeArguments[0])) {
-                                return convertToInstantiable(subtype.typeArguments[0]);
+                            if (subtype.typeArguments && subtype.typeArguments.length > 0) {
+                                if (!isAnyOrUnknown(subtype.typeArguments[0])) {
+                                    return convertToInstantiable(subtype.typeArguments[0]);
+                                }
                             }
                         }
                     }
+
+                    return ClassType.cloneAsInstance(subtype, includeSubclasses);
                 }
 
-                return ClassType.cloneAsInstance(subtype, includeSubclasses);
-            }
-
-            case TypeCategory.Function: {
-                if (TypeBase.isInstantiable(subtype)) {
-                    return FunctionType.cloneAsInstance(subtype);
+                case TypeCategory.Function: {
+                    if (TypeBase.isInstantiable(subtype)) {
+                        return FunctionType.cloneAsInstance(subtype);
+                    }
+                    break;
                 }
-                break;
-            }
 
-            case TypeCategory.TypeVar: {
-                if (TypeBase.isInstantiable(subtype)) {
-                    return TypeVarType.cloneAsInstance(subtype);
+                case TypeCategory.TypeVar: {
+                    if (TypeBase.isInstantiable(subtype)) {
+                        return TypeVarType.cloneAsInstance(subtype);
+                    }
+                    break;
                 }
-                break;
+
+                case TypeCategory.Any: {
+                    return AnyType.convertToInstance(subtype);
+                }
+
+                case TypeCategory.Unknown: {
+                    return UnknownType.convertToInstance(subtype);
+                }
+
+                case TypeCategory.Never: {
+                    return NeverType.convertToInstance(subtype);
+                }
+
+                case TypeCategory.Unbound: {
+                    return UnboundType.convertToInstance(subtype);
+                }
             }
 
-            case TypeCategory.Any: {
-                return AnyType.convertToInstance(subtype);
-            }
-
-            case TypeCategory.Unknown: {
-                return UnknownType.convertToInstance(subtype);
-            }
-
-            case TypeCategory.Never: {
-                return NeverType.convertToInstance(subtype);
-            }
-
-            case TypeCategory.Unbound: {
-                return UnboundType.convertToInstance(subtype);
-            }
+            return subtype;
+        },
+        {
+            skipElideRedundantLiterals: true,
         }
-
-        return subtype;
-    });
+    );
 
     // Copy over any type alias information.
     if (type.typeAliasInfo && type !== result) {
@@ -3333,14 +3372,16 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
         newFunction.details.deprecatedMessage = type.details.deprecatedMessage;
 
         type.details.parameters.forEach((param, index) => {
-            FunctionType.addParameter(newFunction, {
-                category: param.category,
-                name: param.name,
-                hasDefault: param.hasDefault,
-                defaultValueExpression: param.defaultValueExpression,
-                isNameSynthesized: param.isNameSynthesized,
-                type: FunctionType.getEffectiveParameterType(type, index),
-            });
+            FunctionType.addParameter(
+                newFunction,
+                FunctionParam.create(
+                    param.category,
+                    FunctionType.getEffectiveParameterType(type, index),
+                    param.flags & FunctionParamFlags.NameSynthesized,
+                    param.name,
+                    param.defaultType
+                )
+            );
         });
 
         if (type.details.higherOrderTypeVarScopeIds) {
@@ -3391,15 +3432,16 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
     functionType.details.constructorTypeVarScopeId = withoutParamSpec.details.constructorTypeVarScopeId;
 
     withoutParamSpec.details.parameters.forEach((entry, index) => {
-        FunctionType.addParameter(functionType, {
-            category: entry.category,
-            name: entry.name,
-            hasDefault: entry.hasDefault,
-            defaultValueExpression: entry.defaultValueExpression,
-            isNameSynthesized: entry.isNameSynthesized,
-            hasDeclaredType: true,
-            type: FunctionType.getEffectiveParameterType(withoutParamSpec, index),
-        });
+        FunctionType.addParameter(
+            functionType,
+            FunctionParam.create(
+                entry.category,
+                FunctionType.getEffectiveParameterType(withoutParamSpec, index),
+                (entry.flags & FunctionParamFlags.NameSynthesized) | FunctionParamFlags.TypeDeclared,
+                entry.name,
+                entry.defaultType
+            )
+        );
     });
 
     if (paramSpec) {
@@ -3969,16 +4011,17 @@ class TypeVarTransformer {
 
                     // Unpack the tuple into individual parameters.
                     variadicTypesToUnpack!.forEach((unpackedType) => {
-                        FunctionType.addParameter(newFunctionType, {
-                            category:
+                        FunctionType.addParameter(
+                            newFunctionType,
+                            FunctionParam.create(
                                 unpackedType.isUnbounded || isVariadicTypeVar(unpackedType.type)
                                     ? ParameterCategory.ArgsList
                                     : ParameterCategory.Simple,
-                            name: `__p${newFunctionType.details.parameters.length}`,
-                            isNameSynthesized: true,
-                            type: unpackedType.type,
-                            hasDeclaredType: true,
-                        });
+                                unpackedType.type,
+                                FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
+                                `__p${newFunctionType.details.parameters.length}`
+                            )
+                        );
 
                         if (unpackedType.isUnbounded) {
                             sawUnboundedEntry = true;
@@ -4007,7 +4050,7 @@ class TypeVarTransformer {
                     }
 
                     param.type = paramType;
-                    if (param.name && param.isNameSynthesized) {
+                    if (param.name && FunctionParam.isNameSynthesized(param)) {
                         param.name = `__p${newFunctionType.details.parameters.length}`;
                     }
 

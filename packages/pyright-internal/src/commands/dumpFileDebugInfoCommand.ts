@@ -14,7 +14,7 @@ import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import {
     ClassType,
     ClassTypeFlags,
-    FunctionParameter,
+    FunctionParam,
     FunctionType,
     FunctionTypeFlags,
     TypeBase,
@@ -421,7 +421,7 @@ function getTypeEvaluatorString(
         return type.name !== undefined && type.constraints && type.variance !== undefined;
     }
 
-    function isParameter(type: any): type is FunctionParameter {
+    function isParameter(type: any): type is FunctionParam {
         return type.category && type.type;
     }
 }
@@ -480,7 +480,7 @@ function getFunctionTypeFlagsString(flags: FunctionTypeFlags) {
 }
 
 const ClassTypeFlagsToString: [ClassTypeFlags, string][] = [
-    [ClassTypeFlags.BuiltInClass, 'BuiltInClass'],
+    [ClassTypeFlags.BuiltIn, 'BuiltIn'],
     [ClassTypeFlags.CanOmitDictValues, 'CanOmitDictValues'],
     [ClassTypeFlags.ClassProperty, 'ClassProperty'],
     [ClassTypeFlags.DefinedInStub, 'DefinedInStub'],
@@ -613,7 +613,7 @@ class TreeDumper extends ParseTreeWalker {
                 this._uri,
                 node.operatorToken,
                 this._lines
-            )} ${getOperatorTypeString(node.operator)}} parenthesized:(${node.parenthesized})`
+            )} ${getOperatorTypeString(node.operator)}} parenthesized:(${node.isParenthesized})`
         );
         return true;
     }
@@ -1016,9 +1016,9 @@ function getParameterCategoryString(type: ParameterCategory) {
         case ParameterCategory.Simple:
             return 'Simple';
         case ParameterCategory.ArgsList:
-            return 'VarArgList';
+            return 'ArgsList';
         case ParameterCategory.KwargsDict:
-            return 'VarArgDictionary';
+            return 'KwargsDict';
     }
 }
 

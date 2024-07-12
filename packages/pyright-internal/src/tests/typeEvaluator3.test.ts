@@ -9,7 +9,7 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
-import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_9 } from '../common/pythonVersion';
+import { pythonVersion3_10, pythonVersion3_11, pythonVersion3_13, pythonVersion3_9 } from '../common/pythonVersion';
 import { Uri } from '../common/uri/uri';
 import * as TestUtils from './testUtils';
 
@@ -993,9 +993,15 @@ test('Enum8', () => {
 });
 
 test('Enum9', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enum9.py']);
+    const configOptions = new ConfigOptions(Uri.empty());
 
-    TestUtils.validateResults(analysisResults, 0);
+    configOptions.defaultPythonVersion = pythonVersion3_11;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['enum9.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['enum9.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 0);
 });
 
 test('Enum10', () => {

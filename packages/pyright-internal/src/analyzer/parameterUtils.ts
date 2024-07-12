@@ -10,7 +10,8 @@ import { ParameterCategory } from '../parser/parseNodes';
 import { isDunderName } from './symbolNameUtils';
 import {
     ClassType,
-    FunctionParameter,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     isAnyOrUnknown,
     isClassInstance,
@@ -25,7 +26,7 @@ import {
 } from './types';
 import { doForEachSubtype, partiallySpecializeType } from './typeUtils';
 
-export function isTypedKwargs(param: FunctionParameter): boolean {
+export function isTypedKwargs(param: FunctionParam): boolean {
     return (
         param.category === ParameterCategory.KwargsDict &&
         isClassInstance(param.type) &&
@@ -42,7 +43,7 @@ export enum ParameterKind {
 }
 
 export interface VirtualParameterDetails {
-    param: FunctionParameter;
+    param: FunctionParam;
     type: Type;
     defaultArgType?: Type | undefined;
     index: number;
@@ -70,7 +71,7 @@ export interface ParameterListDetails {
     paramSpec?: TypeVarType;
 }
 
-export function firstParametersExcludingSelf(type: FunctionType): FunctionParameter | undefined {
+export function firstParametersExcludingSelf(type: FunctionType): FunctionParam | undefined {
     return type.details.parameters.find((p) => !(isTypeVar(p.type) && p.type.details.isSynthesizedSelf));
 }
 
@@ -116,7 +117,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
     }
 
     for (let i = 0; i < positionOnlyIndex; i++) {
-        if (type.details.parameters[i].hasDefault) {
+        if (type.details.parameters[i].defaultType) {
             break;
         }
 
@@ -126,7 +127,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
     let sawKeywordOnlySeparator = false;
 
     const addVirtualParameter = (
-        param: FunctionParameter,
+        param: FunctionParam,
         index: number,
         typeOverride?: Type,
         defaultArgTypeOverride?: Type,
@@ -178,13 +179,12 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                     }
 
                     addVirtualParameter(
-                        {
+                        FunctionParam.create(
                             category,
-                            name: `${param.name}[${tupleIndex.toString()}]`,
-                            isNameSynthesized: true,
-                            type: tupleArg.type,
-                            hasDeclaredType: true,
-                        },
+                            tupleArg.type,
+                            FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
+                            `${param.name}[${tupleIndex.toString()}]`
+                        ),
                         index,
                         tupleArg.type,
                         /* defaultArgTypeOverride */ undefined,
@@ -247,13 +247,13 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                     const specializedParamType = partiallySpecializeType(entry.valueType, typedDictType);
 
                     addVirtualParameter(
-                        {
-                            category: ParameterCategory.Simple,
+                        FunctionParam.create(
+                            ParameterCategory.Simple,
+                            specializedParamType,
+                            FunctionParamFlags.TypeDeclared,
                             name,
-                            type: specializedParamType,
-                            hasDeclaredType: true,
-                            hasDefault: !entry.isRequired,
-                        },
+                            !entry.isRequired ? specializedParamType : undefined
+                        ),
                         index,
                         specializedParamType
                     );
@@ -261,13 +261,12 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
 
                 if (paramType.details.typedDictEntries.extraItems) {
                     addVirtualParameter(
-                        {
-                            category: ParameterCategory.KwargsDict,
-                            name: 'kwargs',
-                            type: paramType.details.typedDictEntries.extraItems.valueType,
-                            hasDeclaredType: true,
-                            hasDefault: false,
-                        },
+                        FunctionParam.create(
+                            ParameterCategory.KwargsDict,
+                            paramType.details.typedDictEntries.extraItems.valueType,
+                            FunctionParamFlags.TypeDeclared,
+                            'kwargs'
+                        ),
                         index,
                         paramType.details.typedDictEntries.extraItems.valueType
                     );

@@ -20,8 +20,9 @@ import { getParameterListDetails, ParameterKind } from './parameterUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { FunctionArgument, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
 import {
+    AnyType,
     ClassType,
-    FunctionParameter,
+    FunctionParam,
     FunctionType,
     FunctionTypeFlags,
     isClassInstance,
@@ -425,14 +426,14 @@ function applyPartialTransformToFunction(
 
     // Create a new parameter list that omits parameters that have been
     // populated already.
-    const updatedParamList: FunctionParameter[] = specializedFunctionType.details.parameters.map((param, index) => {
-        const specializedParam: FunctionParameter = { ...param };
+    const updatedParamList: FunctionParam[] = specializedFunctionType.details.parameters.map((param, index) => {
+        const specializedParam: FunctionParam = { ...param };
         specializedParam.type = FunctionType.getEffectiveParameterType(specializedFunctionType, index);
 
         // If it's a keyword parameter that has been assigned a value through
         // the "partial" mechanism, mark it has having a default value.
         if (param.name && paramMap.get(param.name)) {
-            specializedParam.hasDefault = true;
+            specializedParam.defaultType = AnyType.create(/* isEllipsis */ true);
         }
         return specializedParam;
     });
@@ -452,7 +453,7 @@ function applyPartialTransformToFunction(
         return param.category === ParameterCategory.KwargsDict;
     });
 
-    const newParamList: FunctionParameter[] = [];
+    const newParamList: FunctionParam[] = [];
     appendArray(newParamList, unassignedParamList);
     appendArray(newParamList, assignedKeywordParamList);
     appendArray(newParamList, kwargsParam);

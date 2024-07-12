@@ -39,6 +39,7 @@ import {
     ClassType,
     ClassTypeFlags,
     DataClassBehaviors,
+    FunctionParam,
     FunctionType,
     FunctionTypeFlags,
     OverloadedFunctionType,
@@ -94,19 +95,19 @@ export function getFunctionInfoFromDecorators(
         const decoratorType = decoratorTypeResult.type;
 
         if (isFunction(decoratorType)) {
-            if (decoratorType.details.builtInName === 'abstractmethod') {
+            if (FunctionType.isBuiltIn(decoratorType, 'abstractmethod')) {
                 if (isInClass) {
                     flags |= FunctionTypeFlags.AbstractMethod;
                 }
-            } else if (decoratorType.details.builtInName === 'final') {
+            } else if (FunctionType.isBuiltIn(decoratorType, 'final')) {
                 flags |= FunctionTypeFlags.Final;
-            } else if (decoratorType.details.builtInName === 'override') {
+            } else if (FunctionType.isBuiltIn(decoratorType, 'override')) {
                 flags |= FunctionTypeFlags.Overridden;
-            } else if (decoratorType.details.builtInName === 'type_check_only') {
+            } else if (FunctionType.isBuiltIn(decoratorType, 'type_check_only')) {
                 flags |= FunctionTypeFlags.TypeCheckOnly;
-            } else if (decoratorType.details.builtInName === 'no_type_check') {
+            } else if (FunctionType.isBuiltIn(decoratorType, 'no_type_check')) {
                 flags |= FunctionTypeFlags.NoTypeCheck;
-            } else if (decoratorType.details.builtInName === 'overload') {
+            } else if (FunctionType.isBuiltIn(decoratorType, 'overload')) {
                 flags |= FunctionTypeFlags.Overloaded;
             }
         } else if (isClass(decoratorType)) {
@@ -155,7 +156,7 @@ export function applyFunctionDecorator(
     // defined "overload" as an object, but newer versions define it as a function.
     if (
         (isInstantiableClass(decoratorType) && ClassType.isSpecialBuiltIn(decoratorType, 'overload')) ||
-        (isFunction(decoratorType) && decoratorType.details.builtInName === 'overload')
+        (isFunction(decoratorType) && FunctionType.isBuiltIn(decoratorType, 'overload'))
     ) {
         if (isFunction(inputFunctionType)) {
             inputFunctionType.details.flags |= FunctionTypeFlags.Overloaded;
@@ -173,7 +174,7 @@ export function applyFunctionDecorator(
         if (isFunction(decoratorCallType)) {
             if (
                 decoratorCallType.details.name === '__dataclass_transform__' ||
-                decoratorCallType.details.builtInName === 'dataclass_transform'
+                FunctionType.isBuiltIn(decoratorCallType, 'dataclass_transform')
             ) {
                 undecoratedType.details.decoratorDataClassBehaviors = validateDataClassTransformDecorator(
                     evaluator,
@@ -188,11 +189,11 @@ export function applyFunctionDecorator(
 
     // Check for some built-in decorator types with known semantics.
     if (isFunction(decoratorType)) {
-        if (decoratorType.details.builtInName === 'abstractmethod') {
+        if (FunctionType.isBuiltIn(decoratorType, 'abstractmethod')) {
             return inputFunctionType;
         }
 
-        if (decoratorType.details.builtInName === 'type_check_only') {
+        if (FunctionType.isBuiltIn(decoratorType, 'type_check_only')) {
             undecoratedType.details.flags |= FunctionTypeFlags.TypeCheckOnly;
             return inputFunctionType;
         }
@@ -313,7 +314,7 @@ export function applyClassDecorator(
         if (isFunction(decoratorCallType)) {
             if (
                 decoratorCallType.details.name === '__dataclass_transform__' ||
-                decoratorCallType.details.builtInName === 'dataclass_transform'
+                FunctionType.isBuiltIn(decoratorCallType, 'dataclass_transform')
             ) {
                 originalClassType.details.classDataClassTransform = validateDataClassTransformDecorator(
                     evaluator,
@@ -336,7 +337,7 @@ export function applyClassDecorator(
             return inputClassType;
         }
     } else if (isFunction(decoratorType)) {
-        if (decoratorType.details.builtInName === 'final') {
+        if (FunctionType.isBuiltIn(decoratorType, 'final')) {
             originalClassType.details.flags |= ClassTypeFlags.Final;
 
             // Don't call getTypeOfDecorator for final. We'll hard-code its
@@ -345,12 +346,12 @@ export function applyClassDecorator(
             return inputClassType;
         }
 
-        if (decoratorType.details.builtInName === 'type_check_only') {
+        if (FunctionType.isBuiltIn(decoratorType, 'type_check_only')) {
             originalClassType.details.flags |= ClassTypeFlags.TypeCheckOnly;
             return inputClassType;
         }
 
-        if (decoratorType.details.builtInName === 'runtime_checkable') {
+        if (FunctionType.isBuiltIn(decoratorType, 'runtime_checkable')) {
             originalClassType.details.flags |= ClassTypeFlags.RuntimeCheckable;
 
             // Don't call getTypeOfDecorator for runtime_checkable. It appears
@@ -441,7 +442,7 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
         if (
             !returnType.details.parameters.some((param, index) => {
                 // Don't allow * or / separators or params with declared types.
-                if (!param.name || param.hasDeclaredType) {
+                if (!param.name || FunctionParam.isTypeDeclared(param)) {
                     return true;
                 }
 
@@ -451,7 +452,7 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
                 }
 
                 // Allow inferred "self" or "cls" parameters.
-                return index !== 0 || !param.isTypeInferred;
+                return index !== 0 || !FunctionParam.isTypeInferred(param);
             })
         ) {
             return functionOrClassType;
@@ -464,7 +465,7 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
     if (isPartlyUnknown(returnType)) {
         if (isFunction(decoratorTypeResult.type)) {
             if (
-                !decoratorTypeResult.type.details.parameters.find((param) => param.typeAnnotation !== undefined) &&
+                !decoratorTypeResult.type.details.parameters.find((param) => FunctionParam.isTypeDeclared(param)) &&
                 decoratorTypeResult.type.details.declaredReturnType === undefined
             ) {
                 return functionOrClassType;
