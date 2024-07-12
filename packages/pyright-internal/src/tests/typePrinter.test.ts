@@ -15,6 +15,8 @@ import {
     ClassType,
     ClassTypeFlags,
     combineTypes,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
     ModuleType,
@@ -114,28 +116,22 @@ test('ClassTypes', () => {
 test('FunctionTypes', () => {
     const funcTypeA = FunctionType.createInstance('A', '', '', FunctionTypeFlags.None);
 
-    FunctionType.addParameter(funcTypeA, {
-        category: ParameterCategory.Simple,
-        hasDeclaredType: true,
-        type: AnyType.create(),
-        name: 'a',
-    });
+    FunctionType.addParameter(
+        funcTypeA,
+        FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'a')
+    );
 
     FunctionType.addPositionOnlyParameterSeparator(funcTypeA);
 
-    FunctionType.addParameter(funcTypeA, {
-        category: ParameterCategory.ArgsList,
-        hasDeclaredType: true,
-        type: AnyType.create(),
-        name: 'args',
-    });
+    FunctionType.addParameter(
+        funcTypeA,
+        FunctionParam.create(ParameterCategory.ArgsList, AnyType.create(), FunctionParamFlags.TypeDeclared, 'args')
+    );
 
-    FunctionType.addParameter(funcTypeA, {
-        category: ParameterCategory.KwargsDict,
-        hasDeclaredType: true,
-        type: AnyType.create(),
-        name: 'kwargs',
-    });
+    FunctionType.addParameter(
+        funcTypeA,
+        FunctionParam.create(ParameterCategory.KwargsDict, AnyType.create(), FunctionParamFlags.TypeDeclared, 'kwargs')
+    );
 
     funcTypeA.details.declaredReturnType = NeverType.createNoReturn();
 
@@ -150,12 +146,10 @@ test('FunctionTypes', () => {
 
     const funcTypeB = FunctionType.createInstance('B', '', '', FunctionTypeFlags.None);
 
-    FunctionType.addParameter(funcTypeB, {
-        category: ParameterCategory.Simple,
-        hasDeclaredType: true,
-        type: AnyType.create(),
-        name: 'a',
-    });
+    FunctionType.addParameter(
+        funcTypeB,
+        FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'a')
+    );
 
     FunctionType.addPositionOnlyParameterSeparator(funcTypeB);
 
@@ -177,12 +171,10 @@ test('FunctionTypes', () => {
     typeVarTupleTs.details.isVariadic = true;
     const unpackedTs = TypeVarType.cloneForUnpacked(typeVarTupleTs);
 
-    FunctionType.addParameter(funcTypeC, {
-        category: ParameterCategory.ArgsList,
-        hasDeclaredType: true,
-        type: unpackedTs,
-        name: 'args',
-    });
+    FunctionType.addParameter(
+        funcTypeC,
+        FunctionParam.create(ParameterCategory.ArgsList, unpackedTs, FunctionParamFlags.TypeDeclared, 'args')
+    );
 
     assert.strictEqual(printType(funcTypeC, PrintTypeFlags.None, returnTypeCallback), '(*args: *Ts) -> Unknown');
     assert.strictEqual(

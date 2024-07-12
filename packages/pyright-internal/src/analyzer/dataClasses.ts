@@ -41,7 +41,8 @@ import {
     combineTypes,
     DataClassBehaviors,
     DataClassEntry,
-    FunctionParameter,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
     isClass,
@@ -97,23 +98,21 @@ export function synthesizeDataClassMethods(
     // __new__ method are based on field definitions for NamedTuple classes,
     // and the parameters of the __init__ method are based on field definitions
     // in other cases.
-    FunctionType.addParameter(newType, {
-        category: ParameterCategory.Simple,
-        name: 'cls',
-        type: classTypeVar,
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        newType,
+        FunctionParam.create(ParameterCategory.Simple, classTypeVar, FunctionParamFlags.TypeDeclared, 'cls')
+    );
     if (!isNamedTuple) {
         FunctionType.addDefaultParameters(newType);
     }
     newType.details.declaredReturnType = convertToInstance(classTypeVar);
 
-    const selfParam: FunctionParameter = {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false),
-        hasDeclaredType: true,
-    };
+    const selfParam = FunctionParam.create(
+        ParameterCategory.Simple,
+        synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false),
+        FunctionParamFlags.TypeDeclared,
+        'self'
+    );
     FunctionType.addParameter(initType, selfParam);
     if (isNamedTuple) {
         FunctionType.addDefaultParameters(initType);
@@ -195,7 +194,6 @@ export function synthesizeDataClassMethods(
             let variableTypeEvaluator: EntryTypeEvaluator | undefined;
             let hasDefaultValue = false;
             let isKeywordOnly = ClassType.isDataClassKeywordOnly(classType) || sawKeywordOnlySeparator;
-            let defaultValueExpression: ExpressionNode | undefined;
             let includeInInit = true;
             let converter: ArgumentNode | undefined;
 
@@ -218,7 +216,6 @@ export function synthesizeDataClassMethods(
                 }
 
                 hasDefaultValue = true;
-                defaultValueExpression = statement.rightExpression;
 
                 // If the RHS of the assignment is assigning a field instance where the
                 // "init" parameter is set to false, do not include it in the init method.
@@ -284,9 +281,6 @@ export function synthesizeDataClassMethods(
                         );
 
                         hasDefaultValue = !!defaultArg;
-                        if (defaultArg?.valueExpression) {
-                            defaultValueExpression = defaultArg.valueExpression;
-                        }
 
                         const aliasArg = statement.rightExpression.arguments.find((arg) => arg.name?.value === 'alias');
                         if (aliasArg) {
@@ -357,7 +351,6 @@ export function synthesizeDataClassMethods(
                         alias: aliasName,
                         isKeywordOnly: false,
                         hasDefault: hasDefaultValue,
-                        defaultValueExpression,
                         includeInInit,
                         nameNode: variableNameNode,
                         type: UnknownType.create(),
@@ -375,7 +368,6 @@ export function synthesizeDataClassMethods(
                         alias: aliasName,
                         isKeywordOnly,
                         hasDefault: hasDefaultValue,
-                        defaultValueExpression,
                         includeInInit,
                         nameNode: variableNameNode,
                         type: UnknownType.create(),
@@ -401,7 +393,6 @@ export function synthesizeDataClassMethods(
                         // causes overridden variables to "inherit" default values from parent classes.
                         if (!dataClassEntry.hasDefault && oldEntry.hasDefault && oldEntry.includeInInit) {
                             dataClassEntry.hasDefault = true;
-                            dataClassEntry.defaultValueExpression = oldEntry.defaultValueExpression;
                             hasDefaultValue = true;
 
                             // Warn the user of this case because it can result in type errors if the
@@ -491,7 +482,7 @@ export function synthesizeDataClassMethods(
     });
 
     const symbolTable = ClassType.getSymbolTable(classType);
-    const keywordOnlyParams: FunctionParameter[] = [];
+    const keywordOnlyParams: FunctionParam[] = [];
 
     if (!skipSynthesizeInit && !hasExistingInitMethod) {
         if (allAncestorsKnown) {
@@ -536,14 +527,13 @@ export function synthesizeDataClassMethods(
                         );
                     }
 
-                    const functionParam: FunctionParameter = {
-                        category: ParameterCategory.Simple,
-                        name: effectiveName,
-                        defaultType: entry.hasDefault ? entry.type : undefined,
-                        defaultValueExpression: entry.defaultValueExpression,
-                        type: effectiveType,
-                        hasDeclaredType: true,
-                    };
+                    const functionParam = FunctionParam.create(
+                        ParameterCategory.Simple,
+                        effectiveType,
+                        FunctionParamFlags.TypeDeclared,
+                        effectiveName,
+                        entry.hasDefault ? entry.type : undefined
+                    );
 
                     if (entry.isKeywordOnly) {
                         keywordOnlyParams.push(functionParam);
@@ -592,12 +582,10 @@ export function synthesizeDataClassMethods(
     const synthesizeComparisonMethod = (operator: string, paramType: Type) => {
         const operatorMethod = FunctionType.createSynthesizedInstance(operator);
         FunctionType.addParameter(operatorMethod, selfParam);
-        FunctionType.addParameter(operatorMethod, {
-            category: ParameterCategory.Simple,
-            name: 'other',
-            type: paramType,
-            hasDeclaredType: true,
-        });
+        FunctionType.addParameter(
+            operatorMethod,
+            FunctionParam.create(ParameterCategory.Simple, paramType, FunctionParamFlags.TypeDeclared, 'other')
+        );
         operatorMethod.details.declaredReturnType = evaluator.getBuiltInObject(node, 'bool');
         // If a method of this name already exists, don't override it.
         if (!symbolTable.get(operator)) {
@@ -746,7 +734,7 @@ function getDefaultArgValueForFieldSpecifier(
         if (initParam) {
             // Is the parameter type a literal bool?
             if (
-                initParam.hasDeclaredType &&
+                FunctionParam.isTypeDeclared(initParam) &&
                 isClass(initParam.type) &&
                 typeof initParam.type.literalValue === 'boolean'
             ) {
@@ -755,7 +743,6 @@ function getDefaultArgValueForFieldSpecifier(
 
             // Is the default argument value a literal bool?
             if (
-                initParam.defaultValueExpression &&
                 initParam.defaultType &&
                 isClass(initParam.defaultType) &&
                 typeof initParam.defaultType.literalValue === 'boolean'
@@ -792,12 +779,15 @@ function getConverterInputType(
     const targetFunction = FunctionType.createSynthesizedInstance('');
     targetFunction.details.typeVarScopeId = typeVar.scopeId;
     targetFunction.details.declaredReturnType = fieldType;
-    FunctionType.addParameter(targetFunction, {
-        category: ParameterCategory.Simple,
-        name: '__input',
-        type: typeVar,
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        targetFunction,
+        FunctionParam.create(
+            ParameterCategory.Simple,
+            typeVar,
+            FunctionParamFlags.TypeDeclared | FunctionParamFlags.NameSynthesized,
+            '__input'
+        )
+    );
     FunctionType.addPositionOnlyParameterSeparator(targetFunction);
 
     if (isFunction(converterType) || isOverloadedFunction(converterType)) {
@@ -925,47 +915,35 @@ function getDescriptorForConverterField(
     const selfType = synthesizeTypeVarForSelfCls(descriptorClass, /* isClsParam */ false);
 
     const setFunction = FunctionType.createSynthesizedInstance('__set__');
-    FunctionType.addParameter(setFunction, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: selfType,
-        hasDeclaredType: true,
-    });
-    FunctionType.addParameter(setFunction, {
-        category: ParameterCategory.Simple,
-        name: 'obj',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
-    FunctionType.addParameter(setFunction, {
-        category: ParameterCategory.Simple,
-        name: 'value',
-        type: setType,
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        setFunction,
+        FunctionParam.create(ParameterCategory.Simple, selfType, FunctionParamFlags.TypeDeclared, 'self')
+    );
+    FunctionType.addParameter(
+        setFunction,
+        FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'obj')
+    );
+    FunctionType.addParameter(
+        setFunction,
+        FunctionParam.create(ParameterCategory.Simple, setType, FunctionParamFlags.TypeDeclared, 'value')
+    );
     setFunction.details.declaredReturnType = evaluator.getNoneType();
     const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
     fields.set('__set__', setSymbol);
 
     const getFunction = FunctionType.createSynthesizedInstance('__get__');
-    FunctionType.addParameter(getFunction, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: selfType,
-        hasDeclaredType: true,
-    });
-    FunctionType.addParameter(getFunction, {
-        category: ParameterCategory.Simple,
-        name: 'obj',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
-    FunctionType.addParameter(getFunction, {
-        category: ParameterCategory.Simple,
-        name: 'objtype',
-        type: AnyType.create(),
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        getFunction,
+        FunctionParam.create(ParameterCategory.Simple, selfType, FunctionParamFlags.TypeDeclared, 'self')
+    );
+    FunctionType.addParameter(
+        getFunction,
+        FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'obj')
+    );
+    FunctionType.addParameter(
+        getFunction,
+        FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'objtype')
+    );
     getFunction.details.declaredReturnType = getType;
     const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
     fields.set('__get__', getSymbol);

@@ -36,7 +36,8 @@ import {
     ClassType,
     ClassTypeFlags,
     combineTypes,
-    FunctionParameter,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
     isAnyOrUnknown,
@@ -244,46 +245,53 @@ export function synthesizeTypedDictClassMethods(
 
     // Synthesize a __new__ method.
     const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
-    FunctionType.addParameter(newType, {
-        category: ParameterCategory.Simple,
-        name: 'cls',
-        type: classType,
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        newType,
+        FunctionParam.create(ParameterCategory.Simple, classType, FunctionParamFlags.TypeDeclared, 'cls')
+    );
     FunctionType.addDefaultParameters(newType);
     newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
     newType.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     // Synthesize an __init__ method with two overrides.
     const initOverride1 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
-    FunctionType.addParameter(initOverride1, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: ClassType.cloneAsInstance(classType),
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        initOverride1,
+        FunctionParam.create(
+            ParameterCategory.Simple,
+            ClassType.cloneAsInstance(classType),
+            FunctionParamFlags.TypeDeclared,
+            'self'
+        )
+    );
     initOverride1.details.declaredReturnType = evaluator.getNoneType();
     initOverride1.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     // The first parameter must be positional-only.
-    FunctionType.addParameter(initOverride1, {
-        category: ParameterCategory.Simple,
-        name: '__map',
-        type: ClassType.cloneAsInstance(classType),
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        initOverride1,
+        FunctionParam.create(
+            ParameterCategory.Simple,
+            ClassType.cloneAsInstance(classType),
+            FunctionParamFlags.TypeDeclared,
+            '__map'
+        )
+    );
     FunctionType.addPositionOnlyParameterSeparator(initOverride1);
 
     // All subsequent parameters must be named, so insert an empty "*".
     FunctionType.addKeywordOnlyParameterSeparator(initOverride1);
 
     const initOverride2 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
-    FunctionType.addParameter(initOverride2, {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: ClassType.cloneAsInstance(classType),
-        hasDeclaredType: true,
-    });
+    FunctionType.addParameter(
+        initOverride2,
+        FunctionParam.create(
+            ParameterCategory.Simple,
+            ClassType.cloneAsInstance(classType),
+            FunctionParamFlags.TypeDeclared,
+            'self'
+        )
+    );
     initOverride2.details.declaredReturnType = evaluator.getNoneType();
     initOverride2.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
@@ -295,21 +303,27 @@ export function synthesizeTypedDictClassMethods(
     let allEntriesAreReadOnly = entries.knownItems.size > 0;
 
     entries.knownItems.forEach((entry, name) => {
-        FunctionType.addParameter(initOverride1, {
-            category: ParameterCategory.Simple,
-            name,
-            defaultType: entry.valueType,
-            type: entry.valueType,
-            hasDeclaredType: true,
-        });
+        FunctionType.addParameter(
+            initOverride1,
+            FunctionParam.create(
+                ParameterCategory.Simple,
+                entry.valueType,
+                FunctionParamFlags.TypeDeclared,
+                name,
+                entry.valueType
+            )
+        );
 
-        FunctionType.addParameter(initOverride2, {
-            category: ParameterCategory.Simple,
-            name,
-            defaultType: entry.isRequired ? undefined : entry.valueType,
-            type: entry.valueType,
-            hasDeclaredType: true,
-        });
+        FunctionType.addParameter(
+            initOverride2,
+            FunctionParam.create(
+                ParameterCategory.Simple,
+                entry.valueType,
+                FunctionParamFlags.TypeDeclared,
+                name,
+                entry.isRequired ? undefined : entry.valueType
+            )
+        );
 
         if (!entry.isReadOnly) {
             allEntriesAreReadOnly = false;
@@ -317,19 +331,25 @@ export function synthesizeTypedDictClassMethods(
     });
 
     if (entries.extraItems && !isNever(entries.extraItems.valueType)) {
-        FunctionType.addParameter(initOverride1, {
-            category: ParameterCategory.KwargsDict,
-            name: 'kwargs',
-            type: entries.extraItems.valueType,
-            hasDeclaredType: true,
-        });
+        FunctionType.addParameter(
+            initOverride1,
+            FunctionParam.create(
+                ParameterCategory.KwargsDict,
+                entries.extraItems.valueType,
+                FunctionParamFlags.TypeDeclared,
+                'kwargs'
+            )
+        );
 
-        FunctionType.addParameter(initOverride2, {
-            category: ParameterCategory.KwargsDict,
-            name: 'kwargs',
-            type: entries.extraItems.valueType,
-            hasDeclaredType: true,
-        });
+        FunctionType.addParameter(
+            initOverride2,
+            FunctionParam.create(
+                ParameterCategory.KwargsDict,
+                entries.extraItems.valueType,
+                FunctionParamFlags.TypeDeclared,
+                'kwargs'
+            )
+        );
     }
 
     const symbolTable = ClassType.getSymbolTable(classType);
@@ -341,12 +361,12 @@ export function synthesizeTypedDictClassMethods(
 
     // Synthesize a "get", pop, and setdefault method for each named entry.
     if (isInstantiableClass(strClass)) {
-        const selfParam: FunctionParameter = {
-            category: ParameterCategory.Simple,
-            name: 'self',
-            type: ClassType.cloneAsInstance(classType),
-            hasDeclaredType: true,
-        };
+        const selfParam = FunctionParam.create(
+            ParameterCategory.Simple,
+            ClassType.cloneAsInstance(classType),
+            FunctionParamFlags.TypeDeclared,
+            'self'
+        );
 
         function createDefaultTypeVar(func: FunctionType) {
             let defaultTypeVar = TypeVarType.createInstance(`__TDefault`);
@@ -369,12 +389,10 @@ export function synthesizeTypedDictClassMethods(
             const getOverload = FunctionType.createSynthesizedInstance('get', FunctionTypeFlags.Overloaded);
             FunctionType.addParameter(getOverload, selfParam);
             getOverload.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
-            FunctionType.addParameter(getOverload, {
-                category: ParameterCategory.Simple,
-                name: 'k',
-                type: keyType,
-                hasDeclaredType: true,
-            });
+            FunctionType.addParameter(
+                getOverload,
+                FunctionParam.create(ParameterCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
+            );
 
             if (includeDefault) {
                 const defaultTypeVar = createDefaultTypeVar(getOverload);
@@ -396,12 +414,15 @@ export function synthesizeTypedDictClassMethods(
                     returnType = defaultParamType;
                 }
 
-                FunctionType.addParameter(getOverload, {
-                    category: ParameterCategory.Simple,
-                    name: 'default',
-                    type: defaultParamType,
-                    hasDeclaredType: true,
-                });
+                FunctionType.addParameter(
+                    getOverload,
+                    FunctionParam.create(
+                        ParameterCategory.Simple,
+                        defaultParamType,
+                        FunctionParamFlags.TypeDeclared,
+                        'default'
+                    )
+                );
                 getOverload.details.declaredReturnType = returnType;
             } else {
                 getOverload.details.declaredReturnType = isEntryRequired
@@ -412,12 +433,12 @@ export function synthesizeTypedDictClassMethods(
         }
 
         function createPopMethods(keyType: Type, valueType: Type, isEntryRequired: boolean) {
-            const keyParam: FunctionParameter = {
-                category: ParameterCategory.Simple,
-                name: 'k',
-                type: keyType,
-                hasDeclaredType: true,
-            };
+            const keyParam = FunctionParam.create(
+                ParameterCategory.Simple,
+                keyType,
+                FunctionParamFlags.TypeDeclared,
+                'k'
+            );
 
             const popOverload1 = FunctionType.createSynthesizedInstance('pop', FunctionTypeFlags.Overloaded);
             FunctionType.addParameter(popOverload1, selfParam);
@@ -443,13 +464,16 @@ export function synthesizeTypedDictClassMethods(
                 returnType = defaultParamType;
             }
 
-            FunctionType.addParameter(popOverload2, {
-                category: ParameterCategory.Simple,
-                name: 'default',
-                hasDeclaredType: true,
-                type: defaultParamType,
-                defaultType: defaultParamType,
-            });
+            FunctionType.addParameter(
+                popOverload2,
+                FunctionParam.create(
+                    ParameterCategory.Simple,
+                    defaultParamType,
+                    FunctionParamFlags.TypeDeclared,
+                    'default',
+                    defaultParamType
+                )
+            );
             popOverload2.details.declaredReturnType = returnType;
             return [popOverload1, popOverload2];
         }
@@ -460,18 +484,14 @@ export function synthesizeTypedDictClassMethods(
                 FunctionTypeFlags.Overloaded
             );
             FunctionType.addParameter(setDefaultOverload, selfParam);
-            FunctionType.addParameter(setDefaultOverload, {
-                category: ParameterCategory.Simple,
-                name: 'k',
-                hasDeclaredType: true,
-                type: keyType,
-            });
-            FunctionType.addParameter(setDefaultOverload, {
-                category: ParameterCategory.Simple,
-                name: 'default',
-                hasDeclaredType: true,
-                type: valueType,
-            });
+            FunctionType.addParameter(
+                setDefaultOverload,
+                FunctionParam.create(ParameterCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
+            );
+            FunctionType.addParameter(
+                setDefaultOverload,
+                FunctionParam.create(ParameterCategory.Simple, valueType, FunctionParamFlags.TypeDeclared, 'default')
+            );
             setDefaultOverload.details.declaredReturnType = valueType;
             return setDefaultOverload;
         }
@@ -479,12 +499,10 @@ export function synthesizeTypedDictClassMethods(
         function createDelItemMethod(keyType: Type) {
             const delItemOverload = FunctionType.createSynthesizedInstance('delitem', FunctionTypeFlags.Overloaded);
             FunctionType.addParameter(delItemOverload, selfParam);
-            FunctionType.addParameter(delItemOverload, {
-                category: ParameterCategory.Simple,
-                name: 'k',
-                hasDeclaredType: true,
-                type: keyType,
-            });
+            FunctionType.addParameter(
+                delItemOverload,
+                FunctionParam.create(ParameterCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
+            );
             delItemOverload.details.declaredReturnType = evaluator.getNoneType();
             return delItemOverload;
         }
@@ -503,14 +521,17 @@ export function synthesizeTypedDictClassMethods(
             FunctionType.addParameter(updateMethod3, selfParam);
 
             // If all entries are read-only, don't allow updates.
-            FunctionType.addParameter(updateMethod1, {
-                category: ParameterCategory.Simple,
-                name: '__m',
-                hasDeclaredType: true,
-                type: allEntriesAreReadOnly
-                    ? NeverType.createNever()
-                    : ClassType.cloneAsInstance(ClassType.cloneForPartialTypedDict(classType)),
-            });
+            FunctionType.addParameter(
+                updateMethod1,
+                FunctionParam.create(
+                    ParameterCategory.Simple,
+                    allEntriesAreReadOnly
+                        ? NeverType.createNever()
+                        : ClassType.cloneAsInstance(ClassType.cloneForPartialTypedDict(classType)),
+                    FunctionParamFlags.TypeDeclared,
+                    '__m'
+                )
+            );
 
             FunctionType.addPositionOnlyParameterSeparator(updateMethod1);
             FunctionType.addKeywordOnlyParameterSeparator(updateMethod3);
@@ -538,13 +559,16 @@ export function synthesizeTypedDictClassMethods(
                     }
 
                     // For writable entries, add a keyword argument.
-                    FunctionType.addParameter(updateMethod3, {
-                        category: ParameterCategory.Simple,
-                        name,
-                        hasDeclaredType: true,
-                        defaultType: AnyType.create(/* isEllipsis */ true),
-                        type: entry.valueType,
-                    });
+                    FunctionType.addParameter(
+                        updateMethod3,
+                        FunctionParam.create(
+                            ParameterCategory.Simple,
+                            entry.valueType,
+                            FunctionParamFlags.TypeDeclared,
+                            name,
+                            AnyType.create(/* isEllipsis */ true)
+                        )
+                    );
                 }
             });
 
@@ -552,16 +576,19 @@ export function synthesizeTypedDictClassMethods(
             if (iterableClass && isInstantiableClass(iterableClass)) {
                 const iterableType = ClassType.cloneAsInstance(iterableClass);
 
-                FunctionType.addParameter(updateMethod2, {
-                    category: ParameterCategory.Simple,
-                    name: '__m',
-                    hasDeclaredType: true,
-                    type: ClassType.cloneForSpecialization(
-                        iterableType,
-                        [combineTypes(tuplesToCombine)],
-                        /* isTypeArgumentExplicit */ true
-                    ),
-                });
+                FunctionType.addParameter(
+                    updateMethod2,
+                    FunctionParam.create(
+                        ParameterCategory.Simple,
+                        ClassType.cloneForSpecialization(
+                            iterableType,
+                            [combineTypes(tuplesToCombine)],
+                            /* isTypeArgumentExplicit */ true
+                        ),
+                        FunctionParamFlags.TypeDeclared,
+                        '__m'
+                    )
+                );
             }
 
             FunctionType.addPositionOnlyParameterSeparator(updateMethod2);

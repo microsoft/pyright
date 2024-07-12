@@ -42,7 +42,7 @@ import { TypeVarContext } from './typeVarContext';
 import {
     AnyType,
     ClassType,
-    FunctionParameter,
+    FunctionParam,
     FunctionType,
     OverloadedFunctionType,
     Type,
@@ -271,7 +271,7 @@ export interface FunctionTypeResult {
 
 export interface CallSignature {
     type: FunctionType;
-    activeParam?: FunctionParameter | undefined;
+    activeParam?: FunctionParam | undefined;
 }
 
 export interface CallSignatureInfo {
@@ -390,7 +390,7 @@ export interface CallResult {
 
     // The parameter associated with the "active" argument (used
     // for signature help provider)
-    activeParam?: FunctionParameter | undefined;
+    activeParam?: FunctionParam | undefined;
 
     // If the call is to an __init__ with an annotated self parameter,
     // this field indicates the specialized type of that self type; this

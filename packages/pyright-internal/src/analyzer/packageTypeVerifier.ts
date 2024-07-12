@@ -39,6 +39,7 @@ import { Symbol, SymbolTable } from './symbol';
 import { isDunderName, isPrivateOrProtectedName } from './symbolNameUtils';
 import {
     ClassType,
+    FunctionParam,
     FunctionType,
     FunctionTypeFlags,
     isClass,
@@ -989,7 +990,7 @@ export class PackageTypeVerifier {
         type.details.parameters.forEach((param, index) => {
             // Skip nameless parameters like "*" and "/".
             if (param.name) {
-                if (!param.hasDeclaredType) {
+                if (!FunctionParam.isTypeDeclared(param)) {
                     // Allow params (like "self" and "cls") to skip declarations because
                     // we're able to synthesize these.
                     const isSynthesized =

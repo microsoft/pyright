@@ -15,6 +15,7 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import {
     ClassType,
     EnumLiteral,
+    FunctionParam,
     FunctionType,
     isAnyOrUnknown,
     isClass,
@@ -1083,6 +1084,7 @@ function printFunctionPartsInternal(
 ): [string[], string] {
     const paramTypeStrings: string[] = [];
     let sawDefinedName = false;
+    const functionNode = type.details.declaration?.node;
 
     // Remove the (*args: P.args, **kwargs: P.kwargs) from the end of the parameter list.
     const paramSpec = FunctionType.getParamSpecFromArgsKwargs(type);
@@ -1140,7 +1142,7 @@ function printFunctionPartsInternal(
 
         let paramString = '';
         if (param.category === ParameterCategory.ArgsList) {
-            if (!param.name || !param.isNameSynthesized) {
+            if (!param.name || !FunctionParam.isNameSynthesized(param)) {
                 paramString += '*';
             }
         } else if (param.category === ParameterCategory.KwargsDict) {
@@ -1148,7 +1150,7 @@ function printFunctionPartsInternal(
         }
 
         let emittedParamName = false;
-        if (param.name && !param.isNameSynthesized) {
+        if (param.name && !FunctionParam.isNameSynthesized(param)) {
             paramString += param.name;
             sawDefinedName = true;
             emittedParamName = true;
@@ -1163,7 +1165,7 @@ function printFunctionPartsInternal(
 
         if (param.name) {
             // Avoid printing type types if parameter have unknown type.
-            if (param.hasDeclaredType || param.isTypeInferred) {
+            if (FunctionParam.isTypeDeclared(param) || FunctionParam.isTypeInferred(param)) {
                 const paramType = FunctionType.getEffectiveParameterType(type, index);
                 let paramTypeString =
                     recursionTypes.length < maxTypeRecursionCount
@@ -1208,7 +1210,7 @@ function printFunctionPartsInternal(
                 // spaces when used with a type annotation.
                 defaultValueAssignment = ' = ';
             } else if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfUnknown) === 0) {
-                if (!param.isNameSynthesized) {
+                if (!FunctionParam.isNameSynthesized(param)) {
                     paramString += ': ';
                 }
                 if (printTypeFlags & (PrintTypeFlags.PrintUnknownWithAny | PrintTypeFlags.PythonSyntax)) {
@@ -1227,8 +1229,9 @@ function printFunctionPartsInternal(
         }
 
         if (param.defaultType) {
-            if (param.defaultValueExpression) {
-                paramString += defaultValueAssignment + ParseTreeUtils.printExpression(param.defaultValueExpression);
+            const paramNode = functionNode?.parameters.find((p) => p.name?.value === param.name);
+            if (paramNode?.defaultValue) {
+                paramString += defaultValueAssignment + ParseTreeUtils.printExpression(paramNode.defaultValue);
             } else {
                 // If the function doesn't originate from a function declaration (e.g. it is
                 // synthesized), we can't get to the default declaration, but we can still indicate

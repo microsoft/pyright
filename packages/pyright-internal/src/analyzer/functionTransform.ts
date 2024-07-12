@@ -15,7 +15,8 @@ import { Symbol, SymbolFlags } from './symbol';
 import { FunctionArgument, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
-    FunctionParameter,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     isClassInstance,
     isFunction,
@@ -88,7 +89,7 @@ function applyTotalOrderingTransform(
     if (
         isFunction(firstMemberType) &&
         firstMemberType.details.parameters.length >= 2 &&
-        firstMemberType.details.parameters[1].hasDeclaredType
+        FunctionParam.isTypeDeclared(firstMemberType.details.parameters[1])
     ) {
         operandType = firstMemberType.details.parameters[1].type;
     }
@@ -107,19 +108,19 @@ function applyTotalOrderingTransform(
         return result;
     }
 
-    const selfParam: FunctionParameter = {
-        category: ParameterCategory.Simple,
-        name: 'self',
-        type: synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false),
-        hasDeclaredType: true,
-    };
+    const selfParam = FunctionParam.create(
+        ParameterCategory.Simple,
+        synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false),
+        FunctionParamFlags.TypeDeclared,
+        'self'
+    );
 
-    const objParam: FunctionParameter = {
-        category: ParameterCategory.Simple,
-        name: '__value',
-        type: operandType,
-        hasDeclaredType: true,
-    };
+    const objParam = FunctionParam.create(
+        ParameterCategory.Simple,
+        operandType,
+        FunctionParamFlags.TypeDeclared,
+        '__value'
+    );
 
     // Add the missing members to the class's symbol table.
     missingMethods.forEach((methodName) => {

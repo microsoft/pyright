@@ -19,7 +19,8 @@ import {
     ClassTypeFlags,
     combineTypes,
     findSubtype,
-    FunctionParameter,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
     isAny,
@@ -2217,17 +2218,18 @@ export function buildTypeVarContext(
                 if (index < typeArgs.length) {
                     typeArgType = typeArgs[index];
                     if (isFunction(typeArgType) && FunctionType.isParamSpecValue(typeArgType)) {
-                        const parameters: FunctionParameter[] = [];
+                        const parameters: FunctionParam[] = [];
                         const typeArgFunctionType = typeArgType;
                         typeArgType.details.parameters.forEach((param, paramIndex) => {
-                            parameters.push({
-                                category: param.category,
-                                name: param.name,
-                                defaultType: param.defaultType,
-                                defaultValueExpression: param.defaultValueExpression,
-                                isNameSynthesized: param.isNameSynthesized,
-                                type: FunctionType.getEffectiveParameterType(typeArgFunctionType, paramIndex),
-                            });
+                            parameters.push(
+                                FunctionParam.create(
+                                    param.category,
+                                    FunctionType.getEffectiveParameterType(typeArgFunctionType, paramIndex),
+                                    param.flags & FunctionParamFlags.NameSynthesized,
+                                    param.name,
+                                    param.defaultType
+                                )
+                            );
                         });
                         typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(typeArgType));
                     } else if (isParamSpec(typeArgType) || isAnyOrUnknown(typeArgType)) {
@@ -3349,14 +3351,16 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
         newFunction.details.deprecatedMessage = type.details.deprecatedMessage;
 
         type.details.parameters.forEach((param, index) => {
-            FunctionType.addParameter(newFunction, {
-                category: param.category,
-                name: param.name,
-                defaultType: param.defaultType,
-                defaultValueExpression: param.defaultValueExpression,
-                isNameSynthesized: param.isNameSynthesized,
-                type: FunctionType.getEffectiveParameterType(type, index),
-            });
+            FunctionType.addParameter(
+                newFunction,
+                FunctionParam.create(
+                    param.category,
+                    FunctionType.getEffectiveParameterType(type, index),
+                    param.flags & FunctionParamFlags.NameSynthesized,
+                    param.name,
+                    param.defaultType
+                )
+            );
         });
 
         if (type.details.higherOrderTypeVarScopeIds) {
@@ -3407,15 +3411,16 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
     functionType.details.constructorTypeVarScopeId = withoutParamSpec.details.constructorTypeVarScopeId;
 
     withoutParamSpec.details.parameters.forEach((entry, index) => {
-        FunctionType.addParameter(functionType, {
-            category: entry.category,
-            name: entry.name,
-            defaultType: entry.defaultType,
-            defaultValueExpression: entry.defaultValueExpression,
-            isNameSynthesized: entry.isNameSynthesized,
-            hasDeclaredType: true,
-            type: FunctionType.getEffectiveParameterType(withoutParamSpec, index),
-        });
+        FunctionType.addParameter(
+            functionType,
+            FunctionParam.create(
+                entry.category,
+                FunctionType.getEffectiveParameterType(withoutParamSpec, index),
+                (entry.flags & FunctionParamFlags.NameSynthesized) | FunctionParamFlags.TypeDeclared,
+                entry.name,
+                entry.defaultType
+            )
+        );
     });
 
     if (paramSpec) {
@@ -3985,16 +3990,17 @@ class TypeVarTransformer {
 
                     // Unpack the tuple into individual parameters.
                     variadicTypesToUnpack!.forEach((unpackedType) => {
-                        FunctionType.addParameter(newFunctionType, {
-                            category:
+                        FunctionType.addParameter(
+                            newFunctionType,
+                            FunctionParam.create(
                                 unpackedType.isUnbounded || isVariadicTypeVar(unpackedType.type)
                                     ? ParameterCategory.ArgsList
                                     : ParameterCategory.Simple,
-                            name: `__p${newFunctionType.details.parameters.length}`,
-                            isNameSynthesized: true,
-                            type: unpackedType.type,
-                            hasDeclaredType: true,
-                        });
+                                unpackedType.type,
+                                FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
+                                `__p${newFunctionType.details.parameters.length}`
+                            )
+                        );
 
                         if (unpackedType.isUnbounded) {
                             sawUnboundedEntry = true;
@@ -4023,7 +4029,7 @@ class TypeVarTransformer {
                     }
 
                     param.type = paramType;
-                    if (param.name && param.isNameSynthesized) {
+                    if (param.name && FunctionParam.isNameSynthesized(param)) {
                         param.name = `__p${newFunctionType.details.parameters.length}`;
                     }
 

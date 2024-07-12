@@ -295,7 +295,8 @@ import {
     ClassTypeFlags,
     DataClassBehaviors,
     EnumLiteral,
-    FunctionParameter,
+    FunctionParam,
+    FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
     InheritanceChain,
@@ -358,7 +359,7 @@ interface MatchArgsToParamsResult {
     argumentErrors: boolean;
     isTypeIncomplete: boolean;
     argParams: ValidateArgTypeParams[];
-    activeParam?: FunctionParameter | undefined;
+    activeParam?: FunctionParam | undefined;
     paramSpecTarget?: TypeVarType | undefined;
     paramSpecArgList?: FunctionArgument[] | undefined;
 
@@ -2524,13 +2525,16 @@ export function createTypeEvaluator(
         }
 
         tdEntries.forEach((tdEntry, name) => {
-            FunctionType.addParameter(newFunction, {
-                category: ParameterCategory.Simple,
-                name,
-                hasDeclaredType: true,
-                type: tdEntry.valueType,
-                defaultType: tdEntry.isRequired ? undefined : tdEntry.valueType,
-            });
+            FunctionType.addParameter(
+                newFunction,
+                FunctionParam.create(
+                    ParameterCategory.Simple,
+                    tdEntry.valueType,
+                    FunctionParamFlags.TypeDeclared,
+                    name,
+                    tdEntry.isRequired ? undefined : tdEntry.valueType
+                )
+            );
         });
 
         return newFunction;
@@ -6755,13 +6759,15 @@ export function createTypeEvaluator(
                 if (typeList) {
                     const functionType = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.ParamSpecValue);
                     typeList.forEach((paramType, paramIndex) => {
-                        FunctionType.addParameter(functionType, {
-                            category: ParameterCategory.Simple,
-                            name: `__p${paramIndex}`,
-                            isNameSynthesized: true,
-                            type: convertToInstance(paramType.type),
-                            hasDeclaredType: true,
-                        });
+                        FunctionType.addParameter(
+                            functionType,
+                            FunctionParam.create(
+                                ParameterCategory.Simple,
+                                convertToInstance(paramType.type),
+                                FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
+                                `__p${paramIndex}`
+                            )
+                        );
                     });
 
                     if (typeList.length > 0) {
@@ -6801,13 +6807,15 @@ export function createTypeEvaluator(
                                     functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
                                 }
                             } else {
-                                FunctionType.addParameter(functionType, {
-                                    category: ParameterCategory.Simple,
-                                    name: `__p${index}`,
-                                    isNameSynthesized: true,
-                                    hasDeclaredType: true,
-                                    type: typeArg,
-                                });
+                                FunctionType.addParameter(
+                                    functionType,
+                                    FunctionParam.create(
+                                        ParameterCategory.Simple,
+                                        typeArg,
+                                        FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
+                                        `__p${index}`
+                                    )
+                                );
                             }
                         });
                     }
@@ -8130,12 +8138,15 @@ export function createTypeEvaluator(
                 isArgTypeIncomplete = true;
             }
 
-            FunctionType.addParameter(expectedType, {
-                category: ParameterCategory.Simple,
-                name: `p${index.toString()}`,
-                type: argTypeResult.type,
-                hasDeclaredType: true,
-            });
+            FunctionType.addParameter(
+                expectedType,
+                FunctionParam.create(
+                    ParameterCategory.Simple,
+                    argTypeResult.type,
+                    FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
+                    `p${index.toString()}`
+                )
+            );
         });
 
         // If the lambda's param list ends with a "/" positional parameter separator,
@@ -8461,7 +8472,7 @@ export function createTypeEvaluator(
                     ) {
                         if (
                             methodType.details.parameters.length > 0 &&
-                            methodType.details.parameters[0].hasDeclaredType
+                            FunctionParam.isTypeDeclared(methodType.details.parameters[0])
                         ) {
                             implicitBindToType = makeTopLevelTypeVarsConcrete(methodType.details.parameters[0].type);
                         }
@@ -10269,8 +10280,8 @@ export function createTypeEvaluator(
 
         let validateArgTypeParams: ValidateArgTypeParams[] = [];
 
-        let activeParam: FunctionParameter | undefined;
-        function trySetActive(arg: FunctionArgument, param: FunctionParameter) {
+        let activeParam: FunctionParam | undefined;
+        function trySetActive(arg: FunctionArgument, param: FunctionParam) {
             if (arg.active) {
                 activeParam = param;
             }
@@ -10479,7 +10490,9 @@ export function createTypeEvaluator(
                             argument: funcArg,
                             errorNode: argList[argIndex].valueExpression ?? errorNode,
                             paramName,
-                            isParamNameSynthesized: paramDetails.params[paramIndex].param.isNameSynthesized,
+                            isParamNameSynthesized: FunctionParam.isNameSynthesized(
+                                paramDetails.params[paramIndex].param
+                            ),
                             mapsToVarArgList: isParamVariadic && remainingArgCount > remainingParamCount,
                         });
                     }
@@ -10555,7 +10568,9 @@ export function createTypeEvaluator(
                             argument: argList[argIndex],
                             errorNode: argList[argIndex].valueExpression || errorNode,
                             paramName,
-                            isParamNameSynthesized: paramDetails.params[paramIndex].param.isNameSynthesized,
+                            isParamNameSynthesized: FunctionParam.isNameSynthesized(
+                                paramDetails.params[paramIndex].param
+                            ),
                             mapsToVarArgList: true,
                         });
 
@@ -10571,7 +10586,7 @@ export function createTypeEvaluator(
                     argument: argList[argIndex],
                     errorNode: argList[argIndex].valueExpression || errorNode,
                     paramName,
-                    isParamNameSynthesized: paramDetails.params[paramIndex].param.isNameSynthesized,
+                    isParamNameSynthesized: FunctionParam.isNameSynthesized(paramDetails.params[paramIndex].param),
                 });
                 trySetActive(argList[argIndex], paramDetails.params[paramIndex].param);
 
@@ -10986,7 +11001,7 @@ export function createTypeEvaluator(
                                 argList.find((arg) => arg.argumentCategory === ArgumentCategory.UnpackedDictionary)
                                     ?.valueExpression ?? errorNode,
                             paramName: param.name,
-                            isParamNameSynthesized: param.isNameSynthesized,
+                            isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
                         });
 
                         paramMap.get(param.name)!.argsReceived = 1;
@@ -11048,7 +11063,7 @@ export function createTypeEvaluator(
                                     isDefaultArg: true,
                                     errorNode,
                                     paramName: param.name,
-                                    isParamNameSynthesized: param.isNameSynthesized,
+                                    isParamNameSynthesized: FunctionParam.isNameSynthesized(param),
                                 });
                             }
                         }
@@ -11072,7 +11087,7 @@ export function createTypeEvaluator(
             if (
                 paramDetails.argsIndex !== undefined &&
                 paramDetails.argsIndex >= 0 &&
-                paramDetails.params[paramDetails.argsIndex].param.hasDeclaredType &&
+                FunctionParam.isTypeDeclared(paramDetails.params[paramDetails.argsIndex].param) &&
                 !isVariadicTypeVarFullyMatched
             ) {
                 const paramType = paramDetails.params[paramDetails.argsIndex].type;
@@ -11139,7 +11154,9 @@ export function createTypeEvaluator(
                         },
                         errorNode,
                         paramName: paramDetails.params[paramDetails.argsIndex].param.name,
-                        isParamNameSynthesized: paramDetails.params[paramDetails.argsIndex].param.isNameSynthesized,
+                        isParamNameSynthesized: FunctionParam.isNameSynthesized(
+                            paramDetails.params[paramDetails.argsIndex].param
+                        ),
                         mapsToVarArgList: true,
                     };
 
@@ -11734,7 +11751,7 @@ export function createTypeEvaluator(
 
                 // Remove any type variables that appear in the function's input parameters.
                 functionType.details.parameters.forEach((param) => {
-                    if (param.hasDeclaredType) {
+                    if (FunctionParam.isTypeDeclared(param)) {
                         const typeVarsInInputParam = getTypeVarArgumentsRecursive(param.type);
                         typeVarsInReturnType = typeVarsInReturnType.filter(
                             (returnTypeVar) =>
@@ -12707,13 +12724,15 @@ export function createTypeEvaluator(
                     allowForwardReference: isPep695Syntax,
                 });
 
-                FunctionType.addParameter(functionType, {
-                    category: ParameterCategory.Simple,
-                    name: `__p${index}`,
-                    isNameSynthesized: true,
-                    hasDeclaredType: true,
-                    type: convertToInstance(typeResult.type),
-                });
+                FunctionType.addParameter(
+                    functionType,
+                    FunctionParam.create(
+                        ParameterCategory.Simple,
+                        convertToInstance(typeResult.type),
+                        FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
+                        `__p${index}`
+                    )
+                );
             });
 
             if (node.entries.length > 0) {
@@ -13011,18 +13030,24 @@ export function createTypeEvaluator(
         if (!isBaseClassAny) {
             // Synthesize an __init__ method that accepts only the specified type.
             const initType = FunctionType.createSynthesizedInstance('__init__');
-            FunctionType.addParameter(initType, {
-                category: ParameterCategory.Simple,
-                name: 'self',
-                type: ClassType.cloneAsInstance(classType),
-                hasDeclaredType: true,
-            });
-            FunctionType.addParameter(initType, {
-                category: ParameterCategory.Simple,
-                name: '_x',
-                type: ClassType.cloneAsInstance(baseClass),
-                hasDeclaredType: true,
-            });
+            FunctionType.addParameter(
+                initType,
+                FunctionParam.create(
+                    ParameterCategory.Simple,
+                    ClassType.cloneAsInstance(classType),
+                    FunctionParamFlags.TypeDeclared,
+                    'self'
+                )
+            );
+            FunctionType.addParameter(
+                initType,
+                FunctionParam.create(
+                    ParameterCategory.Simple,
+                    ClassType.cloneAsInstance(baseClass),
+                    FunctionParamFlags.TypeDeclared,
+                    '_x'
+                )
+            );
             initType.details.declaredReturnType = getNoneType();
             ClassType.getSymbolTable(classType).set(
                 '__init__',
@@ -13031,12 +13056,10 @@ export function createTypeEvaluator(
 
             // Synthesize a trivial __new__ method.
             const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
-            FunctionType.addParameter(newType, {
-                category: ParameterCategory.Simple,
-                name: 'cls',
-                type: classType,
-                hasDeclaredType: true,
-            });
+            FunctionType.addParameter(
+                newType,
+                FunctionParam.create(ParameterCategory.Simple, classType, FunctionParamFlags.TypeDeclared, 'cls')
+            );
             FunctionType.addDefaultParameters(newType);
             newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
             newType.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
@@ -14371,14 +14394,13 @@ export function createTypeEvaluator(
                     }
                 }
 
-                const functionParam: FunctionParameter = {
-                    category: param.category,
-                    name: param.name ? param.name.value : undefined,
-                    defaultType: param.defaultValue ? AnyType.create(/* isEllipsis */ true) : undefined,
-                    defaultValueExpression: param.defaultValue,
-                    hasDeclaredType: true,
-                    type: paramType ?? UnknownType.create(),
-                };
+                const functionParam = FunctionParam.create(
+                    param.category,
+                    paramType ?? UnknownType.create(),
+                    FunctionParamFlags.TypeDeclared,
+                    param.name ? param.name.value : undefined,
+                    param.defaultValue ? AnyType.create(/* isEllipsis */ true) : undefined
+                );
 
                 FunctionType.addParameter(functionType, functionParam);
             });
@@ -14800,13 +14822,15 @@ export function createTypeEvaluator(
                         entryType = UnknownType.create();
                     }
 
-                    FunctionType.addParameter(functionType, {
-                        category: paramCategory,
-                        name: paramName,
-                        isNameSynthesized: true,
-                        type: convertToInstance(entryType),
-                        hasDeclaredType: true,
-                    });
+                    FunctionType.addParameter(
+                        functionType,
+                        FunctionParam.create(
+                            paramCategory,
+                            convertToInstance(entryType),
+                            FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
+                            paramName
+                        )
+                    );
                 });
 
                 if (typeList.length > 0) {
@@ -14832,13 +14856,15 @@ export function createTypeEvaluator(
                                     functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
                                 }
                             } else {
-                                FunctionType.addParameter(functionType, {
-                                    category: ParameterCategory.Simple,
-                                    name: `__p${index}`,
-                                    isNameSynthesized: true,
-                                    hasDeclaredType: true,
-                                    type: typeArg,
-                                });
+                                FunctionType.addParameter(
+                                    functionType,
+                                    FunctionParam.create(
+                                        ParameterCategory.Simple,
+                                        typeArg,
+                                        FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
+                                        `__p${index}`
+                                    )
+                                );
                             }
                         });
                     }
@@ -18034,20 +18060,18 @@ export function createTypeEvaluator(
                     }
                 }
 
-                const functionParam: FunctionParameter = {
-                    category: param.category,
-                    name: param.name ? param.name.value : undefined,
-                    defaultValueExpression: param.defaultValue,
-                    defaultType: defaultValueType,
-                    type: paramType ?? UnknownType.create(),
-                    typeAnnotation: paramTypeNode,
-                    hasDeclaredType: !!paramTypeNode,
-                    isTypeInferred,
-                };
+                const functionParam = FunctionParam.create(
+                    param.category,
+                    paramType ?? UnknownType.create(),
+                    (isTypeInferred ? FunctionParamFlags.TypeInferred : FunctionParamFlags.None) |
+                        (paramTypeNode ? FunctionParamFlags.TypeDeclared : FunctionParamFlags.None),
+                    param.name ? param.name.value : undefined,
+                    defaultValueType
+                );
 
                 FunctionType.addParameter(functionType, functionParam);
 
-                if (functionParam.hasDeclaredType) {
+                if (FunctionParam.isTypeDeclared(functionParam)) {
                     addTypeVarsToListIfUnique(
                         typeParametersSeen,
                         getTypeVarArgumentsRecursive(functionParam.type),
@@ -20257,13 +20281,15 @@ export function createTypeEvaluator(
 
                     if (typeArg.typeList) {
                         typeArg.typeList!.forEach((paramType, paramIndex) => {
-                            FunctionType.addParameter(functionType, {
-                                category: ParameterCategory.Simple,
-                                name: `__p${paramIndex}`,
-                                isNameSynthesized: true,
-                                type: convertToInstance(paramType.type),
-                                hasDeclaredType: true,
-                            });
+                            FunctionType.addParameter(
+                                functionType,
+                                FunctionParam.create(
+                                    ParameterCategory.Simple,
+                                    convertToInstance(paramType.type),
+                                    FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
+                                    `__p${paramIndex}`
+                                )
+                            );
                         });
 
                         if (typeArg.typeList.length > 0) {
@@ -20287,13 +20313,15 @@ export function createTypeEvaluator(
                                         functionType.details.flags |= FunctionTypeFlags.GradualCallableForm;
                                     }
                                 } else {
-                                    FunctionType.addParameter(functionType, {
-                                        category: ParameterCategory.Simple,
-                                        name: `__p${index}`,
-                                        isNameSynthesized: true,
-                                        hasDeclaredType: true,
-                                        type: typeArg,
-                                    });
+                                    FunctionType.addParameter(
+                                        functionType,
+                                        FunctionParam.create(
+                                            ParameterCategory.Simple,
+                                            typeArg,
+                                            FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
+                                            `__p${index}`
+                                        )
+                                    );
                                 }
                             });
                         }
@@ -22039,7 +22067,7 @@ export function createTypeEvaluator(
                     // expensive.
                     const parametersAreAnnotated =
                         type.details.parameters.length <= 1 ||
-                        type.details.parameters.some((param) => param.hasDeclaredType);
+                        type.details.parameters.some((param) => FunctionParam.isTypeDeclared(param));
 
                     if (parametersAreAnnotated || codeFlowComplexity < maxReturnTypeInferenceCodeFlowComplexity) {
                         // Temporarily disable speculative mode while we
@@ -25084,13 +25112,12 @@ export function createTypeEvaluator(
             srcDetails.params = [
                 ...srcDetails.params.slice(0, destDetails.argsIndex),
                 {
-                    param: {
-                        category: ParameterCategory.ArgsList,
-                        name: '_arg_combined',
-                        isNameSynthesized: true,
-                        hasDeclaredType: true,
-                        type: srcPositionalsType,
-                    },
+                    param: FunctionParam.create(
+                        ParameterCategory.ArgsList,
+                        srcPositionalsType,
+                        FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
+                        '_arg_combined'
+                    ),
                     type: srcPositionalsType,
                     index: -1,
                     kind: ParameterKind.Positional,
@@ -25239,7 +25266,7 @@ export function createTypeEvaluator(
                 destType.details.name === '__init__' &&
                 FunctionType.isInstanceMethod(destType) &&
                 FunctionType.isOverloaded(destType) &&
-                destParam.param.hasDeclaredType
+                FunctionParam.isTypeDeclared(destParam.param)
             ) {
                 continue;
             }
@@ -25730,7 +25757,7 @@ export function createTypeEvaluator(
                     return true;
                 }).length;
                 let matchedParamCount = 0;
-                const remainingParams: FunctionParameter[] = [];
+                const remainingParams: FunctionParam[] = [];
 
                 // If there are parameters in the source that are not matched
                 // to parameters in the dest, assume these are concatenated on
@@ -25744,15 +25771,15 @@ export function createTypeEvaluator(
                         // Don't bother pushing a position-only separator if it
                         // is the first remaining param.
                     } else {
-                        remainingParams.push({
-                            category: p.category,
-                            name: p.name,
-                            isNameSynthesized: p.isNameSynthesized,
-                            defaultType: p.defaultType ? AnyType.create(/* isEllipsis */ true) : undefined,
-                            hasDeclaredType: p.hasDeclaredType,
-                            defaultValueExpression: p.defaultValueExpression,
-                            type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
-                        });
+                        remainingParams.push(
+                            FunctionParam.create(
+                                p.category,
+                                FunctionType.getEffectiveParameterType(effectiveSrcType, index),
+                                p.flags,
+                                p.name,
+                                p.defaultType ? AnyType.create(/* isEllipsis */ true) : undefined
+                            )
+                        );
                     }
                 });
 
@@ -26246,7 +26273,7 @@ export function createTypeEvaluator(
 
         const baseParamType = baseParamDetails.params[0].param;
 
-        if (baseParamType.category !== ParameterCategory.Simple || !baseParamType.hasDeclaredType) {
+        if (baseParamType.category !== ParameterCategory.Simple || !FunctionParam.isTypeDeclared(baseParamType)) {
             return true;
         }
 
@@ -26399,7 +26426,7 @@ export function createTypeEvaluator(
                     baseParam.name !== overrideParam.name
                 ) {
                     if (overrideParam.category === ParameterCategory.Simple) {
-                        if (!baseParam.isNameSynthesized) {
+                        if (!FunctionParam.isNameSynthesized(baseParam)) {
                             if (overrideParamDetails.params[i].kind === ParameterKind.Positional) {
                                 diag?.addMessage(
                                     LocAddendum.overrideParamNamePositionOnly().format({
@@ -26423,7 +26450,10 @@ export function createTypeEvaluator(
                     i < overrideParamDetails.positionOnlyParamCount &&
                     i >= baseParamDetails.positionOnlyParamCount
                 ) {
-                    if (!baseParam.isNameSynthesized && baseParamDetails.params[i].kind !== ParameterKind.Positional) {
+                    if (
+                        !FunctionParam.isNameSynthesized(baseParam) &&
+                        baseParamDetails.params[i].kind !== ParameterKind.Positional
+                    ) {
                         diag?.addMessage(
                             LocAddendum.overrideParamNamePositionOnly().format({
                                 index: i + 1,
@@ -26964,8 +26994,8 @@ export function createTypeEvaluator(
                 ) {
                     if (
                         memberTypeFirstParam.name &&
-                        !memberTypeFirstParam.isNameSynthesized &&
-                        memberTypeFirstParam.hasDeclaredType
+                        !FunctionParam.isNameSynthesized(memberTypeFirstParam) &&
+                        FunctionParam.isTypeDeclared(memberTypeFirstParam)
                     ) {
                         if (subDiag) {
                             subDiag.addMessage(
