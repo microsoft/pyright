@@ -5185,7 +5185,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         // Verify that the parameter count matches.
-        const nonDefaultParams = paramListDetails.params.filter((paramInfo) => !paramInfo.param.hasDefault);
+        const nonDefaultParams = paramListDetails.params.filter((paramInfo) => !paramInfo.param.defaultType);
 
         // We expect to see one param for "self" plus one for each of the InitVars.
         const expectedParamCount = initOnlySymbolMap.size + 1;

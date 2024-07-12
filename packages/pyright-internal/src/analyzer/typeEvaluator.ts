@@ -2529,8 +2529,7 @@ export function createTypeEvaluator(
                 name,
                 hasDeclaredType: true,
                 type: tdEntry.valueType,
-                hasDefault: !tdEntry.isRequired,
-                defaultType: tdEntry.valueType,
+                defaultType: tdEntry.isRequired ? undefined : tdEntry.valueType,
             });
         });
 
@@ -10170,7 +10169,7 @@ export function createTypeEvaluator(
             const param = paramInfo.param;
             if (param.name && param.category === ParameterCategory.Simple) {
                 paramMap.set(param.name, {
-                    argsNeeded: param.category === ParameterCategory.Simple && !param.hasDefault ? 1 : 0,
+                    argsNeeded: param.category === ParameterCategory.Simple && !param.defaultType ? 1 : 0,
                     argsReceived: 0,
                     isPositionalOnly: paramInfo.kind === ParameterKind.Positional,
                 });
@@ -10608,7 +10607,7 @@ export function createTypeEvaluator(
             paramIndex < positionalOnlyLimitIndex &&
             (!foundUnpackedListArg || hasParamSpecArgsKwargs)
         ) {
-            const firstParamWithDefault = paramDetails.params.findIndex((paramInfo) => paramInfo.param.hasDefault);
+            const firstParamWithDefault = paramDetails.params.findIndex((paramInfo) => !!paramInfo.param.defaultType);
             const positionOnlyWithoutDefaultsCount =
                 firstParamWithDefault >= 0 && firstParamWithDefault < positionalOnlyLimitIndex
                     ? firstParamWithDefault
@@ -14375,7 +14374,7 @@ export function createTypeEvaluator(
                 const functionParam: FunctionParameter = {
                     category: param.category,
                     name: param.name ? param.name.value : undefined,
-                    hasDefault: !!param.defaultValue,
+                    defaultType: param.defaultValue ? AnyType.create(/* isEllipsis */ true) : undefined,
                     defaultValueExpression: param.defaultValue,
                     hasDeclaredType: true,
                     type: paramType ?? UnknownType.create(),
@@ -17554,7 +17553,7 @@ export function createTypeEvaluator(
                     const unassignedParams: string[] = [];
                     paramMap.forEach((index, paramName) => {
                         const paramInfo = paramListDetails.params[index];
-                        if (!paramInfo.param.hasDefault) {
+                        if (!paramInfo.param.defaultType) {
                             unassignedParams.push(paramName);
                         }
                     });
@@ -18038,7 +18037,6 @@ export function createTypeEvaluator(
                 const functionParam: FunctionParameter = {
                     category: param.category,
                     name: param.name ? param.name.value : undefined,
-                    hasDefault: !!param.defaultValue,
                     defaultValueExpression: param.defaultValue,
                     defaultType: defaultValueType,
                     type: paramType ?? UnknownType.create(),
@@ -23795,7 +23793,7 @@ export function createTypeEvaluator(
                     }
                 }
 
-                if (ClassType.isBuiltIn(destType, 'type') && (srcType.instantiableNestingLevel ?? 0) > 0) {
+                if (ClassType.isBuiltIn(destType, 'type') && (srcType.instantiableDepth ?? 0) > 0) {
                     return true;
                 }
 
@@ -25073,7 +25071,7 @@ export function createTypeEvaluator(
                     srcTupleTypes.push({ type: entry.type, isUnbounded: true });
                 }
             } else {
-                srcTupleTypes.push({ type: entry.type, isUnbounded: false, isOptional: entry.param.hasDefault });
+                srcTupleTypes.push({ type: entry.type, isUnbounded: false, isOptional: !!entry.param.defaultType });
             }
         });
 
@@ -25122,7 +25120,7 @@ export function createTypeEvaluator(
                     (p) =>
                         p.kind !== ParameterKind.Positional ||
                         p.param.category !== ParameterCategory.Simple ||
-                        p.param.hasDefault
+                        !!p.param.defaultType
                 )
             );
         }
@@ -25220,8 +25218,8 @@ export function createTypeEvaluator(
             }
 
             if (
-                !!destParam.param.hasDefault &&
-                !srcParam.param.hasDefault &&
+                destParam.param.defaultType &&
+                !srcParam.param.defaultType &&
                 paramIndex !== srcParamDetails.argsIndex
             ) {
                 diag?.createAddendum().addMessage(
@@ -25332,7 +25330,7 @@ export function createTypeEvaluator(
                 // corresponding dest parameter to be missing.
                 const srcParam = srcParamDetails.params[i];
 
-                if (srcParam.param.hasDefault) {
+                if (srcParam.param.defaultType) {
                     // Assign default arg value in case it is needed for
                     // populating TypeVar constraints.
                     const paramInfo = srcParamDetails.params[i];
@@ -25369,7 +25367,7 @@ export function createTypeEvaluator(
                 }
 
                 const nonDefaultSrcParamCount = srcParamDetails.params.filter(
-                    (p) => !!p.param.name && !p.param.hasDefault && p.param.category === ParameterCategory.Simple
+                    (p) => !!p.param.name && !p.param.defaultType && p.param.category === ParameterCategory.Simple
                 ).length;
 
                 diag?.createAddendum().addMessage(
@@ -25533,7 +25531,7 @@ export function createTypeEvaluator(
                             const srcParamType = srcParamInfo.type;
 
                             if (!destParamInfo) {
-                                if (destParamDetails.kwargsIndex === undefined && !srcParamInfo.param.hasDefault) {
+                                if (destParamDetails.kwargsIndex === undefined && !srcParamInfo.param.defaultType) {
                                     if (paramDiag) {
                                         paramDiag.addMessage(
                                             LocAddendum.namedParamMissingInDest().format({
@@ -25558,7 +25556,7 @@ export function createTypeEvaluator(
                                     ) {
                                         canAssign = false;
                                     }
-                                } else if (srcParamInfo.param.hasDefault) {
+                                } else if (srcParamInfo.param.defaultType) {
                                     // Assign default arg values in case they are needed for
                                     // populating TypeVar constraints.
                                     const defaultArgType =
@@ -25609,7 +25607,7 @@ export function createTypeEvaluator(
                                     canAssign = false;
                                 }
 
-                                if (!!destParamInfo.param.hasDefault && !srcParamInfo.param.hasDefault) {
+                                if (destParamInfo.param.defaultType && !srcParamInfo.param.defaultType) {
                                     diag?.createAddendum().addMessage(
                                         LocAddendum.functionParamDefaultMissing().format({
                                             name: srcParamInfo.param.name,
@@ -25750,7 +25748,7 @@ export function createTypeEvaluator(
                             category: p.category,
                             name: p.name,
                             isNameSynthesized: p.isNameSynthesized,
-                            hasDefault: p.hasDefault,
+                            defaultType: p.defaultType ? AnyType.create(/* isEllipsis */ true) : undefined,
                             hasDeclaredType: p.hasDeclaredType,
                             defaultValueExpression: p.defaultValueExpression,
                             type: FunctionType.getEffectiveParameterType(effectiveSrcType, index),
@@ -26353,7 +26351,7 @@ export function createTypeEvaluator(
                     if (
                         overrideParam.category === ParameterCategory.Simple &&
                         overrideParam.name &&
-                        !overrideParam.hasDefault
+                        !overrideParam.defaultType
                     ) {
                         foundParamCountMismatch = true;
                     }
@@ -26465,8 +26463,8 @@ export function createTypeEvaluator(
                     }
 
                     if (
-                        baseParamDetails.params[i].param.hasDefault &&
-                        !overrideParamDetails.params[i].param.hasDefault
+                        baseParamDetails.params[i].param.defaultType &&
+                        !overrideParamDetails.params[i].param.defaultType
                     ) {
                         diag?.addMessage(
                             LocAddendum.overrideParamNoDefault().format({
@@ -26581,7 +26579,7 @@ export function createTypeEvaluator(
                     }
 
                     if (overrideParamInfo) {
-                        if (paramInfo.param.hasDefault && !overrideParamInfo.param.hasDefault) {
+                        if (paramInfo.param.defaultType && !overrideParamInfo.param.defaultType) {
                             diag?.addMessage(
                                 LocAddendum.overrideParamKeywordNoDefault().format({
                                     name: overrideParamInfo.param.name ?? '?',
@@ -26600,7 +26598,7 @@ export function createTypeEvaluator(
 
                 if (!baseParamInfo) {
                     if (baseParamDetails.kwargsIndex === undefined) {
-                        if (!paramInfo.param.hasDefault) {
+                        if (!paramInfo.param.defaultType) {
                             diag?.addMessage(
                                 LocAddendum.overrideParamNameExtra().format({
                                     name: paramInfo.param.name ?? '?',

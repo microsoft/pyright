@@ -298,7 +298,7 @@ export function synthesizeTypedDictClassMethods(
         FunctionType.addParameter(initOverride1, {
             category: ParameterCategory.Simple,
             name,
-            hasDefault: true,
+            defaultType: entry.valueType,
             type: entry.valueType,
             hasDeclaredType: true,
         });
@@ -306,7 +306,7 @@ export function synthesizeTypedDictClassMethods(
         FunctionType.addParameter(initOverride2, {
             category: ParameterCategory.Simple,
             name,
-            hasDefault: !entry.isRequired,
+            defaultType: entry.isRequired ? undefined : entry.valueType,
             type: entry.valueType,
             hasDeclaredType: true,
         });
@@ -320,7 +320,6 @@ export function synthesizeTypedDictClassMethods(
         FunctionType.addParameter(initOverride1, {
             category: ParameterCategory.KwargsDict,
             name: 'kwargs',
-            hasDefault: false,
             type: entries.extraItems.valueType,
             hasDeclaredType: true,
         });
@@ -328,7 +327,6 @@ export function synthesizeTypedDictClassMethods(
         FunctionType.addParameter(initOverride2, {
             category: ParameterCategory.KwargsDict,
             name: 'kwargs',
-            hasDefault: false,
             type: entries.extraItems.valueType,
             hasDeclaredType: true,
         });
@@ -450,7 +448,7 @@ export function synthesizeTypedDictClassMethods(
                 name: 'default',
                 hasDeclaredType: true,
                 type: defaultParamType,
-                hasDefault: true,
+                defaultType: defaultParamType,
             });
             popOverload2.details.declaredReturnType = returnType;
             return [popOverload1, popOverload2];
@@ -544,7 +542,6 @@ export function synthesizeTypedDictClassMethods(
                         category: ParameterCategory.Simple,
                         name,
                         hasDeclaredType: true,
-                        hasDefault: true,
                         defaultType: AnyType.create(/* isEllipsis */ true),
                         type: entry.valueType,
                     });

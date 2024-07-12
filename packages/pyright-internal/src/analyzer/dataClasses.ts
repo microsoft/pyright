@@ -539,7 +539,7 @@ export function synthesizeDataClassMethods(
                     const functionParam: FunctionParameter = {
                         category: ParameterCategory.Simple,
                         name: effectiveName,
-                        hasDefault: entry.hasDefault,
+                        defaultType: entry.hasDefault ? entry.type : undefined,
                         defaultValueExpression: entry.defaultValueExpression,
                         type: effectiveType,
                         hasDeclaredType: true,

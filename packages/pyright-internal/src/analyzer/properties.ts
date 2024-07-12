@@ -291,8 +291,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         name: 'objtype',
         type: AnyType.create(),
         hasDeclaredType: true,
-        hasDefault: true,
-        defaultType: AnyType.create(),
+        defaultType: AnyType.create(/* isEllipsis */ true),
     });
     getFunction1.details.declaredReturnType = FunctionType.isClassMethod(fget)
         ? FunctionType.getEffectiveReturnType(fget)
@@ -328,8 +327,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         name: 'objtype',
         type: AnyType.create(),
         hasDeclaredType: true,
-        hasDefault: true,
-        defaultType: AnyType.create(),
+        defaultType: AnyType.create(/* isEllipsis */ true),
     });
     getFunction2.details.declaredReturnType = FunctionType.getEffectiveReturnType(fget);
     getFunction2.details.declaration = fget.details.declaration;

@@ -1226,7 +1226,7 @@ function printFunctionPartsInternal(
             }
         }
 
-        if (param.hasDefault) {
+        if (param.defaultType) {
             if (param.defaultValueExpression) {
                 paramString += defaultValueAssignment + ParseTreeUtils.printExpression(param.defaultValueExpression);
             } else {
@@ -1290,7 +1290,7 @@ function _printUnpack(textToWrap: string, flags: PrintTypeFlags) {
 // Surrounds a printed type with Type[...] as many times as needed
 // for the nested instantiable count.
 function _printNestedInstantiable(type: Type, textToWrap: string) {
-    const nestedTypes = (type.instantiableNestingLevel ?? 0) + 1;
+    const nestedTypes = (type.instantiableDepth ?? 0) + 1;
 
     for (let nestLevel = 0; nestLevel < nestedTypes; nestLevel++) {
         textToWrap = `type[${textToWrap}]`;

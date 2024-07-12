@@ -116,7 +116,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
     }
 
     for (let i = 0; i < positionOnlyIndex; i++) {
-        if (type.details.parameters[i].hasDefault) {
+        if (type.details.parameters[i].defaultType) {
             break;
         }
 
@@ -252,7 +252,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                             name,
                             type: specializedParamType,
                             hasDeclaredType: true,
-                            hasDefault: !entry.isRequired,
+                            defaultType: !entry.isRequired ? specializedParamType : undefined,
                         },
                         index,
                         specializedParamType
@@ -266,7 +266,6 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
                             name: 'kwargs',
                             type: paramType.details.typedDictEntries.extraItems.valueType,
                             hasDeclaredType: true,
-                            hasDefault: false,
                         },
                         index,
                         paramType.details.typedDictEntries.extraItems.valueType
