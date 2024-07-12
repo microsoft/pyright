@@ -7,5 +7,5 @@ def fibonacci():
     while True:
         yield a
         a, b = b, a + b
-        reveal_type(a, expected_text="int")
+        reveal_type(a, expected_text="int | Literal[1]")
         reveal_type(b, expected_text="int")

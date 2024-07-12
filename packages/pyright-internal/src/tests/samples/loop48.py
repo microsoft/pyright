@@ -11,9 +11,9 @@ class ClassA:
         self.x = 0
 
         for _ in range(1, 10):
-            self.x = reveal_type(self.x, expected_text="int") + 1
+            self.x = reveal_type(self.x, expected_text="int | Literal[0]") + 1
 
-        reveal_type(self.x, expected_text="int")
+        reveal_type(self.x, expected_text="int | Literal[0]")
 
     def method2(self) -> None:
         self.x = 0
@@ -21,4 +21,4 @@ class ClassA:
         for _ in range(1, 10):
             self.x += 1
 
-        reveal_type(self.x, expected_text="int")
+        reveal_type(self.x, expected_text="int | Literal[0]")

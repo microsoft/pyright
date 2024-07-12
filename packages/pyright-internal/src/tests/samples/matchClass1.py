@@ -151,8 +151,8 @@ def test_union(
 ) -> TInt | Literal[3] | float | str:
     match value_to_match:
         case int() as a1:
-            reveal_type(a1, expected_text="int* | int")
-            reveal_type(value_to_match, expected_text="int* | int")
+            reveal_type(a1, expected_text="int* | int | Literal[3]")
+            reveal_type(value_to_match, expected_text="int* | int | Literal[3]")
 
         case float() as a2:
             reveal_type(a2, expected_text="float")

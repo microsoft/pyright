@@ -51,7 +51,7 @@ def func1(x: int | str | None, y: Literal[1, 2, "b"], b: int):
         reveal_type(x, expected_text="Literal[1] | None")
 
     if x in (1, b, "a"):
-        reveal_type(x, expected_text="int | Literal['a']")
+        reveal_type(x, expected_text="int | Literal['a', 1, 2]")
 
     if y in (1, b, "a"):
         reveal_type(y, expected_text="Literal[1, 2]")

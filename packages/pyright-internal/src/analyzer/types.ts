@@ -3521,26 +3521,23 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
             }
         }
 
-        // If the typeToAdd is a literal value and there's already
-        // a non-literal type that matches, don't add the literal value.
         if (isClassInstance(type) && isClassInstance(typeToAdd)) {
-            if (isSameWithoutLiteralValue(type, typeToAdd)) {
-                if (type.literalValue === undefined) {
-                    return;
-                }
-            }
-
             // If we're adding Literal[False] or Literal[True] to its
             // opposite, combine them into a non-literal 'bool' type.
-            if (
-                ClassType.isBuiltIn(type, 'bool') &&
-                !type.condition &&
-                ClassType.isBuiltIn(typeToAdd, 'bool') &&
-                !typeToAdd.condition
-            ) {
-                if (typeToAdd.literalValue !== undefined && !typeToAdd.literalValue === type.literalValue) {
-                    unionType.subtypes[i] = ClassType.cloneWithLiteral(type, /* value */ undefined);
-                    return;
+            if (ClassType.isBuiltIn(type, 'bool') && !type.condition) {
+                if (ClassType.isBuiltIn(typeToAdd, 'bool') && !typeToAdd.condition) {
+                    if (typeToAdd.literalValue !== undefined && !typeToAdd.literalValue === type.literalValue) {
+                        unionType.subtypes[i] = ClassType.cloneWithLiteral(type, /* value */ undefined);
+                        return;
+                    }
+                }
+
+                // If we're adding Literal[False] or Literal[True] and there's
+                // already a 'bool', don't add the redundant types.
+                if (isSameWithoutLiteralValue(type, typeToAdd)) {
+                    if (type.literalValue === undefined) {
+                        return;
+                    }
                 }
             }
 

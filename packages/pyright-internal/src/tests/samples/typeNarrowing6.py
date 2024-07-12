@@ -23,5 +23,5 @@ def func1(a: bool):
     if a:
         foo2 = Class2()
 
-    reveal_type(foo2.val1, expected_text="int")
-    reveal_type(foo2.val2.val0, expected_text="int")
+    reveal_type(foo2.val1, expected_text="int | Literal[0]")
+    reveal_type(foo2.val2.val0, expected_text="int | Literal[4]")
