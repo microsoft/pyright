@@ -472,17 +472,17 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
 // caller to replace one or more signatures with new ones.
 export function mapSignatures(
     type: FunctionType | OverloadedFunctionType,
-    callback: (type: FunctionType, index: number) => FunctionType | undefined
+    callback: (type: FunctionType) => FunctionType | undefined
 ): OverloadedFunctionType | FunctionType | undefined {
     if (isFunction(type)) {
-        return callback(type, 0);
+        return callback(type);
     }
 
     const newSignatures: FunctionType[] = [];
     let changeMade = false;
 
     OverloadedFunctionType.getOverloads(type).forEach((overload, index) => {
-        const newOverload = callback(overload, index);
+        const newOverload = callback(overload);
         if (newOverload !== overload) {
             changeMade = true;
         }
@@ -499,7 +499,12 @@ export function mapSignatures(
     // Add the unmodified implementation if it's present.
     const implementation = OverloadedFunctionType.getImplementation(type);
     if (implementation) {
-        newSignatures.push(implementation);
+        const newImplementation = callback(implementation);
+
+        if (newImplementation) {
+            changeMade = true;
+            newSignatures.push(newImplementation);
+        }
     }
 
     if (!changeMade) {
