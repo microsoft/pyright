@@ -497,15 +497,13 @@ export function assignTypeToTypeVar(
                         (destType as TypeVarType).details.boundType !== undefined &&
                         isClassInstance(objectType)
                     ) {
-                        newNarrowTypeBound = combineTypes(
-                            [curSolvedNarrowTypeBound, objectType],
-                            maxSubtypeCountForTypeVarNarrowBound
-                        );
+                        newNarrowTypeBound = combineTypes([curSolvedNarrowTypeBound, objectType], {
+                            maxSubtypeCount: maxSubtypeCountForTypeVarNarrowBound,
+                        });
                     } else {
-                        newNarrowTypeBound = combineTypes(
-                            [curSolvedNarrowTypeBound, adjSrcType],
-                            maxSubtypeCountForTypeVarNarrowBound
-                        );
+                        newNarrowTypeBound = combineTypes([curSolvedNarrowTypeBound, adjSrcType], {
+                            maxSubtypeCount: maxSubtypeCountForTypeVarNarrowBound,
+                        });
                     }
                 }
             }

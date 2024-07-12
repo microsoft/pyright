@@ -3314,11 +3314,21 @@ export function findSubtype(type: Type, filter: (type: UnionableType | NeverType
     return filter(type) ? type : undefined;
 }
 
+export interface CombineTypesOptions {
+    // By default, literals are elided (removed) from a union if the non-literal
+    // subtype is present. Should this be skipped?
+    skipElideRedundantLiterals?: boolean;
+
+    // If specified, the maximum number of subtypes that should be allowed
+    // in the union before it is converted to an "Any" type.
+    maxSubtypeCount?: number;
+}
+
 // Combines multiple types into a single type. If the types are
 // the same, only one is returned. If they differ, they
 // are combined into a UnionType. NeverTypes are filtered out.
 // If no types remain in the end, a NeverType is returned.
-export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
+export function combineTypes(subtypes: Type[], options?: CombineTypesOptions): Type {
     // Filter out any "Never" and "NoReturn" types.
     let sawNoReturn = false;
 
@@ -3412,8 +3422,8 @@ export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
         if (index === 0) {
             UnionType.addType(newUnionType, subtype as UnionableType);
         } else {
-            if (maxSubtypeCount === undefined || newUnionType.subtypes.length < maxSubtypeCount) {
-                _addTypeIfUnique(newUnionType, subtype as UnionableType);
+            if (options?.maxSubtypeCount === undefined || newUnionType.subtypes.length < options.maxSubtypeCount) {
+                _addTypeIfUnique(newUnionType, subtype as UnionableType, !options?.skipElideRedundantLiterals);
             } else {
                 hitMaxSubtypeCount = true;
             }
@@ -3456,7 +3466,7 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
     return false;
 }
 
-function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
+function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideRedundantLiterals: boolean) {
     // Handle the addition of a string literal in a special manner to
     // avoid n^2 behavior in unions that contain hundreds of string
     // literal types. Skip this for constrained types.
@@ -3521,10 +3531,10 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
             }
         }
 
-        // If the typeToAdd is a literal value and there's already
-        // a non-literal type that matches, don't add the literal value.
         if (isClassInstance(type) && isClassInstance(typeToAdd)) {
-            if (isSameWithoutLiteralValue(type, typeToAdd)) {
+            // If the typeToAdd is a literal value and there's already
+            // a non-literal type that matches, don't add the literal value.
+            if (elideRedundantLiterals && isSameWithoutLiteralValue(type, typeToAdd)) {
                 if (type.literalValue === undefined) {
                     return;
                 }
