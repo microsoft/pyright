@@ -240,6 +240,7 @@ export class Parser {
     private _assignmentExpressionsAllowed = true;
     private _typingImportAliases: string[] = [];
     private _typingSymbolAliases: Map<string, string> = new Map<string, string>();
+    private _maxChildDepthMap = new Map<number, number>();
 
     parseSourceFile(fileContents: string, parseOptions: ParseOptions, diagSink: DiagnosticSink): ParseFileResults {
         timingStats.tokenizeFileTime.timeOperation(() => {
@@ -3523,11 +3524,13 @@ export class Parser {
 
                 this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
 
-                atomExpression = callNode;
-
-                if (atomExpression.maxChildDepth !== undefined && atomExpression.maxChildDepth >= maxChildNodeDepth) {
-                    atomExpression = ErrorNode.create(atomExpression, ErrorExpressionCategory.MaxDepthExceeded);
+                const maxDepth = this._maxChildDepthMap.get(atomExpression.id) ?? 0;
+                if (maxDepth >= maxChildNodeDepth) {
+                    atomExpression = ErrorNode.create(callNode, ErrorExpressionCategory.MaxDepthExceeded);
                     this._addSyntaxError(LocMessage.maxParseDepthExceeded(), atomExpression);
+                } else {
+                    atomExpression = callNode;
+                    this._maxChildDepthMap.set(callNode.id, maxDepth + 1);
                 }
 
                 // If the argument list wasn't terminated, break out of the loop
@@ -3576,11 +3579,13 @@ export class Parser {
                     );
                 }
 
-                atomExpression = indexNode;
-
-                if (atomExpression.maxChildDepth !== undefined && atomExpression.maxChildDepth >= maxChildNodeDepth) {
-                    atomExpression = ErrorNode.create(atomExpression, ErrorExpressionCategory.MaxDepthExceeded);
+                const maxDepth = this._maxChildDepthMap.get(atomExpression.id) ?? 0;
+                if (maxDepth >= maxChildNodeDepth) {
+                    atomExpression = ErrorNode.create(indexNode, ErrorExpressionCategory.MaxDepthExceeded);
                     this._addSyntaxError(LocMessage.maxParseDepthExceeded(), atomExpression);
+                } else {
+                    atomExpression = indexNode;
+                    this._maxChildDepthMap.set(indexNode.id, maxDepth + 1);
                 }
             } else if (this._consumeTokenIfType(TokenType.Dot)) {
                 // Is it a member access?
@@ -3594,11 +3599,16 @@ export class Parser {
                         [TokenType.Keyword]
                     );
                 }
-                atomExpression = MemberAccessNode.create(atomExpression, NameNode.create(memberName));
 
-                if (atomExpression.maxChildDepth !== undefined && atomExpression.maxChildDepth >= maxChildNodeDepth) {
-                    atomExpression = ErrorNode.create(atomExpression, ErrorExpressionCategory.MaxDepthExceeded);
+                const memberAccessNode = MemberAccessNode.create(atomExpression, NameNode.create(memberName));
+
+                const maxDepth = this._maxChildDepthMap.get(atomExpression.id) ?? 0;
+                if (maxDepth >= maxChildNodeDepth) {
+                    atomExpression = ErrorNode.create(memberAccessNode, ErrorExpressionCategory.MaxDepthExceeded);
                     this._addSyntaxError(LocMessage.maxParseDepthExceeded(), atomExpression);
+                } else {
+                    atomExpression = memberAccessNode;
+                    this._maxChildDepthMap.set(memberAccessNode.id, maxDepth + 1);
                 }
             } else {
                 break;
@@ -4850,32 +4860,38 @@ export class Parser {
         operatorToken: Token,
         operator: OperatorType
     ) {
+        const binaryNode = BinaryOperationNode.create(leftExpression, rightExpression, operatorToken, operator);
+
         // Determine if we're exceeding the max parse depth. If so, replace
         // the subnode with an error node. Otherwise we risk crashing in the binder
         // or type evaluator.
-        if (leftExpression.maxChildDepth !== undefined && leftExpression.maxChildDepth >= maxChildNodeDepth) {
-            leftExpression = ErrorNode.create(leftExpression, ErrorExpressionCategory.MaxDepthExceeded);
-            this._addSyntaxError(LocMessage.maxParseDepthExceeded(), leftExpression);
+        const leftMaxDepth = this._maxChildDepthMap.get(leftExpression.id) ?? 0;
+        const rightMaxDepth = this._maxChildDepthMap.get(rightExpression.id) ?? 0;
+
+        if (leftMaxDepth >= maxChildNodeDepth || rightMaxDepth >= maxChildNodeDepth) {
+            this._addSyntaxError(LocMessage.maxParseDepthExceeded(), binaryNode);
+            return ErrorNode.create(binaryNode, ErrorExpressionCategory.MaxDepthExceeded);
         }
 
-        if (rightExpression.maxChildDepth !== undefined && rightExpression.maxChildDepth >= maxChildNodeDepth) {
-            rightExpression = ErrorNode.create(rightExpression, ErrorExpressionCategory.MaxDepthExceeded);
-            this._addSyntaxError(LocMessage.maxParseDepthExceeded(), rightExpression);
-        }
-
-        return BinaryOperationNode.create(leftExpression, rightExpression, operatorToken, operator);
+        this._maxChildDepthMap.set(binaryNode.id, Math.max(leftMaxDepth, rightMaxDepth) + 1);
+        return binaryNode;
     }
 
     private _createUnaryOperationNode(operatorToken: Token, expression: ExpressionNode, operator: OperatorType) {
+        const unaryNode = UnaryOperationNode.create(operatorToken, expression, operator);
+
         // Determine if we're exceeding the max parse depth. If so, replace
         // the subnode with an error node. Otherwise we risk crashing in the binder
         // or type evaluator.
-        if (expression.maxChildDepth !== undefined && expression.maxChildDepth >= maxChildNodeDepth) {
-            expression = ErrorNode.create(expression, ErrorExpressionCategory.MaxDepthExceeded);
-            this._addSyntaxError(LocMessage.maxParseDepthExceeded(), expression);
+
+        const maxDepth = this._maxChildDepthMap.get(expression.id) ?? 0;
+        if (maxDepth >= maxChildNodeDepth) {
+            this._addSyntaxError(LocMessage.maxParseDepthExceeded(), unaryNode);
+            return ErrorNode.create(unaryNode, ErrorExpressionCategory.MaxDepthExceeded);
         }
 
-        return UnaryOperationNode.create(operatorToken, expression, operator);
+        this._maxChildDepthMap.set(unaryNode.id, maxDepth + 1);
+        return unaryNode;
     }
 
     private _parseStringList(): StringListNode {
