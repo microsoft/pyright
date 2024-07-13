@@ -269,8 +269,8 @@ export class TypeVarSignatureContext {
 
                 // If this union has a very large number of subtypes, don't bother
                 // accurately computing the score. Assume a fixed value.
-                if (type.subtypes.length < 16) {
-                    type.subtypes.forEach((subtype) => {
+                if (type.priv.subtypes.length < 16) {
+                    type.priv.subtypes.forEach((subtype) => {
                         const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount);
                         maxScore = Math.max(maxScore, subtypeScore);
                     });
@@ -294,18 +294,18 @@ export class TypeVarSignatureContext {
         let typeArgScoreSum = 0;
         let typeArgCount = 0;
 
-        if (classType.tupleTypeArguments) {
-            classType.tupleTypeArguments.forEach((typeArg) => {
+        if (classType.priv.tupleTypeArguments) {
+            classType.priv.tupleTypeArguments.forEach((typeArg) => {
                 typeArgScoreSum += this._getComplexityScoreForType(typeArg.type, recursionCount);
                 typeArgCount++;
             });
-        } else if (classType.typeArguments) {
-            classType.typeArguments.forEach((type) => {
+        } else if (classType.priv.typeArguments) {
+            classType.priv.typeArguments.forEach((type) => {
                 typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount);
                 typeArgCount++;
             });
-        } else if (classType.details.typeParameters) {
-            classType.details.typeParameters.forEach((type) => {
+        } else if (classType.shared.typeParameters) {
+            classType.shared.typeParameters.forEach((type) => {
                 typeArgScoreSum += this._getComplexityScoreForType(AnyType.create(), recursionCount);
                 typeArgCount++;
             });

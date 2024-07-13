@@ -30,11 +30,11 @@ import { isDefined } from '../common/core';
 import { ProgramView } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceKeys';
+import { ServiceProvider } from '../common/serviceProvider';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
-import { ServiceProvider } from '../common/serviceProvider';
 
 export enum DefinitionFilter {
     All = 'all',
@@ -89,7 +89,9 @@ export function addDeclarationsToDefinitions(
             // Handle overloaded function case
             const functionType = evaluator.getTypeForDeclaration(resolvedDecl)?.type;
             if (functionType && isOverloadedFunction(functionType)) {
-                for (const overloadDecl of functionType.overloads.map((o) => o.details.declaration).filter(isDefined)) {
+                for (const overloadDecl of functionType.priv.overloads
+                    .map((o) => o.shared.declaration)
+                    .filter(isDefined)) {
                     _addIfUnique(definitions, {
                         uri: overloadDecl.uri,
                         range: overloadDecl.range,

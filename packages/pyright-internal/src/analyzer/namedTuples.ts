@@ -108,9 +108,9 @@ export function createNamedTupleType(
             isClassInstance(defaultsArgType) &&
             isTupleClass(defaultsArgType) &&
             !isUnboundedTupleClass(defaultsArgType) &&
-            defaultsArgType.tupleTypeArguments
+            defaultsArgType.priv.tupleTypeArguments
         ) {
-            defaultArgCount = defaultsArgType.tupleTypeArguments.length;
+            defaultArgCount = defaultsArgType.priv.tupleTypeArguments.length;
         } else {
             defaultArgCount = undefined;
         }
@@ -126,10 +126,10 @@ export function createNamedTupleType(
         ClassTypeFlags.ReadOnlyInstanceVariables | ClassTypeFlags.ValidTypeAliasClass,
         ParseTreeUtils.getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,
-        isInstantiableClass(namedTupleType) ? namedTupleType.details.effectiveMetaclass : UnknownType.create()
+        isInstantiableClass(namedTupleType) ? namedTupleType.shared.effectiveMetaclass : UnknownType.create()
     );
-    classType.details.baseClasses.push(namedTupleType);
-    classType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode);
+    classType.shared.baseClasses.push(namedTupleType);
+    classType.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode);
 
     const classFields = ClassType.getSymbolTable(classType);
     classFields.set(
@@ -139,12 +139,12 @@ export function createNamedTupleType(
 
     const classTypeVar = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ true);
     const constructorType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
-    constructorType.details.declaredReturnType = convertToInstance(classTypeVar);
-    constructorType.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+    constructorType.shared.declaredReturnType = convertToInstance(classTypeVar);
+    constructorType.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
     if (ParseTreeUtils.isAssignmentToDefaultsFollowingNamedTuple(errorNode)) {
-        constructorType.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
+        constructorType.shared.flags |= FunctionTypeFlags.DisableDefaultChecks;
     }
-    constructorType.details.typeVarScopeId = classType.details.typeVarScopeId;
+    constructorType.shared.typeVarScopeId = classType.shared.typeVarScopeId;
     FunctionType.addParameter(
         constructorType,
         FunctionParam.create(ParameterCategory.Simple, classTypeVar, FunctionParamFlags.TypeDeclared, 'cls')
@@ -275,7 +275,7 @@ export function createNamedTupleType(
                             ClassType.isBuiltIn(nameTypeResult.type, 'str') &&
                             isLiteralType(nameTypeResult.type)
                         ) {
-                            entryName = nameTypeResult.type.literalValue as string;
+                            entryName = nameTypeResult.type.priv.literalValue as string;
 
                             if (!entryName) {
                                 evaluator.addDiagnostic(
@@ -366,7 +366,7 @@ export function createNamedTupleType(
     }
 
     if (addGenericGetAttribute) {
-        constructorType.details.parameters = [];
+        constructorType.shared.parameters = [];
         FunctionType.addDefaultParameters(constructorType);
         entryTypes.push(AnyType.create(/* isEllipsis */ false));
         entryTypes.push(AnyType.create(/* isEllipsis */ true));
@@ -376,20 +376,20 @@ export function createNamedTupleType(
     const initType = FunctionType.createSynthesizedInstance('__init__');
     FunctionType.addParameter(initType, selfParameter);
     FunctionType.addDefaultParameters(initType);
-    initType.details.declaredReturnType = evaluator.getNoneType();
-    initType.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+    initType.shared.declaredReturnType = evaluator.getNoneType();
+    initType.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
     classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
 
     const lenType = FunctionType.createSynthesizedInstance('__len__');
-    lenType.details.declaredReturnType = evaluator.getBuiltInObject(errorNode, 'int');
+    lenType.shared.declaredReturnType = evaluator.getBuiltInObject(errorNode, 'int');
     FunctionType.addParameter(lenType, selfParameter);
     classFields.set('__len__', Symbol.createWithType(SymbolFlags.ClassMember, lenType));
 
     if (addGenericGetAttribute) {
         const getAttribType = FunctionType.createSynthesizedInstance('__getattribute__');
-        getAttribType.details.declaredReturnType = AnyType.create();
+        getAttribType.shared.declaredReturnType = AnyType.create();
         FunctionType.addParameter(getAttribType, selfParameter);
         FunctionType.addParameter(
             getAttribType,
@@ -435,7 +435,7 @@ export function updateNamedTupleBaseClass(
 ): boolean {
     let isUpdateNeeded = false;
 
-    classType.details.baseClasses = classType.details.baseClasses.map((baseClass) => {
+    classType.shared.baseClasses = classType.shared.baseClasses.map((baseClass) => {
         if (!isInstantiableClass(baseClass) || !ClassType.isBuiltIn(baseClass, 'NamedTuple')) {
             return baseClass;
         }
@@ -459,9 +459,9 @@ export function updateNamedTupleBaseClass(
             /* typeArguments */ undefined,
             isTypeArgumentExplicit
         );
-        clonedNamedTupleClass.details = { ...clonedNamedTupleClass.details };
+        clonedNamedTupleClass.shared = { ...clonedNamedTupleClass.shared };
 
-        clonedNamedTupleClass.details.baseClasses = clonedNamedTupleClass.details.baseClasses.map(
+        clonedNamedTupleClass.shared.baseClasses = clonedNamedTupleClass.shared.baseClasses.map(
             (namedTupleBaseClass) => {
                 if (!isInstantiableClass(namedTupleBaseClass) || !ClassType.isBuiltIn(namedTupleBaseClass, 'tuple')) {
                     return namedTupleBaseClass;

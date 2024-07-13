@@ -34,7 +34,7 @@ export function applyFunctionTransform(
     result: FunctionResult
 ): FunctionResult {
     if (isFunction(functionType)) {
-        if (functionType.details.fullName === 'functools.total_ordering') {
+        if (functionType.shared.fullName === 'functools.total_ordering') {
             return applyTotalOrderingTransform(evaluator, errorNode, argList, result);
         }
     }
@@ -55,7 +55,7 @@ function applyTotalOrderingTransform(
 
     // This function is meant to apply to a concrete instantiable class.
     const classType = argList[0].typeResult?.type;
-    if (!classType || !isInstantiableClass(classType) || classType.includeSubclasses) {
+    if (!classType || !isInstantiableClass(classType) || classType.priv.includeSubclasses) {
         return result;
     }
 
@@ -88,10 +88,10 @@ function applyTotalOrderingTransform(
     const firstMemberType = evaluator.getTypeOfMember(firstMemberFound);
     if (
         isFunction(firstMemberType) &&
-        firstMemberType.details.parameters.length >= 2 &&
-        FunctionParam.isTypeDeclared(firstMemberType.details.parameters[1])
+        firstMemberType.shared.parameters.length >= 2 &&
+        FunctionParam.isTypeDeclared(firstMemberType.shared.parameters[1])
     ) {
-        operandType = firstMemberType.details.parameters[1].type;
+        operandType = firstMemberType.shared.parameters[1].type;
     }
 
     // If there was no provided operand type, fall back to object.
@@ -127,7 +127,7 @@ function applyTotalOrderingTransform(
         const methodToAdd = FunctionType.createSynthesizedInstance(methodName);
         FunctionType.addParameter(methodToAdd, selfParam);
         FunctionType.addParameter(methodToAdd, objParam);
-        methodToAdd.details.declaredReturnType = boolType;
+        methodToAdd.shared.declaredReturnType = boolType;
 
         ClassType.getSymbolTable(classType).set(
             methodName,
