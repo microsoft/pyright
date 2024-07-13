@@ -1411,15 +1411,15 @@ export function getCodeFlowEngine(
     // can be narrowed to one of its constrained types based on isinstance type
     // guard checks.
     function narrowConstrainedTypeVar(flowNode: FlowNode, typeVar: TypeVarType): ClassType | undefined {
-        assert(!typeVar.details.isParamSpec);
-        assert(!typeVar.details.isVariadic);
-        assert(!typeVar.details.boundType);
-        assert(typeVar.details.constraints.length > 0);
+        assert(!typeVar.shared.isParamSpec);
+        assert(!typeVar.shared.isVariadic);
+        assert(!typeVar.shared.boundType);
+        assert(typeVar.shared.constraints.length > 0);
 
         const visitedFlowNodeMap = new Set<number>();
         const startingConstraints: ClassType[] = [];
 
-        for (const constraint of typeVar.details.constraints) {
+        for (const constraint of typeVar.shared.constraints) {
             if (isClassInstance(constraint)) {
                 startingConstraints.push(constraint);
             } else {
@@ -1604,8 +1604,8 @@ export function getCodeFlowEngine(
                 if (
                     !subtype.props.condition.some(
                         (condition) =>
-                            condition.typeVar.details.constraints.length > 0 &&
-                            condition.typeVar.nameWithScope === typeVar.nameWithScope
+                            condition.typeVar.shared.constraints.length > 0 &&
+                            condition.typeVar.priv.nameWithScope === typeVar.priv.nameWithScope
                     )
                 ) {
                     isCompatible = false;
@@ -1749,15 +1749,15 @@ export function getCodeFlowEngine(
     }
 
     function isFunctionNoReturn(functionType: FunctionType, isCallAwaited: boolean) {
-        const returnType = functionType.details.declaredReturnType;
+        const returnType = functionType.shared.declaredReturnType;
         if (returnType) {
             if (
                 isClassInstance(returnType) &&
                 ClassType.isBuiltIn(returnType, 'Coroutine') &&
-                returnType.typeArguments &&
-                returnType.typeArguments.length >= 3
+                returnType.priv.typeArguments &&
+                returnType.priv.typeArguments.length >= 3
             ) {
-                if (isNever(returnType.typeArguments[2]) && isCallAwaited) {
+                if (isNever(returnType.priv.typeArguments[2]) && isCallAwaited) {
                     return true;
                 }
             }
@@ -1765,19 +1765,19 @@ export function getCodeFlowEngine(
             return isNever(returnType);
         } else if (!inferNoReturnForUnannotatedFunctions) {
             return false;
-        } else if (functionType.details.declaration) {
+        } else if (functionType.shared.declaration) {
             // If the function is a generator (i.e. it has yield statements)
             // then it is not a "no return" call. Also, don't infer a "no
             // return" type for abstract methods.
             if (
-                !functionType.details.declaration.isGenerator &&
+                !functionType.shared.declaration.isGenerator &&
                 !FunctionType.isAbstractMethod(functionType) &&
                 !FunctionType.isStubDefinition(functionType) &&
                 !FunctionType.isPyTypedDefinition(functionType)
             ) {
                 // Check specifically for a common idiom where the only statement
                 // (other than a possible docstring) is a "raise NotImplementedError".
-                const functionStatements = functionType.details.declaration.node.suite.statements;
+                const functionStatements = functionType.shared.declaration.node.suite.statements;
 
                 let foundRaiseNotImplemented = false;
                 for (const statement of functionStatements) {
@@ -1816,11 +1816,11 @@ export function getCodeFlowEngine(
     }
 
     function isAfterNodeReachable(evaluator: TypeEvaluator, functionType: FunctionType) {
-        if (!functionType.details.declaration) {
+        if (!functionType.shared.declaration) {
             return true;
         }
 
-        return evaluator.isAfterNodeReachable(functionType.details.declaration.node);
+        return evaluator.isAfterNodeReachable(functionType.shared.declaration.node);
     }
 
     // Performs a cursory analysis to determine whether the expression
@@ -1853,8 +1853,8 @@ export function getCodeFlowEngine(
                 const exitMethodName = isAsync ? '__aexit__' : '__exit__';
                 const exitType = evaluator.getBoundMagicMethod(cmType, exitMethodName);
 
-                if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
-                    let returnType = exitType.details.declaredReturnType;
+                if (exitType && isFunction(exitType) && exitType.shared.declaredReturnType) {
+                    let returnType = exitType.shared.declaredReturnType;
 
                     // If it's an __aexit__ method, its return type will typically be wrapped
                     // in a Coroutine, so we need to extract the return type from the third
@@ -1863,16 +1863,16 @@ export function getCodeFlowEngine(
                         if (
                             isClassInstance(returnType) &&
                             ClassType.isBuiltIn(returnType, 'Coroutine') &&
-                            returnType.typeArguments &&
-                            returnType.typeArguments.length >= 3
+                            returnType.priv.typeArguments &&
+                            returnType.priv.typeArguments.length >= 3
                         ) {
-                            returnType = returnType.typeArguments[2];
+                            returnType = returnType.priv.typeArguments[2];
                         }
                     }
 
                     cmSwallowsExceptions = false;
                     if (isClassInstance(returnType) && ClassType.isBuiltIn(returnType, 'bool')) {
-                        if (returnType.literalValue === undefined || returnType.literalValue === true) {
+                        if (returnType.priv.literalValue === undefined || returnType.priv.literalValue === true) {
                             cmSwallowsExceptions = true;
                         }
                     }

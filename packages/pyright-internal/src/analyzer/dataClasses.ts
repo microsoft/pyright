@@ -90,9 +90,9 @@ export function synthesizeDataClassMethods(
 
     const classTypeVar = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ true);
     const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
-    newType.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+    newType.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
     const initType = FunctionType.createSynthesizedInstance('__init__');
-    initType.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+    initType.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     // Generate both a __new__ and an __init__ method. The parameters of the
     // __new__ method are based on field definitions for NamedTuple classes,
@@ -105,7 +105,7 @@ export function synthesizeDataClassMethods(
     if (!isNamedTuple) {
         FunctionType.addDefaultParameters(newType);
     }
-    newType.details.declaredReturnType = convertToInstance(classTypeVar);
+    newType.shared.declaredReturnType = convertToInstance(classTypeVar);
 
     const selfParam = FunctionParam.create(
         ParameterCategory.Simple,
@@ -117,7 +117,7 @@ export function synthesizeDataClassMethods(
     if (isNamedTuple) {
         FunctionType.addDefaultParameters(initType);
     }
-    initType.details.declaredReturnType = evaluator.getNoneType();
+    initType.shared.declaredReturnType = evaluator.getNoneType();
 
     // Maintain a list of all dataclass entries (including
     // those from inherited classes) plus a list of only those
@@ -230,7 +230,7 @@ export function synthesizeDataClassMethods(
                         !isNamedTuple &&
                         isDataclassFieldConstructor(
                             callType,
-                            classType.details.dataClassBehaviors?.fieldDescriptorNames || []
+                            classType.shared.dataClassBehaviors?.fieldDescriptorNames || []
                         )
                     ) {
                         const initArg = statement.rightExpression.arguments.find((arg) => arg.name?.value === 'init');
@@ -290,7 +290,7 @@ export function synthesizeDataClassMethods(
                                 ClassType.isBuiltIn(valueType, 'str') &&
                                 isLiteralType(valueType)
                             ) {
-                                aliasName = valueType.literalValue as string;
+                                aliasName = valueType.priv.literalValue as string;
                             }
                         }
 
@@ -455,7 +455,7 @@ export function synthesizeDataClassMethods(
                 if (
                     isDataclassFieldConstructor(
                         callType,
-                        classType.details.dataClassBehaviors?.fieldDescriptorNames || []
+                        classType.shared.dataClassBehaviors?.fieldDescriptorNames || []
                     )
                 ) {
                     evaluator.addDiagnostic(
@@ -469,7 +469,7 @@ export function synthesizeDataClassMethods(
     });
 
     if (!isNamedTuple) {
-        classType.details.dataClassEntries = localDataClassEntries;
+        classType.shared.dataClassEntries = localDataClassEntries;
     }
 
     // Now that the dataClassEntries field has been set with a complete list
@@ -586,7 +586,7 @@ export function synthesizeDataClassMethods(
             operatorMethod,
             FunctionParam.create(ParameterCategory.Simple, paramType, FunctionParamFlags.TypeDeclared, 'other')
         );
-        operatorMethod.details.declaredReturnType = evaluator.getBuiltInObject(node, 'bool');
+        operatorMethod.shared.declaredReturnType = evaluator.getBuiltInObject(node, 'bool');
         // If a method of this name already exists, don't override it.
         if (!symbolTable.get(operator)) {
             symbolTable.set(operator, Symbol.createWithType(SymbolFlags.ClassMember, operatorMethod));
@@ -622,7 +622,7 @@ export function synthesizeDataClassMethods(
     if (synthesizeHashFunction) {
         const hashMethod = FunctionType.createSynthesizedInstance('__hash__');
         FunctionType.addParameter(hashMethod, selfParam);
-        hashMethod.details.declaredReturnType = evaluator.getBuiltInObject(node, 'int');
+        hashMethod.shared.declaredReturnType = evaluator.getBuiltInObject(node, 'int');
         symbolTable.set(
             '__hash__',
             Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.IgnoredForOverrideChecks, hashMethod)
@@ -655,8 +655,8 @@ export function synthesizeDataClassMethods(
         );
     }
 
-    if (ClassType.isDataClassGenerateSlots(classType) && classType.details.localSlotsNames === undefined) {
-        classType.details.localSlotsNames = localDataClassEntries.map((entry) => entry.name);
+    if (ClassType.isDataClassGenerateSlots(classType) && classType.shared.localSlotsNames === undefined) {
+        classType.shared.localSlotsNames = localDataClassEntries.map((entry) => entry.name);
     }
 
     // Should we synthesize a __slots__ symbol?
@@ -730,24 +730,24 @@ function getDefaultArgValueForFieldSpecifier(
     }
 
     if (callTarget) {
-        const initParam = callTarget.details.parameters.find((p) => p.name === paramName);
+        const initParam = callTarget.shared.parameters.find((p) => p.name === paramName);
         if (initParam) {
             // Is the parameter type a literal bool?
             if (
                 FunctionParam.isTypeDeclared(initParam) &&
                 isClass(initParam.type) &&
-                typeof initParam.type.literalValue === 'boolean'
+                typeof initParam.type.priv.literalValue === 'boolean'
             ) {
-                return initParam.type.literalValue;
+                return initParam.type.priv.literalValue;
             }
 
             // Is the default argument value a literal bool?
             if (
                 initParam.defaultType &&
                 isClass(initParam.defaultType) &&
-                typeof initParam.defaultType.literalValue === 'boolean'
+                typeof initParam.defaultType.priv.literalValue === 'boolean'
             ) {
-                return initParam.defaultType.literalValue;
+                return initParam.defaultType.priv.literalValue;
             }
         }
     }
@@ -775,10 +775,10 @@ function getConverterInputType(
     // Create synthesized function of the form Callable[[T], fieldType] which
     // will be used to check compatibility of the provided converter.
     const typeVar = TypeVarType.createInstance('__converterInput');
-    typeVar.scopeId = getScopeIdForNode(converterNode);
+    typeVar.priv.scopeId = getScopeIdForNode(converterNode);
     const targetFunction = FunctionType.createSynthesizedInstance('');
-    targetFunction.details.typeVarScopeId = typeVar.scopeId;
-    targetFunction.details.declaredReturnType = fieldType;
+    targetFunction.shared.typeVarScopeId = typeVar.priv.scopeId;
+    targetFunction.shared.declaredReturnType = fieldType;
     FunctionType.addParameter(
         targetFunction,
         FunctionParam.create(
@@ -808,7 +808,7 @@ function getConverterInputType(
                 signature = applySolvedTypeVars(signature, returnTypeVarContext) as FunctionType;
             }
 
-            const inputTypeVarContext = new TypeVarContext(typeVar.scopeId);
+            const inputTypeVarContext = new TypeVarContext(typeVar.priv.scopeId);
 
             if (evaluator.assignType(targetFunction, signature, diagAddendum, inputTypeVarContext)) {
                 const overloadSolution = applySolvedTypeVars(typeVar, inputTypeVarContext, {
@@ -838,7 +838,7 @@ function getConverterInputType(
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.dataClassConverterOverloads().format({
-                    funcName: converterType.overloads[0].details.name || '<anonymous function>',
+                    funcName: converterType.priv.overloads[0].shared.name || '<anonymous function>',
                     fieldType: evaluator.printType(fieldType),
                     fieldName: fieldName,
                 }) + diagAddendum.getString(),
@@ -869,7 +869,7 @@ function getConverterAsFunction(
             // choose the first of the two subtypes, which typically corresponds
             // to the __init__ method (rather than the __new__ method).
             if (isUnion(fromConstructor)) {
-                fromConstructor = fromConstructor.subtypes[0];
+                fromConstructor = fromConstructor.priv.subtypes[0];
             }
 
             if (isFunction(fromConstructor) || isOverloadedFunction(fromConstructor)) {
@@ -908,7 +908,7 @@ function getDescriptorForConverterField(
         /* declaredMetaclass */ undefined,
         isInstantiableClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
     );
-    descriptorClass.details.baseClasses.push(evaluator.getBuiltInType(dataclassNode, 'object'));
+    descriptorClass.shared.baseClasses.push(evaluator.getBuiltInType(dataclassNode, 'object'));
     computeMroLinearization(descriptorClass);
 
     const fields = ClassType.getSymbolTable(descriptorClass);
@@ -927,7 +927,7 @@ function getDescriptorForConverterField(
         setFunction,
         FunctionParam.create(ParameterCategory.Simple, setType, FunctionParamFlags.TypeDeclared, 'value')
     );
-    setFunction.details.declaredReturnType = evaluator.getNoneType();
+    setFunction.shared.declaredReturnType = evaluator.getNoneType();
     const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
     fields.set('__set__', setSymbol);
 
@@ -944,7 +944,7 @@ function getDescriptorForConverterField(
         getFunction,
         FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'objtype')
     );
-    getFunction.details.declaredReturnType = getType;
+    getFunction.shared.declaredReturnType = getType;
     const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
     fields.set('__get__', getSymbol);
 
@@ -1018,11 +1018,11 @@ function isDataclassFieldConstructor(type: Type, fieldDescriptorNames: string[])
     let callName: string | undefined;
 
     if (isFunction(type)) {
-        callName = type.details.fullName;
+        callName = type.shared.fullName;
     } else if (isOverloadedFunction(type)) {
-        callName = type.overloads[0].details.fullName;
+        callName = type.priv.overloads[0].shared.fullName;
     } else if (isInstantiableClass(type)) {
-        callName = type.details.fullName;
+        callName = type.shared.fullName;
     }
 
     if (!callName) {
@@ -1153,8 +1153,8 @@ export function validateDataClassTransformDecorator(
                 if (
                     !isClassInstance(valueType) ||
                     !ClassType.isBuiltIn(valueType, 'tuple') ||
-                    !valueType.tupleTypeArguments ||
-                    valueType.tupleTypeArguments.some(
+                    !valueType.priv.tupleTypeArguments ||
+                    valueType.priv.tupleTypeArguments.some(
                         (entry) =>
                             !isInstantiableClass(entry.type) &&
                             !isFunction(entry.type) &&
@@ -1171,11 +1171,11 @@ export function validateDataClassTransformDecorator(
                     return;
                 }
 
-                valueType.tupleTypeArguments.forEach((arg) => {
+                valueType.priv.tupleTypeArguments.forEach((arg) => {
                     if (isInstantiableClass(arg.type) || isFunction(arg.type)) {
-                        behaviors.fieldDescriptorNames.push(arg.type.details.fullName);
+                        behaviors.fieldDescriptorNames.push(arg.type.shared.fullName);
                     } else if (isOverloadedFunction(arg.type)) {
-                        behaviors.fieldDescriptorNames.push(arg.type.overloads[0].details.fullName);
+                        behaviors.fieldDescriptorNames.push(arg.type.priv.overloads[0].shared.fullName);
                     }
                 });
                 break;
@@ -1203,19 +1203,20 @@ export function getDataclassDecoratorBehaviors(type: Type): DataClassBehaviors |
         // dataclass_transform decorator. If more than one have such a decorator,
         // only the first one will be honored, as per PEP 681.
         functionType =
-            type.overloads.find((overload) => !!overload.details.decoratorDataClassBehaviors) ?? type.overloads[0];
+            type.priv.overloads.find((overload) => !!overload.shared.decoratorDataClassBehaviors) ??
+            type.priv.overloads[0];
     }
 
     if (!functionType) {
         return undefined;
     }
 
-    if (functionType.details.decoratorDataClassBehaviors) {
-        return functionType.details.decoratorDataClassBehaviors;
+    if (functionType.shared.decoratorDataClassBehaviors) {
+        return functionType.shared.decoratorDataClassBehaviors;
     }
 
     // Is this the built-in dataclass? If so, return the default behaviors.
-    if (functionType.details.fullName === 'dataclasses.dataclass') {
+    if (functionType.shared.fullName === 'dataclasses.dataclass') {
         return {
             fieldDescriptorNames: ['dataclasses.field', 'dataclasses.Field'],
         };
@@ -1267,16 +1268,16 @@ function applyDataClassBehaviorOverrideValue(
                 behaviors.frozen = argValue;
             }
 
-            classType.details.baseClasses.forEach((baseClass) => {
+            classType.shared.baseClasses.forEach((baseClass) => {
                 if (isInstantiableClass(baseClass) && ClassType.isDataClass(baseClass)) {
                     if (ClassType.isDataClassFrozen(baseClass)) {
                         hasFrozenBaseClass = true;
                     } else if (
-                        !baseClass.details.classDataClassTransform &&
+                        !baseClass.shared.classDataClassTransform &&
                         !(
-                            baseClass.details.declaredMetaclass &&
-                            isInstantiableClass(baseClass.details.declaredMetaclass) &&
-                            !!baseClass.details.declaredMetaclass.details.classDataClassTransform
+                            baseClass.shared.declaredMetaclass &&
+                            isInstantiableClass(baseClass.shared.declaredMetaclass) &&
+                            !!baseClass.shared.declaredMetaclass.shared.classDataClassTransform
                         )
                     ) {
                         // If this base class is unfrozen and isn't the class that directly
@@ -1325,7 +1326,7 @@ function applyDataClassBehaviorOverrideValue(
             if (argValue === true) {
                 behaviors.generateSlots = true;
 
-                if (classType.details.localSlotsNames) {
+                if (classType.shared.localSlotsNames) {
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.dataClassSlotsOverwrite(),
@@ -1361,7 +1362,7 @@ export function applyDataClassClassBehaviorOverrides(
     // Instead, it comes from the default.
     behaviors.frozen = behaviors.frozenDefault;
 
-    classType.details.dataClassBehaviors = behaviors;
+    classType.shared.dataClassBehaviors = behaviors;
 
     args.forEach((arg) => {
         if (arg.valueExpression && arg.name) {

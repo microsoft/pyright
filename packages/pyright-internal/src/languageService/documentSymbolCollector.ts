@@ -450,7 +450,7 @@ function _getDeclarationsForNonModuleNameNode(
         const type = evaluator.getType(node);
         if (type?.category === TypeCategory.Module) {
             // Synthesize decl for the module.
-            return [createSynthesizedAliasDeclaration(type.fileUri)];
+            return [createSynthesizedAliasDeclaration(type.priv.fileUri)];
         }
     }
 

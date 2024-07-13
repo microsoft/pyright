@@ -141,8 +141,8 @@ export function getVariableTypeText(
         const typeAliasInfo = getTypeAliasInfo(type);
         if (typeAliasInfo?.name === typeNode.value) {
             if (isTypeVar(type)) {
-                label = type.details.isParamSpec ? 'param spec' : 'type variable';
-                typeVarName = type.details.name;
+                label = type.shared.isParamSpec ? 'param spec' : 'type variable';
+                typeVarName = type.shared.name;
             } else {
                 // Handle type aliases specially.
                 const typeText = evaluator.printType(convertToInstance(getTypeForToolTip(evaluator, typeNode)), {
@@ -434,7 +434,7 @@ export class HoverProvider {
         // with the type of the TypedDict key and its docstring, if available.
         doForEachSubtype(type, (subtype) => {
             if (isClassInstance(subtype) && ClassType.isTypedDictClass(subtype)) {
-                const entry = subtype.details.typedDictEntries?.knownItems.get(node.value);
+                const entry = subtype.shared.typedDictEntries?.knownItems.get(node.value);
                 if (entry) {
                     // If we have already added parts for another declaration (e.g. for a union of TypedDicts that share the same key)
                     // then we need to add a separator to prevent a visual bug.

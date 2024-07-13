@@ -137,9 +137,9 @@ export class TypeWalker {
     }
 
     visitFunction(type: FunctionType): void {
-        for (let i = 0; i < type.details.parameters.length; i++) {
+        for (let i = 0; i < type.shared.parameters.length; i++) {
             // Ignore parameters such as "*" that have no name.
-            if (type.details.parameters[i].name) {
+            if (type.shared.parameters[i].name) {
                 const paramType = FunctionType.getEffectiveParameterType(type, i);
                 this.walk(paramType);
                 if (this._isWalkCanceled) {
@@ -149,7 +149,7 @@ export class TypeWalker {
         }
 
         if (!this._isWalkCanceled && !FunctionType.isParamSpecValue(type) && !FunctionType.isParamSpecValue(type)) {
-            const returnType = type.details.declaredReturnType ?? type.inferredReturnType;
+            const returnType = type.shared.declaredReturnType ?? type.priv.inferredReturnType;
             if (returnType) {
                 this.walk(returnType);
             }
@@ -157,7 +157,7 @@ export class TypeWalker {
     }
 
     visitOverloadedFunction(type: OverloadedFunctionType): void {
-        for (const overload of type.overloads) {
+        for (const overload of type.priv.overloads) {
             this.walk(overload);
             if (this._isWalkCanceled) {
                 break;
@@ -167,7 +167,7 @@ export class TypeWalker {
 
     visitClass(type: ClassType): void {
         if (!ClassType.isPseudoGenericClass(type)) {
-            const typeArgs = type.tupleTypeArguments?.map((t) => t.type) || type.typeArguments;
+            const typeArgs = type.priv.tupleTypeArguments?.map((t) => t.type) || type.priv.typeArguments;
             if (typeArgs) {
                 for (const argType of typeArgs) {
                     this.walk(argType);
@@ -184,7 +184,7 @@ export class TypeWalker {
     }
 
     visitUnion(type: UnionType): void {
-        for (const subtype of type.subtypes) {
+        for (const subtype of type.priv.subtypes) {
             this.walk(subtype);
             if (this._isWalkCanceled) {
                 break;

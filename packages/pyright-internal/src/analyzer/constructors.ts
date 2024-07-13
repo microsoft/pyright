@@ -324,8 +324,8 @@ function validateNewAndInitMethods(
         // type and rely on the __init__ method to supply the type arguments instead.
         let initMethodBindToType = newMethodReturnType;
         if (
-            initMethodBindToType.typeArguments &&
-            initMethodBindToType.typeArguments.some((typeArg) => isUnknown(typeArg))
+            initMethodBindToType.priv.typeArguments &&
+            initMethodBindToType.priv.typeArguments.some((typeArg) => isUnknown(typeArg))
         ) {
             initMethodBindToType = ClassType.cloneAsInstance(type);
         }
@@ -479,10 +479,10 @@ function validateNewMethod(
     if (newReturnType) {
         // Special-case the 'tuple' type specialization to use the homogenous
         // arbitrary-length form.
-        if (isClassInstance(newReturnType) && isTupleClass(newReturnType) && !newReturnType.tupleTypeArguments) {
-            if (newReturnType.typeArguments && newReturnType.typeArguments.length === 1) {
+        if (isClassInstance(newReturnType) && isTupleClass(newReturnType) && !newReturnType.priv.tupleTypeArguments) {
+            if (newReturnType.priv.typeArguments && newReturnType.priv.typeArguments.length === 1) {
                 newReturnType = specializeTupleClass(newReturnType, [
-                    { type: newReturnType.typeArguments[0], isUnbounded: true },
+                    { type: newReturnType.priv.typeArguments[0], isUnbounded: true },
                 ]);
             }
 
@@ -539,7 +539,7 @@ function validateInitMethod(
                 if (
                     isClassInstance(expectedSubType) &&
                     ClassType.isSameGenericClass(type, expectedSubType) &&
-                    type.typeArguments
+                    type.priv.typeArguments
                 ) {
                     return undefined;
                 }
@@ -617,7 +617,7 @@ function validateInitMethod(
     }
 
     if (!returnType) {
-        const typeVarContext = type.typeArguments
+        const typeVarContext = type.priv.typeArguments
             ? buildTypeVarContextFromSpecializedClass(type)
             : new TypeVarContext(getTypeVarScopeId(type));
 
@@ -675,13 +675,13 @@ function validateFallbackConstructorCall(
     if (argList.length > 0 && argList.some((arg) => arg.argumentCategory === ArgumentCategory.Simple)) {
         evaluator.addDiagnostic(
             DiagnosticRule.reportCallIssue,
-            LocMessage.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
+            LocMessage.constructorNoArgs().format({ type: type.priv.aliasName || type.shared.name }),
             errorNode
         );
         reportedErrors = true;
     }
 
-    if (!inferenceContext && type.typeArguments) {
+    if (!inferenceContext && type.priv.typeArguments) {
         // If there was no expected type but the type was already specialized,
         // assume that we're constructing an instance of the specialized type.
         return {
@@ -760,7 +760,7 @@ function validateMetaclassCall(
 
     // If the return type is unannotated, don't use the inferred return type.
     const callType = metaclassCallMethodInfo.type;
-    if (isFunction(callType) && !callType.details.declaredReturnType) {
+    if (isFunction(callType) && !callType.shared.declaredReturnType) {
         return undefined;
     }
 
@@ -806,7 +806,7 @@ function applyExpectedTypeForConstructor(
 
     // If this isn't a generic type or it's a type that has already been
     // explicitly specialized, the expected type isn't applicable.
-    if (type.details.typeParameters.length === 0 || type.typeArguments) {
+    if (type.shared.typeParameters.length === 0 || type.priv.typeArguments) {
         return applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarContext, { applyInScopePlaceholders: true });
     }
 
@@ -822,7 +822,7 @@ function applyExpectedTypeForConstructor(
         // If the expected type didn't provide TypeVar values, remaining
         // unsolved TypeVars should be considered Unknown unless they were
         // provided explicitly in the constructor call.
-        if (type.typeArguments) {
+        if (type.priv.typeArguments) {
             unsolvedTypeVarsAreUnknown = false;
         }
     }
@@ -843,9 +843,9 @@ function applyExpectedTypeForTupleConstructor(type: ClassType, inferenceContext:
         inferenceContext &&
         isClassInstance(inferenceContext.expectedType) &&
         isTupleClass(inferenceContext.expectedType) &&
-        inferenceContext.expectedType.tupleTypeArguments
+        inferenceContext.expectedType.priv.tupleTypeArguments
     ) {
-        specializedType = specializeTupleClass(type, inferenceContext.expectedType.tupleTypeArguments);
+        specializedType = specializeTupleClass(type, inferenceContext.expectedType.priv.tupleTypeArguments);
     }
 
     return specializedType;
@@ -901,7 +901,7 @@ function createFunctionFromMetaclassCall(
     classType: ClassType,
     recursionCount: number
 ): FunctionType | OverloadedFunctionType | undefined {
-    const metaclass = classType.details.effectiveMetaclass;
+    const metaclass = classType.shared.effectiveMetaclass;
     if (!metaclass || !isClass(metaclass)) {
         return undefined;
     }
@@ -943,7 +943,7 @@ function createFunctionFromMetaclassCall(
     // any of them returns something other than the instance of the class being
     // constructed.
     doForEachSignature(boundCallType, (signature) => {
-        if (signature.details.declaredReturnType) {
+        if (signature.shared.declaredReturnType) {
             const returnType = FunctionType.getEffectiveReturnType(signature);
             if (returnType && shouldSkipNewAndInitEvaluation(evaluator, classType, returnType)) {
                 useMetaclassCall = true;
@@ -978,14 +978,14 @@ function createFunctionFromNewMethod(
         // If there are no parameters that include class-scoped type parameters,
         // self-specialize the class because the type arguments for the class
         // can't be solved if there are no parameters to supply them.
-        const hasParametersWithTypeVars = newSubtype.details.parameters.some((param, index) => {
+        const hasParametersWithTypeVars = newSubtype.shared.parameters.some((param, index) => {
             if (index === 0 || !param.name) {
                 return false;
             }
 
             const paramType = FunctionType.getEffectiveParameterType(newSubtype, index);
             const typeVars = getTypeVarArgumentsRecursive(paramType);
-            return typeVars.some((typeVar) => typeVar.scopeId === getTypeVarScopeId(classType));
+            return typeVars.some((typeVar) => typeVar.priv.scopeId === getTypeVarScopeId(classType));
         });
 
         const boundNew = evaluator.bindFunctionToClassOrObject(
@@ -1003,14 +1003,14 @@ function createFunctionFromNewMethod(
         }
 
         const convertedNew = FunctionType.clone(boundNew);
-        convertedNew.details.typeVarScopeId = newSubtype.details.typeVarScopeId;
+        convertedNew.shared.typeVarScopeId = newSubtype.shared.typeVarScopeId;
 
-        if (!convertedNew.details.docString && classType.details.docString) {
-            convertedNew.details.docString = classType.details.docString;
+        if (!convertedNew.shared.docString && classType.shared.docString) {
+            convertedNew.shared.docString = classType.shared.docString;
         }
 
-        convertedNew.details.flags &= ~(FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod);
-        convertedNew.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+        convertedNew.shared.flags &= ~(FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod);
+        convertedNew.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
         return convertedNew;
     };
@@ -1024,7 +1024,7 @@ function createFunctionFromNewMethod(
     }
 
     const newOverloads: FunctionType[] = [];
-    newType.overloads.forEach((overload) => {
+    newType.priv.overloads.forEach((overload) => {
         const converted = convertNewToConstructor(overload);
         if (converted) {
             newOverloads.push(converted);
@@ -1045,16 +1045,16 @@ function createFunctionFromNewMethod(
 function createFunctionFromObjectNewMethod(classType: ClassType) {
     // Return a fallback constructor based on the object.__new__ method.
     const constructorFunction = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.None);
-    constructorFunction.details.declaredReturnType = ClassType.cloneAsInstance(classType);
+    constructorFunction.shared.declaredReturnType = ClassType.cloneAsInstance(classType);
 
     // If this is type[T] or a protocol, we don't know what parameters are accepted
     // by the constructor, so add the default parameters.
-    if (classType.includeSubclasses || ClassType.isProtocolClass(classType)) {
+    if (classType.priv.includeSubclasses || ClassType.isProtocolClass(classType)) {
         FunctionType.addDefaultParameters(constructorFunction);
     }
 
-    if (!constructorFunction.details.docString && classType.details.docString) {
-        constructorFunction.details.docString = classType.details.docString;
+    if (!constructorFunction.shared.docString && classType.shared.docString) {
+        constructorFunction.shared.docString = classType.shared.docString;
     }
 
     return constructorFunction;
@@ -1104,14 +1104,14 @@ function createFunctionFromInitMethod(
 
             // If this is a generic type, self-specialize the class (i.e. fill in
             // its own type parameters as type arguments).
-            if (objectType.details.typeParameters.length > 0 && !objectType.typeArguments) {
+            if (objectType.shared.typeParameters.length > 0 && !objectType.priv.typeArguments) {
                 const typeVarContext = new TypeVarContext(getTypeVarScopeIds(objectType));
 
                 // If a TypeVar is not used in any of the parameter types, it should take
                 // on its default value (typically Unknown) in the resulting specialized type.
                 const typeVarsInParams: TypeVarType[] = [];
 
-                convertedInit.details.parameters.forEach((param, index) => {
+                convertedInit.shared.parameters.forEach((param, index) => {
                     const paramType = FunctionType.getEffectiveParameterType(convertedInit, index);
                     addTypeVarsToListIfUnique(typeVarsInParams, getTypeVarArgumentsRecursive(paramType));
                 });
@@ -1131,18 +1131,18 @@ function createFunctionFromInitMethod(
             }
         }
 
-        convertedInit.details.declaredReturnType = boundInit.strippedFirstParamType ?? returnType;
+        convertedInit.shared.declaredReturnType = boundInit.priv.strippedFirstParamType ?? returnType;
 
-        if (convertedInit.specializedTypes) {
-            convertedInit.specializedTypes.returnType = returnType;
+        if (convertedInit.priv.specializedTypes) {
+            convertedInit.priv.specializedTypes.returnType = returnType;
         }
 
-        if (!convertedInit.details.docString && classType.details.docString) {
-            convertedInit.details.docString = classType.details.docString;
+        if (!convertedInit.shared.docString && classType.shared.docString) {
+            convertedInit.shared.docString = classType.shared.docString;
         }
 
-        convertedInit.details.flags &= ~FunctionTypeFlags.StaticMethod;
-        convertedInit.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+        convertedInit.shared.flags &= ~FunctionTypeFlags.StaticMethod;
+        convertedInit.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
         return convertedInit;
     }
@@ -1156,7 +1156,7 @@ function createFunctionFromInitMethod(
     }
 
     const initOverloads: FunctionType[] = [];
-    initType.overloads.forEach((overload) => {
+    initType.priv.overloads.forEach((overload) => {
         const converted = convertInitToConstructor(overload);
         if (converted) {
             initOverloads.push(converted);
@@ -1234,7 +1234,7 @@ function isDefaultNewMethod(newMethod?: Type): boolean {
         return false;
     }
 
-    const params = newMethod.details.parameters;
+    const params = newMethod.shared.parameters;
     if (params.length !== 2) {
         return false;
     }
@@ -1243,8 +1243,8 @@ function isDefaultNewMethod(newMethod?: Type): boolean {
         return false;
     }
 
-    const returnType = newMethod.details.declaredReturnType ?? newMethod.inferredReturnType;
-    if (!returnType || !isTypeVar(returnType) || !returnType.details.isSynthesizedSelf) {
+    const returnType = newMethod.shared.declaredReturnType ?? newMethod.priv.inferredReturnType;
+    if (!returnType || !isTypeVar(returnType) || !returnType.shared.isSynthesizedSelf) {
         return false;
     }
 
