@@ -11796,7 +11796,7 @@ export function createTypeEvaluator(
                 return FunctionType.cloneWithNewTypeVarScopeId(
                     returnType,
                     callableType.details.typeVarScopeId,
-                    callableType.details.constructorTypeVarScopeId,
+                    callableType.constructorTypeVarScopeId,
                     typeVarsInReturnType,
                     trackedSignatures
                 );
@@ -13062,7 +13062,7 @@ export function createTypeEvaluator(
             );
             FunctionType.addDefaultParameters(newType);
             newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
-            newType.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+            newType.constructorTypeVarScopeId = getTypeVarScopeId(classType);
             ClassType.getSymbolTable(classType).set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
         }
 
@@ -17803,7 +17803,7 @@ export function createTypeEvaluator(
 
         if (node.name.value === '__init__' || node.name.value === '__new__') {
             if (containingClassNode) {
-                functionType.details.constructorTypeVarScopeId = ParseTreeUtils.getScopeIdForNode(containingClassNode);
+                functionType.constructorTypeVarScopeId = ParseTreeUtils.getScopeIdForNode(containingClassNode);
             }
         }
 
@@ -25801,8 +25801,7 @@ export function createTypeEvaluator(
                     );
                     remainingFunction.details.deprecatedMessage = effectiveSrcType.details.deprecatedMessage;
                     remainingFunction.details.typeVarScopeId = effectiveSrcType.details.typeVarScopeId;
-                    remainingFunction.details.constructorTypeVarScopeId =
-                        effectiveSrcType.details.constructorTypeVarScopeId;
+                    remainingFunction.constructorTypeVarScopeId = effectiveSrcType.constructorTypeVarScopeId;
                     remainingFunction.details.methodClass = effectiveSrcType.details.methodClass;
                     remainingParams.forEach((param) => {
                         FunctionType.addParameter(remainingFunction, param);
@@ -25812,7 +25811,7 @@ export function createTypeEvaluator(
                     }
                     FunctionType.addHigherOrderTypeVarScopeIds(
                         remainingFunction,
-                        effectiveSrcType.details.higherOrderTypeVarScopeIds
+                        effectiveSrcType.higherOrderTypeVarScopeIds
                     );
 
                     if (
