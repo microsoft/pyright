@@ -1318,18 +1318,13 @@ export class ImportResolver {
                         pyTypedInfo = this._getPyTypedInfo(dirPath);
                     }
 
-                    if (!isLastPart) {
-                        // We are not at the last part, and we found a directory,
-                        // so continue to look for the next part.
-                        if (!isInitFilePresent) {
-                            resolvedPaths.push(Uri.empty());
-                            isNamespacePackage = true;
-                            pyTypedInfo = undefined;
-                        }
-                        continue;
-                    }
-
                     if (isInitFilePresent) {
+                        if (!isLastPart) {
+                            // We are not at the last part, and we found a directory,
+                            // so continue to look for the next part.
+                            continue;
+                        }
+
                         implicitImports = this._findImplicitImports(moduleDescriptor.nameParts.join('.'), dirPath, [
                             pyFilePath,
                             pyiFilePath,
@@ -1369,6 +1364,16 @@ export class ImportResolver {
                     isNativeLib = true;
                     importFailureInfo.push(`Did not find file '${pyiFilePath}' or '${pyFilePath}'`);
                 } else if (foundDirectory) {
+                    if (!isLastPart) {
+                        // We are not at the last part, and we found a directory,
+                        // so continue to look for the next part assuming this is
+                        // a namespace package.
+                        resolvedPaths.push(Uri.empty());
+                        isNamespacePackage = true;
+                        pyTypedInfo = undefined;
+                        continue;
+                    }
+
                     importFailureInfo.push(`Partially resolved import with directory '${dirPath}'`);
                     resolvedPaths.push(Uri.empty());
 
