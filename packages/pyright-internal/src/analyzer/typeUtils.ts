@@ -889,8 +889,8 @@ export function derivesFromAnyOrUnknown(type: Type): boolean {
 }
 
 export function getFullNameOfType(type: Type): string | undefined {
-    if (type.typeAliasInfo?.fullName) {
-        return type.typeAliasInfo.fullName;
+    if (type.props?.typeAliasInfo?.fullName) {
+        return type.props.typeAliasInfo.fullName;
     }
 
     switch (type.category) {
@@ -940,7 +940,7 @@ export function addConditionToType(
             return type;
 
         case TypeCategory.Function:
-            return TypeBase.cloneForCondition(type, TypeCondition.combine(type.condition, condition));
+            return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
 
         case TypeCategory.OverloadedFunction:
             return OverloadedFunctionType.create(
@@ -948,7 +948,7 @@ export function addConditionToType(
             );
 
         case TypeCategory.Class:
-            return TypeBase.cloneForCondition(type, TypeCondition.combine(type.condition, condition));
+            return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
 
         case TypeCategory.Union:
             return combineTypes(type.subtypes.map((t) => addConditionToType(t, condition)));
@@ -969,7 +969,7 @@ export function getTypeCondition(type: Type): TypeCondition[] | undefined {
 
         case TypeCategory.Class:
         case TypeCategory.Function:
-            return type.condition;
+            return type.props?.condition;
     }
 }
 
@@ -992,8 +992,8 @@ export function isTypeAliasRecursive(typeAliasPlaceholder: TypeVarType, type: Ty
         // In this case, the type will be unbound because it could not be resolved.
         return (
             isUnbound(type) &&
-            type.typeAliasInfo &&
-            type.typeAliasInfo.name === typeAliasPlaceholder.details.recursiveTypeAliasName
+            type.props?.typeAliasInfo &&
+            type.props.typeAliasInfo.name === typeAliasPlaceholder.details.recursiveTypeAliasName
         );
     }
 
@@ -1007,18 +1007,20 @@ export function transformPossibleRecursiveTypeAlias(type: Type): Type;
 export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Type | undefined;
 export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Type | undefined {
     if (type) {
+        const aliasInfo = type.props?.typeAliasInfo;
+
         if (isTypeVar(type) && type.details.recursiveTypeAliasName && type.details.boundType) {
             const unspecializedType = TypeBase.isInstance(type)
                 ? convertToInstance(type.details.boundType)
                 : type.details.boundType;
 
-            if (!type.typeAliasInfo?.typeArguments || !type.details.recursiveTypeParameters) {
+            if (!aliasInfo?.typeArguments || !type.details.recursiveTypeParameters) {
                 return unspecializedType;
             }
 
             const typeVarContext = buildTypeVarContext(
                 type.details.recursiveTypeParameters,
-                type.typeAliasInfo.typeArguments,
+                aliasInfo.typeArguments,
                 getTypeVarScopeId(type)
             );
             return applySolvedTypeVars(unspecializedType, typeVarContext);
@@ -1027,18 +1029,18 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
         if (isUnion(type) && type.includesRecursiveTypeAlias) {
             let newType = mapSubtypes(type, (subtype) => transformPossibleRecursiveTypeAlias(subtype));
 
-            if (newType !== type && type.typeAliasInfo) {
+            if (newType !== type && aliasInfo) {
                 // Copy the type alias information if present.
                 newType = TypeBase.cloneForTypeAlias(
                     newType,
-                    type.typeAliasInfo.name,
-                    type.typeAliasInfo.fullName,
-                    type.typeAliasInfo.moduleName,
-                    type.typeAliasInfo.fileUri,
-                    type.typeAliasInfo.typeVarScopeId,
-                    type.typeAliasInfo.isPep695Syntax,
-                    type.typeAliasInfo.typeParameters,
-                    type.typeAliasInfo.typeArguments
+                    aliasInfo.name,
+                    aliasInfo.fullName,
+                    aliasInfo.moduleName,
+                    aliasInfo.fileUri,
+                    aliasInfo.typeVarScopeId,
+                    aliasInfo.isPep695Syntax,
+                    aliasInfo.typeParameters,
+                    aliasInfo.typeArguments
                 );
             }
 
@@ -2042,10 +2044,11 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
     }
     recursionCount++;
 
-    if (type.typeAliasInfo?.typeArguments) {
+    const aliasInfo = type.props?.typeAliasInfo;
+    if (aliasInfo?.typeArguments) {
         const combinedList: TypeVarType[] = [];
 
-        type.typeAliasInfo?.typeArguments.forEach((typeArg) => {
+        aliasInfo?.typeArguments.forEach((typeArg) => {
             addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(typeArg, recursionCount));
         });
 
@@ -2495,17 +2498,18 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
     );
 
     // Copy over any type alias information.
-    if (type.typeAliasInfo && type !== result) {
+    const aliasInfo = type.props?.typeAliasInfo;
+    if (aliasInfo && type !== result) {
         result = TypeBase.cloneForTypeAlias(
             result,
-            type.typeAliasInfo.name,
-            type.typeAliasInfo.fullName,
-            type.typeAliasInfo.moduleName,
-            type.typeAliasInfo.fileUri,
-            type.typeAliasInfo.typeVarScopeId,
-            type.typeAliasInfo.isPep695Syntax,
-            type.typeAliasInfo.typeParameters,
-            type.typeAliasInfo.typeArguments
+            aliasInfo.name,
+            aliasInfo.fullName,
+            aliasInfo.moduleName,
+            aliasInfo.fileUri,
+            aliasInfo.typeVarScopeId,
+            aliasInfo.isPep695Syntax,
+            aliasInfo.typeParameters,
+            aliasInfo.typeArguments
         );
     }
 
@@ -2712,8 +2716,9 @@ export function isPartlyUnknown(type: Type, recursionCount = 0): boolean {
 
     // If this is a generic type alias, see if any of its type arguments
     // are either unspecified or are partially known.
-    if (type.typeAliasInfo?.typeArguments) {
-        if (type.typeAliasInfo.typeArguments.some((typeArg) => isPartlyUnknown(typeArg, recursionCount))) {
+    const aliasInfo = type.props?.typeAliasInfo;
+    if (aliasInfo?.typeArguments) {
+        if (aliasInfo.typeArguments.some((typeArg) => isPartlyUnknown(typeArg, recursionCount))) {
             return true;
         }
     }
@@ -2985,7 +2990,7 @@ export function requiresSpecialization(
 
 function _requiresSpecialization(type: Type, options?: RequiresSpecializationOptions, recursionCount = 0): boolean {
     // If the type is conditioned on a TypeVar, it may need to be specialized.
-    if (type.condition) {
+    if (type.props?.condition) {
         return true;
     }
 
@@ -3050,8 +3055,9 @@ function _requiresSpecialization(type: Type, options?: RequiresSpecializationOpt
 
             // If this is a recursive type alias, it may need to be specialized
             // if it has generic type arguments.
-            if (type.typeAliasInfo?.typeArguments) {
-                return type.typeAliasInfo.typeArguments.some((typeArg) =>
+            const aliasInfo = type.props?.typeAliasInfo;
+            if (aliasInfo?.typeArguments) {
+                return aliasInfo.typeArguments.some((typeArg) =>
                     requiresSpecialization(typeArg, options, recursionCount)
                 );
             }
@@ -3468,7 +3474,7 @@ class TypeVarTransformer {
 
         // If the type is conditioned on a type variable, see if the condition
         // still applies.
-        if (type.condition) {
+        if (type.props?.condition) {
             type = this.transformConditionalType(type, recursionCount);
         }
 
@@ -3489,13 +3495,14 @@ class TypeVarTransformer {
             // Handle recursive type aliases specially. In particular,
             // we need to specialize type arguments for generic recursive
             // type aliases.
+            const aliasInfo = type.props?.typeAliasInfo;
             if (type.details.recursiveTypeAliasName) {
-                if (!type.typeAliasInfo?.typeArguments) {
+                if (!aliasInfo?.typeArguments) {
                     return type;
                 }
 
                 let requiresUpdate = false;
-                const typeArgs = type.typeAliasInfo.typeArguments.map((typeArg) => {
+                const typeArgs = aliasInfo.typeArguments.map((typeArg) => {
                     const replacementType = this.apply(typeArg, recursionCount);
                     if (replacementType !== typeArg) {
                         requiresUpdate = true;
@@ -3506,13 +3513,13 @@ class TypeVarTransformer {
                 if (requiresUpdate) {
                     return TypeBase.cloneForTypeAlias(
                         type,
-                        type.typeAliasInfo.name,
-                        type.typeAliasInfo.fullName,
-                        type.typeAliasInfo.moduleName,
-                        type.typeAliasInfo.fileUri,
-                        type.typeAliasInfo.typeVarScopeId,
-                        type.typeAliasInfo.isPep695Syntax,
-                        type.typeAliasInfo.typeParameters,
+                        aliasInfo.name,
+                        aliasInfo.fullName,
+                        aliasInfo.moduleName,
+                        aliasInfo.fileUri,
+                        aliasInfo.typeVarScopeId,
+                        aliasInfo.isPep695Syntax,
+                        aliasInfo.typeParameters,
                         typeArgs
                     );
                 }
@@ -3674,12 +3681,13 @@ class TypeVarTransformer {
     }
 
     transformGenericTypeAlias(type: Type, recursionCount: number) {
-        if (!type.typeAliasInfo || !type.typeAliasInfo.typeParameters || !type.typeAliasInfo.typeArguments) {
+        const aliasInfo = type.props?.typeAliasInfo;
+        if (!aliasInfo || !aliasInfo.typeParameters || !aliasInfo.typeArguments) {
             return type;
         }
 
         let requiresUpdate = false;
-        const newTypeArgs = type.typeAliasInfo.typeArguments.map((typeArg) => {
+        const newTypeArgs = aliasInfo.typeArguments.map((typeArg) => {
             const updatedType = this.apply(typeArg, recursionCount);
             if (type !== updatedType) {
                 requiresUpdate = true;
@@ -3690,13 +3698,13 @@ class TypeVarTransformer {
         return requiresUpdate
             ? TypeBase.cloneForTypeAlias(
                   type,
-                  type.typeAliasInfo.name,
-                  type.typeAliasInfo.fullName,
-                  type.typeAliasInfo.moduleName,
-                  type.typeAliasInfo.fileUri,
-                  type.typeAliasInfo.typeVarScopeId,
-                  type.typeAliasInfo.isPep695Syntax,
-                  type.typeAliasInfo.typeParameters,
+                  aliasInfo.name,
+                  aliasInfo.fullName,
+                  aliasInfo.moduleName,
+                  aliasInfo.fileUri,
+                  aliasInfo.typeVarScopeId,
+                  aliasInfo.isPep695Syntax,
+                  aliasInfo.typeParameters,
                   newTypeArgs
               )
             : type;
@@ -4413,7 +4421,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     }
 
     override transformConditionalType(type: Type, recursionCount: number): Type {
-        if (!type.condition) {
+        if (!type.props?.condition) {
             return type;
         }
 
@@ -4421,7 +4429,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             this._activeTypeVarSignatureContextIndex ?? 0
         );
 
-        for (const condition of type.condition) {
+        for (const condition of type.props.condition) {
             // This doesn't apply to bound type variables.
             if (condition.typeVar.details.constraints.length === 0) {
                 continue;

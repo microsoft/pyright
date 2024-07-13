@@ -600,11 +600,14 @@ export class SourceMapper {
         recursiveDeclCache: Set<string>,
         useTypeAlias = false
     ) {
-        const fileUri = useTypeAlias && type.typeAliasInfo ? type.typeAliasInfo.fileUri : type.details.fileUri;
+        const fileUri =
+            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.fileUri : type.details.fileUri;
         const sourceFiles = this._getSourceFiles(fileUri, /* stubToShadow */ undefined, originated);
 
-        const fullName = useTypeAlias && type.typeAliasInfo ? type.typeAliasInfo.fullName : type.details.fullName;
-        const moduleName = useTypeAlias && type.typeAliasInfo ? type.typeAliasInfo.moduleName : type.details.moduleName;
+        const fullName =
+            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.fullName : type.details.fullName;
+        const moduleName =
+            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.moduleName : type.details.moduleName;
         const fullClassName = fullName.substring(moduleName.length + 1 /* +1 for trailing dot */);
 
         for (const sourceFile of sourceFiles) {

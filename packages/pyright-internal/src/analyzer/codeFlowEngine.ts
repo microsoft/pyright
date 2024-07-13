@@ -1600,9 +1600,9 @@ export function getCodeFlowEngine(
                 if (!isTypeSame(subtype, typeVar)) {
                     isCompatible = false;
                 }
-            } else if (subtype.condition) {
+            } else if (subtype.props?.condition) {
                 if (
-                    !subtype.condition.some(
+                    !subtype.props.condition.some(
                         (condition) =>
                             condition.typeVar.details.constraints.length > 0 &&
                             condition.typeVar.nameWithScope === typeVar.nameWithScope

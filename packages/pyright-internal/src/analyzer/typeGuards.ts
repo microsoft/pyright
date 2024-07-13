@@ -1064,7 +1064,7 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
             if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
                 resultIncludesNoneSubtype = true;
                 return isPositiveTest
-                    ? addConditionToType(evaluator.getNoneType(), subtype.condition)
+                    ? addConditionToType(evaluator.getNoneType(), subtype.props?.condition)
                     : adjustedSubtype;
             }
 
@@ -1118,7 +1118,9 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
 
         // See if it's a match for object.
         if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
-            return isPositiveTest ? addConditionToType(evaluator.getNoneType(), subtype.condition) : adjustedSubtype;
+            return isPositiveTest
+                ? addConditionToType(evaluator.getNoneType(), subtype.props?.condition)
+                : adjustedSubtype;
         }
 
         const isEllipsis = isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['EllipsisType', 'ellipsis']);
@@ -1511,7 +1513,10 @@ function narrowTypeForIsInstanceInternal(
                         ];
                         computeMroLinearization(newClassType);
 
-                        newClassType = addConditionToType(newClassType, concreteFilterType.condition) as ClassType;
+                        newClassType = addConditionToType(
+                            newClassType,
+                            concreteFilterType.props?.condition
+                        ) as ClassType;
 
                         if (
                             isTypeVar(varType) &&
@@ -1525,10 +1530,10 @@ function narrowTypeForIsInstanceInternal(
 
                         let newClassInstanceType = ClassType.cloneAsInstance(newClassType);
 
-                        if (concreteVarType.condition) {
+                        if (concreteVarType.props?.condition) {
                             newClassInstanceType = addConditionToType(
                                 newClassInstanceType,
-                                concreteVarType.condition
+                                concreteVarType.props?.condition
                             ) as ClassType;
                         }
 
@@ -2423,7 +2428,7 @@ function narrowTypeForTypeIs(evaluator: TypeEvaluator, type: Type, classType: Cl
                             return subtype;
                         }
 
-                        return addConditionToType(ClassType.cloneAsInstance(classType), subtype.condition);
+                        return addConditionToType(ClassType.cloneAsInstance(classType), subtype.props?.condition);
                     }
 
                     if (!classType.includeSubclasses) {
@@ -2691,7 +2696,7 @@ function narrowTypeForCallable(
                         newClassType.details.baseClasses = [ClassType.cloneAsInstantiable(subtype)];
                         computeMroLinearization(newClassType);
 
-                        newClassType = addConditionToType(newClassType, subtype.condition) as ClassType;
+                        newClassType = addConditionToType(newClassType, subtype.props?.condition) as ClassType;
 
                         // Add a __call__ method to the new class.
                         const callMethod = FunctionType.createSynthesizedInstance('__call__');

@@ -319,7 +319,7 @@ function assignClassToProtocolInternal(
     if (isClass(srcType)) {
         // If the srcType is conditioned on "self", use "Self" as the selfType.
         // Otherwise use the class type for selfType.
-        if (srcType.condition?.some((c) => c.typeVar.details.isSynthesizedSelf)) {
+        if (srcType.props?.condition?.some((c) => c.typeVar.details.isSynthesizedSelf)) {
             selfType = synthesizeTypeVarForSelfCls(
                 TypeBase.cloneForCondition(srcType, undefined),
                 /* isClsType */ false

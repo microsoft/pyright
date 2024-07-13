@@ -933,8 +933,8 @@ export class Checker extends ParseTreeWalker {
         returnType = returnTypeResult.type;
 
         // If this type is a special form, use the special form instead.
-        if (returnType.specialForm) {
-            returnType = returnType.specialForm;
+        if (returnType.props?.specialForm) {
+            returnType = returnType.props.specialForm;
         }
 
         // If the enclosing function is async and a generator, the return
@@ -2424,11 +2424,8 @@ export class Checker extends ParseTreeWalker {
                         // exempt it from the check because the type alias may repeat
                         // the TypeVar multiple times.
                         const baseType = this._evaluator.getType(baseExpression);
-                        if (
-                            baseType?.typeAliasInfo &&
-                            baseType.typeAliasInfo.typeParameters &&
-                            subscriptIndex < baseType.typeAliasInfo.typeParameters.length
-                        ) {
+                        const aliasInfo = baseType?.props?.typeAliasInfo;
+                        if (aliasInfo?.typeParameters && subscriptIndex < aliasInfo.typeParameters.length) {
                             isExempt = true;
                         }
                     }
@@ -4095,7 +4092,7 @@ export class Checker extends ParseTreeWalker {
             subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
             subtype = transformPossibleRecursiveTypeAlias(subtype);
 
-            if (subtype.specialForm && ClassType.isBuiltIn(subtype.specialForm, 'TypeAliasType')) {
+            if (subtype.props?.specialForm && ClassType.isBuiltIn(subtype.props.specialForm, 'TypeAliasType')) {
                 diag.addMessage(LocAddendum.typeAliasInstanceCheck());
                 isSupported = false;
                 return;
@@ -4144,9 +4141,9 @@ export class Checker extends ParseTreeWalker {
                         diag.addMessage(LocAddendum.newTypeClassNotAllowed());
                         isSupported = false;
                     } else if (
-                        subtype.specialForm &&
-                        isInstantiableClass(subtype.specialForm) &&
-                        ClassType.isBuiltIn(subtype.specialForm, 'Annotated')
+                        subtype.props?.specialForm &&
+                        isInstantiableClass(subtype.props.specialForm) &&
+                        ClassType.isBuiltIn(subtype.props.specialForm, 'Annotated')
                     ) {
                         diag.addMessage(LocAddendum.annotatedNotAllowed());
                         isSupported = false;
@@ -4368,7 +4365,7 @@ export class Checker extends ParseTreeWalker {
             if (deprecatedForm) {
                 if (
                     (isInstantiableClass(type) && type.details.fullName === deprecatedForm.fullName) ||
-                    type.typeAliasInfo?.fullName === deprecatedForm.fullName
+                    type.props?.typeAliasInfo?.fullName === deprecatedForm.fullName
                 ) {
                     if (this._fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(deprecatedForm.version)) {
                         if (!deprecatedForm.typingImportOnly || isImportFromTyping) {

@@ -50,7 +50,7 @@ export class TypeWalker {
 
         this._recursionCount++;
 
-        if (type.typeAliasInfo) {
+        if (type.props?.typeAliasInfo) {
             this.visitTypeAlias(type);
         }
 
@@ -107,10 +107,11 @@ export class TypeWalker {
     }
 
     visitTypeAlias(type: Type) {
-        assert(type.typeAliasInfo);
+        const aliasInfo = type.props?.typeAliasInfo;
+        assert(aliasInfo !== undefined);
 
-        if (type.typeAliasInfo.typeArguments) {
-            for (const typeArg of type.typeAliasInfo.typeArguments) {
+        if (aliasInfo.typeArguments) {
+            for (const typeArg of aliasInfo.typeArguments) {
                 this.walk(typeArg);
                 if (this._isWalkCanceled) {
                     break;
