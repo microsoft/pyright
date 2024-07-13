@@ -1009,7 +1009,7 @@ function createFunctionFromNewMethod(
         }
 
         convertedNew.details.flags &= ~(FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod);
-        convertedNew.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+        convertedNew.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
         return convertedNew;
     };
@@ -1141,7 +1141,7 @@ function createFunctionFromInitMethod(
         }
 
         convertedInit.details.flags &= ~FunctionTypeFlags.StaticMethod;
-        convertedInit.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+        convertedInit.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
         return convertedInit;
     }

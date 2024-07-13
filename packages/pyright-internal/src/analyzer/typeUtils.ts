@@ -1076,16 +1076,12 @@ export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] | undefined {
     }
 
     if (isFunction(type)) {
-        if (type.details.constructorTypeVarScopeId) {
-            scopeIds.push(type.details.constructorTypeVarScopeId);
+        if (type.constructorTypeVarScopeId) {
+            scopeIds.push(type.constructorTypeVarScopeId);
         }
 
-        if (type.details.higherOrderTypeVarScopeIds) {
-            scopeIds.push(...type.details.higherOrderTypeVarScopeIds);
-        }
-
-        if (type.boundTypeVarScopeId) {
-            scopeIds.push(type.boundTypeVarScopeId);
+        if (type.higherOrderTypeVarScopeIds) {
+            scopeIds.push(...type.higherOrderTypeVarScopeIds);
         }
     }
 
@@ -3384,12 +3380,12 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
             );
         });
 
-        if (type.details.higherOrderTypeVarScopeIds) {
-            newFunction.details.higherOrderTypeVarScopeIds = [...type.details.higherOrderTypeVarScopeIds];
-            newFunction.details.typeVarScopeId = newFunction.details.higherOrderTypeVarScopeIds.pop();
+        if (type.higherOrderTypeVarScopeIds) {
+            newFunction.higherOrderTypeVarScopeIds = [...type.higherOrderTypeVarScopeIds];
+            newFunction.details.typeVarScopeId = newFunction.higherOrderTypeVarScopeIds.pop();
         }
 
-        newFunction.details.constructorTypeVarScopeId = type.details.constructorTypeVarScopeId;
+        newFunction.constructorTypeVarScopeId = type.constructorTypeVarScopeId;
 
         return newFunction;
     }
@@ -3428,8 +3424,8 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
     );
 
     FunctionType.addHigherOrderTypeVarScopeIds(functionType, withoutParamSpec.details.typeVarScopeId);
-    FunctionType.addHigherOrderTypeVarScopeIds(functionType, withoutParamSpec.details.higherOrderTypeVarScopeIds);
-    functionType.details.constructorTypeVarScopeId = withoutParamSpec.details.constructorTypeVarScopeId;
+    FunctionType.addHigherOrderTypeVarScopeIds(functionType, withoutParamSpec.higherOrderTypeVarScopeIds);
+    functionType.constructorTypeVarScopeId = withoutParamSpec.constructorTypeVarScopeId;
 
     withoutParamSpec.details.parameters.forEach((entry, index) => {
         FunctionType.addParameter(

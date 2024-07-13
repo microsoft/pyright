@@ -1505,15 +1505,6 @@ interface FunctionDetails {
     // Transforms to apply if this function is used
     // as a decorator.
     decoratorDataClassBehaviors?: DataClassBehaviors | undefined;
-
-    // For __new__ and __init__ methods, the TypeVar scope ID of the
-    // associated class.
-    constructorTypeVarScopeId?: TypeVarScopeId | undefined;
-
-    // For functions whose parameter lists derive from a solved
-    // ParamSpec or higher-order generic functions, this is a list of
-    // additional TypeVar IDs that may need to be solved.
-    higherOrderTypeVarScopeIds?: TypeVarScopeId[];
 }
 
 export interface SpecializedFunctionTypes {
@@ -1544,6 +1535,15 @@ export interface SignatureWithOffsets {
 export interface FunctionType extends TypeBase<TypeCategory.Function> {
     details: FunctionDetails;
 
+    // For __new__ and __init__ methods, the TypeVar scope ID of the
+    // associated class.
+    constructorTypeVarScopeId?: TypeVarScopeId | undefined;
+
+    // For functions whose parameter lists derive from a solved
+    // ParamSpec or higher-order generic functions, this is a list of
+    // additional TypeVar IDs that may need to be solved.
+    higherOrderTypeVarScopeIds?: TypeVarScopeId[];
+
     // A function type can be specialized (i.e. generic type
     // variables replaced by a concrete type).
     specializedTypes?: SpecializedFunctionTypes | undefined;
@@ -1566,10 +1566,6 @@ export interface FunctionType extends TypeBase<TypeCategory.Function> {
 
     // The flags for the function prior to binding
     preBoundFlags?: FunctionTypeFlags;
-
-    // The type var scope for the class that the function was bound to.
-    // This applies only to constructor methods.
-    boundTypeVarScopeId?: TypeVarScopeId | undefined;
 
     // If this function is part of an overloaded function, this
     // refers back to the overloaded function type.
@@ -1643,7 +1639,9 @@ export namespace FunctionType {
         newFunction.details = { ...type.details };
         newFunction.preBoundFlags = newFunction.details.flags;
         newFunction.boundToType = boundToType;
-        newFunction.boundTypeVarScopeId = boundTypeVarScopeId;
+        if (boundTypeVarScopeId) {
+            newFunction.constructorTypeVarScopeId = boundTypeVarScopeId;
+        }
 
         if (stripFirstParam) {
             if (type.details.parameters.length > 0) {
@@ -1800,8 +1798,8 @@ export namespace FunctionType {
         }
 
         FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.details.typeVarScopeId);
-        FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.details.higherOrderTypeVarScopeIds);
-        newFunction.details.constructorTypeVarScopeId = paramSpecValue.details.constructorTypeVarScopeId;
+        FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.higherOrderTypeVarScopeIds);
+        newFunction.constructorTypeVarScopeId = paramSpecValue.constructorTypeVarScopeId;
 
         if (!newFunction.details.methodClass && paramSpecValue.details.methodClass) {
             newFunction.details.methodClass = paramSpecValue.details.methodClass;
@@ -1832,7 +1830,7 @@ export namespace FunctionType {
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
         newFunction.details.typeVarScopeId = newScopeId;
-        newFunction.details.constructorTypeVarScopeId = newConstructorScopeId;
+        newFunction.constructorTypeVarScopeId = newConstructorScopeId;
         newFunction.details.typeParameters = typeParameters;
         newFunction.trackedSignatures = trackedSignatures;
 
@@ -2001,8 +1999,8 @@ export namespace FunctionType {
             scopeIds = [scopeIds];
         }
 
-        if (!functionType.details.higherOrderTypeVarScopeIds) {
-            functionType.details.higherOrderTypeVarScopeIds = [];
+        if (!functionType.higherOrderTypeVarScopeIds) {
+            functionType.higherOrderTypeVarScopeIds = [];
         }
 
         // Add the scope IDs to the function if they're unique.
@@ -2011,8 +2009,8 @@ export namespace FunctionType {
                 return;
             }
 
-            if (!functionType.details.higherOrderTypeVarScopeIds!.some((id) => id === scopeId)) {
-                functionType.details.higherOrderTypeVarScopeIds!.push(scopeId);
+            if (!functionType.higherOrderTypeVarScopeIds!.some((id) => id === scopeId)) {
+                functionType.higherOrderTypeVarScopeIds!.push(scopeId);
             }
         });
     }
