@@ -78,7 +78,7 @@ export function getOverloadedFunctionTooltip(
     const overloads = OverloadedFunctionType.getOverloads(type).map((o) =>
         getFunctionTooltip(
             /* label */ '',
-            o.details.name,
+            o.shared.name,
             o,
             evaluator,
             /* isProperty */ false,
@@ -145,7 +145,7 @@ export function getConstructorTooltip(
     let signature = '';
 
     if (isOverloadedFunction(type)) {
-        const overloads = type.overloads.map((overload) =>
+        const overloads = type.priv.overloads.map((overload) =>
             getConstructorTooltip(constructorName, overload, evaluator, functionSignatureDisplay)
         );
         overloads.forEach((overload, index) => {
@@ -177,7 +177,7 @@ function formatSignature(
 }
 
 export function getFunctionDocStringFromType(type: FunctionType, sourceMapper: SourceMapper, evaluator: TypeEvaluator) {
-    const decl = type.details.declaration;
+    const decl = type.shared.declaration;
     const enclosingClass = decl ? ParseTreeUtils.getEnclosingClass(decl.node) : undefined;
     const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
 
@@ -189,17 +189,17 @@ export function getOverloadedFunctionDocStringsFromType(
     sourceMapper: SourceMapper,
     evaluator: TypeEvaluator
 ) {
-    if (type.overloads.length === 0) {
+    if (type.priv.overloads.length === 0) {
         return [];
     }
 
-    const decl = type.overloads[0].details.declaration;
+    const decl = type.priv.overloads[0].shared.declaration;
     const enclosingClass = decl ? ParseTreeUtils.getEnclosingClass(decl.node) : undefined;
     const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
 
     return getOverloadedFunctionDocStringsInherited(
         type,
-        type.overloads.map((o) => o.details.declaration).filter(isDefined),
+        type.priv.overloads.map((o) => o.shared.declaration).filter(isDefined),
         sourceMapper,
         evaluator,
 
@@ -361,9 +361,9 @@ export function combineExpressionTypes(typeNodes: ExpressionNode[], evaluator: T
         typeList.length === 1 &&
         result.category === TypeCategory.Class &&
         ClassType.isBuiltIn(result, 'list') &&
-        result.typeArguments
+        result.priv.typeArguments
     ) {
-        result = result.typeArguments[0];
+        result = result.priv.typeArguments[0];
     } else if (
         typeList.length === 1 &&
         result.category === TypeCategory.Class &&
@@ -429,7 +429,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
         !methodType ||
         (methodType &&
             isFunction(methodType) &&
-            (FunctionType.hasDefaultParameters(methodType) || methodType.details.parameters.length === 0))
+            (FunctionType.hasDefaultParameters(methodType) || methodType.shared.parameters.length === 0))
     ) {
         const newMember = lookUpClassMember(
             classType,

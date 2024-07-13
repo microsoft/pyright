@@ -39,7 +39,7 @@ import {
 
 // Determines whether the class is an Enum metaclass or a subclass thereof.
 export function isEnumMetaclass(classType: ClassType) {
-    return classType.details.mro.some(
+    return classType.shared.mro.some(
         (mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, ['EnumMeta', 'EnumType'])
     );
 }
@@ -97,9 +97,9 @@ export function createEnumType(
         ClassTypeFlags.EnumClass | ClassTypeFlags.ValidTypeAliasClass,
         getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,
-        enumClass.details.effectiveMetaclass
+        enumClass.shared.effectiveMetaclass
     );
-    classType.details.baseClasses.push(enumClass);
+    classType.shared.baseClasses.push(enumClass);
     computeMroLinearization(classType);
 
     const classFields = ClassType.getSymbolTable(classType);
@@ -152,12 +152,7 @@ export function createEnumType(
 
             const valueType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(intClassType), index + 1);
 
-            const enumLiteral = new EnumLiteral(
-                classType.details.fullName,
-                classType.details.name,
-                entryName,
-                valueType
-            );
+            const enumLiteral = new EnumLiteral(classType.shared.fullName, classType.shared.name, entryName, valueType);
 
             const newSymbol = Symbol.createWithType(
                 SymbolFlags.ClassMember,
@@ -225,12 +220,7 @@ export function createEnumType(
 
             const entryName = nameNode.strings[0].value;
 
-            const enumLiteral = new EnumLiteral(
-                classType.details.fullName,
-                classType.details.name,
-                entryName,
-                valueType
-            );
+            const enumLiteral = new EnumLiteral(classType.shared.fullName, classType.shared.name, entryName, valueType);
 
             const newSymbol = Symbol.createWithType(
                 SymbolFlags.ClassMember,
@@ -265,12 +255,7 @@ export function createEnumType(
             }
 
             const entryName = nameNode.strings[0].value;
-            const enumLiteral = new EnumLiteral(
-                classType.details.fullName,
-                classType.details.name,
-                entryName,
-                valueType
-            );
+            const enumLiteral = new EnumLiteral(classType.shared.fullName, classType.shared.name, entryName, valueType);
 
             const newSymbol = Symbol.createWithType(
                 SymbolFlags.ClassMember,
@@ -391,7 +376,7 @@ export function transformTypeForEnumMember(
             aliasedEnumType &&
             isClassInstance(aliasedEnumType) &&
             ClassType.isSameGenericClass(aliasedEnumType, ClassType.cloneAsInstance(memberInfo.classType)) &&
-            aliasedEnumType.literalValue !== undefined
+            aliasedEnumType.priv.literalValue !== undefined
         ) {
             return aliasedEnumType;
         }
@@ -461,10 +446,10 @@ export function transformTypeForEnumMember(
 
     // Handle the Python 3.11 "enum.member()" and "enum.nonmember()" features.
     if (assignedType && isClassInstance(assignedType) && ClassType.isBuiltIn(assignedType)) {
-        if (assignedType.details.fullName === 'enum.nonmember') {
+        if (assignedType.shared.fullName === 'enum.nonmember') {
             const nonMemberType =
-                assignedType.typeArguments && assignedType.typeArguments.length > 0
-                    ? assignedType.typeArguments[0]
+                assignedType.priv.typeArguments && assignedType.priv.typeArguments.length > 0
+                    ? assignedType.priv.typeArguments[0]
                     : UnknownType.create();
 
             // If the type of the nonmember is declared and the assigned value has
@@ -476,10 +461,10 @@ export function transformTypeForEnumMember(
             return nonMemberType;
         }
 
-        if (assignedType.details.fullName === 'enum.member') {
+        if (assignedType.shared.fullName === 'enum.member') {
             valueType =
-                assignedType.typeArguments && assignedType.typeArguments.length > 0
-                    ? assignedType.typeArguments[0]
+                assignedType.priv.typeArguments && assignedType.priv.typeArguments.length > 0
+                    ? assignedType.priv.typeArguments[0]
                     : UnknownType.create();
             isMemberOfEnumeration = true;
         }
@@ -490,8 +475,8 @@ export function transformTypeForEnumMember(
     }
 
     const enumLiteral = new EnumLiteral(
-        memberInfo.classType.details.fullName,
-        memberInfo.classType.details.name,
+        memberInfo.classType.shared.fullName,
+        memberInfo.classType.shared.name,
         memberName,
         valueType
     );
@@ -562,7 +547,7 @@ export function getTypeOfEnumMember(
     }
 
     // Handle the special case of 'name' and 'value' members within an enum.
-    const literalValue = classType.literalValue;
+    const literalValue = classType.priv.literalValue;
 
     if (memberName === 'name' || memberName === '_name_') {
         // Does the class explicitly override this member? Or it it using the
@@ -593,7 +578,7 @@ export function getTypeOfEnumMember(
             return {
                 type: combineTypes(
                     literalValues.map((literalClass) => {
-                        const literalValue = literalClass.literalValue;
+                        const literalValue = literalClass.priv.literalValue;
                         assert(literalValue instanceof EnumLiteral);
                         return makeNameType(literalValue);
                     })
@@ -620,7 +605,7 @@ export function getTypeOfEnumMember(
         // This occurs, for example, in the django TextChoices class. If we
         // detect a custom metaclass, we'll use the declared type of _value_
         // if it is declared.
-        const metaclass = classType.details.effectiveMetaclass;
+        const metaclass = classType.shared.effectiveMetaclass;
         if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass)) {
             return { type: valueType ?? AnyType.create(), isIncomplete };
         }
@@ -664,7 +649,7 @@ export function getTypeOfEnumMember(
             return {
                 type: combineTypes(
                     literalValues.map((literalClass) => {
-                        const literalValue = literalClass.literalValue;
+                        const literalValue = literalClass.priv.literalValue;
                         assert(literalValue instanceof EnumLiteral);
                         return literalValue.itemType;
                     })
@@ -700,8 +685,8 @@ export function getEnumAutoValueType(evaluator: TypeEvaluator, node: ExpressionN
                 isClass(memberInfo.classType) &&
                 !ClassType.isBuiltIn(memberInfo.classType, 'Enum')
             ) {
-                if (memberInfo.type.details.declaredReturnType) {
-                    return memberInfo.type.details.declaredReturnType;
+                if (memberInfo.type.shared.declaredReturnType) {
+                    return memberInfo.type.shared.declaredReturnType;
                 }
             }
         }

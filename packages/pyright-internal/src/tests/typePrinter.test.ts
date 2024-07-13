@@ -29,7 +29,7 @@ import { Uri } from '../common/uri/uri';
 import { ParameterCategory } from '../parser/parseNodes';
 
 function returnTypeCallback(type: FunctionType) {
-    return type.details.declaredReturnType ?? UnknownType.create(/* isEllipsis */ true);
+    return type.shared.declaredReturnType ?? UnknownType.create(/* isEllipsis */ true);
 }
 
 test('SimpleTypes', () => {
@@ -58,11 +58,11 @@ test('TypeVarTypes', () => {
     assert.strictEqual(printType(typeVarType, PrintTypeFlags.None, returnTypeCallback), 'T');
 
     const paramSpecType = TypeVarType.createInstance('P');
-    paramSpecType.details.isParamSpec = true;
+    paramSpecType.shared.isParamSpec = true;
     assert.strictEqual(printType(paramSpecType, PrintTypeFlags.None, returnTypeCallback), 'P');
 
     const typeVarTupleType = TypeVarType.createInstance('Ts');
-    paramSpecType.details.isVariadic = true;
+    paramSpecType.shared.isVariadic = true;
     assert.strictEqual(printType(typeVarTupleType, PrintTypeFlags.None, returnTypeCallback), 'Ts');
 });
 
@@ -81,7 +81,7 @@ test('ClassTypes', () => {
     const typeVarS = TypeVarType.createInstance('S');
     const typeVarT = TypeVarType.createInstance('T');
 
-    classTypeA.details.typeParameters.push(typeVarS, typeVarT);
+    classTypeA.shared.typeParameters.push(typeVarS, typeVarT);
 
     assert.strictEqual(printType(classTypeA, PrintTypeFlags.None, returnTypeCallback), 'type[A[S, T]]');
 
@@ -133,7 +133,7 @@ test('FunctionTypes', () => {
         FunctionParam.create(ParameterCategory.KwargsDict, AnyType.create(), FunctionParamFlags.TypeDeclared, 'kwargs')
     );
 
-    funcTypeA.details.declaredReturnType = NeverType.createNoReturn();
+    funcTypeA.shared.declaredReturnType = NeverType.createNoReturn();
 
     assert.strictEqual(
         printType(funcTypeA, PrintTypeFlags.None, returnTypeCallback),
@@ -154,10 +154,10 @@ test('FunctionTypes', () => {
     FunctionType.addPositionOnlyParameterSeparator(funcTypeB);
 
     const paramSpecP = TypeVarType.createInstance('P');
-    paramSpecP.details.isParamSpec = true;
+    paramSpecP.shared.isParamSpec = true;
     FunctionType.addParamSpecVariadics(funcTypeB, paramSpecP);
 
-    funcTypeB.details.declaredReturnType = NeverType.createNever();
+    funcTypeB.shared.declaredReturnType = NeverType.createNever();
 
     assert.strictEqual(printType(funcTypeB, PrintTypeFlags.None, returnTypeCallback), '(a: Any, /, **P) -> Never');
     assert.strictEqual(
@@ -168,7 +168,7 @@ test('FunctionTypes', () => {
     const funcTypeC = FunctionType.createInstance('C', '', '', FunctionTypeFlags.None);
 
     const typeVarTupleTs = TypeVarType.createInstance('Ts');
-    typeVarTupleTs.details.isVariadic = true;
+    typeVarTupleTs.shared.isVariadic = true;
     const unpackedTs = TypeVarType.cloneForUnpacked(typeVarTupleTs);
 
     FunctionType.addParameter(
@@ -185,7 +185,7 @@ test('FunctionTypes', () => {
 
     const funcTypeD = FunctionType.createInstance('D', '', '', FunctionTypeFlags.None);
 
-    funcTypeD.details.declaredReturnType = AnyType.create();
+    funcTypeD.shared.declaredReturnType = AnyType.create();
     FunctionType.addParamSpecVariadics(funcTypeD, paramSpecP);
 
     assert.strictEqual(printType(funcTypeD, PrintTypeFlags.None, returnTypeCallback), '(**P) -> Any');

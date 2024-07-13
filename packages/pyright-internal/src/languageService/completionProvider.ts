@@ -425,8 +425,8 @@ export class CompletionProvider {
         }
 
         const symbolTable = new Map<string, Symbol>();
-        for (let i = 1; i < classResults.classType.details.mro.length; i++) {
-            const mroClass = classResults.classType.details.mro[i];
+        for (let i = 1; i < classResults.classType.shared.mro.length; i++) {
+            const mroClass = classResults.classType.shared.mro[i];
             if (isInstantiableClass(mroClass)) {
                 getMembersForClass(mroClass, symbolTable, /* includeInstanceVars */ false);
             }
@@ -523,9 +523,9 @@ export class CompletionProvider {
         let sb = this.parseResults.tokenizerOutput.predominantTabSequence;
 
         if (
-            classType.details.baseClasses.length === 1 &&
-            isClass(classType.details.baseClasses[0]) &&
-            classType.details.baseClasses[0].details.fullName === 'builtins.object'
+            classType.shared.baseClasses.length === 1 &&
+            isClass(classType.shared.baseClasses[0]) &&
+            classType.shared.baseClasses[0].shared.fullName === 'builtins.object'
         ) {
             sb += this.options.snippet ? '${0:pass}' : 'pass';
             return sb;
@@ -744,8 +744,8 @@ export class CompletionProvider {
 
         // If this is an unknown type with a "possible type" associated with
         // it, use the possible type.
-        if (isUnknown(leftType) && leftType.possibleType) {
-            leftType = this.evaluator.makeTopLevelTypeVarsConcrete(leftType.possibleType);
+        if (isUnknown(leftType) && leftType.priv.possibleType) {
+            leftType = this.evaluator.makeTopLevelTypeVarsConcrete(leftType.priv.possibleType);
         }
 
         doForEachSubtype(leftType, (subtype) => {
@@ -1657,7 +1657,7 @@ export class CompletionProvider {
 
         // If we can't do that using semantic info, then try syntactic info.
         const symbolTable = new Map<string, Symbol>();
-        for (const mroClass of classResults.classType.details.mro) {
+        for (const mroClass of classResults.classType.shared.mro) {
             if (mroClass === classResults.classType) {
                 // Ignore current type.
                 continue;
@@ -1717,7 +1717,7 @@ export class CompletionProvider {
         }
 
         const symbolTable = new Map<string, Symbol>();
-        for (const mroClass of classResults.classType.details.mro) {
+        for (const mroClass of classResults.classType.shared.mro) {
             if (isInstantiableClass(mroClass)) {
                 getMembersForClass(mroClass, symbolTable, /* includeInstanceVars */ false);
             }
@@ -1799,7 +1799,7 @@ export class CompletionProvider {
                 }
 
                 const symbolTable = new Map<string, Symbol>();
-                for (const mroClass of classResults.classType.details.mro) {
+                for (const mroClass of classResults.classType.shared.mro) {
                     if (isInstantiableClass(mroClass)) {
                         getMembersForClass(mroClass, symbolTable, /* includeInstanceVars */ false);
                     }
@@ -1826,7 +1826,7 @@ export class CompletionProvider {
         if (isStubFile(this.fileUri)) {
             // In stubs, always use "...".
             ellipsisForDefault = true;
-        } else if (classType.details.moduleName === decl.moduleName) {
+        } else if (classType.shared.moduleName === decl.moduleName) {
             // In the same file, always print the full default.
             ellipsisForDefault = false;
         }
@@ -2035,13 +2035,13 @@ export class CompletionProvider {
             }
 
             const type = signature.type;
-            const paramIndex = type.details.parameters.indexOf(signature.activeParam);
+            const paramIndex = type.shared.parameters.indexOf(signature.activeParam);
 
             if (paramIndex < 0) {
                 return undefined;
             }
 
-            const paramType = type.details.parameters[paramIndex].type;
+            const paramType = type.shared.parameters[paramIndex].type;
             this._addLiteralValuesForTargetType(paramType, priorWord, priorText, postText, completionMap);
             return undefined;
         });
@@ -2060,7 +2060,7 @@ export class CompletionProvider {
                 const value = printLiteralValue(v, quoteValue.quoteCharacter);
                 if (quoteValue.stringValue === undefined) {
                     this.addNameToCompletions(value, CompletionItemKind.Constant, priorWord, completionMap, {
-                        sortText: this._makeSortText(SortCategory.LiteralValue, v.literalValue as string),
+                        sortText: this._makeSortText(SortCategory.LiteralValue, v.priv.literalValue as string),
                     });
                 } else {
                     this._addStringLiteralToCompletions(
@@ -2131,8 +2131,8 @@ export class CompletionProvider {
             // Handle both overloaded and non-overloaded functions.
             doForEachSignature(getItemType, (signature) => {
                 if (
-                    signature.details.parameters.length >= 1 &&
-                    signature.details.parameters[0].category === ParameterCategory.Simple
+                    signature.shared.parameters.length >= 1 &&
+                    signature.shared.parameters[0].category === ParameterCategory.Simple
                 ) {
                     typesToCombine.push(FunctionType.getEffectiveParameterType(signature, 0));
                 }
@@ -2816,8 +2816,10 @@ export class CompletionProvider {
 
         // Add keys from typed dict outside signatures.
         signatureInfo.signatures.forEach((signature) => {
-            if (signature.type.boundToType) {
-                const keys = Array.from(signature.type.boundToType.details.typedDictEntries?.knownItems.keys() || []);
+            if (signature.type.priv.boundToType) {
+                const keys = Array.from(
+                    signature.type.priv.boundToType.shared.typedDictEntries?.knownItems.keys() || []
+                );
                 keys.forEach((key: string) => argNameSet.add(key));
             }
         });
@@ -2889,7 +2891,7 @@ export class CompletionProvider {
                 if (curNode.nodeType === ParseNodeType.Class) {
                     const classType = this.evaluator.getTypeOfClass(curNode);
                     if (classType && isInstantiableClass(classType.classType)) {
-                        classType.classType.details.mro.forEach((baseClass, index) => {
+                        classType.classType.shared.mro.forEach((baseClass, index) => {
                             if (isInstantiableClass(baseClass)) {
                                 this._addSymbolsForSymbolTable(
                                     ClassType.getSymbolTable(baseClass),
@@ -3148,7 +3150,7 @@ export class CompletionProvider {
             symbolType &&
             isClassInstance(symbolType) &&
             ClassType.isSameGenericClass(symbolType, containingType) &&
-            symbolType.literalValue instanceof EnumLiteral
+            symbolType.priv.literalValue instanceof EnumLiteral
         );
     }
 }

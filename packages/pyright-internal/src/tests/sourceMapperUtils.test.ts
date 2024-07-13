@@ -216,7 +216,7 @@ function assertTypeAlias(code: string) {
     const type = state.program.evaluator!.getType(node);
     assert(type?.category === TypeCategory.Class);
 
-    assert.strictEqual(type.details.name, 'Mapping');
+    assert.strictEqual(type.shared.name, 'Mapping');
     assert.strictEqual(type.props?.typeAliasInfo?.name, 'M');
     assert.strictEqual(type.props?.typeAliasInfo.moduleName, 'test');
 

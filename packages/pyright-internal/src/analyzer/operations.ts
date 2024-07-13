@@ -271,8 +271,8 @@ export function validateBinaryOperation(
 
                                     return ClassType.cloneWithLiteral(
                                         leftClassSubtype,
-                                        ((leftClassSubtype.literalValue as string) +
-                                            rightClassSubtype.literalValue) as string
+                                        ((leftClassSubtype.priv.literalValue as string) +
+                                            rightClassSubtype.priv.literalValue) as string
                                     );
                                 });
                             });
@@ -293,10 +293,10 @@ export function validateBinaryOperation(
                                         const leftClassSubtype = leftSubtype as ClassType;
                                         const rightClassSubtype = rightSubtype as ClassType;
                                         const leftLiteralValue = BigInt(
-                                            leftClassSubtype.literalValue as number | bigint
+                                            leftClassSubtype.priv.literalValue as number | bigint
                                         );
                                         const rightLiteralValue = BigInt(
-                                            rightClassSubtype.literalValue as number | bigint
+                                            rightClassSubtype.priv.literalValue as number | bigint
                                         );
 
                                         let newValue: number | bigint | undefined;
@@ -371,10 +371,10 @@ export function validateBinaryOperation(
                                 operator === OperatorType.Add &&
                                 isClassInstance(leftSubtypeExpanded) &&
                                 isTupleClass(leftSubtypeExpanded) &&
-                                leftSubtypeExpanded.tupleTypeArguments &&
+                                leftSubtypeExpanded.priv.tupleTypeArguments &&
                                 isClassInstance(rightSubtypeExpanded) &&
                                 isTupleClass(rightSubtypeExpanded) &&
-                                rightSubtypeExpanded.tupleTypeArguments &&
+                                rightSubtypeExpanded.priv.tupleTypeArguments &&
                                 tupleClassType &&
                                 isInstantiableClass(tupleClassType)
                             ) {
@@ -389,8 +389,8 @@ export function validateBinaryOperation(
                                 ) {
                                     return ClassType.cloneAsInstance(
                                         specializeTupleClass(tupleClassType, [
-                                            ...leftSubtypeExpanded.tupleTypeArguments,
-                                            ...rightSubtypeExpanded.tupleTypeArguments,
+                                            ...leftSubtypeExpanded.priv.tupleTypeArguments,
+                                            ...rightSubtypeExpanded.priv.tupleTypeArguments,
                                         ])
                                     );
                                 }
@@ -543,8 +543,8 @@ export function getTypeOfBinaryOperation(
         inferenceContext &&
         isClassInstance(inferenceContext.expectedType) &&
         ClassType.isBuiltIn(inferenceContext.expectedType, 'list') &&
-        inferenceContext.expectedType.typeArguments &&
-        inferenceContext.expectedType.typeArguments.length >= 1 &&
+        inferenceContext.expectedType.priv.typeArguments &&
+        inferenceContext.expectedType.priv.typeArguments.length >= 1 &&
         node.leftExpression.nodeType === ParseNodeType.List
     ) {
         expectedLeftOperandType = inferenceContext.expectedType;
@@ -570,7 +570,7 @@ export function getTypeOfBinaryOperation(
                         return false;
                     }
 
-                    return ClassType.isTypedDictClass(subtype) || subtype.details.typeParameters.length > 0;
+                    return ClassType.isTypedDictClass(subtype) || subtype.shared.typeParameters.length > 0;
                 })
             ) {
                 expectedOperandType = leftType;
@@ -684,7 +684,7 @@ export function getTypeOfBinaryOperation(
                 if (stringNode && otherNode && otherType) {
                     let isAllowed = true;
                     if (isClass(otherType)) {
-                        if (!otherType.isTypeArgumentExplicit || isClassInstance(otherType)) {
+                        if (!otherType.priv.isTypeArgumentExplicit || isClassInstance(otherType)) {
                             isAllowed = false;
                         }
                     }
@@ -999,14 +999,17 @@ export function getTypeOfUnaryOperation(
             } else if (node.operator === OperatorType.Subtract) {
                 type = mapSubtypes(exprType, (subtype) => {
                     const classSubtype = subtype as ClassType;
-                    return ClassType.cloneWithLiteral(classSubtype, -(classSubtype.literalValue as number | bigint));
+                    return ClassType.cloneWithLiteral(
+                        classSubtype,
+                        -(classSubtype.priv.literalValue as number | bigint)
+                    );
                 });
             }
         } else if (literalClassName === 'bool') {
             if (node.operator === OperatorType.Not) {
                 type = mapSubtypes(exprType, (subtype) => {
                     const classSubtype = subtype as ClassType;
-                    return ClassType.cloneWithLiteral(classSubtype, !(classSubtype.literalValue as boolean));
+                    return ClassType.cloneWithLiteral(classSubtype, !(classSubtype.priv.literalValue as boolean));
                 });
             }
         }
@@ -1134,7 +1137,7 @@ function customMetaclassSupportsMethod(type: Type, methodName: string): boolean 
         return false;
     }
 
-    const metaclass = type.details.effectiveMetaclass;
+    const metaclass = type.shared.effectiveMetaclass;
     if (!metaclass || !isInstantiableClass(metaclass)) {
         return false;
     }

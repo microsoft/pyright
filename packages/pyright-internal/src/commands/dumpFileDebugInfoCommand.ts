@@ -20,7 +20,7 @@ import {
     TypeBase,
     TypeCategory,
     TypeFlags,
-    TypeVarDetails,
+    TypeVarDetailsShared,
     TypeVarType,
     Variance,
 } from '../analyzer/types';
@@ -337,15 +337,15 @@ function getTypeEvaluatorString(
         if (!isNumber(value) && !isString(value)) {
             if (set.has(value)) {
                 if (isClassType(value)) {
-                    return `<cycle> class '${value.details.fullName}' typeSourceId:${value.details.typeSourceId}`;
+                    return `<cycle> class '${value.shared.fullName}' typeSourceId:${value.shared.typeSourceId}`;
                 }
 
                 if (isFunctionType(value)) {
-                    return `<cycle> function '${value.details.fullName}' parameter count:${value.details.parameters.length}`;
+                    return `<cycle> function '${value.shared.fullName}' parameter count:${value.shared.parameters.length}`;
                 }
 
                 if (isTypeVarType(value)) {
-                    return `<cycle> function '${value.details.name}' scope id:${value.nameWithScope}`;
+                    return `<cycle> function '${value.shared.name}' scope id:${value.priv.nameWithScope}`;
                 }
 
                 return undefined;
@@ -417,7 +417,7 @@ function getTypeEvaluatorString(
         return isTypeBase(type) && type.details && isTypeVarDetails(type.details);
     }
 
-    function isTypeVarDetails(type: any): type is TypeVarDetails {
+    function isTypeVarDetails(type: any): type is TypeVarDetailsShared {
         return type.name !== undefined && type.constraints && type.variance !== undefined;
     }
 

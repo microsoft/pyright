@@ -104,7 +104,7 @@ export function assignTypeToTypeVar(
     // If the TypeVar doesn't have a scope ID, then it's being used
     // outside of a valid TypeVar scope. This will be reported as a
     // separate error. Just ignore this case to avoid redundant errors.
-    if (!destType.scopeId) {
+    if (!destType.priv.scopeId) {
         return true;
     }
 
@@ -119,7 +119,7 @@ export function assignTypeToTypeVar(
 
     // Verify that we are solving for the scope associated with this
     // type variable.
-    if (!typeVarContext.hasSolveForScope(destType.scopeId)) {
+    if (!typeVarContext.hasSolveForScope(destType.priv.scopeId)) {
         // Handle Any as a source.
         if (isAnyOrUnknown(srcType) || (isClass(srcType) && ClassType.derivesFromAnyOrUnknown(srcType))) {
             return true;
@@ -128,9 +128,9 @@ export function assignTypeToTypeVar(
         // Handle a type[Any] as a source.
         if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'type')) {
             if (
-                !srcType.typeArguments ||
-                srcType.typeArguments.length < 1 ||
-                isAnyOrUnknown(srcType.typeArguments[0])
+                !srcType.priv.typeArguments ||
+                srcType.priv.typeArguments.length < 1 ||
+                isAnyOrUnknown(srcType.priv.typeArguments[0])
             ) {
                 if (TypeBase.isInstantiable(destType)) {
                     return true;
@@ -140,7 +140,7 @@ export function assignTypeToTypeVar(
 
         // Is this the equivalent of an "Unknown" for a ParamSpec?
         if (
-            destType.details.isParamSpec &&
+            destType.shared.isParamSpec &&
             isFunction(srcType) &&
             FunctionType.isParamSpecValue(srcType) &&
             FunctionType.isGradualCallableForm(srcType)
@@ -164,7 +164,7 @@ export function assignTypeToTypeVar(
 
         // Emit an error unless this is a synthesized type variable used
         // for pseudo-generic classes.
-        if (!destType.details.isSynthesized || destType.details.isSynthesizedSelf) {
+        if (!destType.shared.isSynthesized || destType.shared.isSynthesizedSelf) {
             diag?.addMessage(
                 LocAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(srcType, destType))
             );
@@ -174,7 +174,7 @@ export function assignTypeToTypeVar(
 
     // An in-scope placeholder TypeVar can always be assigned to itself,
     // but we won't record this in the typeVarContext.
-    if (isTypeSame(destType, srcType) && destType.isInScopePlaceholder) {
+    if (isTypeSame(destType, srcType) && destType.priv.isInScopePlaceholder) {
         return true;
     }
 
@@ -190,11 +190,11 @@ export function assignTypeToTypeVar(
         );
     }
 
-    if (destType.details.isParamSpec) {
+    if (destType.shared.isParamSpec) {
         return assignTypeToParamSpec(evaluator, destType, srcType, diag, typeVarContext, recursionCount);
     }
 
-    if (destType.details.isVariadic && !destType.isVariadicInUnion) {
+    if (destType.shared.isVariadic && !destType.priv.isVariadicInUnion) {
         if (!isUnpacked(srcType)) {
             const tupleClassType = evaluator.getTupleClassType();
             if (tupleClassType && isInstantiableClass(tupleClassType)) {
@@ -217,10 +217,10 @@ export function assignTypeToTypeVar(
     // we need to treat it as a union of the unpacked TypeVarTuple.
     if (
         isTypeVar(srcType) &&
-        srcType.details.isVariadic &&
-        srcType.isVariadicUnpacked &&
-        !srcType.isVariadicInUnion &&
-        !destType.details.isVariadic
+        srcType.shared.isVariadic &&
+        srcType.priv.isVariadicUnpacked &&
+        !srcType.priv.isVariadicInUnion &&
+        !destType.shared.isVariadic
     ) {
         srcType = TypeVarType.cloneForUnpacked(srcType, /* isInUnion */ true);
     }
@@ -229,7 +229,7 @@ export function assignTypeToTypeVar(
     // because type narrowing isn't used in this case. For example, if the
     // source type is "Literal[1]" and the constraint list includes the type
     // "float", the resulting type is float.
-    if (destType.details.constraints.length > 0) {
+    if (destType.shared.constraints.length > 0) {
         return assignTypeToConstrainedTypeVar(
             evaluator,
             destType,
@@ -246,8 +246,8 @@ export function assignTypeToTypeVar(
     const curEntry = typeVarContext.getPrimarySignature().getTypeVar(destType);
 
     let curWideTypeBound = curEntry?.wideBound;
-    if (!curWideTypeBound && !destType.details.isSynthesizedSelf) {
-        curWideTypeBound = destType.details.boundType;
+    if (!curWideTypeBound && !destType.shared.isSynthesizedSelf) {
+        curWideTypeBound = destType.shared.boundType;
     }
     let curNarrowTypeBound = curEntry?.narrowBound;
     let newNarrowTypeBound = curNarrowTypeBound;
@@ -259,7 +259,7 @@ export function assignTypeToTypeVar(
     // If the source is a class that is missing type arguments, fill
     // in missing type arguments with Unknown.
     if ((flags & AssignTypeFlags.AllowUnspecifiedTypeArguments) === 0) {
-        if (isClass(adjSrcType) && adjSrcType.includeSubclasses) {
+        if (isClass(adjSrcType) && adjSrcType.priv.includeSubclasses) {
             adjSrcType = specializeWithDefaultTypeArgs(adjSrcType);
         }
     }
@@ -493,8 +493,8 @@ export function assignTypeToTypeVar(
                     // is still a valid solution to the TypeVar.
                     if (
                         isUnion(curSolvedNarrowTypeBound) &&
-                        curSolvedNarrowTypeBound.subtypes.length > maxSubtypesForInferredType &&
-                        (destType as TypeVarType).details.boundType !== undefined &&
+                        curSolvedNarrowTypeBound.priv.subtypes.length > maxSubtypesForInferredType &&
+                        (destType as TypeVarType).shared.boundType !== undefined &&
                         isClassInstance(objectType)
                     ) {
                         newNarrowTypeBound = combineTypes([curSolvedNarrowTypeBound, objectType], {
@@ -579,7 +579,7 @@ export function assignTypeToTypeVar(
     }
 
     // If there's a bound type, make sure the source is assignable to it.
-    if (destType.details.boundType) {
+    if (destType.shared.boundType) {
         const updatedType = (newNarrowTypeBound || newWideTypeBound)!;
 
         // If the dest is a Type[T] but the source is not a valid Type,
@@ -592,13 +592,13 @@ export function assignTypeToTypeVar(
         // In general, bound types cannot be generic, but the "Self" type is an
         // exception. In this case, we need to use the original TypeVarContext
         // to solve for the generic type variable(s) in the bound type.
-        const effectiveTypeVarContext = destType.details.isSynthesizedSelf
+        const effectiveTypeVarContext = destType.shared.isSynthesizedSelf
             ? typeVarContext
-            : new TypeVarContext(destType.scopeId);
+            : new TypeVarContext(destType.priv.scopeId);
 
         if (
             !evaluator.assignType(
-                destType.details.boundType,
+                destType.shared.boundType,
                 evaluator.makeTopLevelTypeVarsConcrete(updatedType),
                 diag?.createAddendum(),
                 effectiveTypeVarContext,
@@ -609,11 +609,11 @@ export function assignTypeToTypeVar(
         ) {
             // Avoid adding a message that will confuse users if the TypeVar was
             // synthesized for internal purposes.
-            if (!destType.details.isSynthesized) {
+            if (!destType.shared.isSynthesized) {
                 diag?.addMessage(
                     LocAddendum.typeBound().format({
                         sourceType: evaluator.printType(updatedType),
-                        destType: evaluator.printType(destType.details.boundType),
+                        destType: evaluator.printType(destType.shared.boundType),
                         name: TypeVarType.getReadableName(destType),
                     })
                 );
@@ -712,7 +712,7 @@ function assignTypeToConstrainedTypeVar(
                 destType,
                 concreteSrcType,
                 /* diag */ undefined,
-                new TypeVarContext(destType.scopeId),
+                new TypeVarContext(destType.priv.scopeId),
                 /* srcTypeVarContext */ undefined,
                 AssignTypeFlags.Default,
                 recursionCount
@@ -743,7 +743,7 @@ function assignTypeToConstrainedTypeVar(
             }
 
             let constraintIndexUsed: number | undefined;
-            destType.details.constraints.forEach((constraint, i) => {
+            destType.shared.constraints.forEach((constraint, i) => {
                 const adjustedConstraint = TypeBase.isInstantiable(destType)
                     ? convertToInstantiable(constraint)
                     : constraint;
@@ -810,7 +810,7 @@ function assignTypeToConstrainedTypeVar(
         // If the type is a union, see if the entire union is assignable to one
         // of the constraints.
         if (!constrainedType && isUnion(concreteSrcType)) {
-            constrainedType = destType.details.constraints.find((constraint) => {
+            constrainedType = destType.shared.constraints.find((constraint) => {
                 const adjustedConstraint = TypeBase.isInstantiable(destType)
                     ? convertToInstantiable(constraint)
                     : constraint;
@@ -834,7 +834,7 @@ function assignTypeToConstrainedTypeVar(
         diag?.addMessage(
             LocAddendum.typeConstrainedTypeVar().format({
                 type: evaluator.printType(srcType),
-                name: destType.details.name,
+                name: destType.shared.name,
             })
         );
         return false;
@@ -911,20 +911,20 @@ function assignTypeToParamSpec(
     const adjSrcType = isFunction(srcType) ? convertParamSpecValueToType(srcType) : srcType;
 
     typeVarContext.doForEachSignature((signatureContext) => {
-        if (isTypeVar(adjSrcType) && adjSrcType.details.isParamSpec) {
+        if (isTypeVar(adjSrcType) && adjSrcType.shared.isParamSpec) {
             const existingType = signatureContext.getParamSpecType(destType);
             if (existingType) {
                 const existingTypeParamSpec = FunctionType.getParamSpecFromArgsKwargs(existingType);
                 const existingTypeWithoutArgsKwargs = FunctionType.cloneRemoveParamSpecArgsKwargs(existingType);
 
-                if (existingTypeWithoutArgsKwargs.details.parameters.length === 0 && existingTypeParamSpec) {
+                if (existingTypeWithoutArgsKwargs.shared.parameters.length === 0 && existingTypeParamSpec) {
                     // If there's an existing entry that matches, that's fine.
                     if (isTypeSame(existingTypeParamSpec, adjSrcType, {}, recursionCount)) {
                         return;
                     }
                 }
             } else {
-                if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
+                if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.priv.scopeId)) {
                     signatureContext.setTypeVarType(destType, convertTypeToParamSpecValue(adjSrcType));
                 }
                 return;
@@ -983,7 +983,7 @@ function assignTypeToParamSpec(
             }
 
             if (updateContextWithNewFunction) {
-                if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.scopeId)) {
+                if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.priv.scopeId)) {
                     signatureContext.setTypeVarType(destType, newFunction);
                 }
                 return;
@@ -995,7 +995,7 @@ function assignTypeToParamSpec(
         diag?.addMessage(
             LocAddendum.typeParamSpec().format({
                 type: evaluator.printType(adjSrcType),
-                name: destType.details.name,
+                name: destType.shared.name,
             })
         );
 
@@ -1027,14 +1027,14 @@ export function addConstraintsForExpectedType(
     usageOffset: number | undefined = undefined
 ): boolean {
     if (isAny(expectedType)) {
-        type.details.typeParameters.forEach((typeParam) => {
+        type.shared.typeParameters.forEach((typeParam) => {
             updateTypeVarType(evaluator, typeVarContext, typeParam, expectedType, expectedType);
         });
         return true;
     }
 
-    if (isTypeVar(expectedType) && expectedType.details.isSynthesizedSelf && expectedType.details.boundType) {
-        expectedType = expectedType.details.boundType;
+    if (isTypeVar(expectedType) && expectedType.shared.isSynthesizedSelf && expectedType.shared.boundType) {
+        expectedType = expectedType.shared.boundType;
     }
 
     if (!isClass(expectedType)) {
@@ -1042,7 +1042,7 @@ export function addConstraintsForExpectedType(
     }
 
     // If the expected type is generic (but not specialized), we can't proceed.
-    const expectedTypeArgs = expectedType.typeArguments;
+    const expectedTypeArgs = expectedType.priv.typeArguments;
     if (!expectedTypeArgs) {
         return evaluator.assignType(
             type,
@@ -1108,14 +1108,14 @@ export function addConstraintsForExpectedType(
     const expectedTypeScopeId = getTypeVarScopeId(expectedType);
     const synthExpectedTypeArgs = ClassType.getTypeParameters(expectedType).map((typeParam, index) => {
         const typeVar = TypeVarType.createInstance(`__dest${index}`);
-        typeVar.details.isSynthesized = true;
-        if (typeParam.details.isParamSpec) {
-            typeVar.details.isParamSpec = true;
+        typeVar.shared.isSynthesized = true;
+        if (typeParam.shared.isParamSpec) {
+            typeVar.shared.isParamSpec = true;
         }
 
         // Use invariance here so we set the narrow and wide values on the TypeVar.
-        typeVar.details.declaredVariance = Variance.Invariant;
-        typeVar.scopeId = expectedTypeScopeId;
+        typeVar.shared.declaredVariance = Variance.Invariant;
+        typeVar.priv.scopeId = expectedTypeScopeId;
         return typeVar;
     });
     const genericExpectedType = ClassType.cloneForSpecialization(
@@ -1127,11 +1127,11 @@ export function addConstraintsForExpectedType(
     // For each type param in the target type, create a placeholder type variable.
     const typeArgs = ClassType.getTypeParameters(type).map((typeParam, index) => {
         const typeVar = TypeVarType.createInstance(`__source${index}`);
-        typeVar.details.isSynthesized = true;
-        typeVar.details.synthesizedIndex = index;
-        typeVar.details.isExemptFromBoundCheck = true;
-        if (typeParam.details.isParamSpec) {
-            typeVar.details.isParamSpec = true;
+        typeVar.shared.isSynthesized = true;
+        typeVar.shared.synthesizedIndex = index;
+        typeVar.shared.isExemptFromBoundCheck = true;
+        if (typeParam.shared.isParamSpec) {
+            typeVar.shared.isParamSpec = true;
         }
         return TypeVarType.cloneAsInScopePlaceholder(typeVar);
     });
@@ -1157,18 +1157,18 @@ export function addConstraintsForExpectedType(
             // If the resulting type is a union, try to find a matching type var and move
             // the remaining subtypes to the "otherSubtypes" array.
             if (synthTypeVar) {
-                if (typeVar.details.isParamSpec && isFunction(synthTypeVar)) {
+                if (typeVar.shared.isParamSpec && isFunction(synthTypeVar)) {
                     synthTypeVar = convertParamSpecValueToType(synthTypeVar);
                 }
 
                 if (isUnion(synthTypeVar)) {
                     let foundSynthTypeVar: TypeVarType | undefined;
 
-                    sortTypes(synthTypeVar.subtypes).forEach((subtype) => {
+                    sortTypes(synthTypeVar.priv.subtypes).forEach((subtype) => {
                         if (
                             isTypeVar(subtype) &&
-                            subtype.details.isSynthesized &&
-                            subtype.details.synthesizedIndex !== undefined &&
+                            subtype.shared.isSynthesized &&
+                            subtype.shared.synthesizedIndex !== undefined &&
                             !foundSynthTypeVar
                         ) {
                             foundSynthTypeVar = subtype;
@@ -1188,11 +1188,11 @@ export function addConstraintsForExpectedType(
             if (
                 synthTypeVar &&
                 isTypeVar(synthTypeVar) &&
-                synthTypeVar.details.isSynthesized &&
-                synthTypeVar.details.synthesizedIndex !== undefined
+                synthTypeVar.shared.isSynthesized &&
+                synthTypeVar.shared.synthesizedIndex !== undefined
             ) {
                 const targetTypeVar =
-                    ClassType.getTypeParameters(specializedType)[synthTypeVar.details.synthesizedIndex];
+                    ClassType.getTypeParameters(specializedType)[synthTypeVar.shared.synthesizedIndex];
                 if (index < expectedTypeArgs.length) {
                     let typeArgValue: Type | undefined = transformPossibleRecursiveTypeAlias(expectedTypeArgs[index]);
 
@@ -1251,9 +1251,9 @@ function widenTypeForVariadicTypeVar(evaluator: TypeEvaluator, type1: Type, type
 
     // If the two unpacked tuples are not the same length, we can't combine them.
     if (
-        !type1.tupleTypeArguments ||
-        !type2.tupleTypeArguments ||
-        type1.tupleTypeArguments.length !== type2.tupleTypeArguments.length
+        !type1.priv.tupleTypeArguments ||
+        !type2.priv.tupleTypeArguments ||
+        type1.priv.tupleTypeArguments.length !== type2.priv.tupleTypeArguments.length
     ) {
         return undefined;
     }
@@ -1271,12 +1271,12 @@ function widenTypeForVariadicTypeVar(evaluator: TypeEvaluator, type1: Type, type
 // If the provided type is an unpacked tuple, this function strips the
 // literals from types of the corresponding elements.
 function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type): Type {
-    if (!isUnpackedClass(type) || !type.tupleTypeArguments) {
+    if (!isUnpackedClass(type) || !type.priv.tupleTypeArguments) {
         return type;
     }
 
     let strippedLiteral = false;
-    const tupleTypeArgs: TupleTypeArgument[] = type.tupleTypeArguments.map((arg) => {
+    const tupleTypeArgs: TupleTypeArgument[] = type.priv.tupleTypeArguments.map((arg) => {
         const strippedType = evaluator.stripLiteralValue(arg.type);
 
         if (strippedType !== arg.type) {
@@ -1317,7 +1317,7 @@ function logTypeVarSignatureContext(evaluator: TypeEvaluator, context: TypeVarSi
     let loggedConstraint = false;
 
     context.getTypeVars().forEach((entry) => {
-        const typeVarName = `${indent}${entry.typeVar.details.name}`;
+        const typeVarName = `${indent}${entry.typeVar.shared.name}`;
         const narrowBound = entry.narrowBoundNoLiterals ?? entry.narrowBound;
         const wideBound = entry.wideBound;
 

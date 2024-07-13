@@ -123,7 +123,7 @@ export function getFunctionInfoFromDecorators(
                 }
             } else {
                 if (ClassType.isBuiltIn(decoratorType, 'deprecated')) {
-                    deprecationMessage = decoratorType.deprecatedInstanceMessage;
+                    deprecationMessage = decoratorType.priv.deprecatedInstanceMessage;
                 }
             }
         }
@@ -159,8 +159,8 @@ export function applyFunctionDecorator(
         (isFunction(decoratorType) && FunctionType.isBuiltIn(decoratorType, 'overload'))
     ) {
         if (isFunction(inputFunctionType)) {
-            inputFunctionType.details.flags |= FunctionTypeFlags.Overloaded;
-            undecoratedType.details.flags |= FunctionTypeFlags.Overloaded;
+            inputFunctionType.shared.flags |= FunctionTypeFlags.Overloaded;
+            undecoratedType.shared.flags |= FunctionTypeFlags.Overloaded;
             return inputFunctionType;
         }
     }
@@ -173,10 +173,10 @@ export function applyFunctionDecorator(
 
         if (isFunction(decoratorCallType)) {
             if (
-                decoratorCallType.details.name === '__dataclass_transform__' ||
+                decoratorCallType.shared.name === '__dataclass_transform__' ||
                 FunctionType.isBuiltIn(decoratorCallType, 'dataclass_transform')
             ) {
-                undecoratedType.details.decoratorDataClassBehaviors = validateDataClassTransformDecorator(
+                undecoratedType.shared.decoratorDataClassBehaviors = validateDataClassTransformDecorator(
                     evaluator,
                     decoratorNode.expression
                 );
@@ -194,7 +194,7 @@ export function applyFunctionDecorator(
         }
 
         if (FunctionType.isBuiltIn(decoratorType, 'type_check_only')) {
-            undecoratedType.details.flags |= FunctionTypeFlags.TypeCheckOnly;
+            undecoratedType.shared.flags |= FunctionTypeFlags.TypeCheckOnly;
             return inputFunctionType;
         }
 
@@ -226,25 +226,25 @@ export function applyFunctionDecorator(
         }
     } else if (isInstantiableClass(decoratorType)) {
         if (ClassType.isBuiltIn(decoratorType)) {
-            switch (decoratorType.details.name) {
+            switch (decoratorType.shared.name) {
                 case 'classmethod':
                 case 'staticmethod': {
                     const requiredFlag =
-                        decoratorType.details.name === 'classmethod'
+                        decoratorType.shared.name === 'classmethod'
                             ? FunctionTypeFlags.ClassMethod
                             : FunctionTypeFlags.StaticMethod;
 
                     // If the function isn't currently a class method or static method
                     // (which can happen if the function was wrapped in a decorator),
                     // add the appropriate flag.
-                    if (isFunction(inputFunctionType) && (inputFunctionType.details.flags & requiredFlag) === 0) {
+                    if (isFunction(inputFunctionType) && (inputFunctionType.shared.flags & requiredFlag) === 0) {
                         const newFunction = FunctionType.clone(inputFunctionType);
-                        newFunction.details.flags &= ~(
+                        newFunction.shared.flags &= ~(
                             FunctionTypeFlags.ConstructorMethod |
                             FunctionTypeFlags.StaticMethod |
                             FunctionTypeFlags.ClassMethod
                         );
-                        newFunction.details.flags |= requiredFlag;
+                        newFunction.shared.flags |= requiredFlag;
                         return newFunction;
                     }
 
@@ -279,13 +279,13 @@ export function applyFunctionDecorator(
 
         // Copy the overload flag from the input function type.
         if (FunctionType.isOverloaded(inputFunctionType)) {
-            returnType.details.flags |= FunctionTypeFlags.Overloaded;
+            returnType.shared.flags |= FunctionTypeFlags.Overloaded;
         }
 
         // Copy the docstrings from the input function type if the
         // decorator didn't have its own docstring.
-        if (!returnType.details.docString) {
-            returnType.details.docString = inputFunctionType.details.docString;
+        if (!returnType.shared.docString) {
+            returnType.shared.docString = inputFunctionType.shared.docString;
         }
     }
 
@@ -313,10 +313,10 @@ export function applyClassDecorator(
 
         if (isFunction(decoratorCallType)) {
             if (
-                decoratorCallType.details.name === '__dataclass_transform__' ||
+                decoratorCallType.shared.name === '__dataclass_transform__' ||
                 FunctionType.isBuiltIn(decoratorCallType, 'dataclass_transform')
             ) {
-                originalClassType.details.classDataClassTransform = validateDataClassTransformDecorator(
+                originalClassType.shared.classDataClassTransform = validateDataClassTransformDecorator(
                     evaluator,
                     decoratorNode.expression
                 );
@@ -338,7 +338,7 @@ export function applyClassDecorator(
         }
     } else if (isFunction(decoratorType)) {
         if (FunctionType.isBuiltIn(decoratorType, 'final')) {
-            originalClassType.details.flags |= ClassTypeFlags.Final;
+            originalClassType.shared.flags |= ClassTypeFlags.Final;
 
             // Don't call getTypeOfDecorator for final. We'll hard-code its
             // behavior because its function definition results in a cyclical
@@ -347,12 +347,12 @@ export function applyClassDecorator(
         }
 
         if (FunctionType.isBuiltIn(decoratorType, 'type_check_only')) {
-            originalClassType.details.flags |= ClassTypeFlags.TypeCheckOnly;
+            originalClassType.shared.flags |= ClassTypeFlags.TypeCheckOnly;
             return inputClassType;
         }
 
         if (FunctionType.isBuiltIn(decoratorType, 'runtime_checkable')) {
-            originalClassType.details.flags |= ClassTypeFlags.RuntimeCheckable;
+            originalClassType.shared.flags |= ClassTypeFlags.RuntimeCheckable;
 
             // Don't call getTypeOfDecorator for runtime_checkable. It appears
             // frequently in stubs, and it's a waste of time to validate its
@@ -382,7 +382,7 @@ export function applyClassDecorator(
         }
     } else if (isClassInstance(decoratorType)) {
         if (ClassType.isBuiltIn(decoratorType, 'deprecated')) {
-            originalClassType.details.deprecatedMessage = decoratorType.deprecatedInstanceMessage;
+            originalClassType.shared.deprecatedMessage = decoratorType.priv.deprecatedInstanceMessage;
             return inputClassType;
         }
     }
@@ -438,9 +438,9 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
     // If the return type is a function that has no annotations
     // and just *args and **kwargs parameters, assume that it
     // preserves the type of the input function.
-    if (isFunction(returnType) && !returnType.details.declaredReturnType) {
+    if (isFunction(returnType) && !returnType.shared.declaredReturnType) {
         if (
-            !returnType.details.parameters.some((param, index) => {
+            !returnType.shared.parameters.some((param, index) => {
                 // Don't allow * or / separators or params with declared types.
                 if (!param.name || FunctionParam.isTypeDeclared(param)) {
                     return true;
@@ -465,8 +465,8 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
     if (isPartlyUnknown(returnType)) {
         if (isFunction(decoratorTypeResult.type)) {
             if (
-                !decoratorTypeResult.type.details.parameters.find((param) => FunctionParam.isTypeDeclared(param)) &&
-                decoratorTypeResult.type.details.declaredReturnType === undefined
+                !decoratorTypeResult.type.shared.parameters.find((param) => FunctionParam.isTypeDeclared(param)) &&
+                decoratorTypeResult.type.shared.declaredReturnType === undefined
             ) {
                 return functionOrClassType;
             }
@@ -517,7 +517,7 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
                     } else if (isOverloadedFunction(prevDeclDeclTypeInfo.decoratedType)) {
                         // If the previous declaration was itself an overloaded function,
                         // copy the entries from it.
-                        appendArray(overloadedTypes, prevDeclDeclTypeInfo.decoratedType.overloads);
+                        appendArray(overloadedTypes, prevDeclDeclTypeInfo.decoratedType.priv.overloads);
                     }
                 }
             }
@@ -531,10 +531,10 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
             // Apply the implementation's docstring to any overloads that don't
             // have their own docstrings.
             const implementation = overloadedTypes.find((signature) => !FunctionType.isOverloaded(signature));
-            if (implementation?.details.docString) {
+            if (implementation?.shared.docString) {
                 overloadedTypes = overloadedTypes.map((overload) => {
-                    if (FunctionType.isOverloaded(overload) && !overload.details.docString) {
-                        return FunctionType.cloneWithDocString(overload, implementation.details.docString);
+                    if (FunctionType.isOverloaded(overload) && !overload.shared.docString) {
+                        return FunctionType.cloneWithDocString(overload, implementation.shared.docString);
                     }
                     return overload;
                 });
@@ -543,12 +543,12 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
             // PEP 702 indicates that if the implementation of an overloaded
             // function is marked deprecated, all of the overloads should be
             // treated as deprecated as well.
-            if (implementation && implementation.details.deprecatedMessage !== undefined) {
+            if (implementation && implementation.shared.deprecatedMessage !== undefined) {
                 overloadedTypes = overloadedTypes.map((overload) => {
-                    if (FunctionType.isOverloaded(overload) && overload.details.deprecatedMessage === undefined) {
+                    if (FunctionType.isOverloaded(overload) && overload.shared.deprecatedMessage === undefined) {
                         return FunctionType.cloneWithDeprecatedMessage(
                             overload,
-                            implementation.details.deprecatedMessage
+                            implementation.shared.deprecatedMessage
                         );
                     }
                     return overload;

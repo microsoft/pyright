@@ -518,10 +518,10 @@ export class SourceMapper {
                 return;
             }
 
-            if (isFunction(type) && type.details.declaration) {
-                this._addClassOrFunctionDeclarations(type.details.declaration, result, recursiveDeclCache);
+            if (isFunction(type) && type.shared.declaration) {
+                this._addClassOrFunctionDeclarations(type.shared.declaration, result, recursiveDeclCache);
             } else if (isOverloadedFunction(type)) {
-                for (const overloadDecl of type.overloads.map((o) => o.details.declaration).filter(isDefined)) {
+                for (const overloadDecl of type.priv.overloads.map((o) => o.shared.declaration).filter(isDefined)) {
                     this._addClassOrFunctionDeclarations(overloadDecl, result, recursiveDeclCache);
                 }
             } else if (isInstantiableClass(type)) {
@@ -601,13 +601,13 @@ export class SourceMapper {
         useTypeAlias = false
     ) {
         const fileUri =
-            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.fileUri : type.details.fileUri;
+            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.fileUri : type.shared.fileUri;
         const sourceFiles = this._getSourceFiles(fileUri, /* stubToShadow */ undefined, originated);
 
         const fullName =
-            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.fullName : type.details.fullName;
+            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.fullName : type.shared.fullName;
         const moduleName =
-            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.moduleName : type.details.moduleName;
+            useTypeAlias && type.props?.typeAliasInfo ? type.props.typeAliasInfo.moduleName : type.shared.moduleName;
         const fullClassName = fullName.substring(moduleName.length + 1 /* +1 for trailing dot */);
 
         for (const sourceFile of sourceFiles) {
