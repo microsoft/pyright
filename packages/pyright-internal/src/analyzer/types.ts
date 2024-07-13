@@ -59,6 +59,14 @@ export const enum TypeFlags {
 
     // This type refers to something that has been instantiated.
     Instance = 1 << 1,
+
+    // This type is inferred within a py.typed source file and could be
+    // inferred differently by other type checkers.
+    Ambiguous = 1 << 2,
+
+    // This mask indicates which flags should be considered significant
+    // when comparing two types for equivalence.
+    TypeCompatibilityMask = Instantiable | Instance,
 }
 
 export type UnionableType =
@@ -126,57 +134,56 @@ export interface TypeAliasInfo {
     isPep695Syntax: boolean;
 
     // Type parameters, if type alias is generic
-    typeParameters?: TypeVarType[] | undefined;
+    typeParameters: TypeVarType[] | undefined;
 
     // Lazily-evaluated variance of type parameters based on how
     // they are used in the type alias
-    usageVariance?: Variance[];
+    usageVariance: Variance[] | undefined;
 
     // Type argument, if type alias is specialized
-    typeArguments?: Type[] | undefined;
+    typeArguments: Type[] | undefined;
+}
+
+interface CachedTypeInfo {
+    // Type converted to instantiable and instance by convertToInstance
+    // and convertToInstantiable (cached)
+    instantiableType?: Type;
+    instanceType?: Type;
+
+    // Type converted to instantiable and instance by TypeBase methods (cached)
+    typeBaseInstantiableType?: Type;
+    typeBaseInstanceType?: Type;
+
+    // Requires specialization flag (cached)
+    requiresSpecialization?: boolean;
+}
+
+interface TypeBaseProps {
+    // Used to handle nested references to instantiable classes
+    // (e.g. type[type[type[T]]]). If the field isn't present,
+    // it is assumed to be zero.
+    instantiableDepth: number | undefined;
+
+    // Used in cases where the type is a special form when used in a
+    // value expression such as UnionType, Literal, or Required.
+    specialForm: ClassType | undefined;
+
+    // Used only for type aliases
+    typeAliasInfo: TypeAliasInfo | undefined;
+
+    // Used only for conditional (constrained) types
+    condition: TypeCondition[] | undefined;
 }
 
 interface TypeBase<T extends TypeCategory> {
     category: T;
     flags: TypeFlags;
 
-    // Used to handle nested references to instantiable classes
-    // (e.g. type[type[type[T]]]). If the field isn't present,
-    // it is assumed to be zero.
-    instantiableDepth?: number;
-
-    // Used in cases where the type is an instantiable special form such as
-    // UnionType, Literal, or Required. These are not directly instantiable
-    // and are simple classes when used in value (runtime) expressions but
-    // have special meaning when used in a type expression.
-    specialForm?: ClassType;
-
-    // Used only for type aliases
-    typeAliasInfo?: TypeAliasInfo | undefined;
-
-    // Used only for conditional (constrained) types
-    condition?: TypeCondition[] | undefined;
-
-    // This type is inferred within a py.typed source file and could be
-    // inferred differently by other type checkers. We don't model this
-    // with a TypeFlags because we don't want an ambiguous and unambiguous
-    // type to be seen as distinct when comparing types.
-    isAmbiguous?: boolean;
+    // Optional properties that are not needed for every type.
+    props: TypeBaseProps | undefined;
 
     // Cached values are not cloned.
-    cached?: {
-        // Type converted to instantiable and instance by convertToInstance
-        // and convertToInstantiable (cached)
-        instantiableType?: Type;
-        instanceType?: Type;
-
-        // Type converted to instantiable and instance by TypeBase methods (cached)
-        typeBaseInstantiableType?: Type;
-        typeBaseInstanceType?: Type;
-
-        // Requires specialization flag (cached)
-        requiresSpecialization?: boolean;
-    };
+    cached: CachedTypeInfo | undefined;
 }
 
 export namespace TypeBase {
@@ -189,25 +196,49 @@ export namespace TypeBase {
     }
 
     export function isAmbiguous(type: TypeBase<any>) {
-        return !!type.isAmbiguous;
+        return (type.flags & TypeFlags.Ambiguous) !== 0;
+    }
+
+    export function addProps(type: TypeBase<any>): TypeBaseProps {
+        if (!type.props) {
+            type.props = {
+                instantiableDepth: undefined,
+                specialForm: undefined,
+                typeAliasInfo: undefined,
+                condition: undefined,
+            };
+        }
+        return type.props;
+    }
+
+    export function setSpecialForm(type: TypeBase<any>, specialForm: ClassType | undefined) {
+        TypeBase.addProps(type).specialForm = specialForm;
+    }
+
+    export function setInstantiableDepth(type: TypeBase<any>, depth: number | undefined) {
+        TypeBase.addProps(type).instantiableDepth = depth;
+    }
+
+    export function setTypeAliasInfo(type: TypeBase<any>, typeAliasInfo: TypeAliasInfo | undefined) {
+        TypeBase.addProps(type).typeAliasInfo = typeAliasInfo;
+    }
+
+    export function setCondition(type: TypeBase<any>, condition: TypeCondition[] | undefined) {
+        TypeBase.addProps(type).condition = condition;
     }
 
     export function cloneType<T extends TypeBase<any>>(type: T): T {
         const clone = { ...type };
-        delete clone.cached;
+        if (type.props) {
+            clone.props = { ...type.props };
+        }
+        clone.cached = undefined;
         return clone;
     }
 
     export function cloneAsSpecialForm<T extends TypeBase<any>>(type: T, specialForm: ClassType | undefined): T {
-        const clone = { ...type };
-        delete clone.cached;
-
-        if (specialForm) {
-            clone.specialForm = specialForm;
-        } else {
-            delete clone.specialForm;
-        }
-
+        const clone = TypeBase.cloneType(type);
+        TypeBase.setSpecialForm(clone, specialForm);
         return clone;
     }
 
@@ -216,16 +247,14 @@ export namespace TypeBase {
 
         const newInstance = TypeBase.cloneType(type);
 
-        if (newInstance.instantiableDepth === undefined) {
+        const depth = newInstance.props?.instantiableDepth;
+        if (depth === undefined) {
             newInstance.flags &= ~TypeFlags.Instantiable;
             newInstance.flags |= TypeFlags.Instance;
-            delete newInstance.instantiableDepth;
+        } else if (depth <= 1) {
+            TypeBase.setInstantiableDepth(newInstance, undefined);
         } else {
-            if (newInstance.instantiableDepth === 1) {
-                delete newInstance.instantiableDepth;
-            } else {
-                newInstance.instantiableDepth--;
-            }
+            TypeBase.setInstantiableDepth(newInstance, depth - 1);
         }
 
         // Should we cache it for next time?
@@ -247,13 +276,15 @@ export namespace TypeBase {
             newInstance.flags &= ~TypeFlags.Instance;
             newInstance.flags |= TypeFlags.Instantiable;
         } else {
-            newInstance.instantiableDepth =
-                newInstance.instantiableDepth === undefined ? 1 : newInstance.instantiableDepth;
+            const oldDepth = type.props?.instantiableDepth;
+            TypeBase.setInstantiableDepth(newInstance, oldDepth === undefined ? 1 : oldDepth + 1);
         }
 
         // Remove type alias information because the type will no longer match
         // that of the type alias definition.
-        delete newInstance.typeAliasInfo;
+        if (newInstance.props?.typeAliasInfo) {
+            TypeBase.setTypeAliasInfo(newInstance, undefined);
+        }
 
         // Should we cache it for next time?
         if (cache) {
@@ -280,16 +311,17 @@ export namespace TypeBase {
     ): Type {
         const typeClone = cloneType(type);
 
-        typeClone.typeAliasInfo = {
+        TypeBase.setTypeAliasInfo(typeClone, {
             name,
             fullName,
             moduleName,
             fileUri,
-            typeParameters: typeParams,
-            typeArguments: typeArgs,
             typeVarScopeId,
             isPep695Syntax,
-        };
+            typeParameters: typeParams,
+            usageVariance: undefined,
+            typeArguments: typeArgs,
+        });
 
         return typeClone;
     }
@@ -297,22 +329,22 @@ export namespace TypeBase {
     export function cloneForCondition<T extends Type>(type: T, condition: TypeCondition[] | undefined): T {
         // Handle the common case where there are no conditions. In this case,
         // cloning isn't necessary.
-        if (type.condition === undefined && condition === undefined) {
+        if (type.props?.condition === undefined && condition === undefined) {
             return type;
         }
 
         const typeClone = cloneType(type);
-        typeClone.condition = condition;
+        TypeBase.setCondition(typeClone, condition);
         return typeClone;
     }
 
     export function cloneForAmbiguousType(type: Type) {
-        if (type.isAmbiguous) {
+        if (TypeBase.isAmbiguous(type)) {
             return type;
         }
 
         const typeClone = cloneType(type);
-        typeClone.isAmbiguous = true;
+        typeClone.flags |= TypeFlags.Ambiguous;
         return typeClone;
     }
 }
@@ -323,6 +355,8 @@ export namespace UnboundType {
     const _instance: UnboundType = {
         category: TypeCategory.Unbound,
         flags: TypeFlags.Instantiable | TypeFlags.Instance,
+        props: undefined,
+        cached: undefined,
     };
 
     export function create() {
@@ -332,7 +366,7 @@ export namespace UnboundType {
 
     export function convertToInstance(type: UnboundType): UnboundType {
         // Remove the "special form" if present. Otherwise return the existing type.
-        return type.specialForm ? UnboundType.create() : type;
+        return type.props?.specialForm ? UnboundType.create() : type;
     }
 }
 
@@ -350,12 +384,16 @@ export namespace UnknownType {
     const _instance: UnknownType = {
         category: TypeCategory.Unknown,
         flags: TypeFlags.Instantiable | TypeFlags.Instance,
+        props: undefined,
+        cached: undefined,
         isIncomplete: false,
         possibleType: undefined,
     };
     const _incompleteInstance: UnknownType = {
         category: TypeCategory.Unknown,
         flags: TypeFlags.Instantiable | TypeFlags.Instance,
+        props: undefined,
+        cached: undefined,
         isIncomplete: true,
         possibleType: undefined,
     };
@@ -368,6 +406,8 @@ export namespace UnknownType {
         const unknownWithPossibleType: UnknownType = {
             category: TypeCategory.Unknown,
             flags: TypeFlags.Instantiable | TypeFlags.Instance,
+            props: undefined,
+            cached: undefined,
             isIncomplete,
             possibleType,
         };
@@ -377,7 +417,7 @@ export namespace UnknownType {
 
     export function convertToInstance(type: UnknownType): UnknownType {
         // Remove the "special form" if present. Otherwise return the existing type.
-        return type.specialForm ? UnknownType.create(type.isIncomplete) : type;
+        return type.props?.specialForm ? UnknownType.create(type.isIncomplete) : type;
     }
 }
 
@@ -404,11 +444,13 @@ export namespace ModuleType {
     export function create(moduleName: string, fileUri: Uri, symbolTable?: SymbolTable) {
         const newModuleType: ModuleType = {
             category: TypeCategory.Module,
+            flags: TypeFlags.Instantiable | TypeFlags.Instantiable,
+            props: undefined,
+            cached: undefined,
             fields: symbolTable || new Map<string, Symbol>(),
             docString: undefined,
             notPresentFieldType: undefined,
             loaderFields: new Map<string, Symbol>(),
-            flags: TypeFlags.Instantiable | TypeFlags.Instantiable,
             moduleName,
             fileUri,
         };
@@ -757,6 +799,9 @@ export namespace ClassType {
     ) {
         const newClass: ClassType = {
             category: TypeCategory.Class,
+            flags: TypeFlags.Instantiable,
+            props: undefined,
+            cached: undefined,
             details: {
                 name,
                 fullName,
@@ -772,7 +817,6 @@ export namespace ClassType {
                 typeParameters: [],
                 docString,
             },
-            flags: TypeFlags.Instantiable,
         };
 
         return newClass;
@@ -788,7 +832,10 @@ export namespace ClassType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstance(type, /* cache */ includeSubclasses);
-        delete newInstance.specialForm;
+        if (newInstance.props?.specialForm) {
+            TypeBase.setSpecialForm(newInstance, undefined);
+        }
+
         if (includeSubclasses) {
             newInstance.includeSubclasses = true;
         }
@@ -851,7 +898,9 @@ export namespace ClassType {
 
         // Remove type alias information because the type will no longer match
         // that of the type alias definition if we change the literal type.
-        delete newClassType.typeAliasInfo;
+        if (newClassType.props?.typeAliasInfo) {
+            TypeBase.setTypeAliasInfo(newClassType, undefined);
+        }
 
         return newClassType;
     }
@@ -889,7 +938,9 @@ export namespace ClassType {
         }
 
         const newClassType = TypeBase.cloneType(classType);
-        delete newClassType.includePromotions;
+        if (newClassType.includePromotions !== undefined) {
+            newClassType.includePromotions = undefined;
+        }
         return newClassType;
     }
 
@@ -1612,6 +1663,9 @@ export namespace FunctionType {
     ) {
         const newFunctionType: FunctionType = {
             category: TypeCategory.Function,
+            flags: typeFlags,
+            props: undefined,
+            cached: undefined,
             details: {
                 name,
                 fullName,
@@ -1621,7 +1675,6 @@ export namespace FunctionType {
                 typeParameters: [],
                 docString,
             },
-            flags: typeFlags,
         };
         return newFunctionType;
     }
@@ -1666,8 +1719,8 @@ export namespace FunctionType {
             newFunction.details.flags |= FunctionTypeFlags.StaticMethod;
         }
 
-        if (type.typeAliasInfo !== undefined) {
-            newFunction.typeAliasInfo = type.typeAliasInfo;
+        if (type.props?.typeAliasInfo) {
+            TypeBase.setTypeAliasInfo(newFunction, type.props.typeAliasInfo);
         }
 
         if (type.specializedTypes) {
@@ -1693,7 +1746,9 @@ export namespace FunctionType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstance(type, /* cache */ true);
-        delete newInstance.specialForm;
+        if (newInstance.props?.specialForm) {
+            TypeBase.setSpecialForm(newInstance, undefined);
+        }
         return newInstance;
     }
 
@@ -1783,7 +1838,9 @@ export namespace FunctionType {
 
         // Mark the function as synthesized since there is no user-defined declaration for it.
         newFunction.details.flags |= FunctionTypeFlags.SynthesizedMethod;
-        delete newFunction.details.declaration;
+        if (newFunction.details.declaration) {
+            newFunction.details.declaration = undefined;
+        }
 
         // Update the specialized parameter types as well.
         const specializedTypes = newFunction.specializedTypes;
@@ -2220,8 +2277,10 @@ export namespace OverloadedFunctionType {
     export function create(overloads: FunctionType[]) {
         const newType: OverloadedFunctionType = {
             category: TypeCategory.OverloadedFunction,
-            overloads: [],
             flags: TypeFlags.Instance,
+            props: undefined,
+            cached: undefined,
+            overloads: [],
         };
 
         overloads.forEach((overload) => {
@@ -2254,12 +2313,16 @@ export namespace NeverType {
     const _neverInstance: NeverType = {
         category: TypeCategory.Never,
         flags: TypeFlags.Instance | TypeFlags.Instantiable,
+        props: undefined,
+        cached: undefined,
         isNoReturn: false,
     };
 
     const _noReturnInstance: NeverType = {
         category: TypeCategory.Never,
         flags: TypeFlags.Instance | TypeFlags.Instantiable,
+        props: undefined,
+        cached: undefined,
         isNoReturn: true,
     };
 
@@ -2273,7 +2336,7 @@ export namespace NeverType {
 
     export function convertToInstance(type: NeverType): NeverType {
         // Remove the "special form" if present. Otherwise return the existing type.
-        if (!type.specialForm) {
+        if (!type.props?.specialForm) {
             return type;
         }
 
@@ -2288,20 +2351,26 @@ export interface AnyType extends TypeBase<TypeCategory.Any> {
 export namespace AnyType {
     const _anyInstanceSpecialForm: AnyType = {
         category: TypeCategory.Any,
-        isEllipsis: false,
         flags: TypeFlags.Instance | TypeFlags.Instantiable,
+        props: undefined,
+        cached: undefined,
+        isEllipsis: false,
     };
 
     const _anyInstance: AnyType = {
         category: TypeCategory.Any,
-        isEllipsis: false,
         flags: TypeFlags.Instance | TypeFlags.Instantiable,
+        props: undefined,
+        cached: undefined,
+        isEllipsis: false,
     };
 
     const _ellipsisInstance: AnyType = {
         category: TypeCategory.Any,
-        isEllipsis: true,
         flags: TypeFlags.Instance | TypeFlags.Instantiable,
+        props: undefined,
+        cached: undefined,
+        isEllipsis: true,
     };
 
     export function create(isEllipsis = false) {
@@ -2316,7 +2385,7 @@ export namespace AnyType {
 export namespace AnyType {
     export function convertToInstance(type: AnyType): AnyType {
         // Remove the "special form" if present. Otherwise return the existing type.
-        return type.specialForm ? AnyType.create() : type;
+        return type.props?.specialForm ? AnyType.create() : type;
     }
 }
 
@@ -2437,6 +2506,8 @@ export namespace UnionType {
         const newUnionType: UnionType = {
             category: TypeCategory.Union,
             flags: TypeFlags.Instance | TypeFlags.Instantiable,
+            props: undefined,
+            cached: undefined,
             subtypes: [],
             literalInstances: {},
             literalClasses: {},
@@ -2451,7 +2522,7 @@ export namespace UnionType {
         // If we're adding a string, integer or enum literal, add it to the
         // corresponding literal map to speed up some operations. It's not
         // uncommon for unions to contain hundreds of literals.
-        if (isClass(newType) && newType.literalValue !== undefined && newType.condition === undefined) {
+        if (isClass(newType) && newType.literalValue !== undefined && !newType.props?.condition) {
             const literalMaps = isClassInstance(newType) ? unionType.literalInstances : unionType.literalClasses;
 
             if (ClassType.isBuiltIn(newType, 'str')) {
@@ -2494,7 +2565,7 @@ export namespace UnionType {
     ): boolean {
         // Handle string literals as a special case because unions can sometimes
         // contain hundreds of string literal types.
-        if (isClass(subtype) && subtype.condition === undefined && subtype.literalValue !== undefined) {
+        if (isClass(subtype) && subtype.props?.condition === undefined && subtype.literalValue !== undefined) {
             const literalMaps = isClassInstance(subtype) ? unionType.literalInstances : unionType.literalClasses;
 
             if (ClassType.isBuiltIn(subtype, 'str') && literalMaps.literalStrMap !== undefined) {
@@ -2525,7 +2596,9 @@ export namespace UnionType {
 
     export function addTypeAliasSource(unionType: UnionType, typeAliasSource: Type) {
         if (typeAliasSource.category === TypeCategory.Union) {
-            const sourcesToAdd = typeAliasSource.typeAliasInfo ? [typeAliasSource] : typeAliasSource.typeAliasSources;
+            const sourcesToAdd = typeAliasSource.props?.typeAliasInfo
+                ? [typeAliasSource]
+                : typeAliasSource.typeAliasSources;
 
             if (sourcesToAdd) {
                 if (!unionType.typeAliasSources) {
@@ -2641,7 +2714,9 @@ export namespace TypeVarType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstance(type, /* cache */ true);
-        delete newInstance.specialForm;
+        if (newInstance.props?.specialForm) {
+            TypeBase.setSpecialForm(newInstance, undefined);
+        }
         return newInstance;
     }
 
@@ -2764,6 +2839,9 @@ export namespace TypeVarType {
     function create(name: string, isParamSpec: boolean, typeFlags: TypeFlags): TypeVarType {
         const newTypeVarType: TypeVarType = {
             category: TypeCategory.TypeVar,
+            flags: typeFlags,
+            props: undefined,
+            cached: undefined,
             details: {
                 name,
                 constraints: [],
@@ -2773,7 +2851,6 @@ export namespace TypeVarType {
                 isSynthesized: false,
                 defaultType: UnknownType.create(),
             },
-            flags: typeFlags,
         };
         return newTypeVarType;
     }
@@ -2919,17 +2996,17 @@ export function isOverloadedFunction(type: Type): type is OverloadedFunctionType
 }
 
 export function getTypeAliasInfo(type: Type) {
-    if (type.typeAliasInfo) {
-        return type.typeAliasInfo;
+    if (type.props?.typeAliasInfo) {
+        return type.props.typeAliasInfo;
     }
 
     if (
         isTypeVar(type) &&
         type.details.recursiveTypeAliasName &&
         type.details.boundType &&
-        type.details.boundType.typeAliasInfo
+        type.details.boundType.props?.typeAliasInfo
     ) {
-        return type.details.boundType.typeAliasInfo;
+        return type.details.boundType.props.typeAliasInfo;
     }
 
     return undefined;
@@ -2957,7 +3034,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
     }
 
     if (!options.ignoreTypeFlags) {
-        if (type1.flags !== type2.flags) {
+        if ((type1.flags & TypeFlags.TypeCompatibilityMask) !== (type2.flags & TypeFlags.TypeCompatibilityMask)) {
             return false;
         }
     }
@@ -2976,7 +3053,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
-            if (!options.ignoreConditions && !TypeCondition.isSame(type1.condition, type2.condition)) {
+            if (!options.ignoreConditions && !TypeCondition.isSame(type1.props?.condition, type2.props?.condition)) {
                 return false;
             }
 
@@ -3166,8 +3243,8 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             // Handle the case where this is a generic recursive type alias. Make
             // sure that the type argument types match.
             if (type1.details.recursiveTypeParameters && type2TypeVar.details.recursiveTypeParameters) {
-                const type1TypeArgs = type1?.typeAliasInfo?.typeArguments || [];
-                const type2TypeArgs = type2?.typeAliasInfo?.typeArguments || [];
+                const type1TypeArgs = type1?.props?.typeAliasInfo?.typeArguments || [];
+                const type2TypeArgs = type2?.props?.typeAliasInfo?.typeArguments || [];
                 const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
 
                 for (let i = 0; i < typeArgCount; i++) {
@@ -3370,7 +3447,7 @@ export function combineTypes(subtypes: Type[], options?: CombineTypesOptions): T
             }
             expandedTypes = expandedTypes.concat(subtype.subtypes);
 
-            if (subtype.typeAliasInfo) {
+            if (subtype.props?.typeAliasInfo) {
                 typeAliasSources.add(subtype);
             } else if (subtype.typeAliasSources) {
                 subtype.typeAliasSources.forEach((subtype) => {
@@ -3468,7 +3545,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
     // Handle the addition of a string literal in a special manner to
     // avoid n^2 behavior in unions that contain hundreds of string
     // literal types. Skip this for constrained types.
-    if (isClass(typeToAdd) && typeToAdd.condition === undefined) {
+    if (isClass(typeToAdd) && !typeToAdd.props?.condition) {
         const literalMaps = isClassInstance(typeToAdd) ? unionType.literalInstances : unionType.literalClasses;
 
         if (
@@ -3542,9 +3619,9 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
             // opposite, combine them into a non-literal 'bool' type.
             if (
                 ClassType.isBuiltIn(type, 'bool') &&
-                !type.condition &&
+                !type.props?.condition &&
                 ClassType.isBuiltIn(typeToAdd, 'bool') &&
-                !typeToAdd.condition
+                !typeToAdd.props?.condition
             ) {
                 if (typeToAdd.literalValue !== undefined && !typeToAdd.literalValue === type.literalValue) {
                     unionType.subtypes[i] = ClassType.cloneWithLiteral(type, /* value */ undefined);

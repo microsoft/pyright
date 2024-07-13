@@ -137,7 +137,7 @@ export function getVariableTypeText(
     const expandTypeAlias = false;
     let typeVarName: string | undefined;
 
-    if (type.typeAliasInfo && typeNode.nodeType === ParseNodeType.Name) {
+    if (type.props?.typeAliasInfo && typeNode.nodeType === ParseNodeType.Name) {
         const typeAliasInfo = getTypeAliasInfo(type);
         if (typeAliasInfo?.name === typeNode.value) {
             if (isTypeVar(type)) {

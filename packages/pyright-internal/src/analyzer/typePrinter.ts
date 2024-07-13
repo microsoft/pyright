@@ -231,7 +231,8 @@ function printTypeInternal(
 
     // If this is a type alias, see if we should use its name rather than
     // the type it represents.
-    if (type.typeAliasInfo) {
+    const aliasInfo = type.props?.typeAliasInfo;
+    if (aliasInfo) {
         let expandTypeAlias = true;
         if ((printTypeFlags & PrintTypeFlags.ExpandTypeAlias) === 0) {
             expandTypeAlias = false;
@@ -246,27 +247,27 @@ function printTypeInternal(
                 recursionTypes.push(type);
                 let aliasName =
                     (printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0
-                        ? type.typeAliasInfo.fullName
-                        : type.typeAliasInfo.name;
+                        ? aliasInfo.fullName
+                        : aliasInfo.name;
 
                 // Use the fully-qualified name if the name isn't unique.
                 if (!uniqueNameMap.isUnique(aliasName)) {
-                    aliasName = type.typeAliasInfo.fullName;
+                    aliasName = aliasInfo.fullName;
                 }
 
-                const typeParams = type.typeAliasInfo.typeParameters;
+                const typeParams = aliasInfo.typeParameters;
 
                 if (typeParams && typeParams.length > 0) {
                     let argumentStrings: string[] | undefined;
 
                     // If there is a type arguments array, it's a specialized type alias.
-                    if (type.typeAliasInfo.typeArguments) {
+                    if (aliasInfo.typeArguments) {
                         if (
                             (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfUnknown) === 0 ||
-                            type.typeAliasInfo.typeArguments.some((typeArg) => !isUnknown(typeArg))
+                            aliasInfo.typeArguments.some((typeArg) => !isUnknown(typeArg))
                         ) {
                             argumentStrings = [];
-                            type.typeAliasInfo.typeArguments.forEach((typeArg, index) => {
+                            aliasInfo.typeArguments.forEach((typeArg, index) => {
                                 // Which type parameter does this map to?
                                 const typeParam =
                                     index < typeParams.length ? typeParams[index] : typeParams[typeParams.length - 1];
@@ -348,9 +349,7 @@ function printTypeInternal(
 
     if (
         recursionTypes.find(
-            (t) =>
-                t === type ||
-                (t.typeAliasInfo !== undefined && t.typeAliasInfo.fullName === type.typeAliasInfo?.fullName)
+            (t) => t === type || (!!t.props?.typeAliasInfo && t.props.typeAliasInfo.fullName === aliasInfo?.fullName)
         ) ||
         recursionTypes.length > maxTypeRecursionCount
     ) {
@@ -360,14 +359,14 @@ function printTypeInternal(
             return type.details.recursiveTypeAliasName;
         }
 
-        if (type.typeAliasInfo) {
-            if (!type.typeAliasInfo.typeParameters) {
+        if (aliasInfo) {
+            if (!aliasInfo.typeParameters) {
                 let name =
                     (printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0
-                        ? type.typeAliasInfo.fullName
-                        : type.typeAliasInfo.name;
+                        ? aliasInfo.fullName
+                        : aliasInfo.name;
                 if (!uniqueNameMap.isUnique(name)) {
-                    name = type.typeAliasInfo.fullName;
+                    name = aliasInfo.fullName;
                 }
                 return name;
             }
@@ -397,7 +396,7 @@ function printTypeInternal(
         const includeConditionalIndicator =
             (printTypeFlags & (PrintTypeFlags.OmitConditionalConstraint | PrintTypeFlags.PythonSyntax)) === 0;
         const getConditionalIndicator = (subtype: Type) => {
-            return subtype.condition !== undefined && includeConditionalIndicator ? '*' : '';
+            return !!subtype.props?.condition && includeConditionalIndicator ? '*' : '';
         };
 
         switch (type.category) {
@@ -450,9 +449,9 @@ function printTypeInternal(
                             typeToWrap = `Literal[${printLiteralValue(type)}]`;
                         }
                     } else {
-                        if (type.specialForm) {
+                        if (type.props?.specialForm) {
                             return printTypeInternal(
-                                type.specialForm,
+                                type.props.specialForm,
                                 printTypeFlags,
                                 returnTypeCallback,
                                 uniqueNameMap,
@@ -524,9 +523,9 @@ function printTypeInternal(
             case TypeCategory.Union: {
                 // If this is a value expression that evaluates to a union type but is
                 // not a type alias, simply print the special form ("UnionType").
-                if (TypeBase.isInstantiable(type) && type.specialForm && !type.typeAliasInfo) {
+                if (TypeBase.isInstantiable(type) && type.props?.specialForm && !aliasInfo) {
                     return printTypeInternal(
-                        type.specialForm,
+                        type.props.specialForm,
                         printTypeFlags,
                         returnTypeCallback,
                         uniqueNameMap,
@@ -1293,7 +1292,7 @@ function _printUnpack(textToWrap: string, flags: PrintTypeFlags) {
 // Surrounds a printed type with Type[...] as many times as needed
 // for the nested instantiable count.
 function _printNestedInstantiable(type: Type, textToWrap: string) {
-    const nestedTypes = (type.instantiableDepth ?? 0) + 1;
+    const nestedTypes = (type.props?.instantiableDepth ?? 0) + 1;
 
     for (let nestLevel = 0; nestLevel < nestedTypes; nestLevel++) {
         textToWrap = `type[${textToWrap}]`;
@@ -1341,7 +1340,8 @@ class UniqueNameMap {
         }
         recursionCount++;
 
-        if (type.typeAliasInfo) {
+        const aliasInfo = type.props?.typeAliasInfo;
+        if (aliasInfo) {
             let expandTypeAlias = true;
             if ((this._printTypeFlags & PrintTypeFlags.ExpandTypeAlias) === 0) {
                 expandTypeAlias = false;
@@ -1354,16 +1354,16 @@ class UniqueNameMap {
             if (!expandTypeAlias) {
                 const typeAliasName =
                     (this._printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0
-                        ? type.typeAliasInfo.fullName
-                        : type.typeAliasInfo.name;
+                        ? aliasInfo.fullName
+                        : aliasInfo.name;
                 this._addIfUnique(typeAliasName, type, /* useTypeAliasName */ true);
 
                 // Recursively add the type arguments if present.
-                if (type.typeAliasInfo.typeArguments) {
+                if (aliasInfo.typeArguments) {
                     recursionTypes.push(type);
 
                     try {
-                        type.typeAliasInfo.typeArguments.forEach((typeArg) => {
+                        aliasInfo.typeArguments.forEach((typeArg) => {
                             this.build(typeArg, recursionTypes, recursionCount);
                         });
                     } finally {
@@ -1460,7 +1460,7 @@ class UniqueNameMap {
 
     private _isSameTypeName(type1: Type, type2: Type, useTypeAliasName: boolean): boolean {
         if (useTypeAliasName) {
-            return type1.typeAliasInfo?.fullName === type2.typeAliasInfo?.fullName;
+            return type1.props?.typeAliasInfo?.fullName === type2.props?.typeAliasInfo?.fullName;
         }
 
         if (isClass(type1) && isClass(type2)) {

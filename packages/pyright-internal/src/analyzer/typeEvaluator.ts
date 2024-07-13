@@ -994,7 +994,7 @@ export function createTypeEvaluator(
                 const anySpecialForm = AnyType.createSpecialForm();
 
                 if (isAny(anySpecialForm)) {
-                    anySpecialForm.specialForm = anyClass;
+                    TypeBase.setSpecialForm(anySpecialForm, anyClass);
                 }
             }
         }
@@ -1341,7 +1341,8 @@ export function createTypeEvaluator(
         // If this is a PEP 695 type alias, remove the special form so the type
         // printer prints it as its aliased type rather than TypeAliasType.
         if ((flags & EvalFlags.TypeExpression) !== 0) {
-            if (typeResult.type.specialForm && ClassType.isBuiltIn(typeResult.type.specialForm, 'TypeAliasType')) {
+            const specialForm = typeResult.type.props?.specialForm;
+            if (specialForm && ClassType.isBuiltIn(specialForm, 'TypeAliasType')) {
                 typeResult.type = TypeBase.cloneAsSpecialForm(typeResult.type, undefined);
             }
         }
@@ -1700,7 +1701,7 @@ export function createTypeEvaluator(
                     if (strClass && isInstantiableClass(strClass)) {
                         let strInstance = ClassType.cloneAsInstance(strClass);
 
-                        if (subtype.condition) {
+                        if (subtype.props?.condition) {
                             strInstance = TypeBase.cloneForCondition(strInstance, getTypeCondition(subtype));
                         }
 
@@ -3789,7 +3790,7 @@ export function createTypeEvaluator(
                             promotionSubtype = ClassType.cloneAsInstance(promotionSubtype);
                         }
 
-                        promotionSubtype = addConditionToType(promotionSubtype, subtype.condition);
+                        promotionSubtype = addConditionToType(promotionSubtype, subtype.props?.condition);
                         typesToCombine.push(promotionSubtype);
                     }
                 }
@@ -4572,7 +4573,7 @@ export function createTypeEvaluator(
     // Reports diagnostics if type isn't valid within a type expression.
     function validateSymbolIsTypeExpression(node: ExpressionNode, type: Type, includesVariableDecl: boolean): Type {
         // Verify that the name does not refer to a (non type alias) variable.
-        if (!includesVariableDecl || type.typeAliasInfo) {
+        if (!includesVariableDecl || type.props?.typeAliasInfo) {
             return type;
         }
 
@@ -4609,12 +4610,12 @@ export function createTypeEvaluator(
         // Isinstance treats traditional (non-PEP 695) type aliases that are unions
         // as tuples of classes rather than unions.
         if ((flags & EvalFlags.IsinstanceArg) !== 0) {
-            if (isUnion(type) && type.typeAliasInfo && !type.typeAliasInfo.isPep695Syntax) {
+            if (isUnion(type) && type.props?.typeAliasInfo && !type.props.typeAliasInfo.isPep695Syntax) {
                 return type;
             }
         }
 
-        return type.specialForm ?? type;
+        return type.props?.specialForm ?? type;
     }
 
     // Handles the case where a variable or parameter is defined in an outer
@@ -4864,7 +4865,7 @@ export function createTypeEvaluator(
         // Is this a generic class that needs to be specialized?
         if (isInstantiableClass(type)) {
             if ((flags & EvalFlags.InstantiableType) !== 0 && (flags & EvalFlags.AllowMissingTypeArgs) === 0) {
-                if (!type.typeAliasInfo && requiresTypeArguments(type)) {
+                if (!type.props?.typeAliasInfo && requiresTypeArguments(type)) {
                     if (!type.typeArguments || !type.isTypeArgumentExplicit) {
                         addDiagnostic(
                             DiagnosticRule.reportMissingTypeArgument,
@@ -4883,18 +4884,19 @@ export function createTypeEvaluator(
         }
 
         // Is this a generic type alias that needs to be specialized?
+        const aliasInfo = type.props?.typeAliasInfo;
         if (
             (flags & EvalFlags.InstantiableType) !== 0 &&
-            type.typeAliasInfo &&
-            type.typeAliasInfo.typeParameters &&
-            type.typeAliasInfo.typeParameters.length > 0 &&
-            !type.typeAliasInfo.typeArguments
+            aliasInfo &&
+            aliasInfo.typeParameters &&
+            aliasInfo.typeParameters.length > 0 &&
+            !aliasInfo.typeArguments
         ) {
             let reportMissingTypeArguments = false;
             const defaultTypeArgs: Type[] = [];
-            const typeVarContext = new TypeVarContext(type.typeAliasInfo.typeVarScopeId);
+            const typeVarContext = new TypeVarContext(aliasInfo.typeVarScopeId);
 
-            type.typeAliasInfo.typeParameters.forEach((param) => {
+            aliasInfo.typeParameters.forEach((param) => {
                 if (!param.details.isDefaultExplicit) {
                     reportMissingTypeArguments = true;
                 }
@@ -4922,7 +4924,7 @@ export function createTypeEvaluator(
                 addDiagnostic(
                     DiagnosticRule.reportMissingTypeArgument,
                     LocMessage.typeArgsMissingForAlias().format({
-                        name: type.typeAliasInfo.name,
+                        name: aliasInfo.name,
                     }),
                     node
                 );
@@ -4933,13 +4935,13 @@ export function createTypeEvaluator(
                     unknownIfNotFound: true,
                     tupleClassType: getTupleClassType(),
                 }),
-                type.typeAliasInfo.name,
-                type.typeAliasInfo.fullName,
-                type.typeAliasInfo.moduleName,
-                type.typeAliasInfo.fileUri,
-                type.typeAliasInfo.typeVarScopeId,
-                type.typeAliasInfo.isPep695Syntax,
-                type.typeAliasInfo.typeParameters,
+                aliasInfo.name,
+                aliasInfo.fullName,
+                aliasInfo.moduleName,
+                aliasInfo.fileUri,
+                aliasInfo.typeVarScopeId,
+                aliasInfo.isPep695Syntax,
+                aliasInfo.typeParameters,
                 defaultTypeArgs
             );
         }
@@ -5165,7 +5167,7 @@ export function createTypeEvaluator(
         // We need to check for functions as well to handle Callable.
         if (
             (isInstantiableClass(typeResult.type) && !typeResult.type.includeSubclasses) ||
-            typeResult.type.specialForm
+            typeResult.type.props?.specialForm
         ) {
             const argNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.Argument);
             if (argNode && argNode?.parent?.nodeType === ParseNodeType.Call) {
@@ -5215,8 +5217,8 @@ export function createTypeEvaluator(
             return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
         }
 
-        if (baseType.specialForm && (flags & EvalFlags.TypeExpression) === 0) {
-            baseType = baseType.specialForm;
+        if (baseType.props?.specialForm && (flags & EvalFlags.TypeExpression) === 0) {
+            baseType = baseType.props.specialForm;
         }
 
         if (isParamSpec(baseType) && baseType.paramSpecAccess) {
@@ -6673,10 +6675,8 @@ export function createTypeEvaluator(
         baseType: Type,
         flags: EvalFlags
     ): TypeResultWithNode | undefined {
-        if (
-            !baseType.typeAliasInfo?.typeParameters ||
-            (baseType.typeAliasInfo.typeParameters.length === 0 && baseType.typeAliasInfo.typeArguments)
-        ) {
+        const aliasInfo = baseType.props?.typeAliasInfo;
+        if (!aliasInfo?.typeParameters || (aliasInfo.typeParameters.length === 0 && aliasInfo.typeArguments)) {
             return undefined;
         }
 
@@ -6686,11 +6686,11 @@ export function createTypeEvaluator(
         }
 
         // If this is already specialized, the index expression isn't a specialization.
-        if (baseType.typeAliasInfo.typeArguments) {
+        if (aliasInfo.typeArguments) {
             return undefined;
         }
 
-        const typeParameters = baseType.typeAliasInfo.typeParameters;
+        const typeParameters = aliasInfo.typeParameters;
         let typeArgs = adjustTypeArgumentsForVariadicTypeVar(getTypeArgs(node, flags), typeParameters, node);
 
         // PEP 612 says that if the class has only one type parameter consisting
@@ -6748,7 +6748,7 @@ export function createTypeEvaluator(
             return { node, type: typeArgs[0].type };
         }
 
-        const typeVarContext = new TypeVarContext(baseType.typeAliasInfo.typeVarScopeId);
+        const typeVarContext = new TypeVarContext(aliasInfo.typeVarScopeId);
         const diag = new DiagnosticAddendum();
 
         typeParameters.forEach((param, index) => {
@@ -6902,7 +6902,7 @@ export function createTypeEvaluator(
         const primarySignatureContext = typeVarContext.getPrimarySignature();
         const aliasTypeArgs: Type[] = [];
 
-        baseType.typeAliasInfo.typeParameters?.forEach((typeParam) => {
+        aliasInfo.typeParameters?.forEach((typeParam) => {
             let typeVarType: Type | undefined;
 
             if (isParamSpec(typeParam)) {
@@ -6927,13 +6927,13 @@ export function createTypeEvaluator(
 
         const type = TypeBase.cloneForTypeAlias(
             applySolvedTypeVars(baseType, typeVarContext),
-            baseType.typeAliasInfo.name,
-            baseType.typeAliasInfo.fullName,
-            baseType.typeAliasInfo.moduleName,
-            baseType.typeAliasInfo.fileUri,
-            baseType.typeAliasInfo.typeVarScopeId,
-            baseType.typeAliasInfo.isPep695Syntax,
-            baseType.typeAliasInfo.typeParameters,
+            aliasInfo.name,
+            aliasInfo.fullName,
+            aliasInfo.moduleName,
+            aliasInfo.fileUri,
+            aliasInfo.typeVarScopeId,
+            aliasInfo.isPep695Syntax,
+            aliasInfo.typeParameters,
             aliasTypeArgs
         );
 
@@ -7206,24 +7206,26 @@ export function createTypeEvaluator(
     // it can be important in cases where the type alias is used to specify
     // a base class in a class definition.
     function inferTypeParameterVarianceForTypeAlias(type: Type): Variance[] | undefined {
+        const aliasInfo = type.props?.typeAliasInfo;
+
         // If this isn't a generic type alias, there's nothing to do.
-        if (!type.typeAliasInfo || !type.typeAliasInfo.typeParameters) {
+        if (!aliasInfo || !aliasInfo.typeParameters) {
             return undefined;
         }
 
         // Is the usage variance info already cached?
-        if (type.typeAliasInfo.usageVariance) {
-            return type.typeAliasInfo.usageVariance;
+        if (aliasInfo.usageVariance) {
+            return aliasInfo.usageVariance;
         }
 
-        const typeParams = type.typeAliasInfo.typeParameters;
+        const typeParams = aliasInfo.typeParameters;
 
         // Start with all of the usage variances unknown.
         const usageVariances: Variance[] = typeParams.map(() => Variance.Unknown);
 
         // Prepopulate the cached value for the type alias to handle
         // recursive type aliases.
-        type.typeAliasInfo.usageVariance = usageVariances;
+        aliasInfo.usageVariance = usageVariances;
 
         // Traverse the type alias type definition and adjust the usage
         // variances accordingly.
@@ -7461,7 +7463,7 @@ export function createTypeEvaluator(
 
             // Expand constrained type variables.
             if (isTypeVar(setType) && setType.details.constraints.length > 0) {
-                const conditionFilter = isClassInstance(baseType) ? baseType.condition : undefined;
+                const conditionFilter = isClassInstance(baseType) ? baseType.props?.condition : undefined;
                 setType = makeTopLevelTypeVarsConcrete(
                     setType,
                     /* makeParamSpecsConcrete */ undefined,
@@ -8562,7 +8564,7 @@ export function createTypeEvaluator(
                               ClassType.cloneIncludeSubclasses(bindToType, /* includeSubclasses */ false),
                               /* isClsParam */ false
                           ),
-                          bindToType.condition
+                          bindToType.props?.condition
                       )
                     : undefined,
             };
@@ -9249,12 +9251,12 @@ export function createTypeEvaluator(
         recursionCount++;
 
         // Special forms are not callable.
-        if (callTypeResult.type.specialForm) {
+        if (callTypeResult.type.props?.specialForm) {
             const exprNode = errorNode.nodeType === ParseNodeType.Call ? errorNode.leftExpression : errorNode;
             addDiagnostic(
                 DiagnosticRule.reportCallIssue,
                 LocMessage.objectNotCallable().format({
-                    type: printType(callTypeResult.type.specialForm, { expandTypeAlias: true }),
+                    type: printType(callTypeResult.type.props.specialForm, { expandTypeAlias: true }),
                 }),
                 exprNode
             );
@@ -10074,8 +10076,8 @@ export function createTypeEvaluator(
             /* signatureTracker */ undefined
         ).type;
 
-        if (castFromType.specialForm) {
-            castFromType = castFromType.specialForm;
+        if (castFromType.props?.specialForm) {
+            castFromType = castFromType.props.specialForm;
         }
 
         if (TypeBase.isInstantiable(castToType) && !isUnknown(castToType)) {
@@ -12161,7 +12163,7 @@ export function createTypeEvaluator(
             );
         }
 
-        const condition = argType.condition;
+        const condition = argType.props?.condition;
 
         let diag = new DiagnosticAddendum();
 
@@ -12979,9 +12981,9 @@ export function createTypeEvaluator(
 
         // Specifically disallow Annotated.
         if (
-            baseClass.specialForm &&
-            isInstantiableClass(baseClass.specialForm) &&
-            ClassType.isBuiltIn(baseClass.specialForm, 'Annotated')
+            baseClass.props?.specialForm &&
+            isInstantiableClass(baseClass.props.specialForm) &&
+            ClassType.isBuiltIn(baseClass.props.specialForm, 'Annotated')
         ) {
             addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -14775,7 +14777,8 @@ export function createTypeEvaluator(
     ): FunctionType {
         const functionType = FunctionType.createInstantiable(FunctionTypeFlags.None);
         let paramSpec: TypeVarType | undefined;
-        functionType.specialForm = classType;
+
+        TypeBase.setSpecialForm(functionType, classType);
         functionType.details.declaredReturnType = UnknownType.create();
         functionType.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(errorNode);
 
@@ -14955,7 +14958,7 @@ export function createTypeEvaluator(
         const type = getBuiltInType(node, builtInName);
         if (isInstantiableClass(type)) {
             const literalType = ClassType.cloneWithLiteral(type, value);
-            literalType.specialForm = literalClassType;
+            TypeBase.setSpecialForm(literalType, literalClassType);
             return literalType;
         }
 
@@ -16235,7 +16238,8 @@ export function createTypeEvaluator(
 
                 // Record the type parameters within the recursive type alias so it
                 // can be specialized.
-                typeAliasPlaceholder.details.recursiveTypeParameters = rightHandType.typeAliasInfo?.typeParameters;
+                typeAliasPlaceholder.details.recursiveTypeParameters =
+                    rightHandType.props?.typeAliasInfo?.typeParameters;
             } else {
                 // If the RHS is a constant boolean expression, assign it a literal type.
                 const constExprValue = evaluateStaticBoolExpression(
@@ -16521,7 +16525,11 @@ export function createTypeEvaluator(
                     } else {
                         argType = getTypeOfExpression(arg.valueExpression, exprFlags).type;
 
-                        if (isTypeVar(argType) && argType.specialForm && TypeBase.isInstance(argType.specialForm)) {
+                        if (
+                            isTypeVar(argType) &&
+                            argType.props?.specialForm &&
+                            TypeBase.isInstance(argType.props.specialForm)
+                        ) {
                             addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.baseClassInvalid(), arg);
                             argType = UnknownType.create();
                         }
@@ -16538,7 +16546,7 @@ export function createTypeEvaluator(
 
                     // Any is allowed as a base class. Remove its "special form" flag to avoid
                     // false positive errors.
-                    if (isAny(argType) && argType.specialForm) {
+                    if (isAny(argType) && argType.props?.specialForm) {
                         argType = AnyType.create();
                     }
 
@@ -16607,7 +16615,10 @@ export function createTypeEvaluator(
 
                             // If the class is attempting to derive from a TypeAliasType,
                             // generate an error.
-                            if (argType.specialForm && ClassType.isBuiltIn(argType.specialForm, 'TypeAliasType')) {
+                            if (
+                                argType.props?.specialForm &&
+                                ClassType.isBuiltIn(argType.props.specialForm, 'TypeAliasType')
+                            ) {
                                 addError(LocMessage.typeAliasTypeBaseClass(), arg);
                                 argType = UnknownType.create();
                             }
@@ -18570,8 +18581,8 @@ export function createTypeEvaluator(
                                         let returnType = returnTypeResult.type;
 
                                         // If the type is a special form, use the special form instead.
-                                        if (returnType.specialForm) {
-                                            returnType = returnType.specialForm;
+                                        if (returnType.props?.specialForm) {
+                                            returnType = returnType.props.specialForm;
                                         }
 
                                         // If the return type includes an instance of a class with isEmptyContainer
@@ -20409,8 +20420,8 @@ export function createTypeEvaluator(
         signatureTracker: UniqueSignatureTracker | undefined
     ): TypeResult {
         if (arg.typeResult) {
-            const type = arg.typeResult.type?.specialForm ?? arg.typeResult.type;
-            return { type, isIncomplete: arg.typeResult.isIncomplete };
+            const type = arg.typeResult.type;
+            return { type: type?.props?.specialForm ?? type, isIncomplete: arg.typeResult.isIncomplete };
         }
 
         if (!arg.valueExpression) {
@@ -23322,19 +23333,20 @@ export function createTypeEvaluator(
 
         // If the source type is a special form, use the literal special form
         // class rather than the symbolic form.
-        if (srcType.specialForm) {
+        const specialForm = srcType.props?.specialForm;
+        if (specialForm) {
             let isSpecialFormExempt = false;
 
             // A few special forms that are normally not compatible with type[T]
             // are compatible specifically in the context of isinstance and issubclass.
             if ((flags & AssignTypeFlags.AllowIsinstanceSpecialForms) !== 0) {
-                if (ClassType.isBuiltIn(srcType.specialForm, ['Callable', 'UnionType', 'Generic'])) {
+                if (ClassType.isBuiltIn(specialForm, ['Callable', 'UnionType', 'Generic'])) {
                     isSpecialFormExempt = true;
                 }
             }
 
             if (!isSpecialFormExempt) {
-                srcType = srcType.specialForm;
+                srcType = specialForm;
             }
         }
 
@@ -23351,15 +23363,18 @@ export function createTypeEvaluator(
             isTypeVar(srcType) &&
             srcType.details.recursiveTypeAliasScopeId
         ) {
+            const destAliasInfo = destType.props?.typeAliasInfo;
+            const srcAliasInfo = srcType.props?.typeAliasInfo;
+
             // Do the source and dest refer to the same recursive type alias?
             if (
-                destType.typeAliasInfo?.typeArguments &&
-                srcType.typeAliasInfo?.typeArguments &&
+                destAliasInfo?.typeArguments &&
+                srcAliasInfo?.typeArguments &&
                 destType.details.recursiveTypeAliasScopeId === srcType.details.recursiveTypeAliasScopeId
             ) {
                 let isAssignable = true;
-                const srcTypeArgs = srcType.typeAliasInfo.typeArguments;
-                destType.typeAliasInfo.typeArguments.forEach((destTypeArg, index) => {
+                const srcTypeArgs = srcAliasInfo.typeArguments;
+                destAliasInfo.typeArguments.forEach((destTypeArg, index) => {
                     const srcTypeArg = index < srcTypeArgs.length ? srcTypeArgs[index] : UnknownType.create();
                     if (
                         !assignType(
@@ -23466,8 +23481,8 @@ export function createTypeEvaluator(
             const destTypeVar = destType;
             if (
                 TypeBase.isInstantiable(destType) === TypeBase.isInstantiable(srcType) &&
-                srcType.condition &&
-                srcType.condition.some((cond) => {
+                srcType.props?.condition &&
+                srcType.props.condition.some((cond) => {
                     return (
                         cond.typeVar.details.constraints.length === 0 &&
                         cond.typeVar.nameWithScope === destTypeVar.nameWithScope
@@ -23646,7 +23661,7 @@ export function createTypeEvaluator(
             return true;
         }
 
-        if (isAnyOrUnknown(srcType) && !srcType.specialForm) {
+        if (isAnyOrUnknown(srcType) && !srcType.props?.specialForm) {
             const targetTypeVarContext =
                 (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
             if (targetTypeVarContext) {
@@ -23821,14 +23836,14 @@ export function createTypeEvaluator(
                     }
                 }
 
-                if (ClassType.isBuiltIn(destType, 'type') && (srcType.instantiableDepth ?? 0) > 0) {
+                if (ClassType.isBuiltIn(destType, 'type') && (srcType.props?.instantiableDepth ?? 0) > 0) {
                     return true;
                 }
 
                 if (isSpecialFormClass(expandedSrcType, flags)) {
-                    if (destType.specialForm) {
+                    if (destType.props?.specialForm) {
                         return assignType(
-                            destType.specialForm,
+                            destType.props.specialForm,
                             expandedSrcType,
                             diag,
                             destTypeVarContext,
@@ -24062,7 +24077,7 @@ export function createTypeEvaluator(
                         );
                     }
                 }
-            } else if (isAnyOrUnknown(concreteSrcType) && !concreteSrcType.specialForm) {
+            } else if (isAnyOrUnknown(concreteSrcType) && !concreteSrcType.props?.specialForm) {
                 return (flags & AssignTypeFlags.OverloadOverlapCheck) === 0;
             } else if (isUnion(concreteSrcType)) {
                 return assignType(
@@ -24630,7 +24645,7 @@ export function createTypeEvaluator(
     // proper subtypes of each other.
     function isProperSubtype(destType: Type, srcType: Type, recursionCount: number) {
         // If the destType has a condition, don't consider the srcType a proper subtype.
-        if (destType.condition) {
+        if (destType.props?.condition) {
             return false;
         }
 
@@ -27116,7 +27131,7 @@ export function createTypeEvaluator(
         if (isUnknown(type)) {
             // If this is a union type, we'll assume that it was meant as a type
             // alias even though all of the union subtypes are Unknown.
-            if (type.specialForm && ClassType.isBuiltIn(type.specialForm, 'UnionType')) {
+            if (type.props?.specialForm && ClassType.isBuiltIn(type.props.specialForm, 'UnionType')) {
                 return true;
             }
             return false;

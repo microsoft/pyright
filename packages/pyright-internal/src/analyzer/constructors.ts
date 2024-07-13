@@ -128,8 +128,9 @@ export function validateConstructorArguments(
 ): CallResult {
     // If this is an unspecialized generic type alias, specialize it now
     // using default type argument values.
-    if (type.typeAliasInfo?.typeParameters && !type.typeAliasInfo.typeArguments) {
-        const typeAliasTypeVarContext = new TypeVarContext(type.typeAliasInfo.typeVarScopeId);
+    const aliasInfo = type.props?.typeAliasInfo;
+    if (aliasInfo?.typeParameters && !aliasInfo.typeArguments) {
+        const typeAliasTypeVarContext = new TypeVarContext(aliasInfo.typeVarScopeId);
         type = applySolvedTypeVars(type, typeAliasTypeVarContext, { unknownIfNotFound: true }) as ClassType;
     }
 

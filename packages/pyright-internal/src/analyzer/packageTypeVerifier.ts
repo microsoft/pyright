@@ -753,12 +753,13 @@ export class PackageTypeVerifier {
     ): TypeKnownStatus {
         let knownStatus = TypeKnownStatus.Known;
 
-        if (type.typeAliasInfo && type.typeAliasInfo.typeArguments) {
-            type.typeAliasInfo.typeArguments.forEach((typeArg, index) => {
+        const aliasInfo = type.props?.typeAliasInfo;
+        if (aliasInfo?.typeArguments) {
+            aliasInfo.typeArguments.forEach((typeArg, index) => {
                 if (isUnknown(typeArg)) {
                     this._addSymbolError(
                         symbolInfo,
-                        `Type argument ${index + 1} for type alias "${type.typeAliasInfo!.name}" has unknown type`,
+                        `Type argument ${index + 1} for type alias "${aliasInfo!.name}" has unknown type`,
                         declRange,
                         declFileUri
                     );
@@ -766,9 +767,7 @@ export class PackageTypeVerifier {
                 } else if (isPartlyUnknown(typeArg)) {
                     this._addSymbolError(
                         symbolInfo,
-                        `Type argument ${index + 1} for type alias "${
-                            type.typeAliasInfo!.name
-                        }" has partially unknown type`,
+                        `Type argument ${index + 1} for type alias "${aliasInfo!.name}" has partially unknown type`,
                         declRange,
                         declFileUri
                     );
@@ -1300,18 +1299,15 @@ export class PackageTypeVerifier {
     ): TypeKnownStatus {
         let knownStatus = TypeKnownStatus.Known;
 
-        if (type.typeAliasInfo && type.typeAliasInfo.typeArguments) {
-            type.typeAliasInfo.typeArguments.forEach((typeArg, index) => {
+        const aliasInfo = type.props?.typeAliasInfo;
+        if (aliasInfo?.typeArguments) {
+            aliasInfo.typeArguments.forEach((typeArg, index) => {
                 if (isUnknown(typeArg)) {
-                    diag.addMessage(
-                        `Type argument ${index + 1} for type alias "${type.typeAliasInfo!.name}" has unknown type`
-                    );
+                    diag.addMessage(`Type argument ${index + 1} for type alias "${aliasInfo!.name}" has unknown type`);
                     knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                 } else if (isPartlyUnknown(typeArg)) {
                     diag.addMessage(
-                        `Type argument ${index + 1} for type alias "${
-                            type.typeAliasInfo!.name
-                        }" has partially unknown type`
+                        `Type argument ${index + 1} for type alias "${aliasInfo!.name}" has partially unknown type`
                     );
                     knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.PartiallyUnknown);
                 }
@@ -1418,7 +1414,7 @@ export class PackageTypeVerifier {
     }
 
     private _getSymbolCategory(symbol: Symbol, type: Type): SymbolCategory {
-        if (type.typeAliasInfo) {
+        if (type.props?.typeAliasInfo) {
             return SymbolCategory.TypeAlias;
         }
 

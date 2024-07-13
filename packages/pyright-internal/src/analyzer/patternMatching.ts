@@ -701,7 +701,7 @@ function narrowTypeBasedOnClassPattern(
 
     // If this is a class (but not a type alias that refers to a class),
     // specialize it with Unknown type arguments.
-    if (isClass(exprType) && !exprType.typeAliasInfo) {
+    if (isClass(exprType) && !exprType.props?.typeAliasInfo) {
         exprType = ClassType.cloneRemoveTypePromotions(exprType);
         exprType = specializeWithUnknownTypeArgs(exprType, evaluator.getTupleClassType());
     }
@@ -1888,8 +1888,8 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
 
     // If the expression is a type alias or other special form, treat it
     // as the special form rather than the class.
-    if (exprType.specialForm) {
-        exprType = exprType.specialForm;
+    if (exprType.props?.specialForm) {
+        exprType = exprType.props.specialForm;
     }
 
     if (isAnyOrUnknown(exprType)) {
@@ -1898,7 +1898,7 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
 
     // Check for certain uses of type aliases that generate runtime exceptions.
     if (
-        exprType.typeAliasInfo &&
+        exprType.props?.typeAliasInfo &&
         isInstantiableClass(exprType) &&
         exprType.typeArguments &&
         exprType.isTypeArgumentExplicit

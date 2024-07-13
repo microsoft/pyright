@@ -409,7 +409,7 @@ export class TypeStubWriter extends ParseTreeWalker {
                 }
 
                 const valueType = this._evaluator.getType(node.leftExpression);
-                if (valueType?.typeAliasInfo) {
+                if (valueType?.props?.typeAliasInfo) {
                     isTypeAlias = true;
                 } else if (node.rightExpression.nodeType === ParseNodeType.Call) {
                     // Special-case TypeVar, TypeVarTuple, ParamSpec and NewType calls. Treat
