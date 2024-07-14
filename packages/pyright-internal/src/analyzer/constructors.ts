@@ -15,8 +15,7 @@
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { LocMessage } from '../localization/localize';
-import { ArgumentCategory, ExpressionNode, ParameterCategory } from '../parser/parseNodes';
+import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
 import { addConstraintsForExpectedType } from './constraintSolver';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
 import { getTypeVarScopesForNode } from './parseTreeUtils';
@@ -65,7 +64,6 @@ import {
     isOverloadedFunction,
     isParamSpec,
     isTypeVar,
-    isUnion,
     isUnknown,
 } from './types';
 
@@ -669,68 +667,33 @@ function validateFallbackConstructorCall(
     type: ClassType,
     inferenceContext: InferenceContext | undefined
 ): CallResult {
-    let reportedErrors = false;
+    // Bind the __new__ method from the object class.
+    const newMethodType = getBoundNewMethod(
+        evaluator,
+        errorNode,
+        type,
+        /* diag */ undefined,
+        /* additionalFlags */ MemberAccessFlags.Default
+    )?.type;
 
-    // It's OK if the argument list consists only of `*args` and `**kwargs`.
-    if (argList.length > 0 && argList.some((arg) => arg.argumentCategory === ArgumentCategory.Simple)) {
-        evaluator.addDiagnostic(
-            DiagnosticRule.reportCallIssue,
-            LocMessage.constructorNoArgs().format({ type: type.priv.aliasName || type.shared.name }),
-            errorNode
-        );
-        reportedErrors = true;
+    // If there was no object.__new__ or it's not a callable, then something has
+    // gone terribly wrong in the typeshed stubs. To avoid crashing, simply
+    // return the instance.
+    if (!newMethodType || (!isFunction(newMethodType) && !isOverloadedFunction(newMethodType))) {
+        return { returnType: convertToInstance(type) };
     }
 
-    if (!inferenceContext && type.priv.typeArguments) {
-        // If there was no expected type but the type was already specialized,
-        // assume that we're constructing an instance of the specialized type.
-        return {
-            argumentErrors: reportedErrors,
-            overloadsUsedForCall: [],
-            returnType: convertToInstance(type),
-        };
-    }
-
-    // Do our best to specialize the instantiated class based on the expected
-    // type if provided.
-    const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
-
-    if (inferenceContext) {
-        let expectedType: Type | undefined = inferenceContext.expectedType;
-
-        // If the expectedType is a union, try to pick one that is likely to
-        // be the best choice.
-        if (isUnion(expectedType)) {
-            expectedType = findSubtype(expectedType, (subtype) => {
-                if (isAnyOrUnknown(subtype) || isNever(subtype)) {
-                    return false;
-                }
-
-                if (isClass(subtype) && evaluator.assignType(subtype, ClassType.cloneAsInstance(type))) {
-                    return true;
-                }
-
-                return false;
-            });
-        }
-
-        if (expectedType) {
-            addConstraintsForExpectedType(
-                evaluator,
-                ClassType.cloneAsInstance(type),
-                expectedType,
-                typeVarContext,
-                getTypeVarScopesForNode(errorNode),
-                errorNode.start
-            );
-        }
-    }
-
-    return {
-        argumentErrors: reportedErrors,
-        overloadsUsedForCall: [],
-        returnType: applyExpectedTypeForConstructor(evaluator, type, inferenceContext, typeVarContext),
-    };
+    return validateNewMethod(
+        evaluator,
+        errorNode,
+        argList,
+        type,
+        /* skipUnknownArgCheck */ false,
+        inferenceContext,
+        /* signatureTracker */ undefined,
+        { type: newMethodType },
+        /* useSpeculativeModeForArgs */ false
+    );
 }
 
 function validateMetaclassCall(
