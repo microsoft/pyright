@@ -235,7 +235,6 @@ import {
     getTypeVarScopeIds,
     getUnknownTypeForCallable,
     getUnknownTypeForParamSpec,
-    isCallableType,
     isDescriptorInstance,
     isEffectivelyInstantiable,
     isEllipsisType,
@@ -11325,74 +11324,28 @@ export function createTypeEvaluator(
 
         // Prepopulate the typeVarContext based on the specialized expected type.
         // This will allow us to more closely match the expected type if possible.
-
-        // Determine which type arguments are needed to match the expected type.
-        if (isClassInstance(returnType)) {
-            // If the return type is a class and the expected type is a union
-            // that is type compatible with that class, filter the subtypes in
-            // the union to see if we can find one that is potentially compatible.
-            if (isUnion(expectedType)) {
-                const filteredType = mapSubtypes(
+        if (isClassInstance(returnType) && isClassInstance(expectedType) && !isTypeSame(returnType, expectedType)) {
+            const tempTypeVarContext = new TypeVarContext(getTypeVarScopeId(returnType));
+            if (
+                addConstraintsForExpectedType(
+                    evaluatorInterface,
+                    returnType,
                     expectedType,
-                    (subtype) => {
-                        if (!isClassInstance(subtype) || subtype.shared.typeParameters.length === 0) {
-                            return undefined;
-                        }
-
-                        if (
-                            ClassType.isProtocolClass(subtype) ||
-                            subtype.shared.mro.some((mroClass) => {
-                                return (
-                                    isClassInstance(mroClass) &&
-                                    mroClass.shared.typeParameters.length > 0 &&
-                                    ClassType.isSameGenericClass(returnType, mroClass)
-                                );
-                            })
-                        ) {
-                            return subtype;
-                        }
-
-                        return undefined;
-                    },
-                    { sortSubtypes: true }
-                );
-
-                if (isClassInstance(filteredType)) {
-                    expectedType = filteredType;
-                }
-            }
-
-            if (isClassInstance(expectedType) && !isTypeSame(returnType, expectedType)) {
-                const tempTypeVarContext = new TypeVarContext(getTypeVarScopeId(returnType));
-                if (
-                    addConstraintsForExpectedType(
-                        evaluatorInterface,
-                        returnType,
-                        expectedType,
-                        tempTypeVarContext,
-                        liveTypeVarScopes,
-                        errorNode.start
-                    )
-                ) {
-                    const genericReturnType = selfSpecializeClass(returnType, {
-                        overrideTypeArgs: true,
-                    });
-
-                    expectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
-                        unknownIfNotFound: true,
-                        tupleClassType: getTupleClassType(),
-                    });
-
-                    assignFlags |= AssignTypeFlags.SkipPopulateUnknownExpectedType;
-                }
-            }
-        } else if (isFunction(returnType)) {
-            // If the return type is a callable and the expected type is a union that
-            // includes one or more non-callables, filter those out.
-            if (isUnion(expectedType)) {
-                expectedType = mapSubtypes(expectedType, (subtype) => {
-                    return isCallableType(subtype) ? subtype : undefined;
+                    tempTypeVarContext,
+                    liveTypeVarScopes,
+                    errorNode.start
+                )
+            ) {
+                const genericReturnType = selfSpecializeClass(returnType, {
+                    overrideTypeArgs: true,
                 });
+
+                expectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
+                    unknownIfNotFound: true,
+                    tupleClassType: getTupleClassType(),
+                });
+
+                assignFlags |= AssignTypeFlags.SkipPopulateUnknownExpectedType;
             }
         }
 
