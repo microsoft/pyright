@@ -19933,11 +19933,11 @@ export function createTypeEvaluator(
             !codeFlowExpressions ||
             (!codeFlowExpressions.has(referenceKey) && !codeFlowExpressions.has(wildcardImportReferenceKey))
         ) {
-            return { type: undefined, isIncomplete: false };
+            return FlowNodeTypeResult.create(/* type */ undefined, /* isIncomplete */ false);
         }
 
         if (checkCodeFlowTooComplex(reference)) {
-            return { type: undefined, isIncomplete: true };
+            return FlowNodeTypeResult.create(/* type */ undefined, /* isIncomplete */ true);
         }
 
         // Is there an code flow analyzer cached for this execution scope?
@@ -19955,7 +19955,7 @@ export function createTypeEvaluator(
 
         const flowNode = AnalyzerNodeInfo.getFlowNode(startNode ?? reference);
         if (flowNode === undefined) {
-            return { type: undefined, isIncomplete: false };
+            return FlowNodeTypeResult.create(/* type */ undefined, /* isIncomplete */ false);
         }
 
         return analyzer.getTypeFromCodeFlow(flowNode!, reference, options);

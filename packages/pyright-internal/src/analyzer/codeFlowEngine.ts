@@ -76,9 +76,24 @@ import {
 export interface FlowNodeTypeResult {
     type: Type | undefined;
     isIncomplete: boolean;
-    generationCount?: number | undefined;
-    incompleteType?: Type | undefined;
-    incompleteSubtypes?: IncompleteSubtypeInfo[] | undefined;
+    generationCount: number | undefined;
+    incompleteSubtypes: IncompleteSubtypeInfo[] | undefined;
+}
+
+export namespace FlowNodeTypeResult {
+    export function create(
+        type: Type | undefined,
+        isIncomplete: boolean,
+        generationCount?: number,
+        incompleteSubtypes?: IncompleteSubtypeInfo[]
+    ): FlowNodeTypeResult {
+        return {
+            type,
+            isIncomplete,
+            generationCount,
+            incompleteSubtypes,
+        };
+    }
 }
 
 export interface FlowNodeTypeOptions {
@@ -276,12 +291,12 @@ export function getCodeFlowEngine(
                 flowNodeTypeCache.cache.set(flowNode.id, entry);
                 speculativeTypeTracker.trackEntry(flowNodeTypeCache.cache, flowNode.id);
 
-                return {
+                return FlowNodeTypeResult.create(
                     type,
                     isIncomplete,
-                    generationCount: flowIncompleteGeneration,
-                    incompleteSubtypes: isIncomplete ? [] : undefined,
-                };
+                    flowIncompleteGeneration,
+                    isIncomplete ? [] : undefined
+                );
             }
 
             function setIncompleteSubtype(
@@ -349,19 +364,19 @@ export function getCodeFlowEngine(
 
                 const cachedEntry = flowNodeTypeCache.cache.get(flowNode.id);
                 if (cachedEntry === undefined) {
-                    return { type: undefined, isIncomplete: false };
+                    return FlowNodeTypeResult.create(/* type */ undefined, /* isIncomplete */ false);
                 }
 
                 if (!isIncompleteType(cachedEntry)) {
-                    return { type: cachedEntry, isIncomplete: false };
+                    return FlowNodeTypeResult.create(cachedEntry, /* isIncomplete */ false);
                 }
 
-                return {
-                    type: cachedEntry.type,
-                    isIncomplete: true,
-                    incompleteSubtypes: cachedEntry.incompleteSubtypes,
-                    generationCount: cachedEntry.generationCount,
-                };
+                return FlowNodeTypeResult.create(
+                    cachedEntry.type,
+                    /* isIncomplete */ true,
+                    cachedEntry.generationCount,
+                    cachedEntry.incompleteSubtypes
+                );
             }
 
             function deleteCacheEntry(flowNode: FlowNode) {
@@ -422,19 +437,19 @@ export function getCodeFlowEngine(
                         // If the cached entry is incomplete, we can use it only if nothing
                         // has changed that may cause the previously-reported incomplete type to change.
                         if (cachedEntry.generationCount === flowIncompleteGeneration) {
-                            return {
-                                type: cachedEntry.type ? cleanIncompleteUnknown(cachedEntry.type) : undefined,
-                                isIncomplete: true,
-                            };
+                            return FlowNodeTypeResult.create(
+                                cachedEntry.type ? cleanIncompleteUnknown(cachedEntry.type) : undefined,
+                                /* isIncomplete */ true
+                            );
                         }
                     }
 
                     // Check for recursion.
                     if (flowNodeTypeCache.pendingNodes.has(curFlowNode.id)) {
-                        return {
-                            type: cachedEntry?.type ?? UnknownType.create(/* isIncomplete */ true),
-                            isIncomplete: true,
-                        };
+                        return FlowNodeTypeResult.create(
+                            cachedEntry?.type ?? UnknownType.create(/* isIncomplete */ true),
+                            /* isIncomplete */ true
+                        );
                     }
 
                     if (curFlowNode.flags & FlowFlags.Unreachable) {
@@ -504,10 +519,7 @@ export function getCodeFlowEngine(
                                 if (flowTypeResult) {
                                     if (isTypeAliasPlaceholder(flowTypeResult.type)) {
                                         // Don't cache a recursive type alias placeholder.
-                                        return {
-                                            type: flowTypeResult.type,
-                                            isIncomplete: true,
-                                        };
+                                        return FlowNodeTypeResult.create(flowTypeResult.type, /* isIncomplete */ true);
                                     } else if (
                                         reference.nodeType === ParseNodeType.MemberAccess &&
                                         evaluator.isAsymmetricAccessorAssignment(targetNode)
@@ -567,10 +579,10 @@ export function getCodeFlowEngine(
                                 //    a = Foo()
                                 //    x = a.b
                                 // The type of "a.b" can no longer be assumed to be Literal[3].
-                                return {
-                                    type: options?.typeAtStart?.type,
-                                    isIncomplete: !!options?.typeAtStart?.isIncomplete,
-                                };
+                                return FlowNodeTypeResult.create(
+                                    options?.typeAtStart?.type,
+                                    !!options?.typeAtStart?.isIncomplete
+                                );
                             }
                         }
 
@@ -934,10 +946,10 @@ export function getCodeFlowEngine(
                     // If entries have been added for all antecedents and there are pending entries
                     // that have not been evaluated even once, treat it as incomplete. We clean
                     // any incomplete unknowns from the type here to assist with type convergence.
-                    return {
-                        type: cacheEntry.type ? cleanIncompleteUnknown(cacheEntry.type) : undefined,
-                        isIncomplete: true,
-                    };
+                    return FlowNodeTypeResult.create(
+                        cacheEntry.type ? cleanIncompleteUnknown(cacheEntry.type) : undefined,
+                        /* isIncomplete */ true
+                    );
                 }
 
                 let attemptCount = 0;
@@ -1056,7 +1068,7 @@ export function getCodeFlowEngine(
                         // entry because we'll overwrite a pending evaluation. The type that
                         // we return here doesn't matter as long as it's not undefined.
                         return sawPending
-                            ? { type: UnknownType.create(), isIncomplete: false }
+                            ? FlowNodeTypeResult.create(UnknownType.create(), /* isIncomplete */ false)
                             : setCacheEntry(loopNode, UnknownType.create(), /* isIncomplete */ false);
                     }
 
@@ -1099,13 +1111,13 @@ export function getCodeFlowEngine(
                                 flowIncompleteGeneration++;
                             }
 
-                            return { type: effectiveType, isIncomplete: reportIncomplete };
+                            return FlowNodeTypeResult.create(effectiveType, reportIncomplete);
                         }
 
                         // If the first antecedent was pending, we skipped all of the other
                         // antecedents, so the type is incomplete.
                         if (firstAntecedentTypeIsPending) {
-                            return { type: effectiveType, isIncomplete: true };
+                            return FlowNodeTypeResult.create(effectiveType, /* isIncomplete */ true);
                         }
 
                         return setCacheEntry(loopNode, effectiveType, /* isIncomplete */ false);
@@ -1118,7 +1130,7 @@ export function getCodeFlowEngine(
             function getTypeFromPreFinallyGateFlowNode(preFinallyFlowNode: FlowPreFinallyGate): FlowNodeTypeResult {
                 // Is the finally gate closed?
                 if (flowNodeTypeCache.closedFinallyGateNodes.has(preFinallyFlowNode.id)) {
-                    return { type: undefined, isIncomplete: false };
+                    return FlowNodeTypeResult.create(/* type */ undefined, /* isIncomplete */ false);
                 }
 
                 const flowTypeResult = getTypeFromFlowNode(preFinallyFlowNode.antecedent);
@@ -1126,10 +1138,7 @@ export function getCodeFlowEngine(
                 // We want to cache the type only if we're evaluating the "gate closed" path.
                 deleteCacheEntry(preFinallyFlowNode);
 
-                return {
-                    type: flowTypeResult.type,
-                    isIncomplete: flowTypeResult.isIncomplete,
-                };
+                return FlowNodeTypeResult.create(flowTypeResult.type, flowTypeResult.isIncomplete);
             }
 
             function getTypeFromPostFinallyFlowNode(postFinallyFlowNode: FlowPostFinally): FlowNodeTypeResult {
@@ -1163,10 +1172,7 @@ export function getCodeFlowEngine(
                 // parse nodes that are created after the initial parse
                 // (namely, string literals that are used for forward
                 // referenced types).
-                return {
-                    type: options?.typeAtStart?.type,
-                    isIncomplete: !!options?.typeAtStart?.isIncomplete,
-                };
+                return FlowNodeTypeResult.create(options?.typeAtStart?.type, !!options?.typeAtStart?.isIncomplete);
             }
 
             return getTypeFromFlowNode(flowNode);
