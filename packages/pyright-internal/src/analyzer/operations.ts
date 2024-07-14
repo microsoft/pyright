@@ -283,7 +283,12 @@ export function validateBinaryOperation(
                             operator === OperatorType.Subtract ||
                             operator === OperatorType.Multiply ||
                             operator === OperatorType.FloorDivide ||
-                            operator === OperatorType.Mod
+                            operator === OperatorType.Mod ||
+                            operator === OperatorType.LeftShift ||
+                            operator === OperatorType.RightShift ||
+                            operator === OperatorType.BitwiseAnd ||
+                            operator === OperatorType.BitwiseOr ||
+                            operator === OperatorType.BitwiseXor
                         ) {
                             let isValidResult = true;
 
@@ -314,6 +319,16 @@ export function validateBinaryOperation(
                                             if (rightLiteralValue !== BigInt(0)) {
                                                 newValue = leftLiteralValue % rightLiteralValue;
                                             }
+                                        } else if (operator === OperatorType.LeftShift) {
+                                            newValue = leftLiteralValue << rightLiteralValue;
+                                        } else if (operator === OperatorType.RightShift) {
+                                            newValue = leftLiteralValue >> rightLiteralValue;
+                                        } else if (operator === OperatorType.BitwiseAnd) {
+                                            newValue = leftLiteralValue & rightLiteralValue;
+                                        } else if (operator === OperatorType.BitwiseOr) {
+                                            newValue = leftLiteralValue | rightLiteralValue;
+                                        } else if (operator === OperatorType.BitwiseXor) {
+                                            newValue = leftLiteralValue ^ rightLiteralValue;
                                         }
 
                                         if (newValue === undefined) {
@@ -992,11 +1007,13 @@ export function getTypeOfUnaryOperation(
     // is incomplete because we may be evaluating an expression within
     // a loop, so the literal value may change each time.
     if (!exprTypeResult.isIncomplete) {
+        const operator = node.d.operator;
         const literalClassName = getLiteralTypeClassName(exprType);
+
         if (literalClassName === 'int') {
-            if (node.d.operator === OperatorType.Add) {
+            if (operator === OperatorType.Add) {
                 type = exprType;
-            } else if (node.d.operator === OperatorType.Subtract) {
+            } else if (operator === OperatorType.Subtract) {
                 type = mapSubtypes(exprType, (subtype) => {
                     const classSubtype = subtype as ClassType;
                     return ClassType.cloneWithLiteral(
@@ -1004,9 +1021,17 @@ export function getTypeOfUnaryOperation(
                         -(classSubtype.priv.literalValue as number | bigint)
                     );
                 });
+            } else if (operator === OperatorType.BitwiseInvert) {
+                type = mapSubtypes(exprType, (subtype) => {
+                    const classSubtype = subtype as ClassType;
+                    return ClassType.cloneWithLiteral(
+                        classSubtype,
+                        ~(classSubtype.priv.literalValue as number | bigint)
+                    );
+                });
             }
         } else if (literalClassName === 'bool') {
-            if (node.d.operator === OperatorType.Not) {
+            if (operator === OperatorType.Not) {
                 type = mapSubtypes(exprType, (subtype) => {
                     const classSubtype = subtype as ClassType;
                     return ClassType.cloneWithLiteral(classSubtype, !(classSubtype.priv.literalValue as boolean));
