@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"Concaténation\" nécessite au moins deux arguments de type",
         "conditionalOperandInvalid": "Opérande conditionnel non valide de type \"{type}\"",
         "constantRedefinition": "\"{name}\" est constant (car il est en majuscule) et ne peut pas être redéfini",
-        "constructorNoArgs": "Aucun argument attendu pour le constructeur « {type} »",
         "constructorParametersMismatch": "Non-concordance entre la signature de __new__ et __init__ dans la classe \"{classType}\"",
         "containmentAlwaysFalse": "L'expression sera toujours évaluée à False car les types \"{leftType}\" et \"{rightType}\" ne se chevauchent pas",
         "containmentAlwaysTrue": "L'expression sera toujours évaluée à True puisque les types \"{leftType}\" et \"{rightType}\" ne se chevauchent pas",

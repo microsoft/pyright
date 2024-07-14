@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"Concatenate\" 至少需要兩個型別引數",
         "conditionalOperandInvalid": "型別 \"{type}\" 的條件運算元無效",
         "constantRedefinition": "\"{name}\" 是常數 (因為它是大寫) 且無法重新定義",
-        "constructorNoArgs": "預期 \"{type}\" 建構函式沒有引數",
         "constructorParametersMismatch": "類別 \"{classType}\" 中__new__與__init__的簽章不相符",
         "containmentAlwaysFalse": "運算式一律會評估為 False，因為型別 \"{leftType}\" 和 \"{rightType}\" 沒有重疊",
         "containmentAlwaysTrue": "運算式一律會評估為 True，因為型別 \"{leftType}\" 和 \"{rightType}\" 沒有重疊",

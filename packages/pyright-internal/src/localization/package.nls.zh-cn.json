@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "“Concatenate” 至少需要两个类型参数",
         "conditionalOperandInvalid": "类型“{type}”的条件操作数无效",
         "constantRedefinition": "“{name}”是常量 (因为它是大写)且无法重新定义",
-        "constructorNoArgs": "\"{type}\"构造函数不应有参数",
         "constructorParametersMismatch": "类“{classType}”中__new__和__init__的签名不匹配",
         "containmentAlwaysFalse": "表达式的计算结果始终为 False，因为类型“{leftType}”和“{rightType}”没有重叠",
         "containmentAlwaysTrue": "表达式的计算结果始终为 True，因为类型“{leftType}”和“{rightType}”没有重叠",

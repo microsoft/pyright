@@ -84,7 +84,6 @@
         "containmentAlwaysTrue": "Expression will always evaluate to True since the types \"{leftType}\" and \"{rightType}\" have no overlap",
         "continueInFinally": "\"continue\" cannot be used within a finally clause",
         "continueOutsideLoop": "\"continue\" can be used only within a loop",
-        "constructorNoArgs": "Expected no arguments to \"{type}\" constructor",
         "coroutineInConditionalExpression": "Conditional expression references coroutine which always evaluates to True",
         "dataClassBaseClassFrozen": "A non-frozen class cannot inherit from a class that is frozen",
         "dataClassBaseClassNotFrozen": "A frozen class cannot inherit from a class that is not frozen",

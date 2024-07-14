@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"連結\" には少なくとも 2 つの型引数が必要です",
         "conditionalOperandInvalid": "型 \"{type}\" の条件オペランドが無効です",
         "constantRedefinition": "\"{name}\" は定数であり (大文字であるため)、再定義できません",
-        "constructorNoArgs": "\"{type}\" コンストラクターに引数が必要ありません",
         "constructorParametersMismatch": "クラス \"{classType}\" の__new__と__init__のシグネチャの不一致",
         "containmentAlwaysFalse": "型 \"{leftType}\" と \"{rightType}\" に重複がないため、式は常に False に評価されます",
         "containmentAlwaysTrue": "型 \"{leftType}\" と \"{rightType}\" に重複がないため、式は常に True に評価されます",

@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "‘연결’에는 적어도 두 개의 형식 인수가 필요합니다.",
         "conditionalOperandInvalid": "’{type}’ 형식의 조건부 피연산자입니다.",
         "constantRedefinition": "‘{name}’은(는) 대문자이므로 상수이고 다시 정의할 수 없습니다.",
-        "constructorNoArgs": "\"{type}\" 생성자에 인수가 필요하지 않습니다.",
         "constructorParametersMismatch": "‘{classType}’ 클래스에서 __new__ 서명과 __init__가 불일치합니다.",
         "containmentAlwaysFalse": "‘{leftType}’ 및 ‘{rightType}’ 형식이 겹치지 않으므로 식은 항상 False로 평가됩니다.",
         "containmentAlwaysTrue": "‘{leftType}’ 및 ‘{rightType}’ 형식이 겹치지 않으므로 식은 항상 True로 평가됩니다.",

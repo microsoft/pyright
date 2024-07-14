@@ -329,8 +329,6 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.conditionalOperandInvalid'));
         export const constantRedefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.constantRedefinition'));
-        export const constructorNoArgs = () =>
-            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.constructorNoArgs'));
         export const coroutineInConditionalExpression = () =>
             getRawString('Diagnostic.coroutineInConditionalExpression');
         export const constructorParametersMismatch = () =>

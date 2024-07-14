@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "Для \"Concatenate\" требуется по крайней мере два аргумента типа",
         "conditionalOperandInvalid": "Недопустимый условный операнд типа \"{type}\"",
         "constantRedefinition": "\"{name}\" является константой (поскольку оно в верхнем регистре) и не может быть переопределено.",
-        "constructorNoArgs": "Для конструктора \"{type}\" не ожидается аргументов",
         "constructorParametersMismatch": "Несоответствие подписи __new__ и __init__ в классе \"{classType}\"",
         "containmentAlwaysFalse": "Выражение всегда будет оцениваться как ЛОЖЬ, так как типы \"{leftType}\" и \"{rightType}\" не перекрываются",
         "containmentAlwaysTrue": "Выражение всегда будет оцениваться как ИСТИНА, так как типы \"{leftType}\" и \"{rightType}\" не перекрываются",
