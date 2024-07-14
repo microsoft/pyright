@@ -1228,9 +1228,9 @@ function printFunctionPartsInternal(
         }
 
         if (param.defaultType) {
-            const paramNode = functionNode?.parameters.find((p) => p.name?.value === param.name);
-            if (paramNode?.defaultValue) {
-                paramString += defaultValueAssignment + ParseTreeUtils.printExpression(paramNode.defaultValue);
+            const paramNode = functionNode?.d.parameters.find((p) => p.d.name?.d.value === param.name);
+            if (paramNode?.d.defaultValue) {
+                paramString += defaultValueAssignment + ParseTreeUtils.printExpression(paramNode.d.defaultValue);
             } else {
                 // If the function doesn't originate from a function declaration (e.g. it is
                 // synthesized), we can't get to the default declaration, but we can still indicate

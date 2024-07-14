@@ -132,34 +132,34 @@ export function getTypeNarrowingCallback(
 
     if (testExpression.nodeType === ParseNodeType.BinaryOperation) {
         const isOrIsNotOperator =
-            testExpression.operator === OperatorType.Is || testExpression.operator === OperatorType.IsNot;
+            testExpression.d.operator === OperatorType.Is || testExpression.d.operator === OperatorType.IsNot;
         const equalsOrNotEqualsOperator =
-            testExpression.operator === OperatorType.Equals || testExpression.operator === OperatorType.NotEquals;
+            testExpression.d.operator === OperatorType.Equals || testExpression.d.operator === OperatorType.NotEquals;
         const comparisonOperator =
             equalsOrNotEqualsOperator ||
-            testExpression.operator === OperatorType.LessThan ||
-            testExpression.operator === OperatorType.LessThanOrEqual ||
-            testExpression.operator === OperatorType.GreaterThan ||
-            testExpression.operator === OperatorType.GreaterThanOrEqual;
+            testExpression.d.operator === OperatorType.LessThan ||
+            testExpression.d.operator === OperatorType.LessThanOrEqual ||
+            testExpression.d.operator === OperatorType.GreaterThan ||
+            testExpression.d.operator === OperatorType.GreaterThanOrEqual;
 
         if (isOrIsNotOperator || equalsOrNotEqualsOperator) {
             // Invert the "isPositiveTest" value if this is an "is not" operation.
             const adjIsPositiveTest =
-                testExpression.operator === OperatorType.Is || testExpression.operator === OperatorType.Equals
+                testExpression.d.operator === OperatorType.Is || testExpression.d.operator === OperatorType.Equals
                     ? isPositiveTest
                     : !isPositiveTest;
 
             // Look for "X is None", "X is not None", "X == None", and "X != None".
             // These are commonly-used patterns used in control flow.
             if (
-                testExpression.rightExpression.nodeType === ParseNodeType.Constant &&
-                testExpression.rightExpression.constType === KeywordType.None
+                testExpression.d.rightExpression.nodeType === ParseNodeType.Constant &&
+                testExpression.d.rightExpression.d.constType === KeywordType.None
             ) {
                 // Allow the LHS to be either a simple expression or an assignment
                 // expression that assigns to a simple name.
-                let leftExpression = testExpression.leftExpression;
+                let leftExpression = testExpression.d.leftExpression;
                 if (leftExpression.nodeType === ParseNodeType.AssignmentExpression) {
-                    leftExpression = leftExpression.name;
+                    leftExpression = leftExpression.d.name;
                 }
 
                 if (ParseTreeUtils.isMatchingExpression(reference, leftExpression)) {
@@ -170,16 +170,16 @@ export function getTypeNarrowingCallback(
 
                 if (
                     leftExpression.nodeType === ParseNodeType.Index &&
-                    ParseTreeUtils.isMatchingExpression(reference, leftExpression.baseExpression) &&
-                    leftExpression.items.length === 1 &&
-                    !leftExpression.trailingComma &&
-                    leftExpression.items[0].argumentCategory === ArgumentCategory.Simple &&
-                    !leftExpression.items[0].name &&
-                    leftExpression.items[0].valueExpression.nodeType === ParseNodeType.Number &&
-                    leftExpression.items[0].valueExpression.isInteger &&
-                    !leftExpression.items[0].valueExpression.isImaginary
+                    ParseTreeUtils.isMatchingExpression(reference, leftExpression.d.baseExpression) &&
+                    leftExpression.d.items.length === 1 &&
+                    !leftExpression.d.trailingComma &&
+                    leftExpression.d.items[0].d.argumentCategory === ArgumentCategory.Simple &&
+                    !leftExpression.d.items[0].d.name &&
+                    leftExpression.d.items[0].d.valueExpression.nodeType === ParseNodeType.Number &&
+                    leftExpression.d.items[0].d.valueExpression.d.isInteger &&
+                    !leftExpression.d.items[0].d.valueExpression.d.isImaginary
                 ) {
-                    const indexValue = leftExpression.items[0].valueExpression.value;
+                    const indexValue = leftExpression.d.items[0].d.valueExpression.d.value;
                     if (typeof indexValue === 'number') {
                         return (type: Type) => {
                             return {
@@ -192,12 +192,12 @@ export function getTypeNarrowingCallback(
             }
 
             // Look for "X is ...", "X is not ...", "X == ...", and "X != ...".
-            if (testExpression.rightExpression.nodeType === ParseNodeType.Ellipsis) {
+            if (testExpression.d.rightExpression.nodeType === ParseNodeType.Ellipsis) {
                 // Allow the LHS to be either a simple expression or an assignment
                 // expression that assigns to a simple name.
-                let leftExpression = testExpression.leftExpression;
+                let leftExpression = testExpression.d.leftExpression;
                 if (leftExpression.nodeType === ParseNodeType.AssignmentExpression) {
-                    leftExpression = leftExpression.name;
+                    leftExpression = leftExpression.d.name;
                 }
 
                 if (ParseTreeUtils.isMatchingExpression(reference, leftExpression)) {
@@ -211,20 +211,20 @@ export function getTypeNarrowingCallback(
             }
 
             // Look for "type(X) is Y", "type(X) is not Y", "type(X) == Y" or "type(X) != Y".
-            if (testExpression.leftExpression.nodeType === ParseNodeType.Call) {
+            if (testExpression.d.leftExpression.nodeType === ParseNodeType.Call) {
                 if (
-                    testExpression.leftExpression.arguments.length === 1 &&
-                    testExpression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple
+                    testExpression.d.leftExpression.d.arguments.length === 1 &&
+                    testExpression.d.leftExpression.d.arguments[0].d.argumentCategory === ArgumentCategory.Simple
                 ) {
-                    const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
+                    const arg0Expr = testExpression.d.leftExpression.d.arguments[0].d.valueExpression;
                     if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                         const callType = evaluator.getTypeOfExpression(
-                            testExpression.leftExpression.leftExpression,
+                            testExpression.d.leftExpression.d.leftExpression,
                             EvalFlags.CallBaseDefaults
                         ).type;
 
                         if (isInstantiableClass(callType) && ClassType.isBuiltIn(callType, 'type')) {
-                            const classTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                            const classTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpression);
                             const classType = evaluator.makeTopLevelTypeVarsConcrete(classTypeResult.type);
 
                             if (isInstantiableClass(classType)) {
@@ -241,8 +241,8 @@ export function getTypeNarrowingCallback(
             }
 
             if (isOrIsNotOperator) {
-                if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
-                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpression)) {
+                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpression);
                     const rightType = rightTypeResult.type;
 
                     // Look for "X is Y" or "X is not Y" where Y is a an enum or bool literal.
@@ -278,20 +278,20 @@ export function getTypeNarrowingCallback(
 
                 // Look for X[<literal>] is <literal> or X[<literal>] is not <literal>.
                 if (
-                    testExpression.leftExpression.nodeType === ParseNodeType.Index &&
-                    testExpression.leftExpression.items.length === 1 &&
-                    !testExpression.leftExpression.trailingComma &&
-                    testExpression.leftExpression.items[0].argumentCategory === ArgumentCategory.Simple &&
-                    ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.baseExpression)
+                    testExpression.d.leftExpression.nodeType === ParseNodeType.Index &&
+                    testExpression.d.leftExpression.d.items.length === 1 &&
+                    !testExpression.d.leftExpression.d.trailingComma &&
+                    testExpression.d.leftExpression.d.items[0].d.argumentCategory === ArgumentCategory.Simple &&
+                    ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpression.d.baseExpression)
                 ) {
                     const indexTypeResult = evaluator.getTypeOfExpression(
-                        testExpression.leftExpression.items[0].valueExpression
+                        testExpression.d.leftExpression.d.items[0].d.valueExpression
                     );
                     const indexType = indexTypeResult.type;
 
                     if (isClassInstance(indexType) && isLiteralType(indexType)) {
                         if (ClassType.isBuiltIn(indexType, 'str')) {
-                            const rightType = evaluator.getTypeOfExpression(testExpression.rightExpression).type;
+                            const rightType = evaluator.getTypeOfExpression(testExpression.d.rightExpression).type;
                             if (isClassInstance(rightType) && rightType.priv.literalValue !== undefined) {
                                 return (type: Type) => {
                                     return {
@@ -307,7 +307,7 @@ export function getTypeNarrowingCallback(
                                 };
                             }
                         } else if (ClassType.isBuiltIn(indexType, 'int')) {
-                            const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                            const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpression);
                             const rightType = rightTypeResult.type;
 
                             if (isClassInstance(rightType) && rightType.priv.literalValue !== undefined) {
@@ -342,14 +342,14 @@ export function getTypeNarrowingCallback(
             if (equalsOrNotEqualsOperator) {
                 // Look for X == <literal> or X != <literal>
                 const adjIsPositiveTest =
-                    testExpression.operator === OperatorType.Equals ? isPositiveTest : !isPositiveTest;
+                    testExpression.d.operator === OperatorType.Equals ? isPositiveTest : !isPositiveTest;
 
-                if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
+                if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpression)) {
                     // Use speculative mode here to avoid polluting the type cache. This is
                     // important in cases where evaluation of the right expression creates
                     // a false dependency on another variable.
-                    const rightTypeResult = evaluator.useSpeculativeMode(testExpression.rightExpression, () => {
-                        return evaluator.getTypeOfExpression(testExpression.rightExpression);
+                    const rightTypeResult = evaluator.useSpeculativeMode(testExpression.d.rightExpression, () => {
+                        return evaluator.getTypeOfExpression(testExpression.d.rightExpression);
                     });
 
                     const rightType = rightTypeResult.type;
@@ -372,20 +372,20 @@ export function getTypeNarrowingCallback(
 
                 // Look for X[<literal>] == <literal> or X[<literal>] != <literal>
                 if (
-                    testExpression.leftExpression.nodeType === ParseNodeType.Index &&
-                    testExpression.leftExpression.items.length === 1 &&
-                    !testExpression.leftExpression.trailingComma &&
-                    testExpression.leftExpression.items[0].argumentCategory === ArgumentCategory.Simple &&
-                    ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.baseExpression)
+                    testExpression.d.leftExpression.nodeType === ParseNodeType.Index &&
+                    testExpression.d.leftExpression.d.items.length === 1 &&
+                    !testExpression.d.leftExpression.d.trailingComma &&
+                    testExpression.d.leftExpression.d.items[0].d.argumentCategory === ArgumentCategory.Simple &&
+                    ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpression.d.baseExpression)
                 ) {
                     const indexTypeResult = evaluator.getTypeOfExpression(
-                        testExpression.leftExpression.items[0].valueExpression
+                        testExpression.d.leftExpression.d.items[0].d.valueExpression
                     );
                     const indexType = indexTypeResult.type;
 
                     if (isClassInstance(indexType) && isLiteralType(indexType)) {
                         if (ClassType.isBuiltIn(indexType, ['str', 'int'])) {
-                            const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                            const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpression);
                             const rightType = rightTypeResult.type;
 
                             if (isLiteralTypeOrUnion(rightType)) {
@@ -424,12 +424,12 @@ export function getTypeNarrowingCallback(
             // Look for X.Y == <literal> or X.Y != <literal>
             if (
                 equalsOrNotEqualsOperator &&
-                testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
-                ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression)
+                testExpression.d.leftExpression.nodeType === ParseNodeType.MemberAccess &&
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpression.d.leftExpression)
             ) {
-                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpression);
                 const rightType = rightTypeResult.type;
-                const memberName = testExpression.leftExpression.memberName;
+                const memberName = testExpression.d.leftExpression.d.memberName;
 
                 if (isClassInstance(rightType)) {
                     if (rightType.priv.literalValue !== undefined || isNoneInstance(rightType)) {
@@ -438,7 +438,7 @@ export function getTypeNarrowingCallback(
                                 type: narrowTypeForDiscriminatedLiteralFieldComparison(
                                     evaluator,
                                     type,
-                                    memberName.value,
+                                    memberName.d.value,
                                     rightType,
                                     adjIsPositiveTest
                                 ),
@@ -452,12 +452,12 @@ export function getTypeNarrowingCallback(
             // Look for X.Y is <literal> or X.Y is not <literal> where <literal> is
             // an enum or bool literal
             if (
-                testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
-                ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression)
+                testExpression.d.leftExpression.nodeType === ParseNodeType.MemberAccess &&
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpression.d.leftExpression)
             ) {
-                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpression);
                 const rightType = rightTypeResult.type;
-                const memberName = testExpression.leftExpression.memberName;
+                const memberName = testExpression.d.leftExpression.d.memberName;
 
                 if (
                     isClassInstance(rightType) &&
@@ -469,7 +469,7 @@ export function getTypeNarrowingCallback(
                             type: narrowTypeForDiscriminatedLiteralFieldComparison(
                                 evaluator,
                                 type,
-                                memberName.value,
+                                memberName.d.value,
                                 rightType,
                                 adjIsPositiveTest
                             ),
@@ -482,18 +482,18 @@ export function getTypeNarrowingCallback(
             // Look for X.Y is None or X.Y is not None
             // These are commonly-used patterns used in control flow.
             if (
-                testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
-                ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression) &&
-                testExpression.rightExpression.nodeType === ParseNodeType.Constant &&
-                testExpression.rightExpression.constType === KeywordType.None
+                testExpression.d.leftExpression.nodeType === ParseNodeType.MemberAccess &&
+                ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpression.d.leftExpression) &&
+                testExpression.d.rightExpression.nodeType === ParseNodeType.Constant &&
+                testExpression.d.rightExpression.d.constType === KeywordType.None
             ) {
-                const memberName = testExpression.leftExpression.memberName;
+                const memberName = testExpression.d.leftExpression.d.memberName;
                 return (type: Type) => {
                     return {
                         type: narrowTypeForDiscriminatedFieldNoneComparison(
                             evaluator,
                             type,
-                            memberName.value,
+                            memberName.d.value,
                             adjIsPositiveTest
                         ),
                         isIncomplete: false,
@@ -505,20 +505,20 @@ export function getTypeNarrowingCallback(
         // Look for len(x) == <literal>, len(x) != <literal>, len(x) < <literal>, etc.
         if (
             comparisonOperator &&
-            testExpression.leftExpression.nodeType === ParseNodeType.Call &&
-            testExpression.leftExpression.arguments.length === 1
+            testExpression.d.leftExpression.nodeType === ParseNodeType.Call &&
+            testExpression.d.leftExpression.d.arguments.length === 1
         ) {
-            const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
+            const arg0Expr = testExpression.d.leftExpression.d.arguments[0].d.valueExpression;
 
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
-                    testExpression.leftExpression.leftExpression,
+                    testExpression.d.leftExpression.d.leftExpression,
                     EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
 
                 if (isFunction(callType) && callType.shared.fullName === 'builtins.len') {
-                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+                    const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpression);
                     const rightType = rightTypeResult.type;
 
                     if (
@@ -531,23 +531,23 @@ export function getTypeNarrowingCallback(
                         // We'll treat <, <= and == as positive tests with >=, > and != as
                         // their negative counterparts.
                         const isLessOrEqual =
-                            testExpression.operator === OperatorType.Equals ||
-                            testExpression.operator === OperatorType.LessThan ||
-                            testExpression.operator === OperatorType.LessThanOrEqual;
+                            testExpression.d.operator === OperatorType.Equals ||
+                            testExpression.d.operator === OperatorType.LessThan ||
+                            testExpression.d.operator === OperatorType.LessThanOrEqual;
 
                         const adjIsPositiveTest = isLessOrEqual ? isPositiveTest : !isPositiveTest;
 
                         // For <= (or its negative counterpart >), adjust the tuple length by 1.
                         if (
-                            testExpression.operator === OperatorType.LessThanOrEqual ||
-                            testExpression.operator === OperatorType.GreaterThan
+                            testExpression.d.operator === OperatorType.LessThanOrEqual ||
+                            testExpression.d.operator === OperatorType.GreaterThan
                         ) {
                             tupleLength++;
                         }
 
                         const isEqualityCheck =
-                            testExpression.operator === OperatorType.Equals ||
-                            testExpression.operator === OperatorType.NotEquals;
+                            testExpression.d.operator === OperatorType.Equals ||
+                            testExpression.d.operator === OperatorType.NotEquals;
 
                         return (type: Type) => {
                             return {
@@ -566,13 +566,13 @@ export function getTypeNarrowingCallback(
             }
         }
 
-        if (testExpression.operator === OperatorType.In || testExpression.operator === OperatorType.NotIn) {
+        if (testExpression.d.operator === OperatorType.In || testExpression.d.operator === OperatorType.NotIn) {
             // Look for "x in y" or "x not in y" where y is one of several built-in types.
-            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
-                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.rightExpression);
+            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.leftExpression)) {
+                const rightTypeResult = evaluator.getTypeOfExpression(testExpression.d.rightExpression);
                 const rightType = rightTypeResult.type;
                 const adjIsPositiveTest =
-                    testExpression.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
+                    testExpression.d.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
 
                 return (type: Type) => {
                     return {
@@ -582,15 +582,15 @@ export function getTypeNarrowingCallback(
                 };
             }
 
-            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {
+            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.rightExpression)) {
                 // Look for <string literal> in y where y is a union that contains
                 // one or more TypedDicts.
-                const leftTypeResult = evaluator.getTypeOfExpression(testExpression.leftExpression);
+                const leftTypeResult = evaluator.getTypeOfExpression(testExpression.d.leftExpression);
                 const leftType = leftTypeResult.type;
 
                 if (isClassInstance(leftType) && ClassType.isBuiltIn(leftType, 'str') && isLiteralType(leftType)) {
                     const adjIsPositiveTest =
-                        testExpression.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
+                        testExpression.d.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
                     return (type: Type) => {
                         return {
                             type: narrowTypeForTypedDictKey(
@@ -609,16 +609,16 @@ export function getTypeNarrowingCallback(
 
     if (testExpression.nodeType === ParseNodeType.Call) {
         // Look for "isinstance(X, Y)" or "issubclass(X, Y)".
-        if (testExpression.arguments.length === 2) {
+        if (testExpression.d.arguments.length === 2) {
             // Make sure the first parameter is a supported expression type
             // and the second parameter is a valid class type or a tuple
             // of valid class types.
-            const arg0Expr = testExpression.arguments[0].valueExpression;
-            const arg1Expr = testExpression.arguments[1].valueExpression;
+            const arg0Expr = testExpression.d.arguments[0].d.valueExpression;
+            const arg1Expr = testExpression.d.arguments[1].d.valueExpression;
 
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
-                    testExpression.leftExpression,
+                    testExpression.d.leftExpression,
                     EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
@@ -661,11 +661,11 @@ export function getTypeNarrowingCallback(
         }
 
         // Look for "callable(X)"
-        if (testExpression.arguments.length === 1) {
-            const arg0Expr = testExpression.arguments[0].valueExpression;
+        if (testExpression.d.arguments.length === 1) {
+            const arg0Expr = testExpression.d.arguments[0].d.valueExpression;
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
-                    testExpression.leftExpression,
+                    testExpression.d.leftExpression,
                     EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
@@ -697,10 +697,10 @@ export function getTypeNarrowingCallback(
         }
 
         // Look for "bool(X)"
-        if (testExpression.arguments.length === 1 && !testExpression.arguments[0].name) {
-            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.arguments[0].valueExpression)) {
+        if (testExpression.d.arguments.length === 1 && !testExpression.d.arguments[0].d.name) {
+            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.d.arguments[0].d.valueExpression)) {
                 const callTypeResult = evaluator.getTypeOfExpression(
-                    testExpression.leftExpression,
+                    testExpression.d.leftExpression,
                     EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
@@ -717,8 +717,8 @@ export function getTypeNarrowingCallback(
         }
 
         // Look for a TypeGuard function.
-        if (testExpression.arguments.length >= 1) {
-            const arg0Expr = testExpression.arguments[0].valueExpression;
+        if (testExpression.d.arguments.length >= 1) {
+            const arg0Expr = testExpression.d.arguments[0].d.valueExpression;
             if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                 // Does this look like it's a custom type guard function?
                 let isPossiblyTypeGuard = false;
@@ -732,7 +732,7 @@ export function getTypeNarrowingCallback(
                 };
 
                 const callTypeResult = evaluator.getTypeOfExpression(
-                    testExpression.leftExpression,
+                    testExpression.d.leftExpression,
                     EvalFlags.CallBaseDefaults
                 );
                 const callType = callTypeResult.type;
@@ -807,11 +807,14 @@ export function getTypeNarrowingCallback(
     // by the binder when it creates condition flow nodes, but we can find this
     // in the case of local variables type narrowing.
     if (reference.nodeType === ParseNodeType.Name) {
-        if (testExpression.nodeType === ParseNodeType.UnaryOperation && testExpression.operator === OperatorType.Not) {
+        if (
+            testExpression.nodeType === ParseNodeType.UnaryOperation &&
+            testExpression.d.operator === OperatorType.Not
+        ) {
             return getTypeNarrowingCallback(
                 evaluator,
                 reference,
-                testExpression.expression,
+                testExpression.d.expression,
                 !isPositiveTest,
                 recursionCount
             );
@@ -901,7 +904,7 @@ function getDeclsForLocalVar(
         return undefined;
     }
 
-    const symbol = scope.lookUpSymbol(name.value);
+    const symbol = scope.lookUpSymbol(name.d.value);
     if (!symbol) {
         return undefined;
     }
@@ -923,7 +926,7 @@ function getDeclsForLocalVar(
     let prevDeclScope: ParseNode | undefined;
     if (
         decls.some((decl) => {
-            const nodeToConsider = decl.type === DeclarationType.Parameter ? decl.node.name! : decl.node;
+            const nodeToConsider = decl.type === DeclarationType.Parameter ? decl.node.d.name! : decl.node;
             const declScopeNode = ParseTreeUtils.getExecutionScopeNode(nodeToConsider);
             if (prevDeclScope && declScopeNode !== prevDeclScope) {
                 return true;
@@ -951,10 +954,10 @@ function getTypeNarrowingCallbackForAssignmentExpression(
         getTypeNarrowingCallback(
             evaluator,
             reference,
-            testExpression.rightExpression,
+            testExpression.d.rightExpression,
             isPositiveTest,
             recursionCount
-        ) ?? getTypeNarrowingCallback(evaluator, reference, testExpression.name, isPositiveTest, recursionCount)
+        ) ?? getTypeNarrowingCallback(evaluator, reference, testExpression.d.name, isPositiveTest, recursionCount)
     );
 }
 

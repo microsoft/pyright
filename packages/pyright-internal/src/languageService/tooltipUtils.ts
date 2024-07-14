@@ -314,9 +314,9 @@ export function getDocumentationPartsForTypeAndDecl(
             resolvedDecl.node &&
             resolvedDecl.node.nodeType === ParseNodeType.ImportAs &&
             !!optional?.name &&
-            !resolvedDecl.node.alias
+            !resolvedDecl.node.d.alias
         ) {
-            const name = resolvedDecl.node.module.nameParts.find((n) => n.value === optional.name);
+            const name = resolvedDecl.node.d.module.d.nameParts.find((n) => n.d.value === optional.name);
             if (name) {
                 const aliasDecls = evaluator.getDeclarationsForNameNode(name) ?? [resolvedDecl];
                 resolvedDecl = aliasDecls.length > 0 ? aliasDecls[0] : resolvedDecl;
@@ -382,7 +382,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
 
     // Allow the left to be a member access chain (e.g. a.b.c) if the
     // node in question is the last item in the chain.
-    if (callLeftNode?.parent?.nodeType === ParseNodeType.MemberAccess && node === callLeftNode.parent.memberName) {
+    if (callLeftNode?.parent?.nodeType === ParseNodeType.MemberAccess && node === callLeftNode.parent.d.memberName) {
         callLeftNode = node.parent;
         // Allow the left to be a generic class constructor (e.g. foo[int]())
     } else if (callLeftNode?.parent?.nodeType === ParseNodeType.Index) {
@@ -393,7 +393,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
         !callLeftNode ||
         !callLeftNode.parent ||
         callLeftNode.parent.nodeType !== ParseNodeType.Call ||
-        callLeftNode.parent.leftExpression !== callLeftNode
+        callLeftNode.parent.d.leftExpression !== callLeftNode
     ) {
         return;
     }

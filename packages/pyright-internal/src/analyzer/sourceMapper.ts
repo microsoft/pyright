@@ -130,8 +130,8 @@ export class SourceMapper {
         stubDecl: SpecialBuiltInClassDeclaration,
         recursiveDeclCache = new Set<string>()
     ) {
-        if (stubDecl.node.valueExpression.nodeType === ParseNodeType.Name) {
-            const className = stubDecl.node.valueExpression.value;
+        if (stubDecl.node.d.valueExpression.nodeType === ParseNodeType.Name) {
+            const className = stubDecl.node.d.valueExpression.d.value;
             const sourceFiles = this._getBoundSourceFilesFromStubFile(stubDecl.uri);
 
             return sourceFiles.flatMap((sourceFile) =>
@@ -155,7 +155,7 @@ export class SourceMapper {
         stubDecl: FunctionDeclaration,
         recursiveDeclCache = new Set<string>()
     ): ClassOrFunctionOrVariableDeclaration[] {
-        const functionName = stubDecl.node.name.value;
+        const functionName = stubDecl.node.d.name.d.value;
         const sourceFiles = this._getBoundSourceFilesFromStubFile(stubDecl.uri);
 
         if (stubDecl.isMethod) {
@@ -183,7 +183,7 @@ export class SourceMapper {
             return [];
         }
 
-        const variableName = stubDecl.node.value;
+        const variableName = stubDecl.node.d.value;
         const sourceFiles = this._getBoundSourceFilesFromStubFile(stubDecl.uri);
         const classNode = ParseTreeUtils.getEnclosingClass(stubDecl.node);
 
@@ -203,7 +203,7 @@ export class SourceMapper {
     private _findParameterDeclarations(stubDecl: ParameterDeclaration): ParameterDeclaration[] {
         const result: ParameterDeclaration[] = [];
 
-        if (!stubDecl.node.name) {
+        if (!stubDecl.node.d.name) {
             return result;
         }
 
@@ -212,7 +212,7 @@ export class SourceMapper {
             return result;
         }
 
-        const functionStubDecls = this._evaluator.getDeclarationsForNameNode(functionNode.name);
+        const functionStubDecls = this._evaluator.getDeclarationsForNameNode(functionNode.d.name);
         if (!functionStubDecls) {
             return result;
         }
@@ -225,7 +225,7 @@ export class SourceMapper {
             )) {
                 appendArray(
                     result,
-                    this._lookUpSymbolDeclarations(functionDecl.node, stubDecl.node.name.value)
+                    this._lookUpSymbolDeclarations(functionDecl.node, stubDecl.node.d.name.d.value)
                         .filter((d) => isParameterDeclaration(d))
                         .map((d) => d as ParameterDeclaration)
                 );
@@ -565,7 +565,7 @@ export class SourceMapper {
         // from runtime if we provide right synthesized stub path.
         const fakeStubPath = stdLibPath.combinePaths(
             getModuleName()
-                .nameParts.map((n) => n.value)
+                .d.nameParts.map((n) => n.d.value)
                 .join('.') + '.pyi'
         );
 
@@ -582,11 +582,11 @@ export class SourceMapper {
         function getModuleName() {
             switch (decl.node.nodeType) {
                 case ParseNodeType.ImportAs:
-                    return decl.node.module;
+                    return decl.node.d.module;
                 case ParseNodeType.ImportFromAs:
-                    return (decl.node.parent as ImportFromNode).module;
+                    return (decl.node.parent as ImportFromNode).d.module;
                 case ParseNodeType.ImportFrom:
-                    return decl.node.module;
+                    return decl.node.d.module;
                 default:
                     return assertNever(decl.node);
             }
@@ -650,7 +650,7 @@ export class SourceMapper {
                     !isAliasDeclaration(decl) ||
                     decl.uri.isEmpty() ||
                     decl.node.nodeType !== ParseNodeType.ImportFrom ||
-                    !decl.node.isWildcardImport
+                    !decl.node.d.isWildcardImport
                 ) {
                     continue;
                 }
@@ -724,7 +724,7 @@ export class SourceMapper {
 
         let current: ClassNode | undefined = node;
         while (current !== undefined) {
-            fullName.push(current.name.value);
+            fullName.push(current.d.name.d.value);
             current = ParseTreeUtils.getEnclosingClass(current);
         }
 

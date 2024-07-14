@@ -266,7 +266,9 @@ export class AutoImporter {
                         if (
                             imported &&
                             imported.node.nodeType === ParseNodeType.ImportFrom &&
-                            imported.node.imports.some((i) => i.name.value === importAliasData.importParts.symbolName)
+                            imported.node.d.imports.some(
+                                (i) => i.d.name.d.value === importAliasData.importParts.symbolName
+                            )
                         ) {
                             return;
                         }
@@ -633,7 +635,7 @@ export class AutoImporter {
             if (importStatement.node.nodeType === ParseNodeType.Import) {
                 // For now, we don't check whether alias or moduleName got overwritten at
                 // given position
-                const importAlias = importStatement.subnode?.alias?.value;
+                const importAlias = importStatement.subnode?.d.alias?.d.value;
                 if (importNameInfo.name) {
                     // ex) import module
                     //     method | <= auto-import
@@ -655,14 +657,14 @@ export class AutoImporter {
             if (
                 importNameInfo.name &&
                 importStatement.node.nodeType === ParseNodeType.ImportFrom &&
-                !importStatement.node.isWildcardImport
+                !importStatement.node.d.isWildcardImport
             ) {
                 // If so, see whether what we want already exist.
-                const importNode = importStatement.node.imports.find((i) => i.name.value === importNameInfo.name);
+                const importNode = importStatement.node.d.imports.find((i) => i.d.name.d.value === importNameInfo.name);
                 if (importNode) {
                     // For now, we don't check whether alias or moduleName got overwritten at
                     // given position
-                    const importAlias = importNode.alias?.value;
+                    const importAlias = importNode.d.alias?.d.value;
                     return {
                         insertionText: `${importAlias ?? importNameInfo.name}`,
                         edits: [],
@@ -689,12 +691,12 @@ export class AutoImporter {
             // If it is the module itself that got imported, make sure we don't import it again.
             // ex) from module import submodule
             const imported = this._importStatements.orderedImports.find((i) => i.moduleName === moduleNameInfo.name);
-            if (imported && imported.node.nodeType === ParseNodeType.ImportFrom && !imported.node.isWildcardImport) {
-                const importFrom = imported.node.imports.find((i) => i.name.value === importNameInfo.name);
+            if (imported && imported.node.nodeType === ParseNodeType.ImportFrom && !imported.node.d.isWildcardImport) {
+                const importFrom = imported.node.d.imports.find((i) => i.d.name.d.value === importNameInfo.name);
                 if (importFrom) {
                     // For now, we don't check whether alias or moduleName got overwritten at
                     // given position. only move to alias, but not the other way around
-                    const importAlias = importFrom.alias?.value;
+                    const importAlias = importFrom.d.alias?.d.value;
                     if (importAlias) {
                         return {
                             insertionText: `${importAlias}`,
@@ -717,9 +719,9 @@ export class AutoImporter {
             if (importFrom) {
                 // For now, we don't check whether alias or moduleName got overwritten at
                 // given position
-                const importAlias = importFrom.alias?.value;
+                const importAlias = importFrom.d.alias?.d.value;
                 return {
-                    insertionText: `${importAlias ?? importFrom.name.value}.${importNameInfo.name}`,
+                    insertionText: `${importAlias ?? importFrom.d.name.d.value}.${importNameInfo.name}`,
                     edits: [],
                 };
             }

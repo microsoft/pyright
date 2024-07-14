@@ -232,7 +232,7 @@ function assertTypeAlias(code: string) {
     const range = state.getRangeByMarkerName('decl')!;
     const decls = mapper.findDeclarationsByType(markerUri, type, /* userTypeAlias */ true);
 
-    const decl = decls.find((d) => isVariableDeclaration(d) && d.typeAliasName && d.typeAliasName.value === 'M') as
+    const decl = decls.find((d) => isVariableDeclaration(d) && d.typeAliasName && d.typeAliasName.d.value === 'M') as
         | VariableDeclaration
         | undefined;
     assert(decl);

@@ -67,7 +67,7 @@ export class ReferencesResult {
             }
 
             // Extract alias for comparison (symbolNames.some can't know d is for an Alias).
-            const alias = d.node.alias?.value;
+            const alias = d.node.d.alias?.d.value;
 
             // Check alias and what we are renaming is same thing.
             if (!symbolNames.some((s) => s === alias)) {
@@ -332,7 +332,7 @@ export class ReferencesProvider {
 
         const requiresGlobalSearch = isVisibleOutside(program.evaluator!, fileUri, node, declarations);
         const symbolNames = new Set<string>(declarations.map((d) => getNameFromDeclaration(d)!).filter((n) => !!n));
-        symbolNames.add(node.value);
+        symbolNames.add(node.d.value);
 
         const providers = (program.serviceProvider.tryGet(ServiceKeys.symbolUsageProviderFactory) ?? [])
             .map((f) => f.tryCreateProvider(useCase, declarations, token))
@@ -389,7 +389,7 @@ export class ReferencesProvider {
 }
 
 function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameNode, declarations: Declaration[]) {
-    const result = evaluator.lookUpSymbolRecursive(node, node.value, /* honorCodeFlow */ false);
+    const result = evaluator.lookUpSymbolRecursive(node, node.d.value, /* honorCodeFlow */ false);
     if (result && !isExternallyVisible(result.symbol)) {
         return false;
     }
@@ -414,7 +414,7 @@ function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameN
         }
 
         // If the name node is a member variable, we need to do a global search.
-        if (decl.node?.parent?.nodeType === ParseNodeType.MemberAccess && decl.node === decl.node.parent.memberName) {
+        if (decl.node?.parent?.nodeType === ParseNodeType.MemberAccess && decl.node === decl.node.parent.d.memberName) {
             return true;
         }
 
@@ -446,10 +446,10 @@ function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameN
 
                 case DeclarationType.Class:
                 case DeclarationType.Function:
-                    return isVisible && isContainerExternallyVisible(decl.node.name, recursionCount);
+                    return isVisible && isContainerExternallyVisible(decl.node.d.name, recursionCount);
 
                 case DeclarationType.Parameter:
-                    return isVisible && isContainerExternallyVisible(decl.node.name!, recursionCount);
+                    return isVisible && isContainerExternallyVisible(decl.node.d.name!, recursionCount);
 
                 case DeclarationType.TypeParameter:
                     return false;
@@ -478,8 +478,8 @@ function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameN
         switch (scopingNode.nodeType) {
             case ParseNodeType.Class:
             case ParseNodeType.Function: {
-                const name = scopingNode.name;
-                const result = evaluator.lookUpSymbolRecursive(name, name.value, /* honorCodeFlow */ false);
+                const name = scopingNode.d.name;
+                const result = evaluator.lookUpSymbolRecursive(name, name.d.value, /* honorCodeFlow */ false);
                 return result ? isExternallyVisible(result.symbol, recursionCount) : true;
             }
 
