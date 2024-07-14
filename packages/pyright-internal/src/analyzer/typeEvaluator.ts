@@ -22325,24 +22325,22 @@ export function createTypeEvaluator(
         return undefined;
     }
 
+    // If the function has an explicitly-declared return type, it is returned
+    // unaltered unless the function is a generator, in which case it is
+    // modified to return only the return type for the generator.
     function getFunctionDeclaredReturnType(node: FunctionNode): Type | undefined {
-        const functionTypeInfo = getTypeOfFunction(node)!;
-        if (!functionTypeInfo) {
-            // We hit a recursive dependency.
-            return AnyType.create();
-        }
+        const functionTypeInfo = getTypeOfFunction(node);
+        const returnType = functionTypeInfo?.functionType.shared.declaredReturnType;
 
-        // Ignore this check for abstract methods, which often
-        // don't actually return any value.
-        if (FunctionType.isAbstractMethod(functionTypeInfo.functionType)) {
-            return AnyType.create();
+        if (!returnType) {
+            return undefined;
         }
 
         if (FunctionType.isGenerator(functionTypeInfo.functionType)) {
             return getDeclaredGeneratorReturnType(functionTypeInfo.functionType);
         }
 
-        return functionTypeInfo.functionType.shared.declaredReturnType;
+        return returnType;
     }
 
     function getTypeOfMember(member: ClassMember): Type {
