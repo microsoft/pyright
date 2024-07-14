@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "Možnost „Concatenate“ vyžaduje alespoň dva argumenty typu",
         "conditionalOperandInvalid": "Neplatný podmíněný operand typu {type}",
         "constantRedefinition": "„{name}“ je konstanta (protože je velkými písmeny) a nedá se předefinovat",
-        "constructorNoArgs": "Pro konstruktor {type} nebyly očekávány žádné argumenty",
         "constructorParametersMismatch": "Neshoda mezi signaturou __new__ a __init__ ve třídě“ {classType}“",
         "containmentAlwaysFalse": "Výraz se vždy vyhodnotí jako False, protože typy „{leftType}“ a „{rightType}“ se nepřekrývají",
         "containmentAlwaysTrue": "Výraz se vždy vyhodnotí jako True, protože typy „{leftType}“ a „{rightType}“ se nepřekrývají.",

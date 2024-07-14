@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "Element „Concatenate” wymaga co najmniej dwóch argumentów typu",
         "conditionalOperandInvalid": "Nieprawidłowy warunkowy argument operacji typu „{type}”",
         "constantRedefinition": "Nazwa „{name}” jest stałą (ponieważ jest pisana wielkimi literami) i nie można jej ponownie zdefiniować",
-        "constructorNoArgs": "Oczekiwano braku argumentów do konstruktora „{type}”.",
         "constructorParametersMismatch": "Niezgodność między sygnaturą „__new__” i „__init__” w klasie „{classType}”",
         "containmentAlwaysFalse": "Warunek zawsze będzie miał wartość „Fałsz”, ponieważ typy „{leftType}” i „{rightType}” nie nakładają się na siebie",
         "containmentAlwaysTrue": "Warunek zawsze będzie miał wartość „True”, ponieważ typy „{leftType}” i „{rightType}” nie nakładają się na siebie",

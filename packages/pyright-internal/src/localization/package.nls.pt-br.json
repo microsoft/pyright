@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"Concatenate\" requer pelo menos dois argumentos de tipo",
         "conditionalOperandInvalid": "Operando condicional inválido do tipo \"{type}\"",
         "constantRedefinition": "\"{name}\" é constante (porque está em maiúsculas) e não pode ser redefinido",
-        "constructorNoArgs": "Nenhum argumento esperado para o construtor \"{type}\"",
         "constructorParametersMismatch": "Incompatibilidade entre a assinatura de __new__ e __init__ na classe \"{classType}\"",
         "containmentAlwaysFalse": "A expressão sempre será avaliada como False, pois os tipos \"{leftType}\" e \"{rightType}\" não têm sobreposição",
         "containmentAlwaysTrue": "A expressão sempre será avaliada como True, pois os tipos \"{leftType}\" e \"{rightType}\" não têm sobreposição",

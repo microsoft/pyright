@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"Verketten\" erfordert mindestens zwei Typargumente.",
         "conditionalOperandInvalid": "Ungültiger bedingter Operand vom Typ \"{type}\"",
         "constantRedefinition": "\"{name}\" ist konstant (da es sich um Großbuchstaben handelt) und kann nicht neu definiert werden.",
-        "constructorNoArgs": "Es wurden keine Argumente für \"{type}\" Konstruktor erwartet.",
         "constructorParametersMismatch": "Keine Übereinstimmung zwischen der Signatur von __new__ und __init__ in der Klasse \"{classType}\"",
         "containmentAlwaysFalse": "Der Ausdruck wird immer als False ausgewertet, da die Typen \"{leftType}\" und \"{rightType}\" keine Überlappung aufweisen.",
         "containmentAlwaysTrue": "Der Ausdruck wird immer als True ausgewertet, da die Typen \"{leftType}\" und \"{rightType}\" keine Überlappung aufweisen.",

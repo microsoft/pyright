@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"Birleştirme\" en az iki tür bağımsız değişken gerektirir",
         "conditionalOperandInvalid": "\"{type}\" türündeki koşullu işlenen geçersiz",
         "constantRedefinition": "\"{name}\" sabit (büyük harf olduğundan) ve yeniden tanımlanamaz",
-        "constructorNoArgs": "\"{type}\" oluşturucusu için bağımsız değişken beklenmiyordu",
         "constructorParametersMismatch": "\"{classType}\" sınıfındaki __new__ ve __init__ imzaları arasında uyuşmazlık var",
         "containmentAlwaysFalse": "\"{leftType}\" türleri ve \"{rightType}\" türleri çakışmadığından ifade her zaman False olarak değerlendirilir",
         "containmentAlwaysTrue": "\"{leftType}\" türleri ve \"{rightType}\" türleri çakışmadığından ifade her zaman True olarak değerlendirilir",
