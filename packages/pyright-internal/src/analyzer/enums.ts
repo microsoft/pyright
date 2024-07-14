@@ -171,8 +171,8 @@ export function createEnumType(
     ) {
         const entries =
             initArg.valueExpression.nodeType === ParseNodeType.List
-                ? initArg.valueExpression.d.entries
-                : initArg.valueExpression.d.expressions;
+                ? initArg.valueExpression.d.items
+                : initArg.valueExpression.d.items;
 
         if (entries.length === 0) {
             return undefined;
@@ -201,11 +201,11 @@ export function createEnumType(
                     return undefined;
                 }
 
-                if (entry.d.expressions.length !== 2) {
+                if (entry.d.items.length !== 2) {
                     return undefined;
                 }
-                nameNode = entry.d.expressions[0];
-                valueType = evaluator.getTypeOfExpression(entry.d.expressions[1]).type;
+                nameNode = entry.d.items[0];
+                valueType = evaluator.getTypeOfExpression(entry.d.items[1]).type;
             } else {
                 return undefined;
             }
@@ -232,7 +232,7 @@ export function createEnumType(
     }
 
     if (initArg.valueExpression.nodeType === ParseNodeType.Dictionary) {
-        const entries = initArg.valueExpression.d.entries;
+        const entries = initArg.valueExpression.d.items;
         if (entries.length === 0) {
             return undefined;
         }
@@ -243,8 +243,8 @@ export function createEnumType(
                 return undefined;
             }
 
-            const nameNode = entry.d.keyExpression;
-            const valueType = evaluator.getTypeOfExpression(entry.d.valueExpression).type;
+            const nameNode = entry.d.keyExpr;
+            const valueType = evaluator.getTypeOfExpression(entry.d.valueExpr).type;
 
             if (
                 nameNode.nodeType !== ParseNodeType.StringList ||
@@ -323,24 +323,21 @@ export function transformTypeForEnumMember(
         return undefined;
     }
 
-    if (nameNode.parent?.nodeType === ParseNodeType.Assignment && nameNode.parent.d.leftExpression === nameNode) {
+    if (nameNode.parent?.nodeType === ParseNodeType.Assignment && nameNode.parent.d.leftExpr === nameNode) {
         isMemberOfEnumeration = true;
-        valueTypeExprNode = nameNode.parent.d.rightExpression;
+        valueTypeExprNode = nameNode.parent.d.rightExpr;
     } else if (
         nameNode.parent?.nodeType === ParseNodeType.Tuple &&
         nameNode.parent.parent?.nodeType === ParseNodeType.Assignment
     ) {
         isMemberOfEnumeration = true;
         isUnpackedTuple = true;
-        valueTypeExprNode = nameNode.parent.parent.d.rightExpression;
-    } else if (
-        nameNode.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-        nameNode.parent.d.valueExpression === nameNode
-    ) {
+        valueTypeExprNode = nameNode.parent.parent.d.rightExpr;
+    } else if (nameNode.parent?.nodeType === ParseNodeType.TypeAnnotation && nameNode.parent.d.valueExpr === nameNode) {
         if (ignoreAnnotation) {
             isMemberOfEnumeration = true;
         }
-        declaredTypeNode = nameNode.parent.d.typeAnnotation;
+        declaredTypeNode = nameNode.parent.d.annotation;
     }
 
     // The spec specifically excludes names that start and end with a single underscore.
@@ -435,10 +432,10 @@ export function transformTypeForEnumMember(
     if (
         !assignedType &&
         nameNode.parent?.nodeType === ParseNodeType.Assignment &&
-        nameNode.parent.d.leftExpression === nameNode
+        nameNode.parent.d.leftExpr === nameNode
     ) {
         assignedType = evaluator.getTypeOfExpression(
-            nameNode.parent.d.rightExpression,
+            nameNode.parent.d.rightExpr,
             /* flags */ undefined,
             makeInferenceContext(declaredType)
         ).type;

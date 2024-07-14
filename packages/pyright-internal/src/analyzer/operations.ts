@@ -504,8 +504,8 @@ export function getTypeOfBinaryOperation(
     flags: EvalFlags,
     inferenceContext: InferenceContext | undefined
 ): TypeResult {
-    const leftExpression = node.d.leftExpression;
-    let rightExpression = node.d.rightExpression;
+    const leftExpression = node.d.leftExpr;
+    let rightExpression = node.d.rightExpr;
     let isIncomplete = false;
     let typeErrors = false;
 
@@ -515,14 +515,14 @@ export function getTypeOfBinaryOperation(
     if (operatorSupportsChaining(node.d.operator)) {
         if (
             rightExpression.nodeType === ParseNodeType.BinaryOperation &&
-            !rightExpression.d.isParenthesized &&
+            !rightExpression.d.hasParens &&
             operatorSupportsChaining(rightExpression.d.operator)
         ) {
             // Evaluate the right expression so it is type checked.
             getTypeOfBinaryOperation(evaluator, rightExpression, flags, inferenceContext);
 
             // Use the left side of the right expression for comparison purposes.
-            rightExpression = rightExpression.d.leftExpression;
+            rightExpression = rightExpression.d.leftExpr;
         }
     }
 
@@ -545,7 +545,7 @@ export function getTypeOfBinaryOperation(
         ClassType.isBuiltIn(inferenceContext.expectedType, 'list') &&
         inferenceContext.expectedType.priv.typeArguments &&
         inferenceContext.expectedType.priv.typeArguments.length >= 1 &&
-        node.d.leftExpression.nodeType === ParseNodeType.List
+        node.d.leftExpr.nodeType === ParseNodeType.List
     ) {
         expectedLeftOperandType = inferenceContext.expectedType;
     }
@@ -575,7 +575,7 @@ export function getTypeOfBinaryOperation(
             ) {
                 expectedOperandType = leftType;
             }
-        } else if (node.d.operator === OperatorType.Add && node.d.rightExpression.nodeType === ParseNodeType.List) {
+        } else if (node.d.operator === OperatorType.Add && node.d.rightExpr.nodeType === ParseNodeType.List) {
             // For the "+" operator , use this technique only if the right operand is
             // a list expression. This heuristic handles the common case of `my_list + [0]`.
             expectedOperandType = leftType;
@@ -646,12 +646,12 @@ export function getTypeOfBinaryOperation(
             }
 
             adjustedLeftType = evaluator.reportMissingTypeArguments(
-                node.d.leftExpression,
+                node.d.leftExpr,
                 adjustedLeftType,
                 flags | EvalFlags.InstantiableType
             );
             adjustedRightType = evaluator.reportMissingTypeArguments(
-                node.d.rightExpression,
+                node.d.rightExpr,
                 adjustedRightType,
                 flags | EvalFlags.InstantiableType
             );
@@ -765,7 +765,7 @@ export function getTypeOfBinaryOperation(
                     LocMessage.noneOperator().format({
                         operator: printOperator(node.d.operator),
                     }),
-                    node.d.leftExpression
+                    node.d.leftExpr
                 );
             } else {
                 // If neither the LHS or RHS are unions, don't include a diagnostic addendum
@@ -820,7 +820,7 @@ export function getTypeOfAugmentedAssignment(
     let typeResult: TypeResult | undefined;
     const diag = new DiagnosticAddendum();
 
-    const leftTypeResult = evaluator.getTypeOfExpression(node.d.leftExpression);
+    const leftTypeResult = evaluator.getTypeOfExpression(node.d.leftExpr);
     const leftType = leftTypeResult.type;
 
     let expectedOperandType: Type | undefined;
@@ -831,7 +831,7 @@ export function getTypeOfAugmentedAssignment(
     }
 
     const rightTypeResult = evaluator.getTypeOfExpression(
-        node.d.rightExpression,
+        node.d.rightExpr,
         /* flags */ undefined,
         makeInferenceContext(expectedOperandType)
     );
@@ -893,7 +893,7 @@ export function getTypeOfAugmentedAssignment(
                             // because the literal values may change each time.
                             const isLiteralMathAllowed =
                                 !isWithinLoop(node) &&
-                                isExpressionLocalVariable(evaluator, node.d.leftExpression) &&
+                                isExpressionLocalVariable(evaluator, node.d.leftExpr) &&
                                 getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) <
                                     maxLiteralMathSubtypeCount;
 
@@ -939,7 +939,7 @@ export function getTypeOfAugmentedAssignment(
         typeResult = { type, isIncomplete };
     }
 
-    evaluator.assignTypeToExpression(node.d.destExpression, typeResult, node.d.rightExpression);
+    evaluator.assignTypeToExpression(node.d.destExpr, typeResult, node.d.rightExpr);
 
     return typeResult;
 }
@@ -955,7 +955,7 @@ export function getTypeOfUnaryOperation(
         return { type: UnknownType.create() };
     }
 
-    const exprTypeResult = evaluator.getTypeOfExpression(node.d.expression);
+    const exprTypeResult = evaluator.getTypeOfExpression(node.d.expr);
     let exprType = evaluator.makeTopLevelTypeVarsConcrete(transformPossibleRecursiveTypeAlias(exprTypeResult.type));
 
     const isIncomplete = exprTypeResult.isIncomplete;
@@ -981,7 +981,7 @@ export function getTypeOfUnaryOperation(
                 LocMessage.noneOperator().format({
                     operator: printOperator(node.d.operator),
                 }),
-                node.d.expression
+                node.d.expr
             );
             exprType = removeNoneFromUnion(exprType);
         }
@@ -1095,20 +1095,20 @@ export function getTypeOfTernaryOperation(
         return { type: UnknownType.create() };
     }
 
-    evaluator.getTypeOfExpression(node.d.testExpression);
+    evaluator.getTypeOfExpression(node.d.testExpr);
 
     const typesToCombine: Type[] = [];
     let isIncomplete = false;
     let typeErrors = false;
 
     const constExprValue = evaluateStaticBoolExpression(
-        node.d.testExpression,
+        node.d.testExpr,
         fileInfo.executionEnvironment,
         fileInfo.definedConstants
     );
 
-    if (constExprValue !== false && evaluator.isNodeReachable(node.d.ifExpression)) {
-        const ifType = evaluator.getTypeOfExpression(node.d.ifExpression, flags, inferenceContext);
+    if (constExprValue !== false && evaluator.isNodeReachable(node.d.ifExpr)) {
+        const ifType = evaluator.getTypeOfExpression(node.d.ifExpr, flags, inferenceContext);
         typesToCombine.push(ifType.type);
         if (ifType.isIncomplete) {
             isIncomplete = true;
@@ -1118,8 +1118,8 @@ export function getTypeOfTernaryOperation(
         }
     }
 
-    if (constExprValue !== true && evaluator.isNodeReachable(node.d.elseExpression)) {
-        const elseType = evaluator.getTypeOfExpression(node.d.elseExpression, flags, inferenceContext);
+    if (constExprValue !== true && evaluator.isNodeReachable(node.d.elseExpr)) {
+        const elseType = evaluator.getTypeOfExpression(node.d.elseExpr, flags, inferenceContext);
         typesToCombine.push(elseType.type);
         if (elseType.isIncomplete) {
             isIncomplete = true;

@@ -115,7 +115,7 @@ import {
     TupleNode,
     TypeAliasNode,
     TypeAnnotationNode,
-    TypeParameterCategory,
+    TypeParameterKind,
     TypeParameterListNode,
     TypeParameterNode,
     UnaryOperationNode,
@@ -546,11 +546,11 @@ export class Parser {
 
     // type_param: ['*' | '**'] NAME [':' bound_expr] ['=' default_expr]
     private _parseTypeParameter(): TypeParameterNode | undefined {
-        let typeParamCategory = TypeParameterCategory.TypeVar;
+        let typeParamCategory = TypeParameterKind.TypeVar;
         if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
-            typeParamCategory = TypeParameterCategory.TypeVarTuple;
+            typeParamCategory = TypeParameterKind.TypeVarTuple;
         } else if (this._consumeTokenIfOperator(OperatorType.Power)) {
-            typeParamCategory = TypeParameterCategory.ParamSpec;
+            typeParamCategory = TypeParameterKind.ParamSpec;
         }
 
         const nameToken = this._getTokenIfIdentifier();
@@ -565,7 +565,7 @@ export class Parser {
         if (this._consumeTokenIfType(TokenType.Colon)) {
             boundExpression = this._parseExpression(/* allowUnpack */ false);
 
-            if (typeParamCategory !== TypeParameterCategory.TypeVar) {
+            if (typeParamCategory !== TypeParameterKind.TypeVar) {
                 this._addSyntaxError(LocMessage.typeParameterBoundNotAllowed(), boundExpression);
             }
         }
@@ -573,7 +573,7 @@ export class Parser {
         let defaultExpression: ExpressionNode | undefined;
         if (this._consumeTokenIfOperator(OperatorType.Assign)) {
             defaultExpression = this._parseExpression(
-                /* allowUnpack */ typeParamCategory === TypeParameterCategory.TypeVarTuple
+                /* allowUnpack */ typeParamCategory === TypeParameterKind.TypeVarTuple
             );
 
             if (!this._parseOptions.isStubFile && this._getLanguageVersion().isLessThan(pythonVersion3_13)) {
@@ -708,7 +708,7 @@ export class Parser {
         // Validate that only the last entry uses an irrefutable pattern.
         for (let i = 0; i < matchNode.d.cases.length - 1; i++) {
             const caseNode = matchNode.d.cases[i];
-            if (!caseNode.d.guardExpression && caseNode.d.isIrrefutable) {
+            if (!caseNode.d.guardExpr && caseNode.d.isIrrefutable) {
                 this._addSyntaxError(LocMessage.casePatternIsIrrefutable(), caseNode.d.pattern);
             }
         }
@@ -807,7 +807,7 @@ export class Parser {
             }
 
             case ParseNodeType.PatternClass: {
-                node.d.arguments.forEach((arg) => {
+                node.d.args.forEach((arg) => {
                     this._reportDuplicatePatternCaptureTargets(arg.d.pattern, globalNameMap, localNameMap);
                 });
                 break;
@@ -877,7 +877,7 @@ export class Parser {
             }
 
             case ParseNodeType.PatternClass: {
-                node.d.arguments.forEach((arg) => {
+                node.d.args.forEach((arg) => {
                     this._getPatternTargetNames(arg.d.pattern, nameSet);
                 });
                 break;
@@ -1047,7 +1047,7 @@ export class Parser {
             const classNameExpr =
                 patternCaptureOrValue.nodeType === ParseNodeType.PatternCapture
                     ? patternCaptureOrValue.d.target
-                    : patternCaptureOrValue.d.expression;
+                    : patternCaptureOrValue.d.expr;
             const classPattern = PatternClassNode.create(classNameExpr, args);
 
             if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
@@ -1257,8 +1257,8 @@ export class Parser {
 
         if (expression.nodeType === ParseNodeType.BinaryOperation) {
             if (expression.d.operator === OperatorType.Subtract || expression.d.operator === OperatorType.Add) {
-                realValue = expression.d.leftExpression;
-                imagValue = expression.d.rightExpression;
+                realValue = expression.d.leftExpr;
+                imagValue = expression.d.rightExpr;
             }
         } else {
             realValue = expression;
@@ -1266,7 +1266,7 @@ export class Parser {
 
         if (realValue) {
             if (realValue.nodeType === ParseNodeType.UnaryOperation && realValue.d.operator === OperatorType.Subtract) {
-                realValue = realValue.d.expression;
+                realValue = realValue.d.expr;
             }
 
             if (realValue.nodeType !== ParseNodeType.Number || (imagValue !== undefined && realValue.d.isImaginary)) {
@@ -1277,7 +1277,7 @@ export class Parser {
 
         if (imagValue) {
             if (imagValue.nodeType === ParseNodeType.UnaryOperation && imagValue.d.operator === OperatorType.Subtract) {
-                imagValue = imagValue.d.expression;
+                imagValue = imagValue.d.expr;
             }
 
             if (imagValue.nodeType !== ParseNodeType.Number || !imagValue.d.isImaginary) {
@@ -1629,9 +1629,9 @@ export class Parser {
             // Versions of Python earlier than 3.9 didn't allow unpack operators if the
             // tuple wasn't enclosed in parentheses.
             if (this._getLanguageVersion().isLessThan(pythonVersion3_9) && !this._parseOptions.isStubFile) {
-                if (seqExpr.nodeType === ParseNodeType.Tuple && !seqExpr.d.isParenthesized) {
+                if (seqExpr.nodeType === ParseNodeType.Tuple && !seqExpr.d.hasParens) {
                     let sawStar = false;
-                    seqExpr.d.expressions.forEach((expr) => {
+                    seqExpr.d.items.forEach((expr) => {
                         if (expr.nodeType === ParseNodeType.Unpack && !sawStar) {
                             this._addSyntaxError(LocMessage.unpackOperatorNotAllowed(), expr);
                             sawStar = true;
@@ -1846,8 +1846,8 @@ export class Parser {
             const exceptSuite = this._parseSuite(this._isInFunction);
             const exceptNode = ExceptNode.create(exceptToken, exceptSuite, isExceptGroup);
             if (typeExpr) {
-                exceptNode.d.typeExpression = typeExpr;
-                exceptNode.d.typeExpression.parent = exceptNode;
+                exceptNode.d.typeExpr = typeExpr;
+                exceptNode.d.typeExpr.parent = exceptNode;
             }
 
             if (symbolName) {
@@ -1943,7 +1943,7 @@ export class Parser {
             extendRange(functionNode, asyncToken);
         }
 
-        functionNode.d.parameters = paramList;
+        functionNode.d.params = paramList;
         paramList.forEach((param) => {
             param.parent = functionNode;
         });
@@ -1960,8 +1960,8 @@ export class Parser {
         }
 
         if (returnType) {
-            functionNode.d.returnTypeAnnotation = returnType;
-            functionNode.d.returnTypeAnnotation.parent = functionNode;
+            functionNode.d.returnAnnotation = returnType;
+            functionNode.d.returnAnnotation.parent = functionNode;
             extendRange(functionNode, returnType);
         }
 
@@ -2082,13 +2082,13 @@ export class Parser {
 
             const foundComma = this._consumeTokenIfType(TokenType.Comma);
 
-            if (allowAnnotations && !param.d.typeAnnotation) {
+            if (allowAnnotations && !param.d.annotation) {
                 // Look for a type annotation comment at the end of the line.
                 const typeAnnotationComment = this._parseVariableTypeAnnotationComment();
                 if (typeAnnotationComment) {
-                    param.d.typeAnnotationComment = typeAnnotationComment;
-                    param.d.typeAnnotationComment.parent = param;
-                    extendRange(param, param.d.typeAnnotationComment);
+                    param.d.annotationComment = typeAnnotationComment;
+                    param.d.annotationComment.parent = param;
+                    extendRange(param, param.d.annotationComment);
                 }
             }
 
@@ -2159,9 +2159,9 @@ export class Parser {
         }
 
         if (allowAnnotations && this._consumeTokenIfType(TokenType.Colon)) {
-            paramNode.d.typeAnnotation = this._parseTypeAnnotation(paramType === ParameterCategory.ArgsList);
-            paramNode.d.typeAnnotation.parent = paramNode;
-            extendRange(paramNode, paramNode.d.typeAnnotation);
+            paramNode.d.annotation = this._parseTypeAnnotation(paramType === ParameterCategory.ArgsList);
+            paramNode.d.annotation.parent = paramNode;
+            extendRange(paramNode, paramNode.d.annotation);
         }
 
         if (this._consumeTokenIfOperator(OperatorType.Assign)) {
@@ -2336,7 +2336,7 @@ export class Parser {
                 isSupportedExpressionForm = true;
             } else if (
                 expression.nodeType === ParseNodeType.Call &&
-                this._isNameOrMemberAccessExpression(expression.d.leftExpression)
+                this._isNameOrMemberAccessExpression(expression.d.leftExpr)
             ) {
                 isSupportedExpressionForm = true;
             }
@@ -2360,7 +2360,7 @@ export class Parser {
         if (expression.nodeType === ParseNodeType.Name) {
             return true;
         } else if (expression.nodeType === ParseNodeType.MemberAccess) {
-            return this._isNameOrMemberAccessExpression(expression.d.leftExpression);
+            return this._isNameOrMemberAccessExpression(expression.d.leftExpr);
         }
 
         return false;
@@ -2461,8 +2461,8 @@ export class Parser {
                 () => LocMessage.expectedReturnExpr()
             );
             this._reportConditionalErrorForStarTupleElement(returnExpr);
-            returnNode.d.returnExpression = returnExpr;
-            returnNode.d.returnExpression.parent = returnNode;
+            returnNode.d.expr = returnExpr;
+            returnNode.d.expr.parent = returnNode;
             extendRange(returnNode, returnExpr);
         }
 
@@ -2490,7 +2490,7 @@ export class Parser {
         if (!this._consumeTokenIfKeyword(KeywordType.Import)) {
             this._addSyntaxError(LocMessage.expectedImport(), this._peekToken());
             if (!modName.d.hasTrailingDot) {
-                importFromNode.d.missingImportKeyword = true;
+                importFromNode.d.missingImport = true;
             }
         } else {
             extendRange(importFromNode, possibleInputToken);
@@ -2724,12 +2724,12 @@ export class Parser {
         const globalToken = this._getKeywordToken(KeywordType.Global);
 
         const globalNode = GlobalNode.create(globalToken);
-        globalNode.d.nameList = this._parseNameList();
-        if (globalNode.d.nameList.length > 0) {
-            globalNode.d.nameList.forEach((name) => {
+        globalNode.d.targets = this._parseNameList();
+        if (globalNode.d.targets.length > 0) {
+            globalNode.d.targets.forEach((name) => {
                 name.parent = globalNode;
             });
-            extendRange(globalNode, globalNode.d.nameList[globalNode.d.nameList.length - 1]);
+            extendRange(globalNode, globalNode.d.targets[globalNode.d.targets.length - 1]);
         }
         return globalNode;
     }
@@ -2738,12 +2738,12 @@ export class Parser {
         const nonlocalToken = this._getKeywordToken(KeywordType.Nonlocal);
 
         const nonlocalNode = NonlocalNode.create(nonlocalToken);
-        nonlocalNode.d.nameList = this._parseNameList();
-        if (nonlocalNode.d.nameList.length > 0) {
-            nonlocalNode.d.nameList.forEach((name) => {
+        nonlocalNode.d.targets = this._parseNameList();
+        if (nonlocalNode.d.targets.length > 0) {
+            nonlocalNode.d.targets.forEach((name) => {
                 name.parent = nonlocalNode;
             });
-            extendRange(nonlocalNode, nonlocalNode.d.nameList[nonlocalNode.d.nameList.length - 1]);
+            extendRange(nonlocalNode, nonlocalNode.d.targets[nonlocalNode.d.targets.length - 1]);
         }
         return nonlocalNode;
     }
@@ -2813,8 +2813,8 @@ export class Parser {
 
         if (this._consumeTokenIfType(TokenType.Comma)) {
             const exceptionExpr = this._parseTestExpression(/* allowAssignmentExpression */ false);
-            assertNode.d.exceptionExpression = exceptionExpr;
-            assertNode.d.exceptionExpression.parent = assertNode;
+            assertNode.d.exceptionExpr = exceptionExpr;
+            assertNode.d.exceptionExpr.parent = assertNode;
             extendRange(assertNode, exceptionExpr);
         }
 
@@ -2830,12 +2830,12 @@ export class Parser {
             this._addSyntaxError(LocMessage.expectedDelExpr(), this._peekToken());
         }
         const delNode = DelNode.create(delToken);
-        delNode.d.expressions = exprListResult.list;
-        if (delNode.d.expressions.length > 0) {
-            delNode.d.expressions.forEach((expr) => {
+        delNode.d.targets = exprListResult.list;
+        if (delNode.d.targets.length > 0) {
+            delNode.d.targets.forEach((expr) => {
                 expr.parent = delNode;
             });
-            extendRange(delNode, delNode.d.expressions[delNode.d.expressions.length - 1]);
+            extendRange(delNode, delNode.d.targets[delNode.d.targets.length - 1]);
         }
         return delNode;
     }
@@ -3019,7 +3019,7 @@ export class Parser {
             exprListResult.list.length > 0 ? exprListResult.list[0] : this._peekToken(-1);
 
         const tupleNode = TupleNode.create(tupleStartRange, enclosedInParens);
-        tupleNode.d.expressions = exprListResult.list;
+        tupleNode.d.items = exprListResult.list;
         if (exprListResult.list.length > 0) {
             exprListResult.list.forEach((expr) => {
                 expr.parent = tupleNode;
@@ -3462,11 +3462,8 @@ export class Parser {
                 return true;
             }
         } else if (typeAnnotation.nodeType === ParseNodeType.MemberAccess) {
-            if (
-                typeAnnotation.d.leftExpression.nodeType === ParseNodeType.Name &&
-                typeAnnotation.d.memberName.d.value === name
-            ) {
-                const baseName = typeAnnotation.d.leftExpression.d.value;
+            if (typeAnnotation.d.leftExpr.nodeType === ParseNodeType.Name && typeAnnotation.d.member.d.value === name) {
+                const baseName = typeAnnotation.d.leftExpr.d.value;
                 return this._typingImportAliases.some((alias) => alias === baseName);
             }
         }
@@ -3505,9 +3502,9 @@ export class Parser {
 
                 if (argListResult.args.length > 1 || argListResult.trailingComma) {
                     argListResult.args.forEach((arg) => {
-                        if (arg.d.valueExpression.nodeType === ParseNodeType.Comprehension) {
-                            if (!arg.d.valueExpression.d.isParenthesized) {
-                                this._addSyntaxError(LocMessage.generatorNotParenthesized(), arg.d.valueExpression);
+                        if (arg.d.valueExpr.nodeType === ParseNodeType.Comprehension) {
+                            if (!arg.d.valueExpr.d.hasParens) {
+                                this._addSyntaxError(LocMessage.generatorNotParenthesized(), arg.d.valueExpr);
                             }
                         }
                     });
@@ -3687,7 +3684,7 @@ export class Parser {
 
             if (argNode.d.name) {
                 sawKeywordArg = true;
-            } else if (sawKeywordArg && argNode.d.argumentCategory === ArgumentCategory.Simple) {
+            } else if (sawKeywordArg && argNode.d.argCategory === ArgumentCategory.Simple) {
                 this._addSyntaxError(LocMessage.positionArgAfterNamedArg(), argNode);
             }
             argList.push(argNode);
@@ -3815,7 +3812,7 @@ export class Parser {
             const arg = this._parseArgument();
             if (arg.d.name) {
                 sawKeywordArg = true;
-            } else if (sawKeywordArg && arg.d.argumentCategory === ArgumentCategory.Simple) {
+            } else if (sawKeywordArg && arg.d.argCategory === ArgumentCategory.Simple) {
                 this._addSyntaxError(LocMessage.positionArgAfterNamedArg(), arg);
             }
             argList.push(arg);
@@ -3925,7 +3922,7 @@ export class Parser {
                 // to use comparison chaining, which isn't appropriate when the
                 // expression is parenthesized. Unary and await expressions
                 // are also marked to be able to display them unambiguously.
-                possibleTupleNode.d.isParenthesized = true;
+                possibleTupleNode.d.hasParens = true;
             }
 
             if (
@@ -3933,7 +3930,7 @@ export class Parser {
                 possibleTupleNode.nodeType === ParseNodeType.Comprehension ||
                 possibleTupleNode.nodeType === ParseNodeType.AssignmentExpression
             ) {
-                possibleTupleNode.d.isParenthesized = true;
+                possibleTupleNode.d.hasParens = true;
             }
 
             return possibleTupleNode;
@@ -4012,7 +4009,7 @@ export class Parser {
         }
 
         const lambdaNode = LambdaNode.create(lambdaToken, testExpr);
-        lambdaNode.d.parameters = argList;
+        lambdaNode.d.params = argList;
         argList.forEach((arg) => {
             arg.parent = lambdaNode;
         });
@@ -4101,7 +4098,7 @@ export class Parser {
                 extendRange(listAtom, exprListResult.list[exprListResult.list.length - 1]);
             }
 
-            listAtom.d.entries = exprListResult.list;
+            listAtom.d.items = exprListResult.list;
             return listAtom;
         }
     }
@@ -4172,7 +4169,7 @@ export class Parser {
                 if (
                     !isWalrusAllowed &&
                     keyExpression.nodeType === ParseNodeType.AssignmentExpression &&
-                    !keyExpression.d.isParenthesized
+                    !keyExpression.d.hasParens
                 ) {
                     this._addSyntaxError(LocMessage.walrusNotAllowed(), keyExpression.d.walrusToken);
                 }
@@ -4280,7 +4277,7 @@ export class Parser {
                 entry.parent = setAtom;
             });
 
-            setAtom.d.entries = setEntries;
+            setAtom.d.items = setEntries;
             return setAtom;
         }
 
@@ -4301,7 +4298,7 @@ export class Parser {
             });
             extendRange(dictionaryAtom, dictionaryEntries[dictionaryEntries.length - 1]);
         }
-        dictionaryAtom.d.entries = dictionaryEntries;
+        dictionaryAtom.d.items = dictionaryEntries;
         return dictionaryAtom;
     }
 
@@ -4466,11 +4463,11 @@ export class Parser {
                 // same reason that variable type annotations don't support
                 // chained assignments. Note that a type comment was used here
                 // so it can be later reported as an error by the binder.
-                assignmentNode.d.chainedTypeAnnotationComment = typeAnnotationComment;
+                assignmentNode.d.chainedAnnotationComment = typeAnnotationComment;
             } else {
-                assignmentNode.d.typeAnnotationComment = typeAnnotationComment;
-                assignmentNode.d.typeAnnotationComment.parent = assignmentNode;
-                extendRange(assignmentNode, assignmentNode.d.typeAnnotationComment);
+                assignmentNode.d.annotationComment = typeAnnotationComment;
+                assignmentNode.d.annotationComment.parent = assignmentNode;
+                extendRange(assignmentNode, assignmentNode.d.annotationComment);
             }
         }
 
@@ -4694,7 +4691,7 @@ export class Parser {
 
         const functionAnnotation = parseResults.parseTree;
 
-        functionNode.d.functionAnnotationComment = functionAnnotation;
+        functionNode.d.funcAnnotationComment = functionAnnotation;
         functionAnnotation.parent = functionNode;
         extendRange(functionNode, functionAnnotation);
     }
@@ -4968,8 +4965,8 @@ export class Parser {
 
                         if (parseResults.parseTree) {
                             assert(parseResults.parseTree.nodeType !== ParseNodeType.FunctionAnnotation);
-                            stringNode.d.typeAnnotation = parseResults.parseTree;
-                            stringNode.d.typeAnnotation.parent = stringNode;
+                            stringNode.d.annotation = parseResults.parseTree;
+                            stringNode.d.annotation.parent = stringNode;
                         }
                     }
                 }
@@ -4990,7 +4987,7 @@ export class Parser {
             return;
         }
 
-        if (possibleTupleExpr.d.isParenthesized) {
+        if (possibleTupleExpr.d.hasParens) {
             return;
         }
 
@@ -4998,7 +4995,7 @@ export class Parser {
             return;
         }
 
-        for (const expr of possibleTupleExpr.d.expressions) {
+        for (const expr of possibleTupleExpr.d.items) {
             if (expr.nodeType === ParseNodeType.Unpack) {
                 this._addSyntaxError(LocMessage.unpackTuplesIllegal(), expr);
                 return;

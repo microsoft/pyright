@@ -382,7 +382,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
 
     // Allow the left to be a member access chain (e.g. a.b.c) if the
     // node in question is the last item in the chain.
-    if (callLeftNode?.parent?.nodeType === ParseNodeType.MemberAccess && node === callLeftNode.parent.d.memberName) {
+    if (callLeftNode?.parent?.nodeType === ParseNodeType.MemberAccess && node === callLeftNode.parent.d.member) {
         callLeftNode = node.parent;
         // Allow the left to be a generic class constructor (e.g. foo[int]())
     } else if (callLeftNode?.parent?.nodeType === ParseNodeType.Index) {
@@ -393,7 +393,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
         !callLeftNode ||
         !callLeftNode.parent ||
         callLeftNode.parent.nodeType !== ParseNodeType.Call ||
-        callLeftNode.parent.d.leftExpression !== callLeftNode
+        callLeftNode.parent.d.leftExpr !== callLeftNode
     ) {
         return;
     }

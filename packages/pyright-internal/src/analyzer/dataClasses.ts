@@ -200,14 +200,14 @@ export function synthesizeDataClassMethods(
 
             if (statement.nodeType === ParseNodeType.Assignment) {
                 if (
-                    statement.d.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
-                    statement.d.leftExpression.d.valueExpression.nodeType === ParseNodeType.Name
+                    statement.d.leftExpr.nodeType === ParseNodeType.TypeAnnotation &&
+                    statement.d.leftExpr.d.valueExpr.nodeType === ParseNodeType.Name
                 ) {
-                    variableNameNode = statement.d.leftExpression.d.valueExpression;
+                    variableNameNode = statement.d.leftExpr.d.valueExpr;
                     const assignmentStatement = statement;
                     variableTypeEvaluator = () =>
                         evaluator.getTypeOfAnnotation(
-                            (assignmentStatement.d.leftExpression as TypeAnnotationNode).d.typeAnnotation,
+                            (assignmentStatement.d.leftExpr as TypeAnnotationNode).d.annotation,
                             {
                                 isVariableAnnotation: true,
                                 allowFinal: true,
@@ -220,9 +220,9 @@ export function synthesizeDataClassMethods(
 
                 // If the RHS of the assignment is assigning a field instance where the
                 // "init" parameter is set to false, do not include it in the init method.
-                if (statement.d.rightExpression.nodeType === ParseNodeType.Call) {
+                if (statement.d.rightExpr.nodeType === ParseNodeType.Call) {
                     const callTypeResult = evaluator.getTypeOfExpression(
-                        statement.d.rightExpression.d.leftExpression,
+                        statement.d.rightExpr.d.leftExpr,
                         EvalFlags.CallBaseDefaults
                     );
                     const callType = callTypeResult.type;
@@ -234,14 +234,12 @@ export function synthesizeDataClassMethods(
                             classType.shared.dataClassBehaviors?.fieldDescriptorNames || []
                         )
                     ) {
-                        const initArg = statement.d.rightExpression.d.arguments.find(
-                            (arg) => arg.d.name?.d.value === 'init'
-                        );
-                        if (initArg && initArg.d.valueExpression) {
+                        const initArg = statement.d.rightExpr.d.args.find((arg) => arg.d.name?.d.value === 'init');
+                        if (initArg && initArg.d.valueExpr) {
                             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                             includeInInit =
                                 evaluateStaticBoolExpression(
-                                    initArg.d.valueExpression,
+                                    initArg.d.valueExpr,
                                     fileInfo.executionEnvironment,
                                     fileInfo.definedConstants
                                 ) ?? includeInInit;
@@ -249,20 +247,18 @@ export function synthesizeDataClassMethods(
                             includeInInit =
                                 getDefaultArgValueForFieldSpecifier(
                                     evaluator,
-                                    statement.d.rightExpression,
+                                    statement.d.rightExpr,
                                     callTypeResult,
                                     'init'
                                 ) ?? includeInInit;
                         }
 
-                        const kwOnlyArg = statement.d.rightExpression.d.arguments.find(
-                            (arg) => arg.d.name?.d.value === 'kw_only'
-                        );
-                        if (kwOnlyArg && kwOnlyArg.d.valueExpression) {
+                        const kwOnlyArg = statement.d.rightExpr.d.args.find((arg) => arg.d.name?.d.value === 'kw_only');
+                        if (kwOnlyArg && kwOnlyArg.d.valueExpr) {
                             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
                             isKeywordOnly =
                                 evaluateStaticBoolExpression(
-                                    kwOnlyArg.d.valueExpression,
+                                    kwOnlyArg.d.valueExpr,
                                     fileInfo.executionEnvironment,
                                     fileInfo.definedConstants
                                 ) ?? isKeywordOnly;
@@ -270,13 +266,13 @@ export function synthesizeDataClassMethods(
                             isKeywordOnly =
                                 getDefaultArgValueForFieldSpecifier(
                                     evaluator,
-                                    statement.d.rightExpression,
+                                    statement.d.rightExpr,
                                     callTypeResult,
                                     'kw_only'
                                 ) ?? isKeywordOnly;
                         }
 
-                        const defaultArg = statement.d.rightExpression.d.arguments.find(
+                        const defaultArg = statement.d.rightExpr.d.args.find(
                             (arg) =>
                                 arg.d.name?.d.value === 'default' ||
                                 arg.d.name?.d.value === 'default_factory' ||
@@ -285,11 +281,9 @@ export function synthesizeDataClassMethods(
 
                         hasDefaultValue = !!defaultArg;
 
-                        const aliasArg = statement.d.rightExpression.d.arguments.find(
-                            (arg) => arg.d.name?.d.value === 'alias'
-                        );
+                        const aliasArg = statement.d.rightExpr.d.args.find((arg) => arg.d.name?.d.value === 'alias');
                         if (aliasArg) {
-                            const valueType = evaluator.getTypeOfExpression(aliasArg.d.valueExpression).type;
+                            const valueType = evaluator.getTypeOfExpression(aliasArg.d.valueExpr).type;
                             if (
                                 isClassInstance(valueType) &&
                                 ClassType.isBuiltIn(valueType, 'str') &&
@@ -299,10 +293,10 @@ export function synthesizeDataClassMethods(
                             }
                         }
 
-                        const converterArg = statement.d.rightExpression.d.arguments.find(
+                        const converterArg = statement.d.rightExpr.d.args.find(
                             (arg) => arg.d.name?.d.value === 'converter'
                         );
-                        if (converterArg && converterArg.d.valueExpression) {
+                        if (converterArg && converterArg.d.valueExpr) {
                             // Converter support is dependent on PEP 712, which has not yet been approved.
                             if (AnalyzerNodeInfo.getFileInfo(node).diagnosticRuleSet.enableExperimentalFeatures) {
                                 converter = converterArg;
@@ -311,18 +305,18 @@ export function synthesizeDataClassMethods(
                     }
                 }
             } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
-                if (statement.d.valueExpression.nodeType === ParseNodeType.Name) {
-                    variableNameNode = statement.d.valueExpression;
+                if (statement.d.valueExpr.nodeType === ParseNodeType.Name) {
+                    variableNameNode = statement.d.valueExpr;
                     const annotationStatement = statement;
                     variableTypeEvaluator = () =>
-                        evaluator.getTypeOfAnnotation(annotationStatement.d.typeAnnotation, {
+                        evaluator.getTypeOfAnnotation(annotationStatement.d.annotation, {
                             isVariableAnnotation: true,
                             allowFinal: true,
                             allowClassVar: true,
                         });
 
                     // Is this a KW_ONLY separator introduced in Python 3.10?
-                    if (!isNamedTuple && statement.d.valueExpression.d.value === '_') {
+                    if (!isNamedTuple && statement.d.valueExpr.d.value === '_') {
                         const annotatedType = variableTypeEvaluator();
 
                         if (isClassInstance(annotatedType) && ClassType.isBuiltIn(annotatedType, 'KW_ONLY')) {
@@ -451,9 +445,9 @@ export function synthesizeDataClassMethods(
 
             // If the RHS of the assignment is assigning a field instance where the
             // "init" parameter is set to false, do not include it in the init method.
-            if (statement.d.rightExpression.nodeType === ParseNodeType.Call) {
+            if (statement.d.rightExpr.nodeType === ParseNodeType.Call) {
                 const callType = evaluator.getTypeOfExpression(
-                    statement.d.rightExpression.d.leftExpression,
+                    statement.d.rightExpr.d.leftExpr,
                     EvalFlags.CallBaseDefaults
                 ).type;
 
@@ -466,7 +460,7 @@ export function synthesizeDataClassMethods(
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.dataClassFieldWithoutAnnotation(),
-                        statement.d.rightExpression
+                        statement.d.rightExpr
                     );
                 }
             }
@@ -717,7 +711,7 @@ function getDefaultArgValueForFieldSpecifier(
         callTarget = evaluator.getBestOverloadForArguments(
             callNode,
             { type: callType, isIncomplete: callTypeResult.isIncomplete },
-            callNode.d.arguments.map((arg) => convertArgumentNodeToFunctionArgument(arg))
+            callNode.d.args.map((arg) => convertArgumentNodeToFunctionArgument(arg))
         );
     } else if (isInstantiableClass(callType)) {
         const initMethodResult = getBoundInitMethod(evaluator, callNode, callType);
@@ -728,7 +722,7 @@ function getDefaultArgValueForFieldSpecifier(
                 callTarget = evaluator.getBestOverloadForArguments(
                     callNode,
                     { type: initMethodResult.type },
-                    callNode.d.arguments.map((arg) => convertArgumentNodeToFunctionArgument(arg))
+                    callNode.d.args.map((arg) => convertArgumentNodeToFunctionArgument(arg))
                 );
             }
         }
@@ -770,7 +764,7 @@ function getConverterInputType(
 ): Type {
     const converterType = getConverterAsFunction(
         evaluator,
-        evaluator.getTypeOfExpression(converterNode.d.valueExpression).type
+        evaluator.getTypeOfExpression(converterNode.d.valueExpr).type
     );
 
     if (!converterType) {
@@ -1056,8 +1050,8 @@ export function validateDataClassTransformDecorator(
     const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
     // Parse the arguments to the call.
-    node.d.arguments.forEach((arg) => {
-        if (!arg.d.name || arg.d.argumentCategory !== ArgumentCategory.Simple) {
+    node.d.args.forEach((arg) => {
+        if (!arg.d.name || arg.d.argCategory !== ArgumentCategory.Simple) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportCallIssue,
                 LocMessage.dataClassTransformPositionalParam(),
@@ -1069,7 +1063,7 @@ export function validateDataClassTransformDecorator(
         switch (arg.d.name.d.value) {
             case 'kw_only_default': {
                 const value = evaluateStaticBoolExpression(
-                    arg.d.valueExpression,
+                    arg.d.valueExpr,
                     fileInfo.executionEnvironment,
                     fileInfo.definedConstants
                 );
@@ -1077,7 +1071,7 @@ export function validateDataClassTransformDecorator(
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.dataClassTransformExpectedBoolLiteral(),
-                        arg.d.valueExpression
+                        arg.d.valueExpr
                     );
                     return;
                 }
@@ -1088,7 +1082,7 @@ export function validateDataClassTransformDecorator(
 
             case 'eq_default': {
                 const value = evaluateStaticBoolExpression(
-                    arg.d.valueExpression,
+                    arg.d.valueExpr,
                     fileInfo.executionEnvironment,
                     fileInfo.definedConstants
                 );
@@ -1096,7 +1090,7 @@ export function validateDataClassTransformDecorator(
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.dataClassTransformExpectedBoolLiteral(),
-                        arg.d.valueExpression
+                        arg.d.valueExpr
                     );
                     return;
                 }
@@ -1107,7 +1101,7 @@ export function validateDataClassTransformDecorator(
 
             case 'order_default': {
                 const value = evaluateStaticBoolExpression(
-                    arg.d.valueExpression,
+                    arg.d.valueExpr,
                     fileInfo.executionEnvironment,
                     fileInfo.definedConstants
                 );
@@ -1115,7 +1109,7 @@ export function validateDataClassTransformDecorator(
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.dataClassTransformExpectedBoolLiteral(),
-                        arg.d.valueExpression
+                        arg.d.valueExpr
                     );
                     return;
                 }
@@ -1126,7 +1120,7 @@ export function validateDataClassTransformDecorator(
 
             case 'frozen_default': {
                 const value = evaluateStaticBoolExpression(
-                    arg.d.valueExpression,
+                    arg.d.valueExpr,
                     fileInfo.executionEnvironment,
                     fileInfo.definedConstants
                 );
@@ -1134,7 +1128,7 @@ export function validateDataClassTransformDecorator(
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.dataClassTransformExpectedBoolLiteral(),
-                        arg.d.valueExpression
+                        arg.d.valueExpr
                     );
                     return;
                 }
@@ -1154,7 +1148,7 @@ export function validateDataClassTransformDecorator(
             // form that supported this older parameter name.
             case 'field_descriptors':
             case 'field_specifiers': {
-                const valueType = evaluator.getTypeOfExpression(arg.d.valueExpression).type;
+                const valueType = evaluator.getTypeOfExpression(arg.d.valueExpr).type;
                 if (
                     !isClassInstance(valueType) ||
                     !ClassType.isBuiltIn(valueType, 'tuple') ||
@@ -1171,7 +1165,7 @@ export function validateDataClassTransformDecorator(
                         LocMessage.dataClassTransformFieldSpecifier().format({
                             type: evaluator.printType(valueType),
                         }),
-                        arg.d.valueExpression
+                        arg.d.valueExpr
                     );
                     return;
                 }
@@ -1190,7 +1184,7 @@ export function validateDataClassTransformDecorator(
                 evaluator.addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
                     LocMessage.dataClassTransformUnknownArgument().format({ name: arg.d.name.d.value }),
-                    arg.d.valueExpression
+                    arg.d.valueExpr
                 );
                 break;
         }
@@ -1412,7 +1406,7 @@ export function applyDataClassDecorator(
         evaluator,
         errorNode,
         classType,
-        (callNode?.d.arguments ?? []).map((arg) => convertArgumentNodeToFunctionArgument(arg)),
+        (callNode?.d.args ?? []).map((arg) => convertArgumentNodeToFunctionArgument(arg)),
         defaultBehaviors
     );
 }

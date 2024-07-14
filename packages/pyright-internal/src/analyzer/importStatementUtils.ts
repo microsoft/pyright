@@ -590,8 +590,8 @@ function _getInsertionEditForAutoImportInsertion(
                     // Assume that it's a file header doc string.
                     stopHere = false;
                 } else if (simpleStatement.nodeType === ParseNodeType.Assignment) {
-                    if (simpleStatement.d.leftExpression.nodeType === ParseNodeType.Name) {
-                        if (SymbolNameUtils.isDunderName(simpleStatement.d.leftExpression.d.value)) {
+                    if (simpleStatement.d.leftExpr.nodeType === ParseNodeType.Name) {
+                        if (SymbolNameUtils.isDunderName(simpleStatement.d.leftExpr.d.value)) {
                             // Assume that it's an assignment of __copyright__, __author__, etc.
                             stopHere = false;
                         }

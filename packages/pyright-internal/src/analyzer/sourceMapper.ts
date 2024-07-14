@@ -130,8 +130,8 @@ export class SourceMapper {
         stubDecl: SpecialBuiltInClassDeclaration,
         recursiveDeclCache = new Set<string>()
     ) {
-        if (stubDecl.node.d.valueExpression.nodeType === ParseNodeType.Name) {
-            const className = stubDecl.node.d.valueExpression.d.value;
+        if (stubDecl.node.d.valueExpr.nodeType === ParseNodeType.Name) {
+            const className = stubDecl.node.d.valueExpr.d.value;
             const sourceFiles = this._getBoundSourceFilesFromStubFile(stubDecl.uri);
 
             return sourceFiles.flatMap((sourceFile) =>

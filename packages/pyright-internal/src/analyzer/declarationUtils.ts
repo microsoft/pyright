@@ -33,24 +33,21 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
             return true;
 
         case DeclarationType.Parameter: {
-            if (declaration.node.d.typeAnnotation || declaration.node.d.typeAnnotationComment) {
+            if (declaration.node.d.annotation || declaration.node.d.annotationComment) {
                 return true;
             }
 
             // Handle function type comments.
             const parameterParent = declaration.node.parent;
             if (parameterParent?.nodeType === ParseNodeType.Function) {
-                if (
-                    parameterParent.d.functionAnnotationComment &&
-                    !parameterParent.d.functionAnnotationComment.d.isParamListEllipsis
-                ) {
-                    const paramAnnotations = parameterParent.d.functionAnnotationComment.d.paramTypeAnnotations;
+                if (parameterParent.d.funcAnnotationComment && !parameterParent.d.funcAnnotationComment.d.isEllipsis) {
+                    const paramAnnotations = parameterParent.d.funcAnnotationComment.d.paramAnnotations;
 
                     // Handle the case where the annotation comment is missing an
                     // annotation for the first parameter (self or cls).
                     if (
-                        parameterParent.d.parameters.length > paramAnnotations.length &&
-                        declaration.node === parameterParent.d.parameters[0]
+                        parameterParent.d.params.length > paramAnnotations.length &&
+                        declaration.node === parameterParent.d.params[0]
                     ) {
                         return false;
                     }
@@ -138,8 +135,8 @@ export function getNameFromDeclaration(declaration: Declaration) {
         case DeclarationType.Intrinsic:
         case DeclarationType.SpecialBuiltInClass:
             return declaration.node.nodeType === ParseNodeType.TypeAnnotation &&
-                declaration.node.d.valueExpression.nodeType === ParseNodeType.Name
-                ? declaration.node.d.valueExpression.d.value
+                declaration.node.d.valueExpr.nodeType === ParseNodeType.Name
+                ? declaration.node.d.valueExpr.d.value
                 : undefined;
     }
 

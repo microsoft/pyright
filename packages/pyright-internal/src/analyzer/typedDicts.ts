@@ -217,8 +217,8 @@ export function createTypedDictType(
 
     // Validate that the assigned variable name is consistent with the provided name.
     if (errorNode.parent?.nodeType === ParseNodeType.Assignment && className) {
-        const target = errorNode.parent.d.leftExpression;
-        const typedDictTarget = target.nodeType === ParseNodeType.TypeAnnotation ? target.d.valueExpression : target;
+        const target = errorNode.parent.d.leftExpr;
+        const typedDictTarget = target.nodeType === ParseNodeType.TypeAnnotation ? target.d.valueExpr : target;
 
         if (typedDictTarget.nodeType === ParseNodeType.Name) {
             if (typedDictTarget.d.value !== className) {
@@ -898,7 +898,7 @@ function getTypedDictFieldsFromDictSyntax(
     const entrySet = new Set<string>();
     const fileInfo = AnalyzerNodeInfo.getFileInfo(entryDict);
 
-    entryDict.d.entries.forEach((entry) => {
+    entryDict.d.items.forEach((entry) => {
         if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -908,21 +908,21 @@ function getTypedDictFieldsFromDictSyntax(
             return;
         }
 
-        if (entry.d.keyExpression.nodeType !== ParseNodeType.StringList) {
+        if (entry.d.keyExpr.nodeType !== ParseNodeType.StringList) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.typedDictEntryName(),
-                entry.d.keyExpression
+                entry.d.keyExpr
             );
             return;
         }
 
-        const entryName = entry.d.keyExpression.d.strings.map((s) => s.d.value).join('');
+        const entryName = entry.d.keyExpr.d.strings.map((s) => s.d.value).join('');
         if (!entryName) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.typedDictEmptyName(),
-                entry.d.keyExpression
+                entry.d.keyExpr
             );
             return;
         }
@@ -931,7 +931,7 @@ function getTypedDictFieldsFromDictSyntax(
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.typedDictEntryUnique(),
-                entry.d.keyExpression
+                entry.d.keyExpr
             );
             return;
         }
@@ -942,15 +942,11 @@ function getTypedDictFieldsFromDictSyntax(
         const newSymbol = new Symbol(SymbolFlags.InstanceMember);
         const declaration: VariableDeclaration = {
             type: DeclarationType.Variable,
-            node: entry.d.keyExpression,
+            node: entry.d.keyExpr,
             uri: fileInfo.fileUri,
-            typeAnnotationNode: entry.d.valueExpression,
+            typeAnnotationNode: entry.d.valueExpr,
             isRuntimeTypeExpression: !isInline,
-            range: convertOffsetsToRange(
-                entry.d.keyExpression.start,
-                TextRange.getEnd(entry.d.keyExpression),
-                fileInfo.lines
-            ),
+            range: convertOffsetsToRange(entry.d.keyExpr.start, TextRange.getEnd(entry.d.keyExpr), fileInfo.lines),
             moduleName: fileInfo.moduleName,
             isInExceptSuite: false,
         };
@@ -1426,17 +1422,13 @@ export function getTypeOfIndexedTypedDict(
     }
 
     // Look for subscript types that are not supported by TypedDict.
-    if (
-        node.d.trailingComma ||
-        node.d.items[0].d.name ||
-        node.d.items[0].d.argumentCategory !== ArgumentCategory.Simple
-    ) {
+    if (node.d.trailingComma || node.d.items[0].d.name || node.d.items[0].d.argCategory !== ArgumentCategory.Simple) {
         return undefined;
     }
 
     const entries = getTypedDictMembersForClass(evaluator, baseType, /* allowNarrowed */ usage.method === 'get');
 
-    const indexTypeResult = evaluator.getTypeOfExpression(node.d.items[0].d.valueExpression);
+    const indexTypeResult = evaluator.getTypeOfExpression(node.d.items[0].d.valueExpr);
     const indexType = indexTypeResult.type;
     let diag = new DiagnosticAddendum();
     let allDiagsInvolveNotRequiredKeys = true;

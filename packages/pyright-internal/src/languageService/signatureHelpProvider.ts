@@ -125,7 +125,7 @@ export class SignatureHelpProvider {
             this._makeSignature(callSignatureInfo.callNode, sig)
         );
 
-        const callHasParameters = !!callSignatureInfo.callNode.d.arguments?.length;
+        const callHasParameters = !!callSignatureInfo.callNode.d.args?.length;
         return {
             signatures,
             callHasParameters,
@@ -315,11 +315,11 @@ export class SignatureHelpProvider {
         // from call node when all other methods failed.
         // It only works if call is off a name node.
         let name: NameNode | undefined;
-        const expr = callNode.d.leftExpression;
+        const expr = callNode.d.leftExpr;
         if (expr.nodeType === ParseNodeType.Name) {
             name = expr;
         } else if (expr.nodeType === ParseNodeType.MemberAccess) {
-            name = expr.d.memberName;
+            name = expr.d.member;
         }
 
         if (!name) {

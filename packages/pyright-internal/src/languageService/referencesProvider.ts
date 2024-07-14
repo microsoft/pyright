@@ -414,7 +414,7 @@ function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameN
         }
 
         // If the name node is a member variable, we need to do a global search.
-        if (decl.node?.parent?.nodeType === ParseNodeType.MemberAccess && decl.node === decl.node.parent.d.memberName) {
+        if (decl.node?.parent?.nodeType === ParseNodeType.MemberAccess && decl.node === decl.node.parent.d.member) {
             return true;
         }
 

@@ -236,8 +236,8 @@ export function createNamedTupleType(
                 const entryMap = new Map<string, string>();
                 const entryExpressions =
                     entriesArg.valueExpression?.nodeType === ParseNodeType.List
-                        ? entriesArg.valueExpression.d.entries
-                        : entriesArg.valueExpression.d.expressions;
+                        ? entriesArg.valueExpression.d.items
+                        : entriesArg.valueExpression.d.items;
 
                 const firstParamWithDefaultIndex =
                     defaultArgCount === undefined ? 0 : Math.max(0, entryExpressions.length - defaultArgCount);
@@ -250,9 +250,9 @@ export function createNamedTupleType(
 
                     if (includesTypes) {
                         // Handle the variant that includes name/type tuples.
-                        if (entry.nodeType === ParseNodeType.Tuple && entry.d.expressions.length === 2) {
-                            entryNameNode = entry.d.expressions[0];
-                            entryTypeNode = entry.d.expressions[1];
+                        if (entry.nodeType === ParseNodeType.Tuple && entry.d.items.length === 2) {
+                            entryNameNode = entry.d.items[0];
+                            entryTypeNode = entry.d.items[1];
                             entryType = convertToInstance(
                                 evaluator.getTypeOfExpressionExpectingType(entryTypeNode).type
                             );

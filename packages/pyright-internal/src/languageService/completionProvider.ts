@@ -531,12 +531,12 @@ export class CompletionProvider {
             return sb;
         }
 
-        if (decl.node.d.parameters.length === 0) {
+        if (decl.node.d.params.length === 0) {
             sb += this.options.snippet ? '${0:pass}' : 'pass';
             return sb;
         }
 
-        const parameters = getParameters(isStaticMethod ? decl.node.d.parameters : decl.node.d.parameters.slice(1));
+        const parameters = getParameters(isStaticMethod ? decl.node.d.params : decl.node.d.params.slice(1));
         if (decl.node.d.name.d.value !== '__init__') {
             sb += 'return ';
         }
@@ -1173,7 +1173,7 @@ export class CompletionProvider {
             }
 
             if (curNode.nodeType === ParseNodeType.MemberAccess) {
-                return this.getMemberAccessCompletions(curNode.d.leftExpression, priorWord);
+                return this.getMemberAccessCompletions(curNode.d.leftExpr, priorWord);
             }
 
             if (curNode.nodeType === ParseNodeType.Dictionary) {
@@ -1245,8 +1245,8 @@ export class CompletionProvider {
                     curNode.parent &&
                     curNode.parent.nodeType === ParseNodeType.Except &&
                     !curNode.parent.d.name &&
-                    curNode.parent.d.typeExpression &&
-                    TextRange.getEnd(curNode.parent.d.typeExpression) < offset &&
+                    curNode.parent.d.typeExpr &&
+                    TextRange.getEnd(curNode.parent.d.typeExpr) < offset &&
                     offset <= curNode.parent.d.exceptSuite.start
                 ) {
                     // except Exception as [<empty>]
@@ -1349,8 +1349,8 @@ export class CompletionProvider {
             return false;
         }
 
-        if (curNode.parent.nodeType === ParseNodeType.MemberAccess && curNode === curNode.parent.d.memberName) {
-            return this.getMemberAccessCompletions(curNode.parent.d.leftExpression, priorWord);
+        if (curNode.parent.nodeType === ParseNodeType.MemberAccess && curNode === curNode.parent.d.member) {
+            return this.getMemberAccessCompletions(curNode.parent.d.leftExpr, priorWord);
         }
 
         if (curNode.parent.nodeType === ParseNodeType.Except && curNode === curNode.parent.d.name) {
@@ -1375,14 +1375,14 @@ export class CompletionProvider {
 
         if (
             curNode.parent.nodeType === ParseNodeType.For &&
-            TextRange.contains(curNode.parent.d.targetExpression, curNode.start)
+            TextRange.contains(curNode.parent.d.targetExpr, curNode.start)
         ) {
             return undefined;
         }
 
         if (
             curNode.parent.nodeType === ParseNodeType.ComprehensionFor &&
-            TextRange.contains(curNode.parent.d.targetExpression, curNode.start)
+            TextRange.contains(curNode.parent.d.targetExpr, curNode.start)
         ) {
             return undefined;
         }
@@ -1395,7 +1395,7 @@ export class CompletionProvider {
             const leftNode =
                 curNode.parent.nodeType === ParseNodeType.AssignmentExpression
                     ? curNode.parent.d.name
-                    : curNode.parent.d.leftExpression;
+                    : curNode.parent.d.leftExpr;
 
             if (leftNode !== curNode || priorWord.length === 0) {
                 return false;
@@ -1615,8 +1615,8 @@ export class CompletionProvider {
         //    f: |<= here
         const isTypeAnnotationOfClassVariable =
             parseNode.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-            parseNode.parent.d.valueExpression.nodeType === ParseNodeType.Name &&
-            parseNode.parent.d.typeAnnotation === parseNode &&
+            parseNode.parent.d.valueExpr.nodeType === ParseNodeType.Name &&
+            parseNode.parent.d.annotation === parseNode &&
             parseNode.parent.parent?.nodeType === ParseNodeType.StatementList &&
             parseNode.parent.parent.parent?.nodeType === ParseNodeType.Suite &&
             parseNode.parent.parent.parent.parent?.nodeType === ParseNodeType.Class;
@@ -1635,7 +1635,7 @@ export class CompletionProvider {
             return undefined;
         }
 
-        const classVariableName = ((parseNode.parent as TypeAnnotationNode).d.valueExpression as NameNode).d.value;
+        const classVariableName = ((parseNode.parent as TypeAnnotationNode).d.valueExpr as NameNode).d.value;
         const classMember = lookUpClassMember(
             classResults.classType,
             classVariableName,
@@ -1838,7 +1838,7 @@ export class CompletionProvider {
               ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength
             : ParseTreeUtils.PrintExpressionFlags.DoNotLimitStringLength;
 
-        const paramList = node.d.parameters
+        const paramList = node.d.params
             .map((param, index) => {
                 let paramString = '';
                 if (param.d.category === ParameterCategory.ArgsList) {
@@ -1877,12 +1877,11 @@ export class CompletionProvider {
 
         let methodSignature = node.d.name.d.value + '(' + paramList + ')';
 
-        if (node.d.returnTypeAnnotation) {
-            methodSignature += ' -> ' + ParseTreeUtils.printExpression(node.d.returnTypeAnnotation, printFlags);
-        } else if (node.d.functionAnnotationComment) {
+        if (node.d.returnAnnotation) {
+            methodSignature += ' -> ' + ParseTreeUtils.printExpression(node.d.returnAnnotation, printFlags);
+        } else if (node.d.funcAnnotationComment) {
             methodSignature +=
-                ' -> ' +
-                ParseTreeUtils.printExpression(node.d.functionAnnotationComment.d.returnTypeAnnotation, printFlags);
+                ' -> ' + ParseTreeUtils.printExpression(node.d.funcAnnotationComment.d.returnAnnotation, printFlags);
         }
 
         return methodSignature;
@@ -1974,11 +1973,11 @@ export class CompletionProvider {
         return (
             currentNode &&
             currentNode.nodeType === ParseNodeType.Argument &&
-            currentNode.d.argumentCategory === ArgumentCategory.Simple &&
+            currentNode.d.argCategory === ArgumentCategory.Simple &&
             currentNode.parent &&
             currentNode.parent.nodeType === ParseNodeType.Index &&
-            currentNode.parent.d.baseExpression &&
-            currentNode.parent.d.baseExpression.nodeType === ParseNodeType.Name
+            currentNode.parent.d.leftExpr &&
+            currentNode.parent.d.leftExpr.nodeType === ParseNodeType.Name
         );
     }
 
@@ -2011,7 +2010,7 @@ export class CompletionProvider {
         if (signatureInfo) {
             // Are we past the call expression and within the argument list?
             const callNameEnd = convertOffsetToPosition(
-                signatureInfo.callNode.d.leftExpression.start + signatureInfo.callNode.d.leftExpression.length,
+                signatureInfo.callNode.d.leftExpr.start + signatureInfo.callNode.d.leftExpr.length,
                 this.parseResults.tokenizerOutput.lines
             );
 
@@ -2084,13 +2083,13 @@ export class CompletionProvider {
             return [];
         }
 
-        return node.d.entries.flatMap((entry) => {
-            if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry || excludeIds?.has(entry.d.keyExpression.id)) {
+        return node.d.items.flatMap((entry) => {
+            if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry || excludeIds?.has(entry.d.keyExpr.id)) {
                 return [];
             }
 
-            if (entry.d.keyExpression.nodeType === ParseNodeType.StringList) {
-                return [entry.d.keyExpression.d.strings.map((s) => s.d.value).join('')];
+            if (entry.d.keyExpr.nodeType === ParseNodeType.StringList) {
+                return [entry.d.keyExpr.d.strings.map((s) => s.d.value).join('')];
             }
 
             return [];
@@ -2151,7 +2150,7 @@ export class CompletionProvider {
     }
 
     private _getIndexKeys(indexNode: IndexNode, invocationNode: ParseNode) {
-        const baseType = this.evaluator.getType(indexNode.d.baseExpression);
+        const baseType = this.evaluator.getType(indexNode.d.leftExpr);
         if (!baseType || !isClassInstance(baseType)) {
             return [];
         }
@@ -2180,13 +2179,13 @@ export class CompletionProvider {
             }
         }
 
-        if (indexNode.d.baseExpression.nodeType !== ParseNodeType.Name) {
+        if (indexNode.d.leftExpr.nodeType !== ParseNodeType.Name) {
             // This completion only supports simple name case
             return [];
         }
 
         // Must be local variable/parameter
-        const declarations = this.evaluator.getDeclarationsForNameNode(indexNode.d.baseExpression) ?? [];
+        const declarations = this.evaluator.getDeclarationsForNameNode(indexNode.d.leftExpr) ?? [];
         const declaration = declarations.length > 0 ? declarations[0] : undefined;
         if (
             !declaration ||
@@ -2199,7 +2198,7 @@ export class CompletionProvider {
             return [];
         }
 
-        let startingNode: ParseNode = indexNode.d.baseExpression;
+        let startingNode: ParseNode = indexNode.d.leftExpr;
         if (declaration.node) {
             const scopeRoot = ParseTreeUtils.getEvaluationScopeNode(declaration.node).node;
 
@@ -2215,7 +2214,7 @@ export class CompletionProvider {
 
         const results = DocumentSymbolCollector.collectFromNode(
             this.program,
-            indexNode.d.baseExpression,
+            indexNode.d.leftExpr,
             this.cancellationToken,
             startingNode
         );
@@ -2229,26 +2228,24 @@ export class CompletionProvider {
                 node.parent?.nodeType === ParseNodeType.Assignment ||
                 node.parent?.nodeType === ParseNodeType.AssignmentExpression
             ) {
-                if (node.parent.d.rightExpression.nodeType === ParseNodeType.Dictionary) {
-                    const dictionary = node.parent.d.rightExpression;
-                    for (const entry of dictionary.d.entries.filter(
+                if (node.parent.d.rightExpr.nodeType === ParseNodeType.Dictionary) {
+                    const dictionary = node.parent.d.rightExpr;
+                    for (const entry of dictionary.d.items.filter(
                         (e) => e.nodeType === ParseNodeType.DictionaryKeyEntry
                     ) as DictionaryKeyEntryNode[]) {
-                        const key = this.parseResults.text
-                            .substr(entry.d.keyExpression.start, entry.d.keyExpression.length)
-                            .trim();
+                        const key = this.parseResults.text.substr(entry.d.keyExpr.start, entry.d.keyExpr.length).trim();
                         if (key.length > 0) keys.add(key);
                     }
                 }
 
-                if (node.parent.d.rightExpression.nodeType === ParseNodeType.Call) {
-                    const call = node.parent.d.rightExpression;
-                    const type = this.evaluator.getType(call.d.leftExpression);
+                if (node.parent.d.rightExpr.nodeType === ParseNodeType.Call) {
+                    const call = node.parent.d.rightExpr;
+                    const type = this.evaluator.getType(call.d.leftExpr);
                     if (!type || !isInstantiableClass(type) || !ClassType.isBuiltIn(type, 'dict')) {
                         continue;
                     }
 
-                    for (const arg of call.d.arguments) {
+                    for (const arg of call.d.args) {
                         const key = arg.d.name?.d.value.trim() ?? '';
                         const quote = this.parseResults.tokenizerOutput.predominantSingleQuoteCharacter;
                         if (key.length > 0) {
@@ -2261,12 +2258,12 @@ export class CompletionProvider {
             if (
                 node.parent?.nodeType === ParseNodeType.Index &&
                 node.parent.d.items.length === 1 &&
-                node.parent.d.items[0].d.valueExpression.nodeType !== ParseNodeType.Error &&
+                node.parent.d.items[0].d.valueExpr.nodeType !== ParseNodeType.Error &&
                 !TextRange.containsRange(node.parent, invocationNode)
             ) {
                 const indexArgument = node.parent.d.items[0];
                 const key = this.parseResults.text
-                    .substr(indexArgument.d.valueExpression.start, indexArgument.d.valueExpression.length)
+                    .substr(indexArgument.d.valueExpr.start, indexArgument.d.valueExpr.length)
                     .trim();
                 if (key.length > 0) keys.add(key);
             }
@@ -2314,7 +2311,7 @@ export class CompletionProvider {
         // ex) a: Literal["str"] = /* here */
         const nodeForExpectedType =
             parentAndChild.parent.nodeType === ParseNodeType.Assignment
-                ? parentAndChild.parent.d.rightExpression === parentAndChild.child
+                ? parentAndChild.parent.d.rightExpr === parentAndChild.child
                     ? parentAndChild.child
                     : undefined
                 : isExpressionNode(parentAndChild.child)
@@ -2344,7 +2341,7 @@ export class CompletionProvider {
 
             if (
                 nodeForKey.nodeType === ParseNodeType.DictionaryKeyEntry &&
-                nodeForKey.d.keyExpression === parentAndChild.child &&
+                nodeForKey.d.keyExpr === parentAndChild.child &&
                 nodeForKey.parent?.nodeType === ParseNodeType.Dictionary
             ) {
                 dictOrSet = nodeForKey.parent;
@@ -2434,7 +2431,7 @@ export class CompletionProvider {
             comparison.nodeType === ParseNodeType.BinaryOperation &&
             supportedOperators.includes(comparison.d.operator)
         ) {
-            const type = this.evaluator.getType(comparison.d.leftExpression);
+            const type = this.evaluator.getType(comparison.d.leftExpr);
             if (type && containsLiteralType(type)) {
                 this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
                 return true;
@@ -2445,7 +2442,7 @@ export class CompletionProvider {
         const assignmentExpression = parentAndChild.parent;
         if (
             assignmentExpression.nodeType === ParseNodeType.AssignmentExpression &&
-            assignmentExpression.d.rightExpression === parentAndChild.child
+            assignmentExpression.d.rightExpr === parentAndChild.child
         ) {
             const type = this.evaluator.getType(assignmentExpression.d.name);
             if (type && containsLiteralType(type)) {
@@ -2465,7 +2462,7 @@ export class CompletionProvider {
             caseNode.d.suite === parentAndChild.child &&
             caseNode.parent?.nodeType === ParseNodeType.Match
         ) {
-            const type = this.evaluator.getType(caseNode.parent.d.subjectExpression);
+            const type = this.evaluator.getType(caseNode.parent.d.expr);
             if (type && containsLiteralType(type)) {
                 this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
                 return true;
@@ -2483,7 +2480,7 @@ export class CompletionProvider {
             patternLiteral.parent.parent?.nodeType === ParseNodeType.Case &&
             patternLiteral.parent.parent.parent?.nodeType === ParseNodeType.Match
         ) {
-            const type = this.evaluator.getType(patternLiteral.parent.parent.parent.d.subjectExpression);
+            const type = this.evaluator.getType(patternLiteral.parent.parent.parent.d.expr);
             if (type && containsLiteralType(type)) {
                 this._addLiteralValuesForTargetType(type, priorWord, priorText, postText, completionMap);
                 return true;
@@ -2673,7 +2670,7 @@ export class CompletionProvider {
             return false;
         }
 
-        const baseType = this.evaluator.getType(indexNode.d.baseExpression);
+        const baseType = this.evaluator.getType(indexNode.d.leftExpr);
         if (!baseType) {
             return false;
         }
@@ -2832,7 +2829,7 @@ export class CompletionProvider {
         });
 
         // Remove any named parameters that are already provided.
-        signatureInfo.callNode.d.arguments!.forEach((arg) => {
+        signatureInfo.callNode.d.args!.forEach((arg) => {
             if (arg.d.name) {
                 argNameSet.delete(arg.d.name.d.value);
             }
@@ -3121,7 +3118,7 @@ export class CompletionProvider {
             !node.d.hasTrailingDot &&
             node.parent &&
             node.parent.nodeType === ParseNodeType.ImportFrom &&
-            node.parent.d.missingImportKeyword
+            node.parent.d.missingImport
         ) {
             const keyword = 'import';
             const completionItem = CompletionItem.create(keyword);

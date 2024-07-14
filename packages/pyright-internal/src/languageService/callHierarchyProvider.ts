@@ -308,10 +308,10 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
 
         let nameNode: NameNode | undefined;
 
-        if (node.d.leftExpression.nodeType === ParseNodeType.Name) {
-            nameNode = node.d.leftExpression;
-        } else if (node.d.leftExpression.nodeType === ParseNodeType.MemberAccess) {
-            nameNode = node.d.leftExpression.d.memberName;
+        if (node.d.leftExpr.nodeType === ParseNodeType.Name) {
+            nameNode = node.d.leftExpr;
+        } else if (node.d.leftExpr.nodeType === ParseNodeType.MemberAccess) {
+            nameNode = node.d.leftExpr.d.member;
         }
 
         if (nameNode) {
@@ -336,7 +336,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
         // Determine whether the member corresponds to a property.
         // If so, we'll treat it as a function call for purposes of
         // finding outgoing calls.
-        const leftHandType = this._evaluator.getType(node.d.leftExpression);
+        const leftHandType = this._evaluator.getType(node.d.leftExpr);
         if (leftHandType) {
             doForEachSubtype(leftHandType, (subtype) => {
                 let baseType = subtype;
@@ -348,7 +348,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
                     return;
                 }
 
-                const memberInfo = lookUpObjectMember(baseType, node.d.memberName.d.value);
+                const memberInfo = lookUpObjectMember(baseType, node.d.member.d.value);
                 if (!memberInfo) {
                     return;
                 }
@@ -362,7 +362,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
 
                 if (isClassInstance(memberType) && ClassType.isPropertyClass(memberType)) {
                     propertyDecls.forEach((decl) => {
-                        this._addOutgoingCallForDeclaration(node.d.memberName, decl);
+                        this._addOutgoingCallForDeclaration(node.d.member, decl);
                     });
                 }
             });
@@ -454,10 +454,10 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         throwIfCancellationRequested(this._cancellationToken);
 
         let nameNode: NameNode | undefined;
-        if (node.d.leftExpression.nodeType === ParseNodeType.Name) {
-            nameNode = node.d.leftExpression;
-        } else if (node.d.leftExpression.nodeType === ParseNodeType.MemberAccess) {
-            nameNode = node.d.leftExpression.d.memberName;
+        if (node.d.leftExpr.nodeType === ParseNodeType.Name) {
+            nameNode = node.d.leftExpr;
+        } else if (node.d.leftExpr.nodeType === ParseNodeType.MemberAccess) {
+            nameNode = node.d.leftExpr.d.member;
         }
 
         // Don't bother doing any more work if the name doesn't match.
@@ -491,11 +491,11 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
     override visitMemberAccess(node: MemberAccessNode): boolean {
         throwIfCancellationRequested(this._cancellationToken);
 
-        if (node.d.memberName.d.value === this._symbolName) {
+        if (node.d.member.d.value === this._symbolName) {
             // Determine whether the member corresponds to a property.
             // If so, we'll treat it as a function call for purposes of
             // finding outgoing calls.
-            const leftHandType = this._evaluator.getType(node.d.leftExpression);
+            const leftHandType = this._evaluator.getType(node.d.leftExpr);
             if (leftHandType) {
                 doForEachSubtype(leftHandType, (subtype) => {
                     let baseType = subtype;
@@ -507,7 +507,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                         return;
                     }
 
-                    const memberInfo = lookUpObjectMember(baseType, node.d.memberName.d.value);
+                    const memberInfo = lookUpObjectMember(baseType, node.d.member.d.value);
                     if (!memberInfo) {
                         return;
                     }
@@ -524,7 +524,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                             DeclarationUtils.areDeclarationsSame(decl!, this._targetDeclaration)
                         )
                     ) {
-                        this._addIncomingCallForDeclaration(node.d.memberName);
+                        this._addIncomingCallForDeclaration(node.d.member);
                     }
                 });
             }

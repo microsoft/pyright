@@ -3330,9 +3330,9 @@ export function getDeclaringModulesForType(type: Type): string[] {
 
 export function convertArgumentNodeToFunctionArgument(node: ArgumentNode): FunctionArgumentWithExpression {
     return {
-        argumentCategory: node.d.argumentCategory,
+        argumentCategory: node.d.argCategory,
         name: node.d.name,
-        valueExpression: node.d.valueExpression,
+        valueExpression: node.d.valueExpr,
     };
 }
 

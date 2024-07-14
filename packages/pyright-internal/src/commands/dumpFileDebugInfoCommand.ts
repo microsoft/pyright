@@ -107,7 +107,7 @@ import {
     TupleNode,
     TypeAliasNode,
     TypeAnnotationNode,
-    TypeParameterCategory,
+    TypeParameterKind,
     TypeParameterListNode,
     TypeParameterNode,
     UnaryOperationNode,
@@ -578,7 +578,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitArgument(node: ArgumentNode) {
-        this._log(`${this._getPrefix(node)} ${getArgumentCategoryString(node.d.argumentCategory)}`);
+        this._log(`${this._getPrefix(node)} ${getArgumentCategoryString(node.d.argCategory)}`);
         return true;
     }
 
@@ -613,7 +613,7 @@ class TreeDumper extends ParseTreeWalker {
                 this._uri,
                 node.d.operatorToken,
                 this._lines
-            )} ${getOperatorTypeString(node.d.operator)}} parenthesized:(${node.d.isParenthesized})`
+            )} ${getOperatorTypeString(node.d.operator)}} parenthesized:(${node.d.hasParens})`
         );
         return true;
     }
@@ -714,7 +714,7 @@ class TreeDumper extends ParseTreeWalker {
                 node.d.usesParens
             }) wildcard token:(${
                 node.d.wildcardToken ? getTokenString(this._uri, node.d.wildcardToken, this._lines) : 'N/A'
-            }) missing import keyword:(${node.d.missingImportKeyword})`
+            }) missing import keyword:(${node.d.missingImport})`
         );
         return true;
     }
@@ -750,7 +750,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitFunctionAnnotation(node: FunctionAnnotationNode) {
-        this._log(`${this._getPrefix(node)} ellipsis:(${node.d.isParamListEllipsis})`);
+        this._log(`${this._getPrefix(node)} ellipsis:(${node.d.isEllipsis})`);
         return true;
     }
 
@@ -859,7 +859,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitTuple(node: TupleNode) {
-        this._log(`${this._getPrefix(node)} paren:(${node.d.isParenthesized})`);
+        this._log(`${this._getPrefix(node)} paren:(${node.d.hasParens})`);
         return true;
     }
 
@@ -980,9 +980,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitTypeParameter(node: TypeParameterNode): boolean {
-        this._log(
-            `${this._getPrefix(node)} typeParamCategory:${getTypeParameterCategoryString(node.d.typeParamCategory)}`
-        );
+        this._log(`${this._getPrefix(node)} typeParamCategory:${getTypeParameterCategoryString(node.d.typeParamKind)}`);
         return true;
     }
 
@@ -1004,13 +1002,13 @@ class TreeDumper extends ParseTreeWalker {
     }
 }
 
-function getTypeParameterCategoryString(type: TypeParameterCategory) {
+function getTypeParameterCategoryString(type: TypeParameterKind) {
     switch (type) {
-        case TypeParameterCategory.TypeVar:
+        case TypeParameterKind.TypeVar:
             return 'TypeVar';
-        case TypeParameterCategory.TypeVarTuple:
+        case TypeParameterKind.TypeVarTuple:
             return 'TypeVarTuple';
-        case TypeParameterCategory.ParamSpec:
+        case TypeParameterKind.ParamSpec:
             return 'ParamSpec';
     }
 }

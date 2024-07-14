@@ -524,20 +524,19 @@ export function getCodeFlowEngine(
                             // base type.
                             if (
                                 targetNode.nodeType === ParseNodeType.Index &&
-                                isMatchingExpression(reference, targetNode.d.baseExpression)
+                                isMatchingExpression(reference, targetNode.d.leftExpr)
                             ) {
                                 if (
                                     targetNode.parent?.nodeType === ParseNodeType.Assignment &&
                                     targetNode.d.items.length === 1 &&
                                     !targetNode.d.trailingComma &&
                                     !targetNode.d.items[0].d.name &&
-                                    targetNode.d.items[0].d.argumentCategory === ArgumentCategory.Simple &&
-                                    targetNode.d.items[0].d.valueExpression.nodeType === ParseNodeType.StringList &&
-                                    targetNode.d.items[0].d.valueExpression.d.strings.length === 1 &&
-                                    targetNode.d.items[0].d.valueExpression.d.strings[0].nodeType ===
-                                        ParseNodeType.String
+                                    targetNode.d.items[0].d.argCategory === ArgumentCategory.Simple &&
+                                    targetNode.d.items[0].d.valueExpr.nodeType === ParseNodeType.StringList &&
+                                    targetNode.d.items[0].d.valueExpr.d.strings.length === 1 &&
+                                    targetNode.d.items[0].d.valueExpr.d.strings[0].nodeType === ParseNodeType.String
                                 ) {
-                                    const keyValue = targetNode.d.items[0].d.valueExpression.d.strings[0].d.value;
+                                    const keyValue = targetNode.d.items[0].d.valueExpr.d.strings[0].d.value;
                                     const narrowedResult = preventRecursion(assignmentFlowNode, () => {
                                         const flowTypeResult = getTypeFromFlowNode(assignmentFlowNode.antecedent);
 
@@ -1516,11 +1515,11 @@ export function getCodeFlowEngine(
 
                     if (
                         testExpression.nodeType === ParseNodeType.Call &&
-                        testExpression.d.leftExpression.nodeType === ParseNodeType.Name &&
-                        testExpression.d.leftExpression.d.value === 'isinstance' &&
-                        testExpression.d.arguments.length === 2
+                        testExpression.d.leftExpr.nodeType === ParseNodeType.Name &&
+                        testExpression.d.leftExpr.d.value === 'isinstance' &&
+                        testExpression.d.args.length === 2
                     ) {
-                        const arg0Expr = testExpression.d.arguments[0].d.valueExpression;
+                        const arg0Expr = testExpression.d.args[0].d.valueExpr;
 
                         const arg0Type = evaluator.getTypeOfExpression(arg0Expr).type;
 
@@ -1533,7 +1532,7 @@ export function getCodeFlowEngine(
                             );
                             visitedFlowNodeMap.delete(curFlowNode.id);
 
-                            const arg1Expr = testExpression.d.arguments[1].d.valueExpression;
+                            const arg1Expr = testExpression.d.args[1].d.valueExpr;
                             const arg1Type = evaluator.getTypeOfExpression(
                                 arg1Expr,
                                 EvalFlags.AllowMissingTypeArgs |
@@ -1647,7 +1646,7 @@ export function getCodeFlowEngine(
 
         // Don't attempt to evaluate a lambda call. We need to evaluate these in the
         // context of its arguments.
-        if (node.d.leftExpression.nodeType === ParseNodeType.Lambda) {
+        if (node.d.leftExpr.nodeType === ParseNodeType.Lambda) {
             return false;
         }
 
@@ -1661,7 +1660,7 @@ export function getCodeFlowEngine(
             let subtypeCount = 0;
 
             // Evaluate the call base type.
-            const callTypeResult = evaluator.getTypeOfExpression(node.d.leftExpression, EvalFlags.CallBaseDefaults);
+            const callTypeResult = evaluator.getTypeOfExpression(node.d.leftExpr, EvalFlags.CallBaseDefaults);
             const callType = callTypeResult.type;
 
             doForEachSubtype(callType, (callSubtype) => {
@@ -1718,7 +1717,7 @@ export function getCodeFlowEngine(
                             // the applicable overload returns a NoReturn.
                             const callResult = evaluator.validateOverloadedFunctionArguments(
                                 node,
-                                node.d.arguments.map((arg) => convertArgumentNodeToFunctionArgument(arg)),
+                                node.d.args.map((arg) => convertArgumentNodeToFunctionArgument(arg)),
                                 { type: callSubtype, isIncomplete: callTypeResult.isIncomplete },
                                 /* typeVarContext */ undefined,
                                 /* skipUnknownArgCheck */ false,

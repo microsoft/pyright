@@ -173,7 +173,7 @@ export function isCodeFlowSupportedForReference(
     }
 
     if (reference.nodeType === ParseNodeType.MemberAccess) {
-        return isCodeFlowSupportedForReference(reference.d.leftExpression);
+        return isCodeFlowSupportedForReference(reference.d.leftExpr);
     }
 
     if (reference.nodeType === ParseNodeType.Index) {
@@ -183,12 +183,12 @@ export function isCodeFlowSupportedForReference(
             reference.d.items.length !== 1 ||
             reference.d.trailingComma ||
             reference.d.items[0].d.name !== undefined ||
-            reference.d.items[0].d.argumentCategory !== ArgumentCategory.Simple
+            reference.d.items[0].d.argCategory !== ArgumentCategory.Simple
         ) {
             return false;
         }
 
-        const subscriptNode = reference.d.items[0].d.valueExpression;
+        const subscriptNode = reference.d.items[0].d.valueExpr;
         const isIntegerIndex =
             subscriptNode.nodeType === ParseNodeType.Number &&
             !subscriptNode.d.isImaginary &&
@@ -196,9 +196,9 @@ export function isCodeFlowSupportedForReference(
         const isNegativeIntegerIndex =
             subscriptNode.nodeType === ParseNodeType.UnaryOperation &&
             subscriptNode.d.operator === OperatorType.Subtract &&
-            subscriptNode.d.expression.nodeType === ParseNodeType.Number &&
-            !subscriptNode.d.expression.d.isImaginary &&
-            subscriptNode.d.expression.d.isInteger;
+            subscriptNode.d.expr.nodeType === ParseNodeType.Number &&
+            !subscriptNode.d.expr.d.isImaginary &&
+            subscriptNode.d.expr.d.isInteger;
         const isStringIndex =
             subscriptNode.nodeType === ParseNodeType.StringList &&
             subscriptNode.d.strings.length === 1 &&
@@ -208,7 +208,7 @@ export function isCodeFlowSupportedForReference(
             return false;
         }
 
-        return isCodeFlowSupportedForReference(reference.d.baseExpression);
+        return isCodeFlowSupportedForReference(reference.d.leftExpr);
     }
 
     return false;
@@ -219,12 +219,12 @@ export function createKeyForReference(reference: CodeFlowReferenceExpressionNode
     if (reference.nodeType === ParseNodeType.Name) {
         key = reference.d.value;
     } else if (reference.nodeType === ParseNodeType.MemberAccess) {
-        const leftKey = createKeyForReference(reference.d.leftExpression as CodeFlowReferenceExpressionNode);
-        key = `${leftKey}.${reference.d.memberName.d.value}`;
+        const leftKey = createKeyForReference(reference.d.leftExpr as CodeFlowReferenceExpressionNode);
+        key = `${leftKey}.${reference.d.member.d.value}`;
     } else if (reference.nodeType === ParseNodeType.Index) {
-        const leftKey = createKeyForReference(reference.d.baseExpression as CodeFlowReferenceExpressionNode);
+        const leftKey = createKeyForReference(reference.d.leftExpr as CodeFlowReferenceExpressionNode);
         assert(reference.d.items.length === 1);
-        const expr = reference.d.items[0].d.valueExpression;
+        const expr = reference.d.items[0].d.valueExpr;
         if (expr.nodeType === ParseNodeType.Number) {
             key = `${leftKey}[${(expr as NumberNode).d.value.toString()}]`;
         } else if (expr.nodeType === ParseNodeType.StringList) {
@@ -234,9 +234,9 @@ export function createKeyForReference(reference: CodeFlowReferenceExpressionNode
         } else if (
             expr.nodeType === ParseNodeType.UnaryOperation &&
             expr.d.operator === OperatorType.Subtract &&
-            expr.d.expression.nodeType === ParseNodeType.Number
+            expr.d.expr.nodeType === ParseNodeType.Number
         ) {
-            key = `${leftKey}[-${(expr.d.expression as NumberNode).d.value.toString()}]`;
+            key = `${leftKey}[-${(expr.d.expr as NumberNode).d.value.toString()}]`;
         } else {
             fail('createKeyForReference received unexpected index type');
         }
@@ -254,14 +254,14 @@ export function createKeysForReferenceSubexpressions(reference: CodeFlowReferenc
 
     if (reference.nodeType === ParseNodeType.MemberAccess) {
         return [
-            ...createKeysForReferenceSubexpressions(reference.d.leftExpression as CodeFlowReferenceExpressionNode),
+            ...createKeysForReferenceSubexpressions(reference.d.leftExpr as CodeFlowReferenceExpressionNode),
             createKeyForReference(reference),
         ];
     }
 
     if (reference.nodeType === ParseNodeType.Index) {
         return [
-            ...createKeysForReferenceSubexpressions(reference.d.baseExpression as CodeFlowReferenceExpressionNode),
+            ...createKeysForReferenceSubexpressions(reference.d.leftExpr as CodeFlowReferenceExpressionNode),
             createKeyForReference(reference),
         ];
     }

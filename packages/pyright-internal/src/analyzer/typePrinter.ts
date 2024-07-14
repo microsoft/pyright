@@ -1228,7 +1228,7 @@ function printFunctionPartsInternal(
         }
 
         if (param.defaultType) {
-            const paramNode = functionNode?.d.parameters.find((p) => p.d.name?.d.value === param.name);
+            const paramNode = functionNode?.d.params.find((p) => p.d.name?.d.value === param.name);
             if (paramNode?.d.defaultValue) {
                 paramString += defaultValueAssignment + ParseTreeUtils.printExpression(paramNode.d.defaultValue);
             } else {
