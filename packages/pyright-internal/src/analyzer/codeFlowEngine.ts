@@ -1721,7 +1721,7 @@ export function getCodeFlowEngine(
                         } else {
                             // Perform a more complete evaluation to determine whether
                             // the applicable overload returns a NoReturn.
-                            const callResult = evaluator.validateOverloadedFunctionArguments(
+                            const callResult = evaluator.validateOverloadedArgTypes(
                                 node,
                                 node.d.args.map((arg) => convertArgumentNodeToFunctionArgument(arg)),
                                 { type: callSubtype, isIncomplete: callTypeResult.isIncomplete },

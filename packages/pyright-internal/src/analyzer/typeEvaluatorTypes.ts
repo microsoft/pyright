@@ -505,7 +505,7 @@ export interface TypeEvaluator {
     getExpectedType: (node: ExpressionNode) => ExpectedTypeResult | undefined;
     verifyRaiseExceptionType: (node: RaiseNode) => void;
     verifyDeleteExpression: (node: ExpressionNode) => void;
-    validateOverloadedFunctionArguments: (
+    validateOverloadedArgTypes: (
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
         typeResult: TypeResult<OverloadedFunctionType>,

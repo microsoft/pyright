@@ -373,6 +373,7 @@ export class TypeVarContext {
     copyFromClone(clone: TypeVarContext) {
         this._signatureContexts = clone._signatureContexts.map((context) => context.clone());
         this._isLocked = clone._isLocked;
+        this._solveForScopes = clone._solveForScopes ? Array.from(clone._solveForScopes) : undefined;
     }
 
     // Copy the specified signature contexts into this type var context.

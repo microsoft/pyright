@@ -158,7 +158,7 @@ interface CachedTypeInfo {
     requiresSpecialization?: boolean;
 }
 
-interface TypeBaseProps {
+export interface TypeBaseProps {
     // Used to handle nested references to instantiable classes
     // (e.g. type[type[type[T]]]). If the field isn't present,
     // it is assumed to be zero.
@@ -175,7 +175,7 @@ interface TypeBaseProps {
     condition: TypeCondition[] | undefined;
 }
 
-interface TypeBase<T extends TypeCategory> {
+export interface TypeBase<T extends TypeCategory> {
     category: T;
     flags: TypeFlags;
 
@@ -1923,7 +1923,7 @@ export namespace FunctionType {
 
     export function cloneWithNewTypeVarScopeId(
         type: FunctionType,
-        newScopeId: TypeVarScopeId,
+        newScopeId: TypeVarScopeId | undefined,
         newConstructorScopeId: TypeVarScopeId | undefined,
         typeParameters: TypeVarType[],
         trackedSignatures?: SignatureWithOffsets[]
@@ -2839,8 +2839,8 @@ export namespace TypeVarType {
     export function cloneForScopeId(
         type: TypeVarType,
         scopeId: string,
-        scopeName: string,
-        scopeType: TypeVarScopeType
+        scopeName: string | undefined,
+        scopeType: TypeVarScopeType | undefined
     ): TypeVarType {
         const newInstance = TypeBase.cloneType(type);
         newInstance.priv.nameWithScope = makeNameWithScope(type.shared.name, scopeId);
