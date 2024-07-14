@@ -4316,7 +4316,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             if (useDefaultOrUnknown) {
                 // Use the default value if there is one.
                 if (typeVar.shared.isDefaultExplicit && !this._options.useUnknownOverDefault) {
-                    return this._solveDefaultType(typeVar.shared.defaultType, recursionCount);
+                    return this._solveDefaultType(typeVar, recursionCount);
                 }
 
                 return getUnknownTypeForTypeVar(typeVar, this._options.tupleClassType);
@@ -4446,9 +4446,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         if (useDefaultOrUnknown) {
             // Use the default value if there is one.
             if (paramSpec.shared.isDefaultExplicit && !this._options.useUnknownOverDefault) {
-                return convertTypeToParamSpecValue(
-                    this._solveDefaultType(paramSpec.shared.defaultType, recursionCount)
-                );
+                return convertTypeToParamSpecValue(this._solveDefaultType(paramSpec, recursionCount));
             }
 
             // Convert to the ParamSpec equivalent of "Unknown".
@@ -4523,7 +4521,8 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         return OverloadedFunctionType.create(filteredOverloads);
     }
 
-    private _solveDefaultType(defaultType: Type, recursionCount: number) {
+    private _solveDefaultType(typeVar: TypeVarType, recursionCount: number) {
+        const defaultType = typeVar.shared.defaultType;
         const wasSolvingDefaultType = this._isSolvingDefaultType;
         this._isSolvingDefaultType = true;
         const result = this.apply(defaultType, recursionCount);

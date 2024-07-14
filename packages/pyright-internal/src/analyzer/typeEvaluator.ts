@@ -8977,7 +8977,7 @@ export function createTypeEvaluator(
         });
     }
 
-    function validateOverloadedFunctionArguments(
+    function validateOverloadedArgTypes(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
         typeResult: TypeResult<OverloadedFunctionType>,
@@ -8989,6 +8989,7 @@ export function createTypeEvaluator(
         let filteredMatchResults: MatchArgsToParamsResult[] = [];
         let contextFreeArgTypes: Type[] | undefined;
         let isTypeIncomplete = !!typeResult.isIncomplete;
+        const type = typeResult.type;
 
         // Start by evaluating the types of the arguments without any expected
         // type. Also, filter the list of overloads based on the number of
@@ -8997,7 +8998,7 @@ export function createTypeEvaluator(
         // cache or record any diagnostics at this stage.
         useSpeculativeMode(errorNode, () => {
             let overloadIndex = 0;
-            OverloadedFunctionType.getOverloads(typeResult.type).forEach((overload) => {
+            OverloadedFunctionType.getOverloads(type).forEach((overload) => {
                 // Consider only the functions that have the @overload decorator,
                 // not the final function that omits the overload. This is the
                 // intended behavior according to PEP 484.
@@ -9025,7 +9026,7 @@ export function createTypeEvaluator(
             // Skip the error message if we're in speculative mode because it's very
             // expensive, and we're going to suppress the diagnostic anyway.
             if (!canSkipDiagnosticForNode(errorNode)) {
-                const functionName = typeResult.type.priv.overloads[0].shared.name || '<anonymous function>';
+                const functionName = type.priv.overloads[0].shared.name || '<anonymous function>';
                 const diagAddendum = new DiagnosticAddendum();
                 const argTypes = argList.map((t) => {
                     const typeString = printType(
@@ -9470,11 +9471,7 @@ export function createTypeEvaluator(
             return { returnType: undefined, argumentErrors: true };
         }
 
-        let effectiveTypeVarContext = typeVarContext;
-        if (!effectiveTypeVarContext) {
-            // If a typeVarContext wasn't provided by the caller, allocate one here.
-            effectiveTypeVarContext = new TypeVarContext(getTypeVarScopeIds(type));
-        }
+        const effectiveTypeVarContext = typeVarContext ?? new TypeVarContext(getTypeVarScopeIds(type));
 
         // The stdlib collections/__init__.pyi stub file defines namedtuple
         // as a function rather than a class, so we need to check for it here.
@@ -9656,7 +9653,7 @@ export function createTypeEvaluator(
             return { returnType: evaluateCastCall(argList, errorNode) };
         }
 
-        const callResult = validateOverloadedFunctionArguments(
+        const callResult = validateOverloadedArgTypes(
             errorNode,
             argList,
             { type: expandedCallType, isIncomplete: isCallTypeIncomplete },
@@ -9828,7 +9825,7 @@ export function createTypeEvaluator(
                 );
 
                 if (initTypeResult && isOverloadedFunction(initTypeResult.type)) {
-                    validateOverloadedFunctionArguments(
+                    validateOverloadedArgTypes(
                         errorNode,
                         argList,
                         { type: initTypeResult.type },
@@ -11226,9 +11223,7 @@ export function createTypeEvaluator(
     ): CallResult {
         const type = matchResults.overload;
 
-        if (!signatureTracker) {
-            signatureTracker = new UniqueSignatureTracker();
-        }
+        signatureTracker = signatureTracker ?? new UniqueSignatureTracker();
 
         matchResults.overload = ensureFunctionSignaturesAreUnique(
             matchResults.overload,
@@ -11311,9 +11306,8 @@ export function createTypeEvaluator(
             assignFlags |= AssignTypeFlags.RetainLiteralsForTypeVar;
         }
 
-        // Prepopulate the typeVarContext based on the specialized expected type if the
-        // callee has a declared return type. This will allow us to more closely match
-        // the expected type if possible.
+        // Prepopulate the typeVarContext based on the specialized expected type.
+        // This will allow us to more closely match the expected type if possible.
 
         // Determine which type arguments are needed to match the expected type.
         if (isClassInstance(returnType)) {
@@ -11836,9 +11830,7 @@ export function createTypeEvaluator(
         inferenceContext: InferenceContext | undefined,
         signatureTracker: UniqueSignatureTracker | undefined
     ): CallResult {
-        if (!signatureTracker) {
-            signatureTracker = new UniqueSignatureTracker();
-        }
+        signatureTracker = signatureTracker ?? new UniqueSignatureTracker();
 
         typeResult.type = ensureFunctionSignaturesAreUnique(
             typeResult.type,
@@ -27391,7 +27383,7 @@ export function createTypeEvaluator(
         removeFalsinessFromType,
         verifyRaiseExceptionType,
         verifyDeleteExpression,
-        validateOverloadedFunctionArguments,
+        validateOverloadedArgTypes,
         validateInitSubclassArgs,
         isAfterNodeReachable,
         isNodeReachable,
