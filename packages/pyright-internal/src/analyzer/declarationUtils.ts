@@ -33,7 +33,7 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
             return true;
 
         case DeclarationType.Parameter: {
-            if (declaration.node.typeAnnotation || declaration.node.typeAnnotationComment) {
+            if (declaration.node.d.typeAnnotation || declaration.node.d.typeAnnotationComment) {
                 return true;
             }
 
@@ -41,16 +41,16 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
             const parameterParent = declaration.node.parent;
             if (parameterParent?.nodeType === ParseNodeType.Function) {
                 if (
-                    parameterParent.functionAnnotationComment &&
-                    !parameterParent.functionAnnotationComment.isParamListEllipsis
+                    parameterParent.d.functionAnnotationComment &&
+                    !parameterParent.d.functionAnnotationComment.d.isParamListEllipsis
                 ) {
-                    const paramAnnotations = parameterParent.functionAnnotationComment.paramTypeAnnotations;
+                    const paramAnnotations = parameterParent.d.functionAnnotationComment.d.paramTypeAnnotations;
 
                     // Handle the case where the annotation comment is missing an
                     // annotation for the first parameter (self or cls).
                     if (
-                        parameterParent.parameters.length > paramAnnotations.length &&
-                        declaration.node === parameterParent.parameters[0]
+                        parameterParent.d.parameters.length > paramAnnotations.length &&
+                        declaration.node === parameterParent.d.parameters[0]
                     ) {
                         return false;
                     }
@@ -127,19 +127,19 @@ export function getNameFromDeclaration(declaration: Declaration) {
         case DeclarationType.Function:
         case DeclarationType.TypeParameter:
         case DeclarationType.TypeAlias:
-            return declaration.node.name.value;
+            return declaration.node.d.name.d.value;
 
         case DeclarationType.Parameter:
-            return declaration.node.name?.value;
+            return declaration.node.d.name?.d.value;
 
         case DeclarationType.Variable:
-            return declaration.node.nodeType === ParseNodeType.Name ? declaration.node.value : undefined;
+            return declaration.node.nodeType === ParseNodeType.Name ? declaration.node.d.value : undefined;
 
         case DeclarationType.Intrinsic:
         case DeclarationType.SpecialBuiltInClass:
             return declaration.node.nodeType === ParseNodeType.TypeAnnotation &&
-                declaration.node.valueExpression.nodeType === ParseNodeType.Name
-                ? declaration.node.valueExpression.value
+                declaration.node.d.valueExpression.nodeType === ParseNodeType.Name
+                ? declaration.node.d.valueExpression.d.value
                 : undefined;
     }
 
@@ -150,11 +150,11 @@ export function getNameNodeForDeclaration(declaration: Declaration): NameNode | 
     switch (declaration.type) {
         case DeclarationType.Alias:
             if (declaration.node.nodeType === ParseNodeType.ImportAs) {
-                return declaration.node.alias ?? declaration.node.module.nameParts[0];
+                return declaration.node.d.alias ?? declaration.node.d.module.d.nameParts[0];
             } else if (declaration.node.nodeType === ParseNodeType.ImportFromAs) {
-                return declaration.node.alias ?? declaration.node.name;
+                return declaration.node.d.alias ?? declaration.node.d.name;
             } else {
-                return declaration.node.module.nameParts[0];
+                return declaration.node.d.module.d.nameParts[0];
             }
 
         case DeclarationType.Class:
@@ -162,7 +162,7 @@ export function getNameNodeForDeclaration(declaration: Declaration): NameNode | 
         case DeclarationType.TypeParameter:
         case DeclarationType.Parameter:
         case DeclarationType.TypeAlias:
-            return declaration.node.name;
+            return declaration.node.d.name;
 
         case DeclarationType.Variable:
             return declaration.node.nodeType === ParseNodeType.Name ? declaration.node : undefined;

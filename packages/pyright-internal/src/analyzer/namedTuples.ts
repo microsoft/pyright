@@ -68,7 +68,7 @@ export function createNamedTupleType(
     let allowRename = false;
     if (!includesTypes) {
         const renameArg = argList.find(
-            (arg) => arg.argumentCategory === ArgumentCategory.Simple && arg.name?.value === 'rename'
+            (arg) => arg.argumentCategory === ArgumentCategory.Simple && arg.name?.d.value === 'rename'
         );
 
         if (renameArg?.valueExpression) {
@@ -94,13 +94,13 @@ export function createNamedTupleType(
                 argList[0].valueExpression || errorNode
             );
         } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
-            className = nameArg.valueExpression.strings.map((s) => s.value).join('');
+            className = nameArg.valueExpression.d.strings.map((s) => s.d.value).join('');
         }
     }
 
     // Is there is a default arg? If so, is it defined in a way that we
     // can determine its length statically?
-    const defaultsArg = argList.find((arg) => arg.name?.value === 'defaults');
+    const defaultsArg = argList.find((arg) => arg.name?.d.value === 'defaults');
     let defaultArgCount: number | undefined = 0;
     if (defaultsArg && defaultsArg.valueExpression) {
         const defaultsArgType = evaluator.getTypeOfExpression(defaultsArg.valueExpression).type;
@@ -175,8 +175,8 @@ export function createNamedTupleType(
                 entriesArg.valueExpression &&
                 entriesArg.valueExpression.nodeType === ParseNodeType.StringList
             ) {
-                const entries = entriesArg.valueExpression.strings
-                    .map((s) => s.value)
+                const entries = entriesArg.valueExpression.d.strings
+                    .map((s) => s.d.value)
                     .join('')
                     .split(/[,\s]+/);
                 const firstParamWithDefaultIndex =
@@ -236,8 +236,8 @@ export function createNamedTupleType(
                 const entryMap = new Map<string, string>();
                 const entryExpressions =
                     entriesArg.valueExpression?.nodeType === ParseNodeType.List
-                        ? entriesArg.valueExpression.entries
-                        : entriesArg.valueExpression.expressions;
+                        ? entriesArg.valueExpression.d.entries
+                        : entriesArg.valueExpression.d.expressions;
 
                 const firstParamWithDefaultIndex =
                     defaultArgCount === undefined ? 0 : Math.max(0, entryExpressions.length - defaultArgCount);
@@ -250,9 +250,9 @@ export function createNamedTupleType(
 
                     if (includesTypes) {
                         // Handle the variant that includes name/type tuples.
-                        if (entry.nodeType === ParseNodeType.Tuple && entry.expressions.length === 2) {
-                            entryNameNode = entry.expressions[0];
-                            entryTypeNode = entry.expressions[1];
+                        if (entry.nodeType === ParseNodeType.Tuple && entry.d.expressions.length === 2) {
+                            entryNameNode = entry.d.expressions[0];
+                            entryTypeNode = entry.d.expressions[1];
                             entryType = convertToInstance(
                                 evaluator.getTypeOfExpressionExpectingType(entryTypeNode).type
                             );

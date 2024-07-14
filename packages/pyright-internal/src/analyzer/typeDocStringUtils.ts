@@ -152,7 +152,7 @@ export function getPropertyDocStringInherited(
     sourceMapper: SourceMapper,
     evaluator: TypeEvaluator
 ) {
-    const enclosingClass = ParseTreeUtils.getEnclosingClass(decl.node.name, /* stopAtFunction */ false);
+    const enclosingClass = ParseTreeUtils.getEnclosingClass(decl.node.d.name, /* stopAtFunction */ false);
     const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
     if (classResults) {
         return _getPropertyDocStringInherited(decl, sourceMapper, evaluator, classResults.classType);
@@ -191,8 +191,8 @@ export function isBuiltInModule(uri: Uri | undefined) {
 
 export function getModuleDocStringFromModuleNodes(modules: ModuleNode[]): string | undefined {
     for (const module of modules) {
-        if (module.statements) {
-            const docString = ParseTreeUtils.getDocString(module.statements);
+        if (module.d.statements) {
+            const docString = ParseTreeUtils.getDocString(module.d.statements);
             if (docString) {
                 return docString;
             }
@@ -264,7 +264,7 @@ export function getClassDocString(
 }
 
 export function getFunctionOrClassDeclDocString(decl: FunctionDeclaration | ClassDeclaration): string | undefined {
-    return ParseTreeUtils.getDocString(decl.node?.suite?.statements ?? []);
+    return ParseTreeUtils.getDocString(decl.node?.d.suite?.d.statements ?? []);
 }
 
 export function getVariableDocString(
@@ -324,7 +324,7 @@ function _getPropertyDocStringInherited(
         return;
     }
 
-    const fieldName = decl.node.nodeType === ParseNodeType.Function ? decl.node.name.value : undefined;
+    const fieldName = decl.node.nodeType === ParseNodeType.Function ? decl.node.d.name.d.value : undefined;
     if (!fieldName) {
         return;
     }

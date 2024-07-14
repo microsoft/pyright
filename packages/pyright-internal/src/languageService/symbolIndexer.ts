@@ -159,9 +159,9 @@ function collectSymbolIndexDataForName(
 
         // The default range for a module alias is the first character of the module's file.
         // Replace that with the range of the alias token.
-        if (declaration.node.nodeType === ParseNodeType.ImportAs && declaration.node.alias) {
+        if (declaration.node.nodeType === ParseNodeType.ImportAs && declaration.node.d.alias) {
             selectionRange = range = convertTextRangeToRange(
-                declaration.node.alias.token,
+                declaration.node.d.alias.d.token,
                 parseResults.tokenizerOutput.lines
             );
         }
@@ -192,6 +192,6 @@ function shouldAliasBeIndexed(declaration: AliasDeclaration, indexOptions: Index
     return (
         (declaration.node.nodeType === ParseNodeType.ImportAs ||
             declaration.node.nodeType === ParseNodeType.ImportFromAs) &&
-        declaration.node.alias !== undefined
+        declaration.node.d.alias !== undefined
     );
 }

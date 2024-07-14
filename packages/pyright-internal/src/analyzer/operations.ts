@@ -504,25 +504,25 @@ export function getTypeOfBinaryOperation(
     flags: EvalFlags,
     inferenceContext: InferenceContext | undefined
 ): TypeResult {
-    const leftExpression = node.leftExpression;
-    let rightExpression = node.rightExpression;
+    const leftExpression = node.d.leftExpression;
+    let rightExpression = node.d.rightExpression;
     let isIncomplete = false;
     let typeErrors = false;
 
     // If this is a comparison and the left expression is also a comparison,
     // we need to change the behavior to accommodate python's "chained
     // comparisons" feature.
-    if (operatorSupportsChaining(node.operator)) {
+    if (operatorSupportsChaining(node.d.operator)) {
         if (
             rightExpression.nodeType === ParseNodeType.BinaryOperation &&
-            !rightExpression.isParenthesized &&
-            operatorSupportsChaining(rightExpression.operator)
+            !rightExpression.d.isParenthesized &&
+            operatorSupportsChaining(rightExpression.d.operator)
         ) {
             // Evaluate the right expression so it is type checked.
             getTypeOfBinaryOperation(evaluator, rightExpression, flags, inferenceContext);
 
             // Use the left side of the right expression for comparison purposes.
-            rightExpression = rightExpression.leftExpression;
+            rightExpression = rightExpression.d.leftExpression;
         }
     }
 
@@ -530,7 +530,7 @@ export function getTypeOfBinaryOperation(
     // of the magic method for that operation. However, the "or" and "and" operators
     // have no magic method, so we apply the expected type directly to both operands.
     let expectedOperandType =
-        node.operator === OperatorType.Or || node.operator === OperatorType.And
+        node.d.operator === OperatorType.Or || node.d.operator === OperatorType.And
             ? inferenceContext?.expectedType
             : undefined;
 
@@ -539,13 +539,13 @@ export function getTypeOfBinaryOperation(
     // of "x: List[Optional[X]] = [None] * y" where y is an integer literal.
     let expectedLeftOperandType: Type | undefined;
     if (
-        node.operator === OperatorType.Multiply &&
+        node.d.operator === OperatorType.Multiply &&
         inferenceContext &&
         isClassInstance(inferenceContext.expectedType) &&
         ClassType.isBuiltIn(inferenceContext.expectedType, 'list') &&
         inferenceContext.expectedType.priv.typeArguments &&
         inferenceContext.expectedType.priv.typeArguments.length >= 1 &&
-        node.leftExpression.nodeType === ParseNodeType.List
+        node.d.leftExpression.nodeType === ParseNodeType.List
     ) {
         expectedLeftOperandType = inferenceContext.expectedType;
     }
@@ -559,7 +559,7 @@ export function getTypeOfBinaryOperation(
     let leftType = leftTypeResult.type;
 
     if (!expectedOperandType) {
-        if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
+        if (node.d.operator === OperatorType.Or || node.d.operator === OperatorType.And) {
             // For "or" and "and", use the type of the left operand under certain
             // circumstances. This allows us to infer a better type for expressions
             // like `x or []`. Do this only if it's a generic class (like list or dict)
@@ -575,11 +575,11 @@ export function getTypeOfBinaryOperation(
             ) {
                 expectedOperandType = leftType;
             }
-        } else if (node.operator === OperatorType.Add && node.rightExpression.nodeType === ParseNodeType.List) {
+        } else if (node.d.operator === OperatorType.Add && node.d.rightExpression.nodeType === ParseNodeType.List) {
             // For the "+" operator , use this technique only if the right operand is
             // a list expression. This heuristic handles the common case of `my_list + [0]`.
             expectedOperandType = leftType;
-        } else if (node.operator === OperatorType.BitwiseOr) {
+        } else if (node.d.operator === OperatorType.BitwiseOr) {
             // If this is a bitwise or ("|"), use the type of the left operand. This allows
             // us to support the case where a TypedDict is being updated with a dict expression.
             if (isClassInstance(leftType) && ClassType.isTypedDictClass(leftType)) {
@@ -602,7 +602,7 @@ export function getTypeOfBinaryOperation(
     // Is this a "|" operator used in a context where it is supposed to be
     // interpreted as a union operator?
     if (
-        node.operator === OperatorType.BitwiseOr &&
+        node.d.operator === OperatorType.BitwiseOr &&
         !customMetaclassSupportsMethod(leftType, '__or__') &&
         !customMetaclassSupportsMethod(rightType, '__ror__')
     ) {
@@ -633,7 +633,7 @@ export function getTypeOfBinaryOperation(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.unionSyntaxIllegal(),
                         node,
-                        node.operatorToken
+                        node.d.operatorToken
                     );
                 }
             }
@@ -646,12 +646,12 @@ export function getTypeOfBinaryOperation(
             }
 
             adjustedLeftType = evaluator.reportMissingTypeArguments(
-                node.leftExpression,
+                node.d.leftExpression,
                 adjustedLeftType,
                 flags | EvalFlags.InstantiableType
             );
             adjustedRightType = evaluator.reportMissingTypeArguments(
-                node.rightExpression,
+                node.d.rightExpression,
                 adjustedRightType,
                 flags | EvalFlags.InstantiableType
             );
@@ -705,7 +705,7 @@ export function getTypeOfBinaryOperation(
 
     if ((flags & EvalFlags.TypeExpression) !== 0) {
         // Exempt "|" because it might be a union operation involving unknowns.
-        if (node.operator !== OperatorType.BitwiseOr) {
+        if (node.d.operator !== OperatorType.BitwiseOr) {
             evaluator.addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.binaryOperationNotAllowed(), node);
             return { type: UnknownType.create() };
         }
@@ -713,16 +713,16 @@ export function getTypeOfBinaryOperation(
 
     // Optional checks apply to all operations except for boolean operations.
     let isLeftOptionalType = false;
-    if (booleanOperatorMap[node.operator] === undefined) {
+    if (booleanOperatorMap[node.d.operator] === undefined) {
         // None is a valid operand for == and != even if the type stub says otherwise.
-        if (node.operator === OperatorType.Equals || node.operator === OperatorType.NotEquals) {
+        if (node.d.operator === OperatorType.Equals || node.d.operator === OperatorType.NotEquals) {
             leftType = removeNoneFromUnion(leftType);
         } else {
             isLeftOptionalType = isOptionalType(leftType);
         }
 
         // None is a valid operand for == and != even if the type stub says otherwise.
-        if (node.operator === OperatorType.Equals || node.operator === OperatorType.NotEquals) {
+        if (node.d.operator === OperatorType.Equals || node.d.operator === OperatorType.NotEquals) {
             rightType = removeNoneFromUnion(rightType);
         }
     }
@@ -742,7 +742,7 @@ export function getTypeOfBinaryOperation(
 
     const type = validateBinaryOperation(
         evaluator,
-        node.operator,
+        node.d.operator,
         { type: leftType, isIncomplete: leftTypeResult.isIncomplete },
         { type: rightType, isIncomplete: rightTypeResult.isIncomplete },
         node,
@@ -763,9 +763,9 @@ export function getTypeOfBinaryOperation(
                 evaluator.addDiagnostic(
                     DiagnosticRule.reportOptionalOperand,
                     LocMessage.noneOperator().format({
-                        operator: printOperator(node.operator),
+                        operator: printOperator(node.d.operator),
                     }),
-                    node.leftExpression
+                    node.d.leftExpression
                 );
             } else {
                 // If neither the LHS or RHS are unions, don't include a diagnostic addendum
@@ -782,7 +782,7 @@ export function getTypeOfBinaryOperation(
                 evaluator.addDiagnostic(
                     DiagnosticRule.reportOperatorIssue,
                     LocMessage.typeNotSupportBinaryOperator().format({
-                        operator: printOperator(node.operator),
+                        operator: printOperator(node.d.operator),
                         leftType: evaluator.printType(leftType),
                         rightType: evaluator.printType(rightType),
                     }) + diagString,
@@ -820,18 +820,18 @@ export function getTypeOfAugmentedAssignment(
     let typeResult: TypeResult | undefined;
     const diag = new DiagnosticAddendum();
 
-    const leftTypeResult = evaluator.getTypeOfExpression(node.leftExpression);
+    const leftTypeResult = evaluator.getTypeOfExpression(node.d.leftExpression);
     const leftType = leftTypeResult.type;
 
     let expectedOperandType: Type | undefined;
-    if (node.operator === OperatorType.BitwiseOrEqual) {
+    if (node.d.operator === OperatorType.BitwiseOrEqual) {
         // If this is a bitwise or ("|="), use the type of the left operand. This allows
         // us to support the case where a TypedDict is being updated with a dict expression.
         expectedOperandType = leftType;
     }
 
     const rightTypeResult = evaluator.getTypeOfExpression(
-        node.rightExpression,
+        node.d.rightExpression,
         /* flags */ undefined,
         makeInferenceContext(expectedOperandType)
     );
@@ -853,7 +853,7 @@ export function getTypeOfAugmentedAssignment(
                             return preserveUnknown(leftSubtypeUnexpanded, rightSubtypeUnexpanded);
                         }
 
-                        const magicMethodName = operatorMap[node.operator][0];
+                        const magicMethodName = operatorMap[node.d.operator][0];
                         let returnType = evaluator.getTypeOfMagicMethodCall(
                             leftSubtypeUnexpanded,
                             magicMethodName,
@@ -887,13 +887,13 @@ export function getTypeOfAugmentedAssignment(
                         if (!returnType) {
                             // If the LHS class didn't support the magic method for augmented
                             // assignment, fall back on the normal binary expression evaluator.
-                            const binaryOperator = operatorMap[node.operator][1];
+                            const binaryOperator = operatorMap[node.d.operator][1];
 
                             // Don't use literal math if the operation is within a loop
                             // because the literal values may change each time.
                             const isLiteralMathAllowed =
                                 !isWithinLoop(node) &&
-                                isExpressionLocalVariable(evaluator, node.leftExpression) &&
+                                isExpressionLocalVariable(evaluator, node.d.leftExpression) &&
                                 getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) <
                                     maxLiteralMathSubtypeCount;
 
@@ -927,7 +927,7 @@ export function getTypeOfAugmentedAssignment(
                 evaluator.addDiagnostic(
                     DiagnosticRule.reportOperatorIssue,
                     LocMessage.typeNotSupportBinaryOperator().format({
-                        operator: printOperator(node.operator),
+                        operator: printOperator(node.d.operator),
                         leftType: evaluator.printType(leftType),
                         rightType: evaluator.printType(rightType),
                     }) + diag.getString(),
@@ -939,7 +939,7 @@ export function getTypeOfAugmentedAssignment(
         typeResult = { type, isIncomplete };
     }
 
-    evaluator.assignTypeToExpression(node.destExpression, typeResult, node.rightExpression);
+    evaluator.assignTypeToExpression(node.d.destExpression, typeResult, node.d.rightExpression);
 
     return typeResult;
 }
@@ -955,7 +955,7 @@ export function getTypeOfUnaryOperation(
         return { type: UnknownType.create() };
     }
 
-    const exprTypeResult = evaluator.getTypeOfExpression(node.expression);
+    const exprTypeResult = evaluator.getTypeOfExpression(node.d.expression);
     let exprType = evaluator.makeTopLevelTypeVarsConcrete(transformPossibleRecursiveTypeAlias(exprTypeResult.type));
 
     const isIncomplete = exprTypeResult.isIncomplete;
@@ -974,14 +974,14 @@ export function getTypeOfUnaryOperation(
 
     let type: Type | undefined;
 
-    if (node.operator !== OperatorType.Not) {
+    if (node.d.operator !== OperatorType.Not) {
         if (isOptionalType(exprType)) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportOptionalOperand,
                 LocMessage.noneOperator().format({
-                    operator: printOperator(node.operator),
+                    operator: printOperator(node.d.operator),
                 }),
-                node.expression
+                node.d.expression
             );
             exprType = removeNoneFromUnion(exprType);
         }
@@ -994,9 +994,9 @@ export function getTypeOfUnaryOperation(
     if (!exprTypeResult.isIncomplete) {
         const literalClassName = getLiteralTypeClassName(exprType);
         if (literalClassName === 'int') {
-            if (node.operator === OperatorType.Add) {
+            if (node.d.operator === OperatorType.Add) {
                 type = exprType;
-            } else if (node.operator === OperatorType.Subtract) {
+            } else if (node.d.operator === OperatorType.Subtract) {
                 type = mapSubtypes(exprType, (subtype) => {
                     const classSubtype = subtype as ClassType;
                     return ClassType.cloneWithLiteral(
@@ -1006,7 +1006,7 @@ export function getTypeOfUnaryOperation(
                 });
             }
         } else if (literalClassName === 'bool') {
-            if (node.operator === OperatorType.Not) {
+            if (node.d.operator === OperatorType.Not) {
                 type = mapSubtypes(exprType, (subtype) => {
                     const classSubtype = subtype as ClassType;
                     return ClassType.cloneWithLiteral(classSubtype, !(classSubtype.priv.literalValue as boolean));
@@ -1017,7 +1017,7 @@ export function getTypeOfUnaryOperation(
 
     if (!type) {
         // __not__ always returns a boolean.
-        if (node.operator === OperatorType.Not) {
+        if (node.d.operator === OperatorType.Not) {
             type = evaluator.getBuiltInObject(node, 'bool');
             if (!type) {
                 type = UnknownType.create();
@@ -1026,7 +1026,7 @@ export function getTypeOfUnaryOperation(
             if (isAnyOrUnknown(exprType)) {
                 type = exprType;
             } else {
-                const magicMethodName = unaryOperatorMap[node.operator];
+                const magicMethodName = unaryOperatorMap[node.d.operator];
                 let isResultValid = true;
 
                 type = evaluator.mapSubtypesExpandTypeVars(exprType, /* options */ undefined, (subtypeExpanded) => {
@@ -1056,7 +1056,7 @@ export function getTypeOfUnaryOperation(
                         evaluator.addDiagnostic(
                             DiagnosticRule.reportOperatorIssue,
                             LocMessage.typeNotSupportUnaryOperatorBidirectional().format({
-                                operator: printOperator(node.operator),
+                                operator: printOperator(node.d.operator),
                                 type: evaluator.printType(exprType),
                                 expectedType: evaluator.printType(inferenceContext.expectedType),
                             }),
@@ -1066,7 +1066,7 @@ export function getTypeOfUnaryOperation(
                         evaluator.addDiagnostic(
                             DiagnosticRule.reportOperatorIssue,
                             LocMessage.typeNotSupportUnaryOperator().format({
-                                operator: printOperator(node.operator),
+                                operator: printOperator(node.d.operator),
                                 type: evaluator.printType(exprType),
                             }),
                             node
@@ -1095,20 +1095,20 @@ export function getTypeOfTernaryOperation(
         return { type: UnknownType.create() };
     }
 
-    evaluator.getTypeOfExpression(node.testExpression);
+    evaluator.getTypeOfExpression(node.d.testExpression);
 
     const typesToCombine: Type[] = [];
     let isIncomplete = false;
     let typeErrors = false;
 
     const constExprValue = evaluateStaticBoolExpression(
-        node.testExpression,
+        node.d.testExpression,
         fileInfo.executionEnvironment,
         fileInfo.definedConstants
     );
 
-    if (constExprValue !== false && evaluator.isNodeReachable(node.ifExpression)) {
-        const ifType = evaluator.getTypeOfExpression(node.ifExpression, flags, inferenceContext);
+    if (constExprValue !== false && evaluator.isNodeReachable(node.d.ifExpression)) {
+        const ifType = evaluator.getTypeOfExpression(node.d.ifExpression, flags, inferenceContext);
         typesToCombine.push(ifType.type);
         if (ifType.isIncomplete) {
             isIncomplete = true;
@@ -1118,8 +1118,8 @@ export function getTypeOfTernaryOperation(
         }
     }
 
-    if (constExprValue !== true && evaluator.isNodeReachable(node.elseExpression)) {
-        const elseType = evaluator.getTypeOfExpression(node.elseExpression, flags, inferenceContext);
+    if (constExprValue !== true && evaluator.isNodeReachable(node.d.elseExpression)) {
+        const elseType = evaluator.getTypeOfExpression(node.d.elseExpression, flags, inferenceContext);
         typesToCombine.push(elseType.type);
         if (elseType.isIncomplete) {
             isIncomplete = true;
@@ -1183,7 +1183,7 @@ function isExpressionLocalVariable(evaluator: TypeEvaluator, node: ExpressionNod
         return false;
     }
 
-    const symbolWithScope = evaluator.lookUpSymbolRecursive(node, node.value, /* honorCodeFlow */ false);
+    const symbolWithScope = evaluator.lookUpSymbolRecursive(node, node.d.value, /* honorCodeFlow */ false);
     if (!symbolWithScope) {
         return false;
     }

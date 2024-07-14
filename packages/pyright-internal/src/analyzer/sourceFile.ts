@@ -1397,7 +1397,7 @@ export class SourceFile {
             // Associate the import results with the module import
             // name node in the parse tree so we can access it later
             // (for hover and definition support).
-            if (moduleImport.nameParts.length === moduleImport.nameNode.nameParts.length) {
+            if (moduleImport.nameParts.length === moduleImport.nameNode.d.nameParts.length) {
                 AnalyzerNodeInfo.setImportInfo(moduleImport.nameNode, importResult);
             } else {
                 // For implicit imports of higher-level modules within a multi-part
@@ -1405,9 +1405,9 @@ export class SourceFile {
                 // of the multi-part name rather than the full multi-part name. In this
                 // case, store the import info on the name part node.
                 assert(moduleImport.nameParts.length > 0);
-                assert(moduleImport.nameParts.length - 1 < moduleImport.nameNode.nameParts.length);
+                assert(moduleImport.nameParts.length - 1 < moduleImport.nameNode.d.nameParts.length);
                 AnalyzerNodeInfo.setImportInfo(
-                    moduleImport.nameNode.nameParts[moduleImport.nameParts.length - 1],
+                    moduleImport.nameNode.d.nameParts[moduleImport.nameParts.length - 1],
                     importResult
                 );
             }

@@ -22,7 +22,7 @@ test('Empty', () => {
     const parserOutput = TestUtils.parseText('', diagSink).parserOutput;
 
     assert.equal(diagSink.fetchAndClear().length, 0);
-    assert.equal(parserOutput.parseTree.statements.length, 0);
+    assert.equal(parserOutput.parseTree.d.statements.length, 0);
 });
 
 test('Parser1', () => {
@@ -30,7 +30,7 @@ test('Parser1', () => {
     const parserOutput = TestUtils.parseSampleFile('parser1.py', diagSink).parserOutput;
 
     assert.equal(diagSink.fetchAndClear().length, 0);
-    assert.equal(parserOutput.parseTree.statements.length, 4);
+    assert.equal(parserOutput.parseTree.d.statements.length, 4);
 });
 
 test('Parser2', () => {
@@ -69,15 +69,15 @@ test('ExpressionWrappedInParens', () => {
     const parserOutput = TestUtils.parseText('(str)', diagSink).parserOutput;
 
     assert.equal(diagSink.fetchAndClear().length, 0);
-    assert.equal(parserOutput.parseTree.statements.length, 1);
-    assert.equal(parserOutput.parseTree.statements[0].nodeType, ParseNodeType.StatementList);
+    assert.equal(parserOutput.parseTree.d.statements.length, 1);
+    assert.equal(parserOutput.parseTree.d.statements[0].nodeType, ParseNodeType.StatementList);
 
-    const statementList = parserOutput.parseTree.statements[0] as StatementListNode;
-    assert.equal(statementList.statements.length, 1);
+    const statementList = parserOutput.parseTree.d.statements[0] as StatementListNode;
+    assert.equal(statementList.d.statements.length, 1);
 
     // length of node should include parens
-    assert.equal(statementList.statements[0].nodeType, ParseNodeType.Name);
-    assert.equal(statementList.statements[0].length, 5);
+    assert.equal(statementList.d.statements[0].nodeType, ParseNodeType.Name);
+    assert.equal(statementList.d.statements[0].length, 5);
 });
 
 test('MaxParseDepth1', () => {

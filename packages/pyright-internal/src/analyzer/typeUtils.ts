@@ -9,10 +9,11 @@
 
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
-import { ParameterCategory } from '../parser/parseNodes';
+import { ArgumentNode, ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isEffectivelyClassVar, isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
+import { FunctionArgumentWithExpression } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -3325,6 +3326,14 @@ export function getDeclaringModulesForType(type: Type): string[] {
     const moduleList: string[] = [];
     addDeclaringModuleNamesForType(type, moduleList);
     return moduleList;
+}
+
+export function convertArgumentNodeToFunctionArgument(node: ArgumentNode): FunctionArgumentWithExpression {
+    return {
+        argumentCategory: node.d.argumentCategory,
+        name: node.d.name,
+        valueExpression: node.d.valueExpression,
+    };
 }
 
 function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recursionCount = 0) {

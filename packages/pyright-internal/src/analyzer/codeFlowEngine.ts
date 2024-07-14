@@ -65,6 +65,7 @@ import {
 } from './types';
 import {
     cleanIncompleteUnknown,
+    convertArgumentNodeToFunctionArgument,
     derivesFromStdlibClass,
     doForEachSubtype,
     isIncompleteUnknown,
@@ -523,19 +524,20 @@ export function getCodeFlowEngine(
                             // base type.
                             if (
                                 targetNode.nodeType === ParseNodeType.Index &&
-                                isMatchingExpression(reference, targetNode.baseExpression)
+                                isMatchingExpression(reference, targetNode.d.baseExpression)
                             ) {
                                 if (
                                     targetNode.parent?.nodeType === ParseNodeType.Assignment &&
-                                    targetNode.items.length === 1 &&
-                                    !targetNode.trailingComma &&
-                                    !targetNode.items[0].name &&
-                                    targetNode.items[0].argumentCategory === ArgumentCategory.Simple &&
-                                    targetNode.items[0].valueExpression.nodeType === ParseNodeType.StringList &&
-                                    targetNode.items[0].valueExpression.strings.length === 1 &&
-                                    targetNode.items[0].valueExpression.strings[0].nodeType === ParseNodeType.String
+                                    targetNode.d.items.length === 1 &&
+                                    !targetNode.d.trailingComma &&
+                                    !targetNode.d.items[0].d.name &&
+                                    targetNode.d.items[0].d.argumentCategory === ArgumentCategory.Simple &&
+                                    targetNode.d.items[0].d.valueExpression.nodeType === ParseNodeType.StringList &&
+                                    targetNode.d.items[0].d.valueExpression.d.strings.length === 1 &&
+                                    targetNode.d.items[0].d.valueExpression.d.strings[0].nodeType ===
+                                        ParseNodeType.String
                                 ) {
-                                    const keyValue = targetNode.items[0].valueExpression.strings[0].value;
+                                    const keyValue = targetNode.d.items[0].d.valueExpression.d.strings[0].d.value;
                                     const narrowedResult = preventRecursion(assignmentFlowNode, () => {
                                         const flowTypeResult = getTypeFromFlowNode(assignmentFlowNode.antecedent);
 
@@ -693,7 +695,7 @@ export function getCodeFlowEngine(
                                 // too expensive.
                                 const symbolWithScope = evaluator.lookUpSymbolRecursive(
                                     conditionalFlowNode.reference,
-                                    conditionalFlowNode.reference.value,
+                                    conditionalFlowNode.reference.d.value,
                                     /* honorCodeFlow */ false
                                 );
 
@@ -862,7 +864,7 @@ export function getCodeFlowEngine(
                     if (curFlowNode.flags & FlowFlags.WildcardImport) {
                         const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
                         if (reference && reference.nodeType === ParseNodeType.Name) {
-                            const nameValue = reference.value;
+                            const nameValue = reference.d.value;
                             if (wildcardImportFlowNode.names.some((name) => name === nameValue)) {
                                 return preventRecursion(curFlowNode, () => {
                                     const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
@@ -1284,7 +1286,7 @@ export function getCodeFlowEngine(
                         // too expensive.
                         const symbolWithScope = evaluator.lookUpSymbolRecursive(
                             conditionalFlowNode.reference,
-                            conditionalFlowNode.reference.value,
+                            conditionalFlowNode.reference.d.value,
                             /* honorCodeFlow */ false
                         );
 
@@ -1474,17 +1476,17 @@ export function getCodeFlowEngine(
                         ).type;
 
                         if (isCompatibleWithConstrainedTypeVar(subjectType, typeVar)) {
-                            const patternNode = narrowForPatternFlowNode.statement.pattern;
+                            const patternNode = narrowForPatternFlowNode.statement.d.pattern;
 
                             if (
                                 patternNode.nodeType === ParseNodeType.PatternAs &&
-                                patternNode.orPatterns.length === 1 &&
-                                patternNode.orPatterns[0].nodeType === ParseNodeType.PatternClass
+                                patternNode.d.orPatterns.length === 1 &&
+                                patternNode.d.orPatterns[0].nodeType === ParseNodeType.PatternClass
                             ) {
-                                const classPatternNode = patternNode.orPatterns[0];
+                                const classPatternNode = patternNode.d.orPatterns[0];
 
                                 const classType = evaluator.getTypeOfExpression(
-                                    classPatternNode.className,
+                                    classPatternNode.d.className,
                                     EvalFlags.CallBaseDefaults
                                 ).type;
 
@@ -1514,11 +1516,11 @@ export function getCodeFlowEngine(
 
                     if (
                         testExpression.nodeType === ParseNodeType.Call &&
-                        testExpression.leftExpression.nodeType === ParseNodeType.Name &&
-                        testExpression.leftExpression.value === 'isinstance' &&
-                        testExpression.arguments.length === 2
+                        testExpression.d.leftExpression.nodeType === ParseNodeType.Name &&
+                        testExpression.d.leftExpression.d.value === 'isinstance' &&
+                        testExpression.d.arguments.length === 2
                     ) {
-                        const arg0Expr = testExpression.arguments[0].valueExpression;
+                        const arg0Expr = testExpression.d.arguments[0].d.valueExpression;
 
                         const arg0Type = evaluator.getTypeOfExpression(arg0Expr).type;
 
@@ -1531,7 +1533,7 @@ export function getCodeFlowEngine(
                             );
                             visitedFlowNodeMap.delete(curFlowNode.id);
 
-                            const arg1Expr = testExpression.arguments[1].valueExpression;
+                            const arg1Expr = testExpression.d.arguments[1].d.valueExpression;
                             const arg1Type = evaluator.getTypeOfExpression(
                                 arg1Expr,
                                 EvalFlags.AllowMissingTypeArgs |
@@ -1645,7 +1647,7 @@ export function getCodeFlowEngine(
 
         // Don't attempt to evaluate a lambda call. We need to evaluate these in the
         // context of its arguments.
-        if (node.leftExpression.nodeType === ParseNodeType.Lambda) {
+        if (node.d.leftExpression.nodeType === ParseNodeType.Lambda) {
             return false;
         }
 
@@ -1659,7 +1661,7 @@ export function getCodeFlowEngine(
             let subtypeCount = 0;
 
             // Evaluate the call base type.
-            const callTypeResult = evaluator.getTypeOfExpression(node.leftExpression, EvalFlags.CallBaseDefaults);
+            const callTypeResult = evaluator.getTypeOfExpression(node.d.leftExpression, EvalFlags.CallBaseDefaults);
             const callType = callTypeResult.type;
 
             doForEachSubtype(callType, (callSubtype) => {
@@ -1716,7 +1718,7 @@ export function getCodeFlowEngine(
                             // the applicable overload returns a NoReturn.
                             const callResult = evaluator.validateOverloadedFunctionArguments(
                                 node,
-                                node.arguments,
+                                node.d.arguments.map((arg) => convertArgumentNodeToFunctionArgument(arg)),
                                 { type: callSubtype, isIncomplete: callTypeResult.isIncomplete },
                                 /* typeVarContext */ undefined,
                                 /* skipUnknownArgCheck */ false,
@@ -1777,22 +1779,22 @@ export function getCodeFlowEngine(
             ) {
                 // Check specifically for a common idiom where the only statement
                 // (other than a possible docstring) is a "raise NotImplementedError".
-                const functionStatements = functionType.shared.declaration.node.suite.statements;
+                const functionStatements = functionType.shared.declaration.node.d.suite.d.statements;
 
                 let foundRaiseNotImplemented = false;
                 for (const statement of functionStatements) {
-                    if (statement.nodeType !== ParseNodeType.StatementList || statement.statements.length !== 1) {
+                    if (statement.nodeType !== ParseNodeType.StatementList || statement.d.statements.length !== 1) {
                         break;
                     }
 
-                    const simpleStatement = statement.statements[0];
+                    const simpleStatement = statement.d.statements[0];
                     if (simpleStatement.nodeType === ParseNodeType.StringList) {
                         continue;
                     }
 
-                    if (simpleStatement.nodeType === ParseNodeType.Raise && simpleStatement.typeExpression) {
+                    if (simpleStatement.nodeType === ParseNodeType.Raise && simpleStatement.d.typeExpression) {
                         // Check for a raising about 'NotImplementedError' or a subtype thereof.
-                        const exceptionType = evaluator.getType(simpleStatement.typeExpression);
+                        const exceptionType = evaluator.getType(simpleStatement.d.typeExpression);
 
                         if (
                             exceptionType &&
@@ -1889,9 +1891,9 @@ export function getCodeFlowEngine(
     }
 
     function getTypeFromWildcardImport(flowNode: FlowWildcardImport, name: string): Type {
-        const importInfo = getImportInfo(flowNode.node.module);
+        const importInfo = getImportInfo(flowNode.node.d.module);
         assert(importInfo !== undefined && importInfo.isImportFound);
-        assert(flowNode.node.isWildcardImport);
+        assert(flowNode.node.d.isWildcardImport);
 
         const symbolWithScope = evaluator.lookUpSymbolRecursive(flowNode.node, name, /* honorCodeFlow */ false);
         assert(symbolWithScope !== undefined);

@@ -330,7 +330,7 @@ function applyPartialTransformToFunction(
             }
         } else {
             const matchingParam = paramListDetails.params.find(
-                (paramInfo) => paramInfo.param.name === arg.name?.value && paramInfo.kind !== ParameterKind.Positional
+                (paramInfo) => paramInfo.param.name === arg.name?.d.value && paramInfo.kind !== ParameterKind.Positional
             );
 
             if (!matchingParam) {
@@ -339,7 +339,7 @@ function applyPartialTransformToFunction(
                     if (errorNode) {
                         evaluator.addDiagnostic(
                             DiagnosticRule.reportCallIssue,
-                            LocMessage.paramNameMissing().format({ name: arg.name.value }),
+                            LocMessage.paramNameMissing().format({ name: arg.name.d.value }),
                             arg.name
                         );
                     }
@@ -382,7 +382,7 @@ function applyPartialTransformToFunction(
                     if (errorNode) {
                         evaluator.addDiagnostic(
                             DiagnosticRule.reportCallIssue,
-                            LocMessage.paramAlreadyAssigned().format({ name: arg.name.value }),
+                            LocMessage.paramAlreadyAssigned().format({ name: arg.name.d.value }),
                             arg.name
                         );
                     }

@@ -90,8 +90,8 @@ export class TextEditTracker {
         //       used by remove unused imports.
         const imports: ImportFromAsNode[] | ImportAsNode[] =
             importToDelete.nodeType === ParseNodeType.ImportAs
-                ? (importToDelete.parent as ImportNode).list
-                : (importToDelete.parent as ImportFromNode).imports;
+                ? (importToDelete.parent as ImportNode).d.list
+                : (importToDelete.parent as ImportFromNode).d.imports;
 
         const filePath = getFileInfo(parseFileResults.parserOutput.parseTree).fileUri;
         const ranges = getTextRangeForImportNameDeletion(
@@ -219,7 +219,7 @@ export class TextEditTracker {
                 (i.moduleName === moduleNameInfo.nameForImportFrom || i.moduleName === moduleNameInfo.name)
         );
 
-        if (!imported || imported.node.nodeType !== ParseNodeType.ImportFrom || imported.node.isWildcardImport) {
+        if (!imported || imported.node.nodeType !== ParseNodeType.ImportFrom || imported.node.d.isWildcardImport) {
             return false;
         }
 
@@ -260,8 +260,8 @@ export class TextEditTracker {
         const newLastModuleName = newModuleNames[newModuleNames.length - 1];
 
         const alias = importNameInfo[0].alias === newLastModuleName ? lastModuleName : importNameInfo[0].alias;
-        const importName = updateOptions.currentFromImport.imports.find(
-            (i) => i.name.value === lastModuleName && i.alias?.value === alias
+        const importName = updateOptions.currentFromImport.d.imports.find(
+            (i) => i.d.name.d.value === lastModuleName && i.d.alias?.d.value === alias
         );
 
         if (!importName) {
@@ -269,13 +269,13 @@ export class TextEditTracker {
         }
 
         this._removeEdits(fileUri, deletions);
-        if (importName.alias) {
-            this._nodesRemoved.delete(importName.alias);
+        if (importName.d.alias) {
+            this._nodesRemoved.delete(importName.d.alias);
         }
 
         this.addEdit(
             fileUri,
-            convertTextRangeToRange(importName.name, parseFileResults.tokenizerOutput.lines),
+            convertTextRangeToRange(importName.d.name, parseFileResults.tokenizerOutput.lines),
             newLastModuleName
         );
 
@@ -415,15 +415,15 @@ export class TextEditTracker {
         // Mark that we don't need to process these node again later.
         this._nodesRemoved.set(nodeToDelete, parseFileResults);
         if (nodeToDelete.nodeType === ParseNodeType.ImportAs) {
-            this._nodesRemoved.set(nodeToDelete.module, parseFileResults);
-            nodeToDelete.module.nameParts.forEach((n) => this._nodesRemoved.set(n, parseFileResults));
-            if (nodeToDelete.alias) {
-                this._nodesRemoved.set(nodeToDelete.alias, parseFileResults);
+            this._nodesRemoved.set(nodeToDelete.d.module, parseFileResults);
+            nodeToDelete.d.module.d.nameParts.forEach((n) => this._nodesRemoved.set(n, parseFileResults));
+            if (nodeToDelete.d.alias) {
+                this._nodesRemoved.set(nodeToDelete.d.alias, parseFileResults);
             }
         } else if (nodeToDelete.nodeType === ParseNodeType.ImportFromAs) {
-            this._nodesRemoved.set(nodeToDelete.name, parseFileResults);
-            if (nodeToDelete.alias) {
-                this._nodesRemoved.set(nodeToDelete.alias, parseFileResults);
+            this._nodesRemoved.set(nodeToDelete.d.name, parseFileResults);
+            if (nodeToDelete.d.alias) {
+                this._nodesRemoved.set(nodeToDelete.d.alias, parseFileResults);
             }
         }
     }
