@@ -1861,9 +1861,12 @@ export function createTypeEvaluator(
                     return isUnboundedTupleClass(tupleBaseClass) || tupleBaseClass.priv.tupleTypeArguments.length === 0;
                 }
 
-                // Check for Literal[False] and Literal[True].
-                if (ClassType.isBuiltIn(type, 'bool') && type.priv.literalValue !== undefined) {
-                    return type.priv.literalValue === false;
+                // Check for bool, int, str and bytes literals that are never falsy.
+                if (
+                    type.priv.literalValue !== undefined &&
+                    ClassType.isBuiltIn(type, ['bool', 'int', 'str', 'bytes'])
+                ) {
+                    return !type.priv.literalValue || type.priv.literalValue === BigInt(0);
                 }
 
                 // If this is a protocol class, don't make any assumptions about the absence
@@ -1949,14 +1952,12 @@ export function createTypeEvaluator(
                     return false;
                 }
 
-                // Check for Literal[False], Literal[0], Literal[""].
+                // Check for bool, int, str and bytes literals that are never falsy.
                 if (
-                    type.priv.literalValue === false ||
-                    type.priv.literalValue === 0 ||
-                    type.priv.literalValue === BigInt(0) ||
-                    type.priv.literalValue === ''
+                    type.priv.literalValue !== undefined &&
+                    ClassType.isBuiltIn(type, ['bool', 'int', 'str', 'bytes'])
                 ) {
-                    return false;
+                    return !!type.priv.literalValue && type.priv.literalValue !== BigInt(0);
                 }
 
                 // If this is a protocol class, don't make any assumptions about the absence

@@ -234,3 +234,15 @@ v8: Annotated[Final, "meta"] = 1
 
 # This should generate an error
 v8 = 2
+
+v9: Final = 2 or "2"
+reveal_type(v9, expected_text="Literal[2]")
+
+v10: Final = 0 or "2"
+reveal_type(v10, expected_text="Literal['2']")
+
+v11: Final = b"" and True
+reveal_type(v11, expected_text='Literal[b""]')
+
+v12: Final = b"2" and True
+reveal_type(v12, expected_text="Literal[True]")
