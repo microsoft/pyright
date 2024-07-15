@@ -974,7 +974,11 @@ function getTypedDictMembersForClassRecursive(
 
     classType.shared.baseClasses.forEach((baseClassType) => {
         if (isInstantiableClass(baseClassType) && ClassType.isTypedDictClass(baseClassType)) {
-            const specializedBaseClassType = partiallySpecializeType(baseClassType, classType);
+            const specializedBaseClassType = partiallySpecializeType(
+                baseClassType,
+                classType,
+                evaluator.getTypeClassType()
+            );
             assert(isClass(specializedBaseClassType));
 
             // Recursively gather keys from parent classes. Don't report any errors

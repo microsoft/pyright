@@ -1250,7 +1250,11 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
             }
 
             if (mroClassToSpecialize) {
-                const specializedMapping = partiallySpecializeType(mroClassToSpecialize, concreteSubtype) as ClassType;
+                const specializedMapping = partiallySpecializeType(
+                    mroClassToSpecialize,
+                    concreteSubtype,
+                    evaluator.getTypeClassType()
+                ) as ClassType;
 
                 if (specializedMapping.priv.typeArguments && specializedMapping.priv.typeArguments.length >= 2) {
                     mappingInfo.push({
@@ -1346,7 +1350,11 @@ function getSequencePatternInfo(
             }
 
             if (mroClassToSpecialize) {
-                const specializedSequence = partiallySpecializeType(mroClassToSpecialize, concreteSubtype) as ClassType;
+                const specializedSequence = partiallySpecializeType(
+                    mroClassToSpecialize,
+                    concreteSubtype,
+                    evaluator.getTypeClassType()
+                ) as ClassType;
 
                 if (isTupleClass(specializedSequence)) {
                     const typeArgs = specializedSequence.priv.tupleTypeArguments ?? [

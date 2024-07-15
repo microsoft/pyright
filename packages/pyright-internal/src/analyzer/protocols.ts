@@ -428,7 +428,12 @@ function assignClassToProtocolInternal(
                 // We can skip this if it's the dest class because it is already
                 // specialized.
                 if (!ClassType.isSameGenericClass(mroClass, destType)) {
-                    destMemberType = partiallySpecializeType(destMemberType, mroClass, selfType);
+                    destMemberType = partiallySpecializeType(
+                        destMemberType,
+                        mroClass,
+                        evaluator.getTypeClassType(),
+                        selfType
+                    );
                 }
 
                 if (isInstantiableClass(srcMemberInfo.classType)) {
@@ -439,7 +444,12 @@ function assignClassToProtocolInternal(
                         evaluator.inferReturnTypeIfNecessary(symbolType);
                     }
 
-                    srcMemberType = partiallySpecializeType(symbolType, srcMemberInfo.classType, selfType);
+                    srcMemberType = partiallySpecializeType(
+                        symbolType,
+                        srcMemberInfo.classType,
+                        evaluator.getTypeClassType(),
+                        selfType
+                    );
                 } else {
                     srcMemberType = UnknownType.create();
                 }
@@ -574,7 +584,7 @@ function assignClassToProtocolInternal(
                     let getterType = evaluator.getGetterTypeFromProperty(destMemberType, /* inferTypeIfNeeded */ true);
 
                     if (getterType) {
-                        getterType = partiallySpecializeType(getterType, mroClass);
+                        getterType = partiallySpecializeType(getterType, mroClass, evaluator.getTypeClassType());
                     }
 
                     if (
