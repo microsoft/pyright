@@ -284,6 +284,7 @@ export function validateBinaryOperation(
                             operator === OperatorType.Multiply ||
                             operator === OperatorType.FloorDivide ||
                             operator === OperatorType.Mod ||
+                            operator === OperatorType.Power ||
                             operator === OperatorType.LeftShift ||
                             operator === OperatorType.RightShift ||
                             operator === OperatorType.BitwiseAnd ||
@@ -318,6 +319,14 @@ export function validateBinaryOperation(
                                         } else if (operator === OperatorType.Mod) {
                                             if (rightLiteralValue !== BigInt(0)) {
                                                 newValue = leftLiteralValue % rightLiteralValue;
+                                            }
+                                        } else if (operator === OperatorType.Power) {
+                                            if (rightLiteralValue >= BigInt(0)) {
+                                                try {
+                                                    newValue = leftLiteralValue ** rightLiteralValue;
+                                                } catch {
+                                                    // Don't allow if we exceed max bigint integer value.
+                                                }
                                             }
                                         } else if (operator === OperatorType.LeftShift) {
                                             newValue = leftLiteralValue << rightLiteralValue;
