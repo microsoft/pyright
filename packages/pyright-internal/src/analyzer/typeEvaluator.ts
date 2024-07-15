@@ -277,6 +277,8 @@ import {
     synthesizeTypeVarForSelfCls,
     transformExpectedType,
     transformPossibleRecursiveTypeAlias,
+    updateTypeWithExternalTypeVars,
+    updateTypeWithInternalTypeVars,
     validateTypeVarDefault,
 } from './typeUtils';
 import { TypeVarContext, TypeVarSignatureContext } from './typeVarContext';
@@ -3457,6 +3459,7 @@ export function createTypeEvaluator(
     ) {
         const baseTypeResult = getTypeOfExpression(target.d.leftExpr, EvalFlags.MemberAccessBaseDefaults);
         const baseType = makeTopLevelTypeVarsConcrete(baseTypeResult.type);
+        let enclosingClass: ClassType | undefined;
 
         // Handle member accesses (e.g. self.x or cls.y).
         if (target.d.leftExpr.nodeType === ParseNodeType.Name) {
@@ -3467,6 +3470,8 @@ export function createTypeEvaluator(
                 const classTypeResults = getTypeOfClass(enclosingClassNode);
 
                 if (classTypeResults && isInstantiableClass(classTypeResults.classType)) {
+                    enclosingClass = classTypeResults.classType;
+
                     if (isClassInstance(baseType)) {
                         if (ClassType.isSameGenericClass(baseType, classTypeResults.classType)) {
                             assignTypeToMemberVariable(target, typeResult, /* isInstanceMember */ true, srcExpr);
@@ -3517,8 +3522,19 @@ export function createTypeEvaluator(
             isIncomplete: typeResult.isIncomplete,
             memberAccessDeprecationInfo: setTypeResult.memberAccessDeprecationInfo,
         };
-        writeTypeCache(target.d.member, resultToCache, EvalFlags.None);
         writeTypeCache(target, resultToCache, EvalFlags.None);
+
+        // If the target is an instance or class variable, update any class-scoped
+        // type variables so the inferred type of the variable uses "external"
+        // type variables.
+        let memberResultToCache = resultToCache;
+        if (enclosingClass?.shared.typeVarScopeId) {
+            memberResultToCache = {
+                ...resultToCache,
+                type: updateTypeWithExternalTypeVars(resultToCache.type, [enclosingClass.shared.typeVarScopeId]),
+            };
+        }
+        writeTypeCache(target.d.member, memberResultToCache, EvalFlags.None);
     }
 
     function assignTypeToMemberVariable(
@@ -3918,6 +3934,13 @@ export function createTypeEvaluator(
 
                 // Fall back to a bound of "object" if no bound is provided.
                 let boundType = subtype.shared.boundType ?? getObjectType();
+
+                // If this is a synthesized self/cls type var that has been converted
+                // to an internal type var, convert its type arguments to internals as well.
+                if (subtype.shared.isSynthesizedSelf && TypeVarType.hasInternalScopeId(subtype) && isClass(boundType)) {
+                    boundType = selfSpecializeClass(boundType, { useInternalTypeVars: true });
+                }
+
                 boundType = TypeBase.isInstantiable(subtype) ? convertToInstantiable(boundType) : boundType;
 
                 return addConditionToType(boundType, [{ typeVar: subtype, constraintIndex: 0 }]);
@@ -4757,6 +4780,24 @@ export function createTypeEvaluator(
         // If the TypeVar doesn't have a scope ID, try to assign one.
         if (!type.priv.scopeId) {
             type = assignTypeVarScopeId(node, type, flags);
+        }
+
+        // If this TypeVar has an external scope ID, see if we need to
+        // make it into an internal scope ID instead.
+        if (type.priv.scopeId && !TypeVarType.hasInternalScopeId(type)) {
+            // If this is a reference to a TypeVar defined in an outer scope,
+            // change it to have an internal scope ID.
+            const scopedNode = findScopedTypeVar(node, type)?.scopeNode;
+
+            if (scopedNode) {
+                const enclosingSuite = ParseTreeUtils.getEnclosingClassOrFunctionSuite(node);
+
+                if (enclosingSuite && ParseTreeUtils.isNodeContainedWithin(enclosingSuite, scopedNode)) {
+                    if (scopedNode.nodeType !== ParseNodeType.Class || scopedNode.d.suite !== enclosingSuite) {
+                        type = TypeVarType.cloneWithInternalScopeId(type);
+                    }
+                }
+            }
         }
 
         // If this type var is variadic, the name refers to the packed form. It
@@ -6046,6 +6087,10 @@ export function createTypeEvaluator(
                     usage.method === 'set' ? LocAddendum.propertyMissingSetter() : LocAddendum.propertyMissingDeleter();
                 diag?.addMessage(message.format({ name: memberName }));
                 return { type: AnyType.create(), typeErrors: true };
+            }
+
+            if (classType.shared.typeVarScopeId) {
+                memberType = updateTypeWithInternalTypeVars(memberType, [classType.shared.typeVarScopeId]);
             }
 
             return { type: memberType };
@@ -8514,7 +8559,10 @@ export function createTypeEvaluator(
                             methodType.shared.parameters.length > 0 &&
                             FunctionParam.isTypeDeclared(methodType.shared.parameters[0])
                         ) {
-                            implicitBindToType = makeTopLevelTypeVarsConcrete(methodType.shared.parameters[0].type);
+                            let paramType = methodType.shared.parameters[0].type;
+                            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(node);
+                            paramType = updateTypeWithInternalTypeVars(paramType, liveScopeIds);
+                            implicitBindToType = makeTopLevelTypeVarsConcrete(paramType);
                         }
                     }
                 }
@@ -11287,7 +11335,7 @@ export function createTypeEvaluator(
 
         // Can we safely ignore the inference context, either because it's not provided
         // or will have no effect? If so, avoid the extra work.
-        const returnType = getFunctionEffectiveReturnType(type);
+        const returnType = inferenceContext?.returnTypeOverride ?? getFunctionEffectiveReturnType(type);
         if (!returnType || !requiresSpecialization(returnType)) {
             expectedType = undefined;
         }
@@ -11883,7 +11931,11 @@ export function createTypeEvaluator(
             matchResults,
             typeVarContext,
             skipUnknownArgCheck,
-            makeInferenceContext(inferenceContext?.expectedType, inferenceContext?.isTypeIncomplete),
+            makeInferenceContext(
+                inferenceContext?.expectedType,
+                inferenceContext?.isTypeIncomplete,
+                inferenceContext?.returnTypeOverride
+            ),
             signatureTracker
         );
     }
@@ -18136,12 +18188,16 @@ export function createTypeEvaluator(
             }
 
             // Update the types for the nodes associated with the parameters.
+            const scopeIds = ParseTreeUtils.getTypeVarScopesForNode(node);
             paramTypes.forEach((paramType, index) => {
                 const paramNameNode = node.d.params[index].d.name;
                 if (paramNameNode) {
                     if (isUnknown(paramType)) {
                         functionType.shared.flags |= FunctionTypeFlags.UnannotatedParams;
                     }
+
+                    paramType = updateTypeWithInternalTypeVars(paramType, scopeIds);
+
                     writeTypeCache(paramNameNode, { type: paramType }, EvalFlags.None);
                 }
             });
@@ -19635,9 +19691,13 @@ export function createTypeEvaluator(
                 // Return expressions must be evaluated in the context of the expected return type.
                 if (parent.d.expr) {
                     const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
-                    const declaredReturnType = enclosingFunctionNode
+                    let declaredReturnType = enclosingFunctionNode
                         ? getFunctionDeclaredReturnType(enclosingFunctionNode)
                         : undefined;
+                    if (declaredReturnType) {
+                        const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(node);
+                        declaredReturnType = updateTypeWithInternalTypeVars(declaredReturnType, liveScopeIds);
+                    }
                     getTypeOfExpression(parent.d.expr, EvalFlags.None, makeInferenceContext(declaredReturnType));
                     return;
                 }
@@ -19716,7 +19776,7 @@ export function createTypeEvaluator(
             );
 
             if (paramType) {
-                writeTypeCache(node.d.name, { type: paramType }, EvalFlags.None);
+                writeTypeCache(node.d.name, { type: TypeVarType.cloneWithInternalScopeId(paramType) }, EvalFlags.None);
                 return;
             }
         }
@@ -21122,7 +21182,11 @@ export function createTypeEvaluator(
                 }
 
                 if (typeAnnotationNode) {
-                    const declaredType = getTypeOfParameterAnnotation(typeAnnotationNode, declaration.node.d.category);
+                    let declaredType = getTypeOfParameterAnnotation(typeAnnotationNode, declaration.node.d.category);
+
+                    const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(declaration.node);
+
+                    declaredType = updateTypeWithInternalTypeVars(declaredType, liveTypeVarScopes);
 
                     return {
                         type: transformVariadicParamType(
@@ -21168,6 +21232,13 @@ export function createTypeEvaluator(
                     }
 
                     if (declaredType) {
+                        // If this is a declaration for a member variable within a method,
+                        // we need to convert any "internal" TypeVars to their "external"
+                        // counterparts.
+                        if (declaration.isDefinedByMemberAccess) {
+                            declaredType = updateTypeWithExternalTypeVars(declaredType, /* scopeIds */ undefined);
+                        }
+
                         if (isClassInstance(declaredType) && ClassType.isBuiltIn(declaredType, 'TypeAlias')) {
                             return { type: undefined, isTypeAlias: true };
                         }
@@ -22131,6 +22202,16 @@ export function createTypeEvaluator(
                 returnType = UnknownType.create();
             }
 
+            // Externalize any TypeVars that appear in the type.
+            const typeVarScopes: TypeVarScopeId[] = [];
+            if (type.shared.typeVarScopeId) {
+                typeVarScopes.push(type.shared.typeVarScopeId);
+            }
+            if (type.shared.methodClass?.shared.typeVarScopeId) {
+                typeVarScopes.push(type.shared.methodClass.shared.typeVarScopeId);
+            }
+            returnType = updateTypeWithExternalTypeVars(returnType, typeVarScopes);
+
             // Cache the type for next time.
             if (!isIncomplete) {
                 type.priv.inferredReturnType = returnType;
@@ -22166,7 +22247,8 @@ export function createTypeEvaluator(
             if (!hasDecorators && !isAsync) {
                 const contextualReturnType = getFunctionInferredReturnTypeUsingArguments(type, callSiteInfo);
                 if (contextualReturnType) {
-                    returnType = contextualReturnType;
+                    // Externalize any TypeVars that appear in the type.
+                    returnType = updateTypeWithExternalTypeVars(contextualReturnType, /* scopeIds */ undefined);
                 }
             }
         }
