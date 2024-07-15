@@ -2697,7 +2697,7 @@ export function createTypeEvaluator(
 
                 if (classOrObjectBase) {
                     if (memberAccessClass && isInstantiableClass(memberAccessClass)) {
-                        declaredType = partiallySpecializeType(declaredType, memberAccessClass);
+                        declaredType = partiallySpecializeType(declaredType, memberAccessClass, getTypeClassType());
                     }
 
                     if (isFunction(declaredType) || isOverloadedFunction(declaredType)) {
@@ -3015,6 +3015,13 @@ export function createTypeEvaluator(
 
     function getUnionClassType(): Type {
         return unionTypeClass ?? UnknownType.create();
+    }
+
+    function getTypeClassType(): ClassType | undefined {
+        if (typeClass && isInstantiableClass(typeClass)) {
+            return typeClass;
+        }
+        return undefined;
     }
 
     function getTypingType(node: ParseNode, symbolName: string): Type | undefined {
@@ -5720,7 +5727,7 @@ export function createTypeEvaluator(
                 ) {
                     type = getDeclaredTypeOfSymbol(memberInfo.symbol)?.type;
                     if (type && isInstantiableClass(memberInfo.classType)) {
-                        type = partiallySpecializeType(type, memberInfo.classType);
+                        type = partiallySpecializeType(type, memberInfo.classType, /* typeClassType */ undefined);
                     }
 
                     // If we're setting a class variable via a write through an object,
@@ -6088,6 +6095,7 @@ export function createTypeEvaluator(
                 const specializedType = partiallySpecializeType(
                     methodType,
                     accessMethodClass,
+                    getTypeClassType(),
                     selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : classType
                 );
 
@@ -22308,8 +22316,8 @@ export function createTypeEvaluator(
             return partiallySpecializeType(
                 getEffectiveTypeOfSymbol(member.symbol),
                 member.classType,
-                /* selfClass */ undefined,
-                typeClass && isInstantiableClass(typeClass) ? typeClass : undefined
+                getTypeClassType(),
+                /* selfClass */ undefined
             );
         }
         return UnknownType.create();
@@ -22365,6 +22373,7 @@ export function createTypeEvaluator(
             const specializedType = partiallySpecializeType(
                 typeResult.type,
                 member.unspecializedClassType,
+                getTypeClassType(),
                 selfSpecializeClass(selfClass, { overrideTypeArgs: true })
             );
 
@@ -22386,7 +22395,7 @@ export function createTypeEvaluator(
         }
 
         return {
-            type: partiallySpecializeType(typeResult.type, member.classType, selfClass),
+            type: partiallySpecializeType(typeResult.type, member.classType, getTypeClassType(), selfClass),
             isIncomplete: !!typeResult.isIncomplete,
         };
     }
@@ -22637,7 +22646,7 @@ export function createTypeEvaluator(
 
                 let destMemberType = getEffectiveTypeOfSymbol(symbol);
                 const srcMemberType = getTypeOfMember(memberInfo);
-                destMemberType = partiallySpecializeType(destMemberType, destType);
+                destMemberType = partiallySpecializeType(destMemberType, destType, getTypeClassType());
 
                 // Properties require special processing.
                 if (
@@ -27401,6 +27410,7 @@ export function createTypeEvaluator(
         getObjectType,
         getNoneType,
         getUnionClassType,
+        getTypeClassType,
         getBuiltInObject,
         getTypingType,
         assignTypeArguments,

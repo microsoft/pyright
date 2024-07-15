@@ -244,7 +244,11 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
 
                 const typedDictType = paramType;
                 paramType.shared.typedDictEntries.knownItems.forEach((entry, name) => {
-                    const specializedParamType = partiallySpecializeType(entry.valueType, typedDictType);
+                    const specializedParamType = partiallySpecializeType(
+                        entry.valueType,
+                        typedDictType,
+                        /* typeClassType */ undefined
+                    );
 
                     addVirtualParameter(
                         FunctionParam.create(

@@ -1446,8 +1446,8 @@ export function isTupleIndexUnambiguous(type: ClassType, index: number) {
 export function partiallySpecializeType(
     type: Type,
     contextClassType: ClassType,
-    selfClass?: ClassType | TypeVarType,
-    typeClassType?: ClassType
+    typeClassType: ClassType | undefined,
+    selfClass?: ClassType | TypeVarType
 ): Type {
     // If the context class is not specialized (or doesn't need specialization),
     // then there's no need to do any more work.
@@ -1477,8 +1477,8 @@ export function partiallySpecializeType(
                     methodType: partiallySpecializeType(
                         methodInfo.methodType,
                         contextClassType,
-                        selfClass,
-                        typeClassType
+                        typeClassType,
+                        selfClass
                     ) as FunctionType,
                     classType: methodInfo.classType,
                 };
@@ -1965,7 +1965,7 @@ export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.De
 
             // If mroClass is an ancestor of classType, partially specialize
             // it in the context of classType.
-            const specializedMroClass = partiallySpecializeType(mroClass, classType);
+            const specializedMroClass = partiallySpecializeType(mroClass, classType, /* typeClassType */ undefined);
 
             // Should we ignore members on the 'object' base class?
             if (flags & ClassIteratorFlags.SkipObjectBaseClass) {
@@ -2001,7 +2001,7 @@ export function getClassFieldsRecursive(classType: ClassType): Map<string, Class
 
     // Evaluate the types of members from the end of the MRO to the beginning.
     ClassType.getReverseMro(classType).forEach((mroClass) => {
-        const specializedMroClass = partiallySpecializeType(mroClass, classType);
+        const specializedMroClass = partiallySpecializeType(mroClass, classType, /* typeClassType */ undefined);
 
         if (isClass(specializedMroClass)) {
             ClassType.getSymbolTable(specializedMroClass).forEach((symbol, name) => {

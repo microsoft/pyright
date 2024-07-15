@@ -5937,11 +5937,19 @@ export class Checker extends ParseTreeWalker {
         }
 
         let overriddenType = this._evaluator.getEffectiveTypeOfSymbol(overriddenClassAndSymbol.symbol);
-        overriddenType = partiallySpecializeType(overriddenType, overriddenClassAndSymbol.classType);
+        overriddenType = partiallySpecializeType(
+            overriddenType,
+            overriddenClassAndSymbol.classType,
+            this._evaluator.getTypeClassType()
+        );
 
         const overrideSymbol = overrideClassAndSymbol.symbol;
         let overrideType = this._evaluator.getEffectiveTypeOfSymbol(overrideSymbol);
-        overrideType = partiallySpecializeType(overrideType, overrideClassAndSymbol.classType);
+        overrideType = partiallySpecializeType(
+            overrideType,
+            overrideClassAndSymbol.classType,
+            this._evaluator.getTypeClassType()
+        );
 
         const childOverrideSymbol = ClassType.getSymbolTable(childClassType).get(memberName);
         const childOverrideType = childOverrideSymbol
@@ -6174,7 +6182,11 @@ export class Checker extends ParseTreeWalker {
 
             // Is the method present on the base class but missing in the subclass?
             if (baseClassPropMethod) {
-                const baseClassMethodType = partiallySpecializeType(baseClassPropMethod, overriddenClassType);
+                const baseClassMethodType = partiallySpecializeType(
+                    baseClassPropMethod,
+                    overriddenClassType,
+                    this._evaluator.getTypeClassType()
+                );
 
                 if (isFunction(baseClassMethodType)) {
                     if (!subclassPropMethod) {
@@ -6212,7 +6224,11 @@ export class Checker extends ParseTreeWalker {
                             }
                         }
                     } else {
-                        const subclassMethodType = partiallySpecializeType(subclassPropMethod, overrideClassType);
+                        const subclassMethodType = partiallySpecializeType(
+                            subclassPropMethod,
+                            overrideClassType,
+                            this._evaluator.getTypeClassType()
+                        );
 
                         if (isFunction(subclassMethodType)) {
                             if (
@@ -6634,10 +6650,16 @@ export class Checker extends ParseTreeWalker {
         const baseType = partiallySpecializeType(
             this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
             baseClass,
+            this._evaluator.getTypeClassType(),
             childClassSelf
         );
 
-        overrideType = partiallySpecializeType(overrideType, childClassType, childClassSelf);
+        overrideType = partiallySpecializeType(
+            overrideType,
+            childClassType,
+            this._evaluator.getTypeClassType(),
+            childClassSelf
+        );
 
         if (isFunction(baseType) || isOverloadedFunction(baseType)) {
             const diagAddendum = new DiagnosticAddendum();
@@ -6992,7 +7014,11 @@ export class Checker extends ParseTreeWalker {
 
             // Is the method present on the base class but missing in the subclass?
             if (baseClassPropMethod) {
-                const baseClassMethodType = partiallySpecializeType(baseClassPropMethod, baseClassType);
+                const baseClassMethodType = partiallySpecializeType(
+                    baseClassPropMethod,
+                    baseClassType,
+                    this._evaluator.getTypeClassType()
+                );
 
                 if (isFunction(baseClassMethodType)) {
                     if (!subclassPropMethod) {
@@ -7022,7 +7048,11 @@ export class Checker extends ParseTreeWalker {
                             }
                         }
                     } else {
-                        const subclassMethodType = partiallySpecializeType(subclassPropMethod, childClassType);
+                        const subclassMethodType = partiallySpecializeType(
+                            subclassPropMethod,
+                            childClassType,
+                            this._evaluator.getTypeClassType()
+                        );
 
                         if (isFunction(subclassMethodType)) {
                             if (

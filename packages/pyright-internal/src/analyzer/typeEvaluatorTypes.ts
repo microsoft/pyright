@@ -651,6 +651,7 @@ export interface TypeEvaluator {
     getObjectType: () => Type;
     getNoneType: () => Type;
     getUnionClassType(): Type;
+    getTypeClassType(): ClassType | undefined;
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     inferReturnTypeIfNecessary: (type: Type) => void;
     inferTypeParameterVarianceForClass: (type: ClassType) => void;
