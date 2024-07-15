@@ -12,7 +12,7 @@ module.exports = {
             'ts-jest',
             {
                 tsconfig: {
-                    target: 'es6',
+                    target: 'es2019',
 
                     // Needed because jest calls tsc in a way that doesn't
                     // inline const enums.

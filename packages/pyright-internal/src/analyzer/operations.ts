@@ -253,116 +253,7 @@ export function validateBinaryOperation(
         // using special-case math. For example, Literal[1, 2] + Literal[3, 4]
         // should result in Literal[4, 5, 6].
         if (options.isLiteralMathAllowed) {
-            const leftLiteralClassName = getLiteralTypeClassName(leftType);
-            if (leftLiteralClassName && !getTypeCondition(leftType)) {
-                const rightLiteralClassName = getLiteralTypeClassName(rightType);
-
-                if (
-                    leftLiteralClassName === rightLiteralClassName &&
-                    !getTypeCondition(rightType) &&
-                    getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) < maxLiteralMathSubtypeCount
-                ) {
-                    if (leftLiteralClassName === 'str' || leftLiteralClassName === 'bytes') {
-                        if (operator === OperatorType.Add) {
-                            type = mapSubtypes(leftType, (leftSubtype) => {
-                                return mapSubtypes(rightType, (rightSubtype) => {
-                                    const leftClassSubtype = leftSubtype as ClassType;
-                                    const rightClassSubtype = rightSubtype as ClassType;
-
-                                    return ClassType.cloneWithLiteral(
-                                        leftClassSubtype,
-                                        ((leftClassSubtype.priv.literalValue as string) +
-                                            rightClassSubtype.priv.literalValue) as string
-                                    );
-                                });
-                            });
-                        }
-                    } else if (leftLiteralClassName === 'int') {
-                        if (
-                            operator === OperatorType.Add ||
-                            operator === OperatorType.Subtract ||
-                            operator === OperatorType.Multiply ||
-                            operator === OperatorType.FloorDivide ||
-                            operator === OperatorType.Mod ||
-                            operator === OperatorType.LeftShift ||
-                            operator === OperatorType.RightShift ||
-                            operator === OperatorType.BitwiseAnd ||
-                            operator === OperatorType.BitwiseOr ||
-                            operator === OperatorType.BitwiseXor
-                        ) {
-                            let isValidResult = true;
-
-                            type = mapSubtypes(leftType, (leftSubtype) => {
-                                return mapSubtypes(rightType, (rightSubtype) => {
-                                    try {
-                                        const leftClassSubtype = leftSubtype as ClassType;
-                                        const rightClassSubtype = rightSubtype as ClassType;
-                                        const leftLiteralValue = BigInt(
-                                            leftClassSubtype.priv.literalValue as number | bigint
-                                        );
-                                        const rightLiteralValue = BigInt(
-                                            rightClassSubtype.priv.literalValue as number | bigint
-                                        );
-
-                                        let newValue: number | bigint | undefined;
-                                        if (operator === OperatorType.Add) {
-                                            newValue = leftLiteralValue + rightLiteralValue;
-                                        } else if (operator === OperatorType.Subtract) {
-                                            newValue = leftLiteralValue - rightLiteralValue;
-                                        } else if (operator === OperatorType.Multiply) {
-                                            newValue = leftLiteralValue * rightLiteralValue;
-                                        } else if (operator === OperatorType.FloorDivide) {
-                                            if (rightLiteralValue !== BigInt(0)) {
-                                                newValue = leftLiteralValue / rightLiteralValue;
-                                            }
-                                        } else if (operator === OperatorType.Mod) {
-                                            if (rightLiteralValue !== BigInt(0)) {
-                                                newValue = leftLiteralValue % rightLiteralValue;
-                                            }
-                                        } else if (operator === OperatorType.LeftShift) {
-                                            newValue = leftLiteralValue << rightLiteralValue;
-                                        } else if (operator === OperatorType.RightShift) {
-                                            newValue = leftLiteralValue >> rightLiteralValue;
-                                        } else if (operator === OperatorType.BitwiseAnd) {
-                                            newValue = leftLiteralValue & rightLiteralValue;
-                                        } else if (operator === OperatorType.BitwiseOr) {
-                                            newValue = leftLiteralValue | rightLiteralValue;
-                                        } else if (operator === OperatorType.BitwiseXor) {
-                                            newValue = leftLiteralValue ^ rightLiteralValue;
-                                        }
-
-                                        if (newValue === undefined) {
-                                            isValidResult = false;
-                                            return undefined;
-                                        } else if (typeof newValue === 'number' && isNaN(newValue)) {
-                                            isValidResult = false;
-                                            return undefined;
-                                        } else {
-                                            // Convert back to a simple number if it fits. Leave as a bigint
-                                            // if it doesn't.
-                                            if (
-                                                newValue >= Number.MIN_SAFE_INTEGER &&
-                                                newValue <= Number.MAX_SAFE_INTEGER
-                                            ) {
-                                                newValue = Number(newValue);
-                                            }
-
-                                            return ClassType.cloneWithLiteral(leftClassSubtype, newValue);
-                                        }
-                                    } catch {
-                                        isValidResult = false;
-                                        return undefined;
-                                    }
-                                });
-                            });
-
-                            if (!isValidResult) {
-                                type = undefined;
-                            }
-                        }
-                    }
-                }
-            }
+            type = calcLiteralForBinaryOp(operator, leftType, rightType);
         }
 
         if (!type) {
@@ -1155,6 +1046,133 @@ export function getTypeOfTernaryOperation(
     }
 
     return { type: combineTypes(typesToCombine), isIncomplete, typeErrors };
+}
+
+// Attempts to apply "literal math" for two literal operands.
+function calcLiteralForBinaryOp(operator: OperatorType, leftType: Type, rightType: Type): Type | undefined {
+    const leftLiteralClassName = getLiteralTypeClassName(leftType);
+    if (!leftLiteralClassName || getTypeCondition(leftType)) {
+        return undefined;
+    }
+
+    const rightLiteralClassName = getLiteralTypeClassName(rightType);
+    if (
+        leftLiteralClassName !== rightLiteralClassName ||
+        getTypeCondition(rightType) ||
+        getUnionSubtypeCount(leftType) * getUnionSubtypeCount(rightType) >= maxLiteralMathSubtypeCount
+    ) {
+        return undefined;
+    }
+
+    // Handle str and bytes literals.
+    if (leftLiteralClassName === 'str' || leftLiteralClassName === 'bytes') {
+        if (operator === OperatorType.Add) {
+            return mapSubtypes(leftType, (leftSubtype) => {
+                return mapSubtypes(rightType, (rightSubtype) => {
+                    const leftClassSubtype = leftSubtype as ClassType;
+                    const rightClassSubtype = rightSubtype as ClassType;
+
+                    return ClassType.cloneWithLiteral(
+                        leftClassSubtype,
+                        ((leftClassSubtype.priv.literalValue as string) + rightClassSubtype.priv.literalValue) as string
+                    );
+                });
+            });
+        }
+    }
+
+    // Handle int literals.
+    if (leftLiteralClassName === 'int') {
+        const supportedOps = [
+            OperatorType.Add,
+            OperatorType.Subtract,
+            OperatorType.Multiply,
+            OperatorType.FloorDivide,
+            OperatorType.Mod,
+            OperatorType.Power,
+            OperatorType.LeftShift,
+            OperatorType.RightShift,
+            OperatorType.BitwiseAnd,
+            OperatorType.BitwiseOr,
+            OperatorType.BitwiseXor,
+        ];
+        if (!supportedOps.includes(operator)) {
+            return undefined;
+        }
+
+        let isValidResult = true;
+
+        const type = mapSubtypes(leftType, (leftSubtype) => {
+            return mapSubtypes(rightType, (rightSubtype) => {
+                try {
+                    const leftClassSubtype = leftSubtype as ClassType;
+                    const rightClassSubtype = rightSubtype as ClassType;
+                    const leftLiteralValue = BigInt(leftClassSubtype.priv.literalValue as number | bigint);
+                    const rightLiteralValue = BigInt(rightClassSubtype.priv.literalValue as number | bigint);
+
+                    let newValue: number | bigint | undefined;
+                    if (operator === OperatorType.Add) {
+                        newValue = leftLiteralValue + rightLiteralValue;
+                    } else if (operator === OperatorType.Subtract) {
+                        newValue = leftLiteralValue - rightLiteralValue;
+                    } else if (operator === OperatorType.Multiply) {
+                        newValue = leftLiteralValue * rightLiteralValue;
+                    } else if (operator === OperatorType.FloorDivide) {
+                        if (rightLiteralValue !== BigInt(0)) {
+                            newValue = leftLiteralValue / rightLiteralValue;
+                        }
+                    } else if (operator === OperatorType.Mod) {
+                        if (rightLiteralValue !== BigInt(0)) {
+                            newValue = leftLiteralValue % rightLiteralValue;
+                        }
+                    } else if (operator === OperatorType.Power) {
+                        if (rightLiteralValue >= BigInt(0)) {
+                            try {
+                                newValue = leftLiteralValue ** rightLiteralValue;
+                            } catch {
+                                // Don't allow if we exceed max bigint integer value.
+                            }
+                        }
+                    } else if (operator === OperatorType.LeftShift) {
+                        newValue = leftLiteralValue << rightLiteralValue;
+                    } else if (operator === OperatorType.RightShift) {
+                        newValue = leftLiteralValue >> rightLiteralValue;
+                    } else if (operator === OperatorType.BitwiseAnd) {
+                        newValue = leftLiteralValue & rightLiteralValue;
+                    } else if (operator === OperatorType.BitwiseOr) {
+                        newValue = leftLiteralValue | rightLiteralValue;
+                    } else if (operator === OperatorType.BitwiseXor) {
+                        newValue = leftLiteralValue ^ rightLiteralValue;
+                    }
+
+                    if (newValue === undefined) {
+                        isValidResult = false;
+                        return undefined;
+                    } else if (typeof newValue === 'number' && isNaN(newValue)) {
+                        isValidResult = false;
+                        return undefined;
+                    } else {
+                        // Convert back to a simple number if it fits. Leave as a bigint
+                        // if it doesn't.
+                        if (newValue >= Number.MIN_SAFE_INTEGER && newValue <= Number.MAX_SAFE_INTEGER) {
+                            newValue = Number(newValue);
+                        }
+
+                        return ClassType.cloneWithLiteral(leftClassSubtype, newValue);
+                    }
+                } catch {
+                    isValidResult = false;
+                    return undefined;
+                }
+            });
+        });
+
+        if (isValidResult) {
+            return type;
+        }
+    }
+
+    return undefined;
 }
 
 function customMetaclassSupportsMethod(type: Type, methodName: string): boolean {
