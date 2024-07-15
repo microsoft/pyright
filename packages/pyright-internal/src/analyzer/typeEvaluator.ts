@@ -26796,10 +26796,12 @@ export function createTypeEvaluator(
 
             // Try to find the best (narrowest) match among the constraints.
             for (const constraint of constraints) {
-                // Don't allow Never as a type argument.
-                if (assignType(constraint, effectiveSrcType) && !isNever(effectiveSrcType)) {
-                    if (!bestConstraintSoFar || assignType(bestConstraintSoFar, constraint)) {
-                        bestConstraintSoFar = constraint;
+                if (assignType(constraint, effectiveSrcType)) {
+                    // Don't allow Never to match unless the constraint is also explicitly Never.
+                    if (!isNever(effectiveSrcType) || isNever(constraint)) {
+                        if (!bestConstraintSoFar || assignType(bestConstraintSoFar, constraint)) {
+                            bestConstraintSoFar = constraint;
+                        }
                     }
                 }
             }
