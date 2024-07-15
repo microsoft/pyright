@@ -1,6 +1,9 @@
 # This sample tests the return type inference for a generator.
 
-from typing import Generator
+from typing import Awaitable, Generator, TypeVar
+
+S = TypeVar("S")
+T = TypeVar("T")
 
 
 def func1() -> Generator[int, int, str]:
@@ -25,3 +28,13 @@ def func3():
 
     # This should generate an error.
     [x for x in [[[1]], [[2]], [[3]]] for y in (yield x)]
+
+
+class ClassA[S, T](Awaitable[T]):
+    def __init__(self, val: S) -> None:
+        self.val = val
+
+    def __await__(self) -> Generator[S, T, T]:
+        z = yield self.val
+        reveal_type(z, expected_text="T@ClassA")
+        return z

@@ -265,6 +265,7 @@ export interface ApplyTypeVarOptions {
 export interface InferenceContext {
     expectedType: Type;
     isTypeIncomplete?: boolean;
+    returnTypeOverride?: Type;
 }
 
 export interface RequiresSpecializationOptions {
@@ -287,6 +288,9 @@ export interface SelfSpecializeOptions {
     // Override any existing type arguments? By default,
     // existing type arguments are left as is.
     overrideTypeArgs?: boolean;
+
+    // Specialize with "internal" versions of the type parameters?
+    useInternalTypeVars?: boolean;
 }
 
 // Tracks whether a function signature has been seen before within
@@ -406,19 +410,32 @@ export function isTypeVarSame(type1: TypeVarType, type2: Type) {
     return isCompatible;
 }
 
-export function makeInferenceContext(expectedType: undefined, isTypeIncomplete?: boolean): undefined;
-export function makeInferenceContext(expectedType: Type, isTypeIncomplete?: boolean): InferenceContext;
-export function makeInferenceContext(expectedType?: Type, isTypeIncomplete?: boolean): InferenceContext | undefined;
+export function makeInferenceContext(
+    expectedType: undefined,
+    isTypeIncomplete?: boolean,
+    returnTypeOverride?: Type | undefined
+): undefined;
+export function makeInferenceContext(
+    expectedType: Type,
+    isTypeIncomplete?: boolean,
+    returnTypeOverride?: Type | undefined
+): InferenceContext;
+export function makeInferenceContext(
+    expectedType?: Type,
+    isTypeIncomplete?: boolean,
+    returnTypeOverride?: Type | undefined
+): InferenceContext | undefined;
 
 export function makeInferenceContext(
     expectedType: Type | undefined,
-    isTypeIncomplete?: boolean
+    isTypeIncomplete?: boolean,
+    returnTypeOverride?: Type | undefined
 ): InferenceContext | undefined {
     if (!expectedType) {
         return undefined;
     }
 
-    return { expectedType, isTypeIncomplete };
+    return { expectedType, isTypeIncomplete, returnTypeOverride };
 }
 
 export interface MapSubtypesOptions {
@@ -1201,7 +1218,9 @@ export function selfSpecializeClass(type: ClassType, options?: SelfSpecializeOpt
         return type;
     }
 
-    const typeParams = type.shared.typeParameters;
+    const typeParams = type.shared.typeParameters.map((typeParam) => {
+        return options?.useInternalTypeVars ? TypeVarType.cloneWithInternalScopeId(typeParam) : typeParam;
+    });
     return ClassType.cloneForSpecialization(type, typeParams, /* isTypeArgumentExplicit */ true);
 }
 
@@ -1527,6 +1546,21 @@ export function ensureFunctionSignaturesAreUnique(
     expressionOffset: number
 ): Type {
     const transformer = new UniqueFunctionSignatureTransformer(signatureTracker, expressionOffset);
+    return transformer.apply(type, 0);
+}
+
+export function updateTypeWithInternalTypeVars<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[]): T;
+export function updateTypeWithInternalTypeVars(type: Type, scopeIds: TypeVarScopeId[]): Type {
+    const transformer = new InternalScopeUpdateTransform(scopeIds);
+    return transformer.apply(type, 0);
+}
+
+export function updateTypeWithExternalTypeVars<T extends TypeBase<any>>(
+    type: T,
+    scopeIds: TypeVarScopeId[] | undefined
+): T;
+export function updateTypeWithExternalTypeVars(type: Type, scopeIds: TypeVarScopeId[] | undefined): Type {
+    const transformer = new ExternalScopeUpdateTransform(scopeIds);
     return transformer.apply(type, 0);
 }
 
@@ -2337,7 +2371,7 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
 
     const boundType = ClassType.cloneForSpecialization(
         classType,
-        ClassType.getTypeParameters(classType),
+        /* typeArguments */ undefined,
         /* isTypeArgumentExplicit */ false,
         /* includeSubclasses */ !!classType.priv.includeSubclasses
     );
@@ -4215,6 +4249,74 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
     }
 }
 
+// Replaces the TypeVars within a type with their corresponding "internal"
+// types if they are in one of the specified scopes.
+class InternalScopeUpdateTransform extends TypeVarTransformer {
+    constructor(private _scopeIds: TypeVarScopeId[]) {
+        super();
+    }
+
+    override transformTypeVar(typeVar: TypeVarType) {
+        if (this._isTypeVarInScope(typeVar)) {
+            return this._replaceTypeVar(typeVar);
+        }
+
+        return undefined;
+    }
+
+    override transformParamSpec(paramSpec: TypeVarType) {
+        if (this._isTypeVarInScope(paramSpec)) {
+            return convertTypeToParamSpecValue(this._replaceTypeVar(paramSpec));
+        }
+
+        return undefined;
+    }
+
+    private _isTypeVarInScope(typeVar: TypeVarType) {
+        return typeVar.priv.scopeId !== undefined && this._scopeIds.includes(typeVar.priv.scopeId);
+    }
+
+    private _replaceTypeVar(typeVar: TypeVarType): TypeVarType {
+        return TypeVarType.cloneWithInternalScopeId(typeVar);
+    }
+}
+
+// Replaces the internal TypeVars within a type with their corresponding
+// "external" types.
+class ExternalScopeUpdateTransform extends TypeVarTransformer {
+    constructor(private _scopeIds: TypeVarScopeId[] | undefined) {
+        super();
+    }
+
+    override transformTypeVar(typeVar: TypeVarType) {
+        if (typeVar.priv.externalTypeVar && this._isTypeVarInScope(typeVar.priv.externalTypeVar)) {
+            return typeVar.priv.externalTypeVar;
+        }
+
+        return undefined;
+    }
+
+    override transformParamSpec(paramSpec: TypeVarType) {
+        if (paramSpec.priv.externalTypeVar && this._isTypeVarInScope(paramSpec.priv.externalTypeVar)) {
+            return convertTypeToParamSpecValue(paramSpec.priv.externalTypeVar);
+        }
+
+        return undefined;
+    }
+
+    private _isTypeVarInScope(typeVar: TypeVarType) {
+        if (!typeVar.priv.scopeId) {
+            return false;
+        }
+
+        if (!this._scopeIds) {
+            return true;
+        }
+
+        return this._scopeIds.includes(typeVar.priv.scopeId);
+    }
+}
+
 // Specializes a (potentially generic) type by substituting
 // type variables from a type var map.
 class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
@@ -4471,7 +4573,8 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 continue;
             }
 
-            const typeVarEntry = signatureContext.getTypeVar(condition.typeVar);
+            const conditionTypeVar = condition.typeVar.priv?.externalTypeVar ?? condition.typeVar;
+            const typeVarEntry = signatureContext.getTypeVar(conditionTypeVar);
             if (!typeVarEntry || condition.constraintIndex >= typeVarEntry.typeVar.shared.constraints.length) {
                 continue;
             }
@@ -4541,7 +4644,7 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
             return TypeVarType.cloneAsInScopePlaceholder(typeVar, this._usageOffset);
         }
 
-        return typeVar;
+        return undefined;
     }
 
     override transformParamSpec(paramSpec: TypeVarType): FunctionType | undefined {
@@ -4553,7 +4656,9 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
     }
 
     private _isTypeVarLive(typeVar: TypeVarType) {
-        return this._liveTypeVarScopes.some((scopeId) => typeVar.priv.scopeId === scopeId);
+        return this._liveTypeVarScopes.some(
+            (scopeId) => typeVar.priv.scopeId === scopeId || typeVar.priv.externalTypeVar?.priv.scopeId === scopeId
+        );
     }
 }
 
@@ -4567,7 +4672,7 @@ class InScopePlaceholderTransformer extends TypeVarTransformer {
             return this._signatureContext.getTypeVarType(typeVar) ?? typeVar;
         }
 
-        return typeVar;
+        return undefined;
     }
 
     override transformParamSpec(paramSpec: TypeVarType): FunctionType | undefined {
