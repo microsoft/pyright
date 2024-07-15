@@ -587,6 +587,12 @@ test('InitSubclass2', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('InitSubclass3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['initsubclass3.py']);
+
+    TestUtils.validateResults(analysisResults, 3);
+});
+
 test('None1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['none1.py']);
 

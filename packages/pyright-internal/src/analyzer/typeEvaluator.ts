@@ -8651,6 +8651,31 @@ export function createTypeEvaluator(
         return { type: UnknownType.create() };
     }
 
+    // When evaluating a call, the errorNode is typically the call node, which
+    // encompasses all of the argument expressions. This means we can normally
+    // use the errorNode as the root for speculative evaluation. However, there
+    // are some cases where we don't have a call node (e.g. in the case of an
+    // __init_subclass__ validation). Here we need to find some other parent
+    // node of the error node that encompasses all of the arguments.
+    function getSpeculativeNodeForCall(errorNode: ExpressionNode): ParseNode {
+        // If the error node is within an arg, expand to include the parent of the arg list.
+        const argParent = ParseTreeUtils.getParentNodeOfType(errorNode, ParseNodeType.Argument);
+        if (argParent?.parent) {
+            return argParent.parent;
+        }
+
+        // If the error node is the name in a class declaration, expand to include the class node.
+        if (
+            errorNode.nodeType === ParseNodeType.Name &&
+            errorNode.parent?.nodeType === ParseNodeType.Class &&
+            errorNode.parent.d.name === errorNode
+        ) {
+            return errorNode.parent;
+        }
+
+        return errorNode;
+    }
+
     // Attempts to find an overloaded function for each set of argument
     // types in the expandedArgTypes list. If an argument type is undefined,
     // its type is evaluated from the argument's expression using the
@@ -8672,6 +8697,7 @@ export function createTypeEvaluator(
         let isTypeIncomplete = false;
         let overloadsUsedForCall: FunctionType[] = [];
         let isDefinitiveMatchFound = false;
+        const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         for (let expandedTypesIndex = 0; expandedTypesIndex < expandedArgTypes.length; expandedTypesIndex++) {
             let matchedOverload: FunctionType | undefined;
@@ -8705,7 +8731,7 @@ export function createTypeEvaluator(
 
                 // Use speculative mode so we don't output any diagnostics or
                 // record any final types in the type cache.
-                const callResult = useSpeculativeMode(errorNode, () => {
+                const callResult = useSpeculativeMode(speculativeNode, () => {
                     return validateArgTypesWithContext(
                         errorNode,
                         matchResults,
@@ -8928,10 +8954,11 @@ export function createTypeEvaluator(
         let overloadIndex = 0;
         let matches: MatchArgsToParamsResult[] = [];
         const signatureTracker = new UniqueSignatureTracker();
+        const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         // Create a list of potential overload matches based on arguments.
         OverloadedFunctionType.getOverloads(typeResult.type).forEach((overload) => {
-            useSpeculativeMode(errorNode, () => {
+            useSpeculativeMode(speculativeNode, () => {
                 const matchResults = matchArgsToParams(
                     errorNode,
                     argList,
@@ -8954,7 +8981,7 @@ export function createTypeEvaluator(
 
         matches.forEach((match, matchIndex) => {
             if (winningOverloadIndex === undefined) {
-                useSpeculativeMode(errorNode, () => {
+                useSpeculativeMode(speculativeNode, () => {
                     const callResult = validateArgTypes(
                         errorNode,
                         match,
@@ -8997,13 +9024,14 @@ export function createTypeEvaluator(
         let contextFreeArgTypes: Type[] | undefined;
         let isTypeIncomplete = !!typeResult.isIncomplete;
         const type = typeResult.type;
+        const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         // Start by evaluating the types of the arguments without any expected
         // type. Also, filter the list of overloads based on the number of
         // positional and named arguments that are present. We do all of this
         // speculatively because we don't want to record any types in the type
         // cache or record any diagnostics at this stage.
-        useSpeculativeMode(errorNode, () => {
+        useSpeculativeMode(speculativeNode, () => {
             let overloadIndex = 0;
             OverloadedFunctionType.getOverloads(type).forEach((overload) => {
                 // Consider only the functions that have the @overload decorator,
@@ -9143,7 +9171,7 @@ export function createTypeEvaluator(
             // We didn't find an overload match. Try to expand the next union
             // argument type into individual types and retry with the expanded types.
             if (!contextFreeArgTypes) {
-                useSpeculativeMode(errorNode, () => {
+                useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () => {
                     // Evaluate the types of each argument expression without regard to
                     // the context. We'll use this to determine whether we need to do
                     // union expansion.
@@ -9288,7 +9316,7 @@ export function createTypeEvaluator(
             { sortSubtypes: true },
             (expandedSubtype, unexpandedSubtype, isLastIteration) => {
                 return useSpeculativeMode(
-                    isLastIteration ? undefined : errorNode,
+                    isLastIteration ? undefined : getSpeculativeNodeForCall(errorNode),
                     () => {
                         const callResult = validateCallArgumentsForSubtype(
                             errorNode,
@@ -11251,7 +11279,7 @@ export function createTypeEvaluator(
         // We may or may not be able to make use of the expected type. We'll evaluate
         // speculatively to see if using one of the expected subtypes works.
         if (expectedType && isUnion(expectedType)) {
-            expectedType = useSpeculativeMode(errorNode, () => {
+            expectedType = useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () => {
                 let validExpectedSubtype: Type | undefined;
 
                 doForEachSubtype(
@@ -11384,6 +11412,7 @@ export function createTypeEvaluator(
         let argumentMatchScore = 0;
         let specializedInitSelfType: Type | undefined;
         let anyOrUnknownArgument: UnknownType | AnyType | undefined;
+        const speculativeNode = getSpeculativeNodeForCall(errorNode);
         const typeCondition = getTypeCondition(type);
         const paramSpec = FunctionType.getParamSpecFromArgsKwargs(type);
 
@@ -11447,7 +11476,7 @@ export function createTypeEvaluator(
             // where more than two passes are needed.
             let passCount = Math.min(typeVarMatchingCount, 2);
             for (let i = 0; i < passCount; i++) {
-                useSpeculativeMode(errorNode, () => {
+                useSpeculativeMode(speculativeNode, () => {
                     matchResults.argParams.forEach((argParam) => {
                         if (!argParam.requiresTypeVarMatching) {
                             return;
@@ -11866,10 +11895,11 @@ export function createTypeEvaluator(
 
         const filteredSignatureContexts: TypeVarSignatureContext[] = [];
         const typeVarContexts: (TypeVarContext | undefined)[] = [];
+        const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
         signatureContexts.forEach((context) => {
             // Use speculative mode to avoid emitting errors or caching types.
-            useSpeculativeMode(errorNode, () => {
+            useSpeculativeMode(speculativeNode, () => {
                 const paramSpecArgResult = validateArgTypesForParamSpecSignature(
                     errorNode,
                     argList,
@@ -17497,7 +17527,6 @@ export function createTypeEvaluator(
             }
         });
 
-        const errorNode = argList.length > 0 ? argList[0].node?.d.valueExpr ?? node.d.name : node.d.name;
         let newMethodMember: ClassMember | undefined;
 
         // See if the class has a metaclass that overrides `__new__`. If so, we
@@ -17549,7 +17578,7 @@ export function createTypeEvaluator(
                                     paramType: paramInfo.type,
                                     requiresTypeVarMatching: false,
                                     argument: arg,
-                                    errorNode: arg.valueExpression ?? errorNode,
+                                    errorNode: arg.valueExpression ?? node.d.name,
                                 };
 
                                 validateArgType(
@@ -17564,7 +17593,7 @@ export function createTypeEvaluator(
                                 addDiagnostic(
                                     DiagnosticRule.reportGeneralTypeIssues,
                                     LocMessage.paramNameMissing().format({ name: arg.name.d.value }),
-                                    arg.name ?? errorNode
+                                    arg.name ?? node.d.name
                                 );
                             }
                         }
@@ -17587,7 +17616,7 @@ export function createTypeEvaluator(
                             unassignedParams.length === 1
                                 ? LocMessage.argMissingForParam().format({ name: missingParamNames })
                                 : LocMessage.argMissingForParams().format({ names: missingParamNames }),
-                            errorNode
+                            node.d.name
                         );
                     }
                 }
@@ -17596,7 +17625,7 @@ export function createTypeEvaluator(
             // If there was no custom metaclass __new__ method, see if there is an __init_subclass__
             // method present somewhere in the class hierarchy.
             const initSubclassMethodInfo = getTypeOfBoundMember(
-                errorNode,
+                node.d.name,
                 classType,
                 '__init_subclass__',
                 /* usage */ undefined,
@@ -17611,7 +17640,7 @@ export function createTypeEvaluator(
 
                 if (initSubclassMethodType && initSubclassMethodInfo.classType) {
                     const callResult = validateCallArguments(
-                        errorNode,
+                        node.d.name,
                         argList,
                         { type: initSubclassMethodType },
                         /* typeVarContext */ undefined,
