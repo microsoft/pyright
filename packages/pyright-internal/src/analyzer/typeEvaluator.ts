@@ -4748,124 +4748,139 @@ export function createTypeEvaluator(
     // or type alias). If not, it emits errors indicating why the TypeVar
     // cannot be used in this location.
     function validateTypeVarUsage(node: ExpressionNode, type: TypeVarType, flags: EvalFlags) {
-        if (TypeBase.isInstantiable(type) && !type.priv.scopeId && !isTypeAliasPlaceholder(type)) {
-            const scopedTypeVarInfo = findScopedTypeVar(node, type);
-            type = scopedTypeVarInfo.type;
+        if (!TypeBase.isInstantiable(type) || isTypeAliasPlaceholder(type)) {
+            return type;
+        }
 
-            if ((flags & EvalFlags.NoTypeVarWithScopeId) !== 0 && type.priv.scopeId !== undefined) {
-                if (!type.shared.isSynthesized && !type.shared.isParamSpec) {
-                    // This TypeVar already has a scope ID assigned to it. See if it
-                    // originates from type parameter syntax. If so, allow it.
-                    if (type.shared.isTypeParamSyntax) {
-                        return type;
-                    }
-
-                    // If this type variable expression is used within a generic class,
-                    // function, or type alias that uses type parameter syntax, there is
-                    // no need to report an error here.
-                    const typeVarScopeNode = ParseTreeUtils.getTypeVarScopeNode(node);
-                    if (
-                        typeVarScopeNode &&
-                        typeVarScopeNode.d.typeParams &&
-                        !typeVarScopeNode.d.typeParams.d.params.some((t) => t.d.name === node)
-                    ) {
-                        return type;
-                    }
-
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.typeVarUsedByOuterScope().format({ name: type.shared.name }),
-                        node
-                    );
-                }
-            } else if ((flags & EvalFlags.TypeVarGetsCurScope) !== 0) {
-                if (type.priv.scopeId === undefined) {
-                    if (!scopedTypeVarInfo.foundInterveningClass) {
-                        let enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
-
-                        // Handle P.args and P.kwargs as a special case for inner functions.
-                        if (
-                            enclosingScope &&
-                            node.parent?.nodeType === ParseNodeType.MemberAccess &&
-                            node.parent.d.leftExpr === node
-                        ) {
-                            const memberName = node.parent.d.member.d.value;
-                            if (memberName === 'args' || memberName === 'kwargs') {
-                                const outerFunctionScope = ParseTreeUtils.getEnclosingClassOrFunction(enclosingScope);
-
-                                if (outerFunctionScope?.nodeType === ParseNodeType.Function) {
-                                    enclosingScope = outerFunctionScope;
-                                } else if (!scopedTypeVarInfo.type.priv.scopeId) {
-                                    addDiagnostic(
-                                        DiagnosticRule.reportGeneralTypeIssues,
-                                        LocMessage.paramSpecNotUsedByOuterScope().format({
-                                            name: type.shared.name,
-                                        }),
-                                        node
-                                    );
-                                }
-                            }
-                        }
-
-                        if (enclosingScope) {
-                            // If the enclosing scope is using type parameter syntax, traditional
-                            // type variables can't be used in this context.
-                            if (
-                                enclosingScope.d.typeParams &&
-                                !enclosingScope.d.typeParams.d.params.some(
-                                    (param) => param.d.name.d.value === type.shared.name
-                                )
-                            ) {
-                                addDiagnostic(
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    LocMessage.typeParameterNotDeclared().format({
-                                        name: type.shared.name,
-                                        container: enclosingScope.d.name.d.value,
-                                    }),
-                                    node
-                                );
-                            }
-
-                            type = TypeVarType.cloneForScopeId(
-                                type,
-                                ParseTreeUtils.getScopeIdForNode(enclosingScope),
-                                enclosingScope.d.name.d.value,
-                                enclosingScope.nodeType === ParseNodeType.Function
-                                    ? TypeVarScopeType.Function
-                                    : TypeVarScopeType.Class
-                            );
-                        } else {
-                            fail('AssociateTypeVarsWithCurrentScope flag was set but enclosing scope not found');
-                        }
-                    } else {
-                        addDiagnostic(
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            LocMessage.typeVarUsedByOuterScope().format({ name: type.shared.name }),
-                            node
-                        );
-                    }
-                }
-            } else if ((flags & EvalFlags.AllowTypeVarWithoutScopeId) === 0) {
-                if (
-                    (type.priv.scopeId === undefined || scopedTypeVarInfo.foundInterveningClass) &&
-                    !type.shared.isSynthesized
-                ) {
-                    const message = isParamSpec(type)
-                        ? LocMessage.paramSpecNotUsedByOuterScope()
-                        : LocMessage.typeVarNotUsedByOuterScope();
-                    addDiagnostic(
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        message.format({ name: type.shared.name }),
-                        node
-                    );
-                }
-            }
+        // If the TypeVar doesn't have a scope ID, try to assign one.
+        if (!type.priv.scopeId) {
+            type = assignTypeVarScopeId(node, type, flags);
         }
 
         // If this type var is variadic, the name refers to the packed form. It
         // must be unpacked in most contexts.
         if (isUnpackedVariadicTypeVar(type)) {
             type = TypeVarType.cloneForPacked(type);
+        }
+
+        return type;
+    }
+
+    function assignTypeVarScopeId(node: ExpressionNode, type: TypeVarType, flags: EvalFlags): TypeVarType {
+        const scopedTypeVarInfo = findScopedTypeVar(node, type);
+        type = scopedTypeVarInfo.type;
+
+        if ((flags & EvalFlags.NoTypeVarWithScopeId) !== 0 && !!type.priv.scopeId) {
+            if (type.shared.isSynthesized || type.shared.isParamSpec) {
+                return type;
+            }
+
+            // This TypeVar already has a scope ID assigned to it. See if it
+            // originates from type parameter syntax. If so, allow it.
+            if (type.shared.isTypeParamSyntax) {
+                return type;
+            }
+
+            // If this type variable expression is used within a generic class,
+            // function, or type alias that uses type parameter syntax, there is
+            // no need to report an error here.
+            const typeVarScopeNode = ParseTreeUtils.getTypeVarScopeNode(node);
+            if (
+                typeVarScopeNode &&
+                typeVarScopeNode.d.typeParams &&
+                !typeVarScopeNode.d.typeParams.d.params.some((t) => t.d.name === node)
+            ) {
+                return type;
+            }
+
+            addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.typeVarUsedByOuterScope().format({ name: type.shared.name }),
+                node
+            );
+
+            return type;
+        }
+
+        if ((flags & EvalFlags.TypeVarGetsCurScope) !== 0) {
+            if (type.priv.scopeId) {
+                return type;
+            }
+
+            if (scopedTypeVarInfo.foundInterveningClass) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeVarUsedByOuterScope().format({ name: type.shared.name }),
+                    node
+                );
+                return type;
+            }
+
+            let enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
+
+            // Handle P.args and P.kwargs as a special case for inner functions.
+            if (
+                enclosingScope &&
+                node.parent?.nodeType === ParseNodeType.MemberAccess &&
+                node.parent.d.leftExpr === node
+            ) {
+                const memberName = node.parent.d.member.d.value;
+                if (memberName === 'args' || memberName === 'kwargs') {
+                    const outerFunctionScope = ParseTreeUtils.getEnclosingClassOrFunction(enclosingScope);
+
+                    if (outerFunctionScope?.nodeType === ParseNodeType.Function) {
+                        enclosingScope = outerFunctionScope;
+                    } else if (!scopedTypeVarInfo.type.priv.scopeId) {
+                        addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.paramSpecNotUsedByOuterScope().format({
+                                name: type.shared.name,
+                            }),
+                            node
+                        );
+                    }
+                }
+            }
+
+            if (!enclosingScope) {
+                fail('AssociateTypeVarsWithCurrentScope flag was set but enclosing scope not found');
+            }
+
+            // If the enclosing scope is using type parameter syntax, traditional
+            // type variables can't be used in this context.
+            if (
+                enclosingScope.d.typeParams &&
+                !enclosingScope.d.typeParams.d.params.some((param) => param.d.name.d.value === type.shared.name)
+            ) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeParameterNotDeclared().format({
+                        name: type.shared.name,
+                        container: enclosingScope.d.name.d.value,
+                    }),
+                    node
+                );
+            }
+
+            return TypeVarType.cloneForScopeId(
+                type,
+                ParseTreeUtils.getScopeIdForNode(enclosingScope),
+                enclosingScope.d.name.d.value,
+                enclosingScope.nodeType === ParseNodeType.Function ? TypeVarScopeType.Function : TypeVarScopeType.Class
+            );
+        }
+
+        if ((flags & EvalFlags.AllowTypeVarWithoutScopeId) === 0) {
+            if (type.priv.scopeId && !scopedTypeVarInfo.foundInterveningClass) {
+                return type;
+            }
+
+            if (!type.shared.isSynthesized) {
+                const message = isParamSpec(type)
+                    ? LocMessage.paramSpecNotUsedByOuterScope()
+                    : LocMessage.typeVarNotUsedByOuterScope();
+                addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, message.format({ name: type.shared.name }), node);
+            }
         }
 
         return type;
