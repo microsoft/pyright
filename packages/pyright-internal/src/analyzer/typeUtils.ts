@@ -2337,7 +2337,7 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
 
     const boundType = ClassType.cloneForSpecialization(
         classType,
-        /* typeArguments */ undefined,
+        ClassType.getTypeParameters(classType),
         /* isTypeArgumentExplicit */ false,
         /* includeSubclasses */ !!classType.priv.includeSubclasses
     );
