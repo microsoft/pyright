@@ -4257,19 +4257,19 @@ class InternalScopeUpdateTransform extends TypeVarTransformer {
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
-        if (!this._isTypeVarInScope(typeVar)) {
-            return typeVar;
+        if (this._isTypeVarInScope(typeVar)) {
+            return this._replaceTypeVar(typeVar);
         }
 
-        return this._replaceTypeVar(typeVar);
+        return undefined;
     }
 
     override transformParamSpec(paramSpec: TypeVarType) {
-        if (!this._isTypeVarInScope(paramSpec)) {
-            return undefined;
+        if (this._isTypeVarInScope(paramSpec)) {
+            return convertTypeToParamSpecValue(this._replaceTypeVar(paramSpec));
         }
 
-        return convertTypeToParamSpecValue(this._replaceTypeVar(paramSpec));
+        return undefined;
     }
 
     private _isTypeVarInScope(typeVar: TypeVarType) {
@@ -4293,7 +4293,7 @@ class ExternalScopeUpdateTransform extends TypeVarTransformer {
             return typeVar.priv.externalTypeVar;
         }
 
-        return typeVar;
+        return undefined;
     }
 
     override transformParamSpec(paramSpec: TypeVarType) {
@@ -4644,7 +4644,7 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
             return TypeVarType.cloneAsInScopePlaceholder(typeVar, this._usageOffset);
         }
 
-        return typeVar;
+        return undefined;
     }
 
     override transformParamSpec(paramSpec: TypeVarType): FunctionType | undefined {
@@ -4672,7 +4672,7 @@ class InScopePlaceholderTransformer extends TypeVarTransformer {
             return this._signatureContext.getTypeVarType(typeVar) ?? typeVar;
         }
 
-        return typeVar;
+        return undefined;
     }
 
     override transformParamSpec(paramSpec: TypeVarType): FunctionType | undefined {
