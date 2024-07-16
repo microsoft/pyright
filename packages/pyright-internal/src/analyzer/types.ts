@@ -2958,8 +2958,8 @@ export namespace TypeVarType {
         return newTypeVarType;
     }
 
-    export function addConstraint(typeVarType: TypeVarType, constraintType: Type) {
-        typeVarType.shared.constraints.push(constraintType);
+    export function addConstraint(type: TypeVarType, constraintType: Type) {
+        type.shared.constraints.push(constraintType);
     }
 
     export function getNameWithScope(typeVarType: TypeVarType) {
@@ -2967,12 +2967,12 @@ export namespace TypeVarType {
         return typeVarType.priv.nameWithScope || typeVarType.shared.name;
     }
 
-    export function getReadableName(typeVarType: TypeVarType) {
-        if (typeVarType.priv.scopeName) {
-            return `${typeVarType.shared.name}@${typeVarType.priv.scopeName}`;
+    export function getReadableName(type: TypeVarType) {
+        if (type.priv.scopeName) {
+            return `${type.shared.name}@${type.priv.scopeName}`;
         }
 
-        return typeVarType.shared.name;
+        return type.shared.name;
     }
 
     export function getVariance(type: TypeVarType) {

@@ -299,6 +299,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         : propertyObject;
     getFunction1.shared.declaration = fget.shared.declaration;
     getFunction1.shared.deprecatedMessage = fget.shared.deprecatedMessage;
+    getFunction1.shared.methodClass = fget.shared.methodClass;
 
     // Override the scope ID since we're using parameter types from the
     // decorated function.
@@ -332,6 +333,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     getFunction2.shared.declaredReturnType = FunctionType.getEffectiveReturnType(fget);
     getFunction2.shared.declaration = fget.shared.declaration;
     getFunction2.shared.deprecatedMessage = fget.shared.deprecatedMessage;
+    getFunction2.shared.methodClass = fget.shared.methodClass;
 
     // Override the scope ID since we're using parameter types from the
     // decorated function.
@@ -377,6 +379,7 @@ function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     // TypeVars that need to be solved.
     setFunction.shared.typeVarScopeId = getTypeVarScopeId(fset);
     setFunction.shared.deprecatedMessage = fset.shared.deprecatedMessage;
+    setFunction.shared.methodClass = fset.shared.methodClass;
 
     let setParamType: Type = UnknownType.create();
 
@@ -408,6 +411,7 @@ function addDelMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     // TypeVars that need to be solved.
     delFunction.shared.typeVarScopeId = getTypeVarScopeId(fdel);
     delFunction.shared.deprecatedMessage = fdel.shared.deprecatedMessage;
+    delFunction.shared.methodClass = fdel.shared.methodClass;
 
     let objType =
         fdel.shared.parameters.length > 0 ? FunctionType.getEffectiveParameterType(fdel, 0) : AnyType.create();
