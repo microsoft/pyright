@@ -8619,6 +8619,10 @@ export function createTypeEvaluator(
                 effectiveTargetClass = undefined;
             }
 
+            if (bindToType) {
+                bindToType = selfSpecializeClass(bindToType, { useInternalTypeVars: true });
+            }
+
             const lookupResults = bindToType
                 ? lookUpClassMember(bindToType, memberName, MemberAccessFlags.Default, effectiveTargetClass)
                 : undefined;
@@ -8642,18 +8646,20 @@ export function createTypeEvaluator(
                 resultType = UnknownType.create();
             }
 
-            return {
-                type: resultIsInstance ? convertToInstance(resultType, /* includeSubclasses */ false) : resultType,
-                bindToSelfType: bindToType
-                    ? TypeBase.cloneForCondition(
-                          synthesizeTypeVarForSelfCls(
-                              ClassType.cloneIncludeSubclasses(bindToType, /* includeSubclasses */ false),
-                              /* isClsParam */ false
-                          ),
-                          bindToType.props?.condition
-                      )
-                    : undefined,
-            };
+            let bindToSelfType: ClassType | TypeVarType | undefined;
+            if (bindToType) {
+                bindToSelfType = TypeBase.cloneForCondition(
+                    synthesizeTypeVarForSelfCls(
+                        ClassType.cloneIncludeSubclasses(bindToType, /* includeSubclasses */ false),
+                        /* isClsParam */ false
+                    ),
+                    bindToType.props?.condition
+                );
+            }
+
+            const type = resultIsInstance ? convertToInstance(resultType, /* includeSubclasses */ false) : resultType;
+
+            return { type, bindToSelfType };
         }
 
         // Handle the super() call when used outside of a member access expression.
