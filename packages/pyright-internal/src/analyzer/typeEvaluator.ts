@@ -78,6 +78,7 @@ import {
     TypeParameterKind,
     TypeParameterListNode,
     TypeParameterNode,
+    TypeParameterScopeNode,
     UnpackNode,
     WithItemNode,
     YieldFromNode,
@@ -384,6 +385,7 @@ export interface MemberAccessTypeResult {
 
 interface ScopedTypeVarResult {
     type: TypeVarType;
+    scopeNode: TypeParameterScopeNode | AssignmentNode | undefined;
     foundInterveningClass: boolean;
 }
 
@@ -4990,10 +4992,11 @@ export function createTypeEvaluator(
         assert(TypeBase.isInstantiable(type));
 
         while (curNode) {
-            curNode = ParseTreeUtils.getTypeVarScopeNode(curNode);
-            if (!curNode) {
+            const scopeNode = ParseTreeUtils.getTypeVarScopeNode(curNode);
+            if (!scopeNode) {
                 break;
             }
+            curNode = scopeNode;
 
             let typeParametersForScope: TypeVarType[] | undefined;
             let scopeUsesTypeParameterSyntax = false;
@@ -5035,6 +5038,7 @@ export function createTypeEvaluator(
                     );
                     return {
                         type,
+                        scopeNode,
                         foundInterveningClass: nestedClassCount > 1 && !scopeUsesTypeParameterSyntax,
                     };
                 }
@@ -5047,16 +5051,19 @@ export function createTypeEvaluator(
         curNode = node;
         while (curNode) {
             let leftType: Type | undefined;
-            let typeAliasNode: TypeAliasNode | undefined = undefined;
+            let typeAliasNode: TypeAliasNode | undefined;
+            let scopeNode: TypeAliasNode | AssignmentNode | undefined;
 
             if (curNode.nodeType === ParseNodeType.TypeAlias) {
                 leftType = readTypeCache(curNode.d.name, EvalFlags.None);
                 typeAliasNode = curNode;
+                scopeNode = curNode;
             } else if (curNode.nodeType === ParseNodeType.Assignment) {
                 leftType = readTypeCache(curNode.d.leftExpr, EvalFlags.None);
+                scopeNode = curNode;
             }
 
-            if (leftType) {
+            if (leftType && scopeNode) {
                 // Is this a placeholder that was temporarily written to the cache for
                 // purposes of resolving type aliases?
                 if (leftType && isTypeVar(leftType) && leftType.shared.recursiveAlias) {
@@ -5078,7 +5085,7 @@ export function createTypeEvaluator(
                         if (allowedTypeParams) {
                             if (!allowedTypeParams.some((param) => param.shared.name === type.shared.name)) {
                                 // Return the original type.
-                                return { type, foundInterveningClass: false };
+                                return { type, scopeNode, foundInterveningClass: false };
                             }
                         }
                     }
@@ -5090,6 +5097,7 @@ export function createTypeEvaluator(
                             leftType.shared.recursiveAlias.name,
                             TypeVarScopeType.TypeAlias
                         ),
+                        scopeNode,
                         foundInterveningClass: false,
                     };
                 }
@@ -5099,7 +5107,7 @@ export function createTypeEvaluator(
         }
 
         // Return the original type.
-        return { type, foundInterveningClass: false };
+        return { type, scopeNode: undefined, foundInterveningClass: false };
     }
 
     function getTypeOfMemberAccess(node: MemberAccessNode, flags: EvalFlags): TypeResult {
@@ -6033,15 +6041,11 @@ export function createTypeEvaluator(
 
         if (!methodTypeResult || methodTypeResult.typeErrors) {
             // Provide special error messages for properties.
-            if (ClassType.isPropertyClass(concreteMemberType)) {
-                if (usage.method !== 'get') {
-                    const message =
-                        usage.method === 'set'
-                            ? LocAddendum.propertyMissingSetter()
-                            : LocAddendum.propertyMissingDeleter();
-                    diag?.addMessage(message.format({ name: memberName }));
-                    return { type: AnyType.create(), typeErrors: true };
-                }
+            if (ClassType.isPropertyClass(concreteMemberType) && usage.method !== 'get') {
+                const message =
+                    usage.method === 'set' ? LocAddendum.propertyMissingSetter() : LocAddendum.propertyMissingDeleter();
+                diag?.addMessage(message.format({ name: memberName }));
+                return { type: AnyType.create(), typeErrors: true };
             }
 
             return { type: memberType };
@@ -10426,12 +10430,12 @@ export function createTypeEvaluator(
             }
 
             assert(paramDetails.params[paramIndex], 'paramIndex params entry is undefined');
-            const paramType = paramDetails.params[paramIndex].type;
-            const paramName = paramDetails.params[paramIndex].param.name;
+            const paramInfo = paramDetails.params[paramIndex];
+            const paramType = paramInfo.type;
+            const paramName = paramInfo.param.name;
 
             const isParamVariadic =
-                paramDetails.params[paramIndex].param.category === ParameterCategory.ArgsList &&
-                isVariadicTypeVar(paramType);
+                paramInfo.param.category === ParameterCategory.ArgsList && isVariadicTypeVar(paramType);
 
             if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
                 let isArgCompatibleWithVariadic = false;
@@ -10453,7 +10457,7 @@ export function createTypeEvaluator(
                     if (
                         isTypeVar(argTypeResult.type) &&
                         argTypeResult.type.priv.paramSpecAccess === 'args' &&
-                        paramDetails.params[paramIndex].param.category !== ParameterCategory.ArgsList
+                        paramInfo.param.category !== ParameterCategory.ArgsList
                     ) {
                         if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                             addDiagnostic(
@@ -10515,7 +10519,7 @@ export function createTypeEvaluator(
                         /* emitNotIterableError */ false
                     )?.type;
 
-                    if (paramDetails.params[paramIndex].param.category !== ParameterCategory.ArgsList) {
+                    if (paramInfo.param.category !== ParameterCategory.ArgsList) {
                         matchedUnpackedListOfUnknownLength = true;
                     }
                 }
@@ -10543,21 +10547,19 @@ export function createTypeEvaluator(
                     }
                     reportedArgError = true;
                 } else {
-                    if (paramSpecArgList) {
+                    if (paramSpecArgList && paramInfo.param.category !== ParameterCategory.Simple) {
                         paramSpecArgList.push(argList[argIndex]);
                     }
 
                     if (funcArg) {
                         validateArgTypeParams.push({
-                            paramCategory: paramDetails.params[paramIndex].param.category,
+                            paramCategory: paramInfo.param.category,
                             paramType,
                             requiresTypeVarMatching: requiresSpecialization(paramType),
                             argument: funcArg,
                             errorNode: argList[argIndex].valueExpression ?? errorNode,
                             paramName,
-                            isParamNameSynthesized: FunctionParam.isNameSynthesized(
-                                paramDetails.params[paramIndex].param
-                            ),
+                            isParamNameSynthesized: FunctionParam.isNameSynthesized(paramInfo.param),
                             mapsToVarArgList: isParamVariadic && remainingArgCount > remainingParamCount,
                         });
                     }
