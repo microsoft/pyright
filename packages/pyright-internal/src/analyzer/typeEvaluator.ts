@@ -22258,8 +22258,7 @@ export function createTypeEvaluator(
             if (!hasDecorators && !isAsync) {
                 const contextualReturnType = getFunctionInferredReturnTypeUsingArguments(type, callSiteInfo);
                 if (contextualReturnType) {
-                    // Externalize any TypeVars that appear in the type.
-                    returnType = updateTypeWithExternalTypeVars(contextualReturnType, /* scopeIds */ undefined);
+                    returnType = contextualReturnType;
                 }
             }
         }
