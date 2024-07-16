@@ -799,6 +799,24 @@ export function getEnclosingClassOrFunction(node: ParseNode): FunctionNode | Cla
     return undefined;
 }
 
+export function getEnclosingClassOrFunctionSuite(node: ParseNode): SuiteNode | undefined {
+    let curNode = node.parent;
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Suite) {
+            if (
+                curNode.parent?.nodeType === ParseNodeType.Function ||
+                curNode.parent?.nodeType === ParseNodeType.Class
+            ) {
+                return curNode;
+            }
+        }
+
+        curNode = curNode.parent;
+    }
+
+    return undefined;
+}
+
 export function getEnclosingSuiteOrModule(
     node: ParseNode,
     stopAtFunction = false,
