@@ -24018,6 +24018,10 @@ export function createTypeEvaluator(
                 // Is the destination a callback protocol (defined in PEP 544)?
                 const destCallbackType = getCallbackProtocolType(destType, recursionCount);
                 if (destCallbackType) {
+                    if (destTypeVarContext) {
+                        destTypeVarContext.addSolveForScope(getTypeVarScopeId(destCallbackType));
+                    }
+
                     return assignType(
                         destCallbackType,
                         concreteSrcType,
