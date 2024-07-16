@@ -14283,7 +14283,8 @@ export function createTypeEvaluator(
 
                     const generatorTypeArgs = getGeneratorTypeArgs(returnType);
                     if (generatorTypeArgs && generatorTypeArgs.length >= 2) {
-                        sentType = generatorTypeArgs[1];
+                        const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(node);
+                        sentType = updateTypeWithInternalTypeVars(generatorTypeArgs[1], liveScopeIds);
                     }
                 }
             }
