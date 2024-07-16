@@ -19796,11 +19796,15 @@ export function createTypeEvaluator(
             functionNode,
             /* isInClass */ true
         ).flags;
-        const inferredParamType = inferParameterType(functionNode, functionFlags, paramIndex, classInfo?.classType);
+
+        let inferredParamType =
+            inferParameterType(functionNode, functionFlags, paramIndex, classInfo?.classType) ?? UnknownType.create();
+        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+        inferredParamType = updateTypeWithInternalTypeVars(inferredParamType, liveTypeVarScopes);
 
         writeTypeCache(
             node.d.name,
-            { type: transformVariadicParamType(node, node.d.category, inferredParamType ?? UnknownType.create()) },
+            { type: transformVariadicParamType(node, node.d.category, inferredParamType) },
             EvalFlags.None
         );
     }
