@@ -56,7 +56,7 @@ jobs:
             --new $GITHUB_SHA \
             --debug \
             --output concise \
-            --additional-flags "--threads" \
+            --additional-flags --threads \
             | tee diff.txt
           ) || [ $? -eq 1 ]
       - name: Upload mypy_primer diff
