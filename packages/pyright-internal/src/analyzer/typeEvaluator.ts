@@ -7614,7 +7614,7 @@ export function createTypeEvaluator(
 
     function getTypeArgs(node: IndexNode, flags: EvalFlags, options?: GetTypeArgsOptions): TypeResultWithNode[] {
         const typeArgs: TypeResultWithNode[] = [];
-        let adjFlags = flags;
+        let adjFlags = flags | EvalFlags.NoConvertSpecialForm;
 
         if (options?.isFinalAnnotation) {
             adjFlags |= EvalFlags.NoClassVar | EvalFlags.NoFinal;
