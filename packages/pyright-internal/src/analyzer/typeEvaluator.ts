@@ -22259,6 +22259,12 @@ export function createTypeEvaluator(
                 const contextualReturnType = getFunctionInferredReturnTypeUsingArguments(type, callSiteInfo);
                 if (contextualReturnType) {
                     returnType = contextualReturnType;
+
+                    if (type.shared.declaration?.node) {
+                        // Externalize any TypeVars that appear in the type.
+                        const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(type.shared.declaration.node);
+                        returnType = updateTypeWithExternalTypeVars(returnType, liveScopeIds);
+                    }
                 }
             }
         }
