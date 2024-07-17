@@ -11296,38 +11296,7 @@ export function createTypeEvaluator(
         // We may or may not be able to make use of the expected type. We'll evaluate
         // speculatively to see if using one of the expected subtypes works.
         if (expectedType && isUnion(expectedType)) {
-            expectedType = useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () => {
-                let validExpectedSubtype: Type | undefined;
-
-                doForEachSubtype(
-                    expectedType!,
-                    (expectedSubtype) => {
-                        // If we've already found a working expected subtype, skip the rest.
-                        if (validExpectedSubtype) {
-                            return;
-                        }
-
-                        const callResult = validateArgTypesWithExpectedType(
-                            errorNode,
-                            matchResults,
-                            typeVarContext.clone(),
-                            /* skipUnknownArgCheck */ true,
-                            expectedSubtype,
-                            returnType,
-                            signatureTracker!
-                        );
-
-                        if (!callResult.argumentErrors) {
-                            validExpectedSubtype = expectedSubtype;
-                        }
-                    },
-                    /* sortSubtypes */ true
-                );
-
-                if (validExpectedSubtype) {
-                    return validExpectedSubtype;
-                }
-
+            const useFullUnion = useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () => {
                 // See if we can use the union type.
                 const callResult = validateArgTypesWithExpectedType(
                     errorNode,
@@ -11339,8 +11308,43 @@ export function createTypeEvaluator(
                     signatureTracker!
                 );
 
-                return callResult.argumentErrors ? undefined : expectedType;
+                return !callResult.argumentErrors;
             });
+
+            if (!useFullUnion) {
+                // We weren't able to use the union type as a whole. See if we can use
+                // one of the individual subtypes.
+                expectedType = useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () => {
+                    let validExpectedSubtype: Type | undefined;
+
+                    doForEachSubtype(
+                        expectedType!,
+                        (expectedSubtype) => {
+                            // If we've already found a working expected subtype, skip the rest.
+                            if (validExpectedSubtype) {
+                                return;
+                            }
+
+                            const callResult = validateArgTypesWithExpectedType(
+                                errorNode,
+                                matchResults,
+                                typeVarContext.clone(),
+                                /* skipUnknownArgCheck */ true,
+                                expectedSubtype,
+                                returnType,
+                                signatureTracker!
+                            );
+
+                            if (!callResult.argumentErrors) {
+                                validExpectedSubtype = expectedSubtype;
+                            }
+                        },
+                        /* sortSubtypes */ true
+                    );
+
+                    return validExpectedSubtype ? validExpectedSubtype : undefined;
+                });
+            }
         }
 
         // If there is no expected type, or the expected type is Any or Unknown,
