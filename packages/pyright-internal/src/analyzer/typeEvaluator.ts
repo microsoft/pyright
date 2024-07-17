@@ -11441,6 +11441,7 @@ export function createTypeEvaluator(
 
                 expectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
                     unknownIfNotFound: true,
+                    useUnknownOverDefault: true,
                     tupleClassType: getTupleClassType(),
                 });
 
