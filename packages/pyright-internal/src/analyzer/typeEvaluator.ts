@@ -1272,7 +1272,7 @@ export function createTypeEvaluator(
 
             case ParseNodeType.AssignmentExpression: {
                 if ((flags & EvalFlags.TypeExpression) !== 0) {
-                    addError(LocMessage.walrusNotAllowed(), node);
+                    addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.walrusNotAllowed(), node);
                 }
 
                 typeResult = getTypeOfExpression(node.d.rightExpr, flags, inferenceContext, signatureTracker);
@@ -1387,7 +1387,7 @@ export function createTypeEvaluator(
 
         if ((flags & EvalFlags.NoTypeVarTuple) !== 0) {
             if (isVariadicTypeVar(typeResult.type) && !typeResult.type.priv.isVariadicInUnion) {
-                addError(LocMessage.typeVarTupleContext(), node);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeVarTupleContext(), node);
                 typeResult.type = UnknownType.create();
             }
         }
@@ -1422,7 +1422,7 @@ export function createTypeEvaluator(
 
     function getTypeOfAwaitOperator(node: AwaitNode, flags: EvalFlags, inferenceContext?: InferenceContext) {
         if ((flags & EvalFlags.TypeExpression) !== 0) {
-            addError(LocMessage.awaitNotAllowed(), node);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.awaitNotAllowed(), node);
             return { type: UnknownType.create() };
         }
 
@@ -1502,7 +1502,12 @@ export function createTypeEvaluator(
         ) {
             typeResult = { type: ClassType.cloneForUnpacked(iterType) };
         } else if ((flags & EvalFlags.TypeExpression) !== 0) {
-            addError(LocMessage.unpackInAnnotation(), node, node.d.starToken);
+            addDiagnostic(
+                DiagnosticRule.reportInvalidTypeForm,
+                LocMessage.unpackInAnnotation(),
+                node,
+                node.d.starToken
+            );
             typeResult = { type: UnknownType.create() };
         } else {
             const iteratorTypeResult = getTypeOfIterator(iterTypeResult, /* isAsync */ false, node) ?? {
@@ -3175,10 +3180,6 @@ export function createTypeEvaluator(
         return addDiagnosticWithSuppressionCheck('information', message, node, range);
     }
 
-    function addError(message: string, node: ParseNode, range?: TextRange) {
-        return addDiagnosticWithSuppressionCheck('error', message, node, range);
-    }
-
     function addUnusedCode(node: ParseNode, textRange: TextRange) {
         if (!isDiagnosticSuppressedForNode(node)) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
@@ -3488,7 +3489,11 @@ export function createTypeEvaluator(
                                 return !ParseTreeUtils.getEnclosingFunction(decl.node);
                             });
                             if (classLevelDecls.length === 0) {
-                                addError(LocMessage.assignmentInProtocol(), target.d.member);
+                                addDiagnostic(
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    LocMessage.assignmentInProtocol(),
+                                    target.d.member
+                                );
                             }
                         }
                     }
@@ -4120,7 +4125,8 @@ export function createTypeEvaluator(
                         typeVarTarget.nodeType !== ParseNodeType.Name ||
                         typeVarTarget.d.value !== typeResult.type.shared.name
                     ) {
-                        addError(
+                        addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
                             typeResult.type.shared.isParamSpec
                                 ? LocMessage.paramSpecAssignedName().format({
                                       name: TypeVarType.getReadableName(typeResult.type),
@@ -4251,7 +4257,7 @@ export function createTypeEvaluator(
             }
 
             default: {
-                addError(LocMessage.assignmentTargetExpr(), target);
+                addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.assignmentTargetExpr(), target);
                 break;
             }
         }
@@ -4563,7 +4569,7 @@ export function createTypeEvaluator(
 
         if (isParamSpec(type)) {
             if (flags & EvalFlags.NoParamSpec) {
-                addError(LocMessage.paramSpecContext(), node);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.paramSpecContext(), node);
                 type = UnknownType.create();
             }
         }
@@ -5293,7 +5299,7 @@ export function createTypeEvaluator(
                             const errorMessage = isArgs
                                 ? LocMessage.paramSpecArgsUsage()
                                 : LocMessage.paramSpecKwargsUsage();
-                            addError(errorMessage, node);
+                            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, errorMessage, node);
                             type = UnknownType.create(isIncomplete);
                             break;
                         }
@@ -6476,7 +6482,7 @@ export function createTypeEvaluator(
         // runtime exception.
         if (flags & EvalFlags.InstantiableType) {
             if (node.d.leftExpr.nodeType === ParseNodeType.StringList) {
-                addError(LocMessage.stringNotSubscriptable(), node.d.leftExpr);
+                addDiagnostic(DiagnosticRule.reportIndexIssue, LocMessage.stringNotSubscriptable(), node.d.leftExpr);
             }
         }
 
@@ -6506,7 +6512,8 @@ export function createTypeEvaluator(
                         fileInfo.executionEnvironment.pythonVersion.isLessThan(minPythonVersion) &&
                         !fileInfo.isStubFile
                     ) {
-                        addError(
+                        addDiagnostic(
+                            DiagnosticRule.reportIndexIssue,
                             LocMessage.classNotRuntimeSubscriptable().format({
                                 name: baseTypeResult.type.priv.aliasName || baseTypeResult.type.shared.name,
                             }),
@@ -6696,7 +6703,8 @@ export function createTypeEvaluator(
     // If the variadic type variable is not unpacked, report an error.
     function validateVariadicTypeVarIsUnpacked(type: TypeVarType, node: ParseNode) {
         if (!type.priv.isVariadicUnpacked) {
-            addError(
+            addDiagnostic(
+                DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.unpackedTypeVarTupleExpected().format({
                     name1: type.shared.name,
                     name2: type.shared.name,
@@ -6761,7 +6769,8 @@ export function createTypeEvaluator(
         }
 
         if (typeArgs.length > typeParameters.length) {
-            addError(
+            addDiagnostic(
+                DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.typeArgsTooMany().format({
                     name: printType(baseType),
                     expected: typeParameters.length,
@@ -6770,7 +6779,8 @@ export function createTypeEvaluator(
                 typeArgs[typeParameters.length].node
             );
         } else if (typeArgs.length < minTypeArgCount) {
-            addError(
+            addDiagnostic(
+                DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.typeArgsTooFew().format({
                     name: printType(baseType),
                     expected: typeParameters.length,
@@ -6877,11 +6887,19 @@ export function createTypeEvaluator(
                     FunctionType.addDefaultParameters(functionType);
                     assignTypeToTypeVar(evaluatorInterface, param, functionType, diag, typeVarContext);
                 } else {
-                    addError(LocMessage.typeArgListExpected(), typeArgs[index].node);
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.typeArgListExpected(),
+                        typeArgs[index].node
+                    );
                 }
             } else {
                 if (index < typeArgs.length && typeArgs[index].typeList) {
-                    addError(LocMessage.typeArgListNotAllowed(), typeArgs[index].node);
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.typeArgListNotAllowed(),
+                        typeArgs[index].node
+                    );
                 }
 
                 let typeArgType: Type;
@@ -6933,7 +6951,8 @@ export function createTypeEvaluator(
         });
 
         if (!diag.isEmpty()) {
-            addError(
+            addDiagnostic(
+                DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.typeNotSpecializable().format({ type: printType(baseType) }) + diag.getString(),
                 node,
                 diag.getEffectiveTextRange() ?? node
@@ -7104,14 +7123,19 @@ export function createTypeEvaluator(
 
                         if ((flags & EvalFlags.TypeExpression) !== 0) {
                             if ((flags & EvalFlags.VarTypeAnnotation) === 0) {
-                                addError(LocMessage.initVarNotAllowed(), node.d.leftExpr);
+                                addDiagnostic(
+                                    DiagnosticRule.reportInvalidTypeForm,
+                                    LocMessage.initVarNotAllowed(),
+                                    node.d.leftExpr
+                                );
                             }
                         }
 
                         if (typeArgs.length === 1) {
                             return typeArgs[0].type;
                         } else {
-                            addError(
+                            addDiagnostic(
+                                DiagnosticRule.reportInvalidTypeForm,
                                 LocMessage.typeArgsMismatchOne().format({ received: typeArgs.length }),
                                 node.d.leftExpr
                             );
@@ -7714,14 +7738,22 @@ export function createTypeEvaluator(
                             ) {
                                 typeResult.type = ClassType.cloneForUnpacked(typeResult.type);
                             } else {
-                                addError(LocMessage.unpackNotAllowed(), arg.d.valueExpr);
+                                addDiagnostic(
+                                    DiagnosticRule.reportInvalidTypeForm,
+                                    LocMessage.unpackNotAllowed(),
+                                    arg.d.valueExpr
+                                );
                             }
                         }
                     }
                 }
 
                 if (arg.d.name) {
-                    addError(LocMessage.keywordArgInTypeArgument(), arg.d.valueExpr);
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.keywordArgInTypeArgument(),
+                        arg.d.valueExpr
+                    );
                 }
 
                 if (
@@ -7762,13 +7794,13 @@ export function createTypeEvaluator(
             typeResult = { ...getTypeOfExpression(node, adjustedFlags), node };
 
             if (node.nodeType === ParseNodeType.Dictionary) {
-                addError(LocMessage.dictInAnnotation(), node);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.dictInAnnotation(), node);
             }
 
             if ((flags & EvalFlags.NoClassVar) !== 0) {
                 // "ClassVar" is not allowed as a type argument.
                 if (isClass(typeResult.type) && ClassType.isBuiltIn(typeResult.type, 'ClassVar')) {
-                    addError(LocMessage.classVarNotAllowed(), node);
+                    addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.classVarNotAllowed(), node);
                 }
             }
         }
@@ -8095,7 +8127,7 @@ export function createTypeEvaluator(
                     // Handle the special-case "reveal_locals" call.
                     typeResult.type = getTypeOfRevealLocals(node);
                 } else {
-                    addError(LocMessage.revealLocalsArgs(), node);
+                    addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.revealLocalsArgs(), node);
                 }
             } else {
                 const callResult = validateCallArguments(
@@ -8236,7 +8268,7 @@ export function createTypeEvaluator(
             node.d.args[0].d.argCategory !== ArgumentCategory.Simple ||
             node.d.args[1].d.name !== undefined
         ) {
-            addError(LocMessage.assertTypeArgs(), node);
+            addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.assertTypeArgs(), node);
             return { type: UnknownType.create() };
         }
 
@@ -8300,7 +8332,11 @@ export function createTypeEvaluator(
                     !ClassType.isBuiltIn(expectedTextType, 'str') ||
                     typeof expectedTextType.priv.literalValue !== 'string'
                 ) {
-                    addError(LocMessage.revealTypeExpectedTextArg(), arg.d.valueExpr);
+                    addDiagnostic(
+                        DiagnosticRule.reportCallIssue,
+                        LocMessage.revealTypeExpectedTextArg(),
+                        arg.d.valueExpr
+                    );
                 } else {
                     expectedText = expectedTextType.priv.literalValue;
                 }
@@ -8313,7 +8349,7 @@ export function createTypeEvaluator(
         });
 
         if (!arg0Value) {
-            addError(LocMessage.revealTypeArgs(), node);
+            addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.revealTypeArgs(), node);
             return { type: UnknownType.create() };
         }
 
@@ -8326,7 +8362,8 @@ export function createTypeEvaluator(
         if (!typeResult.isIncomplete) {
             if (expectedText !== undefined) {
                 if (expectedText !== typeString) {
-                    addError(
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.revealTypeExpectedTextMismatch().format({
                             expected: expectedText,
                             received: typeString,
@@ -8339,7 +8376,8 @@ export function createTypeEvaluator(
             if (expectedRevealType) {
                 if (!isTypeSame(expectedRevealType, type, { ignorePseudoGeneric: true })) {
                     const expectedRevealTypeText = printType(expectedRevealType);
-                    addError(
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.revealTypeExpectedTypeMismatch().format({
                             expected: expectedRevealTypeText,
                             received: typeString,
@@ -8398,7 +8436,7 @@ export function createTypeEvaluator(
 
     function getTypeOfSuperCall(node: CallNode): TypeResult {
         if (node.d.args.length > 2) {
-            addError(LocMessage.superCallArgCount(), node.d.args[2]);
+            addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.superCallArgCount(), node.d.args[2]);
         }
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunctionEvaluationScope(node);
@@ -8437,11 +8475,19 @@ export function createTypeEvaluator(
                     );
 
                     if ((functionInfo?.flags & FunctionTypeFlags.StaticMethod) !== 0) {
-                        addError(LocMessage.superCallZeroArgFormStaticMethod(), node.d.leftExpr);
+                        addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.superCallZeroArgFormStaticMethod(),
+                            node.d.leftExpr
+                        );
                     }
                 }
             } else {
-                addError(LocMessage.superCallZeroArgForm(), node.d.leftExpr);
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.superCallZeroArgForm(),
+                    node.d.leftExpr
+                );
                 targetClassType = UnknownType.create();
             }
         }
@@ -12406,7 +12452,7 @@ export function createTypeEvaluator(
         let defaultValueNode: ExpressionNode | undefined;
 
         if (argList.length === 0) {
-            addError(LocMessage.typeVarFirstArg(), errorNode);
+            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.typeVarFirstArg(), errorNode);
             return undefined;
         }
 
@@ -12414,7 +12460,11 @@ export function createTypeEvaluator(
         if (firstArg.valueExpression && firstArg.valueExpression.nodeType === ParseNodeType.StringList) {
             typeVarName = firstArg.valueExpression.d.strings.map((s) => s.d.value).join('');
         } else {
-            addError(LocMessage.typeVarFirstArg(), firstArg.valueExpression || errorNode);
+            addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.typeVarFirstArg(),
+                firstArg.valueExpression || errorNode
+            );
         }
 
         const typeVar = TypeBase.cloneAsSpecialForm(
@@ -12430,7 +12480,8 @@ export function createTypeEvaluator(
 
             if (paramName) {
                 if (paramNameMap.get(paramName)) {
-                    addError(
+                    addDiagnostic(
+                        DiagnosticRule.reportCallIssue,
                         LocMessage.duplicateParam().format({ name: paramName }),
                         argList[i].valueExpression || errorNode
                     );
@@ -12438,7 +12489,11 @@ export function createTypeEvaluator(
 
                 if (paramName === 'bound') {
                     if (typeVar.shared.constraints.length > 0) {
-                        addError(LocMessage.typeVarBoundAndConstrained(), argList[i].valueExpression || errorNode);
+                        addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.typeVarBoundAndConstrained(),
+                            argList[i].valueExpression || errorNode
+                        );
                     } else {
                         const argType =
                             argList[i].typeResult?.type ??
@@ -12448,7 +12503,11 @@ export function createTypeEvaluator(
                         if (
                             requiresSpecialization(argType, { ignorePseudoGeneric: true, ignoreImplicitTypeArgs: true })
                         ) {
-                            addError(LocMessage.typeVarBoundGeneric(), argList[i].valueExpression || errorNode);
+                            addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                LocMessage.typeVarBoundGeneric(),
+                                argList[i].valueExpression || errorNode
+                            );
                         }
                         typeVar.shared.boundType = convertToInstance(argType);
                     }
@@ -12458,7 +12517,11 @@ export function createTypeEvaluator(
                             typeVar.shared.declaredVariance === Variance.Contravariant ||
                             typeVar.shared.declaredVariance === Variance.Auto
                         ) {
-                            addError(LocMessage.typeVarVariance(), argList[i].valueExpression!);
+                            addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                LocMessage.typeVarVariance(),
+                                argList[i].valueExpression!
+                            );
                         } else {
                             typeVar.shared.declaredVariance = Variance.Covariant;
                         }
@@ -12469,7 +12532,11 @@ export function createTypeEvaluator(
                             typeVar.shared.declaredVariance === Variance.Covariant ||
                             typeVar.shared.declaredVariance === Variance.Auto
                         ) {
-                            addError(LocMessage.typeVarVariance(), argList[i].valueExpression!);
+                            addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                LocMessage.typeVarVariance(),
+                                argList[i].valueExpression!
+                            );
                         } else {
                             typeVar.shared.declaredVariance = Variance.Contravariant;
                         }
@@ -12480,7 +12547,11 @@ export function createTypeEvaluator(
                             typeVar.shared.declaredVariance === Variance.Covariant ||
                             typeVar.shared.declaredVariance === Variance.Contravariant
                         ) {
-                            addError(LocMessage.typeVarVariance(), argList[i].valueExpression!);
+                            addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                LocMessage.typeVarVariance(),
+                                argList[i].valueExpression!
+                            );
                         } else {
                             typeVar.shared.declaredVariance = Variance.Auto;
                         }
@@ -12501,10 +12572,15 @@ export function createTypeEvaluator(
                         fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_13) &&
                         classType.shared.moduleName !== 'typing_extensions'
                     ) {
-                        addError(LocMessage.typeVarDefaultIllegal(), defaultValueNode!);
+                        addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.typeVarDefaultIllegal(),
+                            defaultValueNode!
+                        );
                     }
                 } else {
-                    addError(
+                    addDiagnostic(
+                        DiagnosticRule.reportCallIssue,
                         LocMessage.typeVarUnknownParam().format({ name: paramName }),
                         argList[i].node?.d.name || argList[i].valueExpression || errorNode
                     );
@@ -12513,14 +12589,22 @@ export function createTypeEvaluator(
                 paramNameMap.set(paramName, paramName);
             } else {
                 if (typeVar.shared.boundType) {
-                    addError(LocMessage.typeVarBoundAndConstrained(), argList[i].valueExpression || errorNode);
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typeVarBoundAndConstrained(),
+                        argList[i].valueExpression || errorNode
+                    );
                 } else {
                     const argType =
                         argList[i].typeResult?.type ??
                         getTypeOfExpressionExpectingType(argList[i].valueExpression!).type;
 
                     if (requiresSpecialization(argType, { ignorePseudoGeneric: true })) {
-                        addError(LocMessage.typeVarConstraintGeneric(), argList[i].valueExpression || errorNode);
+                        addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.typeVarConstraintGeneric(),
+                            argList[i].valueExpression || errorNode
+                        );
                     }
                     TypeVarType.addConstraint(typeVar, convertToInstance(argType));
                     if (firstConstraintArg === undefined) {
@@ -12604,7 +12688,7 @@ export function createTypeEvaluator(
         let typeVarName = '';
 
         if (argList.length === 0) {
-            addError(LocMessage.typeVarFirstArg(), errorNode);
+            addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.typeVarFirstArg(), errorNode);
             return undefined;
         }
 
@@ -12612,7 +12696,11 @@ export function createTypeEvaluator(
         if (firstArg.valueExpression && firstArg.valueExpression.nodeType === ParseNodeType.StringList) {
             typeVarName = firstArg.valueExpression.d.strings.map((s) => s.d.value).join('');
         } else {
-            addError(LocMessage.typeVarFirstArg(), firstArg.valueExpression || errorNode);
+            addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.typeVarFirstArg(),
+                firstArg.valueExpression || errorNode
+            );
         }
 
         const typeVar = TypeBase.cloneAsSpecialForm(
@@ -12644,16 +12732,25 @@ export function createTypeEvaluator(
                         fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_13) &&
                         classType.shared.moduleName !== 'typing_extensions'
                     ) {
-                        addError(LocMessage.typeVarDefaultIllegal(), expr!);
+                        addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.typeVarDefaultIllegal(),
+                            expr!
+                        );
                     }
                 } else {
-                    addError(
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.typeVarTupleUnknownParam().format({ name: argList[i].name?.d.value || '?' }),
                         argList[i].node?.d.name || argList[i].valueExpression || errorNode
                     );
                 }
             } else {
-                addError(LocMessage.typeVarTupleConstraints(), argList[i].valueExpression || errorNode);
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeVarTupleConstraints(),
+                    argList[i].valueExpression || errorNode
+                );
             }
         }
 
@@ -12683,7 +12780,7 @@ export function createTypeEvaluator(
         argList: FunctionArgument[]
     ): Type | undefined {
         if (argList.length === 0) {
-            addError(LocMessage.paramSpecFirstArg(), errorNode);
+            addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.paramSpecFirstArg(), errorNode);
             return undefined;
         }
 
@@ -12692,7 +12789,11 @@ export function createTypeEvaluator(
         if (firstArg.valueExpression && firstArg.valueExpression.nodeType === ParseNodeType.StringList) {
             paramSpecName = firstArg.valueExpression.d.strings.map((s) => s.d.value).join('');
         } else {
-            addError(LocMessage.paramSpecFirstArg(), firstArg.valueExpression || errorNode);
+            addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.paramSpecFirstArg(),
+                firstArg.valueExpression || errorNode
+            );
         }
 
         const paramSpec = TypeBase.cloneAsSpecialForm(
@@ -12724,16 +12825,25 @@ export function createTypeEvaluator(
                         fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_13) &&
                         classType.shared.moduleName !== 'typing_extensions'
                     ) {
-                        addError(LocMessage.typeVarDefaultIllegal(), expr!);
+                        addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.typeVarDefaultIllegal(),
+                            expr!
+                        );
                     }
                 } else {
-                    addError(
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.paramSpecUnknownParam().format({ name: paramName }),
                         paramNameNode || argList[i].valueExpression || errorNode
                     );
                 }
             } else {
-                addError(LocMessage.paramSpecUnknownArg(), argList[i].valueExpression || errorNode);
+                addDiagnostic(
+                    DiagnosticRule.reportCallIssue,
+                    LocMessage.paramSpecUnknownArg(),
+                    argList[i].valueExpression || errorNode
+                );
                 break;
             }
         }
@@ -12875,7 +12985,11 @@ export function createTypeEvaluator(
         let typeParameters: TypeVarType[] | undefined;
         if (typeParamsExpr) {
             if (typeParamsExpr.nodeType !== ParseNodeType.Tuple) {
-                addError(LocMessage.typeAliasTypeParamInvalid(), typeParamsExpr);
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeAliasTypeParamInvalid(),
+                    typeParamsExpr
+                );
                 return undefined;
             }
 
@@ -13151,7 +13265,7 @@ export function createTypeEvaluator(
         });
 
         if (!computeMroLinearization(classType)) {
-            addError(LocMessage.methodOrdering(), errorNode);
+            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.methodOrdering(), errorNode);
         }
 
         return classType;
@@ -14743,7 +14857,7 @@ export function createTypeEvaluator(
     function validateTypeArg(argResult: TypeResultWithNode, options?: ValidateTypeArgsOptions): boolean {
         if (argResult.typeList) {
             if (!options?.allowTypeArgList) {
-                addError(LocMessage.typeArgListNotAllowed(), argResult.node);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeArgListNotAllowed(), argResult.node);
                 return false;
             } else {
                 argResult.typeList.forEach((typeArg) => {
@@ -14754,26 +14868,26 @@ export function createTypeEvaluator(
 
         if (isEllipsisType(argResult.type)) {
             if (!options?.allowTypeArgList) {
-                addError(LocMessage.ellipsisContext(), argResult.node);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.ellipsisContext(), argResult.node);
                 return false;
             }
         }
 
         if (isModule(argResult.type)) {
-            addError(LocMessage.moduleAsType(), argResult.node);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.moduleAsType(), argResult.node);
             return false;
         }
 
         if (isParamSpec(argResult.type)) {
             if (!options?.allowParamSpec) {
-                addError(LocMessage.paramSpecContext(), argResult.node);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.paramSpecContext(), argResult.node);
                 return false;
             }
         }
 
         if (isVariadicTypeVar(argResult.type) && !argResult.type.priv.isVariadicInUnion) {
             if (!options?.allowVariadicTypeVar) {
-                addError(LocMessage.typeVarTupleContext(), argResult.node);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeVarTupleContext(), argResult.node);
                 return false;
             } else {
                 validateVariadicTypeVarIsUnpacked(argResult.type, argResult.node);
@@ -14781,13 +14895,17 @@ export function createTypeEvaluator(
         }
 
         if (!options?.allowEmptyTuple && argResult.isEmptyTupleShorthand) {
-            addError(LocMessage.zeroLengthTupleNotAllowed(), argResult.node);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.zeroLengthTupleNotAllowed(), argResult.node);
             return false;
         }
 
         if (isUnpackedClass(argResult.type)) {
             if (!options?.allowUnpackedTuples) {
-                addError(LocMessage.unpackedArgInTypeArgument(), argResult.node);
+                addDiagnostic(
+                    DiagnosticRule.reportInvalidTypeForm,
+                    LocMessage.unpackedArgInTypeArgument(),
+                    argResult.node
+                );
                 return false;
             }
         }
@@ -14822,7 +14940,11 @@ export function createTypeEvaluator(
                     // Make sure we have at most one unpacked variadic type variable.
                     if (sawUnpacked) {
                         if (!reportedUnpackedError) {
-                            addError(LocMessage.variadicTypeArgsTooMany(), entry.node);
+                            addDiagnostic(
+                                DiagnosticRule.reportInvalidTypeForm,
+                                LocMessage.variadicTypeArgsTooMany(),
+                                entry.node
+                            );
                             reportedUnpackedError = true;
                         }
                     }
@@ -14901,7 +15023,11 @@ export function createTypeEvaluator(
                         });
                     }
                 } else {
-                    addError(LocMessage.callableFirstArg(), typeArgs[0].node);
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.callableFirstArg(),
+                        typeArgs[0].node
+                    );
                 }
             }
 
@@ -14918,7 +15044,7 @@ export function createTypeEvaluator(
             }
 
             if (typeArgs.length > 2) {
-                addError(LocMessage.callableExtraArgs(), typeArgs[2].node);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.callableExtraArgs(), typeArgs[2].node);
             }
         } else {
             FunctionType.addDefaultParameters(functionType, /* useUnknown */ true);
@@ -14944,7 +15070,7 @@ export function createTypeEvaluator(
             // depends on whether we're evaluating a type annotation or
             // we're in some other context.
             if ((flags & EvalFlags.TypeExpression) !== 0) {
-                addError(LocMessage.optionalExtraArgs(), errorNode);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.optionalExtraArgs(), errorNode);
                 return UnknownType.create();
             }
 
@@ -14952,7 +15078,7 @@ export function createTypeEvaluator(
         }
 
         if (typeArgs.length > 1) {
-            addError(LocMessage.optionalExtraArgs(), errorNode);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.optionalExtraArgs(), errorNode);
             return UnknownType.create();
         }
 
@@ -14997,7 +15123,7 @@ export function createTypeEvaluator(
     // Creates a type that represents a Literal.
     function createLiteralType(classType: ClassType, node: IndexNode, flags: EvalFlags): Type {
         if (node.d.items.length === 0) {
-            addError(LocMessage.literalEmptyArgs(), node.d.leftExpr);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalEmptyArgs(), node.d.leftExpr);
             return UnknownType.create();
         }
 
@@ -15010,10 +15136,10 @@ export function createTypeEvaluator(
             const itemExpr = item.d.valueExpr;
 
             if (item.d.argCategory !== ArgumentCategory.Simple) {
-                addError(LocMessage.unpackedArgInTypeArgument(), itemExpr);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unpackedArgInTypeArgument(), itemExpr);
                 type = UnknownType.create();
             } else if (item.d.name) {
-                addError(LocMessage.keywordArgInTypeArgument(), itemExpr);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.keywordArgInTypeArgument(), itemExpr);
                 type = UnknownType.create();
             } else if (itemExpr.nodeType === ParseNodeType.StringList) {
                 const isBytes = (itemExpr.d.strings[0].d.token.flags & StringTokenFlags.Bytes) !== 0;
@@ -15094,7 +15220,7 @@ export function createTypeEvaluator(
             }
 
             if (!type) {
-                addError(LocMessage.literalUnsupportedType(), item);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalUnsupportedType(), item);
                 type = UnknownType.create();
             }
 
@@ -15118,17 +15244,17 @@ export function createTypeEvaluator(
         flags: EvalFlags
     ): Type {
         if (flags & EvalFlags.NoClassVar) {
-            addError(LocMessage.classVarNotAllowed(), errorNode);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.classVarNotAllowed(), errorNode);
             return AnyType.create();
         }
 
         if (!typeArgs) {
             return classType;
         } else if (typeArgs.length === 0) {
-            addError(LocMessage.classVarFirstArgMissing(), errorNode);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.classVarFirstArgMissing(), errorNode);
             return UnknownType.create();
         } else if (typeArgs.length > 1) {
-            addError(LocMessage.classVarTooManyArgs(), typeArgs[1].node);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.classVarTooManyArgs(), typeArgs[1].node);
             return UnknownType.create();
         }
 
@@ -15162,12 +15288,12 @@ export function createTypeEvaluator(
         // we're in some other context.
         if (!typeArgs) {
             if ((flags & EvalFlags.TypeExpression) !== 0) {
-                addError(LocMessage.typeGuardArgCount(), errorNode);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeGuardArgCount(), errorNode);
             }
 
             return classType;
         } else if (typeArgs.length !== 1) {
-            addError(LocMessage.typeGuardArgCount(), errorNode);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeGuardArgCount(), errorNode);
             return UnknownType.create();
         }
 
@@ -15273,7 +15399,8 @@ export function createTypeEvaluator(
         }
 
         if (!typeArgs || typeArgs.length !== 1) {
-            addError(
+            addDiagnostic(
+                DiagnosticRule.reportInvalidTypeForm,
                 classType.shared.name === 'ReadOnly'
                     ? LocMessage.readOnlyArgCount()
                     : classType.shared.name === 'Required'
@@ -15329,7 +15456,8 @@ export function createTypeEvaluator(
         }
 
         if (!isUsageLegal) {
-            addError(
+            addDiagnostic(
+                DiagnosticRule.reportInvalidTypeForm,
                 classType.shared.name === 'ReadOnly'
                     ? LocMessage.readOnlyNotInTypedDict()
                     : classType.shared.name === 'Required'
@@ -15357,7 +15485,7 @@ export function createTypeEvaluator(
         }
 
         if (!typeArgs || typeArgs.length !== 1) {
-            addError(LocMessage.unpackArgCount(), errorNode);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unpackArgCount(), errorNode);
             return UnknownType.create();
         }
 
@@ -15400,7 +15528,7 @@ export function createTypeEvaluator(
         flags: EvalFlags
     ): Type {
         if (flags & EvalFlags.NoFinal) {
-            addError(LocMessage.finalContext(), errorNode);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.finalContext(), errorNode);
             return classType;
         }
 
@@ -15409,7 +15537,7 @@ export function createTypeEvaluator(
         }
 
         if (typeArgs.length > 1) {
-            addError(LocMessage.finalTooManyArgs(), errorNode);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.finalTooManyArgs(), errorNode);
         }
 
         return TypeBase.cloneAsSpecialForm(typeArgs[0].type, classType);
@@ -15422,25 +15550,41 @@ export function createTypeEvaluator(
         flags: EvalFlags
     ): Type {
         if ((flags & EvalFlags.AllowConcatenate) === 0) {
-            addError(LocMessage.concatenateContext(), errorNode);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.concatenateContext(), errorNode);
             return AnyType.create();
         }
 
         if (!typeArgs || typeArgs.length === 0) {
-            addError(LocMessage.concatenateTypeArgsMissing(), errorNode);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.concatenateTypeArgsMissing(), errorNode);
         } else {
             typeArgs.forEach((typeArg, index) => {
                 if (index === typeArgs.length - 1) {
                     if (!isParamSpec(typeArg.type) && !isEllipsisType(typeArg.type)) {
-                        addError(LocMessage.concatenateParamSpecMissing(), typeArg.node);
+                        addDiagnostic(
+                            DiagnosticRule.reportInvalidTypeForm,
+                            LocMessage.concatenateParamSpecMissing(),
+                            typeArg.node
+                        );
                     }
                 } else {
                     if (isParamSpec(typeArg.type)) {
-                        addError(LocMessage.paramSpecContext(), typeArg.node);
+                        addDiagnostic(
+                            DiagnosticRule.reportInvalidTypeForm,
+                            LocMessage.paramSpecContext(),
+                            typeArg.node
+                        );
                     } else if (isUnpackedVariadicTypeVar(typeArg.type)) {
-                        addError(LocMessage.typeVarTupleContext(), typeArg.node);
+                        addDiagnostic(
+                            DiagnosticRule.reportInvalidTypeForm,
+                            LocMessage.typeVarTupleContext(),
+                            typeArg.node
+                        );
                     } else if (isUnpackedClass(typeArg.type)) {
-                        addError(LocMessage.unpackedArgInTypeArgument(), typeArg.node);
+                        addDiagnostic(
+                            DiagnosticRule.reportInvalidTypeForm,
+                            LocMessage.unpackedArgInTypeArgument(),
+                            typeArg.node
+                        );
                     }
                 }
             });
@@ -15462,7 +15606,7 @@ export function createTypeEvaluator(
 
         if (typeArgs) {
             if (typeArgs.length < 2) {
-                addError(LocMessage.annotatedTypeArgMissing(), errorNode);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.annotatedTypeArgMissing(), errorNode);
             } else {
                 validateAnnotatedMetadata(errorNode, typeArgs[0].type, typeArgs.slice(1));
             }
@@ -15473,7 +15617,7 @@ export function createTypeEvaluator(
         }
 
         if (typeArgs[0].typeList) {
-            addError(LocMessage.typeArgListNotAllowed(), typeArgs[0].node);
+            addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeArgListNotAllowed(), typeArgs[0].node);
         }
 
         return {
@@ -15563,7 +15707,11 @@ export function createTypeEvaluator(
                 const noteSawUnpacked = (typeArg: TypeResultWithNode) => {
                     if (sawUnpacked) {
                         if (!reportedUnpackedError) {
-                            addError(LocMessage.variadicTypeArgsTooMany(), typeArg.node);
+                            addDiagnostic(
+                                DiagnosticRule.reportInvalidTypeForm,
+                                LocMessage.variadicTypeArgsTooMany(),
+                                typeArg.node
+                            );
                             reportedUnpackedError = true;
                         }
                     }
@@ -15577,15 +15725,31 @@ export function createTypeEvaluator(
                     if (isEllipsisType(typeArg.type)) {
                         if (!isTupleTypeParam) {
                             if (!allowParamSpec) {
-                                addError(LocMessage.ellipsisContext(), typeArg.node);
+                                addDiagnostic(
+                                    DiagnosticRule.reportInvalidTypeForm,
+                                    LocMessage.ellipsisContext(),
+                                    typeArg.node
+                                );
                             }
                         } else if (typeArgs.length !== 2 || index !== 1) {
-                            addError(LocMessage.ellipsisSecondArg(), typeArg.node);
+                            addDiagnostic(
+                                DiagnosticRule.reportInvalidTypeForm,
+                                LocMessage.ellipsisSecondArg(),
+                                typeArg.node
+                            );
                         } else {
                             if (isVariadicTypeVar(typeArgs[0].type) && !typeArgs[0].type.priv.isVariadicInUnion) {
-                                addError(LocMessage.typeVarTupleContext(), typeArgs[0].node);
+                                addDiagnostic(
+                                    DiagnosticRule.reportInvalidTypeForm,
+                                    LocMessage.typeVarTupleContext(),
+                                    typeArgs[0].node
+                                );
                             } else if (isUnpackedClass(typeArgs[0].type)) {
-                                addError(LocMessage.ellipsisAfterUnpacked(), typeArg.node);
+                                addDiagnostic(
+                                    DiagnosticRule.reportInvalidTypeForm,
+                                    LocMessage.ellipsisAfterUnpacked(),
+                                    typeArg.node
+                                );
                             }
                         }
                     } else if (isParamSpec(typeArg.type) && allowParamSpec) {
@@ -15616,7 +15780,8 @@ export function createTypeEvaluator(
         // Make sure the argument list count is correct.
         if (paramLimit !== undefined) {
             if (typeArgs && typeArgTypes.length > paramLimit) {
-                addError(
+                addDiagnostic(
+                    DiagnosticRule.reportInvalidTypeForm,
                     LocMessage.typeArgsTooMany().format({
                         name: classType.priv.aliasName || classType.shared.name,
                         expected: paramLimit,
@@ -15683,7 +15848,7 @@ export function createTypeEvaluator(
             // depends on whether we're evaluating a type annotation or
             // we're in some other context.
             if ((flags & EvalFlags.TypeExpression) !== 0) {
-                addError(LocMessage.unionTypeArgCount(), errorNode);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.unionTypeArgCount(), errorNode);
                 return NeverType.createNever();
             }
 
@@ -15767,7 +15932,7 @@ export function createTypeEvaluator(
             // depends on whether we're evaluating a type annotation or
             // we're in some other context.
             if ((flags & (EvalFlags.TypeExpression | EvalFlags.NoNakedGeneric)) !== 0) {
-                addError(LocMessage.genericTypeArgMissing(), errorNode);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.genericTypeArgMissing(), errorNode);
             }
 
             return classType;
@@ -15777,16 +15942,24 @@ export function createTypeEvaluator(
         if (typeArgs) {
             // Make sure there's at least one type arg.
             if (typeArgs.length === 0) {
-                addError(LocMessage.genericTypeArgMissing(), errorNode);
+                addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.genericTypeArgMissing(), errorNode);
             }
 
             // Make sure that all of the type args are typeVars and are unique.
             typeArgs.forEach((typeArg) => {
                 if (!isTypeVar(typeArg.type)) {
-                    addError(LocMessage.genericTypeArgTypeVar(), typeArg.node);
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.genericTypeArgTypeVar(),
+                        typeArg.node
+                    );
                 } else {
                     if (uniqueTypeVars.some((t) => isTypeSame(t, typeArg.type))) {
-                        addError(LocMessage.genericTypeArgUnique(), typeArg.node);
+                        addDiagnostic(
+                            DiagnosticRule.reportInvalidTypeForm,
+                            LocMessage.genericTypeArgUnique(),
+                            typeArg.node
+                        );
                     }
 
                     uniqueTypeVars.push(typeArg.type);
@@ -15871,7 +16044,8 @@ export function createTypeEvaluator(
         // Verify that we have at most one variadic type variable.
         const variadics = typeParameters.filter((param) => isVariadicTypeVar(param));
         if (variadics.length > 1) {
-            addError(
+            addDiagnostic(
+                DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.variadicTypeParamTooManyAlias().format({
                     names: variadics.map((v) => `"${v.shared.name}"`).join(', '),
                 }),
@@ -15886,7 +16060,8 @@ export function createTypeEvaluator(
             );
 
             if (boundTypeVars.length > 0) {
-                addError(
+                addDiagnostic(
+                    DiagnosticRule.reportInvalidTypeForm,
                     LocMessage.genericTypeAliasBoundTypeVar().format({
                         names: boundTypeVars.map((t) => `${t.shared.name}`).join(', '),
                     }),
@@ -16608,7 +16783,11 @@ export function createTypeEvaluator(
                                     !ClassType.isTypingExtensionClass(argType) &&
                                     fileInfo.executionEnvironment.pythonVersion.isLessThan(pythonVersion3_7)
                                 ) {
-                                    addError(LocMessage.protocolIllegal(), arg.d.valueExpr);
+                                    addDiagnostic(
+                                        DiagnosticRule.reportInvalidTypeForm,
+                                        LocMessage.protocolIllegal(),
+                                        arg.d.valueExpr
+                                    );
                                 }
                                 classType.shared.flags |= ClassTypeFlags.ProtocolClass;
                             }
@@ -16640,7 +16819,11 @@ export function createTypeEvaluator(
                             // Validate that the class isn't deriving from itself, creating a
                             // circular dependency.
                             if (derivesFromClassRecursive(argType, classType, /* ignoreUnknown */ true)) {
-                                addError(LocMessage.baseClassCircular(), arg);
+                                addDiagnostic(
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    LocMessage.baseClassCircular(),
+                                    arg
+                                );
                                 argType = UnknownType.create();
                             }
 
@@ -16650,7 +16833,11 @@ export function createTypeEvaluator(
                                 argType.props?.specialForm &&
                                 ClassType.isBuiltIn(argType.props.specialForm, 'TypeAliasType')
                             ) {
-                                addError(LocMessage.typeAliasTypeBaseClass(), arg);
+                                addDiagnostic(
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    LocMessage.typeAliasTypeBaseClass(),
+                                    arg
+                                );
                                 argType = UnknownType.create();
                             }
                         }
@@ -16701,7 +16888,11 @@ export function createTypeEvaluator(
 
                         if (ClassType.isFinal(argType)) {
                             const className = printObjectTypeForClass(argType);
-                            addError(LocMessage.baseClassFinal().format({ type: className }), arg.d.valueExpr);
+                            addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                LocMessage.baseClassFinal().format({ type: className }),
+                                arg.d.valueExpr
+                            );
                         }
                     }
 
@@ -16772,7 +16963,8 @@ export function createTypeEvaluator(
                         );
 
                         if (constArgValue === undefined) {
-                            addError(
+                            addDiagnostic(
+                                DiagnosticRule.reportGeneralTypeIssues,
                                 LocMessage.typedDictBoolParam().format({ name: arg.d.name.d.value }),
                                 arg.d.valueExpr
                             );
@@ -16786,11 +16978,15 @@ export function createTypeEvaluator(
                             }
                         }
                     } else {
-                        addError(LocMessage.typedDictInitsubclassParameter().format({ name: arg.d.name.d.value }), arg);
+                        addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.typedDictInitsubclassParameter().format({ name: arg.d.name.d.value }),
+                            arg
+                        );
                     }
                 } else if (arg.d.name.d.value === 'metaclass') {
                     if (metaclassNode) {
-                        addError(LocMessage.metaclassDuplicate(), arg);
+                        addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.metaclassDuplicate(), arg);
                     } else {
                         metaclassNode = arg.d.valueExpr;
                     }
@@ -17117,7 +17313,11 @@ export function createTypeEvaluator(
                 });
 
                 if (foundInvalidBaseClass) {
-                    addError(LocMessage.typedDictBaseClass() + diag.getString(), node.d.name);
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typedDictBaseClass() + diag.getString(),
+                        node.d.name
+                    );
                 }
 
                 synthesizeTypedDictClassMethods(evaluatorInterface, node, classType);
@@ -17521,7 +17721,7 @@ export function createTypeEvaluator(
     function completeClassTypeDeferred(type: ClassType, errorNode: ParseNode) {
         // Recompute the MRO linearization.
         if (!computeMroLinearization(type)) {
-            addError(LocMessage.methodOrdering(), errorNode);
+            addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.methodOrdering(), errorNode);
         }
 
         // Recompute the effective metaclass.
@@ -17893,7 +18093,8 @@ export function createTypeEvaluator(
                 if (firstCommentAnnotationIndex > 0 && received === node.d.params.length) {
                     firstCommentAnnotationIndex = 0;
                 } else if (received !== expected) {
-                    addError(
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
                         LocMessage.annotatedParamCountMismatch().format({
                             expected,
                             received,
@@ -17967,7 +18168,8 @@ export function createTypeEvaluator(
                     }
 
                     if (isVariadicTypeVar(annotatedType) && !annotatedType.priv.isVariadicUnpacked) {
-                        addError(
+                        addDiagnostic(
+                            DiagnosticRule.reportInvalidTypeForm,
                             LocMessage.unpackedTypeVarTupleExpected().format({
                                 name1: annotatedType.shared.name,
                                 name2: annotatedType.shared.name,
@@ -19996,14 +20198,22 @@ export function createTypeEvaluator(
 
                 case 'Never': {
                     if (typeArgs && typeArgs.length > 0) {
-                        addError(LocMessage.typeArgsExpectingNone().format({ name: 'Never' }), typeArgs[0].node);
+                        addDiagnostic(
+                            DiagnosticRule.reportInvalidTypeForm,
+                            LocMessage.typeArgsExpectingNone().format({ name: 'Never' }),
+                            typeArgs[0].node
+                        );
                     }
                     return { type: NeverType.createNever() };
                 }
 
                 case 'NoReturn': {
                     if (typeArgs && typeArgs.length > 0) {
-                        addError(LocMessage.typeArgsExpectingNone().format({ name: 'NoReturn' }), typeArgs[0].node);
+                        addDiagnostic(
+                            DiagnosticRule.reportInvalidTypeForm,
+                            LocMessage.typeArgsExpectingNone().format({ name: 'NoReturn' }),
+                            typeArgs[0].node
+                        );
                     }
                     return { type: NeverType.createNoReturn() };
                 }
@@ -20032,12 +20242,16 @@ export function createTypeEvaluator(
 
                 case 'Protocol': {
                     if ((flags & (EvalFlags.NoNonTypeSpecialForms | EvalFlags.TypeExpression)) !== 0) {
-                        addError(LocMessage.protocolNotAllowed(), errorNode);
+                        addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.protocolNotAllowed(), errorNode);
                     }
 
                     typeArgs?.forEach((typeArg) => {
                         if (typeArg.typeList || !isTypeVar(typeArg.type)) {
-                            addError(LocMessage.protocolTypeArgMustBeTypeParam(), typeArg.node);
+                            addDiagnostic(
+                                DiagnosticRule.reportInvalidTypeForm,
+                                LocMessage.protocolTypeArgMustBeTypeParam(),
+                                typeArg.node
+                            );
                         }
                     });
 
@@ -20053,14 +20267,18 @@ export function createTypeEvaluator(
 
                 case 'TypedDict': {
                     if ((flags & (EvalFlags.NoNonTypeSpecialForms | EvalFlags.TypeExpression)) !== 0) {
-                        addError(LocMessage.typedDictNotAllowed(), errorNode);
+                        addDiagnostic(
+                            DiagnosticRule.reportInvalidTypeForm,
+                            LocMessage.typedDictNotAllowed(),
+                            errorNode
+                        );
                     }
                     break;
                 }
 
                 case 'Literal': {
                     if ((flags & (EvalFlags.NoNonTypeSpecialForms | EvalFlags.TypeExpression)) !== 0) {
-                        addError(LocMessage.literalNotAllowed(), errorNode);
+                        addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.literalNotAllowed(), errorNode);
                     }
                     break;
                 }
@@ -20292,12 +20510,20 @@ export function createTypeEvaluator(
             } else if (typeArgs.length > 1) {
                 const paramSpecTypeArg = typeArgs.find((typeArg) => isParamSpec(typeArg.type));
                 if (paramSpecTypeArg) {
-                    addError(LocMessage.paramSpecContext(), paramSpecTypeArg.node);
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.paramSpecContext(),
+                        paramSpecTypeArg.node
+                    );
                 }
 
                 const listTypeArg = typeArgs.find((typeArg) => !!typeArg.typeList);
                 if (listTypeArg) {
-                    addError(LocMessage.typeArgListNotAllowed(), listTypeArg.node);
+                    addDiagnostic(
+                        DiagnosticRule.reportInvalidTypeForm,
+                        LocMessage.typeArgListNotAllowed(),
+                        listTypeArg.node
+                    );
                 }
             }
         }
@@ -21233,7 +21459,11 @@ export function createTypeEvaluator(
                             ignoreImplicitTypeArgs: true,
                         })
                     ) {
-                        addError(LocMessage.typeVarBoundGeneric(), constraint);
+                        addDiagnostic(
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            LocMessage.typeVarBoundGeneric(),
+                            constraint
+                        );
                     }
 
                     return convertToInstance(constraintType);
@@ -21255,7 +21485,11 @@ export function createTypeEvaluator(
                 }).type;
 
                 if (requiresSpecialization(boundType, { ignorePseudoGeneric: true })) {
-                    addError(LocMessage.typeVarConstraintGeneric(), node.d.boundExpr);
+                    addDiagnostic(
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        LocMessage.typeVarConstraintGeneric(),
+                        node.d.boundExpr
+                    );
                 }
 
                 if (node.d.typeParamKind === TypeParameterKind.TypeVar) {
@@ -27329,7 +27563,7 @@ export function createTypeEvaluator(
 
         if (parseResults.parseTree && parseResults.parseTree.nodeType !== ParseNodeType.FunctionAnnotation) {
             parseResults.diagnostics.forEach((diag) => {
-                addError(diag.message, node);
+                addDiagnosticWithSuppressionCheck('error', diag.message, node);
             });
 
             parseResults.parseTree.parent = node;
