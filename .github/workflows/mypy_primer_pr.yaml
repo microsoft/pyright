@@ -66,6 +66,7 @@ jobs:
           # fail action if exit code isn't zero or one
           (
             mypy_primer \
+            --pyright_cmd "{pyright} --threads" \
             --repo pyright_to_test \
             --type-checker pyright \
             --new $GITHUB_SHA --old base_commit \
