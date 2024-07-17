@@ -4275,10 +4275,12 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                                 subtype = ClassType.cloneAsInstance(ClassType.cloneAsInstantiable(subtype));
                             }
 
-                            if (this._options.unknownIfNotFound) {
-                                return this._options.useUnknownOverDefault
-                                    ? specializeWithUnknownTypeArgs(subtype, this._options.tupleClassType)
-                                    : specializeWithDefaultTypeArgs(subtype);
+                            if (subtype.shared.typeParameters && !subtype.priv.typeArguments) {
+                                if (this._options.unknownIfNotFound) {
+                                    return this._options.useUnknownOverDefault
+                                        ? specializeWithUnknownTypeArgs(subtype, this._options.tupleClassType)
+                                        : specializeWithDefaultTypeArgs(subtype);
+                                }
                             }
                         }
 
