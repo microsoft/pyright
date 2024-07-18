@@ -794,7 +794,7 @@ test('ConstructorCallable1', () => {
 test('ConstructorCallable2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructorCallable2.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('InconsistentConstructor1', () => {

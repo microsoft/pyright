@@ -85,6 +85,7 @@ class Class6Proxy:
 
 class Class6:
     def __new__(cls) -> Class6Proxy:
+        # This should generate an error because "cls" isn't compatible.
         return Class6Proxy.__new__(cls)
 
     def __init__(self, x: int) -> None:
