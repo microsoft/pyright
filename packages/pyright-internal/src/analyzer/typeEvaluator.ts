@@ -8696,9 +8696,11 @@ export function createTypeEvaluator(
             let bindToSelfType: ClassType | TypeVarType | undefined;
             if (bindToType) {
                 bindToSelfType = TypeBase.cloneForCondition(
-                    synthesizeTypeVarForSelfCls(
-                        ClassType.cloneIncludeSubclasses(bindToType, /* includeSubclasses */ false),
-                        /* isClsParam */ false
+                    TypeVarType.cloneWithInternalScopeId(
+                        synthesizeTypeVarForSelfCls(
+                            ClassType.cloneIncludeSubclasses(bindToType, /* includeSubclasses */ false),
+                            /* isClsParam */ false
+                        )
                     ),
                     bindToType.props?.condition
                 );
