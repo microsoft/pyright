@@ -534,6 +534,7 @@
         "typeVarDefaultIllegal": "Type variable default types require Python 3.13 or newer",
         "typeVarDefaultInvalidTypeVar": "Type parameter \"{name}\" has a default type that refers to one or more type variables that are out of scope",
         "typeVarFirstArg": "Expected name of TypeVar as first argument",
+        "typeVarInvalidForMemberVariable": "Attribute type cannot use type variable \"{name}\" scoped to local method",
         "typeVarNoMember": "TypeVar \"{type}\" has no attribute \"{name}\"",
         "typeVarNotSubscriptable": "TypeVar \"{type}\" is not subscriptable",
         "typeVarNotUsedByOuterScope": "Type variable \"{name}\" has no meaning in this context",

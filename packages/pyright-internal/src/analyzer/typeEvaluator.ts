@@ -1801,6 +1801,10 @@ export function createTypeEvaluator(
             evaluatorFlags |= EvalFlags.ForwardRefs;
         }
 
+        if (options?.enforceClassTypeVarScope) {
+            evaluatorFlags |= EvalFlags.EnforceClassTypeVarScope;
+        }
+
         // If the annotation is part of a comment, allow forward references
         // even if it's not enclosed in quotes.
         if (node?.parent?.nodeType === ParseNodeType.Assignment && node.parent.d.annotationComment === node) {
@@ -4777,6 +4781,10 @@ export function createTypeEvaluator(
             type = TypeVarType.cloneForPacked(type);
         }
 
+        if ((flags & EvalFlags.EnforceClassTypeVarScope) !== 0 && !enforceClassTypeVarScope(node, type)) {
+            return UnknownType.create();
+        }
+
         return type;
     }
 
@@ -4876,9 +4884,11 @@ export function createTypeEvaluator(
                 );
             }
 
+            const scopeIdToAssign = ParseTreeUtils.getScopeIdForNode(enclosingScope);
+
             return TypeVarType.cloneForScopeId(
                 type,
-                ParseTreeUtils.getScopeIdForNode(enclosingScope),
+                scopeIdToAssign,
                 enclosingScope.d.name.d.value,
                 enclosingScope.nodeType === ParseNodeType.Function ? TypeVarScopeType.Function : TypeVarScopeType.Class
             );
@@ -4898,6 +4908,33 @@ export function createTypeEvaluator(
         }
 
         return type;
+    }
+
+    // Enforce that the type variable is scoped to the enclosing class or
+    // an outer class that contains the class definition.
+    function enforceClassTypeVarScope(node: ExpressionNode, type: TypeVarType): boolean {
+        const scopeId = type.priv.scopeId;
+        if (!scopeId) {
+            return true;
+        }
+
+        const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
+        if (enclosingClass) {
+            const liveTypeVarScopeIds = ParseTreeUtils.getTypeVarScopesForNode(enclosingClass);
+            if (!liveTypeVarScopeIds.includes(scopeId)) {
+                addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.typeVarInvalidForMemberVariable().format({
+                        name: TypeVarType.getReadableName(type),
+                    }),
+                    node
+                );
+
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // Determines if the type is a generic class or type alias with missing
@@ -21420,6 +21457,7 @@ export function createTypeEvaluator(
                             allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(declNode),
                             allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(declNode),
                             allowRequired: ParseTreeUtils.isRequiredAllowedForAssignmentTarget(declNode),
+                            enforceClassTypeVarScope: declaration.isDefinedByMemberAccess,
                         });
                     }
 

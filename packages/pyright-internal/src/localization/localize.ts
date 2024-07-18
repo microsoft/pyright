@@ -1053,6 +1053,8 @@ export namespace Localizer {
         export const typeVarDefaultInvalidTypeVar = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarDefaultInvalidTypeVar'));
         export const typeVarFirstArg = () => getRawString('Diagnostic.typeVarFirstArg');
+        export const typeVarInvalidForMemberVariable = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarInvalidForMemberVariable'));
         export const typeVarNoMember = () =>
             new ParameterizedString<{ type: string; name: string }>(getRawString('Diagnostic.typeVarNoMember'));
         export const typeVarNotSubscriptable = () =>
