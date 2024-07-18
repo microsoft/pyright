@@ -287,6 +287,9 @@ export interface SelfSpecializeOptions {
     // Override any existing type arguments? By default,
     // existing type arguments are left as is.
     overrideTypeArgs?: boolean;
+
+    // Specialize with "internal" versions of the type parameters?
+    useInternalTypeVars?: boolean;
 }
 
 // Tracks whether a function signature has been seen before within
@@ -428,6 +431,12 @@ export interface MapSubtypesOptions {
     // Should unions retain redundant literal types if they
     // are present in the original type?
     skipElideRedundantLiterals?: boolean;
+
+    // Should the type alias be retained as is? This is safe only
+    // if the caller has already transformed the associated type
+    // alias in a way that is compatible with transforms applied
+    // to the type.
+    retainTypeAlias?: boolean;
 }
 
 // Calls a callback for each subtype and combines the results
@@ -466,9 +475,15 @@ export function mapSubtypes(
                     skipElideRedundantLiterals: options?.skipElideRedundantLiterals,
                 });
 
-                // Do our best to retain type aliases.
-                if (newType.category === TypeCategory.Union) {
-                    UnionType.addTypeAliasSource(newType, type);
+                if (options?.retainTypeAlias) {
+                    if (type.props?.typeAliasInfo) {
+                        TypeBase.setTypeAliasInfo(newType, type.props?.typeAliasInfo);
+                    }
+                } else {
+                    // Do our best to retain type aliases.
+                    if (newType.category === TypeCategory.Union) {
+                        UnionType.addTypeAliasSource(newType, type);
+                    }
                 }
 
                 return newType;
@@ -1201,7 +1216,9 @@ export function selfSpecializeClass(type: ClassType, options?: SelfSpecializeOpt
         return type;
     }
 
-    const typeParams = type.shared.typeParameters;
+    const typeParams = type.shared.typeParameters.map((typeParam) => {
+        return options?.useInternalTypeVars ? TypeVarType.cloneWithInternalScopeId(typeParam) : typeParam;
+    });
     return ClassType.cloneForSpecialization(type, typeParams, /* isTypeArgumentExplicit */ true);
 }
 
@@ -1527,6 +1544,21 @@ export function ensureFunctionSignaturesAreUnique(
     expressionOffset: number
 ): Type {
     const transformer = new UniqueFunctionSignatureTransformer(signatureTracker, expressionOffset);
+    return transformer.apply(type, 0);
+}
+
+export function updateTypeWithInternalTypeVars<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[]): T;
+export function updateTypeWithInternalTypeVars(type: Type, scopeIds: TypeVarScopeId[]): Type {
+    const transformer = new InternalScopeUpdateTransform(scopeIds);
+    return transformer.apply(type, 0);
+}
+
+export function updateTypeWithExternalTypeVars<T extends TypeBase<any>>(
+    type: T,
+    scopeIds: TypeVarScopeId[] | undefined
+): T;
+export function updateTypeWithExternalTypeVars(type: Type, scopeIds: TypeVarScopeId[] | undefined): Type {
+    const transformer = new ExternalScopeUpdateTransform(scopeIds);
     return transformer.apply(type, 0);
 }
 
@@ -3611,26 +3643,30 @@ class TypeVarTransformer {
         }
 
         if (isUnion(type)) {
-            const newUnionType = mapSubtypes(type, (subtype) => {
-                let transformedType: Type = this.apply(subtype, recursionCount);
+            const newUnionType = mapSubtypes(
+                type,
+                (subtype) => {
+                    let transformedType: Type = this.apply(subtype, recursionCount);
 
-                // If we're transforming a variadic type variable within a union,
-                // combine the individual types within the variadic type variable.
-                if (isVariadicTypeVar(subtype) && !isVariadicTypeVar(transformedType)) {
-                    const subtypesToCombine: Type[] = [];
-                    doForEachSubtype(transformedType, (transformedSubtype) => {
-                        subtypesToCombine.push(_expandVariadicUnpackedUnion(transformedSubtype));
-                    });
+                    // If we're transforming a variadic type variable within a union,
+                    // combine the individual types within the variadic type variable.
+                    if (isVariadicTypeVar(subtype) && !isVariadicTypeVar(transformedType)) {
+                        const subtypesToCombine: Type[] = [];
+                        doForEachSubtype(transformedType, (transformedSubtype) => {
+                            subtypesToCombine.push(_expandVariadicUnpackedUnion(transformedSubtype));
+                        });
 
-                    transformedType = combineTypes(subtypesToCombine);
-                }
+                        transformedType = combineTypes(subtypesToCombine);
+                    }
 
-                if (this.transformUnionSubtype) {
-                    return this.transformUnionSubtype(subtype, transformedType, recursionCount);
-                }
+                    if (this.transformUnionSubtype) {
+                        return this.transformUnionSubtype(subtype, transformedType, recursionCount);
+                    }
 
-                return transformedType;
-            });
+                    return transformedType;
+                },
+                { retainTypeAlias: true }
+            );
 
             return !isNever(newUnionType) ? newUnionType : UnknownType.create();
         }
@@ -4215,6 +4251,74 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
     }
 }
 
+// Replaces the TypeVars within a type with their corresponding "internal"
+// types if they are in one of the specified scopes.
+class InternalScopeUpdateTransform extends TypeVarTransformer {
+    constructor(private _scopeIds: TypeVarScopeId[]) {
+        super();
+    }
+
+    override transformTypeVar(typeVar: TypeVarType) {
+        if (this._isTypeVarInScope(typeVar)) {
+            return this._replaceTypeVar(typeVar);
+        }
+
+        return undefined;
+    }
+
+    override transformParamSpec(paramSpec: TypeVarType) {
+        if (this._isTypeVarInScope(paramSpec)) {
+            return convertTypeToParamSpecValue(this._replaceTypeVar(paramSpec));
+        }
+
+        return undefined;
+    }
+
+    private _isTypeVarInScope(typeVar: TypeVarType) {
+        return typeVar.priv.scopeId !== undefined && this._scopeIds.includes(typeVar.priv.scopeId);
+    }
+
+    private _replaceTypeVar(typeVar: TypeVarType): TypeVarType {
+        return TypeVarType.cloneWithInternalScopeId(typeVar);
+    }
+}
+
+// Replaces the internal TypeVars within a type with their corresponding
+// "external" types.
+class ExternalScopeUpdateTransform extends TypeVarTransformer {
+    constructor(private _scopeIds: TypeVarScopeId[] | undefined) {
+        super();
+    }
+
+    override transformTypeVar(typeVar: TypeVarType) {
+        if (typeVar.priv.externalTypeVar && this._isTypeVarInScope(typeVar.priv.externalTypeVar)) {
+            return typeVar.priv.externalTypeVar;
+        }
+
+        return undefined;
+    }
+
+    override transformParamSpec(paramSpec: TypeVarType) {
+        if (paramSpec.priv.externalTypeVar && this._isTypeVarInScope(paramSpec.priv.externalTypeVar)) {
+            return convertTypeToParamSpecValue(paramSpec.priv.externalTypeVar);
+        }
+
+        return undefined;
+    }
+
+    private _isTypeVarInScope(typeVar: TypeVarType) {
+        if (!typeVar.priv.scopeId) {
+            return false;
+        }
+
+        if (!this._scopeIds) {
+            return true;
+        }
+
+        return this._scopeIds.includes(typeVar.priv.scopeId);
+    }
+}
+
 // Specializes a (potentially generic) type by substituting
 // type variables from a type var map.
 class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
@@ -4473,7 +4577,8 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 continue;
             }
 
-            const typeVarEntry = signatureContext.getTypeVar(condition.typeVar);
+            const conditionTypeVar = condition.typeVar.priv?.externalTypeVar ?? condition.typeVar;
+            const typeVarEntry = signatureContext.getTypeVar(conditionTypeVar);
             if (!typeVarEntry || condition.constraintIndex >= typeVarEntry.typeVar.shared.constraints.length) {
                 continue;
             }
@@ -4555,7 +4660,9 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
     }
 
     private _isTypeVarLive(typeVar: TypeVarType) {
-        return this._liveTypeVarScopes.some((scopeId) => typeVar.priv.scopeId === scopeId);
+        return this._liveTypeVarScopes.some(
+            (scopeId) => typeVar.priv.scopeId === scopeId || typeVar.priv.externalTypeVar?.priv.scopeId === scopeId
+        );
     }
 }
 
