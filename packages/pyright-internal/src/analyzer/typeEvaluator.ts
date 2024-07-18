@@ -15462,7 +15462,21 @@ export function createTypeEvaluator(
             }
         }
 
-        return synthesizeTypeVarForSelfCls(enclosingClassTypeResult.classType, /* isClsParam */ true);
+        let result = synthesizeTypeVarForSelfCls(enclosingClassTypeResult.classType, /* isClsParam */ true);
+
+        if (enclosingClass) {
+            // If "Self" is used as a type expression within a function suite, it needs
+            // to be marked as "internal".
+            const enclosingSuite = ParseTreeUtils.getEnclosingClassOrFunctionSuite(errorNode);
+
+            if (enclosingSuite && ParseTreeUtils.isNodeContainedWithin(enclosingSuite, enclosingClass)) {
+                if (enclosingClass.d.suite !== enclosingSuite) {
+                    result = TypeVarType.cloneWithInternalScopeId(result);
+                }
+            }
+        }
+
+        return result;
     }
 
     function createRequiredOrReadOnlyType(
@@ -23887,6 +23901,7 @@ export function createTypeEvaluator(
                 srcType.shared.boundType &&
                 destType.shared.isSynthesizedSelf &&
                 destType.shared.boundType &&
+                TypeVarType.hasInternalScopeId(destType) === TypeVarType.hasInternalScopeId(srcType) &&
                 TypeBase.isInstance(srcType) === TypeBase.isInstance(destType)
             ) {
                 if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 && destTypeVarContext) {
