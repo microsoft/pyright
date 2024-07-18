@@ -3940,10 +3940,11 @@ export function createTypeEvaluator(
                 // Fall back to a bound of "object" if no bound is provided.
                 let boundType = subtype.shared.boundType ?? getObjectType();
 
-                // If this is a synthesized self/cls type var that has been converted
-                // to an internal type var, convert its type arguments to internals as well.
-                if (subtype.shared.isSynthesizedSelf && TypeVarType.hasInternalScopeId(subtype) && isClass(boundType)) {
-                    boundType = selfSpecializeClass(boundType, { useInternalTypeVars: true });
+                // If this is a synthesized self/cls type var, self-specialize its type arguments.
+                if (subtype.shared.isSynthesizedSelf && isClass(boundType)) {
+                    boundType = selfSpecializeClass(boundType, {
+                        useInternalTypeVars: TypeVarType.hasInternalScopeId(subtype),
+                    });
                 }
 
                 boundType = TypeBase.isInstantiable(subtype) ? convertToInstantiable(boundType) : boundType;
