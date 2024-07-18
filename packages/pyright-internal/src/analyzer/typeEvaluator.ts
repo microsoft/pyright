@@ -11338,6 +11338,38 @@ export function createTypeEvaluator(
             expectedType = undefined;
         }
 
+        const tryExpectedType = (expectedSubtype: Type): boolean => {
+            const callResult = validateArgTypesWithExpectedType(
+                errorNode,
+                matchResults,
+                typeVarContext.clone(),
+                /* skipUnknownArgCheck */ true,
+                expectedSubtype,
+                returnType,
+                signatureTracker!
+            );
+
+            // Use a heuristic to pick a subtype that is most likely to be correct.
+            // We'll look for a subtype that produces no argument errors and has
+            // no Unknowns in the return type.
+            if (!callResult.argumentErrors && callResult.returnType) {
+                if (
+                    assignType(
+                        expectedSubtype,
+                        callResult.returnType,
+                        /* diag */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        AssignTypeFlags.IgnoreTypeVarScope
+                    )
+                ) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
         // If the expected type is a union, we don't know which type is expected.
         // We may or may not be able to make use of the expected type. We'll evaluate
         // speculatively to see if using one of the expected subtypes works.
@@ -11348,44 +11380,20 @@ export function createTypeEvaluator(
                 doForEachSubtype(
                     expectedType!,
                     (expectedSubtype) => {
-                        // If we've already found a working expected subtype, skip the rest.
-                        if (validExpectedSubtype) {
-                            return;
-                        }
-
-                        const callResult = validateArgTypesWithExpectedType(
-                            errorNode,
-                            matchResults,
-                            typeVarContext.clone(),
-                            /* skipUnknownArgCheck */ true,
-                            expectedSubtype,
-                            returnType,
-                            signatureTracker!
-                        );
-
-                        if (!callResult.argumentErrors) {
+                        if (tryExpectedType(expectedSubtype)) {
                             validExpectedSubtype = expectedSubtype;
                         }
                     },
                     /* sortSubtypes */ true
                 );
 
-                if (validExpectedSubtype) {
-                    return validExpectedSubtype;
+                if (!validExpectedSubtype) {
+                    if (tryExpectedType(expectedType!)) {
+                        validExpectedSubtype = expectedType;
+                    }
                 }
 
-                // See if we can use the union type.
-                const callResult = validateArgTypesWithExpectedType(
-                    errorNode,
-                    matchResults,
-                    typeVarContext.clone(),
-                    /* skipUnknownArgCheck */ true,
-                    expectedType!,
-                    returnType,
-                    signatureTracker!
-                );
-
-                return callResult.argumentErrors ? undefined : expectedType;
+                return validExpectedSubtype;
             });
         }
 
