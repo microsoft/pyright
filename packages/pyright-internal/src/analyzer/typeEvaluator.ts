@@ -11338,54 +11338,71 @@ export function createTypeEvaluator(
             expectedType = undefined;
         }
 
+        const tryExpectedType = (expectedSubtype: Type): number => {
+            const callResult = validateArgTypesWithExpectedType(
+                errorNode,
+                matchResults,
+                typeVarContext.clone(),
+                /* skipUnknownArgCheck */ true,
+                expectedSubtype,
+                returnType,
+                signatureTracker!
+            );
+
+            // Use a heuristic to pick a subtype that is most likely to be correct.
+            // We'll look for a subtype that produces no argument errors and has
+            // no Unknowns in the return type.
+            if (!callResult.argumentErrors && callResult.returnType) {
+                if (
+                    assignType(
+                        expectedSubtype,
+                        callResult.returnType,
+                        /* diag */ undefined,
+                        /* destTypeVarContext */ undefined,
+                        /* srcTypeVarContext */ undefined,
+                        AssignTypeFlags.IgnoreTypeVarScope
+                    )
+                ) {
+                    const anyOrUnknown = containsAnyOrUnknown(callResult.returnType, /* recurse */ true);
+                    // Prefer return types that have no unknown or Any.
+                    if (!anyOrUnknown) {
+                        return 3;
+                    }
+
+                    // Prefer Any over Unknown.
+                    return isAny(anyOrUnknown) ? 2 : 1;
+                }
+            }
+
+            return 0;
+        };
+
         // If the expected type is a union, we don't know which type is expected.
         // We may or may not be able to make use of the expected type. We'll evaluate
         // speculatively to see if using one of the expected subtypes works.
         if (expectedType && isUnion(expectedType)) {
             expectedType = useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () => {
                 let validExpectedSubtype: Type | undefined;
+                let bestSubtypeScore = -1;
 
                 doForEachSubtype(
                     expectedType!,
                     (expectedSubtype) => {
-                        // If we've already found a working expected subtype, skip the rest.
-                        if (validExpectedSubtype) {
-                            return;
-                        }
-
-                        const callResult = validateArgTypesWithExpectedType(
-                            errorNode,
-                            matchResults,
-                            typeVarContext.clone(),
-                            /* skipUnknownArgCheck */ true,
-                            expectedSubtype,
-                            returnType,
-                            signatureTracker!
-                        );
-
-                        if (!callResult.argumentErrors) {
+                        const score = tryExpectedType(expectedSubtype);
+                        if (score > bestSubtypeScore) {
                             validExpectedSubtype = expectedSubtype;
+                            bestSubtypeScore = score;
                         }
                     },
                     /* sortSubtypes */ true
                 );
 
-                if (validExpectedSubtype) {
-                    return validExpectedSubtype;
+                const score = tryExpectedType(expectedType!);
+                if (score > bestSubtypeScore) {
+                    validExpectedSubtype = expectedType;
                 }
 
-                // See if we can use the union type.
-                const callResult = validateArgTypesWithExpectedType(
-                    errorNode,
-                    matchResults,
-                    typeVarContext.clone(),
-                    /* skipUnknownArgCheck */ true,
-                    expectedType!,
-                    returnType,
-                    signatureTracker!
-                );
-
-                return callResult.argumentErrors ? undefined : expectedType;
+                return validExpectedSubtype;
             });
         }
 
