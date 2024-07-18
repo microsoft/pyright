@@ -158,7 +158,15 @@ export function isCompliantWithNodeRangeRules(node: ParseNode) {
     // 1. Children are all contained within the parent.
     // 2. Children have non-overlapping ranges.
     // 3. Children are listed in increasing order.
-    return node.nodeType !== ParseNodeType.Assignment && node.nodeType !== ParseNodeType.StringList;
+    if (node.nodeType === ParseNodeType.Assignment || node.nodeType === ParseNodeType.StringList) {
+        return false;
+    }
+
+    if (node.nodeType === ParseNodeType.Argument && node.d.isNameSameAsValue) {
+        return false;
+    }
+
+    return true;
 }
 
 export function getClassFullName(classNode: ParseNode, moduleName: string, className: string): string {
@@ -197,7 +205,9 @@ export function printArgument(node: ArgumentNode, flags: PrintExpressionFlags) {
     if (node.d.name) {
         argStr += node.d.name.d.value + '=';
     }
-    argStr += printExpression(node.d.valueExpr, flags);
+    if (!node.d.isNameSameAsValue) {
+        argStr += printExpression(node.d.valueExpr, flags);
+    }
     return argStr;
 }
 

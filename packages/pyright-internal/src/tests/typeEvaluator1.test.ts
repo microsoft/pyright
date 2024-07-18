@@ -16,6 +16,8 @@ import { ConfigOptions } from '../common/configOptions';
 import {
     pythonVersion3_10,
     pythonVersion3_11,
+    pythonVersion3_13,
+    pythonVersion3_14,
     pythonVersion3_7,
     pythonVersion3_8,
     pythonVersion3_9,
@@ -874,6 +876,18 @@ test('Call17', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['call17.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Call18', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['call18.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 2);
+
+    configOptions.defaultPythonVersion = pythonVersion3_14;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['call18.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 0);
 });
 
 test('Function1', () => {

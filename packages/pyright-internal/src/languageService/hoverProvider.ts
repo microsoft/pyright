@@ -228,7 +228,7 @@ export class HoverProvider {
             return null;
         }
 
-        const node = ParseTreeUtils.findNodeByOffset(this._parseResults.parserOutput.parseTree, offset);
+        let node = ParseTreeUtils.findNodeByOffset(this._parseResults.parserOutput.parseTree, offset);
         if (node === undefined) {
             return null;
         }
@@ -242,7 +242,19 @@ export class HoverProvider {
         };
 
         if (node.nodeType === ParseNodeType.Name) {
+            // Handle the case where we're pointing to a "fused" keyword argument.
+            // We want to display the hover information for the value expression.
+            if (
+                node.parent?.nodeType === ParseNodeType.Argument &&
+                node.parent.d.isNameSameAsValue &&
+                node.parent.d.name === node &&
+                node.parent.d.valueExpr.nodeType === ParseNodeType.Name
+            ) {
+                node = node.parent.d.valueExpr;
+            }
+
             const declarations = this._evaluator.getDeclarationsForNameNode(node);
+
             if (declarations && declarations.length > 0) {
                 const primaryDeclaration = HoverProvider.getPrimaryDeclaration(declarations);
                 this._addResultsForDeclaration(results.parts, primaryDeclaration, node);

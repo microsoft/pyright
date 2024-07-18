@@ -21185,8 +21185,8 @@ export function createTypeEvaluator(
                 }
             }
         } else if (node.parent && node.parent.nodeType === ParseNodeType.Argument && node === node.parent.d.name) {
-            // The target node is the name in a named argument. We need to determine whether
-            // the corresponding named parameter can be determined from the context.
+            // The target node is the name in a keyword argument. We need to determine whether
+            // the corresponding keyword parameter can be determined from the context.
             const argNode = node.parent;
             const paramName = node.d.value;
             if (argNode.parent?.nodeType === ParseNodeType.Call) {

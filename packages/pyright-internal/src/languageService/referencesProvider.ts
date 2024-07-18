@@ -26,7 +26,7 @@ import { ProgramView, ReferenceUseCase, SymbolUsageProvider } from '../common/ex
 import { ReadOnlyFileSystem } from '../common/fileSystem';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { ServiceKeys } from '../common/serviceKeys';
-import { DocumentRange, Position, TextRange, doesRangeContain } from '../common/textRange';
+import { DocumentRange, Position, Range, TextRange, doesRangeContain } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
@@ -35,8 +35,14 @@ import { convertDocumentRangesToLocation } from './navigationUtils';
 
 export type ReferenceCallback = (locations: DocumentRange[]) => void;
 
+export interface LocationWithNode {
+    location: DocumentRange;
+    parentRange?: Range;
+    node: ParseNode;
+}
+
 export class ReferencesResult {
-    private readonly _locations: DocumentRange[] = [];
+    private readonly _results: LocationWithNode[] = [];
 
     readonly nonImportDeclarations: Declaration[];
 
@@ -83,19 +89,23 @@ export class ReferencesResult {
     }
 
     get locations(): readonly DocumentRange[] {
-        return this._locations;
+        return this._results.map((l) => l.location);
     }
 
-    addLocations(...locs: DocumentRange[]) {
+    get results(): readonly LocationWithNode[] {
+        return this._results;
+    }
+
+    addResults(...locs: LocationWithNode[]) {
         if (locs.length === 0) {
             return;
         }
 
         if (this._reporter) {
-            this._reporter(locs);
+            this._reporter(locs.map((l) => l.location));
         }
 
-        appendArray(this._locations, locs);
+        appendArray(this._results, locs);
     }
 }
 
@@ -118,7 +128,7 @@ export class FindReferencesTreeWalker {
     }
 
     findReferences(rootNode = this._parseResults?.parserOutput.parseTree) {
-        const results: DocumentRange[] = [];
+        const results: LocationWithNode[] = [];
         if (!this._parseResults) {
             return results;
         }
@@ -140,7 +150,22 @@ export class FindReferencesTreeWalker {
         for (const result of collector.collect()) {
             // Is it the same symbol?
             if (this._includeDeclaration || result.node !== this._referencesResult.nodeAtOffset) {
-                results.push(this._createDocumentRange(this._fileUri, result, this._parseResults));
+                results.push({
+                    node: result.node,
+                    location: this._createDocumentRange(this._fileUri, result, this._parseResults),
+                    parentRange: result.node.parent
+                        ? {
+                              start: convertOffsetToPosition(
+                                  result.node.parent.start,
+                                  this._parseResults.tokenizerOutput.lines
+                              ),
+                              end: convertOffsetToPosition(
+                                  TextRange.getEnd(result.node.parent),
+                                  this._parseResults.tokenizerOutput.lines
+                              ),
+                          }
+                        : undefined,
+                });
             }
         }
 
@@ -268,10 +293,10 @@ export class ReferencesProvider {
                 );
 
                 this.addReferencesToResult(declFileInfo.sourceFile.getUri(), includeDeclaration, tempResult);
-                for (const loc of tempResult.locations) {
+                for (const result of tempResult.results) {
                     // Include declarations only. And throw away any references
-                    if (loc.uri.equals(decl.uri) && doesRangeContain(decl.range, loc.range)) {
-                        referencesResult.addLocations(loc);
+                    if (result.location.uri.equals(decl.uri) && doesRangeContain(decl.range, result.location.range)) {
+                        referencesResult.addResults(result);
                     }
                 }
             }
@@ -306,7 +331,7 @@ export class ReferencesProvider {
             this._createDocumentRange
         );
 
-        referencesResult.addLocations(...refTreeWalker.findReferences());
+        referencesResult.addResults(...refTreeWalker.findReferences());
     }
 
     static getDeclarationForNode(

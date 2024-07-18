@@ -127,6 +127,7 @@ export const enum ErrorExpressionCategory {
     MissingPattern,
     MissingPatternSubject,
     MissingDictValue,
+    MissingKeywordArgValue,
     MaxDepthExceeded,
 }
 
@@ -1974,6 +1975,9 @@ export interface ArgumentNode extends ParseNodeBase<ParseNodeType.Argument> {
         argCategory: ArgumentCategory;
         name: NameNode | undefined;
         valueExpr: ExpressionNode;
+
+        // Is this an argument of the form "x=" as introduced in PEP 736?
+        isNameSameAsValue: boolean;
     };
 }
 
@@ -1990,6 +1994,7 @@ export namespace ArgumentNode {
                 argCategory,
                 name: undefined,
                 valueExpr,
+                isNameSameAsValue: false,
             },
         };
 
