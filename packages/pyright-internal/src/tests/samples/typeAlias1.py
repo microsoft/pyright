@@ -54,3 +54,14 @@ def func3(v2: type[Alias2], v3: type[Alias3], v4: type[Alias4]):
     reveal_type(v2, expected_text="type[int] | type[str]")
     reveal_type(v3, expected_text="type[int]")
     reveal_type(v4, expected_text="type[type[int]]")
+
+
+class B:
+    TA1 = list
+
+    def __init__(self) -> None:
+        self.val = self.TA1
+
+
+b = B()
+reveal_type(b.val, expected_text="type[list[Unknown]]")

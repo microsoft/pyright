@@ -420,3 +420,38 @@ def func23(f: Callable[_P, _T2]) -> int:
 
 def func23(f: Any) -> int:
     return 1
+
+
+class E1:
+    ...
+
+
+TE1 = TypeVar("TE1", bound=E1)
+
+
+class E2(E1, Generic[TE1]):
+    ...
+
+
+class E3(E1):
+    ...
+
+
+TE3 = TypeVar("TE3", bound=E3)
+
+
+class E4(E1):
+    ...
+
+
+class ClassE(E2[E4], Generic[TE1]):
+    @overload
+    def unpack(self: "ClassE[E2[TE3]]") -> Sequence[TE3]:
+        ...
+
+    @overload
+    def unpack(self) -> Sequence[Any]:
+        ...
+
+    def unpack(self) -> Sequence[Any]:
+        ...
