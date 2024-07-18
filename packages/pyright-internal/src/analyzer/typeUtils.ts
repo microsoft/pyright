@@ -1553,11 +1553,8 @@ export function updateTypeWithInternalTypeVars(type: Type, scopeIds: TypeVarScop
     return transformer.apply(type, 0);
 }
 
-export function updateTypeWithExternalTypeVars<T extends TypeBase<any>>(
-    type: T,
-    scopeIds: TypeVarScopeId[] | undefined
-): T;
-export function updateTypeWithExternalTypeVars(type: Type, scopeIds: TypeVarScopeId[] | undefined): Type {
+export function updateTypeWithExternalTypeVars<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[]): T;
+export function updateTypeWithExternalTypeVars(type: Type, scopeIds: TypeVarScopeId[]): Type {
     const transformer = new ExternalScopeUpdateTransform(scopeIds);
     return transformer.apply(type, 0);
 }
@@ -4286,7 +4283,7 @@ class InternalScopeUpdateTransform extends TypeVarTransformer {
 // Replaces the internal TypeVars within a type with their corresponding
 // "external" types.
 class ExternalScopeUpdateTransform extends TypeVarTransformer {
-    constructor(private _scopeIds: TypeVarScopeId[] | undefined) {
+    constructor(private _scopeIds: TypeVarScopeId[]) {
         super();
     }
 
@@ -4309,10 +4306,6 @@ class ExternalScopeUpdateTransform extends TypeVarTransformer {
     private _isTypeVarInScope(typeVar: TypeVarType) {
         if (!typeVar.priv.scopeId) {
             return false;
-        }
-
-        if (!this._scopeIds) {
-            return true;
         }
 
         return this._scopeIds.includes(typeVar.priv.scopeId);

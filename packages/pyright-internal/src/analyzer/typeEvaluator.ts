@@ -21550,10 +21550,16 @@ export function createTypeEvaluator(
 
                     if (declaredType) {
                         // If this is a declaration for a member variable within a method,
-                        // we need to convert any "internal" TypeVars to their "external"
-                        // counterparts.
+                        // we need to convert any "internal" TypeVars associated with the
+                        // class to their "external" counterparts.
                         if (declaration.isDefinedByMemberAccess) {
-                            declaredType = updateTypeWithExternalTypeVars(declaredType, /* scopeIds */ undefined);
+                            const enclosingClass = ParseTreeUtils.getEnclosingClass(declaration.node);
+
+                            if (enclosingClass) {
+                                declaredType = updateTypeWithExternalTypeVars(declaredType, [
+                                    ParseTreeUtils.getScopeIdForNode(enclosingClass),
+                                ]);
+                            }
                         }
 
                         if (isClassInstance(declaredType) && ClassType.isBuiltIn(declaredType, 'TypeAlias')) {
