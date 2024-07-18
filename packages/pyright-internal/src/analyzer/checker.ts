@@ -159,6 +159,7 @@ import {
     partiallySpecializeType,
     selfSpecializeClass,
     transformPossibleRecursiveTypeAlias,
+    updateTypeWithInternalTypeVars,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 import { getEffectiveExtraItemsEntryType, getTypedDictMembersForClass } from './typedDicts';
@@ -915,7 +916,7 @@ export class Checker extends ParseTreeWalker {
         let returnType: Type | undefined;
 
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
-        const declaredReturnType = enclosingFunctionNode
+        let declaredReturnType = enclosingFunctionNode
             ? this._evaluator.getFunctionDeclaredReturnType(enclosingFunctionNode)
             : undefined;
 
@@ -956,6 +957,9 @@ export class Checker extends ParseTreeWalker {
                         node
                     );
                 } else {
+                    const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+                    declaredReturnType = updateTypeWithInternalTypeVars(declaredReturnType, liveScopes);
+
                     let diagAddendum = new DiagnosticAddendum();
                     let returnTypeMatches = false;
 
@@ -7414,10 +7418,13 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const declaredReturnType = FunctionType.getEffectiveReturnType(functionTypeResult.functionType);
+        let declaredReturnType = FunctionType.getEffectiveReturnType(functionTypeResult.functionType);
         if (!declaredReturnType) {
             return;
         }
+
+        const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+        declaredReturnType = updateTypeWithInternalTypeVars(declaredReturnType, liveScopes);
 
         let generatorType: Type | undefined;
         if (
