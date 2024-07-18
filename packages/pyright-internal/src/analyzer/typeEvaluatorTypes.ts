@@ -162,6 +162,10 @@ export const enum EvalFlags {
     // with the second argument to isinstance and issubclass calls.
     IsinstanceArg = 1 << 29,
 
+    // Enforce that any type variables referenced in this type are associated
+    // with the enclosing class or an outer scope.
+    EnforceClassTypeVarScope = 1 << 30,
+
     // Defaults used for evaluating the LHS of a call expression.
     CallBaseDefaults = NoSpecialize,
 
@@ -342,6 +346,7 @@ export interface AnnotationTypeOptions {
     allowUnpackedTypedDict?: boolean;
     allowUnpackedTuple?: boolean;
     notParsedByInterpreter?: boolean;
+    enforceClassTypeVarScope?: boolean;
 }
 
 export interface ExpectedTypeOptions {
