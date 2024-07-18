@@ -1433,8 +1433,7 @@ function narrowTypeForIsInstanceInternal(
                                     filterType.shared.typeParameters.length > 0
                                 ) {
                                     if (
-                                        !filterType.priv.typeArguments ||
-                                        !filterType.priv.isTypeArgumentExplicit ||
+                                        !filterType.priv.isTypeArgumentExplicit &&
                                         !ClassType.isSameGenericClass(concreteVarType, filterType)
                                     ) {
                                         const typeVarContext = new TypeVarContext(getTypeVarScopeId(filterType));
