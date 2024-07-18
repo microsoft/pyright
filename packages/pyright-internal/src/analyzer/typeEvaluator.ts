@@ -5835,7 +5835,12 @@ export function createTypeEvaluator(
                 ) {
                     type = getDeclaredTypeOfSymbol(memberInfo.symbol)?.type;
                     if (type && isInstantiableClass(memberInfo.classType)) {
-                        type = partiallySpecializeType(type, memberInfo.classType, /* typeClassType */ undefined);
+                        type = partiallySpecializeType(
+                            type,
+                            memberInfo.classType,
+                            /* typeClassType */ undefined,
+                            selfType
+                        );
                     }
 
                     // If we're setting a class variable via a write through an object,
