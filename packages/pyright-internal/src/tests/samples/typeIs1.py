@@ -1,6 +1,6 @@
 # This sample tests the TypeIs form.
 
-from typing import Any, Callable, Literal, Mapping, Sequence, TypeVar, Union
+from typing import Any, Callable, Collection, Literal, Mapping, Sequence, TypeVar, Union
 from typing_extensions import TypeIs  # pyright: ignore[reportMissingModuleSource]
 
 
@@ -34,7 +34,7 @@ def is_list(val: object) -> TypeIs[list[Any]]:
 
 def func3(val: dict[str, str] | list[str] | list[int] | Sequence[int]):
     if is_list(val):
-        reveal_type(val, expected_text="list[str] | list[int]")
+        reveal_type(val, expected_text="list[str] | list[int] | list[Any]")
     else:
         reveal_type(val, expected_text="dict[str, str] | Sequence[int]")
 
@@ -132,3 +132,14 @@ def is_int(obj: type) -> TypeIs[type[int]]:
 def func8(x: type) -> None:
     if is_int(x):
         reveal_type(x, expected_text="type[int]")
+
+
+def is_int_list(x: Collection[Any]) -> TypeIs[list[int]]:
+    raise NotImplementedError
+
+
+def func9(val: Collection[object]) -> None:
+    if is_int_list(val):
+        reveal_type(val, expected_text="list[int]")
+    else:
+        reveal_type(val, expected_text="Collection[object]")
