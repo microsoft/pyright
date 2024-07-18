@@ -11388,18 +11388,22 @@ export function createTypeEvaluator(
                 doForEachSubtype(
                     expectedType!,
                     (expectedSubtype) => {
-                        const score = tryExpectedType(expectedSubtype);
-                        if (score > bestSubtypeScore) {
-                            validExpectedSubtype = expectedSubtype;
-                            bestSubtypeScore = score;
+                        if (bestSubtypeScore < 3) {
+                            const score = tryExpectedType(expectedSubtype);
+                            if (score > bestSubtypeScore) {
+                                validExpectedSubtype = expectedSubtype;
+                                bestSubtypeScore = score;
+                            }
                         }
                     },
                     /* sortSubtypes */ true
                 );
 
-                const score = tryExpectedType(expectedType!);
-                if (score > bestSubtypeScore) {
-                    validExpectedSubtype = expectedType;
+                if (bestSubtypeScore < 3) {
+                    const score = tryExpectedType(expectedType!);
+                    if (score > bestSubtypeScore) {
+                        validExpectedSubtype = expectedType;
+                    }
                 }
 
                 return validExpectedSubtype;
