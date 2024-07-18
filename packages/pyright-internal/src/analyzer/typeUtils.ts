@@ -428,6 +428,12 @@ export interface MapSubtypesOptions {
     // Should unions retain redundant literal types if they
     // are present in the original type?
     skipElideRedundantLiterals?: boolean;
+
+    // Should the type alias be retained as is? This is safe only
+    // if the caller has already transformed the associated type
+    // alias in a way that is compatible with transforms applied
+    // to the type.
+    retainTypeAlias?: boolean;
 }
 
 // Calls a callback for each subtype and combines the results
@@ -466,9 +472,15 @@ export function mapSubtypes(
                     skipElideRedundantLiterals: options?.skipElideRedundantLiterals,
                 });
 
-                // Do our best to retain type aliases.
-                if (newType.category === TypeCategory.Union) {
-                    UnionType.addTypeAliasSource(newType, type);
+                if (options?.retainTypeAlias) {
+                    if (type.props?.typeAliasInfo) {
+                        TypeBase.setTypeAliasInfo(newType, type.props?.typeAliasInfo);
+                    }
+                } else {
+                    // Do our best to retain type aliases.
+                    if (newType.category === TypeCategory.Union) {
+                        UnionType.addTypeAliasSource(newType, type);
+                    }
                 }
 
                 return newType;
@@ -3611,26 +3623,30 @@ class TypeVarTransformer {
         }
 
         if (isUnion(type)) {
-            const newUnionType = mapSubtypes(type, (subtype) => {
-                let transformedType: Type = this.apply(subtype, recursionCount);
+            const newUnionType = mapSubtypes(
+                type,
+                (subtype) => {
+                    let transformedType: Type = this.apply(subtype, recursionCount);
 
-                // If we're transforming a variadic type variable within a union,
-                // combine the individual types within the variadic type variable.
-                if (isVariadicTypeVar(subtype) && !isVariadicTypeVar(transformedType)) {
-                    const subtypesToCombine: Type[] = [];
-                    doForEachSubtype(transformedType, (transformedSubtype) => {
-                        subtypesToCombine.push(_expandVariadicUnpackedUnion(transformedSubtype));
-                    });
+                    // If we're transforming a variadic type variable within a union,
+                    // combine the individual types within the variadic type variable.
+                    if (isVariadicTypeVar(subtype) && !isVariadicTypeVar(transformedType)) {
+                        const subtypesToCombine: Type[] = [];
+                        doForEachSubtype(transformedType, (transformedSubtype) => {
+                            subtypesToCombine.push(_expandVariadicUnpackedUnion(transformedSubtype));
+                        });
 
-                    transformedType = combineTypes(subtypesToCombine);
-                }
+                        transformedType = combineTypes(subtypesToCombine);
+                    }
 
-                if (this.transformUnionSubtype) {
-                    return this.transformUnionSubtype(subtype, transformedType, recursionCount);
-                }
+                    if (this.transformUnionSubtype) {
+                        return this.transformUnionSubtype(subtype, transformedType, recursionCount);
+                    }
 
-                return transformedType;
-            });
+                    return transformedType;
+                },
+                { retainTypeAlias: true }
+            );
 
             return !isNever(newUnionType) ? newUnionType : UnknownType.create();
         }
