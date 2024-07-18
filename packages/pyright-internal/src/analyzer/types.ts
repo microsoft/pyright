@@ -1939,7 +1939,7 @@ export namespace FunctionType {
 
         FunctionType.addHigherOrderTypeVarScopeIds(
             newFunction,
-            typeParameters.map((t) => t.priv.scopeId)
+            typeParameters.map((t) => t.priv.externalTypeVar?.priv.scopeId ?? t.priv.scopeId)
         );
 
         return newFunction;
@@ -2785,6 +2785,10 @@ export interface TypeVarTypeDetailsPriv {
     // in-scope TypeVars. This is done by cloning the out-of-scope TypeVar
     // and effectively making it in-scope.
     isInScopePlaceholder?: boolean;
+
+    // If the TypeVar is an "internal" form of a TypeVar, this refers to
+    // the corresponding "external" form.
+    externalTypeVar?: TypeVarType | undefined;
 }
 
 export interface TypeVarType extends TypeBase<TypeCategory.TypeVar> {
@@ -2812,6 +2816,11 @@ export namespace TypeVarType {
         if (newInstance.props?.specialForm) {
             TypeBase.setSpecialForm(newInstance, undefined);
         }
+
+        if (newInstance.priv.externalTypeVar) {
+            newInstance.priv.externalTypeVar = TypeVarType.cloneAsInstance(newInstance.priv.externalTypeVar);
+        }
+
         return newInstance;
     }
 
@@ -2821,6 +2830,11 @@ export namespace TypeVarType {
         }
 
         const newInstance = TypeBase.cloneTypeAsInstantiable(type, /* cache */ true);
+
+        if (newInstance.priv.externalTypeVar) {
+            newInstance.priv.externalTypeVar = TypeVarType.cloneAsInstantiable(newInstance.priv.externalTypeVar);
+        }
+
         return newInstance;
     }
 
@@ -2855,6 +2869,13 @@ export namespace TypeVarType {
         const newInstance = TypeBase.cloneType(type);
         newInstance.priv.isVariadicUnpacked = true;
         newInstance.priv.isVariadicInUnion = isInUnion;
+
+        if (newInstance.priv.externalTypeVar) {
+            newInstance.priv.externalTypeVar = TypeVarType.cloneForUnpacked(
+                newInstance.priv.externalTypeVar,
+                isInUnion
+            );
+        }
         return newInstance;
     }
 
@@ -2863,6 +2884,10 @@ export namespace TypeVarType {
         const newInstance = TypeBase.cloneType(type);
         newInstance.priv.isVariadicUnpacked = false;
         newInstance.priv.isVariadicInUnion = false;
+
+        if (newInstance.priv.externalTypeVar) {
+            newInstance.priv.externalTypeVar = TypeVarType.cloneForPacked(newInstance.priv.externalTypeVar);
+        }
         return newInstance;
     }
 
@@ -2929,6 +2954,40 @@ export namespace TypeVarType {
 
     export function makeNameWithScope(name: string, scopeId: string) {
         return `${name}.${scopeId}`;
+    }
+
+    // When solving the TypeVars for a callable, we need to distinguish between
+    // the externally-visible type parameters and the internal type variables.
+    // The distinction is important for recursive calls (e.g. calling a constructor
+    // for a generic class within the class implementation).
+    export function makeInternalScopeId(scopeId: TypeVarScopeId): TypeVarScopeId;
+    export function makeInternalScopeId(scopeId: TypeVarScopeId | undefined): TypeVarScopeId | undefined;
+    export function makeInternalScopeId(scopeId: TypeVarScopeId | undefined): TypeVarScopeId | undefined {
+        if (!scopeId) {
+            return undefined;
+        }
+        return `${scopeId}*`;
+    }
+
+    export function cloneWithInternalScopeId(type: TypeVarType): TypeVarType {
+        if (type.priv.scopeId === undefined || type.priv.externalTypeVar) {
+            return type;
+        }
+
+        const clone = TypeVarType.cloneForScopeId(
+            type,
+            TypeVarType.makeInternalScopeId(type.priv.scopeId),
+            type.priv.scopeName,
+            type.priv.scopeType
+        );
+
+        clone.priv.externalTypeVar = type;
+
+        return clone;
+    }
+
+    export function hasInternalScopeId(type: TypeVarType) {
+        return !!type.priv.externalTypeVar;
     }
 
     function create(name: string, isParamSpec: boolean, typeFlags: TypeFlags): TypeVarType {
