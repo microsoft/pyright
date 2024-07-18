@@ -11837,8 +11837,11 @@ export function createTypeEvaluator(
         // call to a generic function or if this isn't a callable
         // return with type parameters that are rescoped from the original
         // function to the returned callable.
-        const unknownIfNotFound = !ParseTreeUtils.getTypeVarScopesForNode(errorNode).some((typeVarScope) =>
-            typeVarContext.hasSolveForScope(typeVarScope)
+        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
+        const unknownIfNotFound = !liveTypeVarScopes.some(
+            (typeVarScope) =>
+                typeVarContext.hasSolveForScope(typeVarScope) ||
+                typeVarContext.hasSolveForScope(TypeVarType.makeInternalScopeId(typeVarScope))
         );
 
         let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
@@ -11903,7 +11906,6 @@ export function createTypeEvaluator(
             }
         }
 
-        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
         specializedReturnType = adjustCallableReturnType(
             type,
             specializedReturnType,

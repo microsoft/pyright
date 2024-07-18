@@ -477,7 +477,7 @@ export function mapSubtypes(
 
                 if (options?.retainTypeAlias) {
                     if (type.props?.typeAliasInfo) {
-                        TypeBase.setTypeAliasInfo(newType, type.props?.typeAliasInfo);
+                        TypeBase.setTypeAliasInfo(newType, type.props.typeAliasInfo);
                     }
                 } else {
                     // Do our best to retain type aliases.
