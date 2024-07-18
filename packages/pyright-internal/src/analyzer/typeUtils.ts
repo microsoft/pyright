@@ -2337,7 +2337,7 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
 
     const boundType = ClassType.cloneForSpecialization(
         classType,
-        ClassType.getTypeParameters(classType),
+        /* typeArguments */ undefined,
         /* isTypeArgumentExplicit */ false,
         /* includeSubclasses */ !!classType.priv.includeSubclasses
     );
@@ -4543,7 +4543,7 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
             return TypeVarType.cloneAsInScopePlaceholder(typeVar, this._usageOffset);
         }
 
-        return typeVar;
+        return undefined;
     }
 
     override transformParamSpec(paramSpec: TypeVarType): FunctionType | undefined {
@@ -4569,7 +4569,7 @@ class InScopePlaceholderTransformer extends TypeVarTransformer {
             return this._signatureContext.getTypeVarType(typeVar) ?? typeVar;
         }
 
-        return typeVar;
+        return undefined;
     }
 
     override transformParamSpec(paramSpec: TypeVarType): FunctionType | undefined {

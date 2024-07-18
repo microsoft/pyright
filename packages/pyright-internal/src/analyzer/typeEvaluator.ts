@@ -3923,6 +3923,12 @@ export function createTypeEvaluator(
 
                 // Fall back to a bound of "object" if no bound is provided.
                 let boundType = subtype.shared.boundType ?? getObjectType();
+
+                // If this is a synthesized self/cls type var, self-specialize its type arguments.
+                if (subtype.shared.isSynthesizedSelf && isClass(boundType)) {
+                    boundType = selfSpecializeClass(boundType);
+                }
+
                 boundType = TypeBase.isInstantiable(subtype) ? convertToInstantiable(boundType) : boundType;
 
                 return addConditionToType(boundType, [{ typeVar: subtype, constraintIndex: 0 }]);
@@ -8640,18 +8646,20 @@ export function createTypeEvaluator(
                 resultType = UnknownType.create();
             }
 
-            return {
-                type: resultIsInstance ? convertToInstance(resultType, /* includeSubclasses */ false) : resultType,
-                bindToSelfType: bindToType
-                    ? TypeBase.cloneForCondition(
-                          synthesizeTypeVarForSelfCls(
-                              ClassType.cloneIncludeSubclasses(bindToType, /* includeSubclasses */ false),
-                              /* isClsParam */ false
-                          ),
-                          bindToType.props?.condition
-                      )
-                    : undefined,
-            };
+            let bindToSelfType: ClassType | TypeVarType | undefined;
+            if (bindToType) {
+                bindToSelfType = TypeBase.cloneForCondition(
+                    synthesizeTypeVarForSelfCls(
+                        ClassType.cloneIncludeSubclasses(bindToType, /* includeSubclasses */ false),
+                        /* isClsParam */ false
+                    ),
+                    bindToType.props?.condition
+                );
+            }
+
+            const type = resultIsInstance ? convertToInstance(resultType, /* includeSubclasses */ false) : resultType;
+
+            return { type, bindToSelfType };
         }
 
         // Handle the super() call when used outside of a member access expression.
@@ -26340,11 +26348,6 @@ export function createTypeEvaluator(
         // consistent and probably not sound from a type theory perspective. It
         // should be completely reworked once there has been a public discussion
         // about the correct behavior.
-
-        // If the result is incomplete, do not attempt to narrow the type.
-        if (assignedTypeResult.isIncomplete) {
-            return assignedTypeResult;
-        }
 
         const narrowedType = mapSubtypes(assignedTypeResult.type, (assignedSubtype) => {
             // Handle the special case where the assigned type is a literal type.
