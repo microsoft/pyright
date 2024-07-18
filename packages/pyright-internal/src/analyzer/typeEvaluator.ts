@@ -11394,10 +11394,11 @@ export function createTypeEvaluator(
         }
 
         const tryExpectedType = (expectedSubtype: Type): number => {
+            const clonedTypeVarContext = typeVarContext.clone();
             const callResult = validateArgTypesWithExpectedType(
                 errorNode,
                 matchResults,
-                typeVarContext.clone(),
+                clonedTypeVarContext,
                 /* skipUnknownArgCheck */ true,
                 expectedSubtype,
                 returnType,
@@ -11408,10 +11409,14 @@ export function createTypeEvaluator(
             // We'll look for a subtype that produces no argument errors and has
             // no Unknowns in the return type.
             if (!callResult.argumentErrors && callResult.returnType) {
+                const returnType = inferenceContext?.returnTypeOverride
+                    ? applySolvedTypeVars(inferenceContext.returnTypeOverride, clonedTypeVarContext)
+                    : callResult.returnType;
+
                 if (
                     assignType(
                         expectedSubtype,
-                        callResult.returnType,
+                        returnType,
                         /* diag */ undefined,
                         /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
