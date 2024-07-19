@@ -5102,8 +5102,7 @@ export class Checker extends ParseTreeWalker {
                             newMemberTypeResult,
                             /* typeVarContext */ undefined,
                             /* skipUnknownArgCheck */ undefined,
-                            /* inferenceContext */ undefined,
-                            /* signatureTracker */ undefined
+                            /* inferenceContext */ undefined
                         );
                     }
 
@@ -5114,8 +5113,7 @@ export class Checker extends ParseTreeWalker {
                             initMemberTypeResult,
                             /* typeVarContext */ undefined,
                             /* skipUnknownArgCheck */ undefined,
-                            /* inferenceContext */ undefined,
-                            /* signatureTracker */ undefined
+                            /* inferenceContext */ undefined
                         );
                     }
                 }

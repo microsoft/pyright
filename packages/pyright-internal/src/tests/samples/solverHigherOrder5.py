@@ -4,12 +4,12 @@
 from dataclasses import dataclass
 from typing import (
     Any,
+    Callable,
     Generic,
     Literal,
     ParamSpec,
     Protocol,
     TypeVar,
-    Callable,
     TypeVarTuple,
     overload,
 )
@@ -226,3 +226,14 @@ def func4(a: T, b: T) -> T:
 
 def test_12(p: Proto1) -> Proto1:
     return p(func4, func4)
+
+
+reveal_type(
+    identity((identity, identity)),
+    expected_text="tuple[(x: T(1)@identity) -> T(1)@identity, (x: T(2)@identity) -> T(2)@identity]",
+)
+
+reveal_type(
+    identity([identity]),
+    expected_text="list[(x: T(1)@identity) -> T(1)@identity]",
+)

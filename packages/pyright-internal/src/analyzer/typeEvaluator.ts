@@ -614,6 +614,7 @@ export function createTypeEvaluator(
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: Map<number, TypeCacheEntry> | undefined;
     let isPrefetchedTypesInitialized = false;
+    let uniqueSignatureTracker: UniqueSignatureTracker | undefined;
 
     // Various types prefetched from stdlib stubs
     let noneTypeClass: Type | undefined;
@@ -1007,8 +1008,7 @@ export function createTypeEvaluator(
     function getTypeOfExpression(
         node: ExpressionNode,
         flags = EvalFlags.None,
-        inferenceContext?: InferenceContext,
-        signatureTracker?: UniqueSignatureTracker
+        inferenceContext?: InferenceContext
     ): TypeResult {
         // Is this type already cached?
         const cacheEntry = readTypeCacheEntry(node);
@@ -1067,7 +1067,7 @@ export function createTypeEvaluator(
         // at that point.
         initializePrefetchedTypes(node);
 
-        let typeResult = getTypeOfExpressionCore(node, flags, inferenceContext, signatureTracker);
+        let typeResult = getTypeOfExpressionCore(node, flags, inferenceContext);
 
         // Should we disable type promotions for bytes?
         if (
@@ -1090,6 +1090,12 @@ export function createTypeEvaluator(
 
         writeTypeCache(node, typeResult, flags, inferenceContext, allowSpeculativeCaching);
 
+        if (node.nodeType === ParseNodeType.Name || node.nodeType === ParseNodeType.MemberAccess) {
+            // If this is a generic function and there is a signature tracker,
+            // make sure the signature is unique.
+            typeResult.type = ensureSignatureIsUnique(typeResult.type, node.start);
+        }
+
         // If there was an expected type, make sure that the result type is compatible.
         if (
             inferenceContext &&
@@ -1097,12 +1103,6 @@ export function createTypeEvaluator(
             !isNever(inferenceContext.expectedType)
         ) {
             expectedTypeCache.set(node.id, inferenceContext.expectedType);
-
-            // If this is a generic function and there is a signature tracker,
-            // make sure the signature is unique.
-            if (signatureTracker && isFunction(typeResult.type)) {
-                typeResult.type = ensureFunctionSignaturesAreUnique(typeResult.type, signatureTracker, node.start);
-            }
 
             if (!typeResult.isIncomplete && !typeResult.expectedTypeDiagAddendum) {
                 const diag = new DiagnosticAddendum();
@@ -1141,8 +1141,7 @@ export function createTypeEvaluator(
     function getTypeOfExpressionCore(
         node: ExpressionNode,
         flags = EvalFlags.None,
-        inferenceContext?: InferenceContext,
-        signatureTracker?: UniqueSignatureTracker
+        inferenceContext?: InferenceContext
     ): TypeResult {
         let typeResult: TypeResult | undefined;
         let expectingInstantiable = (flags & EvalFlags.InstantiableType) !== 0;
@@ -1164,12 +1163,12 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.Call: {
-                typeResult = getTypeOfCall(node, flags, inferenceContext, signatureTracker);
+                typeResult = useSignatureTracker(() => getTypeOfCall(node, flags, inferenceContext));
                 break;
             }
 
             case ParseNodeType.Tuple: {
-                typeResult = getTypeOfTuple(node, flags, inferenceContext, signatureTracker);
+                typeResult = getTypeOfTuple(node, flags, inferenceContext);
                 break;
             }
 
@@ -1261,7 +1260,7 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.Assignment: {
-                typeResult = getTypeOfExpression(node.d.rightExpr, flags, inferenceContext, signatureTracker);
+                typeResult = getTypeOfExpression(node.d.rightExpr, flags, inferenceContext);
                 assignTypeToExpression(
                     node.d.leftExpr,
                     typeResult,
@@ -1277,7 +1276,7 @@ export function createTypeEvaluator(
                     addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.walrusNotAllowed(), node);
                 }
 
-                typeResult = getTypeOfExpression(node.d.rightExpr, flags, inferenceContext, signatureTracker);
+                typeResult = getTypeOfExpression(node.d.rightExpr, flags, inferenceContext);
                 assignTypeToExpression(node.d.name, typeResult, node.d.rightExpr, /* ignoreEmptyContainers */ true);
                 break;
             }
@@ -2412,8 +2411,7 @@ export function createTypeEvaluator(
                     { type },
                     new TypeVarContext(getTypeVarScopeId(type)),
                     /* skipUnknownArgCheck */ true,
-                    /* inferenceContext */ undefined,
-                    /* signatureTracker */ undefined
+                    /* inferenceContext */ undefined
                 );
             });
 
@@ -4329,8 +4327,7 @@ export function createTypeEvaluator(
                                         [],
                                         concreteSubtype,
                                         /* skipUnknownArgCheck */ false,
-                                        /* inferenceContext */ undefined,
-                                        /* signatureTracker */ undefined
+                                        /* inferenceContext */ undefined
                                     );
                                 });
 
@@ -6296,8 +6293,7 @@ export function createTypeEvaluator(
                     { type: methodType },
                     /* typeVarContext */ undefined,
                     /* skipUnknownArgCheck */ true,
-                    /* inferenceContext */ undefined,
-                    /* signatureTracker */ undefined
+                    /* inferenceContext */ undefined
                 );
             },
             (suppressedDiags) => {
@@ -6546,8 +6542,7 @@ export function createTypeEvaluator(
             { type: accessMemberType },
             typeVarContext,
             /* skipUnknownArgCheck */ true,
-            /* inferenceContext */ undefined,
-            /* signatureTracker */ undefined
+            /* inferenceContext */ undefined
         );
 
         let isAsymmetricAccessor = false;
@@ -7656,8 +7651,7 @@ export function createTypeEvaluator(
             { type: itemMethodType },
             /* typeVarContext */ undefined,
             /* skipUnknownArgCheck */ true,
-            /* inferenceContext */ undefined,
-            /* signatureTracker */ undefined
+            /* inferenceContext */ undefined
         );
 
         return {
@@ -7899,8 +7893,7 @@ export function createTypeEvaluator(
     function getTypeOfTuple(
         node: TupleNode,
         flags: EvalFlags,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
+        inferenceContext: InferenceContext | undefined
     ): TypeResult {
         if ((flags & EvalFlags.TypeExpression) !== 0 && node.parent?.nodeType !== ParseNodeType.Argument) {
             // This is allowed inside of an index trailer, specifically
@@ -7940,12 +7933,7 @@ export function createTypeEvaluator(
 
                     if (!matchingSubtype) {
                         const subtypeResult = useSpeculativeMode(node, () => {
-                            return getTypeOfTupleWithContext(
-                                node,
-                                flags,
-                                makeInferenceContext(subtype),
-                                /* signatureTracker */ undefined
-                            );
+                            return getTypeOfTupleWithContext(node, flags, makeInferenceContext(subtype));
                         });
 
                         if (subtypeResult && assignType(subtype, subtypeResult.type)) {
@@ -7961,7 +7949,7 @@ export function createTypeEvaluator(
 
         let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
         if (expectedType) {
-            const result = getTypeOfTupleWithContext(node, flags, makeInferenceContext(expectedType), signatureTracker);
+            const result = getTypeOfTupleWithContext(node, flags, makeInferenceContext(expectedType));
 
             if (result && !result.typeErrors) {
                 return result;
@@ -7984,8 +7972,7 @@ export function createTypeEvaluator(
     function getTypeOfTupleWithContext(
         node: TupleNode,
         flags: EvalFlags,
-        inferenceContext: InferenceContext,
-        signatureTracker: UniqueSignatureTracker | undefined
+        inferenceContext: InferenceContext
     ): TypeResult | undefined {
         inferenceContext.expectedType = transformPossibleRecursiveTypeAlias(inferenceContext.expectedType);
         if (!isClassInstance(inferenceContext.expectedType)) {
@@ -8048,8 +8035,7 @@ export function createTypeEvaluator(
                 makeInferenceContext(
                     index < expectedTypes.length ? expectedTypes[index] : undefined,
                     inferenceContext.isTypeIncomplete
-                ),
-                signatureTracker
+                )
             )
         );
         const isIncomplete = entryTypeResults.some((result) => result.isIncomplete);
@@ -8138,8 +8124,7 @@ export function createTypeEvaluator(
     function getTypeOfCall(
         node: CallNode,
         flags: EvalFlags,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
+        inferenceContext: InferenceContext | undefined
     ): TypeResult {
         let baseTypeResult: TypeResult | undefined;
 
@@ -8182,12 +8167,7 @@ export function createTypeEvaluator(
 
         let typeResult: TypeResult = { type: UnknownType.create() };
 
-        // If the inference context has an associated signature tracker, make sure
-        // the base type of this call is not the same as one of the tracked signatures.
-        // This is important for nested generic calls (e.g. "foo(foo(x))").
-        if (signatureTracker) {
-            baseTypeResult.type = ensureFunctionSignaturesAreUnique(baseTypeResult.type, signatureTracker, node.start);
-        }
+        baseTypeResult.type = ensureSignatureIsUnique(baseTypeResult.type, node.start);
 
         if (!isTypeAliasPlaceholder(baseTypeResult.type)) {
             if (node.d.leftExpr.nodeType === ParseNodeType.Name && node.d.leftExpr.d.value === 'super') {
@@ -8199,13 +8179,13 @@ export function createTypeEvaluator(
                 node.d.leftExpr.d.value === 'reveal_type'
             ) {
                 // Handle the implicit "reveal_type" call.
-                typeResult = getTypeOfRevealType(node, inferenceContext, signatureTracker);
+                typeResult = getTypeOfRevealType(node, inferenceContext);
             } else if (isFunction(baseTypeResult.type) && FunctionType.isBuiltIn(baseTypeResult.type, 'reveal_type')) {
                 // Handle the "typing.reveal_type" call.
-                typeResult = getTypeOfRevealType(node, inferenceContext, signatureTracker);
+                typeResult = getTypeOfRevealType(node, inferenceContext);
             } else if (isFunction(baseTypeResult.type) && FunctionType.isBuiltIn(baseTypeResult.type, 'assert_type')) {
                 // Handle the "typing.assert_type" call.
-                typeResult = getTypeOfAssertType(node, inferenceContext, signatureTracker);
+                typeResult = getTypeOfAssertType(node, inferenceContext);
             } else if (
                 isAnyOrUnknown(baseTypeResult.type) &&
                 node.d.leftExpr.nodeType === ParseNodeType.Name &&
@@ -8224,8 +8204,7 @@ export function createTypeEvaluator(
                     baseTypeResult,
                     /* typeVarContext */ undefined,
                     /* skipUnknownArgCheck */ false,
-                    inferenceContext,
-                    signatureTracker
+                    inferenceContext
                 );
 
                 typeResult.type = callResult.returnType ?? UnknownType.create();
@@ -8344,11 +8323,7 @@ export function createTypeEvaluator(
         return typeResult;
     }
 
-    function getTypeOfAssertType(
-        node: CallNode,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
-    ): TypeResult {
+    function getTypeOfAssertType(node: CallNode, inferenceContext: InferenceContext | undefined): TypeResult {
         if (
             node.d.args.length !== 2 ||
             node.d.args[0].d.argCategory !== ArgumentCategory.Simple ||
@@ -8360,12 +8335,7 @@ export function createTypeEvaluator(
             return { type: UnknownType.create() };
         }
 
-        const arg0TypeResult = getTypeOfExpression(
-            node.d.args[0].d.valueExpr,
-            /* flags */ undefined,
-            inferenceContext,
-            signatureTracker
-        );
+        const arg0TypeResult = getTypeOfExpression(node.d.args[0].d.valueExpr, /* flags */ undefined, inferenceContext);
         if (arg0TypeResult.isIncomplete) {
             return { type: UnknownType.create(/* isIncomplete */ true), isIncomplete: true };
         }
@@ -8392,11 +8362,7 @@ export function createTypeEvaluator(
         return { type: arg0TypeResult.type };
     }
 
-    function getTypeOfRevealType(
-        node: CallNode,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
-    ): TypeResult {
+    function getTypeOfRevealType(node: CallNode, inferenceContext: InferenceContext | undefined): TypeResult {
         let arg0Value: ExpressionNode | undefined;
         let expectedRevealTypeNode: ExpressionNode | undefined;
         let expectedRevealType: Type | undefined;
@@ -8441,7 +8407,7 @@ export function createTypeEvaluator(
             return { type: UnknownType.create() };
         }
 
-        const typeResult = getTypeOfExpression(arg0Value, /* flags */ undefined, inferenceContext, signatureTracker);
+        const typeResult = getTypeOfExpression(arg0Value, /* flags */ undefined, inferenceContext);
         const type = typeResult.type;
 
         const exprString = ParseTreeUtils.printExpression(arg0Value);
@@ -8853,8 +8819,7 @@ export function createTypeEvaluator(
         argParamMatches: MatchArgsToParamsResult[],
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean | undefined,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
+        inferenceContext: InferenceContext | undefined
     ): CallResult {
         const returnTypes: Type[] = [];
         const matchedOverloads: MatchedOverloadInfo[] = [];
@@ -8901,8 +8866,7 @@ export function createTypeEvaluator(
                         matchResults,
                         effectiveTypeVarContext,
                         /* skipUnknownArgCheck */ true,
-                        inferenceContext,
-                        signatureTracker
+                        inferenceContext
                     );
                 });
 
@@ -9031,8 +8995,7 @@ export function createTypeEvaluator(
             matchedOverloads[0].matchResults,
             finalTypeVarContext,
             skipUnknownArgCheck,
-            inferenceContext,
-            signatureTracker
+            inferenceContext
         );
 
         if (finalCallResult.isTypeIncomplete) {
@@ -9117,25 +9080,25 @@ export function createTypeEvaluator(
     ): FunctionType | undefined {
         let overloadIndex = 0;
         let matches: MatchArgsToParamsResult[] = [];
-        const signatureTracker = new UniqueSignatureTracker();
         const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
-        // Create a list of potential overload matches based on arguments.
-        OverloadedFunctionType.getOverloads(typeResult.type).forEach((overload) => {
-            useSpeculativeMode(speculativeNode, () => {
-                const matchResults = matchArgsToParams(
-                    errorNode,
-                    argList,
-                    { type: overload, isIncomplete: typeResult.isIncomplete },
-                    overloadIndex,
-                    /* signatureTracker */ undefined
-                );
+        useSignatureTracker(() => {
+            // Create a list of potential overload matches based on arguments.
+            OverloadedFunctionType.getOverloads(typeResult.type).forEach((overload) => {
+                useSpeculativeMode(speculativeNode, () => {
+                    const matchResults = matchArgsToParams(
+                        errorNode,
+                        argList,
+                        { type: overload, isIncomplete: typeResult.isIncomplete },
+                        overloadIndex
+                    );
 
-                if (!matchResults.argumentErrors) {
-                    matches.push(matchResults);
-                }
+                    if (!matchResults.argumentErrors) {
+                        matches.push(matchResults);
+                    }
 
-                overloadIndex++;
+                    overloadIndex++;
+                });
             });
         });
 
@@ -9150,7 +9113,6 @@ export function createTypeEvaluator(
                         errorNode,
                         match,
                         new TypeVarContext(getTypeVarScopeId(match.overload)),
-                        signatureTracker,
                         /* skipUnknownArgCheck */ true
                     );
 
@@ -9181,8 +9143,7 @@ export function createTypeEvaluator(
         typeResult: TypeResult<OverloadedFunctionType>,
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean | undefined,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
+        inferenceContext: InferenceContext | undefined
     ): CallResult {
         let filteredMatchResults: MatchArgsToParamsResult[] = [];
         let contextFreeArgTypes: Type[] | undefined;
@@ -9205,8 +9166,7 @@ export function createTypeEvaluator(
                     errorNode,
                     argList,
                     { type: overload, isIncomplete: typeResult.isIncomplete },
-                    overloadIndex,
-                    signatureTracker
+                    overloadIndex
                 );
 
                 if (!matchResults.argumentErrors) {
@@ -9228,9 +9188,7 @@ export function createTypeEvaluator(
                 const functionName = type.priv.overloads[0].shared.name || '<anonymous function>';
                 const diagAddendum = new DiagnosticAddendum();
                 const argTypes = argList.map((t) => {
-                    const typeString = printType(
-                        getTypeOfArgument(t, /* inferenceContext */ undefined, signatureTracker).type
-                    );
+                    const typeString = printType(getTypeOfArgument(t, /* inferenceContext */ undefined).type);
 
                     if (t.argumentCategory === ArgumentCategory.UnpackedList) {
                         return `*${typeString}`;
@@ -9296,8 +9254,7 @@ export function createTypeEvaluator(
                 bestMatch,
                 effectiveTypeVarContext,
                 skipUnknownArgCheck,
-                inferenceContext,
-                signatureTracker
+                inferenceContext
             );
         }
 
@@ -9320,8 +9277,7 @@ export function createTypeEvaluator(
                 filteredMatchResults,
                 typeVarContext,
                 skipUnknownArgCheck,
-                inferenceContext,
-                signatureTracker
+                inferenceContext
             );
 
             if (callResult.isTypeIncomplete) {
@@ -9449,7 +9405,6 @@ export function createTypeEvaluator(
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined,
         recursionCount = 0
     ): CallResult {
         let argumentErrors = false;
@@ -9491,7 +9446,6 @@ export function createTypeEvaluator(
                             typeVarContext,
                             skipUnknownArgCheck,
                             inferenceContext,
-                            signatureTracker,
                             recursionCount
                         );
 
@@ -9543,7 +9497,6 @@ export function createTypeEvaluator(
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined,
         recursionCount: number
     ): CallResult {
         switch (expandedCallType.category) {
@@ -9556,7 +9509,7 @@ export function createTypeEvaluator(
                 if (!isCallTypeIncomplete) {
                     argList.forEach((arg) => {
                         if (arg.valueExpression && !isSpeculativeModeInUse(arg.valueExpression)) {
-                            getTypeOfArgument(arg, /* inferenceContext */ undefined, signatureTracker);
+                            getTypeOfArgument(arg, /* inferenceContext */ undefined);
                         }
                     });
                 }
@@ -9572,8 +9525,7 @@ export function createTypeEvaluator(
                     isCallTypeIncomplete,
                     typeVarContext,
                     skipUnknownArgCheck,
-                    inferenceContext,
-                    signatureTracker
+                    inferenceContext
                 );
             }
 
@@ -9585,8 +9537,7 @@ export function createTypeEvaluator(
                     isCallTypeIncomplete,
                     typeVarContext,
                     skipUnknownArgCheck,
-                    inferenceContext,
-                    signatureTracker
+                    inferenceContext
                 );
             }
 
@@ -9604,8 +9555,7 @@ export function createTypeEvaluator(
                         expandedCallType,
                         unexpandedCallType,
                         skipUnknownArgCheck,
-                        inferenceContext,
-                        signatureTracker
+                        inferenceContext
                     );
                 }
 
@@ -9617,7 +9567,6 @@ export function createTypeEvaluator(
                     typeVarContext,
                     skipUnknownArgCheck,
                     inferenceContext,
-                    signatureTracker,
                     recursionCount
                 );
             }
@@ -9634,7 +9583,6 @@ export function createTypeEvaluator(
                     typeVarContext,
                     skipUnknownArgCheck,
                     inferenceContext,
-                    signatureTracker,
                     recursionCount
                 );
             }
@@ -9656,8 +9604,7 @@ export function createTypeEvaluator(
         isCallTypeIncomplete: boolean,
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean | undefined,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
+        inferenceContext: InferenceContext | undefined
     ): CallResult {
         if (TypeBase.isInstantiable(type)) {
             addDiagnostic(
@@ -9687,8 +9634,7 @@ export function createTypeEvaluator(
                 { type: type },
                 effectiveTypeVarContext,
                 skipUnknownArgCheck,
-                inferenceContext,
-                signatureTracker
+                inferenceContext
             );
 
             return result;
@@ -9705,8 +9651,7 @@ export function createTypeEvaluator(
             { type, isIncomplete: isCallTypeIncomplete },
             effectiveTypeVarContext,
             skipUnknownArgCheck,
-            inferenceContext,
-            signatureTracker
+            inferenceContext
         );
 
         let isTypeIncomplete = !!functionResult.isTypeIncomplete;
@@ -9844,8 +9789,7 @@ export function createTypeEvaluator(
         isCallTypeIncomplete: boolean,
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean | undefined,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
+        inferenceContext: InferenceContext | undefined
     ): CallResult {
         // Handle the 'cast' call as a special case.
         if (FunctionType.isBuiltIn(expandedCallType.priv.overloads[0], 'cast') && argList.length === 2) {
@@ -9858,8 +9802,7 @@ export function createTypeEvaluator(
             { type: expandedCallType, isIncomplete: isCallTypeIncomplete },
             typeVarContext,
             skipUnknownArgCheck,
-            inferenceContext,
-            signatureTracker
+            inferenceContext
         );
 
         let returnType = callResult.returnType ?? UnknownType.create();
@@ -9899,8 +9842,7 @@ export function createTypeEvaluator(
         expandedCallType: ClassType,
         unexpandedCallType: Type,
         skipUnknownArgCheck: boolean | undefined,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
+        inferenceContext: InferenceContext | undefined
     ): CallResult {
         if (expandedCallType.priv.literalValue !== undefined) {
             addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.literalNotCallable(), errorNode);
@@ -9931,18 +9873,13 @@ export function createTypeEvaluator(
                     argList,
                     expandedCallType,
                     skipUnknownArgCheck,
-                    inferenceContext,
-                    signatureTracker
+                    inferenceContext
                 );
 
                 // The one-parameter form of "type" returns the class
                 // for the specified object.
                 if (expandedCallType.shared.name === 'type' && argList.length === 1) {
-                    const argType = getTypeOfArgument(
-                        argList[0],
-                        /* inferenceContext */ undefined,
-                        signatureTracker
-                    ).type;
+                    const argType = getTypeOfArgument(argList[0], /* inferenceContext */ undefined).type;
                     const returnType = mapSubtypes(argType, (subtype) => {
                         if (isInstantiableClass(subtype) && subtype.shared.effectiveMetaclass) {
                             return subtype.shared.effectiveMetaclass;
@@ -10030,8 +9967,7 @@ export function createTypeEvaluator(
                         { type: initTypeResult.type },
                         /* typeVarContext */ undefined,
                         skipUnknownArgCheck,
-                        /* inferenceContext */ undefined,
-                        signatureTracker
+                        /* inferenceContext */ undefined
                     );
                 }
 
@@ -10136,8 +10072,7 @@ export function createTypeEvaluator(
             argList,
             expandedCallType,
             skipUnknownArgCheck,
-            inferenceContext,
-            signatureTracker
+            inferenceContext
         );
 
         const overloadsUsedForCall = constructorResult.overloadsUsedForCall;
@@ -10176,11 +10111,7 @@ export function createTypeEvaluator(
         ) {
             let newClassName = '__class_' + returnType.shared.name;
             if (argList.length === 3) {
-                const firstArgType = getTypeOfArgument(
-                    argList[0],
-                    /* inferenceContext */ undefined,
-                    signatureTracker
-                ).type;
+                const firstArgType = getTypeOfArgument(argList[0], /* inferenceContext */ undefined).type;
 
                 if (
                     isClassInstance(firstArgType) &&
@@ -10220,7 +10151,6 @@ export function createTypeEvaluator(
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined,
         recursionCount: number
     ): CallResult {
         const callDiag = new DiagnosticAddendum();
@@ -10255,7 +10185,6 @@ export function createTypeEvaluator(
             typeVarContext,
             skipUnknownArgCheck,
             inferenceContext,
-            signatureTracker,
             recursionCount
         );
 
@@ -10282,11 +10211,7 @@ export function createTypeEvaluator(
     function evaluateCastCall(argList: FunctionArgument[], errorNode: ExpressionNode) {
         // Verify that the cast is necessary.
         const castToType = getTypeOfArgumentExpectingType(argList[0], { enforceTypeAnnotationRules: true }).type;
-        let castFromType = getTypeOfArgument(
-            argList[1],
-            /* inferenceContext */ undefined,
-            /* signatureTracker */ undefined
-        ).type;
+        let castFromType = getTypeOfArgument(argList[1], /* inferenceContext */ undefined).type;
 
         if (castFromType.props?.specialForm) {
             castFromType = castFromType.props.specialForm;
@@ -10312,15 +10237,12 @@ export function createTypeEvaluator(
     }
 
     // Expands any unpacked tuples within an argument list.
-    function expandArgList(
-        argList: FunctionArgument[],
-        signatureTracker: UniqueSignatureTracker | undefined
-    ): FunctionArgument[] {
+    function expandArgList(argList: FunctionArgument[]): FunctionArgument[] {
         const expandedArgList: FunctionArgument[] = [];
 
         for (const arg of argList) {
             if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
-                const argType = getTypeOfArgument(arg, /* inferenceContext */ undefined, signatureTracker).type;
+                const argType = getTypeOfArgument(arg, /* inferenceContext */ undefined).type;
 
                 // If this is a tuple with specified element types, use those
                 // specified types rather than using the more generic iterator
@@ -10371,8 +10293,7 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
         typeResult: TypeResult<FunctionType>,
-        overloadIndex: number,
-        signatureTracker: UniqueSignatureTracker | undefined
+        overloadIndex: number
     ): MatchArgsToParamsResult {
         const overload = typeResult.type;
         const paramDetails = getParameterListDetails(overload);
@@ -10385,7 +10306,7 @@ export function createTypeEvaluator(
         let isVariadicTypeVarFullyMatched = false;
 
         // Expand any unpacked tuples in the arg list.
-        argList = expandArgList(argList, signatureTracker);
+        argList = expandArgList(argList);
 
         // Build a map of parameters by name.
         const paramMap = new Map<string, ParamAssignmentInfo>();
@@ -10533,11 +10454,7 @@ export function createTypeEvaluator(
                         // If this is an unpacked iterable, we will conservatively assume that it
                         // might have zero iterations unless we can tell from its type that it
                         // definitely has at least one iterable value.
-                        const argType = getTypeOfArgument(
-                            argList[argIndex],
-                            /* inferenceContext */ undefined,
-                            signatureTracker
-                        ).type;
+                        const argType = getTypeOfArgument(argList[argIndex], /* inferenceContext */ undefined).type;
 
                         if (
                             isClassInstance(argType) &&
@@ -10585,11 +10502,7 @@ export function createTypeEvaluator(
             if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
                 let isArgCompatibleWithVariadic = false;
 
-                const argTypeResult = getTypeOfArgument(
-                    argList[argIndex],
-                    /* inferenceContext */ undefined,
-                    signatureTracker
-                );
+                const argTypeResult = getTypeOfArgument(argList[argIndex], /* inferenceContext */ undefined);
 
                 let listElementType: Type | undefined;
                 let advanceToNextArg = false;
@@ -10886,8 +10799,7 @@ export function createTypeEvaluator(
                     // Verify that the type used in this expression is a SupportsKeysAndGetItem[str, T].
                     const argTypeResult = getTypeOfArgument(
                         argList[argIndex],
-                        makeInferenceContext(paramDetails.unpackedKwargsTypedDictType),
-                        signatureTracker
+                        makeInferenceContext(paramDetails.unpackedKwargsTypedDictType)
                     );
                     const argType = argTypeResult.type;
 
@@ -11159,8 +11071,7 @@ export function createTypeEvaluator(
                         if (paramSpec) {
                             const argTypeResult = getTypeOfArgument(
                                 argList[argIndex],
-                                /* inferenceContext */ undefined,
-                                signatureTracker
+                                /* inferenceContext */ undefined
                             );
                             const argType = argTypeResult.type;
 
@@ -11307,11 +11218,7 @@ export function createTypeEvaluator(
 
                 if (isVariadicTypeVar(paramType) && !paramType.priv.isVariadicInUnion) {
                     const tupleTypeArgs: TupleTypeArgument[] = variadicArgs.map((argParam) => {
-                        const argType = getTypeOfArgument(
-                            argParam.argument,
-                            /* inferenceContext */ undefined,
-                            signatureTracker
-                        ).type;
+                        const argType = getTypeOfArgument(argParam.argument, /* inferenceContext */ undefined).type;
 
                         const containsVariadicTypeVar =
                             isUnpackedVariadicTypeVar(argType) ||
@@ -11415,18 +11322,11 @@ export function createTypeEvaluator(
         matchResults: MatchArgsToParamsResult,
         typeVarContext: TypeVarContext,
         skipUnknownArgCheck = false,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
+        inferenceContext: InferenceContext | undefined
     ): CallResult {
         const type = matchResults.overload;
 
-        signatureTracker = signatureTracker ?? new UniqueSignatureTracker();
-
-        matchResults.overload = ensureFunctionSignaturesAreUnique(
-            matchResults.overload,
-            signatureTracker,
-            errorNode.start
-        ) as FunctionType;
+        matchResults.overload = ensureSignatureIsUnique(matchResults.overload, errorNode.start);
 
         let expectedType: Type | undefined = inferenceContext?.expectedType;
 
@@ -11444,8 +11344,7 @@ export function createTypeEvaluator(
                 typeVarContext.clone(),
                 /* skipUnknownArgCheck */ true,
                 expectedSubtype,
-                returnType,
-                signatureTracker!
+                returnType
             );
 
             // Use a heuristic to pick a subtype that is most likely to be correct.
@@ -11512,7 +11411,7 @@ export function createTypeEvaluator(
         // If there is no expected type, or the expected type is Any or Unknown,
         // there's nothing left to do here.
         if (!expectedType || isAnyOrUnknown(expectedType) || isNever(expectedType)) {
-            return validateArgTypes(errorNode, matchResults, typeVarContext, signatureTracker, skipUnknownArgCheck);
+            return validateArgTypes(errorNode, matchResults, typeVarContext, skipUnknownArgCheck);
         }
 
         return validateArgTypesWithExpectedType(
@@ -11521,8 +11420,7 @@ export function createTypeEvaluator(
             typeVarContext,
             skipUnknownArgCheck,
             expectedType,
-            returnType,
-            signatureTracker
+            returnType
         );
     }
 
@@ -11532,8 +11430,7 @@ export function createTypeEvaluator(
         typeVarContext: TypeVarContext,
         skipUnknownArgCheck = false,
         expectedType: Type,
-        returnType: Type,
-        signatureTracker: UniqueSignatureTracker
+        returnType: Type
     ): CallResult {
         const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
         let assignFlags = AssignTypeFlags.PopulatingExpectedType;
@@ -11580,14 +11477,13 @@ export function createTypeEvaluator(
             assignFlags
         );
 
-        return validateArgTypes(errorNode, matchResults, typeVarContext, signatureTracker, skipUnknownArgCheck);
+        return validateArgTypes(errorNode, matchResults, typeVarContext, skipUnknownArgCheck);
     }
 
     function validateArgTypes(
         errorNode: ExpressionNode,
         matchResults: MatchArgsToParamsResult,
         typeVarContext: TypeVarContext,
-        signatureTracker: UniqueSignatureTracker,
         skipUnknownArgCheck: boolean | undefined
     ): CallResult {
         const type = matchResults.overload;
@@ -11683,7 +11579,6 @@ export function createTypeEvaluator(
                         const argResult = validateArgType(
                             argParam,
                             typeVarContext,
-                            signatureTracker,
                             { type, isIncomplete: matchResults.isTypeIncomplete },
                             {
                                 skipUnknownArgCheck,
@@ -11722,7 +11617,6 @@ export function createTypeEvaluator(
             const argResult = validateArgType(
                 argParam,
                 typeVarContext,
-                signatureTracker,
                 { type, isIncomplete: matchResults.isTypeIncomplete },
                 {
                     skipUnknownArgCheck,
@@ -11778,8 +11672,7 @@ export function createTypeEvaluator(
                 errorNode,
                 matchResults.paramSpecArgList,
                 matchResults.paramSpecTarget,
-                typeVarContext,
-                signatureTracker
+                typeVarContext
             );
 
             if (paramSpecArgResult.argumentErrors) {
@@ -11915,7 +11808,7 @@ export function createTypeEvaluator(
             type,
             specializedReturnType,
             liveTypeVarScopes,
-            signatureTracker.getTrackedSignatures()
+            uniqueSignatureTracker?.getTrackedSignatures()
         );
 
         if (specializedInitSelfType) {
@@ -12018,18 +11911,11 @@ export function createTypeEvaluator(
         typeResult: TypeResult<FunctionType>,
         typeVarContext: TypeVarContext,
         skipUnknownArgCheck = false,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
+        inferenceContext: InferenceContext | undefined
     ): CallResult {
-        signatureTracker = signatureTracker ?? new UniqueSignatureTracker();
+        typeResult.type = ensureSignatureIsUnique(typeResult.type, errorNode.start);
 
-        typeResult.type = ensureFunctionSignaturesAreUnique(
-            typeResult.type,
-            signatureTracker,
-            errorNode.start
-        ) as FunctionType;
-
-        const matchResults = matchArgsToParams(errorNode, argList, typeResult, 0, signatureTracker);
+        const matchResults = matchArgsToParams(errorNode, argList, typeResult, 0);
 
         if (matchResults.argumentErrors) {
             // Evaluate types of all args. This will ensure that referenced symbols are
@@ -12052,8 +11938,7 @@ export function createTypeEvaluator(
             matchResults,
             typeVarContext,
             skipUnknownArgCheck,
-            makeInferenceContext(inferenceContext?.expectedType, inferenceContext?.isTypeIncomplete),
-            signatureTracker
+            makeInferenceContext(inferenceContext?.expectedType, inferenceContext?.isTypeIncomplete)
         );
     }
 
@@ -12063,20 +11948,13 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
         paramSpec: TypeVarType,
-        destTypeVarContext: TypeVarContext,
-        signatureTracker: UniqueSignatureTracker
+        destTypeVarContext: TypeVarContext
     ): ParamSpecArgResult {
         const signatureContexts = destTypeVarContext.getSignatureContexts();
 
         // Handle the common case where there is only one signature context.
         if (signatureContexts.length === 1) {
-            return validateArgTypesForParamSpecSignature(
-                errorNode,
-                argList,
-                paramSpec,
-                signatureContexts[0],
-                signatureTracker
-            );
+            return validateArgTypesForParamSpecSignature(errorNode, argList, paramSpec, signatureContexts[0]);
         }
 
         const filteredSignatureContexts: TypeVarSignatureContext[] = [];
@@ -12090,8 +11968,7 @@ export function createTypeEvaluator(
                     errorNode,
                     argList,
                     paramSpec,
-                    context,
-                    signatureTracker
+                    context
                 );
 
                 if (!paramSpecArgResult.argumentErrors) {
@@ -12112,8 +11989,7 @@ export function createTypeEvaluator(
             errorNode,
             argList,
             paramSpec,
-            filteredSignatureContexts.length > 0 ? filteredSignatureContexts[0] : signatureContexts[0],
-            signatureTracker
+            filteredSignatureContexts.length > 0 ? filteredSignatureContexts[0] : signatureContexts[0]
         );
 
         return { argumentErrors: paramSpecArgResult.argumentErrors, typeVarContexts };
@@ -12123,15 +11999,14 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
         paramSpec: TypeVarType,
-        typeVarContext: TypeVarSignatureContext,
-        signatureTracker: UniqueSignatureTracker
+        typeVarContext: TypeVarSignatureContext
     ): ParamSpecArgResult {
         let paramSpecType = typeVarContext.getParamSpecType(paramSpec);
         if (!paramSpecType) {
             paramSpecType = convertTypeToParamSpecValue(paramSpec);
         }
 
-        const matchResults = matchArgsToParams(errorNode, argList, { type: paramSpecType }, 0, signatureTracker);
+        const matchResults = matchArgsToParams(errorNode, argList, { type: paramSpecType }, 0);
         const functionType = matchResults.overload;
         const srcTypeVarContext = new TypeVarContext(getTypeVarScopeIds(paramSpecType));
 
@@ -12165,7 +12040,7 @@ export function createTypeEvaluator(
             let argErrorNode: ExpressionNode | undefined;
 
             for (const arg of argList) {
-                const argType = getTypeOfArgument(arg, /* inferenceContext */ undefined, signatureTracker)?.type;
+                const argType = getTypeOfArgument(arg, /* inferenceContext */ undefined)?.type;
 
                 if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
                     if (isParamSpecArgsArgument(paramSpec, argType)) {
@@ -12202,7 +12077,6 @@ export function createTypeEvaluator(
             errorNode,
             matchResults,
             srcTypeVarContext,
-            signatureTracker,
             /* skipUnknownArgCheck */ undefined
         );
         return { argumentErrors: !!result.argumentErrors, typeVarContexts: [srcTypeVarContext] };
@@ -12211,7 +12085,6 @@ export function createTypeEvaluator(
     function validateArgType(
         argParam: ValidateArgTypeParams,
         typeVarContext: TypeVarContext,
-        signatureTracker: UniqueSignatureTracker,
         typeResult: TypeResult<FunctionType> | undefined,
         options: ValidateArgTypeOptions
     ): ArgResult {
@@ -12278,8 +12151,7 @@ export function createTypeEvaluator(
                 const exprTypeResult = getTypeOfExpression(
                     argParam.argument.valueExpression,
                     flags,
-                    makeInferenceContext(expectedType, !!typeResult?.isIncomplete),
-                    signatureTracker
+                    makeInferenceContext(expectedType, !!typeResult?.isIncomplete)
                 );
 
                 argType = exprTypeResult.type;
@@ -12287,11 +12159,7 @@ export function createTypeEvaluator(
                 // If the type includes multiple instances of a generic function
                 // signature, force the type arguments for the duplicates to have
                 // unique names.
-                argType = ensureFunctionSignaturesAreUnique(
-                    argType,
-                    signatureTracker,
-                    argParam.argument.valueExpression.start
-                );
+                argType = ensureSignatureIsUnique(argType, argParam.argument.valueExpression.start);
 
                 if (exprTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
@@ -12325,11 +12193,7 @@ export function createTypeEvaluator(
             if (argParam.argType) {
                 argType = argParam.argType;
             } else {
-                const argTypeResult = getTypeOfArgument(
-                    argParam.argument,
-                    /* inferenceContext */ undefined,
-                    signatureTracker
-                );
+                const argTypeResult = getTypeOfArgument(argParam.argument, /* inferenceContext */ undefined);
                 argType = argTypeResult.type;
                 if (argTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
@@ -13346,21 +13210,13 @@ export function createTypeEvaluator(
         metaclass: ClassType
     ): ClassType | undefined {
         const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
-        const arg0Type = getTypeOfArgument(
-            argList[0],
-            /* inferenceContext */ undefined,
-            /* signatureTracker */ undefined
-        ).type;
+        const arg0Type = getTypeOfArgument(argList[0], /* inferenceContext */ undefined).type;
         if (!isClassInstance(arg0Type) || !ClassType.isBuiltIn(arg0Type, 'str')) {
             return undefined;
         }
         const className = (arg0Type.priv.literalValue as string) || '_';
 
-        const arg1Type = getTypeOfArgument(
-            argList[1],
-            /* inferenceContext */ undefined,
-            /* signatureTracker */ undefined
-        ).type;
+        const arg1Type = getTypeOfArgument(argList[1], /* inferenceContext */ undefined).type;
 
         // TODO - properly handle case where tuple of base classes is provided.
         if (!isClassInstance(arg1Type) || !isTupleClass(arg1Type) || arg1Type.priv.tupleTypeArguments === undefined) {
@@ -13459,8 +13315,7 @@ export function createTypeEvaluator(
                         { type: magicMethodType },
                         /* typeVarContext */ undefined,
                         /* skipUnknownArgCheck */ true,
-                        inferenceContext,
-                        /* signatureTracker */ undefined
+                        inferenceContext
                     );
                 });
 
@@ -13475,8 +13330,7 @@ export function createTypeEvaluator(
                             { type: magicMethodType },
                             /* typeVarContext */ undefined,
                             /* skipUnknownArgCheck */ true,
-                            /* inferenceContext */ undefined,
-                            /* signatureTracker */ undefined
+                            /* inferenceContext */ undefined
                         );
                     });
                 }
@@ -15798,8 +15652,7 @@ export function createTypeEvaluator(
                         { type: supportsTypeMethod },
                         /* typeVarContext */ undefined,
                         /* skipUnknownArgCheck */ true,
-                        /* inferenceContext */ undefined,
-                        /* signatureTracker */ undefined
+                        /* inferenceContext */ undefined
                     )
                 );
 
@@ -17921,8 +17774,6 @@ export function createTypeEvaluator(
                     }
 
                     argList.forEach((arg) => {
-                        const signatureTracker = new UniqueSignatureTracker();
-
                         if (arg.argumentCategory === ArgumentCategory.Simple && arg.name) {
                             const paramIndex = paramMap.get(arg.name.d.value) ?? paramListDetails.kwargsIndex;
 
@@ -17939,7 +17790,6 @@ export function createTypeEvaluator(
                                 validateArgType(
                                     argParam,
                                     new TypeVarContext(),
-                                    signatureTracker,
                                     { type: newMethodType },
                                     { skipUnknownArgCheck: true, skipOverloadArg: true }
                                 );
@@ -18000,8 +17850,7 @@ export function createTypeEvaluator(
                         { type: initSubclassMethodType },
                         /* typeVarContext */ undefined,
                         /* skipUnknownArgCheck */ false,
-                        makeInferenceContext(getNoneType()),
-                        /* signatureTracker */ undefined
+                        makeInferenceContext(getNoneType())
                     );
 
                     if (callResult.argumentErrors) {
@@ -20818,11 +20667,7 @@ export function createTypeEvaluator(
         return { type: specializedClass };
     }
 
-    function getTypeOfArgument(
-        arg: FunctionArgument,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
-    ): TypeResult {
+    function getTypeOfArgument(arg: FunctionArgument, inferenceContext: InferenceContext | undefined): TypeResult {
         if (arg.typeResult) {
             const type = arg.typeResult.type;
             return { type: type?.props?.specialForm ?? type, isIncomplete: arg.typeResult.isIncomplete };
@@ -20835,22 +20680,7 @@ export function createTypeEvaluator(
 
         // If there was no defined type provided, there should always
         // be a value expression from which we can retrieve the type.
-        const typeResult = getTypeOfExpression(
-            arg.valueExpression,
-            /* flags */ undefined,
-            inferenceContext,
-            signatureTracker
-        );
-
-        if (signatureTracker) {
-            typeResult.type = ensureFunctionSignaturesAreUnique(
-                typeResult.type,
-                signatureTracker,
-                arg.valueExpression.start
-            );
-        }
-
-        return typeResult;
+        return getTypeOfExpression(arg.valueExpression, /* flags */ undefined, inferenceContext);
     }
 
     // This function is like getTypeOfArgument except that it is
@@ -21087,6 +20917,35 @@ export function createTypeEvaluator(
             suppressedNodeStack.pop();
             throw e;
         }
+    }
+
+    function useSignatureTracker<T>(callback: () => T): T {
+        const oldSigTracker = uniqueSignatureTracker;
+
+        try {
+            // If a signature tracker doesn't already exist, allocate one.
+            if (!oldSigTracker) {
+                uniqueSignatureTracker = new UniqueSignatureTracker();
+            }
+
+            const result = callback();
+
+            return result;
+        } finally {
+            uniqueSignatureTracker = oldSigTracker;
+        }
+    }
+
+    function ensureSignatureIsUnique<T extends Type>(type: T, expressionOffset: number): T {
+        if (!uniqueSignatureTracker) {
+            return type;
+        }
+
+        if (isFunction(type) || isOverloadedFunction(type)) {
+            return ensureFunctionSignaturesAreUnique(type, uniqueSignatureTracker, expressionOffset);
+        }
+
+        return type;
     }
 
     // Disables recording of errors and warnings and disables any caching of

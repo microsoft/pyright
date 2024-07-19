@@ -23,7 +23,6 @@ import { CallResult, FunctionArgument, TypeEvaluator, TypeResult } from './typeE
 import {
     InferenceContext,
     MemberAccessFlags,
-    UniqueSignatureTracker,
     addTypeVarsToListIfUnique,
     applySolvedTypeVars,
     buildTypeVarContextFromSpecializedClass,
@@ -31,7 +30,6 @@ import {
     convertTypeToParamSpecValue,
     doForEachSignature,
     doForEachSubtype,
-    ensureFunctionSignaturesAreUnique,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
     getTypeVarScopeIds,
@@ -121,8 +119,7 @@ export function validateConstructorArguments(
     argList: FunctionArgument[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
-    inferenceContext: InferenceContext | undefined,
-    signatureTracker: UniqueSignatureTracker | undefined
+    inferenceContext: InferenceContext | undefined
 ): CallResult {
     // If this is an unspecialized generic type alias, specialize it now
     // using default type argument values.
@@ -138,8 +135,7 @@ export function validateConstructorArguments(
         argList,
         type,
         skipUnknownArgCheck,
-        inferenceContext,
-        signatureTracker
+        inferenceContext
     );
 
     if (metaclassResult) {
@@ -173,7 +169,6 @@ export function validateConstructorArguments(
             type,
             skipUnknownArgCheck,
             inferenceContext,
-            signatureTracker,
             newMethodTypeResult
         );
     });
@@ -193,24 +188,16 @@ export function validateConstructorArguments(
                 type,
                 skipUnknownArgCheck,
                 inferenceContext,
-                signatureTracker,
                 newMethodTypeResult
             );
 
             validatedArgExpressions = true;
         } else if (returnResult.returnType) {
-            const transformed = applyConstructorTransform(
-                evaluator,
-                errorNode,
-                argList,
-                type,
-                {
-                    argumentErrors: !!returnResult.argumentErrors,
-                    returnType: returnResult.returnType,
-                    isTypeIncomplete: !!returnResult.isTypeIncomplete,
-                },
-                signatureTracker
-            );
+            const transformed = applyConstructorTransform(evaluator, errorNode, argList, type, {
+                argumentErrors: !!returnResult.argumentErrors,
+                returnType: returnResult.returnType,
+                isTypeIncomplete: !!returnResult.isTypeIncomplete,
+            });
 
             returnResult.returnType = transformed.returnType;
 
@@ -246,7 +233,6 @@ function validateNewAndInitMethods(
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined,
-    signatureTracker: UniqueSignatureTracker | undefined,
     newMethodTypeResult: TypeResult | undefined
 ): CallResult {
     let returnType: Type | undefined;
@@ -267,7 +253,6 @@ function validateNewAndInitMethods(
             type,
             skipUnknownArgCheck,
             inferenceContext,
-            signatureTracker,
             newMethodTypeResult,
             /* useSpeculativeModeForArgs */ true
         );
@@ -344,7 +329,6 @@ function validateNewAndInitMethods(
                 initMethodBindToType,
                 skipUnknownArgCheck,
                 inferenceContext,
-                signatureTracker,
                 initMethodTypeResult.type
             );
 
@@ -375,7 +359,6 @@ function validateNewAndInitMethods(
                 type,
                 skipUnknownArgCheck,
                 inferenceContext,
-                signatureTracker,
                 newMethodTypeResult,
                 /* useSpeculativeModeForArgs */ false
             );
@@ -416,7 +399,6 @@ function validateNewMethod(
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined,
-    signatureTracker: UniqueSignatureTracker | undefined,
     newMethodTypeResult: TypeResult,
     useSpeculativeModeForArgs: boolean
 ): CallResult {
@@ -424,14 +406,6 @@ function validateNewMethod(
     let isTypeIncomplete = false;
     let argumentErrors = false;
     const overloadsUsedForCall: FunctionType[] = [];
-
-    if (signatureTracker) {
-        newMethodTypeResult.type = ensureFunctionSignaturesAreUnique(
-            newMethodTypeResult.type,
-            signatureTracker,
-            errorNode.start
-        );
-    }
 
     const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
     typeVarContext.addSolveForScope(getTypeVarScopeId(newMethodTypeResult.type));
@@ -443,8 +417,7 @@ function validateNewMethod(
             newMethodTypeResult,
             typeVarContext,
             skipUnknownArgCheck,
-            inferenceContext,
-            signatureTracker
+            inferenceContext
         );
     });
 
@@ -463,8 +436,7 @@ function validateNewMethod(
             newMethodTypeResult,
             typeVarContext,
             skipUnknownArgCheck,
-            inferenceContext,
-            signatureTracker
+            inferenceContext
         );
     } else {
         newReturnType = callResult.returnType;
@@ -500,17 +472,12 @@ function validateInitMethod(
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined,
-    signatureTracker: UniqueSignatureTracker | undefined,
     initMethodType: Type
 ): CallResult {
     let returnType: Type | undefined;
     let isTypeIncomplete = false;
     let argumentErrors = false;
     const overloadsUsedForCall: FunctionType[] = [];
-
-    if (signatureTracker) {
-        initMethodType = ensureFunctionSignaturesAreUnique(initMethodType, signatureTracker, errorNode.start);
-    }
 
     // If there is an expected type, analyze the __init__ call for each of the
     // subtypes that comprise the expected type. If one or more analyzes with no
@@ -568,8 +535,7 @@ function validateInitMethod(
                         { type: specializedConstructor },
                         typeVarContext.clone(),
                         skipUnknownArgCheck,
-                        /* inferenceContext */ undefined,
-                        signatureTracker
+                        /* inferenceContext */ undefined
                     );
                 });
 
@@ -585,8 +551,7 @@ function validateInitMethod(
                     { type: specializedConstructor },
                     typeVarContext,
                     skipUnknownArgCheck,
-                    /* inferenceContext */ undefined,
-                    signatureTracker
+                    /* inferenceContext */ undefined
                 );
 
                 if (callResult.isTypeIncomplete) {
@@ -626,8 +591,7 @@ function validateInitMethod(
             { type: initMethodType },
             typeVarContext,
             skipUnknownArgCheck,
-            /* inferenceContext */ undefined,
-            signatureTracker
+            /* inferenceContext */ undefined
         );
 
         let adjustedClassType = type;
@@ -690,7 +654,6 @@ function validateFallbackConstructorCall(
         type,
         /* skipUnknownArgCheck */ false,
         inferenceContext,
-        /* signatureTracker */ undefined,
         { type: newMethodType },
         /* useSpeculativeModeForArgs */ false
     );
@@ -702,8 +665,7 @@ function validateMetaclassCall(
     argList: FunctionArgument[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
-    inferenceContext: InferenceContext | undefined,
-    signatureTracker: UniqueSignatureTracker | undefined
+    inferenceContext: InferenceContext | undefined
 ): CallResult | undefined {
     const metaclassCallMethodInfo = getBoundCallMethod(evaluator, errorNode, type);
 
@@ -717,8 +679,7 @@ function validateMetaclassCall(
         metaclassCallMethodInfo,
         /* typeVarContext */ undefined,
         skipUnknownArgCheck,
-        inferenceContext,
-        signatureTracker
+        inferenceContext
     );
 
     // If the return type is unannotated, don't use the inferred return type.

@@ -37,7 +37,7 @@ import * as DeclarationUtils from './declarationUtils';
 import { SymbolWithScope } from './scope';
 import { Symbol } from './symbol';
 import { PrintTypeFlags } from './typePrinter';
-import { AssignTypeFlags, ClassMember, InferenceContext, MemberAccessFlags, UniqueSignatureTracker } from './typeUtils';
+import { AssignTypeFlags, ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 import {
     AnyType,
@@ -516,8 +516,7 @@ export interface TypeEvaluator {
         typeResult: TypeResult<OverloadedFunctionType>,
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
+        inferenceContext: InferenceContext | undefined
     ) => CallResult;
     validateInitSubclassArgs: (node: ClassNode, classType: ClassType) => void;
 
@@ -553,11 +552,7 @@ export interface TypeEvaluator {
         emitNotIterableError?: boolean
     ) => TypeResult | undefined;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
-    getTypeOfArgument: (
-        arg: FunctionArgument,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
-    ) => TypeResult;
+    getTypeOfArgument: (arg: FunctionArgument, inferenceContext: InferenceContext | undefined) => TypeResult;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     expandPromotionTypes: (node: ParseNode, type: Type) => Type;
     makeTopLevelTypeVarsConcrete: (type: Type, makeParamSpecsConcrete?: boolean) => Type;
@@ -644,8 +639,7 @@ export interface TypeEvaluator {
         callTypeResult: TypeResult,
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean | undefined,
-        inferenceContext: InferenceContext | undefined,
-        signatureTracker: UniqueSignatureTracker | undefined
+        inferenceContext: InferenceContext | undefined
     ) => CallResult;
     validateTypeArg: (argResult: TypeResultWithNode, options?: ValidateTypeArgsOptions) => boolean;
     assignTypeToExpression: (target: ExpressionNode, typeResult: TypeResult, srcExpr: ExpressionNode) => void;
