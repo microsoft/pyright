@@ -1536,13 +1536,13 @@ export function populateTypeVarContextForSelfType(
 
 // Looks for duplicate function types within the type and ensures that
 // if they are generic, they have unique type variables.
-export function ensureFunctionSignaturesAreUnique(
-    type: Type,
+export function ensureFunctionSignaturesAreUnique<T extends Type>(
+    type: T,
     signatureTracker: UniqueSignatureTracker,
     expressionOffset: number
-): Type {
+): T {
     const transformer = new UniqueFunctionSignatureTransformer(signatureTracker, expressionOffset);
-    return transformer.apply(type, 0);
+    return transformer.apply(type, 0) as T;
 }
 
 export function updateTypeWithInternalTypeVars<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[]): T;
@@ -4196,10 +4196,6 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
         sourceType: FunctionType,
         recursionCount: number
     ): FunctionType | OverloadedFunctionType {
-        if (sourceType.priv.trackedSignatures) {
-            this._signatureTracker.addTrackedSignatures(sourceType.priv.trackedSignatures);
-        }
-
         // If this function is not generic, there's no need to check for uniqueness.
         if (sourceType.shared.typeParameters.length === 0) {
             return super.transformTypeVarsInFunctionType(sourceType, recursionCount);

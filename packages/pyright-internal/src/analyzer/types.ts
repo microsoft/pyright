@@ -1661,12 +1661,6 @@ export interface FunctionDetailsPriv {
     // refers back to the overloaded function type.
     overloaded?: OverloadedFunctionType;
 
-    // If this function is a callable that was returned by another
-    // function call, the signatures of the function that was used
-    // for that call and any other signatures that were passed as
-    // arguments to it.
-    trackedSignatures?: SignatureWithOffsets[];
-
     // If this function is created with a "Callable" annotation with
     // type arguments? This allows us to detect and report an error
     // when this is used in an isinstance call.
@@ -1925,8 +1919,7 @@ export namespace FunctionType {
         type: FunctionType,
         newScopeId: TypeVarScopeId | undefined,
         newConstructorScopeId: TypeVarScopeId | undefined,
-        typeParameters: TypeVarType[],
-        trackedSignatures?: SignatureWithOffsets[]
+        typeParameters: TypeVarType[]
     ): FunctionType {
         const newFunction = TypeBase.cloneType(type);
 
@@ -1935,7 +1928,6 @@ export namespace FunctionType {
         newFunction.shared.typeVarScopeId = newScopeId;
         newFunction.priv.constructorTypeVarScopeId = newConstructorScopeId;
         newFunction.shared.typeParameters = typeParameters;
-        newFunction.priv.trackedSignatures = trackedSignatures;
 
         FunctionType.addHigherOrderTypeVarScopeIds(
             newFunction,
