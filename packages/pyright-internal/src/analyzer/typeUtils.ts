@@ -1441,20 +1441,18 @@ export function isTupleIndexUnambiguous(type: ClassType, index: number) {
         return false;
     }
 
-    if (index < 0) {
-        if (isUnboundedTupleClass(type) || type.priv.tupleTypeArguments.length + index < 0) {
-            return false;
-        }
-    }
-
-    let unambiguousIndexLimit = type.priv.tupleTypeArguments.findIndex(
+    const unboundedIndex = type.priv.tupleTypeArguments.findIndex(
         (t) => t.isUnbounded || isUnpackedVariadicTypeVar(t.type)
     );
-    if (unambiguousIndexLimit < 0) {
-        unambiguousIndexLimit = type.priv.tupleTypeArguments.length;
+
+    if (index < 0) {
+        const lowerIndexLimit = unboundedIndex < 0 ? 0 : unboundedIndex;
+        index += type.priv.tupleTypeArguments.length;
+        return index >= lowerIndexLimit;
     }
 
-    return index < unambiguousIndexLimit;
+    const upperIndexLimit = unboundedIndex < 0 ? type.priv.tupleTypeArguments.length : unboundedIndex;
+    return index < upperIndexLimit;
 }
 
 // Partially specializes a type within the context of a specified
