@@ -23882,12 +23882,6 @@ export function createTypeEvaluator(
             return true;
         }
 
-        // If we're in "overload overlap" mode, convert top-level type variables
-        // to their concrete forms in the source.
-        if ((flags & AssignTypeFlags.OverloadOverlapCheck) !== 0) {
-            srcType = makeTopLevelTypeVarsConcrete(srcType);
-        }
-
         // Strip flags we don't want to propagate to other calls.
         const originalFlags = flags;
         flags &= ~AssignTypeFlags.AllowBoolTypeGuard;
@@ -25462,12 +25456,14 @@ export function createTypeEvaluator(
         let specializedDestType = destType;
         let doSpecializationStep = false;
 
-        if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
-            specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, { useNarrowBoundOnly: true });
-            doSpecializationStep = requiresSpecialization(specializedDestType);
-        } else {
-            specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext, { useNarrowBoundOnly: true });
-            doSpecializationStep = requiresSpecialization(specializedSrcType);
+        if ((flags & AssignTypeFlags.OverloadOverlapCheck) === 0) {
+            if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
+                specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, { useNarrowBoundOnly: true });
+                doSpecializationStep = requiresSpecialization(specializedDestType);
+            } else {
+                specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext, { useNarrowBoundOnly: true });
+                doSpecializationStep = requiresSpecialization(specializedSrcType);
+            }
         }
 
         // Is an additional specialization step required?
