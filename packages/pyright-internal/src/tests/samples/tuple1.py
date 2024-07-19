@@ -201,7 +201,7 @@ def func13(
     reveal_type(v17, expected_text="int | Union[*Ts@func13] | float")
 
     v18 = f[-1]
-    reveal_type(v18, expected_text="int | Union[*Ts@func13] | float")
+    reveal_type(v18, expected_text="float")
 
 
 def func14():
@@ -286,3 +286,10 @@ def func20(v: tuple[Never]):
 def func21(x: tuple[Any, ...], *args: *Ts) -> tuple[*Ts]:
     args = x
     return args
+
+
+def func22(x: tuple[*tuple[int, ...], float, str]):
+    reveal_type(x[0], expected_text="int | float | str")
+    reveal_type(x[-1], expected_text="str")
+    reveal_type(x[-2], expected_text="float")
+    reveal_type(x[-3], expected_text="int")
