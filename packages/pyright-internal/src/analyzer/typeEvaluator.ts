@@ -307,7 +307,6 @@ import {
     ModuleType,
     NeverType,
     OverloadedFunctionType,
-    SignatureWithOffsets,
     TupleTypeArgument,
     Type,
     TypeBase,
@@ -424,6 +423,11 @@ interface ValidateArgTypeOptions {
     skipBareTypeVarExpectedType?: boolean;
     useNarrowBoundOnly?: boolean;
     conditionFilter?: TypeCondition[];
+}
+
+interface SignatureTrackerStackEntry {
+    tracker: UniqueSignatureTracker;
+    rootNode: ParseNode;
 }
 
 // This table contains the names of several built-in types that
@@ -614,7 +618,7 @@ export function createTypeEvaluator(
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: Map<number, TypeCacheEntry> | undefined;
     let isPrefetchedTypesInitialized = false;
-    let uniqueSignatureTracker: UniqueSignatureTracker | undefined;
+    const signatureTrackerStack: SignatureTrackerStackEntry[] = [];
 
     // Various types prefetched from stdlib stubs
     let noneTypeClass: Type | undefined;
@@ -1093,7 +1097,7 @@ export function createTypeEvaluator(
         if (node.nodeType === ParseNodeType.Name || node.nodeType === ParseNodeType.MemberAccess) {
             // If this is a generic function and there is a signature tracker,
             // make sure the signature is unique.
-            typeResult.type = ensureSignatureIsUnique(typeResult.type, node.start);
+            typeResult.type = ensureSignatureIsUnique(typeResult.type, node);
         }
 
         // If there was an expected type, make sure that the result type is compatible.
@@ -1163,7 +1167,7 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.Call: {
-                typeResult = useSignatureTracker(() => getTypeOfCall(node, flags, inferenceContext));
+                typeResult = useSignatureTracker(node, () => getTypeOfCall(node, flags, inferenceContext));
                 break;
             }
 
@@ -8167,7 +8171,7 @@ export function createTypeEvaluator(
 
         let typeResult: TypeResult = { type: UnknownType.create() };
 
-        baseTypeResult.type = ensureSignatureIsUnique(baseTypeResult.type, node.start);
+        baseTypeResult.type = ensureSignatureIsUnique(baseTypeResult.type, node);
 
         if (!isTypeAliasPlaceholder(baseTypeResult.type)) {
             if (node.d.leftExpr.nodeType === ParseNodeType.Name && node.d.leftExpr.d.value === 'super') {
@@ -9082,7 +9086,7 @@ export function createTypeEvaluator(
         let matches: MatchArgsToParamsResult[] = [];
         const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
-        useSignatureTracker(() => {
+        useSignatureTracker(errorNode, () => {
             // Create a list of potential overload matches based on arguments.
             OverloadedFunctionType.getOverloads(typeResult.type).forEach((overload) => {
                 useSpeculativeMode(speculativeNode, () => {
@@ -11326,7 +11330,7 @@ export function createTypeEvaluator(
     ): CallResult {
         const type = matchResults.overload;
 
-        matchResults.overload = ensureSignatureIsUnique(matchResults.overload, errorNode.start);
+        matchResults.overload = ensureSignatureIsUnique(matchResults.overload, errorNode);
 
         let expectedType: Type | undefined = inferenceContext?.expectedType;
 
@@ -11804,12 +11808,7 @@ export function createTypeEvaluator(
             }
         }
 
-        specializedReturnType = adjustCallableReturnType(
-            type,
-            specializedReturnType,
-            liveTypeVarScopes,
-            uniqueSignatureTracker?.getTrackedSignatures()
-        );
+        specializedReturnType = adjustCallableReturnType(type, specializedReturnType, liveTypeVarScopes);
 
         if (specializedInitSelfType) {
             specializedInitSelfType = applySolvedTypeVars(specializedInitSelfType, typeVarContext);
@@ -11868,16 +11867,10 @@ export function createTypeEvaluator(
     // to allow these type vars to be solved. This won't work with overloads
     // or unions of callables. It's intended for a specific use case. We may
     // need to make this more sophisticated in the future.
-    // The trackedSignatures parameter supplies a list of function signatures
-    // that were used for the function and the arguments passed to it. This is
-    // important because the callable return value may be called again with
-    // one of these signatures, so we may need to "uniquify" the type parameters
-    // to avoid conflicts.
     function adjustCallableReturnType(
         callableType: FunctionType,
         returnType: Type,
-        liveTypeVarScopes: TypeVarScopeId[],
-        trackedSignatures?: SignatureWithOffsets[]
+        liveTypeVarScopes: TypeVarScopeId[]
     ): Type {
         if (isFunction(returnType) && !returnType.shared.name && callableType.shared.typeVarScopeId) {
             // What type variables are referenced in the callable return type? Do not include any live type variables.
@@ -11893,8 +11886,7 @@ export function createTypeEvaluator(
                     returnType,
                     callableType.shared.typeVarScopeId,
                     callableType.priv.constructorTypeVarScopeId,
-                    typeVarsInReturnType,
-                    trackedSignatures
+                    typeVarsInReturnType
                 );
             }
         }
@@ -11913,7 +11905,7 @@ export function createTypeEvaluator(
         skipUnknownArgCheck = false,
         inferenceContext: InferenceContext | undefined
     ): CallResult {
-        typeResult.type = ensureSignatureIsUnique(typeResult.type, errorNode.start);
+        typeResult.type = ensureSignatureIsUnique(typeResult.type, errorNode);
 
         const matchResults = matchArgsToParams(errorNode, argList, typeResult, 0);
 
@@ -12159,7 +12151,7 @@ export function createTypeEvaluator(
                 // If the type includes multiple instances of a generic function
                 // signature, force the type arguments for the duplicates to have
                 // unique names.
-                argType = ensureSignatureIsUnique(argType, argParam.argument.valueExpression.start);
+                argType = ensureSignatureIsUnique(argType, argParam.argument.valueExpression);
 
                 if (exprTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
@@ -20919,30 +20911,47 @@ export function createTypeEvaluator(
         }
     }
 
-    function useSignatureTracker<T>(callback: () => T): T {
-        const oldSigTracker = uniqueSignatureTracker;
+    function getSignatureTrackerForNode(node: ParseNode): UniqueSignatureTracker | undefined {
+        for (let i = signatureTrackerStack.length - 1; i >= 0; i--) {
+            const rootNode = signatureTrackerStack[i].rootNode;
+            if (ParseTreeUtils.isNodeContainedWithin(node, rootNode)) {
+                return signatureTrackerStack[i].tracker;
+            }
+        }
+
+        return undefined;
+    }
+
+    function useSignatureTracker<T>(node: ParseNode, callback: () => T): T {
+        const tracker = getSignatureTrackerForNode(node);
 
         try {
             // If a signature tracker doesn't already exist, allocate one.
-            if (!oldSigTracker) {
-                uniqueSignatureTracker = new UniqueSignatureTracker();
+            if (!tracker) {
+                signatureTrackerStack.push({
+                    tracker: new UniqueSignatureTracker(),
+                    rootNode: node,
+                });
             }
 
             const result = callback();
 
             return result;
         } finally {
-            uniqueSignatureTracker = oldSigTracker;
+            if (!tracker) {
+                signatureTrackerStack.pop();
+            }
         }
     }
 
-    function ensureSignatureIsUnique<T extends Type>(type: T, expressionOffset: number): T {
-        if (!uniqueSignatureTracker) {
+    function ensureSignatureIsUnique<T extends Type>(type: T, node: ParseNode): T {
+        const tracker = getSignatureTrackerForNode(node);
+        if (!tracker) {
             return type;
         }
 
         if (isFunction(type) || isOverloadedFunction(type)) {
-            return ensureFunctionSignaturesAreUnique(type, uniqueSignatureTracker, expressionOffset);
+            return ensureFunctionSignaturesAreUnique(type, tracker, node.start);
         }
 
         return type;

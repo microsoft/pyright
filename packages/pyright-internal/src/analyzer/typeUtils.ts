@@ -4196,10 +4196,6 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
         sourceType: FunctionType,
         recursionCount: number
     ): FunctionType | OverloadedFunctionType {
-        if (sourceType.priv.trackedSignatures) {
-            this._signatureTracker.addTrackedSignatures(sourceType.priv.trackedSignatures);
-        }
-
         // If this function is not generic, there's no need to check for uniqueness.
         if (sourceType.shared.typeParameters.length === 0) {
             return super.transformTypeVarsInFunctionType(sourceType, recursionCount);
