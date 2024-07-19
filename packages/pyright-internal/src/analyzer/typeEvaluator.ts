@@ -20927,11 +20927,19 @@ export function createTypeEvaluator(
 
             const result = callback();
 
-            return result;
-        } finally {
             if (!tracker) {
                 signatureTrackerStack.pop();
             }
+
+            return result;
+        } catch (e) {
+            // We don't use finally here because the TypeScript debugger doesn't
+            // handle finally well when single stepping.
+            if (!tracker) {
+                signatureTrackerStack.pop();
+            }
+
+            throw e;
         }
     }
 
