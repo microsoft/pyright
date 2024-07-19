@@ -180,6 +180,21 @@ const enablePrintCallNoReturn = false;
 // and complete results, but it can be very expensive.
 const inferNoReturnForUnannotatedFunctions = false;
 
+// In rare circumstances, it's possible for types in a loop not to converge. This
+// can happen, for example, if there are many symbols that depend on each other
+// and their types depend on complex overloads that can resolve to Any under
+// certain circumstances. This defines the max number of times we'll attempt to
+// evaluate an antecedent in a loop before we give up and "pin" the evaluated
+// type for that antecedent. The number is somewhat arbitrary. Too low and
+// it will cause incorrect types to be evaluated even when types could converge.
+// Too high, and it will cause long hangs before giving up.
+const maxConvergenceAttemptLimit = 256;
+
+// Should a message be logged when the convergence limit is hit? This is useful
+// for debugging but not something that is actionable for users, so disable by
+// default.
+const enablePrintConvergenceLimitHit = false;
+
 export function getCodeFlowEngine(
     evaluator: TypeEvaluator,
     speculativeTypeTracker: SpeculativeTypeTracker
@@ -191,6 +206,7 @@ export function getCodeFlowEngine(
     let flowIncompleteGeneration = 1;
     let noReturnAnalysisDepth = 0;
     let contextManagerAnalysisDepth = 0;
+    let maxConvergenceLimitHit = false;
 
     // Creates a new code flow analyzer that can be used to narrow the types
     // of the expressions within an execution context. Each code flow analyzer
@@ -1011,6 +1027,17 @@ export function getCodeFlowEngine(
                                 : undefined;
                         if (subtypeEntry === undefined || (!subtypeEntry?.isPending && subtypeEntry?.isIncomplete)) {
                             const entryEvaluationCount = subtypeEntry === undefined ? 0 : subtypeEntry.evaluationCount;
+
+                            // Does it look like this will never converge? If so, stick with the
+                            // previously-computed type for this entry.
+                            if (entryEvaluationCount >= maxConvergenceAttemptLimit) {
+                                // Log this only once.
+                                if (!maxConvergenceLimitHit && enablePrintConvergenceLimitHit) {
+                                    console.log('Types failed to converge during code flow analysis');
+                                }
+                                maxConvergenceLimitHit = true;
+                                return;
+                            }
 
                             // Set this entry to "pending" to prevent infinite recursion.
                             // We'll mark it "not pending" below.
