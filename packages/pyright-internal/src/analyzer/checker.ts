@@ -2755,7 +2755,7 @@ export class Checker extends ParseTreeWalker {
             functionType,
             prevOverload,
             /* diag */ undefined,
-            new TypeVarContext(getTypeVarScopeId(functionType)),
+            new TypeVarContext(),
             /* srcTypeVarContext */ undefined,
             flags
         );

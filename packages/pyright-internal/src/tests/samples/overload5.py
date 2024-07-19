@@ -455,3 +455,17 @@ class ClassE(E2[E4], Generic[TE1]):
 
     def unpack(self) -> Sequence[Any]:
         ...
+
+
+@overload
+def func24(f: Callable[[int], str]) -> int:
+    ...
+
+
+@overload
+def func24(f: Callable[[_T1], str]) -> float:
+    ...
+
+
+def func24(f: Any) -> Any:
+    return f
