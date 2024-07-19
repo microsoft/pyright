@@ -41,7 +41,6 @@ import {
     lookUpObjectMember,
     makeInferenceContext,
     MemberAccessFlags,
-    UniqueSignatureTracker,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 
@@ -58,11 +57,10 @@ export function applyConstructorTransform(
     errorNode: ExpressionNode,
     argList: FunctionArgument[],
     classType: ClassType,
-    result: FunctionResult,
-    signatureTracker: UniqueSignatureTracker | undefined
+    result: FunctionResult
 ): FunctionResult {
     if (classType.shared.fullName === 'functools.partial') {
-        return applyPartialTransform(evaluator, errorNode, argList, result, signatureTracker);
+        return applyPartialTransform(evaluator, errorNode, argList, result);
     }
 
     // By default, return the result unmodified.
@@ -74,8 +72,7 @@ function applyPartialTransform(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     argList: FunctionArgument[],
-    result: FunctionResult,
-    signatureTracker: UniqueSignatureTracker | undefined
+    result: FunctionResult
 ): FunctionResult {
     // We assume that the normal return result is a functools.partial class instance.
     if (!isClassInstance(result.returnType) || result.returnType.shared.fullName !== 'functools.partial') {
@@ -96,11 +93,7 @@ function applyPartialTransform(
         return result;
     }
 
-    const origFunctionTypeResult = evaluator.getTypeOfArgument(
-        argList[0],
-        /* inferenceContext */ undefined,
-        signatureTracker
-    );
+    const origFunctionTypeResult = evaluator.getTypeOfArgument(argList[0], /* inferenceContext */ undefined);
     let origFunctionType = origFunctionTypeResult.type;
     const origFunctionTypeConcrete = evaluator.makeTopLevelTypeVarsConcrete(origFunctionType);
 
