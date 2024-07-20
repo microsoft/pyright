@@ -16,9 +16,7 @@ import { appendArray } from '../common/collectionUtils';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
-import { addConstraintsForExpectedType } from './constraintSolver';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
-import { getTypeVarScopesForNode } from './parseTreeUtils';
 import { CallResult, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     InferenceContext,
@@ -38,7 +36,6 @@ import {
     mapSubtypes,
     selfSpecializeClass,
     specializeTupleClass,
-    transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 import {
@@ -474,151 +471,49 @@ function validateInitMethod(
     inferenceContext: InferenceContext | undefined,
     initMethodType: Type
 ): CallResult {
-    let returnType: Type | undefined;
     let isTypeIncomplete = false;
     let argumentErrors = false;
     const overloadsUsedForCall: FunctionType[] = [];
 
-    // If there is an expected type, analyze the __init__ call for each of the
-    // subtypes that comprise the expected type. If one or more analyzes with no
-    // errors, use those results. This requires special-case processing because
-    // the __init__ method doesn't return the expected type. It always
-    // returns None.
-    if (inferenceContext) {
-        let foundWorkingExpectedType = false;
+    const typeVarContext = type.priv.typeArguments
+        ? buildTypeVarContextFromSpecializedClass(type)
+        : new TypeVarContext(getTypeVarScopeId(type));
+    typeVarContext.addSolveForScope(getTypeVarScopeId(initMethodType));
 
-        returnType = mapSubtypes(
-            inferenceContext.expectedType,
-            (expectedSubType) => {
-                // If we've already successfully evaluated the __init__ method with
-                // one expected type, ignore the remaining ones.
-                if (foundWorkingExpectedType) {
-                    return undefined;
-                }
+    const returnTypeOverride = selfSpecializeClass(type);
+    const callResult = evaluator.validateCallArguments(
+        errorNode,
+        argList,
+        { type: initMethodType },
+        typeVarContext,
+        skipUnknownArgCheck,
+        inferenceContext ? { ...inferenceContext, returnTypeOverride } : undefined
+    );
 
-                expectedSubType = transformPossibleRecursiveTypeAlias(expectedSubType);
-
-                // If the expected type is the same type as the class and the class
-                // is already explicitly specialized, don't override the explicit
-                // specialization.
-                if (
-                    isClassInstance(expectedSubType) &&
-                    ClassType.isSameGenericClass(type, expectedSubType) &&
-                    type.priv.typeArguments
-                ) {
-                    return undefined;
-                }
-
-                const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
-                typeVarContext.addSolveForScope(getTypeVarScopeId(initMethodType));
-
-                if (
-                    !addConstraintsForExpectedType(
-                        evaluator,
-                        ClassType.cloneAsInstance(type),
-                        expectedSubType,
-                        typeVarContext,
-                        getTypeVarScopesForNode(errorNode),
-                        errorNode.start
-                    )
-                ) {
-                    return undefined;
-                }
-
-                const specializedConstructor = applySolvedTypeVars(initMethodType, typeVarContext);
-
-                let callResult: CallResult | undefined;
-                callResult = evaluator.useSpeculativeMode(errorNode, () => {
-                    return evaluator.validateCallArguments(
-                        errorNode,
-                        argList,
-                        { type: specializedConstructor },
-                        typeVarContext.clone(),
-                        skipUnknownArgCheck,
-                        /* inferenceContext */ undefined
-                    );
-                });
-
-                if (callResult.argumentErrors) {
-                    return undefined;
-                }
-
-                // Call validateCallArguments again, this time without speculative
-                // mode, so any errors are reported.
-                callResult = evaluator.validateCallArguments(
-                    errorNode,
-                    argList,
-                    { type: specializedConstructor },
-                    typeVarContext,
-                    skipUnknownArgCheck,
-                    /* inferenceContext */ undefined
-                );
-
-                if (callResult.isTypeIncomplete) {
-                    isTypeIncomplete = true;
-                }
-
-                if (callResult.argumentErrors) {
-                    argumentErrors = true;
-                }
-
-                if (callResult.overloadsUsedForCall) {
-                    appendArray(overloadsUsedForCall, callResult.overloadsUsedForCall);
-                }
-
-                // Note that we've found an expected type that works.
-                foundWorkingExpectedType = true;
-
-                return applyExpectedSubtypeForConstructor(evaluator, type, expectedSubType, typeVarContext);
-            },
-            { sortSubtypes: true }
-        );
-
-        if (isNever(returnType) || argumentErrors) {
-            returnType = undefined;
-        }
+    let adjustedClassType = type;
+    if (
+        callResult.specializedInitSelfType &&
+        isClassInstance(callResult.specializedInitSelfType) &&
+        ClassType.isSameGenericClass(callResult.specializedInitSelfType, adjustedClassType)
+    ) {
+        adjustedClassType = ClassType.cloneAsInstantiable(callResult.specializedInitSelfType);
     }
 
-    if (!returnType) {
-        const typeVarContext = type.priv.typeArguments
-            ? buildTypeVarContextFromSpecializedClass(type)
-            : new TypeVarContext(getTypeVarScopeId(type));
+    const returnType = applyExpectedTypeForConstructor(
+        evaluator,
+        adjustedClassType,
+        /* inferenceContext */ undefined,
+        typeVarContext
+    );
 
-        typeVarContext.addSolveForScope(getTypeVarScopeId(initMethodType));
-        const callResult = evaluator.validateCallArguments(
-            errorNode,
-            argList,
-            { type: initMethodType },
-            typeVarContext,
-            skipUnknownArgCheck,
-            /* inferenceContext */ undefined
-        );
+    if (callResult.isTypeIncomplete) {
+        isTypeIncomplete = true;
+    }
 
-        let adjustedClassType = type;
-        if (
-            callResult.specializedInitSelfType &&
-            isClassInstance(callResult.specializedInitSelfType) &&
-            ClassType.isSameGenericClass(callResult.specializedInitSelfType, adjustedClassType)
-        ) {
-            adjustedClassType = ClassType.cloneAsInstantiable(callResult.specializedInitSelfType);
-        }
-
-        returnType = applyExpectedTypeForConstructor(
-            evaluator,
-            adjustedClassType,
-            /* inferenceContext */ undefined,
-            typeVarContext
-        );
-
-        if (callResult.isTypeIncomplete) {
-            isTypeIncomplete = true;
-        }
-
-        if (callResult.argumentErrors) {
-            argumentErrors = true;
-        } else if (callResult.overloadsUsedForCall) {
-            overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
-        }
+    if (callResult.argumentErrors) {
+        argumentErrors = true;
+    } else if (callResult.overloadsUsedForCall) {
+        overloadsUsedForCall.push(...callResult.overloadsUsedForCall);
     }
 
     return { argumentErrors, returnType, isTypeIncomplete, overloadsUsedForCall };

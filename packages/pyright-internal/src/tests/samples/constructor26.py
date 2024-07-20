@@ -54,5 +54,5 @@ class Test3(Generic[T, U]):
     def test3(self, ts: list[T], us: list[U]) -> None:
         x1: Test3[U, T] = Test3(us, ts)
 
-        # This should generate an error.
+        # This should generate two errors.
         x2: Test3[list[U], list[T]] = Test3(us, ts)
