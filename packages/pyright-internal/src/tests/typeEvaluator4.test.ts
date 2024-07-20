@@ -406,17 +406,13 @@ test('DataClassDescriptors2', () => {
 });
 
 test('DataClassConverter1', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassConverter1.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassConverter1.py']);
 
     TestUtils.validateResults(analysisResults, 3);
 });
 
 test('DataClassConverter2', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassConverter2.py'], configOptions);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassConverter2.py']);
 
     TestUtils.validateResults(analysisResults, 4);
 });
