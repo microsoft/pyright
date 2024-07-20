@@ -265,6 +265,7 @@ export interface ApplyTypeVarOptions {
 export interface InferenceContext {
     expectedType: Type;
     isTypeIncomplete?: boolean;
+    returnTypeOverride?: Type;
 }
 
 export interface RequiresSpecializationOptions {
@@ -409,19 +410,32 @@ export function isTypeVarSame(type1: TypeVarType, type2: Type) {
     return isCompatible;
 }
 
-export function makeInferenceContext(expectedType: undefined, isTypeIncomplete?: boolean): undefined;
-export function makeInferenceContext(expectedType: Type, isTypeIncomplete?: boolean): InferenceContext;
-export function makeInferenceContext(expectedType?: Type, isTypeIncomplete?: boolean): InferenceContext | undefined;
+export function makeInferenceContext(
+    expectedType: undefined,
+    isTypeIncomplete?: boolean,
+    returnTypeOverride?: Type | undefined
+): undefined;
+export function makeInferenceContext(
+    expectedType: Type,
+    isTypeIncomplete?: boolean,
+    returnTypeOverride?: Type | undefined
+): InferenceContext;
+export function makeInferenceContext(
+    expectedType?: Type,
+    isTypeIncomplete?: boolean,
+    returnTypeOverride?: Type | undefined
+): InferenceContext | undefined;
 
 export function makeInferenceContext(
     expectedType: Type | undefined,
-    isTypeIncomplete?: boolean
+    isTypeIncomplete?: boolean,
+    returnTypeOverride?: Type | undefined
 ): InferenceContext | undefined {
     if (!expectedType) {
         return undefined;
     }
 
-    return { expectedType, isTypeIncomplete };
+    return { expectedType, isTypeIncomplete, returnTypeOverride };
 }
 
 export interface MapSubtypesOptions {

@@ -11334,16 +11334,17 @@ export function createTypeEvaluator(
 
         // Can we safely ignore the inference context, either because it's not provided
         // or will have no effect? If so, avoid the extra work.
-        const returnType = getFunctionEffectiveReturnType(type);
+        const returnType = inferenceContext?.returnTypeOverride ?? getFunctionEffectiveReturnType(type);
         if (!returnType || !requiresSpecialization(returnType)) {
             expectedType = undefined;
         }
 
         const tryExpectedType = (expectedSubtype: Type): number => {
+            const clonedTypeVarContext = typeVarContext.clone();
             const callResult = validateArgTypesWithExpectedType(
                 errorNode,
                 matchResults,
-                typeVarContext.clone(),
+                clonedTypeVarContext,
                 /* skipUnknownArgCheck */ true,
                 expectedSubtype,
                 returnType
@@ -11353,10 +11354,14 @@ export function createTypeEvaluator(
             // We'll look for a subtype that produces no argument errors and has
             // no Unknowns in the return type.
             if (!callResult.argumentErrors && callResult.returnType) {
+                const returnType = inferenceContext?.returnTypeOverride
+                    ? applySolvedTypeVars(inferenceContext.returnTypeOverride, clonedTypeVarContext)
+                    : callResult.returnType;
+
                 if (
                     assignType(
                         expectedSubtype,
-                        callResult.returnType,
+                        returnType,
                         /* diag */ undefined,
                         /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
@@ -11926,7 +11931,11 @@ export function createTypeEvaluator(
             matchResults,
             typeVarContext,
             skipUnknownArgCheck,
-            makeInferenceContext(inferenceContext?.expectedType, inferenceContext?.isTypeIncomplete)
+            makeInferenceContext(
+                inferenceContext?.expectedType,
+                inferenceContext?.isTypeIncomplete,
+                inferenceContext?.returnTypeOverride
+            )
         );
     }
 
