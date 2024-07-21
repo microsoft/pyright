@@ -171,7 +171,6 @@ import {
     EnumLiteral,
     FunctionParam,
     FunctionType,
-    FunctionTypeFlags,
     OverloadedFunctionType,
     Type,
     TypeBase,
@@ -5663,18 +5662,6 @@ export class Checker extends ParseTreeWalker {
         if (FunctionType.hasDefaultParameters(initMemberType) || FunctionType.hasDefaultParameters(newMemberType)) {
             return;
         }
-
-        // We'll set the "SkipArgsKwargs" flag for pragmatic reasons since __new__
-        // often has an *args and/or **kwargs. We'll also set the ParamSpecValue
-        // because we don't care about the return type for this check.
-        initMemberType = FunctionType.cloneWithNewFlags(
-            initMemberType,
-            initMemberType.shared.flags | FunctionTypeFlags.GradualCallableForm | FunctionTypeFlags.ParamSpecValue
-        );
-        newMemberType = FunctionType.cloneWithNewFlags(
-            newMemberType,
-            initMemberType.shared.flags | FunctionTypeFlags.GradualCallableForm | FunctionTypeFlags.ParamSpecValue
-        );
 
         if (
             !this._evaluator.assignType(
