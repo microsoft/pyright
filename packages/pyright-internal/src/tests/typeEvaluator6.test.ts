@@ -807,7 +807,7 @@ test('InconsistentConstructor1', () => {
     // Enable it as an error.
     configOptions.diagnosticRuleSet.reportInconsistentConstructor = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['inconsistentConstructor1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('ClassGetItem1', () => {
