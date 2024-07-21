@@ -23035,7 +23035,7 @@ export function createTypeEvaluator(
                             /* diag */ undefined,
                             typeVarContext,
                             /* srcTypeVarContext */ undefined,
-                            flags | AssignTypeFlags.SkipSelfClsParamCheck,
+                            flags | AssignTypeFlags.SkipSelfClsTypeCheck,
                             recursionCount
                         )
                     ) {
@@ -25538,7 +25538,7 @@ export function createTypeEvaluator(
             if (
                 paramIndex === 0 &&
                 destType.shared.methodClass &&
-                (flags & AssignTypeFlags.SkipSelfClsParamCheck) !== 0
+                (flags & AssignTypeFlags.SkipSelfClsTypeCheck) !== 0
             ) {
                 if (FunctionType.isInstanceMethod(destType) || FunctionType.isClassMethod(destType)) {
                     continue;
