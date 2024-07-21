@@ -1416,7 +1416,7 @@ function narrowTypeForIsInstanceInternal(
                                 /* destTypeVarContext */ undefined,
                                 /* srcTypeVarContext */ undefined,
                                 AssignTypeFlags.IgnoreTypeVarScope |
-                                    AssignTypeFlags.IgnoreProtocolAssignmentCheck |
+                                    AssignTypeFlags.SkipProtocolAssignmentCheck |
                                     AssignTypeFlags.AllowIsinstanceSpecialForms
                             )
                         ) {

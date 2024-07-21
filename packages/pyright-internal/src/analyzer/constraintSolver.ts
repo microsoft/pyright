@@ -945,7 +945,7 @@ function assignTypeToParamSpec(
                     /* diag */ undefined,
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
-                    AssignTypeFlags.SkipFunctionReturnTypeCheck,
+                    AssignTypeFlags.SkipReturnTypeCheck,
                     recursionCount
                 );
 
@@ -955,7 +955,7 @@ function assignTypeToParamSpec(
                     /* diag */ undefined,
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
-                    AssignTypeFlags.SkipFunctionReturnTypeCheck,
+                    AssignTypeFlags.SkipReturnTypeCheck,
                     recursionCount
                 );
 

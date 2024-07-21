@@ -2746,9 +2746,9 @@ export class Checker extends ParseTreeWalker {
             return false;
         }
 
-        let flags = AssignTypeFlags.SkipFunctionReturnTypeCheck | AssignTypeFlags.OverloadOverlapCheck;
+        let flags = AssignTypeFlags.SkipReturnTypeCheck | AssignTypeFlags.OverloadOverlap;
         if (partialOverlap) {
-            flags |= AssignTypeFlags.PartialOverloadOverlapCheck;
+            flags |= AssignTypeFlags.PartialOverloadOverlap;
         }
 
         return this._evaluator.assignType(
@@ -2776,7 +2776,7 @@ export class Checker extends ParseTreeWalker {
             diag,
             overloadTypeVarContext,
             implTypeVarContext,
-            AssignTypeFlags.SkipFunctionReturnTypeCheck |
+            AssignTypeFlags.SkipReturnTypeCheck |
                 AssignTypeFlags.ReverseTypeVarMatching |
                 AssignTypeFlags.SkipSelfClsTypeCheck
         );
@@ -5683,7 +5683,7 @@ export class Checker extends ParseTreeWalker {
                 /* diag */ undefined,
                 /* destTypeVarContext */ undefined,
                 /* srcTypeVarContext */ undefined,
-                AssignTypeFlags.SkipFunctionReturnTypeCheck
+                AssignTypeFlags.SkipReturnTypeCheck
             ) ||
             !this._evaluator.assignType(
                 initMemberType,
@@ -5691,7 +5691,7 @@ export class Checker extends ParseTreeWalker {
                 /* diag */ undefined,
                 /* destTypeVarContext */ undefined,
                 /* srcTypeVarContext */ undefined,
-                AssignTypeFlags.SkipFunctionReturnTypeCheck
+                AssignTypeFlags.SkipReturnTypeCheck
             )
         ) {
             const displayOnInit = ClassType.isSameGenericClass(initMethodResult.classType, classType);

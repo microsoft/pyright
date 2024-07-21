@@ -23035,7 +23035,7 @@ export function createTypeEvaluator(
                             /* diag */ undefined,
                             typeVarContext,
                             /* srcTypeVarContext */ undefined,
-                            flags | AssignTypeFlags.IgnoreSelfClsParamCompatibility,
+                            flags | AssignTypeFlags.SkipSelfClsParamCheck,
                             recursionCount
                         )
                     ) {
@@ -23870,7 +23870,7 @@ export function createTypeEvaluator(
                     return false;
                 }
 
-                if (isAnyOrUnknown(srcType) && (flags & AssignTypeFlags.OverloadOverlapCheck) !== 0) {
+                if (isAnyOrUnknown(srcType) && (flags & AssignTypeFlags.OverloadOverlap) !== 0) {
                     return false;
                 }
 
@@ -23987,7 +23987,7 @@ export function createTypeEvaluator(
                 const typeVarSubstitution = isEllipsisType(srcType) ? AnyType.create() : srcType;
                 setTypeArgumentsRecursive(destType, typeVarSubstitution, targetTypeVarContext, recursionCount);
             }
-            if ((flags & AssignTypeFlags.OverloadOverlapCheck) === 0) {
+            if ((flags & AssignTypeFlags.OverloadOverlap) === 0) {
                 return true;
             }
         }
@@ -24135,7 +24135,7 @@ export function createTypeEvaluator(
                 // the source must be a "concrete" (non-protocol) class.
                 if (
                     ClassType.isProtocolClass(destType) &&
-                    (flags & AssignTypeFlags.IgnoreProtocolAssignmentCheck) === 0
+                    (flags & AssignTypeFlags.SkipProtocolAssignmentCheck) === 0
                 ) {
                     if (
                         ClassType.isProtocolClass(expandedSrcType) &&
@@ -24218,7 +24218,7 @@ export function createTypeEvaluator(
                     return false;
                 }
 
-                if (isAnyOrUnknown(srcType) && (flags & AssignTypeFlags.OverloadOverlapCheck) !== 0) {
+                if (isAnyOrUnknown(srcType) && (flags & AssignTypeFlags.OverloadOverlap) !== 0) {
                     return false;
                 }
 
@@ -24401,7 +24401,7 @@ export function createTypeEvaluator(
                     }
                 }
             } else if (isAnyOrUnknown(concreteSrcType) && !concreteSrcType.props?.specialForm) {
-                return (flags & AssignTypeFlags.OverloadOverlapCheck) === 0;
+                return (flags & AssignTypeFlags.OverloadOverlap) === 0;
             } else if (isUnion(concreteSrcType)) {
                 return assignType(
                     destType,
@@ -24459,7 +24459,7 @@ export function createTypeEvaluator(
             }
 
             if (isAnyOrUnknown(concreteSrcType)) {
-                return (flags & AssignTypeFlags.OverloadOverlapCheck) === 0;
+                return (flags & AssignTypeFlags.OverloadOverlap) === 0;
             }
 
             if (isOverloadedFunction(concreteSrcType)) {
@@ -24866,7 +24866,7 @@ export function createTypeEvaluator(
 
             // If we're looking for type overlaps and at least one type was matched,
             // consider it as assignable.
-            if ((flags & AssignTypeFlags.PartialOverloadOverlapCheck) !== 0 && matchedSomeSubtypes) {
+            if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0 && matchedSomeSubtypes) {
                 return true;
             }
         }
@@ -24921,7 +24921,7 @@ export function createTypeEvaluator(
         if (isIncompatible) {
             // If we're looking for type overlaps and at least one type was matched,
             // consider it as assignable.
-            if ((flags & AssignTypeFlags.PartialOverloadOverlapCheck) !== 0 && matchedSomeSubtypes) {
+            if ((flags & AssignTypeFlags.PartialOverloadOverlap) !== 0 && matchedSomeSubtypes) {
                 return true;
             }
 
@@ -25332,7 +25332,7 @@ export function createTypeEvaluator(
         let specializedDestType = destType;
         let doSpecializationStep = false;
 
-        if ((flags & AssignTypeFlags.OverloadOverlapCheck) === 0) {
+        if ((flags & AssignTypeFlags.OverloadOverlap) === 0) {
             if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
                 specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, { useNarrowBoundOnly: true });
                 doSpecializationStep = requiresSpecialization(specializedDestType);
@@ -25505,9 +25505,9 @@ export function createTypeEvaluator(
         recursionCount: number
     ): boolean {
         let canAssign = true;
-        const checkReturnType = (flags & AssignTypeFlags.SkipFunctionReturnTypeCheck) === 0;
+        const checkReturnType = (flags & AssignTypeFlags.SkipReturnTypeCheck) === 0;
         const reverseMatching = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0;
-        flags &= ~AssignTypeFlags.SkipFunctionReturnTypeCheck;
+        flags &= ~AssignTypeFlags.SkipReturnTypeCheck;
 
         const destParamSpec = FunctionType.getParamSpecFromArgsKwargs(destType);
         if (destParamSpec) {
@@ -25538,7 +25538,7 @@ export function createTypeEvaluator(
             if (
                 paramIndex === 0 &&
                 destType.shared.methodClass &&
-                (flags & AssignTypeFlags.IgnoreSelfClsParamCompatibility) !== 0
+                (flags & AssignTypeFlags.SkipSelfClsParamCheck) !== 0
             ) {
                 if (FunctionType.isInstanceMethod(destType) || FunctionType.isClassMethod(destType)) {
                     continue;
@@ -27227,7 +27227,7 @@ export function createTypeEvaluator(
                     stripFirstParam = true;
                 }
 
-                return partiallySpecializeFunctionForBoundClassOrObject(
+                return partiallySpecializeBoundMethod(
                     baseType,
                     functionType,
                     memberClass ?? ClassType.cloneAsInstantiable(baseObj),
@@ -27245,7 +27245,7 @@ export function createTypeEvaluator(
                 const baseClass = isInstantiableClass(baseType) ? baseType : ClassType.cloneAsInstantiable(baseType);
                 const clsType = selfType ? (convertToInstantiable(selfType) as ClassType | TypeVarType) : undefined;
 
-                return partiallySpecializeFunctionForBoundClassOrObject(
+                return partiallySpecializeBoundMethod(
                     baseClass,
                     functionType,
                     memberClass ?? baseClass,
@@ -27259,7 +27259,7 @@ export function createTypeEvaluator(
             if (FunctionType.isStaticMethod(functionType)) {
                 const baseClass = isInstantiableClass(baseType) ? baseType : ClassType.cloneAsInstantiable(baseType);
 
-                return partiallySpecializeFunctionForBoundClassOrObject(
+                return partiallySpecializeBoundMethod(
                     baseClass,
                     functionType,
                     memberClass ?? baseClass,
@@ -27280,7 +27280,7 @@ export function createTypeEvaluator(
     // is the type used to reference the member, and the memberClass
     // is the class that provided the member (could be an ancestor of
     // the baseType's class).
-    function partiallySpecializeFunctionForBoundClassOrObject(
+    function partiallySpecializeBoundMethod(
         baseType: ClassType,
         memberType: FunctionType,
         memberClass: ClassType,

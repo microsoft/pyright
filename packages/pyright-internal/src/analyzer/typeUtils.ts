@@ -193,15 +193,15 @@ export const enum AssignTypeFlags {
     // as incompatible. Also, treat all source TypeVars as their
     // concrete counterparts. This option is used for validating
     // whether overload signatures overlap.
-    OverloadOverlapCheck = 1 << 4,
+    OverloadOverlap = 1 << 4,
 
     // When used in conjunction with OverloadOverlapCheck, look
     // for partial overlaps. For example, `int | list` overlaps
     // partially with `int | str`.
-    PartialOverloadOverlapCheck = 1 << 5,
+    PartialOverloadOverlap = 1 << 5,
 
     // For function types, skip the return type check.
-    SkipFunctionReturnTypeCheck = 1 << 6,
+    SkipReturnTypeCheck = 1 << 6,
 
     // Allow bool values to be assigned to TypeGuard[x] types.
     AllowBoolTypeGuard = 1 << 7,
@@ -239,7 +239,7 @@ export const enum AssignTypeFlags {
     // PEP 544 says that if the dest type is a type[Proto] class,
     // the source must be a "concrete" (non-protocol) class. This
     // flag skips this check.
-    IgnoreProtocolAssignmentCheck = 1 << 14,
+    SkipProtocolAssignmentCheck = 1 << 14,
 
     // Normally all special form classes are incompatible with type[T],
     // but a few of them are allowed in the context of an isinstance
@@ -248,7 +248,7 @@ export const enum AssignTypeFlags {
 
     // When comparing two methods, skip the type check for the "self" or "cls"
     // parameters. This is used for variance inference and validation.
-    IgnoreSelfClsParamCompatibility = 1 << 16,
+    SkipSelfClsParamCheck = 1 << 16,
 }
 
 export interface ApplyTypeVarOptions {
