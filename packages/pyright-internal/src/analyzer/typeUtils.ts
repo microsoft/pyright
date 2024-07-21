@@ -236,19 +236,14 @@ export const enum AssignTypeFlags {
     // this step.
     AllowUnspecifiedTypeArguments = 1 << 13,
 
-    // PEP 544 says that if the dest type is a type[Proto] class,
-    // the source must be a "concrete" (non-protocol) class. This
-    // flag skips this check.
-    SkipProtocolAssignmentCheck = 1 << 14,
-
     // Normally all special form classes are incompatible with type[T],
     // but a few of them are allowed in the context of an isinstance
     // or issubclass call.
-    AllowIsinstanceSpecialForms = 1 << 15,
+    AllowIsinstanceSpecialForms = 1 << 14,
 
     // When comparing two methods, skip the type check for the "self" or "cls"
     // parameters. This is used for variance inference and validation.
-    SkipSelfClsParamCheck = 1 << 16,
+    SkipSelfClsParamCheck = 1 << 15,
 }
 
 export interface ApplyTypeVarOptions {

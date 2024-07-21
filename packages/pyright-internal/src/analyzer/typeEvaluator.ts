@@ -24133,10 +24133,7 @@ export function createTypeEvaluator(
             if (isInstantiableClass(expandedSrcType)) {
                 // PEP 544 says that if the dest type is a type[Proto] class,
                 // the source must be a "concrete" (non-protocol) class.
-                if (
-                    ClassType.isProtocolClass(destType) &&
-                    (flags & AssignTypeFlags.SkipProtocolAssignmentCheck) === 0
-                ) {
+                if (ClassType.isProtocolClass(destType)) {
                     if (
                         ClassType.isProtocolClass(expandedSrcType) &&
                         isInstantiableClass(srcType) &&
