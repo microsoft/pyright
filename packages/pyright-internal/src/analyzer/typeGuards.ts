@@ -1415,9 +1415,7 @@ function narrowTypeForIsInstanceInternal(
                                 /* diag */ undefined,
                                 /* destTypeVarContext */ undefined,
                                 /* srcTypeVarContext */ undefined,
-                                AssignTypeFlags.IgnoreTypeVarScope |
-                                    AssignTypeFlags.SkipProtocolAssignmentCheck |
-                                    AssignTypeFlags.AllowIsinstanceSpecialForms
+                                AssignTypeFlags.IgnoreTypeVarScope | AssignTypeFlags.AllowIsinstanceSpecialForms
                             )
                         ) {
                             // If the variable type is a superclass of the isinstance
