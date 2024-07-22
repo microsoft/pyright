@@ -13729,11 +13729,12 @@ export function createTypeEvaluator(
                     isClassInstance(keyType) &&
                     ClassType.isBuiltIn(keyType, 'str') &&
                     isLiteralType(keyType) &&
-                    expectedTypedDictEntries.knownItems.has(keyType.priv.literalValue as string)
+                    (expectedTypedDictEntries.knownItems.has(keyType.priv.literalValue as string) ||
+                        expectedTypedDictEntries.extraItems)
                 ) {
-                    const effectiveValueType = expectedTypedDictEntries.knownItems.get(
-                        keyType.priv.literalValue as string
-                    )!.valueType;
+                    const effectiveValueType =
+                        expectedTypedDictEntries.knownItems.get(keyType.priv.literalValue as string)?.valueType ??
+                        expectedTypedDictEntries.extraItems?.valueType;
                     entryInferenceContext = makeInferenceContext(effectiveValueType);
                     valueTypeResult = getTypeOfExpression(
                         entryNode.d.valueExpr,
