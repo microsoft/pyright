@@ -392,6 +392,14 @@ test('TypedDictClosed7', () => {
     TestUtils.validateResults(analysisResults, 6);
 });
 
+test('TypedDictClosed8', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.enableExperimentalFeatures = true;
+
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDictClosed8.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('DataclassTransform1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform1.py']);
 
