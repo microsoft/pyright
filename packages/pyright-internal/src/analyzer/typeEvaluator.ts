@@ -20491,13 +20491,16 @@ export function createTypeEvaluator(
                     !ClassType.isBuiltIn(typeArgs[0].type, 'Concatenate')
                 ) {
                     // Package up the type arguments into a typeList.
-                    typeArgs = [
-                        {
-                            type: UnknownType.create(),
-                            node: typeArgs[0].node,
-                            typeList: typeArgs,
-                        },
-                    ];
+                    typeArgs =
+                        typeArgs.length > 0
+                            ? [
+                                  {
+                                      type: UnknownType.create(),
+                                      node: typeArgs[0].node,
+                                      typeList: typeArgs,
+                                  },
+                              ]
+                            : [];
                 }
             } else if (typeArgs.length > 1) {
                 const paramSpecTypeArg = typeArgs.find((typeArg) => isParamSpec(typeArg.type));
