@@ -1,6 +1,7 @@
 import datetime
 from _typeshed import Incomplete
-from typing import Literal, NamedTuple, overload
+from typing import Literal, NamedTuple, TypedDict, overload
+from typing_extensions import NotRequired
 
 from docker._types import ContainerWeightDevice, WaitContainerResponse
 from docker.types import EndpointConfig
@@ -10,6 +11,10 @@ from docker.types.services import Mount
 
 from .images import Image
 from .resource import Collection, Model
+
+class _RestartPolicy(TypedDict):
+    MaximumRetryCount: NotRequired[int]
+    Name: NotRequired[Literal["always", "on-failure"]]
 
 class Container(Model):
     @property
@@ -99,7 +104,7 @@ class Container(Model):
         mem_reservation: float | str | None = None,
         memswap_limit: int | str | None = None,
         kernel_memory: int | str | None = None,
-        restart_policy: Incomplete | None = None,
+        restart_policy: _RestartPolicy | None = None,
     ): ...
     def wait(
         self, *, timeout: float | None = None, condition: Literal["not-running", "next-exit", "removed"] | None = None
@@ -176,11 +181,11 @@ class ContainerCollection(Collection[Container]):
         pid_mode: str | None = None,
         pids_limit: int | None = None,
         platform: str | None = None,
-        ports: dict[str, int | None] | None = None,
+        ports: dict[str, int | list[int] | tuple[str, int] | None] | None = None,
         privileged: bool = False,
         publish_all_ports: bool = False,
         read_only: bool | None = None,
-        restart_policy: dict[Incomplete, Incomplete] | None = None,
+        restart_policy: _RestartPolicy | None = None,
         runtime: str | None = None,
         security_opt: list[str] | None = None,
         shm_size: str | int | None = None,
@@ -271,11 +276,11 @@ class ContainerCollection(Collection[Container]):
         pid_mode: str | None = None,
         pids_limit: int | None = None,
         platform: str | None = None,
-        ports: dict[str, int | None] | None = None,
+        ports: dict[str, int | list[int] | tuple[str, int] | None] | None = None,
         privileged: bool = False,
         publish_all_ports: bool = False,
         read_only: bool | None = None,
-        restart_policy: dict[Incomplete, Incomplete] | None = None,
+        restart_policy: _RestartPolicy | None = None,
         runtime: str | None = None,
         security_opt: list[str] | None = None,
         shm_size: str | int | None = None,
@@ -362,11 +367,11 @@ class ContainerCollection(Collection[Container]):
         pid_mode: str | None = None,
         pids_limit: int | None = None,
         platform: str | None = None,
-        ports: dict[str, int | None] | None = None,
+        ports: dict[str, int | list[int] | tuple[str, int] | None] | None = None,
         privileged: bool = False,
         publish_all_ports: bool = False,
         read_only: bool | None = None,
-        restart_policy: dict[Incomplete, Incomplete] | None = None,
+        restart_policy: _RestartPolicy | None = None,
         runtime: str | None = None,
         security_opt: list[str] | None = None,
         shm_size: str | int | None = None,

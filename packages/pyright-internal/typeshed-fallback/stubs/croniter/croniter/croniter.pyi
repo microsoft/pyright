@@ -84,6 +84,8 @@ class croniter(Iterator[Any]):
         is_prev: bool = False,
         hash_id: str | bytes | None = None,
         implement_cron_bug: bool = False,
+        second_at_beginning: bool | None = None,
+        expand_from_start_time: bool = False,
     ) -> None: ...
     # Most return value depend on ret_type, which can be passed in both as a method argument and as
     # a constructor argument.
@@ -101,14 +103,33 @@ class croniter(Iterator[Any]):
     def iter(self, ret_type: _RetType | None = ...) -> Iterator[Any]: ...
     def is_leap(self, year: int) -> bool: ...
     @classmethod
-    def expand(cls, expr_format: str, hash_id: bytes | None = None) -> tuple[list[list[str]], dict[str, set[int]]]: ...
+    def expand(
+        cls,
+        expr_format: str,
+        hash_id: bytes | None = None,
+        second_at_beginning: bool = False,
+        from_timestamp: float | None = None,
+    ) -> tuple[list[list[str]], dict[str, set[int]]]: ...
     @classmethod
-    def is_valid(cls, expression: str, hash_id: bytes | None = None, encoding: str = "UTF-8") -> bool: ...
+    def is_valid(
+        cls, expression: str, hash_id: bytes | None = None, encoding: str = "UTF-8", second_at_beginning: bool = False
+    ) -> bool: ...
     @classmethod
-    def match(cls, cron_expression: str, testdate: float | datetime.datetime | None, day_or: bool = True) -> bool: ...
+    def match(
+        cls,
+        cron_expression: str,
+        testdate: float | datetime.datetime | None,
+        day_or: bool = True,
+        second_at_beginning: bool = False,
+    ) -> bool: ...
     @classmethod
     def match_range(
-        cls, cron_expression: str, from_datetime: datetime.datetime, to_datetime: datetime.datetime, day_or: bool = True
+        cls,
+        cron_expression: str,
+        from_datetime: datetime.datetime,
+        to_datetime: datetime.datetime,
+        day_or: bool = True,
+        second_at_beginning: bool = False,
     ) -> bool: ...
 
 def croniter_range(
@@ -119,6 +140,8 @@ def croniter_range(
     day_or: bool = True,
     exclude_ends: bool = False,
     _croniter: type[croniter] | None = None,
+    second_at_beginning: bool = False,
+    expand_from_start_time: bool = False,
 ) -> Iterator[Any]: ...
 
 class HashExpander:

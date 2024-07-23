@@ -1,6 +1,6 @@
 import sys
 from _typeshed import FileDescriptorLike, ReadOnlyBuffer, WriteableBuffer
-from typing import Any, Literal, overload
+from typing import Any, Final, Literal, overload
 from typing_extensions import Buffer
 
 if sys.platform != "win32":
@@ -104,6 +104,24 @@ if sys.platform != "win32":
     if sys.version_info >= (3, 12) and sys.platform == "linux":
         FICLONE: int
         FICLONERANGE: int
+
+    if sys.version_info >= (3, 13) and sys.platform == "linux":
+        F_OWNER_TID: Final = 0
+        F_OWNER_PID: Final = 1
+        F_OWNER_PGRP: Final = 2
+        F_SETOWN_EX: Final = 15
+        F_GETOWN_EX: Final = 16
+        F_SEAL_FUTURE_WRITE: Final = 16
+        F_GET_RW_HINT: Final = 1035
+        F_SET_RW_HINT: Final = 1036
+        F_GET_FILE_RW_HINT: Final = 1037
+        F_SET_FILE_RW_HINT: Final = 1038
+        RWH_WRITE_LIFE_NOT_SET: Final = 0
+        RWH_WRITE_LIFE_NONE: Final = 1
+        RWH_WRITE_LIFE_SHORT: Final = 2
+        RWH_WRITE_LIFE_MEDIUM: Final = 3
+        RWH_WRITE_LIFE_LONG: Final = 4
+        RWH_WRITE_LIFE_EXTREME: Final = 5
 
     @overload
     def fcntl(fd: FileDescriptorLike, cmd: int, arg: int = 0, /) -> int: ...

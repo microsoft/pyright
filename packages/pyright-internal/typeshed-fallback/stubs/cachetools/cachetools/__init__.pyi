@@ -2,6 +2,7 @@ from _typeshed import IdentityFunction, Unused
 from collections.abc import Callable, Iterator, MutableMapping, Sequence
 from contextlib import AbstractContextManager
 from typing import Any, TypeVar, overload
+from typing_extensions import deprecated
 
 __all__ = ("Cache", "FIFOCache", "LFUCache", "LRUCache", "MRUCache", "RRCache", "TLRUCache", "TTLCache", "cached", "cachedmethod")
 __version__: str
@@ -36,6 +37,8 @@ class Cache(MutableMapping[_KT, _VT]):
 class FIFOCache(Cache[_KT, _VT]): ...
 class LFUCache(Cache[_KT, _VT]): ...
 class LRUCache(Cache[_KT, _VT]): ...
+
+@deprecated("@mru_cache is deprecated")
 class MRUCache(Cache[_KT, _VT]): ...
 
 class RRCache(Cache[_KT, _VT]):

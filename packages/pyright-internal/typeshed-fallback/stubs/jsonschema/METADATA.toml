@@ -1,4 +1,4 @@
-version = "4.22.*"
+version = "4.23.*"
 upstream_repository = "https://github.com/python-jsonschema/jsonschema"
 requires = ["referencing"]
 partial_stub = true
