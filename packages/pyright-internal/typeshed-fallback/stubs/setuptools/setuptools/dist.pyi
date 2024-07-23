@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Iterator, Mapping, MutableMapping
+from collections.abc import Iterable, Iterator, MutableMapping
 from typing import Any
 
 from . import Command, SetuptoolsDeprecationWarning
@@ -7,7 +7,6 @@ from ._distutils.dist import Distribution as _Distribution
 __all__ = ["Distribution"]
 
 class Distribution(_Distribution):
-    def patch_missing_pkg_info(self, attrs: Mapping[str, Any]) -> None: ...
     src_root: str | None
     dependency_links: list[str]
     setup_requires: list[str]

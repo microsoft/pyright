@@ -150,7 +150,7 @@ class ContainerConfig(dict[str, Incomplete]):
         detach: bool = False,
         stdin_open: bool = False,
         tty: bool = False,
-        ports: dict[str, int | None] | None = None,
+        ports: dict[str, int | list[int] | tuple[str, int] | None] | None = None,
         environment: dict[str, str] | list[str] | None = None,
         volumes: str | list[str] | None = None,
         network_disabled: bool = False,
