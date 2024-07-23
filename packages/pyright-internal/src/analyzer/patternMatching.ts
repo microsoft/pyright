@@ -1240,21 +1240,16 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
                 return;
             }
 
-            // Is it a subclass of Mapping?
-            let mroClassToSpecialize: ClassType | undefined;
-            for (const mroClass of concreteSubtype.shared.mro) {
-                if (isInstantiableClass(mroClass) && ClassType.isBuiltIn(mroClass, 'Mapping')) {
-                    mroClassToSpecialize = mroClass;
-                    break;
-                }
+            const mappingType = evaluator.getTypingType(node, 'Mapping');
+            if (!mappingType || !isInstantiableClass(mappingType)) {
+                return;
             }
+            const mappingObject = ClassType.cloneAsInstance(mappingType);
 
-            if (mroClassToSpecialize) {
-                const specializedMapping = partiallySpecializeType(
-                    mroClassToSpecialize,
-                    concreteSubtype,
-                    evaluator.getTypeClassType()
-                ) as ClassType;
+            // Is it a subtype of Mapping?
+            const typeVarContext = new TypeVarContext(getTypeVarScopeId(mappingObject));
+            if (evaluator.assignType(mappingObject, subtype, /* diag */ undefined, typeVarContext)) {
+                const specializedMapping = applySolvedTypeVars(mappingObject, typeVarContext) as ClassType;
 
                 if (specializedMapping.priv.typeArguments && specializedMapping.priv.typeArguments.length >= 2) {
                     mappingInfo.push({
@@ -1272,20 +1267,17 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
             }
 
             // Is it a superclass of Mapping?
-            const mappingType = evaluator.getTypingType(node, 'Mapping');
-            if (mappingType && isInstantiableClass(mappingType)) {
-                const mappingObject = ClassType.cloneAsInstance(mappingType);
-                if (evaluator.assignType(subtype, mappingObject)) {
-                    mappingInfo.push({
-                        subtype,
-                        isDefinitelyMapping: false,
-                        isDefinitelyNotMapping: false,
-                        dictTypeArgs: {
-                            key: UnknownType.create(),
-                            value: UnknownType.create(),
-                        },
-                    });
-                }
+            if (evaluator.assignType(subtype, mappingObject)) {
+                mappingInfo.push({
+                    subtype,
+                    isDefinitelyMapping: false,
+                    isDefinitelyNotMapping: false,
+                    dictTypeArgs: {
+                        key: UnknownType.create(),
+                        value: UnknownType.create(),
+                    },
+                });
+                return;
             }
 
             mappingInfo.push({
@@ -1314,7 +1306,6 @@ function getSequencePatternInfo(
     doForEachSubtype(type, (subtype) => {
         const concreteSubtype = evaluator.makeTopLevelTypeVarsConcrete(subtype);
         let mroClassToSpecialize: ClassType | undefined;
-        let pushedEntry = false;
 
         if (isClassInstance(concreteSubtype)) {
             for (const mroClass of concreteSubtype.shared.mro) {
@@ -1437,7 +1428,7 @@ function getSequencePatternInfo(
                             isDefiniteNoMatch,
                             isPotentialNoMatch,
                         });
-                        pushedEntry = true;
+                        return;
                     }
 
                     // If the pattern contains a star entry and the pattern associated with
@@ -1488,7 +1479,7 @@ function getSequencePatternInfo(
                                 isTuple: true,
                                 isDefiniteNoMatch,
                             });
-                            pushedEntry = true;
+                            return;
                         }
                     }
                 } else {
@@ -1502,16 +1493,35 @@ function getSequencePatternInfo(
                         isIndeterminateLength: true,
                         isDefiniteNoMatch: false,
                     });
-                    pushedEntry = true;
+                    return;
                 }
             }
         }
 
-        if (!pushedEntry) {
-            // If it wasn't a subtype of Sequence, see if it's a supertype.
+        if (!mroClassToSpecialize) {
             const sequenceType = evaluator.getTypingType(pattern, 'Sequence');
 
             if (sequenceType && isInstantiableClass(sequenceType)) {
+                const sequenceObject = ClassType.cloneAsInstance(sequenceType);
+
+                // Is it a subtype of Sequence?
+                const typeVarContext = new TypeVarContext(getTypeVarScopeId(sequenceType));
+                if (evaluator.assignType(sequenceObject, subtype, /* diag */ undefined, typeVarContext)) {
+                    const specializedSequence = applySolvedTypeVars(sequenceObject, typeVarContext) as ClassType;
+
+                    if (specializedSequence.priv.typeArguments && specializedSequence.priv.typeArguments.length > 0) {
+                        sequenceInfo.push({
+                            subtype,
+                            entryTypes: [specializedSequence.priv.typeArguments[0]],
+                            isIndeterminateLength: true,
+                            isDefiniteNoMatch: false,
+                            isPotentialNoMatch: false,
+                        });
+                        return;
+                    }
+                }
+
+                // If it wasn't a subtype of Sequence, see if it's a supertype.
                 const sequenceTypeVarContext = new TypeVarContext(getTypeVarScopeId(sequenceType));
                 if (
                     addConstraintsForExpectedType(
@@ -1560,15 +1570,15 @@ function getSequencePatternInfo(
                     return;
                 }
             }
-
-            // Push an entry that indicates that this is definitely not a match.
-            sequenceInfo.push({
-                subtype,
-                entryTypes: [],
-                isIndeterminateLength: true,
-                isDefiniteNoMatch: true,
-            });
         }
+
+        // Push an entry that indicates that this is definitely not a match.
+        sequenceInfo.push({
+            subtype,
+            entryTypes: [],
+            isIndeterminateLength: true,
+            isDefiniteNoMatch: true,
+        });
     });
 
     return sequenceInfo;
