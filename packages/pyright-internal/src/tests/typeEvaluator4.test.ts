@@ -13,6 +13,7 @@ import {
     pythonVersion3_10,
     pythonVersion3_11,
     pythonVersion3_12,
+    pythonVersion3_13,
     pythonVersion3_7,
     pythonVersion3_8,
     pythonVersion3_9,
@@ -363,6 +364,17 @@ test('DataClass17', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass17.py']);
 
     TestUtils.validateResults(analysisResults, 5);
+});
+
+test('DataClassReplace1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['dataclassReplace1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 10);
+
+    configOptions.defaultPythonVersion = pythonVersion3_13;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['dataclassReplace1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 4);
 });
 
 test('DataClassFrozen1', () => {

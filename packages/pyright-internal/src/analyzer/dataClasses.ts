@@ -11,6 +11,7 @@
 import { assert } from '../common/debug';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { pythonVersion3_13 } from '../common/pythonVersion';
 import { LocMessage } from '../localization/localize';
 import {
     ArgumentCategory,
@@ -108,17 +109,22 @@ export function synthesizeDataClassMethods(
     }
     newType.shared.declaredReturnType = convertToInstance(classTypeVar);
 
-    const selfParam = FunctionParam.create(
-        ParameterCategory.Simple,
-        synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false),
-        FunctionParamFlags.TypeDeclared,
-        'self'
-    );
+    const selfType = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false);
+    const selfParam = FunctionParam.create(ParameterCategory.Simple, selfType, FunctionParamFlags.TypeDeclared, 'self');
     FunctionType.addParameter(initType, selfParam);
     if (isNamedTuple) {
         FunctionType.addDefaultParameters(initType);
     }
     initType.shared.declaredReturnType = evaluator.getNoneType();
+
+    // For Python 3.13 and newer, synthesize a __replace__ method.
+    let replaceType: FunctionType | undefined;
+    if (AnalyzerNodeInfo.getFileInfo(node).executionEnvironment.pythonVersion >= pythonVersion3_13) {
+        replaceType = FunctionType.createSynthesizedInstance('__replace__');
+        FunctionType.addParameter(replaceType, selfParam);
+        FunctionType.addKeywordOnlyParameterSeparator(replaceType);
+        replaceType.shared.declaredReturnType = selfType;
+    }
 
     // Maintain a list of all dataclass entries (including
     // those from inherited classes) plus a list of only those
@@ -132,6 +138,10 @@ export function synthesizeDataClassMethods(
         // safely determine the parameter list, so we'll accept any parameters
         // to avoid a false positive.
         FunctionType.addDefaultParameters(initType);
+
+        if (replaceType) {
+            FunctionType.addDefaultParameters(replaceType);
+        }
     }
 
     // Add field-based parameters to either the __new__ or __init__ method
@@ -536,6 +546,14 @@ export function synthesizeDataClassMethods(
                     } else {
                         FunctionType.addParameter(constructorType, functionParam);
                     }
+
+                    if (replaceType) {
+                        const paramWithDefault = {
+                            ...functionParam,
+                            defaultType: AnyType.create(/* isEllipsis */ true),
+                        };
+                        FunctionType.addParameter(replaceType, paramWithDefault);
+                    }
                 }
             });
 
@@ -549,6 +567,10 @@ export function synthesizeDataClassMethods(
 
         symbolTable.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
         symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
+
+        if (replaceType) {
+            symbolTable.set('__replace__', Symbol.createWithType(SymbolFlags.ClassMember, replaceType));
+        }
     }
 
     // Synthesize the __match_args__ class variable if it doesn't exist.
