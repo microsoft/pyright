@@ -369,11 +369,11 @@ test('DataClass17', () => {
 test('DataClassReplace1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 
-    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['dataClassReplace1.py'], configOptions);
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['dataclassReplace1.py'], configOptions);
     TestUtils.validateResults(analysisResults1, 10);
 
     configOptions.defaultPythonVersion = pythonVersion3_13;
-    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['dataClassReplace1.py'], configOptions);
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['dataclassReplace1.py'], configOptions);
     TestUtils.validateResults(analysisResults2, 4);
 });
 
