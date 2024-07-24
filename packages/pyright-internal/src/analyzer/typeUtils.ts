@@ -2261,7 +2261,8 @@ export function buildTypeVarContextFromSpecializedClass(classType: ClassType): T
         classType.priv.typeArguments,
         getTypeVarScopeId(classType)
     );
-    if (ClassType.isTupleClass(classType) && classType.priv.tupleTypeArguments) {
+
+    if (ClassType.isTupleClass(classType) && classType.priv.tupleTypeArguments && typeParameters.length > 0) {
         typeVarContext.setTupleTypeVar(typeParameters[0], classType.priv.tupleTypeArguments);
     }
 
