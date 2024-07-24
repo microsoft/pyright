@@ -117,6 +117,7 @@ export interface TypeSameOptions {
     ignoreTypeFlags?: boolean;
     ignoreConditions?: boolean;
     ignoreTypedDictNarrowEntries?: boolean;
+    ignoreTypeGuard?: boolean;
     treatAnySameAsUnknown?: boolean;
 }
 
@@ -3209,6 +3210,24 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
 
             if (!options.ignoreConditions && !TypeCondition.isSame(type1.props?.condition, type2.props?.condition)) {
                 return false;
+            }
+
+            if (!options.ignoreTypeGuard) {
+                // If one is a type guard and the other is not, they are not the same.
+                if (!type1.priv.typeGuardType !== !classType2.priv.typeGuardType) {
+                    return false;
+                }
+
+                if (type1.priv.typeGuardType && classType2.priv.typeGuardType) {
+                    // TypeIs and TypeGuard are not the equivalent.
+                    if (!type1.priv.isStrictTypeGuard !== !classType2.priv.isStrictTypeGuard) {
+                        return false;
+                    }
+
+                    if (!isTypeSame(type1.priv.typeGuardType, classType2.priv.typeGuardType, options, recursionCount)) {
+                        return false;
+                    }
+                }
             }
 
             if (!options.ignorePseudoGeneric || !ClassType.isPseudoGenericClass(type1)) {

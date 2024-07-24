@@ -23389,6 +23389,29 @@ export function createTypeEvaluator(
             }
         }
 
+        // If the type is a bool created with a `TypeGuard` or `TypeIs`, it is
+        // considered a subtype of `bool`.
+        if (destType.priv.typeGuardType) {
+            if (!srcType.priv.typeGuardType) {
+                return false;
+            }
+
+            // TypeGuard and TypeIs are not subtypes of each other.
+            if (!destType.priv.isStrictTypeGuard !== !srcType.priv.isStrictTypeGuard) {
+                return false;
+            }
+
+            return assignType(
+                destType.priv.typeGuardType,
+                srcType.priv.typeGuardType,
+                diag?.createAddendum(),
+                /* destTypeVarContext */ undefined,
+                /* srcTypeVarContext */ undefined,
+                flags,
+                recursionCount
+            );
+        }
+
         for (let ancestorIndex = inheritanceChain.length - 1; ancestorIndex >= 0; ancestorIndex--) {
             const ancestorType = inheritanceChain[ancestorIndex];
 
