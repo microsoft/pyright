@@ -1842,8 +1842,12 @@ function narrowTypeForIsInstanceInternal(
                 if (isInstantiableClass(subtype) || isSubtypeMetaclass) {
                     // Handle the special case of isinstance(x, metaclass).
                     const includesMetaclassType = filterTypes.some((classType) => isInstantiableMetaclass(classType));
+                    const includesObject = filterTypes.some(
+                        (classType) => isInstantiableClass(classType) && ClassType.isBuiltIn(classType, 'object')
+                    );
+
                     if (isPositiveTest) {
-                        return includesMetaclassType ? negativeFallback : undefined;
+                        return includesMetaclassType || includesObject ? negativeFallback : undefined;
                     } else {
                         return includesMetaclassType ? undefined : negativeFallback;
                     }
