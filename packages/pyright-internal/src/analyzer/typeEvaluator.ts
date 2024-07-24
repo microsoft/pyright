@@ -15052,7 +15052,7 @@ export function createTypeEvaluator(
             return classType;
         }
 
-        if (typeArgs.length > 1) {
+        if (typeArgs.length !== 1) {
             addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.optionalExtraArgs(), errorNode);
             return UnknownType.create();
         }
