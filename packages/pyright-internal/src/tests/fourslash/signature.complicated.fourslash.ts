@@ -40,7 +40,7 @@
 {
     const xInitSignatures = [
         {
-            label: '(x: bool) -> None',
+            label: '(x: bool) -> A',
             parameters: ['x: bool'],
         },
     ];

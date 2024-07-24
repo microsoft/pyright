@@ -100,12 +100,7 @@ import {
     wildcardImportReferenceKey,
 } from './codeFlowTypes';
 import { addConstraintsForExpectedType, assignTypeToTypeVar, updateTypeVarType } from './constraintSolver';
-import {
-    createFunctionFromConstructor,
-    getBoundInitMethod,
-    getBoundNewMethod,
-    validateConstructorArguments,
-} from './constructors';
+import { createFunctionFromConstructor, getBoundInitMethod, validateConstructorArguments } from './constructors';
 import { applyDataClassClassBehaviorOverrides, synthesizeDataClassMethods } from './dataClasses';
 import {
     ClassDeclaration,
@@ -2403,7 +2398,7 @@ export function createTypeEvaluator(
             addFakeArg();
         }
 
-        const signatures: CallSignature[] = [];
+        let signatures: CallSignature[] = [];
 
         function addOneFunctionToSignature(type: FunctionType) {
             let callResult: CallResult | undefined;
@@ -2445,53 +2440,29 @@ export function createTypeEvaluator(
 
                 case TypeCategory.Class: {
                     if (TypeBase.isInstantiable(subtype)) {
-                        let constructorType: FunctionType | OverloadedFunctionType | undefined;
-
-                        // Try to get the `__init__` method first because it typically has more
-                        // type information than `__new__`.
-                        const initMethodResult = getBoundInitMethod(
-                            evaluatorInterface,
-                            callNode,
-                            ClassType.cloneAsInstance(subtype),
-                            /* diag */ undefined,
-                            /* additionalFlags */ MemberAccessFlags.Default
-                        );
-
-                        if (initMethodResult && !initMethodResult.typeErrors) {
-                            if (isFunction(initMethodResult.type) || isOverloadedFunction(initMethodResult.type)) {
-                                constructorType = initMethodResult.type;
-                            }
-                        }
-
-                        const isObjectInit =
-                            constructorType &&
-                            isFunction(constructorType) &&
-                            constructorType.shared.fullName === 'builtins.object.__init__';
-                        const isDefaultParams =
-                            constructorType &&
-                            isFunction(constructorType) &&
-                            FunctionType.hasDefaultParameters(constructorType);
-
-                        // If there was no `__init__` or the only `__init__` that was found was from
-                        // the `object` class or accepts only default parameters(* args, ** kwargs),
-                        // see if we can find a better signature from the `__new__` method.
-                        if (!constructorType || isObjectInit || isDefaultParams) {
-                            const newMethodResult = getBoundNewMethod(evaluatorInterface, callNode, subtype);
-
-                            if (newMethodResult && !newMethodResult.typeErrors) {
-                                if (
-                                    isFunction(newMethodResult.type) &&
-                                    newMethodResult.type.shared.fullName !== 'builtins.object.__new__'
-                                ) {
-                                    constructorType = newMethodResult.type;
-                                } else if (isOverloadedFunction(newMethodResult.type)) {
-                                    constructorType = newMethodResult.type;
-                                }
-                            }
-                        }
+                        const constructorType = createFunctionFromConstructor(evaluatorInterface, subtype);
 
                         if (constructorType) {
-                            addFunctionToSignature(constructorType);
+                            doForEachSubtype(constructorType, (subtype) => {
+                                if (isFunction(subtype) || isOverloadedFunction(subtype)) {
+                                    addFunctionToSignature(subtype);
+                                }
+                            });
+
+                            // It's common for either the `__new__` or `__init__` methods to be
+                            // simple (*args: Any, **kwargs: Any) signatures. If so, we'll try
+                            // to filter out these signatures if they add nothing of value.
+                            const filteredSignatures = signatures.filter(
+                                (sig) =>
+                                    !FunctionType.isGradualCallableForm(sig.type) ||
+                                    sig.type.shared.parameters.length > 2 ||
+                                    sig.type.shared.docString ||
+                                    sig.type.shared.deprecatedMessage
+                            );
+
+                            if (filteredSignatures.length > 0) {
+                                signatures = filteredSignatures;
+                            }
                         }
                     } else {
                         const methodType = getBoundMagicMethod(subtype, '__call__');
@@ -2508,10 +2479,7 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        return {
-            callNode,
-            signatures,
-        };
+        return { callNode, signatures };
     }
 
     // If the function includes a `**kwargs: Unpack[TypedDict]` parameter, the

@@ -106,6 +106,7 @@ export function synthesizeDataClassMethods(
     );
     if (!isNamedTuple) {
         FunctionType.addDefaultParameters(newType);
+        newType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
     }
     newType.shared.declaredReturnType = convertToInstance(classTypeVar);
 
@@ -114,6 +115,7 @@ export function synthesizeDataClassMethods(
     FunctionType.addParameter(initType, selfParam);
     if (isNamedTuple) {
         FunctionType.addDefaultParameters(initType);
+        initType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
     }
     initType.shared.declaredReturnType = evaluator.getNoneType();
 
