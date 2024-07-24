@@ -117,6 +117,7 @@ export interface TypeSameOptions {
     ignoreTypeFlags?: boolean;
     ignoreConditions?: boolean;
     ignoreTypedDictNarrowEntries?: boolean;
+    ignoreTypeGuard?: boolean;
     treatAnySameAsUnknown?: boolean;
 }
 
@@ -3211,6 +3212,24 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
+            if (!options.ignoreTypeGuard) {
+                // If one is a type guard and the other is not, they are not the same.
+                if (!type1.priv.typeGuardType !== !classType2.priv.typeGuardType) {
+                    return false;
+                }
+
+                if (type1.priv.typeGuardType && classType2.priv.typeGuardType) {
+                    // TypeIs and TypeGuard are not the equivalent.
+                    if (!type1.priv.isStrictTypeGuard !== !classType2.priv.isStrictTypeGuard) {
+                        return false;
+                    }
+
+                    if (!isTypeSame(type1.priv.typeGuardType, classType2.priv.typeGuardType, options, recursionCount)) {
+                        return false;
+                    }
+                }
+            }
+
             if (!options.ignorePseudoGeneric || !ClassType.isPseudoGenericClass(type1)) {
                 // Make sure the type args match.
                 if (type1.priv.tupleTypeArguments && classType2.priv.tupleTypeArguments) {
@@ -3340,7 +3359,12 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 if (
                     !return1Type ||
                     !return2Type ||
-                    !isTypeSame(return1Type, return2Type, { ...options, ignoreTypeFlags: false }, recursionCount)
+                    !isTypeSame(
+                        return1Type,
+                        return2Type,
+                        { ...options, ignoreTypeFlags: false, ignoreTypeGuard: false },
+                        recursionCount
+                    )
                 ) {
                     return false;
                 }

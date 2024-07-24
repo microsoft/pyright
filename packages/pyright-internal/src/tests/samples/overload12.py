@@ -1,10 +1,10 @@
 # This sample tests overload matching in cases where the match
 # is ambiguous due to an Any or Unknown argument.
 
+# pyright: reportMissingModuleSource=false
+
 from typing import Any, Generic, Literal, TypeVar, overload
-from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
-    LiteralString,
-)
+from typing_extensions import LiteralString, TypeIs
 
 _T = TypeVar("_T")
 
@@ -338,3 +338,22 @@ def func19(a: ClassC, b: list, c: Any):
     my_list2: list[int] = []
     v1 = a.method1("hi", my_list2)
     reveal_type(v1, expected_text="float")
+
+
+@overload
+def overload11(x: str) -> TypeIs[str]:
+    ...
+
+
+@overload
+def overload11(x: int) -> TypeIs[int]:
+    ...
+
+
+def overload11(x: Any) -> Any:
+    return True
+
+
+def func20(val: Any):
+    if overload11(val):
+        reveal_type(val, expected_text="Any")
