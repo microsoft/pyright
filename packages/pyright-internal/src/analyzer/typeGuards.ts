@@ -1222,9 +1222,15 @@ export function isIsinstanceFilterSuperclass(
     }
 
     if (isInstanceCheck) {
+        // We convert both types to instances in case they are protocol
+        // classes. A protocol class isn't allowed to be assigned to
+        // type[T], so this would otherwise fail.
         if (
             ClassType.isProtocolClass(concreteFilterType) &&
-            evaluator.assignType(concreteFilterType, concreteVarType)
+            evaluator.assignType(
+                ClassType.cloneAsInstance(concreteFilterType),
+                ClassType.cloneAsInstance(concreteVarType)
+            )
         ) {
             return true;
         }
@@ -1251,7 +1257,13 @@ export function isIsinstanceFilterSubclass(
     }
 
     if (isInstanceCheck) {
-        if (ClassType.isProtocolClass(varType) && evaluator.assignType(varType, concreteFilterType)) {
+        // We convert both types to instances in case they are protocol
+        // classes. A protocol class isn't allowed to be assigned to
+        // type[T], so this would otherwise fail.
+        if (
+            ClassType.isProtocolClass(varType) &&
+            evaluator.assignType(ClassType.cloneAsInstance(varType), ClassType.cloneAsInstance(concreteFilterType))
+        ) {
             return true;
         }
     }
@@ -1410,8 +1422,8 @@ function narrowTypeForIsInstanceInternal(
                     } else if (filterIsSubclass) {
                         if (
                             evaluator.assignType(
-                                concreteVarType,
-                                concreteFilterType,
+                                convertToInstance(concreteVarType),
+                                convertToInstance(concreteFilterType),
                                 /* diag */ undefined,
                                 /* destTypeVarContext */ undefined,
                                 /* srcTypeVarContext */ undefined,
@@ -1444,8 +1456,8 @@ function narrowTypeForIsInstanceInternal(
                                         if (
                                             addConstraintsForExpectedType(
                                                 evaluator,
-                                                unspecializedFilterType,
-                                                concreteVarType,
+                                                convertToInstance(unspecializedFilterType),
+                                                convertToInstance(concreteVarType),
                                                 typeVarContext,
                                                 /* liveTypeVarScopes */ undefined,
                                                 errorNode.start
