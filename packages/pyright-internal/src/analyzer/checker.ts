@@ -121,6 +121,7 @@ import {
     FunctionArgument,
     FunctionTypeResult,
     MemberAccessDeprecationInfo,
+    Reachability,
     TypeEvaluator,
     TypeResult,
 } from './typeEvaluatorTypes';
@@ -2816,20 +2817,24 @@ export class Checker extends ParseTreeWalker {
     private _walkStatementsAndReportUnreachable(statements: StatementNode[]) {
         let reportedUnreachable = false;
         let prevStatement: StatementNode | undefined;
+        const reportTypeReachability = this._fileInfo.diagnosticRuleSet.identifyUnreachableCode;
 
         for (const statement of statements) {
             // No need to report unreachable more than once since the first time
             // covers all remaining statements in the statement list.
             if (!reportedUnreachable) {
-                if (!this._evaluator.isNodeReachable(statement, prevStatement)) {
-                    // Create a text range that covers the next statement through
-                    // the end of the statement list.
-                    const start = statement.start;
-                    const lastStatement = statements[statements.length - 1];
-                    const end = TextRange.getEnd(lastStatement);
-                    this._evaluator.addUnreachableCode(statement, { start, length: end - start });
+                const reachability = this._evaluator.getNodeReachability(statement, prevStatement);
+                if (reachability !== Reachability.Reachable) {
+                    if (reachability === Reachability.UnreachableAlways || reportTypeReachability) {
+                        // Create a text range that covers the next statement through
+                        // the end of the statement list.
+                        const start = statement.start;
+                        const lastStatement = statements[statements.length - 1];
+                        const end = TextRange.getEnd(lastStatement);
+                        this._evaluator.addUnreachableCode(statement, { start, length: end - start });
 
-                    reportedUnreachable = true;
+                        reportedUnreachable = true;
+                    }
                 }
             }
 
