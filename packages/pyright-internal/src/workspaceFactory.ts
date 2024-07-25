@@ -4,7 +4,11 @@
  * Workspace management related functionality.
  */
 
-import { InitializeParams, WorkspaceFoldersChangeEvent } from 'vscode-languageserver';
+import {
+    InitializeParams,
+    WorkspaceFoldersChangeEvent,
+    WorkspaceFolder as lspWorkspaceFolder,
+} from 'vscode-languageserver';
 
 import { AnalyzerService } from './analyzer/service';
 import { ConsoleInterface } from './common/console';
@@ -97,6 +101,11 @@ export interface NormalWorkspace extends Workspace {
     rootUri: Uri;
 }
 
+export function renameWorkspace(workspace: Workspace, name: string) {
+    workspace.workspaceName = name;
+    workspace.service.setServiceName(name);
+}
+
 export class WorkspaceFactory {
     private _defaultWorkspacePath = '<default>';
     private _map = new Map<string, AllWorkspace>();
@@ -136,7 +145,7 @@ export class WorkspaceFactory {
         }
     }
 
-    handleWorkspaceFoldersChanged(params: WorkspaceFoldersChangeEvent) {
+    handleWorkspaceFoldersChanged(params: WorkspaceFoldersChangeEvent, workspaces: lspWorkspaceFolder[] | null) {
         params.removed.forEach((workspaceInfo) => {
             const uri = Uri.parse(workspaceInfo.uri, this._serviceProvider);
             // Delete all workspaces for this folder. Even the ones generated for notebook kernels.
@@ -161,6 +170,21 @@ export class WorkspaceFactory {
             if (containing) {
                 this._mimicOpenFiles(containing, newWorkspace, (f) => f.startsWith(uri));
             }
+        });
+
+        // Ensure name changes are also reflected.
+        const foldersToCheck =
+            workspaces?.filter(
+                (w) => !params.added.some((a) => a.uri === w.uri) && !params.removed.some((a) => a.uri === w.uri)
+            ) ?? [];
+        foldersToCheck.forEach((workspaceInfo) => {
+            const uri = Uri.parse(workspaceInfo.uri, this._serviceProvider);
+
+            const workspaces = this.getNonDefaultWorkspaces().filter(
+                (w) => w.rootUri.equals(uri) && w.workspaceName !== workspaceInfo.name
+            );
+
+            workspaces.forEach((w) => renameWorkspace(w, workspaceInfo.name));
         });
     }
 

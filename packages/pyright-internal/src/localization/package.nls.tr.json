@@ -495,7 +495,7 @@
         "typeCallNotAllowed": "Tür ek açıklamasında type() çağrısı kullanılmamalıdır",
         "typeCheckOnly": "\"{name}\", @type_check_only olarak işaretlendi ve yalnızca tür ek açıklamalarında kullanılabilir",
         "typeCommentDeprecated": "Tür açıklamalarının kullanımı kullanım dışı; bunun yerine tür ek açıklaması kullanın",
-        "typeExpectedClass": "Tür ifadesi bekleniyordu ancak \"{type}\" alındı",
+        "typeExpectedClass": "Sınıf bekleniyordu ancak \"{type}\" alındı",
         "typeGuardArgCount": "\"TypeGuard\" veya \"Typels\" sonrasında tek bir tür bağımsız değişken bekleniyordu",
         "typeGuardParamCount": "Kullanıcı tanımlı tür koruma işlevleri ve metotlarında en az bir giriş parametresi olmalıdır",
         "typeIsReturnType": "TypeIs dönüş türü (\"{returnType}\"), değer parametresi türü (\"{type}\") ile tutarlı değil",
@@ -669,6 +669,7 @@
         "invariantSuggestionDict": "“dict” öğesinden değer türünde eş değişken olan “Mapping” öğesine geçmeyi deneyin",
         "invariantSuggestionList": "“list” öğesinden eş değişken olan “Sequence” öğesine geçmeyi deneyin",
         "invariantSuggestionSet": "“Küme” öğesinden eş değişken olan “Kapsayıcı” öğesine geçmeyi deneyin",
+        "isinstanceClassNotSupported": "\"{type}\", örnek ve sınıf denetimleri için desteklenmiyor",
         "keyNotRequired": "\"{name}\", \"{type}\" türünde gerekli bir anahtar olmadığından çalışma zamanı özel durumuna neden olabilir",
         "keyReadOnly": "\"{name}\", \"{type}\" içinde salt okunur",
         "keyRequiredDeleted": "\"{name}\" gerekli bir anahtar olduğundan silinemez",
@@ -803,5 +804,8 @@
         "useTypeInstead": "Bunun yerine Type[T] kullanın",
         "varianceMismatchForClass": "\"{typeVarName}\" tür bağımsız değişkeni \"{className}\" taban sınıfıyla uyumsuz",
         "varianceMismatchForTypeAlias": "\"{typeVarName}\" tür bağımsız değişkeninin varyansı, \"{typeAliasParam}\" ile uyumsuz"
+    },
+    "Service": {
+        "longOperation": "Çalışma alanı kaynak dosyalarının numaralandırılması uzun zaman alıyor. Bunun yerine bir alt klasör açabilirsiniz. [Daha fazla bilgi edinin](https://aka.ms/workspace-too-many-files)"
     }
 }

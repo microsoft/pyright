@@ -1189,10 +1189,12 @@ export class ImportResolver {
             let current: Uri | undefined = fileUri.getDirectory();
             while (this._shouldWalkUp(current, root, execEnv)) {
                 const pyTypedInfo = this._getPyTypedInfo(current!);
-                if (pyTypedInfo && !pyTypedInfo.isPartiallyTyped) {
-                    isThirdPartyPyTypedPresent = true;
+                if (pyTypedInfo) {
+                    if (!pyTypedInfo.isPartiallyTyped) {
+                        isThirdPartyPyTypedPresent = true;
+                    }
+                    break;
                 }
-                break;
 
                 current = this._tryWalkUp(current);
             }
