@@ -335,29 +335,23 @@ export interface ValidateArgTypeParams {
     isinstanceParam?: boolean;
 }
 
-export interface AnnotationTypeOptions {
-    isVariableAnnotation?: boolean;
-    allowFinal?: boolean;
-    allowClassVar?: boolean;
-    associateTypeVarsWithScope?: boolean;
-    allowTypeVarTuple?: boolean;
-    allowParamSpec?: boolean;
-    allowRequired?: boolean;
-    allowUnpackedTypedDict?: boolean;
-    allowUnpackedTuple?: boolean;
-    notParsedByInterpreter?: boolean;
-    enforceClassTypeVarScope?: boolean;
-}
-
 export interface ExpectedTypeOptions {
     allowFinal?: boolean;
     allowRequired?: boolean;
     allowUnpackedTuple?: boolean;
+    allowUnpackedTypedDict?: boolean;
     allowParamSpec?: boolean;
-    allowForwardReference?: boolean;
+    allowClassVar?: boolean;
+    varTypeAnnotation?: boolean;
+    typeVarGetsCurScope?: boolean;
     allowTypeVarsWithoutScopeId?: boolean;
-    evalAsTypeExpression?: boolean;
-    disallowProtocolAndTypedDict?: boolean;
+    enforceClassTypeVarScope?: boolean;
+    parsesStringLiteral?: boolean;
+    notParsed?: boolean;
+    noNonTypeSpecialForms?: boolean;
+    forwardRefs?: boolean;
+    typeExpression?: boolean;
+    convertEllipsisToAny?: boolean;
 }
 
 export interface ExpectedTypeResult {
@@ -491,7 +485,7 @@ export interface TypeEvaluator {
     getTypeResultForDecorator: (node: DecoratorNode) => TypeResult | undefined;
     getCachedType: (node: ExpressionNode) => Type | undefined;
     getTypeOfExpression: (node: ExpressionNode, flags?: EvalFlags, context?: InferenceContext) => TypeResult;
-    getTypeOfAnnotation: (node: ExpressionNode, options?: AnnotationTypeOptions) => Type;
+    getTypeOfAnnotation: (node: ExpressionNode, options?: ExpectedTypeOptions) => Type;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
     getTypeOfExpressionExpectingType: (node: ExpressionNode, options?: ExpectedTypeOptions) => TypeResult;

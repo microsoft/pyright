@@ -141,7 +141,7 @@ export function clonePropertyWithSetter(
             const fgetType = evaluator.getGetterTypeFromProperty(classType, /* inferTypeIfNeeded */ false);
             if (fgetType && !isAnyOrUnknown(fgetType)) {
                 const fsetType = evaluator.getTypeOfAnnotation(typeAnnotation, {
-                    associateTypeVarsWithScope: true,
+                    typeVarGetsCurScope: true,
                 });
 
                 // The setter type should be assignable to the getter type.
