@@ -356,7 +356,7 @@ export interface ExpectedTypeOptions {
     allowParamSpec?: boolean;
     allowForwardReference?: boolean;
     allowTypeVarsWithoutScopeId?: boolean;
-    enforceTypeAnnotationRules?: boolean;
+    evalAsTypeExpression?: boolean;
     disallowProtocolAndTypedDict?: boolean;
 }
 
