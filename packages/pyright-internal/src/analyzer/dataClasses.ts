@@ -221,7 +221,7 @@ export function synthesizeDataClassMethods(
                         evaluator.getTypeOfAnnotation(
                             (assignmentStatement.d.leftExpr as TypeAnnotationNode).d.annotation,
                             {
-                                isVariableAnnotation: true,
+                                varTypeAnnotation: true,
                                 allowFinal: true,
                                 allowClassVar: true,
                             }
@@ -319,7 +319,7 @@ export function synthesizeDataClassMethods(
                     const annotationStatement = statement;
                     variableTypeEvaluator = () =>
                         evaluator.getTypeOfAnnotation(annotationStatement.d.annotation, {
-                            isVariableAnnotation: true,
+                            varTypeAnnotation: true,
                             allowFinal: true,
                             allowClassVar: true,
                         });

@@ -163,7 +163,6 @@ import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbo
 import { SpeculativeModeOptions, SpeculativeTypeTracker } from './typeCacheUtils';
 import {
     AbstractSymbol,
-    AnnotationTypeOptions,
     ArgResult,
     CallResult,
     CallSignature,
@@ -1734,14 +1733,13 @@ export function createTypeEvaluator(
 
     function getTypeOfParameterAnnotation(paramTypeNode: ExpressionNode, paramCategory: ParameterCategory) {
         return getTypeOfAnnotation(paramTypeNode, {
-            associateTypeVarsWithScope: true,
-            allowTypeVarTuple: paramCategory === ParameterCategory.ArgsList,
-            allowUnpackedTypedDict: paramCategory === ParameterCategory.KwargsDict,
+            typeVarGetsCurScope: true,
             allowUnpackedTuple: paramCategory === ParameterCategory.ArgsList,
+            allowUnpackedTypedDict: paramCategory === ParameterCategory.KwargsDict,
         });
     }
 
-    function getTypeOfAnnotation(node: ExpressionNode, options?: AnnotationTypeOptions): Type {
+    function getTypeOfAnnotation(node: ExpressionNode, options?: ExpectedTypeOptions): Type {
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
 
         // Special-case the typing.pyi file, which contains some special
@@ -1753,77 +1751,29 @@ export function createTypeEvaluator(
             }
         }
 
-        let evaluatorFlags =
-            EvalFlags.InstantiableType |
-            EvalFlags.TypeExpression |
-            EvalFlags.ConvertEllipsisToAny |
-            EvalFlags.StrLiteralAsType;
+        const adjustedOptions: ExpectedTypeOptions = options ? { ...options } : {};
 
-        if (options?.isVariableAnnotation) {
-            evaluatorFlags |= EvalFlags.VarTypeAnnotation;
-        }
-
-        if (!options?.allowFinal) {
-            evaluatorFlags |= EvalFlags.NoFinal;
-        }
-
-        if (!options?.allowClassVar) {
-            evaluatorFlags |= EvalFlags.NoClassVar;
-        }
-
-        if (!options?.allowTypeVarTuple) {
-            evaluatorFlags |= EvalFlags.NoTypeVarTuple;
-        } else {
-            evaluatorFlags |= EvalFlags.AllowUnpackedTuple;
-        }
-
-        if (!options?.allowParamSpec) {
-            evaluatorFlags |= EvalFlags.NoParamSpec;
-        }
-
-        if (options?.associateTypeVarsWithScope) {
-            evaluatorFlags |= EvalFlags.TypeVarGetsCurScope;
-        }
-
-        if (options?.allowUnpackedTypedDict) {
-            evaluatorFlags |= EvalFlags.AllowUnpackedTypedDict;
-        }
-
-        if (options?.allowUnpackedTuple) {
-            evaluatorFlags |= EvalFlags.AllowUnpackedTuple;
-        }
-
-        if (options?.notParsedByInterpreter) {
-            evaluatorFlags |= EvalFlags.NotParsed;
-        }
-
-        if (options?.allowRequired) {
-            evaluatorFlags |= EvalFlags.AllowRequired;
-        }
-
-        if (isAnnotationEvaluationPostponed(fileInfo)) {
-            evaluatorFlags |= EvalFlags.ForwardRefs;
-        }
-
-        if (options?.enforceClassTypeVarScope) {
-            evaluatorFlags |= EvalFlags.EnforceClassTypeVarScope;
-        }
+        adjustedOptions.typeExpression = true;
+        adjustedOptions.convertEllipsisToAny = true;
 
         // If the annotation is part of a comment, allow forward references
         // even if it's not enclosed in quotes.
         if (node?.parent?.nodeType === ParseNodeType.Assignment && node.parent.d.annotationComment === node) {
-            evaluatorFlags |= EvalFlags.ForwardRefs | EvalFlags.NotParsed;
+            adjustedOptions.forwardRefs = true;
+            adjustedOptions.notParsed = true;
         } else if (node?.parent?.nodeType === ParseNodeType.FunctionAnnotation) {
             if (node.parent.d.returnAnnotation === node || node.parent.d.paramAnnotations.some((n) => n === node)) {
-                evaluatorFlags |= EvalFlags.ForwardRefs | EvalFlags.NotParsed;
+                adjustedOptions.forwardRefs = true;
+                adjustedOptions.notParsed = true;
             }
         } else if (node?.parent?.nodeType === ParseNodeType.Parameter) {
             if (node.parent.d.annotationComment === node) {
-                evaluatorFlags |= EvalFlags.ForwardRefs | EvalFlags.NotParsed;
+                adjustedOptions.forwardRefs = true;
+                adjustedOptions.notParsed = true;
             }
         }
 
-        const annotationType = getTypeOfExpression(node, evaluatorFlags).type;
+        const annotationType = getTypeOfExpressionExpectingType(node, adjustedOptions).type;
 
         if (isModule(annotationType)) {
             addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.moduleAsType(), node);
@@ -4195,7 +4145,7 @@ export function createTypeEvaluator(
 
             case ParseNodeType.TypeAnnotation: {
                 const annotationType: Type | undefined = getTypeOfAnnotation(target.d.annotation, {
-                    isVariableAnnotation: true,
+                    varTypeAnnotation: true,
                     allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(target.d.valueExpr),
                     allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(target.d.valueExpr),
                 });
@@ -8318,7 +8268,7 @@ export function createTypeEvaluator(
 
         const assertedType = convertToInstance(
             getTypeOfArgumentExpectingType(convertArgumentNodeToFunctionArgument(node.d.args[1]), {
-                evalAsTypeExpression: true,
+                typeExpression: true,
             }).type
         );
 
@@ -8380,7 +8330,7 @@ export function createTypeEvaluator(
                 expectedRevealTypeNode = arg.d.valueExpr;
                 expectedRevealType = convertToInstance(
                     getTypeOfArgumentExpectingType(convertArgumentNodeToFunctionArgument(arg), {
-                        evalAsTypeExpression: true,
+                        typeExpression: true,
                     }).type
                 );
             }
@@ -10194,7 +10144,7 @@ export function createTypeEvaluator(
     // Evaluates the type of the "cast" call.
     function evaluateCastCall(argList: FunctionArgument[], errorNode: ExpressionNode) {
         // Verify that the cast is necessary.
-        const castToType = getTypeOfArgumentExpectingType(argList[0], { evalAsTypeExpression: true }).type;
+        const castToType = getTypeOfArgumentExpectingType(argList[0], { typeExpression: true }).type;
         let castFromType = getTypeOfArgument(argList[1], /* inferenceContext */ undefined).type;
 
         if (castFromType.props?.specialForm) {
@@ -12462,8 +12412,9 @@ export function createTypeEvaluator(
                         const argType =
                             argList[i].typeResult?.type ??
                             getTypeOfExpressionExpectingType(argList[i].valueExpression!, {
-                                disallowProtocolAndTypedDict: true,
-                                evalAsTypeExpression: true,
+                                noNonTypeSpecialForms: true,
+                                typeExpression: true,
+                                parsesStringLiteral: true,
                             }).type;
                         if (
                             requiresSpecialization(argType, { ignorePseudoGeneric: true, ignoreImplicitTypeArgs: true })
@@ -12527,7 +12478,7 @@ export function createTypeEvaluator(
                         argList[i].typeResult?.type ??
                         getTypeOfExpressionExpectingType(defaultValueNode!, {
                             allowTypeVarsWithoutScopeId: true,
-                            evalAsTypeExpression: true,
+                            typeExpression: true,
                         }).type;
                     typeVar.shared.defaultType = convertToInstance(argType);
                     typeVar.shared.isDefaultExplicit = true;
@@ -12564,7 +12515,7 @@ export function createTypeEvaluator(
                     const argType =
                         argList[i].typeResult?.type ??
                         getTypeOfExpressionExpectingType(argList[i].valueExpression!, {
-                            evalAsTypeExpression: true,
+                            typeExpression: true,
                         }).type;
 
                     if (requiresSpecialization(argType, { ignorePseudoGeneric: true })) {
@@ -12729,8 +12680,8 @@ export function createTypeEvaluator(
         const argType = getTypeOfExpressionExpectingType(node, {
             allowUnpackedTuple: true,
             allowTypeVarsWithoutScopeId: true,
-            allowForwardReference: isPep695Syntax,
-            evalAsTypeExpression: true,
+            forwardRefs: isPep695Syntax,
+            typeExpression: true,
         }).type;
         const isUnpackedTuple = isClass(argType) && isTupleClass(argType) && argType.priv.isUnpacked;
         const isUnpackedTypeVarTuple = isUnpackedVariadicTypeVar(argType);
@@ -12833,8 +12784,8 @@ export function createTypeEvaluator(
             node.d.items.forEach((paramExpr, index) => {
                 const typeResult = getTypeOfExpressionExpectingType(paramExpr, {
                     allowTypeVarsWithoutScopeId: true,
-                    allowForwardReference: isPep695Syntax,
-                    evalAsTypeExpression: true,
+                    forwardRefs: isPep695Syntax,
+                    typeExpression: true,
                 });
 
                 FunctionType.addParameter(
@@ -12860,7 +12811,7 @@ export function createTypeEvaluator(
             const typeResult = getTypeOfExpressionExpectingType(node, {
                 allowParamSpec: true,
                 allowTypeVarsWithoutScopeId: true,
-                evalAsTypeExpression: true,
+                typeExpression: true,
             });
 
             if (typeResult.typeErrors) {
@@ -15331,7 +15282,7 @@ export function createTypeEvaluator(
                         !ParseTreeUtils.isNodeContainedWithin(errorNode, firstParamTypeAnnotation)
                     ) {
                         const annotationType = getTypeOfAnnotation(firstParamTypeAnnotation, {
-                            associateTypeVarsWithScope: true,
+                            typeVarGetsCurScope: true,
                         });
                         if (!isTypeVar(annotationType) || !annotationType.shared.isSynthesizedSelf) {
                             addDiagnostic(
@@ -16518,8 +16469,8 @@ export function createTypeEvaluator(
         }
 
         const aliasTypeResult = getTypeOfExpressionExpectingType(valueNode, {
-            allowForwardReference: true,
-            evalAsTypeExpression: true,
+            forwardRefs: true,
+            typeExpression: true,
         });
         let isIncomplete = false;
         let aliasType = aliasTypeResult.type;
@@ -18359,7 +18310,7 @@ export function createTypeEvaluator(
                 functionType.shared.declaredReturnType = UnknownType.create();
 
                 const returnType = getTypeOfAnnotation(returnTypeAnnotationNode, {
-                    associateTypeVarsWithScope: true,
+                    typeVarGetsCurScope: true,
                 });
                 functionType.shared.declaredReturnType = returnType;
             } else {
@@ -19435,7 +19386,7 @@ export function createTypeEvaluator(
             evaluateTypesForAssignmentStatement(node.parent);
         } else {
             const annotationType = getTypeOfAnnotation(node.d.annotation, {
-                isVariableAnnotation: true,
+                varTypeAnnotation: true,
                 allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(node.d.valueExpr),
                 allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(node.d.valueExpr),
             });
@@ -19584,7 +19535,7 @@ export function createTypeEvaluator(
             if (annotationParent.nodeType === ParseNodeType.Assignment) {
                 if (annotationNode === annotationParent.d.annotationComment) {
                     getTypeOfAnnotation(annotationNode, {
-                        isVariableAnnotation: true,
+                        varTypeAnnotation: true,
                         allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(annotationParent.d.leftExpr),
                         allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(annotationParent.d.leftExpr),
                     });
@@ -19604,13 +19555,13 @@ export function createTypeEvaluator(
                 annotationNode === annotationParent.d.returnAnnotation
             ) {
                 getTypeOfAnnotation(annotationNode, {
-                    associateTypeVarsWithScope: true,
+                    typeVarGetsCurScope: true,
                 });
                 return;
             }
 
             getTypeOfAnnotation(annotationNode, {
-                isVariableAnnotation: annotationNode.parent?.nodeType === ParseNodeType.TypeAnnotation,
+                varTypeAnnotation: annotationNode.parent?.nodeType === ParseNodeType.TypeAnnotation,
                 allowUnpackedTuple:
                     annotationParent.nodeType === ParseNodeType.Parameter &&
                     annotationParent.d.category === ParameterCategory.ArgsList,
@@ -20687,20 +20638,28 @@ export function createTypeEvaluator(
     }
 
     function getTypeOfExpressionExpectingType(node: ExpressionNode, options?: ExpectedTypeOptions): TypeResult {
-        let flags = EvalFlags.InstantiableType | EvalFlags.StrLiteralAsType | EvalFlags.NoClassVar;
+        let flags = EvalFlags.InstantiableType | EvalFlags.StrLiteralAsType;
 
         if (options?.allowTypeVarsWithoutScopeId) {
             flags |= EvalFlags.AllowTypeVarWithoutScopeId;
         }
 
+        if (options?.typeVarGetsCurScope) {
+            flags |= EvalFlags.TypeVarGetsCurScope;
+        }
+
+        if (options?.enforceClassTypeVarScope) {
+            flags |= EvalFlags.EnforceClassTypeVarScope;
+        }
+
         const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-        if (fileInfo.isStubFile || options?.allowForwardReference) {
+        if (isAnnotationEvaluationPostponed(fileInfo) || options?.forwardRefs) {
             flags |= EvalFlags.ForwardRefs;
-        } else {
+        } else if (options?.parsesStringLiteral) {
             flags |= EvalFlags.ParsesStringLiteral;
         }
 
-        if (!options || !options.allowFinal) {
+        if (!options?.allowFinal) {
             flags |= EvalFlags.NoFinal;
         }
 
@@ -20714,16 +20673,36 @@ export function createTypeEvaluator(
             flags |= EvalFlags.NoTypeVarTuple;
         }
 
-        if (!options || !options.allowParamSpec) {
+        if (options?.allowUnpackedTypedDict) {
+            flags |= EvalFlags.AllowUnpackedTypedDict;
+        }
+
+        if (!options?.allowParamSpec) {
             flags |= EvalFlags.NoParamSpec;
         }
 
-        if (options?.evalAsTypeExpression) {
+        if (options?.typeExpression) {
             flags |= EvalFlags.TypeExpression;
         }
 
-        if (options?.disallowProtocolAndTypedDict) {
+        if (options?.convertEllipsisToAny) {
+            flags |= EvalFlags.ConvertEllipsisToAny;
+        }
+
+        if (options?.noNonTypeSpecialForms) {
             flags |= EvalFlags.NoNonTypeSpecialForms;
+        }
+
+        if (!options?.allowClassVar) {
+            flags |= EvalFlags.NoClassVar;
+        }
+
+        if (options?.varTypeAnnotation) {
+            flags |= EvalFlags.VarTypeAnnotation;
+        }
+
+        if (options?.notParsed) {
+            flags |= EvalFlags.NotParsed;
         }
 
         return getTypeOfExpression(node, flags);
@@ -21412,7 +21391,7 @@ export function createTypeEvaluator(
                                 ? declaration.node.parent
                                 : declaration.node;
                         declaredType = getTypeOfAnnotation(typeAnnotationNode, {
-                            isVariableAnnotation: true,
+                            varTypeAnnotation: true,
                             allowClassVar: ParseTreeUtils.isClassVarAllowedForAssignmentTarget(declNode),
                             allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(declNode),
                             allowRequired: ParseTreeUtils.isRequiredAllowedForAssignmentTarget(declNode),
@@ -21489,8 +21468,8 @@ export function createTypeEvaluator(
             if (node.d.boundExpr.nodeType === ParseNodeType.Tuple) {
                 const constraints = node.d.boundExpr.d.items.map((constraint) => {
                     const constraintType = getTypeOfExpressionExpectingType(constraint, {
-                        disallowProtocolAndTypedDict: true,
-                        allowForwardReference: true,
+                        noNonTypeSpecialForms: true,
+                        forwardRefs: true,
                     }).type;
 
                     if (
@@ -21520,9 +21499,9 @@ export function createTypeEvaluator(
                 }
             } else {
                 const boundType = getTypeOfExpressionExpectingType(node.d.boundExpr, {
-                    disallowProtocolAndTypedDict: true,
-                    allowForwardReference: true,
-                    evalAsTypeExpression: true,
+                    noNonTypeSpecialForms: true,
+                    forwardRefs: true,
+                    typeExpression: true,
                 }).type;
 
                 if (requiresSpecialization(boundType, { ignorePseudoGeneric: true })) {
@@ -21565,8 +21544,8 @@ export function createTypeEvaluator(
             const defaultType = node.d.defaultExpr
                 ? convertToInstance(
                       getTypeOfExpressionExpectingType(node.d.defaultExpr, {
-                          allowForwardReference: true,
-                          evalAsTypeExpression: true,
+                          forwardRefs: true,
+                          typeExpression: true,
                       }).type
                   )
                 : undefined;
@@ -27407,7 +27386,7 @@ export function createTypeEvaluator(
             return false;
         }
 
-        const type = getTypeOfAnnotation(decl.typeAnnotationNode, { isVariableAnnotation: true, allowClassVar: true });
+        const type = getTypeOfAnnotation(decl.typeAnnotationNode, { varTypeAnnotation: true, allowClassVar: true });
         return isClassInstance(type) && ClassType.isBuiltIn(type, 'TypeAlias');
     }
 
