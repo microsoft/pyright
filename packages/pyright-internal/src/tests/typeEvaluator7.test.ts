@@ -40,7 +40,7 @@ test('GenericType4', () => {
 test('GenericType5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericType5.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('GenericType6', () => {
@@ -166,7 +166,7 @@ test('GenericType25', () => {
 test('GenericType26', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericType26.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('GenericType27', () => {
