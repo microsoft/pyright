@@ -1149,6 +1149,7 @@ export namespace Localizer {
         export const unpackOperatorNotAllowed = () => getRawString('Diagnostic.unpackOperatorNotAllowed');
         export const unpackTuplesIllegal = () => getRawString('Diagnostic.unpackTuplesIllegal');
         export const unreachableCode = () => getRawString('Diagnostic.unreachableCode');
+        export const unreachableCodeType = () => getRawString('Diagnostic.unreachableCodeType');
         export const unreachableExcept = () => getRawString('Diagnostic.unreachableExcept');
         export const unsupportedDunderAllOperation = () => getRawString('Diagnostic.unsupportedDunderAllOperation');
         export const unusedCallResult = () =>

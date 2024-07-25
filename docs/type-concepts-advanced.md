@@ -619,3 +619,4 @@ def func3(x: Literal[1, 2]):
     print("unreachable")
 ```
 
+Code that is determined to be unreachable is reported through the use of “tagged hints”. These are special diagnostics that tell a language client to display the code in a visually distinctive manner, typically with a grayed-out appearance. Code determined to be unreachable using non-type information is always reported through this mechanism. Code determined to be unreachable using type analysis is reported only if “enableReachabilityAnalysis” is enabled in the configuration.

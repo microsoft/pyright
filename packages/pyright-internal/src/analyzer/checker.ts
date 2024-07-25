@@ -121,6 +121,7 @@ import {
     FunctionArgument,
     FunctionTypeResult,
     MemberAccessDeprecationInfo,
+    Reachability,
     TypeEvaluator,
     TypeResult,
 } from './typeEvaluatorTypes';
@@ -2821,13 +2822,14 @@ export class Checker extends ParseTreeWalker {
             // No need to report unreachable more than once since the first time
             // covers all remaining statements in the statement list.
             if (!reportedUnreachable) {
-                if (!this._evaluator.isNodeReachable(statement, prevStatement)) {
+                const reachability = this._evaluator.getNodeReachability(statement, prevStatement);
+                if (reachability !== Reachability.Reachable) {
                     // Create a text range that covers the next statement through
                     // the end of the statement list.
                     const start = statement.start;
                     const lastStatement = statements[statements.length - 1];
                     const end = TextRange.getEnd(lastStatement);
-                    this._evaluator.addUnreachableCode(statement, { start, length: end - start });
+                    this._evaluator.addUnreachableCode(statement, reachability, { start, length: end - start });
 
                     reportedUnreachable = true;
                 }
@@ -7557,7 +7559,11 @@ export class Checker extends ParseTreeWalker {
                         LocMessage.unreachableExcept() + diagAddendum.getString(),
                         except.d.typeExpr
                     );
-                    this._evaluator.addUnreachableCode(except, except.d.exceptSuite);
+                    this._evaluator.addUnreachableCode(
+                        except,
+                        Reachability.UnreachableByAnalysis,
+                        except.d.exceptSuite
+                    );
                 }
             }
 
