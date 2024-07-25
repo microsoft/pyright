@@ -1401,22 +1401,26 @@ export function createTypeEvaluator(
             return;
         }
 
-        const diag = new DiagnosticAddendum();
-        if (isUnion(typeResult.type)) {
-            doForEachSubtype(typeResult.type, (subtype) => {
-                if (!isEffectivelyInstantiable(subtype, { honorTypeVarBounds: true })) {
-                    diag.addMessage(LocAddendum.typeNotClass().format({ type: printType(subtype) }));
-                }
-            });
+        // Emit these errors only if we know we're evaluating a type expression.
+        if ((flags & EvalFlags.TypeExpression) !== 0) {
+            const diag = new DiagnosticAddendum();
+            if (isUnion(typeResult.type)) {
+                doForEachSubtype(typeResult.type, (subtype) => {
+                    if (!isEffectivelyInstantiable(subtype, { honorTypeVarBounds: true })) {
+                        diag.addMessage(LocAddendum.typeNotClass().format({ type: printType(subtype) }));
+                    }
+                });
+            }
+
+            addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.typeExpectedClass().format({ type: printType(typeResult.type) }) + diag.getString(),
+                node
+            );
+
+            typeResult.type = UnknownType.create();
         }
 
-        addDiagnostic(
-            DiagnosticRule.reportGeneralTypeIssues,
-            LocMessage.typeExpectedClass().format({ type: printType(typeResult.type) }) + diag.getString(),
-            node
-        );
-
-        typeResult.type = UnknownType.create();
         typeResult.typeErrors = true;
     }
 
