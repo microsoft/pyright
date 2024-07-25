@@ -545,3 +545,77 @@ self._target = 3 # type: int | str
 
 Future versions of Python will likely deprecate support for type annotation comments. The “reportTypeCommentUsage” diagnostic will report usage of such comments so they can be replaced with inline type annotations.
 
+
+### Static Conditional Evaluation
+Pyright performs static evaluation of several conditional expression forms. This includes several forms that are mandated by the [Python typing spec](https://typing.readthedocs.io/en/latest/spec/directives.html#version-and-platform-checking).
+
+* `sys.version_info <comparison> <tuple>`
+* `sys.version_info[0] >= <number>`
+* `sys.platform == <string literal>`
+* `os.name == <string literal>`
+* `typing.TYPE_CHECKING` or `typing_extensions.TYPE_CHECKING`
+* `True` or `False`
+* An identifier defined with the "defineConstant" configuration option
+* A `not` unary operator with any of the above forms
+* An  `and` or `or` binary operator with any of the above forms
+
+If one of these conditional expressions evaluates statically to false, pyright does not analyze any of the code within it other than checking for and reporting syntax errors.
+
+
+### Reachability
+Pyright performs “reachability analysis” to determine whether statements will be executed at runtime.
+
+Reachability analysis is based on both non-type and type information. Non-type information includes statements that unconditionally affect code flow such as `continue`, `raise` and `return`. It also includes conditional statements (`if`, `elif`, or `while`) where the conditional expression is one of the [supported expression forms](type-concepts-advanced#static-conditional-evaluation). Type analysis is not performed on code that is determined to be unreachable using non-type information. Therefore, no type errors is reported for this code, and language server features like completion suggestions are not available.
+
+```python
+# Examples of code determined to be unreachable using non-type information
+
+from typing import TYPE_CHECKING
+import sys
+
+if False:
+    print('unreachable')
+
+if not TYPE_CHECKING:
+    print('unreachable')
+
+if sys.version_info < (3, 0):
+    print('unreachable')
+
+if sys.platform == 'ENIAC':
+    print('unreachable')
+
+def func1():
+    return
+    print('unreachable')
+
+def func2():
+    raise NotImplemented
+    print('unreachable')
+```
+
+Pyright can also detect code that is unreachable based on static type analysis. This analysis is based on the assumption that any provided type annotations are accurate.
+
+```python
+# Examples of code determined to be unreachable using type analysis
+
+from typing import NoReturn
+
+def always_raise() -> NoReturn:
+    raise ValueError
+
+def func1():
+    always_raise()
+    print('unreachable')
+
+def func2(x: str):
+    if not isinstance(x, str):
+        print('unreachable')
+
+def func3(x: Literal[1, 2]):
+    if x == 1 or x == 2:
+        return
+
+    print("unreachable")
+```
+
