@@ -1609,6 +1609,10 @@ export namespace Localizer {
         export const autoImportDetail = () => getRawString('Completion.autoImportDetail');
         export const indexValueDetail = () => getRawString('Completion.indexValueDetail');
     }
+
+    export namespace Service {
+        export const longOperation = () => getRawString('Service.longOperation');
+    }
 }
 
 export const LocMessage = Localizer.Diagnostic;

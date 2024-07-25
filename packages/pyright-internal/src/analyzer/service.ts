@@ -33,7 +33,6 @@ import { timingStats } from '../common/timing';
 import { Uri } from '../common/uri/uri';
 import {
     FileSpec,
-    forEachAncestorDirectory,
     getFileSpec,
     getFileSystemEntries,
     hasPythonExtension,
@@ -43,6 +42,7 @@ import {
     tryRealpath,
     tryStat,
 } from '../common/uri/uriUtils';
+import { Localizer } from '../localization/localize';
 import { AnalysisCompleteCallback } from './analysis';
 import {
     BackgroundAnalysisProgram,
@@ -52,10 +52,14 @@ import {
 import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
+import {
+    configFileName,
+    findConfigFile,
+    findConfigFileHereOrUp,
+    findPyprojectTomlFile,
+    findPyprojectTomlFileHereOrUp,
+} from './serviceUtils';
 import { IPythonMode } from './sourceFile';
-
-export const configFileName = 'pyrightconfig.json';
-export const pyprojectTomlName = 'pyproject.toml';
 
 // How long since the last user activity should we wait until running
 // the analyzer on any files that have not yet been analyzed?
@@ -97,11 +101,11 @@ export function getNextServiceId(name: string) {
 }
 
 export class AnalyzerService {
-    private readonly _instanceName: string;
     private readonly _options: AnalyzerServiceOptions;
     private readonly _backgroundAnalysisProgram: BackgroundAnalysisProgram;
     private readonly _serviceProvider: ServiceProvider;
 
+    private _instanceName: string;
     private _executionRootUri: Uri;
     private _typeStubTargetUri: Uri | undefined;
     private _typeStubTargetIsSingleFile = false;
@@ -202,6 +206,10 @@ export class AnalyzerService {
 
     get id() {
         return this._options.serviceId!;
+    }
+
+    setServiceName(instanceName: string) {
+        this._instanceName = instanceName;
     }
 
     clone(
@@ -549,7 +557,7 @@ export class AnalyzerService {
                     projectRoot = configFilePath.getDirectory();
                 } else {
                     projectRoot = configFilePath;
-                    configFilePath = this._findConfigFile(configFilePath);
+                    configFilePath = findConfigFile(this.fs, configFilePath);
                     if (!configFilePath) {
                         this._console.info(`Configuration file not found at ${projectRoot.toUserVisibleString()}.`);
                     }
@@ -558,13 +566,13 @@ export class AnalyzerService {
         } else if (commandLineOptions.executionRoot) {
             // In a project-based IDE like VS Code, we should assume that the
             // project root directory contains the config file.
-            configFilePath = this._findConfigFile(projectRoot);
+            configFilePath = findConfigFile(this.fs, projectRoot);
 
             // If pyright is being executed from the command line, the working
             // directory may be deep within a project, and we need to walk up the
             // directory hierarchy to find the project root.
             if (!configFilePath && !commandLineOptions.fromVsCodeExtension) {
-                configFilePath = this._findConfigFileHereOrUp(projectRoot);
+                configFilePath = findConfigFileHereOrUp(this.fs, projectRoot);
             }
 
             if (configFilePath) {
@@ -577,10 +585,10 @@ export class AnalyzerService {
 
         if (!configFilePath) {
             // See if we can find a pyproject.toml file in this directory.
-            pyprojectFilePath = this._findPyprojectTomlFile(projectRoot);
+            pyprojectFilePath = findPyprojectTomlFile(this.fs, projectRoot);
 
             if (!pyprojectFilePath && !commandLineOptions.fromVsCodeExtension) {
-                pyprojectFilePath = this._findPyprojectTomlFileHereOrUp(projectRoot);
+                pyprojectFilePath = findPyprojectTomlFileHereOrUp(this.fs, projectRoot);
             }
 
             if (pyprojectFilePath) {
@@ -945,31 +953,6 @@ export class AnalyzerService {
         return typingsSubdirPath;
     }
 
-    private _findConfigFileHereOrUp(searchPath: Uri): Uri | undefined {
-        return forEachAncestorDirectory(searchPath, (ancestor) => this._findConfigFile(ancestor));
-    }
-
-    private _findConfigFile(searchPath: Uri): Uri | undefined {
-        const fileName = searchPath.resolvePaths(configFileName);
-        if (this.fs.existsSync(fileName)) {
-            return this.fs.realCasePath(fileName);
-        }
-
-        return undefined;
-    }
-
-    private _findPyprojectTomlFileHereOrUp(searchPath: Uri): Uri | undefined {
-        return forEachAncestorDirectory(searchPath, (ancestor) => this._findPyprojectTomlFile(ancestor));
-    }
-
-    private _findPyprojectTomlFile(searchPath: Uri) {
-        const fileName = searchPath.resolvePaths(pyprojectTomlName);
-        if (this.fs.existsSync(fileName)) {
-            return this.fs.realCasePath(fileName);
-        }
-        return undefined;
-    }
-
     private _parseJsonConfigFile(configPath: Uri): object | undefined {
         return this._attemptParseFile(configPath, (fileContents) => {
             const errors: JSONC.ParseError[] = [];
@@ -1160,7 +1143,23 @@ export class AnalyzerService {
         this._requireTrackedFileUpdate = false;
     }
 
+    private _tryShowLongOperationMessageBox() {
+        const windowService = this.serviceProvider.tryGet(ServiceKeys.windowService);
+        if (!windowService) {
+            return;
+        }
+
+        const message = Localizer.Service.longOperation();
+        const action = windowService.createGoToOutputAction();
+        windowService.showInformationMessage(message, action);
+    }
+
     private _matchFiles(include: FileSpec[], exclude: FileSpec[]): Uri[] {
+        if (this._executionRootUri.isEmpty()) {
+            // No user files for default workspace.
+            return [];
+        }
+
         const envMarkers = [['bin', 'activate'], ['Scripts', 'activate'], ['pyvenv.cfg'], ['conda-meta']];
         const results: Uri[] = [];
         const startTime = Date.now();
@@ -1186,6 +1185,10 @@ export class AnalyzerService {
                             'subdirectories from your workspace. For more details, refer to ' +
                             'https://github.com/microsoft/pyright/blob/main/docs/configuration.md.'
                     );
+
+                    // Show it in messagebox if it is supported.
+                    this._tryShowLongOperationMessageBox();
+
                     loggedLongOperationError = true;
                 }
             }
@@ -1615,7 +1618,7 @@ export class AnalyzerService {
                 }
                 this._scheduleReloadConfigFile();
             });
-        } else if (this._executionRootUri) {
+        } else if (!this._executionRootUri.isEmpty()) {
             this._configFileWatcher = this.fs.createFileSystemWatcher([this._executionRootUri], (event, path) => {
                 if (!path) {
                     return;

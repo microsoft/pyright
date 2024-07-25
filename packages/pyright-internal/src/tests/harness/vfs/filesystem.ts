@@ -375,11 +375,6 @@ export class TestFileSystem implements FileSystem, TempFile, CaseSensitivityDete
         return path;
     }
 
-    mktmpdir(): Uri {
-        this.mkdirpSync('/tmp/1');
-        return Uri.parse('file:///tmp/1', this);
-    }
-
     realCasePath(path: Uri): Uri {
         return path;
     }

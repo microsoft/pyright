@@ -495,7 +495,7 @@
         "typeCallNotAllowed": "A chamada type() não deve ser usada na anotação de tipo",
         "typeCheckOnly": "\"{name}\" está marcado como @type_check_only e pode ser usado apenas em anotações de tipo",
         "typeCommentDeprecated": "O uso de comentários de tipo foi preterido. Use anotação de tipo em vez disso",
-        "typeExpectedClass": "Expressão de tipo esperada, mas recebeu \"{type}\"",
+        "typeExpectedClass": "Classe esperada, mas a recebida foi \"{type}\"",
         "typeGuardArgCount": "Argumento de tipo único esperado após \"TypeGuard\" ou \"TypeIs\"",
         "typeGuardParamCount": "Funções e métodos de proteção de tipo definidos pelo usuário devem ter pelo menos um parâmetro de entrada",
         "typeIsReturnType": "O tipo de retorno de TypeIs (\"{returnType}\") não é consistente com o tipo de parâmetro de valor (\"{type}\")",
@@ -669,6 +669,7 @@
         "invariantSuggestionDict": "Considere alternar de \"dict\" para \"Mapping\", que é covariante no tipo de valor",
         "invariantSuggestionList": "Considere alternar de \"list\" para \"Sequence\", que é covariante",
         "invariantSuggestionSet": "Considere alternar de \"set\" para \"Container\", que é covariante",
+        "isinstanceClassNotSupported": "\"{type}\" não tem suporte para verificações de instância e classe",
         "keyNotRequired": "\"{name}\" não é uma chave necessária em \"{type}\", portanto, o acesso pode resultar em exceção de runtime",
         "keyReadOnly": "\"{name}\" é uma chave somente leitura em \"{type}\"",
         "keyRequiredDeleted": "\"{name}\" é uma chave obrigatória e não pode ser excluída",
@@ -803,5 +804,8 @@
         "useTypeInstead": "Use Type[T] em vez disso",
         "varianceMismatchForClass": "A variação do argumento de tipo \"{typeVarName}\" é incompatível com a classe base \"{className}\"",
         "varianceMismatchForTypeAlias": "A variação do argumento de tipo \"{typeVarName}\" é incompatível com \"{typeAliasParam}\""
+    },
+    "Service": {
+        "longOperation": "A enumeração de arquivos de origem do espaço de trabalho está demorando muito. Em vez disso, considere abrir uma subpasta. [Saiba mais](https://aka.ms/workspace-too-many-files)"
     }
 }

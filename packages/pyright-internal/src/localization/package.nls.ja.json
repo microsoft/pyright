@@ -495,7 +495,7 @@
         "typeCallNotAllowed": "type() 呼び出しは型注釈で使用しないでください",
         "typeCheckOnly": "\"{name}\" は@type_check_onlyとしてマークされており、型注釈でのみ使用できます",
         "typeCommentDeprecated": "型コメントの使用は非推奨です。代わりに型注釈を使用してください",
-        "typeExpectedClass": "型式が必要ですが、\"{type}\" を受け取りました",
+        "typeExpectedClass": "クラスが必要ですが、\"{type}\" を受け取りました",
         "typeGuardArgCount": "\"TypeGuard\" または \"TypeIs\" の後に 1 つの型引数が必要です",
         "typeGuardParamCount": "ユーザー定義型ガード関数とメソッドには、少なくとも 1 つの入力パラメーターが必要です",
         "typeIsReturnType": "TypeIs の戻り値の型 (\"{returnType}\") と値パラメーターの型 (\"{type}\") が一致しません",
@@ -669,6 +669,7 @@
         "invariantSuggestionDict": "\"dict\" から値の型の共変である \"Mapping\" への切り替えを検討してください",
         "invariantSuggestionList": "\"list\" から共変である \"Sequence\" への切り替えを検討してください",
         "invariantSuggestionSet": "\"set\" から共変である \"Container\" への切り替えを検討してください",
+        "isinstanceClassNotSupported": "インスタンスとクラスのチェックでは、\"{type}\" はサポートされていません",
         "keyNotRequired": "\"{name}\" は \"{type}\" の必須キーではないため、アクセスすると実行時例外が発生する可能性があります",
         "keyReadOnly": "\"{name}\" は \"{type}\" の読み取り専用キーです",
         "keyRequiredDeleted": "\"{name}\" は必須キーであり、削除できません",
@@ -803,5 +804,8 @@
         "useTypeInstead": "代わりに Type[T] を使用する",
         "varianceMismatchForClass": "型引数 \"{typeVarName}\" の分散は、基底クラス \"{className}\" と互換性がありません",
         "varianceMismatchForTypeAlias": "型引数 \"{typeVarName}\" の分散は \"{typeAliasParam}\" と互換性がありません"
+    },
+    "Service": {
+        "longOperation": "ワークスペース ソース ファイルの列挙に時間がかかっています。代わりにサブフォルダーを開く方法を検討してください。[詳細情報](https://aka.ms/workspace-too-many-files)"
     }
 }

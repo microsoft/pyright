@@ -495,7 +495,7 @@
         "typeCallNotAllowed": "不應在類型註釋中使用 type() 呼叫",
         "typeCheckOnly": "\"{name}\" 已標示為 @type_check_only，只能在型別註釋中使用",
         "typeCommentDeprecated": "使用類型註解已取代; 請改為使用類型註釋",
-        "typeExpectedClass": "預期為類型運算式，但收到 \"{type}\"",
+        "typeExpectedClass": "預期的類別，但已收到 \"{type}\"",
         "typeGuardArgCount": "預期 \"TypeGuard\" 或 \"TypeIs\" 之後為單一類型引數",
         "typeGuardParamCount": "使用者定義的類型防護函式和方法至少必須有一個輸入參數",
         "typeIsReturnType": "TypeIs 的傳回類型 (\"{returnType}\") 與值參數類型 (\"{type}\") 不一致",
@@ -669,6 +669,7 @@
         "invariantSuggestionDict": "請考慮從「dict」切換到實值型別中共變數的「Mapping」",
         "invariantSuggestionList": "請考慮從共變數的「list」切換到「Sequence」",
         "invariantSuggestionSet": "考慮從 “set”切換到共同變數 “Container”",
+        "isinstanceClassNotSupported": "執行個體和類別檢查不支援 \"{type}\"",
         "keyNotRequired": "\"{name}\" 在 \"{type}\" 中不是必要的索引鍵，因此存取可能會導致執行階段例外狀況",
         "keyReadOnly": "\"{name}\" 是 \"{type}\" 中的唯讀金鑰",
         "keyRequiredDeleted": "\"{name}\" 是必要的金鑰，因此不能刪除",
@@ -803,5 +804,8 @@
         "useTypeInstead": "改為使用 Type[T]",
         "varianceMismatchForClass": "型別引數 \"{typeVarName}\" 的變異數與基底類別 \"{className}\" 不相容",
         "varianceMismatchForTypeAlias": "型別引數 \"{typeVarName}\" 的變異數與 \"{typeAliasParam}\" 不相容"
+    },
+    "Service": {
+        "longOperation": "列舉工作區來源檔案需要很長的時間。請考慮改為開啟子資料夾。[深入了解](https://aka.ms/workspace-too-many-files)"
     }
 }

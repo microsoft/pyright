@@ -806,5 +806,8 @@
     "Completion": {
         "autoImportDetail": "Auto-import",
         "indexValueDetail": "Index value"
+    },
+    "Service": {
+        "longOperation": "Enumeration of workspace source files is taking a long time. Consider opening a sub-folder instead. [Learn more](https://aka.ms/workspace-too-many-files)"
     }
 }

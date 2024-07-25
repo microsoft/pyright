@@ -17,6 +17,7 @@ import { LogTracker } from './logTracker';
 import { ServiceProvider } from './serviceProvider';
 import { Uri } from './uri/uri';
 import { DocStringService, PyrightDocStringService } from './docStringService';
+import { CommandService, WindowService } from './languageServerInterface';
 
 declare module './serviceProvider' {
     interface ServiceProvider {
@@ -58,6 +59,12 @@ export function createServiceProvider(...services: any): ServiceProvider {
         }
         if (DocStringService.is(service)) {
             sp.add(ServiceKeys.docStringService, service);
+        }
+        if (WindowService.is(service)) {
+            sp.add(ServiceKeys.windowService, service);
+        }
+        if (CommandService.is(service)) {
+            sp.add(ServiceKeys.commandService, service);
         }
     });
     return sp;

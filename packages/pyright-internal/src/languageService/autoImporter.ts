@@ -6,7 +6,7 @@
  * Logic for performing auto-import completions.
  */
 
-import { CancellationToken, CompletionItemKind, SymbolKind } from 'vscode-languageserver';
+import { CancellationToken, CompletionItem, CompletionItemKind, SymbolKind } from 'vscode-languageserver';
 
 import { DeclarationType } from '../analyzer/declaration';
 import { ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
@@ -37,8 +37,9 @@ import { Position } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
-import { CompletionMap } from './completionProvider';
+import { CompletionItemData, CompletionMap } from './completionProvider';
 import { IndexAliasData } from './symbolIndexer';
+import { fromLSPAny } from '../common/lspUtils';
 
 export interface AutoImportSymbol {
     readonly importAlias?: IndexAliasData;
@@ -189,6 +190,10 @@ export class AutoImporter {
 
         map.forEach((v) => appendArray(results, v));
         return results;
+    }
+
+    protected getCompletionItemData(item: CompletionItem): CompletionItemData | undefined {
+        return fromLSPAny<CompletionItemData>(item.data);
     }
 
     protected getCandidates(
@@ -598,7 +603,9 @@ export class AutoImporter {
     }
 
     private _shouldExclude(name: string) {
-        return this._excludes.has(name, CompletionMap.labelOnlyIgnoringAutoImports);
+        return this._excludes.has(name, (i) =>
+            CompletionMap.labelOnlyIgnoringAutoImports(i, this.getCompletionItemData.bind(this))
+        );
     }
 
     private _containsName(name: string, source: string | undefined, results: AutoImportResultMap) {

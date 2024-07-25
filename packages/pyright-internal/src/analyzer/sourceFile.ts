@@ -12,7 +12,7 @@ import { isMainThread } from 'worker_threads';
 import { OperationCanceledException } from '../common/cancellationUtils';
 import { appendArray } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
-import { ConsoleInterface, LogLevel, StandardConsole } from '../common/console';
+import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory, TaskListToken, convertLevelToCategory } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -142,28 +142,10 @@ class WriteableData {
     // True if the file appears to have been deleted.
     isFileDeleted = false;
 
-    private _lastCallStack: string | undefined;
-    private _parserOutput: ParserOutput | undefined;
+    parserOutput: ParserOutput | undefined;
 
-    private readonly _consoleWithLevel?: ConsoleInterface & { level: LogLevel };
-
-    constructor(console: ConsoleInterface) {
-        if (ConsoleInterface.hasLevel(console)) {
-            this._consoleWithLevel = console;
-        }
-    }
-
-    get parserOutput() {
-        return this._parserOutput;
-    }
-
-    set parserOutput(value: ParserOutput | undefined) {
-        this._lastCallStack =
-            this._consoleWithLevel?.level === LogLevel.Log && value === undefined && this._parserOutput !== undefined
-                ? new Error().stack
-                : undefined;
-
-        this._parserOutput = value;
+    constructor() {
+        // Empty
     }
 
     debugPrint() {
@@ -195,8 +177,7 @@ class WriteableData {
  pyrightIgnoreLines=${this.pyrightIgnoreLines?.size},
  checkTime=${this.checkTime},
  clientDocumentContents=${this.clientDocumentContents?.length},
- parseResults=${this.parserOutput?.parseTree.length},
- parseResultsDropCallStack=${this._lastCallStack}`;
+ parseResults=${this.parserOutput?.parseTree.length}`;
     }
 }
 
@@ -273,7 +254,7 @@ export class SourceFile {
     ) {
         this.fileSystem = serviceProvider.get(ServiceKeys.fs);
         this._console = console || new StandardConsole();
-        this._writableData = new WriteableData(this._console);
+        this._writableData = new WriteableData();
 
         this._editMode = editMode;
         this._uri = uri;
@@ -1242,7 +1223,7 @@ export class SourceFile {
         this._preEditData = this._writableData;
 
         // Recreate all the writable data from scratch.
-        this._writableData = new WriteableData(this._console);
+        this._writableData = new WriteableData();
     }
 
     // Get all task list diagnostics for the current file and add them
