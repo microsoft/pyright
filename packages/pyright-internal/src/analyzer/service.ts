@@ -42,6 +42,7 @@ import {
     tryRealpath,
     tryStat,
 } from '../common/uri/uriUtils';
+import { Localizer } from '../localization/localize';
 import { AnalysisCompleteCallback } from './analysis';
 import {
     BackgroundAnalysisProgram,
@@ -51,7 +52,6 @@ import {
 import { ImportResolver, ImportResolverFactory, createImportedModuleDescriptor } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths } from './pythonPathUtils';
-import { IPythonMode } from './sourceFile';
 import {
     configFileName,
     findConfigFile,
@@ -59,7 +59,7 @@ import {
     findPyprojectTomlFile,
     findPyprojectTomlFileHereOrUp,
 } from './serviceUtils';
-import { Localizer } from '../localization/localize';
+import { IPythonMode } from './sourceFile';
 
 // How long since the last user activity should we wait until running
 // the analyzer on any files that have not yet been analyzed?
@@ -648,7 +648,6 @@ export class AnalyzerService {
         configOptions.disableTaggedHints = !!commandLineOptions.disableTaggedHints;
 
         configOptions.initializeTypeCheckingMode(commandLineOptions.typeCheckingMode ?? 'standard');
-        configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
 
         const configs = this._getExtendedConfigurations(configFilePath ?? pyprojectFilePath);
 
@@ -662,6 +661,8 @@ export class AnalyzerService {
                     commandLineOptions
                 );
             }
+        } else {
+            configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
         }
 
         // If no include paths were provided, assume that all files within
