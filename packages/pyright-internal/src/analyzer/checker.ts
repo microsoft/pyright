@@ -2817,7 +2817,6 @@ export class Checker extends ParseTreeWalker {
     private _walkStatementsAndReportUnreachable(statements: StatementNode[]) {
         let reportedUnreachable = false;
         let prevStatement: StatementNode | undefined;
-        const reportTypeReachability = this._fileInfo.diagnosticRuleSet.identifyUnreachableCode;
 
         for (const statement of statements) {
             // No need to report unreachable more than once since the first time
@@ -2825,16 +2824,14 @@ export class Checker extends ParseTreeWalker {
             if (!reportedUnreachable) {
                 const reachability = this._evaluator.getNodeReachability(statement, prevStatement);
                 if (reachability !== Reachability.Reachable) {
-                    if (reachability === Reachability.UnreachableAlways || reportTypeReachability) {
-                        // Create a text range that covers the next statement through
-                        // the end of the statement list.
-                        const start = statement.start;
-                        const lastStatement = statements[statements.length - 1];
-                        const end = TextRange.getEnd(lastStatement);
-                        this._evaluator.addUnreachableCode(statement, { start, length: end - start });
+                    // Create a text range that covers the next statement through
+                    // the end of the statement list.
+                    const start = statement.start;
+                    const lastStatement = statements[statements.length - 1];
+                    const end = TextRange.getEnd(lastStatement);
+                    this._evaluator.addUnreachableCode(statement, reachability, { start, length: end - start });
 
-                        reportedUnreachable = true;
-                    }
+                    reportedUnreachable = true;
                 }
             }
 
@@ -7553,7 +7550,11 @@ export class Checker extends ParseTreeWalker {
                         LocMessage.unreachableExcept() + diagAddendum.getString(),
                         except.d.typeExpr
                     );
-                    this._evaluator.addUnreachableCode(except, except.d.exceptSuite);
+                    this._evaluator.addUnreachableCode(
+                        except,
+                        Reachability.UnreachableByAnalysis,
+                        except.d.exceptSuite
+                    );
                 }
             }
 

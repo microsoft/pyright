@@ -3130,10 +3130,23 @@ export function createTypeEvaluator(
         }
     }
 
-    function addUnreachableCode(node: ParseNode, textRange: TextRange) {
+    function addUnreachableCode(node: ParseNode, reachability: Reachability, textRange: TextRange) {
+        if (reachability === Reachability.Reachable) {
+            return;
+        }
+
         if (!isDiagnosticSuppressedForNode(node)) {
             const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
-            fileInfo.diagnosticSink.addUnreachableCodeWithTextRange(LocMessage.unreachableCode(), textRange);
+            const reportTypeReachability = fileInfo.diagnosticRuleSet.identifyUnreachableCode;
+
+            if (reachability === Reachability.UnreachableAlways || reportTypeReachability) {
+                fileInfo.diagnosticSink.addUnreachableCodeWithTextRange(
+                    reachability === Reachability.UnreachableAlways
+                        ? LocMessage.unreachableCode()
+                        : LocMessage.unreachableCodeType(),
+                    textRange
+                );
+            }
         }
     }
 
