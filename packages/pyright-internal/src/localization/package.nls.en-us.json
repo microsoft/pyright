@@ -595,7 +595,7 @@
         "unpackNotAllowed": "Unpack is not allowed in this context",
         "unpackOperatorNotAllowed": "Unpack operation is not allowed in this context",
         "unpackTuplesIllegal": "Unpack operation not allowed in tuples prior to Python 3.8",
-        "unreachableCode": "Code is unreachable",
+        "unreachableCode": "Code is unreachable for type checking",
         "unreachableExcept": "Except clause is unreachable because exception is already handled",
         "unsupportedDunderAllOperation": "Operation on \"__all__\" is not supported, so exported symbol list may be incorrect",
         "unusedCallResult": "Result of call expression is of type \"{type}\" and is not used; assign to variable \"_\" if this is intentional",
