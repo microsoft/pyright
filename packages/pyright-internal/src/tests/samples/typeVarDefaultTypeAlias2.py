@@ -14,6 +14,8 @@ T1 = TypeVar("T1", default=str)
 T2 = TypeVar("T2", default=T1)
 T3 = TypeVar("T3", default=list[T2])
 T4 = TypeVar("T4", default=dict[T1, T2])
+
+# This should generate an error because of the recursive definition.
 T5 = TypeVar("T5", default="T5")
 
 TA_A = dict[T1, T2]

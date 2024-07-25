@@ -8313,7 +8313,9 @@ export function createTypeEvaluator(
         }
 
         const assertedType = convertToInstance(
-            getTypeOfArgumentExpectingType(convertArgumentNodeToFunctionArgument(node.d.args[1])).type
+            getTypeOfArgumentExpectingType(convertArgumentNodeToFunctionArgument(node.d.args[1]), {
+                evalAsTypeExpression: true,
+            }).type
         );
 
         if (
@@ -8373,7 +8375,9 @@ export function createTypeEvaluator(
             } else if (arg.d.name.d.value === 'expected_type') {
                 expectedRevealTypeNode = arg.d.valueExpr;
                 expectedRevealType = convertToInstance(
-                    getTypeOfArgumentExpectingType(convertArgumentNodeToFunctionArgument(arg)).type
+                    getTypeOfArgumentExpectingType(convertArgumentNodeToFunctionArgument(arg), {
+                        evalAsTypeExpression: true,
+                    }).type
                 );
             }
         });
@@ -10186,7 +10190,7 @@ export function createTypeEvaluator(
     // Evaluates the type of the "cast" call.
     function evaluateCastCall(argList: FunctionArgument[], errorNode: ExpressionNode) {
         // Verify that the cast is necessary.
-        const castToType = getTypeOfArgumentExpectingType(argList[0], { enforceTypeAnnotationRules: true }).type;
+        const castToType = getTypeOfArgumentExpectingType(argList[0], { evalAsTypeExpression: true }).type;
         let castFromType = getTypeOfArgument(argList[1], /* inferenceContext */ undefined).type;
 
         if (castFromType.props?.specialForm) {
@@ -12455,6 +12459,7 @@ export function createTypeEvaluator(
                             argList[i].typeResult?.type ??
                             getTypeOfExpressionExpectingType(argList[i].valueExpression!, {
                                 disallowProtocolAndTypedDict: true,
+                                evalAsTypeExpression: true,
                             }).type;
                         if (
                             requiresSpecialization(argType, { ignorePseudoGeneric: true, ignoreImplicitTypeArgs: true })
@@ -12518,6 +12523,7 @@ export function createTypeEvaluator(
                         argList[i].typeResult?.type ??
                         getTypeOfExpressionExpectingType(defaultValueNode!, {
                             allowTypeVarsWithoutScopeId: true,
+                            evalAsTypeExpression: true,
                         }).type;
                     typeVar.shared.defaultType = convertToInstance(argType);
                     typeVar.shared.isDefaultExplicit = true;
@@ -12553,7 +12559,9 @@ export function createTypeEvaluator(
                 } else {
                     const argType =
                         argList[i].typeResult?.type ??
-                        getTypeOfExpressionExpectingType(argList[i].valueExpression!).type;
+                        getTypeOfExpressionExpectingType(argList[i].valueExpression!, {
+                            evalAsTypeExpression: true,
+                        }).type;
 
                     if (requiresSpecialization(argType, { ignorePseudoGeneric: true })) {
                         addDiagnostic(
@@ -12718,6 +12726,7 @@ export function createTypeEvaluator(
             allowUnpackedTuple: true,
             allowTypeVarsWithoutScopeId: true,
             allowForwardReference: isPep695Syntax,
+            evalAsTypeExpression: true,
         }).type;
         const isUnpackedTuple = isClass(argType) && isTupleClass(argType) && argType.priv.isUnpacked;
         const isUnpackedTypeVarTuple = isUnpackedVariadicTypeVar(argType);
@@ -12821,6 +12830,7 @@ export function createTypeEvaluator(
                 const typeResult = getTypeOfExpressionExpectingType(paramExpr, {
                     allowTypeVarsWithoutScopeId: true,
                     allowForwardReference: isPep695Syntax,
+                    evalAsTypeExpression: true,
                 });
 
                 FunctionType.addParameter(
@@ -12846,6 +12856,7 @@ export function createTypeEvaluator(
             const typeResult = getTypeOfExpressionExpectingType(node, {
                 allowParamSpec: true,
                 allowTypeVarsWithoutScopeId: true,
+                evalAsTypeExpression: true,
             });
 
             if (typeResult.typeErrors) {
@@ -16504,7 +16515,7 @@ export function createTypeEvaluator(
 
         const aliasTypeResult = getTypeOfExpressionExpectingType(valueNode, {
             allowForwardReference: true,
-            enforceTypeAnnotationRules: true,
+            evalAsTypeExpression: true,
         });
         let isIncomplete = false;
         let aliasType = aliasTypeResult.type;
@@ -20703,7 +20714,7 @@ export function createTypeEvaluator(
             flags |= EvalFlags.NoParamSpec;
         }
 
-        if (options?.enforceTypeAnnotationRules) {
+        if (options?.evalAsTypeExpression) {
             flags |= EvalFlags.TypeExpression;
         }
 
@@ -21507,6 +21518,7 @@ export function createTypeEvaluator(
                 const boundType = getTypeOfExpressionExpectingType(node.d.boundExpr, {
                     disallowProtocolAndTypedDict: true,
                     allowForwardReference: true,
+                    evalAsTypeExpression: true,
                 }).type;
 
                 if (requiresSpecialization(boundType, { ignorePseudoGeneric: true })) {
@@ -21548,7 +21560,10 @@ export function createTypeEvaluator(
         } else {
             const defaultType = node.d.defaultExpr
                 ? convertToInstance(
-                      getTypeOfExpressionExpectingType(node.d.defaultExpr, { allowForwardReference: true }).type
+                      getTypeOfExpressionExpectingType(node.d.defaultExpr, {
+                          allowForwardReference: true,
+                          evalAsTypeExpression: true,
+                      }).type
                   )
                 : undefined;
 
