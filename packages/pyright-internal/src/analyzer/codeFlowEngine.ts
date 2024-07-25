@@ -41,7 +41,7 @@ import { isMatchingExpression, isPartialMatchingExpression, printExpression } fr
 import { getPatternSubtypeNarrowingCallback } from './patternMatching';
 import { SpeculativeTypeTracker } from './typeCacheUtils';
 import { narrowForKeyAssignment } from './typedDicts';
-import { EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { EvalFlags, Reachability, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { getTypeNarrowingCallback } from './typeGuards';
 import {
     ClassType,
@@ -112,7 +112,7 @@ export interface CodeFlowAnalyzer {
 
 export interface CodeFlowEngine {
     createCodeFlowAnalyzer: () => CodeFlowAnalyzer;
-    isFlowNodeReachable: (flowNode: FlowNode, sourceFlowNode?: FlowNode, ignoreNoReturn?: boolean) => boolean;
+    getFlowNodeReachability: (flowNode: FlowNode, sourceFlowNode?: FlowNode, ignoreNoReturn?: boolean) => Reachability;
     narrowConstrainedTypeVar: (flowNode: FlowNode, typeVar: TypeVarType) => Type | undefined;
     printControlFlowGraph: (
         flowNode: FlowNode,
@@ -151,8 +151,8 @@ export interface IncompleteType {
 }
 
 interface ReachabilityCacheEntry {
-    isReachable: boolean | undefined;
-    isReachableFrom: Map<number, boolean>;
+    reachability: Reachability | undefined;
+    reachabilityFrom: Map<number, Reachability>;
 }
 
 // Define a user type guard function for IncompleteType.
@@ -634,7 +634,8 @@ export function getCodeFlowEngine(
                                 !subexpressionReferenceKeys.some((key) =>
                                     branchFlowNode.affectedExpressions!.has(key)
                                 ) &&
-                                isFlowNodeReachable(curFlowNode, branchFlowNode.preBranchAntecedent)
+                                getFlowNodeReachability(curFlowNode, branchFlowNode.preBranchAntecedent) ===
+                                    Reachability.Reachable
                             ) {
                                 curFlowNode = branchFlowNode.preBranchAntecedent;
                                 continue;
@@ -1214,41 +1215,45 @@ export function getCodeFlowEngine(
     // control flow path within the execution context. If sourceFlowNode
     // is specified, it returns true only if at least one control flow
     // path passes through sourceFlowNode.
-    function isFlowNodeReachable(flowNode: FlowNode, sourceFlowNode?: FlowNode, ignoreNoReturn = false): boolean {
+    function getFlowNodeReachability(
+        flowNode: FlowNode,
+        sourceFlowNode?: FlowNode,
+        ignoreNoReturn = false
+    ): Reachability {
         const visitedFlowNodeSet = new Set<number>();
         const closedFinallyGateSet = new Set<number>();
 
         if (enablePrintControlFlowGraph) {
-            printControlFlowGraph(flowNode, /* reference */ undefined, 'isFlowNodeReachable');
+            printControlFlowGraph(flowNode, /* reference */ undefined, 'getFlowNodeReachability');
         }
 
-        function cacheReachabilityResult(isReachable: boolean): boolean {
+        function cacheReachabilityResult(reachability: Reachability): Reachability {
             // If there is a finally gate set, we will not cache the results
             // because this can affect the reachability.
             if (closedFinallyGateSet.size > 0) {
-                return isReachable;
+                return reachability;
             }
 
             let cacheEntry = reachabilityCache.get(flowNode.id);
             if (!cacheEntry) {
-                cacheEntry = { isReachable: undefined, isReachableFrom: new Map<number, boolean>() };
+                cacheEntry = { reachability: undefined, reachabilityFrom: new Map<number, Reachability>() };
                 reachabilityCache.set(flowNode.id, cacheEntry);
             }
 
             if (!sourceFlowNode) {
-                cacheEntry.isReachable = isReachable;
+                cacheEntry.reachability = reachability;
             } else {
-                cacheEntry.isReachableFrom.set(sourceFlowNode.id, isReachable);
+                cacheEntry.reachabilityFrom.set(sourceFlowNode.id, reachability);
             }
 
-            return isReachable;
+            return reachability;
         }
 
-        function isFlowNodeReachableRecursive(flowNode: FlowNode, recursionCount = 0): boolean {
+        function getFlowNodeReachabilityRecursive(flowNode: FlowNode, recursionCount = 0): Reachability {
             // Cut off the recursion at some point to prevent a stack overflow.
             const maxFlowNodeReachableRecursionCount = 64;
             if (recursionCount > maxFlowNodeReachableRecursionCount) {
-                return true;
+                return Reachability.Reachable;
             }
             recursionCount++;
 
@@ -1259,13 +1264,13 @@ export function getCodeFlowEngine(
                 const cacheEntry = reachabilityCache.get(flowNode.id);
                 if (cacheEntry !== undefined && closedFinallyGateSet.size === 0) {
                     if (!sourceFlowNode) {
-                        if (cacheEntry.isReachable !== undefined) {
-                            return cacheEntry.isReachable;
+                        if (cacheEntry.reachability !== undefined) {
+                            return cacheEntry.reachability;
                         }
                     } else {
-                        const isReachableFrom = cacheEntry.isReachableFrom.get(sourceFlowNode.id);
-                        if (isReachableFrom !== undefined) {
-                            return isReachableFrom;
+                        const reachabilityFrom = cacheEntry.reachabilityFrom.get(sourceFlowNode.id);
+                        if (reachabilityFrom !== undefined) {
+                            return reachabilityFrom;
                         }
                     }
                 }
@@ -1273,18 +1278,18 @@ export function getCodeFlowEngine(
                 // If we've already visited this node, we can assume
                 // it wasn't reachable.
                 if (visitedFlowNodeSet.has(curFlowNode.id)) {
-                    return cacheReachabilityResult(false);
+                    return cacheReachabilityResult(Reachability.UnreachableAlways);
                 }
 
                 // Note that we've been here before.
                 visitedFlowNodeSet.add(curFlowNode.id);
 
                 if (curFlowNode.flags & FlowFlags.Unreachable) {
-                    return cacheReachabilityResult(false);
+                    return cacheReachabilityResult(Reachability.UnreachableAlways);
                 }
 
                 if (curFlowNode === sourceFlowNode) {
-                    return cacheReachabilityResult(true);
+                    return cacheReachabilityResult(Reachability.Reachable);
                 }
 
                 if (
@@ -1344,7 +1349,7 @@ export function getCodeFlowEngine(
                             }
 
                             if (isUnreachable) {
-                                return cacheReachabilityResult(false);
+                                return cacheReachabilityResult(Reachability.UnreachableByAnalysis);
                             }
                         }
                     }
@@ -1360,7 +1365,7 @@ export function getCodeFlowEngine(
                     // it always raises an exception or otherwise doesn't return,
                     // so we can assume that the code before this is unreachable.
                     if (!ignoreNoReturn && isCallNoReturn(evaluator, callFlowNode)) {
-                        return cacheReachabilityResult(false);
+                        return cacheReachabilityResult(Reachability.UnreachableByAnalysis);
                     }
 
                     curFlowNode = callFlowNode.antecedent;
@@ -1377,29 +1382,37 @@ export function getCodeFlowEngine(
                                 isExceptionContextManager(evaluator, expr, contextMgrNode.isAsync)
                             )
                         ) {
-                            return cacheReachabilityResult(false);
+                            return cacheReachabilityResult(Reachability.UnreachableByAnalysis);
                         }
                     }
 
                     const labelNode = curFlowNode as FlowLabel;
+                    let unreachableByType = false;
                     for (const antecedent of labelNode.antecedents) {
-                        if (isFlowNodeReachableRecursive(antecedent, recursionCount)) {
-                            return cacheReachabilityResult(true);
+                        const reachability = getFlowNodeReachabilityRecursive(antecedent, recursionCount);
+                        if (reachability === Reachability.Reachable) {
+                            return cacheReachabilityResult(reachability);
+                        } else if (reachability === Reachability.UnreachableByAnalysis) {
+                            unreachableByType = true;
                         }
                     }
-                    return cacheReachabilityResult(false);
+                    return cacheReachabilityResult(
+                        unreachableByType ? Reachability.UnreachableByAnalysis : Reachability.UnreachableAlways
+                    );
                 }
 
                 if (curFlowNode.flags & FlowFlags.Start) {
                     // If we hit the start but were looking for a particular source flow
                     // node, return false. Otherwise, the start is what we're looking for.
-                    return cacheReachabilityResult(sourceFlowNode ? false : true);
+                    return cacheReachabilityResult(
+                        sourceFlowNode ? Reachability.UnreachableByAnalysis : Reachability.Reachable
+                    );
                 }
 
                 if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
                     const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
                     if (closedFinallyGateSet.has(preFinallyFlowNode.id)) {
-                        return cacheReachabilityResult(false);
+                        return cacheReachabilityResult(Reachability.UnreachableByAnalysis);
                     }
 
                     curFlowNode = preFinallyFlowNode.antecedent;
@@ -1413,7 +1426,7 @@ export function getCodeFlowEngine(
                     try {
                         closedFinallyGateSet.add(postFinallyFlowNode.preFinallyGate.id);
                         return cacheReachabilityResult(
-                            isFlowNodeReachableRecursive(postFinallyFlowNode.antecedent, recursionCount)
+                            getFlowNodeReachabilityRecursive(postFinallyFlowNode.antecedent, recursionCount)
                         );
                     } finally {
                         if (!wasGateClosed) {
@@ -1424,18 +1437,18 @@ export function getCodeFlowEngine(
 
                 // We shouldn't get here.
                 fail('Unexpected flow node flags');
-                return cacheReachabilityResult(false);
+                return cacheReachabilityResult(Reachability.Reachable);
             }
         }
 
         // Protect against infinite recursion.
         if (isReachableRecursionSet.has(flowNode.id)) {
-            return false;
+            return Reachability.UnreachableByAnalysis;
         }
         isReachableRecursionSet.add(flowNode.id);
 
         try {
-            return isFlowNodeReachableRecursive(flowNode);
+            return getFlowNodeReachabilityRecursive(flowNode);
         } finally {
             isReachableRecursionSet.delete(flowNode.id);
         }
@@ -1957,7 +1970,7 @@ export function getCodeFlowEngine(
 
     return {
         createCodeFlowAnalyzer,
-        isFlowNodeReachable,
+        getFlowNodeReachability,
         narrowConstrainedTypeVar,
         printControlFlowGraph,
     };
