@@ -272,7 +272,42 @@ if (!usingTrueVenv()) {
             assert(!importResult.isImportFound);
         });
     });
+
+    test('getModuleNameForImport library file', () => {
+        const files = [
+            {
+                path: combinePaths(libraryRoot, 'myLib', 'myModule', 'file1.py'),
+                content: '# empty',
+            },
+        ];
+
+        const moduleImportInfo = getModuleNameForImport(files);
+
+        assert.strictEqual(moduleImportInfo.importType, ImportType.ThirdParty);
+        assert(!moduleImportInfo.isThirdPartyPyTypedPresent);
+        assert(!moduleImportInfo.isLocalTypingsFile);
+    });
+
+    test('getModuleNameForImport py.typed library file', () => {
+        const files = [
+            {
+                path: combinePaths(libraryRoot, 'myLib', 'py.typed'),
+                content: '',
+            },
+            {
+                path: combinePaths(libraryRoot, 'myLib', 'myModule', 'file1.py'),
+                content: '# empty',
+            },
+        ];
+
+        const moduleImportInfo = getModuleNameForImport(files);
+
+        assert.strictEqual(moduleImportInfo.importType, ImportType.ThirdParty);
+        assert(moduleImportInfo.isThirdPartyPyTypedPresent);
+        assert(!moduleImportInfo.isLocalTypingsFile);
+    });
 }
+
 describe('Import tests that can run with or without a true venv', () => {
     test('side by side files', () => {
         const myFile = combinePaths('src', 'file.py');
@@ -721,40 +756,6 @@ describe('Import tests that can run with or without a true venv', () => {
 
         assert.strictEqual(moduleImportInfo.importType, ImportType.Local);
         assert(!moduleImportInfo.isThirdPartyPyTypedPresent);
-        assert(!moduleImportInfo.isLocalTypingsFile);
-    });
-
-    test('getModuleNameForImport library file', () => {
-        const files = [
-            {
-                path: combinePaths(libraryRoot, 'myLib', 'myModule', 'file1.py'),
-                content: '# empty',
-            },
-        ];
-
-        const moduleImportInfo = getModuleNameForImport(files);
-
-        assert.strictEqual(moduleImportInfo.importType, ImportType.ThirdParty);
-        assert(!moduleImportInfo.isThirdPartyPyTypedPresent);
-        assert(!moduleImportInfo.isLocalTypingsFile);
-    });
-
-    test('getModuleNameForImport py.typed library file', () => {
-        const files = [
-            {
-                path: combinePaths(libraryRoot, 'myLib', 'py.typed'),
-                content: '',
-            },
-            {
-                path: combinePaths(libraryRoot, 'myLib', 'myModule', 'file1.py'),
-                content: '# empty',
-            },
-        ];
-
-        const moduleImportInfo = getModuleNameForImport(files);
-
-        assert.strictEqual(moduleImportInfo.importType, ImportType.ThirdParty);
-        assert(moduleImportInfo.isThirdPartyPyTypedPresent);
         assert(!moduleImportInfo.isLocalTypingsFile);
     });
 });
