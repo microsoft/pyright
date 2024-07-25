@@ -181,6 +181,7 @@ import {
     MapSubtypesOptions,
     MemberAccessDeprecationInfo,
     PrintTypeOptions,
+    Reachability,
     ResolveAliasOptions,
     TypeEvaluator,
     TypeResult,
@@ -3018,42 +3019,51 @@ export function createTypeEvaluator(
     }
 
     function isNodeReachable(node: ParseNode, sourceNode?: ParseNode): boolean {
+        return getNodeReachability(node, sourceNode) === Reachability.Reachable;
+    }
+
+    function isAfterNodeReachable(node: ParseNode): boolean {
+        return getAfterNodeReachability(node) === Reachability.Reachable;
+    }
+
+    function getNodeReachability(node: ParseNode, sourceNode?: ParseNode): Reachability {
         if (checkCodeFlowTooComplex(node)) {
-            return true;
+            return Reachability.Reachable;
         }
 
         const flowNode = AnalyzerNodeInfo.getFlowNode(node);
         if (!flowNode) {
             if (node.parent) {
-                return isNodeReachable(node.parent, sourceNode);
+                return getNodeReachability(node.parent, sourceNode);
             }
-            return false;
+            return Reachability.UnreachableAlways;
         }
 
         const sourceFlowNode = sourceNode ? AnalyzerNodeInfo.getFlowNode(sourceNode) : undefined;
 
-        return codeFlowEngine.isFlowNodeReachable(flowNode, sourceFlowNode);
+        return codeFlowEngine.getFlowNodeReachability(flowNode, sourceFlowNode);
     }
 
-    function isAfterNodeReachable(node: ParseNode): boolean {
+    function getAfterNodeReachability(node: ParseNode): Reachability {
         const returnFlowNode = AnalyzerNodeInfo.getAfterFlowNode(node);
         if (!returnFlowNode) {
-            return false;
+            return Reachability.UnreachableAlways;
         }
 
         if (checkCodeFlowTooComplex(node)) {
-            return true;
+            return Reachability.Reachable;
         }
 
-        if (!codeFlowEngine.isFlowNodeReachable(returnFlowNode)) {
-            return false;
+        const reachability = codeFlowEngine.getFlowNodeReachability(returnFlowNode);
+        if (reachability !== Reachability.Reachable) {
+            return reachability;
         }
 
         if (!isFlowNodeReachableUsingNeverNarrowing(node, returnFlowNode)) {
-            return false;
+            return Reachability.UnreachableByAnalysis;
         }
 
-        return true;
+        return Reachability.Reachable;
     }
 
     // Although isFlowNodeReachable indicates that the node is reachable, it
@@ -3087,7 +3097,10 @@ export function createTypeEvaluator(
             return allowSelf;
         }
 
-        return codeFlowEngine.isFlowNodeReachable(sinkFlowNode, sourceFlowNode, /* ignoreNoReturn */ true);
+        return (
+            codeFlowEngine.getFlowNodeReachability(sinkFlowNode, sourceFlowNode, /* ignoreNoReturn */ true) ===
+            Reachability.Reachable
+        );
     }
 
     // Determines whether the specified string literal is part
@@ -4678,10 +4691,12 @@ export function createTypeEvaluator(
                                 return false;
                             }
 
-                            return !codeFlowEngine.isFlowNodeReachable(
-                                declCodeFlowNode,
-                                innerScopeCodeFlowNode,
-                                /* ignoreNoReturn */ true
+                            return (
+                                codeFlowEngine.getFlowNodeReachability(
+                                    declCodeFlowNode,
+                                    innerScopeCodeFlowNode,
+                                    /* ignoreNoReturn */ true
+                                ) !== Reachability.Reachable
                             );
                         })
                     ) {
@@ -20783,11 +20798,11 @@ export function createTypeEvaluator(
                             const flowNode = AnalyzerNodeInfo.getFlowNode(node);
                             const isReachable =
                                 flowNode &&
-                                codeFlowEngine.isFlowNodeReachable(
+                                codeFlowEngine.getFlowNodeReachability(
                                     flowNode,
                                     /* sourceFlowNode */ undefined,
                                     /* ignoreNoReturn */ true
-                                );
+                                ) === Reachability.Reachable;
                             return !isReachable;
                         }
                     }
@@ -27699,8 +27714,10 @@ export function createTypeEvaluator(
         verifyDeleteExpression,
         validateOverloadedArgTypes,
         validateInitSubclassArgs,
-        isAfterNodeReachable,
         isNodeReachable,
+        isAfterNodeReachable,
+        getNodeReachability,
+        getAfterNodeReachability,
         isAsymmetricAccessorAssignment,
         suppressDiagnostics,
         isSpecialFormClass,

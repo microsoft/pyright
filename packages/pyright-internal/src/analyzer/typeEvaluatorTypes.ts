@@ -438,6 +438,12 @@ export interface ClassMemberLookup {
     memberAccessDeprecationInfo?: MemberAccessDeprecationInfo;
 }
 
+export enum Reachability {
+    Reachable,
+    UnreachableAlways,
+    UnreachableByAnalysis,
+}
+
 export interface PrintTypeOptions {
     expandTypeAlias?: boolean;
     enforcePythonSyntax?: boolean;
@@ -514,8 +520,11 @@ export interface TypeEvaluator {
     ) => CallResult;
     validateInitSubclassArgs: (node: ClassNode, classType: ClassType) => void;
 
-    isAfterNodeReachable: (node: ParseNode) => boolean;
     isNodeReachable: (node: ParseNode, sourceNode?: ParseNode | undefined) => boolean;
+    isAfterNodeReachable: (node: ParseNode) => boolean;
+    getNodeReachability: (node: ParseNode, sourceNode?: ParseNode | undefined) => Reachability;
+    getAfterNodeReachability: (node: ParseNode) => Reachability;
+
     isAsymmetricAccessorAssignment: (node: ParseNode) => boolean;
     suppressDiagnostics: (node: ParseNode, callback: () => void) => void;
     isSpecialFormClass: (classType: ClassType, flags: AssignTypeFlags) => boolean;
