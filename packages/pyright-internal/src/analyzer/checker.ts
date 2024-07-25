@@ -7313,7 +7313,9 @@ export class Checker extends ParseTreeWalker {
 
             if (
                 typeVars.some(
-                    (typeVar) => typeVar.priv.scopeId === functionType.shared.methodClass?.shared.typeVarScopeId
+                    (typeVar) =>
+                        typeVar.priv.scopeId === functionType.shared.methodClass?.shared.typeVarScopeId &&
+                        !typeVar.shared.isSynthesizedSelf
                 )
             ) {
                 this._evaluator.addDiagnostic(
