@@ -3,12 +3,15 @@
 # type checkers should flag such conditions as errors.
 
 from enum import Enum
-from typing import Callable
+from typing import Callable, Final
 
 
 class Enum1(Enum):
     # This should generate an error.
-    MEMBER: int = 1
+    MEMBER_1: int = 1
+
+    # This should generate an error.
+    MEMBER_2: Final = 3
 
     _NON_MEMBER_: int = 3
 
