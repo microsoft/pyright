@@ -11354,31 +11354,36 @@ export function createTypeEvaluator(
             return 0;
         };
 
-        // If the expected type is a union, we don't know which type is expected.
-        // We may or may not be able to make use of the expected type. We'll evaluate
-        // speculatively to see if using one of the expected subtypes works.
-        if (expectedType && isUnion(expectedType)) {
+        // Refine the expected type by speculatively evaluating arg types. If the
+        // expected type is a union, we may need to perform multiple evaluations
+        // to determine whether one of the subtypes works.
+        if (expectedType) {
             expectedType = useSpeculativeMode(getSpeculativeNodeForCall(errorNode), () => {
                 let validExpectedSubtype: Type | undefined;
                 let bestSubtypeScore = -1;
 
-                doForEachSubtype(
-                    expectedType!,
-                    (expectedSubtype) => {
-                        if (bestSubtypeScore < 3) {
-                            const score = tryExpectedType(expectedSubtype);
-                            if (score > bestSubtypeScore) {
-                                validExpectedSubtype = expectedSubtype;
-                                bestSubtypeScore = score;
+                // If the expected type is a union, we don't know which type is expected.
+                // We may or may not be able to make use of the expected type. We'll evaluate
+                // speculatively to see if using one of the expected subtypes works.
+                if (isUnion(expectedType!)) {
+                    doForEachSubtype(
+                        expectedType!,
+                        (expectedSubtype) => {
+                            if (bestSubtypeScore < 3) {
+                                const score = tryExpectedType(expectedSubtype);
+                                if (score > 0 && score > bestSubtypeScore) {
+                                    validExpectedSubtype = expectedSubtype;
+                                    bestSubtypeScore = score;
+                                }
                             }
-                        }
-                    },
-                    /* sortSubtypes */ true
-                );
+                        },
+                        /* sortSubtypes */ true
+                    );
+                }
 
                 if (bestSubtypeScore < 3) {
                     const score = tryExpectedType(expectedType!);
-                    if (score > bestSubtypeScore) {
+                    if (score > 0 && score > bestSubtypeScore) {
                         validExpectedSubtype = expectedType;
                     }
                 }
