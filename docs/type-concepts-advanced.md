@@ -546,6 +546,43 @@ self._target = 3 # type: int | str
 Future versions of Python will likely deprecate support for type annotation comments. The “reportTypeCommentUsage” diagnostic will report usage of such comments so they can be replaced with inline type annotations.
 
 
+### Literal Math Inference
+When inferring the type of some unary and binary operations that involve operands with literal types, pyright computes the result of operations on the literal values, producing a new literal type in the process. For example:
+
+```python
+def func(x: Literal[1, 3], y: Literal[4, 7]):
+    z = x + y
+    reveal_type(z) # Literal[5, 8, 7, 10]
+
+    z = x * y
+    reveal_type(z) # Literal[4, 7, 12, 21]
+
+    z = (x | y) ^ 1
+    reveal_type(z) # Literal[4, 6]
+
+    z = x ** y
+    reveal_type(z) # Literal[1, 81, 2187]
+```
+
+Literal math also works on `str` literals.
+
+```python
+reveal_type("a" + "b") # Literal["ab"]
+```
+
+The result of a literal math operation can result in large unions. Pyright limits the number of subtypes in the resulting union to 64. If the union grows beyond that, the corresponding non-literal type is inferred.
+
+```python
+def func(x: Literal[1, 2, 3, 4, 5]):
+    y = x * x
+    reveal_type(y) # Literal[1, 2, 3, 4, 5, 6, 8, 10, 9, 12, 15, 16, 20, 25]
+    z = y * x
+    reveal_type(z) # int
+```
+
+Literal math inference is disabled within loops and lambda expressions.
+
+
 ### Static Conditional Evaluation
 Pyright performs static evaluation of several conditional expression forms. This includes several forms that are mandated by the [Python typing spec](https://typing.readthedocs.io/en/latest/spec/directives.html#version-and-platform-checking).
 
