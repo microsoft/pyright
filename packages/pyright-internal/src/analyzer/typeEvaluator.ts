@@ -14268,13 +14268,15 @@ export function createTypeEvaluator(
         if (enclosingFunction) {
             const functionTypeInfo = getTypeOfFunction(enclosingFunction);
             if (functionTypeInfo) {
-                const returnType = FunctionType.getEffectiveReturnType(functionTypeInfo.functionType);
+                let returnType = FunctionType.getEffectiveReturnType(functionTypeInfo.functionType);
                 if (returnType) {
+                    const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(node);
+                    returnType = updateTypeWithInternalTypeVars(returnType, liveScopeIds);
+
                     expectedYieldType = getGeneratorYieldType(returnType, !!enclosingFunction.d.isAsync);
 
                     const generatorTypeArgs = getGeneratorTypeArgs(returnType);
                     if (generatorTypeArgs && generatorTypeArgs.length >= 2) {
-                        const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(node);
                         sentType = updateTypeWithInternalTypeVars(generatorTypeArgs[1], liveScopeIds);
                     }
                 }
