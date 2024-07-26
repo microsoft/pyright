@@ -2061,6 +2061,17 @@ export function createTypeEvaluator(
         });
     }
 
+    // If a type contains a TypeGuard or TypeIs, convert it to a bool.
+    function stripTypeGuard(type: Type): Type {
+        return mapSubtypes(type, (subtype) => {
+            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, ['TypeGuard', 'TypeIs'])) {
+                return boolClass ? convertToInstance(boolClass) : UnknownType.create();
+            }
+
+            return subtype;
+        });
+    }
+
     // Gets a member type from an object or class. If it's a function, binds
     // it to the object or class. If selfType is undefined, the binding is done
     // using the objectType parameter. Callers can specify these separately
@@ -8294,13 +8305,12 @@ export function createTypeEvaluator(
             }).type
         );
 
-        if (
-            !isTypeSame(assertedType, arg0TypeResult.type, {
-                treatAnySameAsUnknown: true,
-                ignorePseudoGeneric: true,
-                ignoreTypeGuard: true,
-            })
-        ) {
+        // We'll replace TypeGuard and TypeIs with bool for purposes of assert_type testing.
+        // The spec is unclear on whether this is the correct behavior, but it seems to be
+        // what mypy does -- and what various library authors expect.
+        const arg0Type = stripTypeGuard(arg0TypeResult.type);
+
+        if (!isTypeSame(assertedType, arg0Type, { treatAnySameAsUnknown: true, ignorePseudoGeneric: true })) {
             const srcDestTypes = printSrcDestTypes(arg0TypeResult.type, assertedType, { expandTypeAlias: true });
 
             addDiagnostic(
@@ -11733,39 +11743,6 @@ export function createTypeEvaluator(
         // If the final return type is an unpacked tuple, turn it into a normal (unpacked) tuple.
         if (isUnpackedClass(specializedReturnType)) {
             specializedReturnType = ClassType.cloneForUnpacked(specializedReturnType, /* isUnpackedTuple */ false);
-        }
-
-        // Handle 'TypeGuard' and 'TypeIs' specially. We'll transform the return type
-        // into a 'bool' object with a type argument that reflects the narrowed type.
-        if (
-            isClassInstance(specializedReturnType) &&
-            ClassType.isBuiltIn(specializedReturnType, ['TypeGuard', 'TypeIs']) &&
-            specializedReturnType.priv.typeArguments &&
-            specializedReturnType.priv.typeArguments.length > 0
-        ) {
-            if (boolClass && isInstantiableClass(boolClass)) {
-                let typeGuardType = specializedReturnType.priv.typeArguments[0];
-
-                // If the first argument is a simple (non-constrained) TypeVar,
-                // associate that TypeVar with the resulting TypeGuard type.
-                if (argResults.length > 0) {
-                    const arg0Type = argResults[0].argType;
-                    if (
-                        isTypeVar(arg0Type) &&
-                        !arg0Type.shared.isParamSpec &&
-                        arg0Type.shared.constraints.length === 0
-                    ) {
-                        typeGuardType = addConditionToType(typeGuardType, [
-                            { typeVar: arg0Type, constraintIndex: 0 },
-                        ]) as ClassType;
-                    }
-                }
-
-                const useTypeIsSemantics = ClassType.isBuiltIn(specializedReturnType, 'TypeIs');
-                specializedReturnType = ClassType.cloneAsInstance(
-                    ClassType.cloneForTypeGuard(boolClass, typeGuardType, useTypeIsSemantics)
-                );
-            }
         }
 
         specializedReturnType = adjustCallableReturnType(type, specializedReturnType, liveTypeVarScopes);
@@ -22889,6 +22866,14 @@ export function createTypeEvaluator(
             return true;
         }
 
+        // If the type is a bool created with a `TypeGuard` or `TypeIs`, it is
+        // considered a subtype of `bool`.
+        if (isInstantiableClass(srcType) && ClassType.isBuiltIn(srcType, ['TypeGuard', 'TypeIs'])) {
+            if (isInstantiableClass(destType) && ClassType.isBuiltIn(destType, 'bool')) {
+                return (flags & AssignTypeFlags.EnforceInvariance) === 0;
+            }
+        }
+
         if ((flags & AssignTypeFlags.EnforceInvariance) === 0 || ClassType.isSameGenericClass(srcType, destType)) {
             if (isDerivedFrom) {
                 assert(inheritanceChain.length > 0);
@@ -23388,29 +23373,6 @@ export function createTypeEvaluator(
             }
         }
 
-        // If the type is a bool created with a `TypeGuard` or `TypeIs`, it is
-        // considered a subtype of `bool`.
-        if (destType.priv.typeGuardType) {
-            if (!srcType.priv.typeGuardType) {
-                return false;
-            }
-
-            // TypeGuard and TypeIs are not subtypes of each other.
-            if (!destType.priv.isStrictTypeGuard !== !srcType.priv.isStrictTypeGuard) {
-                return false;
-            }
-
-            return assignType(
-                destType.priv.typeGuardType,
-                srcType.priv.typeGuardType,
-                diag?.createAddendum(),
-                /* destTypeVarContext */ undefined,
-                /* srcTypeVarContext */ undefined,
-                flags,
-                recursionCount
-            );
-        }
-
         for (let ancestorIndex = inheritanceChain.length - 1; ancestorIndex >= 0; ancestorIndex--) {
             const ancestorType = inheritanceChain[ancestorIndex];
 
@@ -23784,10 +23746,6 @@ export function createTypeEvaluator(
             return true;
         }
 
-        // Strip flags we don't want to propagate to other calls.
-        const originalFlags = flags;
-        flags &= ~AssignTypeFlags.AllowBoolTypeGuard;
-
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
         if (isTypeVar(destType)) {
@@ -23858,7 +23816,7 @@ export function createTypeEvaluator(
                         srcType,
                         diag,
                         destTypeVarContext,
-                        originalFlags,
+                        flags,
                         recursionCount
                     );
                 }
@@ -23889,7 +23847,7 @@ export function createTypeEvaluator(
                         srcType,
                         diag,
                         targetTypeVarContext ?? new TypeVarContext(),
-                        originalFlags,
+                        flags,
                         recursionCount
                     )
                 ) {
@@ -23920,7 +23878,7 @@ export function createTypeEvaluator(
                         diag,
                         /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
-                        originalFlags,
+                        flags,
                         recursionCount
                     );
                 } else {
@@ -23931,7 +23889,7 @@ export function createTypeEvaluator(
                             destType,
                             diag,
                             srcTypeVarContext ?? new TypeVarContext(),
-                            originalFlags,
+                            flags,
                             recursionCount
                         )
                     ) {
@@ -23949,7 +23907,7 @@ export function createTypeEvaluator(
                                     destSubtype,
                                     diag,
                                     srcTypeVarContext ?? new TypeVarContext(),
-                                    originalFlags,
+                                    flags,
                                     recursionCount
                                 )
                             ) {
@@ -24047,7 +24005,7 @@ export function createTypeEvaluator(
                     /* diag */ undefined,
                     destTypeVarContext,
                     srcTypeVarContext,
-                    originalFlags,
+                    flags,
                     recursionCount
                 );
             }
@@ -24061,7 +24019,7 @@ export function createTypeEvaluator(
                     /* diag */ undefined,
                     clonedDestTypeVarContext,
                     clonedSrcTypeVarContext,
-                    originalFlags,
+                    flags,
                     recursionCount
                 )
             ) {
@@ -24083,7 +24041,7 @@ export function createTypeEvaluator(
                 diag,
                 destTypeVarContext,
                 srcTypeVarContext,
-                originalFlags,
+                flags,
                 recursionCount
             );
         }
@@ -24095,7 +24053,7 @@ export function createTypeEvaluator(
                 diag,
                 destTypeVarContext,
                 srcTypeVarContext,
-                originalFlags,
+                flags,
                 recursionCount
             );
         }
@@ -24265,13 +24223,6 @@ export function createTypeEvaluator(
                 if (TypeBase.isInstantiable(srcType)) {
                     const isLiteral = isClass(srcType) && srcType.priv.literalValue !== undefined;
                     return !isLiteral;
-                }
-            } else if (ClassType.isBuiltIn(destType, ['TypeGuard', 'TypeIs'])) {
-                // Allow the source to be a "bool".
-                if ((originalFlags & AssignTypeFlags.AllowBoolTypeGuard) !== 0) {
-                    if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'bool')) {
-                        return true;
-                    }
                 }
             }
 
@@ -27719,6 +27670,7 @@ export function createTypeEvaluator(
         stripLiteralValue,
         removeTruthinessFromType,
         removeFalsinessFromType,
+        stripTypeGuard,
         verifyRaiseExceptionType,
         verifyDeleteExpression,
         validateOverloadedArgTypes,

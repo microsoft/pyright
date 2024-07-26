@@ -43,7 +43,7 @@ def overloaded_filter(
 
 
 x1 = cb1(1)
-reveal_type(x1, expected_text="bool")
+reveal_type(x1, expected_text="TypeGuard[int]")
 
 sf1 = simple_filter([], cb1)
 reveal_type(sf1, expected_text="list[object]")

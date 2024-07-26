@@ -203,9 +203,6 @@ export const enum AssignTypeFlags {
     // For function types, skip the return type check.
     SkipReturnTypeCheck = 1 << 6,
 
-    // Allow bool values to be assigned to TypeGuard[x] types.
-    AllowBoolTypeGuard = 1 << 7,
-
     // In most cases, literals are stripped when assigning to a
     // type variable. This overrides the standard behavior.
     RetainLiteralsForTypeVar = 1 << 8,
