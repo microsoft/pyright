@@ -336,42 +336,31 @@ function narrowTypeBasedOnSequencePattern(
             }
 
             // Can we narrow a tuple?
-            if (canNarrowTuple) {
+            if (canNarrowTuple && negativeNarrowedDims.length > 0) {
                 const tupleClassType = evaluator.getBuiltInType(pattern, 'tuple');
                 if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                    if (negativeNarrowedDims.length === 1) {
-                        entry.subtype = ClassType.cloneAsInstance(
-                            specializeTupleClass(
-                                tupleClassType,
-                                narrowedEntryTypes.map((t) => {
-                                    return { type: t, isUnbounded: false };
-                                })
-                            )
-                        );
-                    } else if (negativeNarrowedDims.length > 1) {
-                        // Expand the tuple in the dimensions that were narrowed.
-                        // Start with the fully-narrowed set of entries.
-                        const expandedEntryTypes = [];
+                    // Expand the tuple in the dimensions that were narrowed.
+                    // Start with the fully-narrowed set of entries.
+                    const expandedEntryTypes = [];
 
-                        for (const dim of negativeNarrowedDims) {
-                            const newEntryTypes = [...unnarrowedEntryTypes];
-                            newEntryTypes[dim] = narrowedEntryTypes[dim];
-                            expandedEntryTypes.push(newEntryTypes);
-                        }
-
-                        entry.subtype = combineTypes(
-                            expandedEntryTypes.map((entryTypes) => {
-                                return ClassType.cloneAsInstance(
-                                    specializeTupleClass(
-                                        tupleClassType,
-                                        entryTypes.map((t) => {
-                                            return { type: t, isUnbounded: false };
-                                        })
-                                    )
-                                );
-                            })
-                        );
+                    for (const dim of negativeNarrowedDims) {
+                        const newEntryTypes = [...unnarrowedEntryTypes];
+                        newEntryTypes[dim] = narrowedEntryTypes[dim];
+                        expandedEntryTypes.push(newEntryTypes);
                     }
+
+                    entry.subtype = combineTypes(
+                        expandedEntryTypes.map((entryTypes) => {
+                            return ClassType.cloneAsInstance(
+                                specializeTupleClass(
+                                    tupleClassType,
+                                    entryTypes.map((t) => {
+                                        return { type: t, isUnbounded: false };
+                                    })
+                                )
+                            );
+                        })
+                    );
                 }
             }
 
