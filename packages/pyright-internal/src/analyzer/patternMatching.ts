@@ -219,6 +219,7 @@ function narrowTypeBasedOnSequencePattern(
         let isPlausibleMatch = true;
         let isDefiniteMatch = true;
         const narrowedEntryTypes: Type[] = [];
+        const unnarrowedEntryTypes: Type[] = [];
         let canNarrowTuple = entry.isTuple;
 
         // Don't attempt to narrow tuples in the negative case if the subject
@@ -254,7 +255,7 @@ function narrowTypeBasedOnSequencePattern(
             }
         }
 
-        let negativeEntriesNarrowed = 0;
+        const negativeNarrowedDims: number[] = [];
         pattern.d.entries.forEach((sequenceEntry, index) => {
             const entryType = getTypeOfPatternSequenceEntry(
                 evaluator,
@@ -266,6 +267,7 @@ function narrowTypeBasedOnSequencePattern(
                 /* unpackStarEntry */ true
             );
 
+            unnarrowedEntryTypes.push(entryType);
             const narrowedEntryType = narrowTypeBasedOnPattern(evaluator, entryType, sequenceEntry, isPositiveTest);
 
             if (isPositiveTest) {
@@ -299,10 +301,11 @@ function narrowTypeBasedOnSequencePattern(
                 if (!isNever(narrowedEntryType)) {
                     isDefiniteMatch = false;
 
-                    // Record the number of entries that were narrowed in the negative
-                    // case. We can apply the tuple narrowing only if exactly one entry
-                    // is narrowed.
-                    negativeEntriesNarrowed++;
+                    // Record which entries were narrowed in the negative case
+                    // by storing their indexes. If more than one is narrowed,
+                    // we need to perform tuple expansion to represent the
+                    // resulting narrowed type.
+                    negativeNarrowedDims.push(index);
                     narrowedEntryTypes.push(narrowedEntryType);
                 } else {
                     narrowedEntryTypes.push(entryType);
@@ -333,17 +336,42 @@ function narrowTypeBasedOnSequencePattern(
             }
 
             // Can we narrow a tuple?
-            if (canNarrowTuple && negativeEntriesNarrowed === 1) {
+            if (canNarrowTuple) {
                 const tupleClassType = evaluator.getBuiltInType(pattern, 'tuple');
                 if (tupleClassType && isInstantiableClass(tupleClassType)) {
-                    entry.subtype = ClassType.cloneAsInstance(
-                        specializeTupleClass(
-                            tupleClassType,
-                            narrowedEntryTypes.map((t) => {
-                                return { type: t, isUnbounded: false };
+                    if (negativeNarrowedDims.length === 1) {
+                        entry.subtype = ClassType.cloneAsInstance(
+                            specializeTupleClass(
+                                tupleClassType,
+                                narrowedEntryTypes.map((t) => {
+                                    return { type: t, isUnbounded: false };
+                                })
+                            )
+                        );
+                    } else if (negativeNarrowedDims.length > 1) {
+                        // Expand the tuple in the dimensions that were narrowed.
+                        // Start with the fully-narrowed set of entries.
+                        const expandedEntryTypes = [];
+
+                        for (const dim of negativeNarrowedDims) {
+                            const newEntryTypes = [...unnarrowedEntryTypes];
+                            newEntryTypes[dim] = narrowedEntryTypes[dim];
+                            expandedEntryTypes.push(newEntryTypes);
+                        }
+
+                        entry.subtype = combineTypes(
+                            expandedEntryTypes.map((entryTypes) => {
+                                return ClassType.cloneAsInstance(
+                                    specializeTupleClass(
+                                        tupleClassType,
+                                        entryTypes.map((t) => {
+                                            return { type: t, isUnbounded: false };
+                                        })
+                                    )
+                                );
                             })
-                        )
-                    );
+                        );
+                    }
                 }
             }
 
