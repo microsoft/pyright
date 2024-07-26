@@ -117,7 +117,6 @@ export interface TypeSameOptions {
     ignoreTypeFlags?: boolean;
     ignoreConditions?: boolean;
     ignoreTypedDictNarrowEntries?: boolean;
-    ignoreTypeGuard?: boolean;
     treatAnySameAsUnknown?: boolean;
 }
 
@@ -741,13 +740,6 @@ export interface ClassDetailsPriv {
     // some or all of the type parameters.
     typeArguments?: Type[] | undefined;
 
-    // A bool value that has been returned by a user-defined
-    // type guard (see PEP 647) will have additional type information
-    // that indicates how a type should be narrowed. This field will
-    // be used only in a bool class.
-    typeGuardType?: Type | undefined;
-    isStrictTypeGuard?: boolean;
-
     // If a generic container class (like a list or dict) is known
     // to contain no elements, its type arguments may be "Unknown".
     // This value allows us to elide the Unknown when it's safe to
@@ -983,17 +975,6 @@ export namespace ClassType {
         if (newClassType.priv.includePromotions !== undefined) {
             newClassType.priv.includePromotions = undefined;
         }
-        return newClassType;
-    }
-
-    export function cloneForTypeGuard(
-        classType: ClassType,
-        typeGuardType: Type,
-        isStrictTypeGuard: boolean
-    ): ClassType {
-        const newClassType = TypeBase.cloneType(classType);
-        newClassType.priv.typeGuardType = typeGuardType;
-        newClassType.priv.isStrictTypeGuard = isStrictTypeGuard;
         return newClassType;
     }
 
@@ -3212,24 +3193,6 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 return false;
             }
 
-            if (!options.ignoreTypeGuard) {
-                // If one is a type guard and the other is not, they are not the same.
-                if (!type1.priv.typeGuardType !== !classType2.priv.typeGuardType) {
-                    return false;
-                }
-
-                if (type1.priv.typeGuardType && classType2.priv.typeGuardType) {
-                    // TypeIs and TypeGuard are not the equivalent.
-                    if (!type1.priv.isStrictTypeGuard !== !classType2.priv.isStrictTypeGuard) {
-                        return false;
-                    }
-
-                    if (!isTypeSame(type1.priv.typeGuardType, classType2.priv.typeGuardType, options, recursionCount)) {
-                        return false;
-                    }
-                }
-            }
-
             if (!options.ignorePseudoGeneric || !ClassType.isPseudoGenericClass(type1)) {
                 // Make sure the type args match.
                 if (type1.priv.tupleTypeArguments && classType2.priv.tupleTypeArguments) {
@@ -3359,12 +3322,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 if (
                     !return1Type ||
                     !return2Type ||
-                    !isTypeSame(
-                        return1Type,
-                        return2Type,
-                        { ...options, ignoreTypeFlags: false, ignoreTypeGuard: false },
-                        recursionCount
-                    )
+                    !isTypeSame(return1Type, return2Type, { ...options, ignoreTypeFlags: false }, recursionCount)
                 ) {
                     return false;
                 }

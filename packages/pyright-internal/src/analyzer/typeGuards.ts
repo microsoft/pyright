@@ -755,11 +755,12 @@ export function getTypeNarrowingCallback(
 
                     if (
                         isClassInstance(functionReturnType) &&
-                        ClassType.isBuiltIn(functionReturnType, 'bool') &&
-                        functionReturnType.priv.typeGuardType
+                        ClassType.isBuiltIn(functionReturnType, ['TypeGuard', 'TypeIs']) &&
+                        functionReturnType.priv.typeArguments &&
+                        functionReturnType.priv.typeArguments.length > 0
                     ) {
-                        const isStrictTypeGuard = !!functionReturnType.priv.isStrictTypeGuard;
-                        const typeGuardType = functionReturnType.priv.typeGuardType;
+                        const isStrictTypeGuard = ClassType.isBuiltIn(functionReturnType, 'TypeIs');
+                        const typeGuardType = functionReturnType.priv.typeArguments[0];
                         const isIncomplete = !!callTypeResult.isIncomplete || !!functionReturnTypeResult.isIncomplete;
 
                         return (type: Type) => {
@@ -967,7 +968,20 @@ function narrowTypeForUserDefinedTypeGuard(
     // For non-strict type guards, always narrow to the typeGuardType
     // in the positive case and don't narrow in the negative case.
     if (!isStrictTypeGuard) {
-        return isPositiveTest ? typeGuardType : type;
+        let result = type;
+
+        if (isPositiveTest) {
+            result = typeGuardType;
+
+            // If the type guard is a non-constrained TypeVar, add a
+            // condition to the resulting type.
+            if (isTypeVar(type) && !type.shared.isParamSpec && type.shared.constraints.length === 0) {
+                result = addConditionToType(result, [{ typeVar: type, constraintIndex: 0 }]) as ClassType;
+            }
+            return result;
+        }
+
+        return result;
     }
 
     const filterTypes: Type[] = [];

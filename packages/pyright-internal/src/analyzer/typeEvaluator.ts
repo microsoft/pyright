@@ -8298,7 +8298,6 @@ export function createTypeEvaluator(
             !isTypeSame(assertedType, arg0TypeResult.type, {
                 treatAnySameAsUnknown: true,
                 ignorePseudoGeneric: true,
-                ignoreTypeGuard: true,
             })
         ) {
             const srcDestTypes = printSrcDestTypes(arg0TypeResult.type, assertedType, { expandTypeAlias: true });
@@ -11733,39 +11732,6 @@ export function createTypeEvaluator(
         // If the final return type is an unpacked tuple, turn it into a normal (unpacked) tuple.
         if (isUnpackedClass(specializedReturnType)) {
             specializedReturnType = ClassType.cloneForUnpacked(specializedReturnType, /* isUnpackedTuple */ false);
-        }
-
-        // Handle 'TypeGuard' and 'TypeIs' specially. We'll transform the return type
-        // into a 'bool' object with a type argument that reflects the narrowed type.
-        if (
-            isClassInstance(specializedReturnType) &&
-            ClassType.isBuiltIn(specializedReturnType, ['TypeGuard', 'TypeIs']) &&
-            specializedReturnType.priv.typeArguments &&
-            specializedReturnType.priv.typeArguments.length > 0
-        ) {
-            if (boolClass && isInstantiableClass(boolClass)) {
-                let typeGuardType = specializedReturnType.priv.typeArguments[0];
-
-                // If the first argument is a simple (non-constrained) TypeVar,
-                // associate that TypeVar with the resulting TypeGuard type.
-                if (argResults.length > 0) {
-                    const arg0Type = argResults[0].argType;
-                    if (
-                        isTypeVar(arg0Type) &&
-                        !arg0Type.shared.isParamSpec &&
-                        arg0Type.shared.constraints.length === 0
-                    ) {
-                        typeGuardType = addConditionToType(typeGuardType, [
-                            { typeVar: arg0Type, constraintIndex: 0 },
-                        ]) as ClassType;
-                    }
-                }
-
-                const useTypeIsSemantics = ClassType.isBuiltIn(specializedReturnType, 'TypeIs');
-                specializedReturnType = ClassType.cloneAsInstance(
-                    ClassType.cloneForTypeGuard(boolClass, typeGuardType, useTypeIsSemantics)
-                );
-            }
         }
 
         specializedReturnType = adjustCallableReturnType(type, specializedReturnType, liveTypeVarScopes);
@@ -22889,6 +22855,14 @@ export function createTypeEvaluator(
             return true;
         }
 
+        // If the type is a bool created with a `TypeGuard` or `TypeIs`, it is
+        // considered a subtype of `bool`.
+        if (isInstantiableClass(srcType) && ClassType.isBuiltIn(srcType, ['TypeGuard', 'TypeIs'])) {
+            if (isInstantiableClass(destType) && ClassType.isBuiltIn(destType, 'bool')) {
+                return (flags & AssignTypeFlags.EnforceInvariance) === 0;
+            }
+        }
+
         if ((flags & AssignTypeFlags.EnforceInvariance) === 0 || ClassType.isSameGenericClass(srcType, destType)) {
             if (isDerivedFrom) {
                 assert(inheritanceChain.length > 0);
@@ -23386,29 +23360,6 @@ export function createTypeEvaluator(
             if (ClassType.isBuiltIn(destType, 'object')) {
                 return true;
             }
-        }
-
-        // If the type is a bool created with a `TypeGuard` or `TypeIs`, it is
-        // considered a subtype of `bool`.
-        if (destType.priv.typeGuardType) {
-            if (!srcType.priv.typeGuardType) {
-                return false;
-            }
-
-            // TypeGuard and TypeIs are not subtypes of each other.
-            if (!destType.priv.isStrictTypeGuard !== !srcType.priv.isStrictTypeGuard) {
-                return false;
-            }
-
-            return assignType(
-                destType.priv.typeGuardType,
-                srcType.priv.typeGuardType,
-                diag?.createAddendum(),
-                /* destTypeVarContext */ undefined,
-                /* srcTypeVarContext */ undefined,
-                flags,
-                recursionCount
-            );
         }
 
         for (let ancestorIndex = inheritanceChain.length - 1; ancestorIndex >= 0; ancestorIndex--) {
