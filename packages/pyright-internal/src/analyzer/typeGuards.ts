@@ -85,6 +85,7 @@ import {
     isNoneTypeClass,
     isProperty,
     isTupleClass,
+    isTupleGradualForm,
     isUnboundedTupleClass,
     lookUpClassMember,
     lookUpObjectMember,
@@ -1493,6 +1494,18 @@ function narrowTypeForIsInstanceInternal(
 
                             filteredTypes.push(addConditionToType(specializedFilterType, conditions));
                         }
+                    } else if (ClassType.isSameGenericClass(concreteVarType, concreteFilterType)) {
+                        // Don't attempt to narrow in this case.
+                        if (
+                            concreteVarType.priv?.literalValue === undefined &&
+                            concreteFilterType.priv?.literalValue === undefined
+                        ) {
+                            const intersection = intersectSameClassType(evaluator, concreteVarType, concreteFilterType);
+                            filteredTypes.push(intersection ?? varType);
+
+                            // Don't attempt to narrow in the negative direction.
+                            isClassRelationshipIndeterminate = true;
+                        }
                     } else if (
                         allowIntersections &&
                         !ClassType.isFinal(concreteVarType) &&
@@ -1884,6 +1897,39 @@ function narrowTypeForIsInstanceInternal(
     }
 
     return filteredType;
+}
+
+// This function assumes that the caller has already verified that the two
+// types are the same class and are not literals. It also assumes that the
+// caller has verified that type1 is not assignable to type2 or vice versa.
+// Returns undefined if there is no intersection between the two types.
+function intersectSameClassType(evaluator: TypeEvaluator, type1: ClassType, type2: ClassType): ClassType | undefined {
+    assert(isInstantiableClass(type1) && isInstantiableClass(type2));
+    assert(ClassType.isSameGenericClass(type1, type2));
+    assert(type1.priv?.literalValue === undefined);
+    assert(type2.priv?.literalValue === undefined);
+
+    // Handle tuples specially.
+    if (ClassType.isBuiltIn(type1, 'tuple')) {
+        return intersectTupleTypes(type1, type1);
+    }
+
+    // Indicate that there is no intersection.
+    return undefined;
+}
+
+function intersectTupleTypes(type1: ClassType, type2: ClassType) {
+    if (!type2.priv.tupleTypeArguments || isTupleGradualForm(type2)) {
+        return addConditionToType(type1, type2.props?.condition);
+    }
+
+    if (!type1.priv.tupleTypeArguments || isTupleGradualForm(type1)) {
+        return addConditionToType(type2, type1.props?.condition);
+    }
+
+    // For now, don't attempt to narrow in this case.
+    // TODO - add more sophisticated logic here.
+    return undefined;
 }
 
 // Attempts to narrow a union of tuples based on their known length.
