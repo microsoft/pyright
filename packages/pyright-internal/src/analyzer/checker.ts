@@ -5071,6 +5071,15 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
+            // Look for an enum attribute annotated with "Final".
+            if (decls[0].isFinal) {
+                this._evaluator.addDiagnostic(
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    LocMessage.enumMemberTypeAnnotation(),
+                    decls[0].node
+                );
+            }
+
             const declNode = decls[0].node;
             const assignedValueType = symbolType.priv.literalValue.itemType;
             const assignmentNode = ParseTreeUtils.getParentNodeOfType<AssignmentNode>(
