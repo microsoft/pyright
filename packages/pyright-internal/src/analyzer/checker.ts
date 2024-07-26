@@ -959,6 +959,7 @@ export class Checker extends ParseTreeWalker {
                 } else {
                     const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
                     declaredReturnType = updateTypeWithInternalTypeVars(declaredReturnType, liveScopes);
+                    declaredReturnType = this._evaluator.stripTypeGuard(declaredReturnType);
 
                     let diagAddendum = new DiagnosticAddendum();
                     let returnTypeMatches = false;
@@ -968,9 +969,7 @@ export class Checker extends ParseTreeWalker {
                             declaredReturnType,
                             returnType,
                             diagAddendum,
-                            /* destTypeVarContext */ new TypeVarContext(),
-                            /* srcTypeVarContext */ undefined,
-                            AssignTypeFlags.AllowBoolTypeGuard
+                            /* destTypeVarContext */ new TypeVarContext()
                         )
                     ) {
                         returnTypeMatches = true;
@@ -993,18 +992,10 @@ export class Checker extends ParseTreeWalker {
                             }
 
                             if (!typeVarContext.isEmpty()) {
-                                const adjustedReturnType = applySolvedTypeVars(declaredReturnType, typeVarContext);
+                                let adjustedReturnType = applySolvedTypeVars(declaredReturnType, typeVarContext);
+                                adjustedReturnType = this._evaluator.stripTypeGuard(adjustedReturnType);
 
-                                if (
-                                    this._evaluator.assignType(
-                                        adjustedReturnType,
-                                        returnType,
-                                        diagAddendum,
-                                        /* destTypeVarContext */ undefined,
-                                        /* srcTypeVarContext */ undefined,
-                                        AssignTypeFlags.AllowBoolTypeGuard
-                                    )
-                                ) {
+                                if (this._evaluator.assignType(adjustedReturnType, returnType, diagAddendum)) {
                                     returnTypeMatches = true;
                                 }
                             }

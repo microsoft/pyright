@@ -2,7 +2,17 @@
 
 # pyright: reportMissingModuleSource=false
 
-from typing import Any, Callable, Collection, Literal, Mapping, Sequence, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Literal,
+    Mapping,
+    Sequence,
+    TypeVar,
+    Union,
+    overload,
+)
 
 from typing_extensions import TypeIs
 
@@ -146,3 +156,19 @@ def func9(val: Collection[object]) -> None:
         reveal_type(val, expected_text="list[int]")
     else:
         reveal_type(val, expected_text="Collection[object]")
+
+
+@overload
+def func10(v: tuple[int | str, ...], b: Literal[False]) -> TypeIs[tuple[str, ...]]:
+    ...
+
+
+@overload
+def func10(
+    v: tuple[int | str, ...], b: Literal[True] = True
+) -> TypeIs[tuple[int, ...]]:
+    ...
+
+
+def func10(v: tuple[int | str, ...], b: bool = True) -> bool:
+    ...

@@ -506,6 +506,7 @@ export interface TypeEvaluator {
     stripLiteralValue: (type: Type) => Type;
     removeTruthinessFromType: (type: Type) => Type;
     removeFalsinessFromType: (type: Type) => Type;
+    stripTypeGuard: (type: Type) => Type;
 
     getExpectedType: (node: ExpressionNode) => ExpectedTypeResult | undefined;
     verifyRaiseExceptionType: (node: RaiseNode) => void;
