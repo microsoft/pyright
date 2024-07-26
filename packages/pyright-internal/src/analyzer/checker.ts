@@ -3058,6 +3058,8 @@ export class Checker extends ParseTreeWalker {
 
                     this._reportMultipleFinalDeclarations(name, symbol, scope.type);
 
+                    this._reportFinalInLoop(symbol);
+
                     this._reportMultipleTypeAliasDeclarations(name, symbol);
 
                     this._reportInvalidOverload(name, symbol);
@@ -3206,6 +3208,25 @@ export class Checker extends ParseTreeWalker {
                 }
             }
         });
+    }
+
+    private _reportFinalInLoop(symbol: Symbol) {
+        if (!this._evaluator.isFinalVariable(symbol)) {
+            return;
+        }
+
+        const decls = symbol.getDeclarations();
+        if (decls.length === 0) {
+            return;
+        }
+
+        if (ParseTreeUtils.isWithinLoop(decls[0].node)) {
+            this._evaluator.addDiagnostic(
+                DiagnosticRule.reportGeneralTypeIssues,
+                LocMessage.finalInLoop(),
+                decls[0].node
+            );
+        }
     }
 
     private _reportMultipleFinalDeclarations(name: string, symbol: Symbol, scopeType: ScopeType) {
