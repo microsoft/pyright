@@ -160,6 +160,7 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags, indeterminateSymbolId } from './symbol';
 import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbolUtils';
+import { assignTupleTypeArguments, getSlicedTupleType } from './tuples';
 import { SpeculativeModeOptions, SpeculativeTypeTracker } from './typeCacheUtils';
 import {
     AbstractSymbol,
@@ -245,7 +246,6 @@ import {
     isPartlyUnknown,
     isProperty,
     isTupleClass,
-    isTupleGradualForm,
     isTupleIndexUnambiguous,
     isTypeAliasPlaceholder,
     isTypeAliasRecursive,
@@ -7500,7 +7500,7 @@ export function createTypeEvaluator(
                 const tupleType = getSpecializedTupleType(baseType);
 
                 if (tupleType && index0Expr.nodeType === ParseNodeType.Slice) {
-                    const slicedTupleType = getSlicedTupleType(tupleType, index0Expr);
+                    const slicedTupleType = getSlicedTupleType(evaluatorInterface, tupleType, index0Expr);
                     if (slicedTupleType) {
                         return { type: slicedTupleType };
                     }
@@ -7617,64 +7617,6 @@ export function createTypeEvaluator(
             type: callResult.returnType ?? UnknownType.create(),
             isIncomplete: !!callResult.isTypeIncomplete,
         };
-    }
-
-    // Given a tuple type and a slice expression, determines the resulting
-    // type if it can be determined. If not, it returns undefined.
-    function getSlicedTupleType(tupleType: ClassType, sliceNode: SliceNode): Type | undefined {
-        // We don't handle step values.
-        if (sliceNode.d.stepValue || !tupleType.priv.tupleTypeArguments) {
-            return undefined;
-        }
-
-        const tupleTypeArgs = tupleType.priv.tupleTypeArguments;
-        const startValue = getTupleSliceParameter(sliceNode.d.startValue, 0, tupleTypeArgs);
-        const endValue = getTupleSliceParameter(sliceNode.d.endValue, tupleTypeArgs.length, tupleTypeArgs);
-
-        if (startValue === undefined || endValue === undefined || endValue < startValue) {
-            return undefined;
-        }
-
-        const slicedTypeArgs = tupleTypeArgs.slice(startValue, endValue);
-
-        return makeTupleObject(slicedTypeArgs);
-    }
-
-    function getTupleSliceParameter(
-        expression: ExpressionNode | undefined,
-        defaultValue: number,
-        tupleTypeArgs: TupleTypeArgument[]
-    ): number | undefined {
-        let value = defaultValue;
-
-        if (expression) {
-            const valType = getTypeOfExpression(expression).type;
-            if (!isClassInstance(valType) || !ClassType.isBuiltIn(valType, 'int') || !isLiteralType(valType)) {
-                return undefined;
-            }
-
-            value = valType.priv.literalValue as number;
-            const unboundedIndex = tupleTypeArgs.findIndex(
-                (typeArg) => typeArg.isUnbounded || isVariadicTypeVar(typeArg.type)
-            );
-
-            if (value < 0) {
-                value = tupleTypeArgs.length + value;
-                if (unboundedIndex >= 0 && value <= unboundedIndex) {
-                    return undefined;
-                } else if (value < 0) {
-                    return 0;
-                }
-            } else {
-                if (unboundedIndex >= 0 && value > unboundedIndex) {
-                    return undefined;
-                } else if (value > tupleTypeArgs.length) {
-                    return tupleTypeArgs.length;
-                }
-            }
-        }
-
-        return value;
     }
 
     function getTypeArgs(node: IndexNode, flags: EvalFlags, options?: GetTypeArgsOptions): TypeResultWithNode[] {
@@ -23131,251 +23073,6 @@ export function createTypeEvaluator(
         }
     }
 
-    // Adjusts the source and/or dest type arguments list to attempt to match
-    // the length of the src type arguments list if the dest or source contain
-    // entries with indeterminate length or variadic entries. It returns true
-    // if the source is potentially compatible with the dest type, false otherwise.
-    function adjustTupleTypeArgs(
-        destTypeArgs: TupleTypeArgument[],
-        srcTypeArgs: TupleTypeArgument[],
-        flags: AssignTypeFlags
-    ): boolean {
-        const destUnboundedOrVariadicIndex = destTypeArgs.findIndex((t) => t.isUnbounded || isVariadicTypeVar(t.type));
-        const srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
-        const srcVariadicIndex = srcTypeArgs.findIndex((t) => isVariadicTypeVar(t.type));
-
-        if (srcUnboundedIndex >= 0) {
-            if (isAnyOrUnknown(srcTypeArgs[srcUnboundedIndex].type)) {
-                // If the source contains an unbounded Any, expand it to match the dest length.
-                const typeToReplicate = srcTypeArgs.length > 0 ? srcTypeArgs[srcUnboundedIndex].type : AnyType.create();
-
-                while (srcTypeArgs.length < destTypeArgs.length) {
-                    srcTypeArgs.splice(srcUnboundedIndex, 0, { type: typeToReplicate, isUnbounded: true });
-                }
-
-                if (srcTypeArgs.length > destTypeArgs.length) {
-                    srcTypeArgs.splice(srcUnboundedIndex, 1);
-                }
-            } else if (destUnboundedOrVariadicIndex < 0) {
-                // If the source contains an unbounded type but the dest does not, it's incompatible.
-                return false;
-            }
-        }
-
-        // If the dest contains an unbounded Any, expand it to match the source length.
-        if (
-            destUnboundedOrVariadicIndex >= 0 &&
-            destTypeArgs[destUnboundedOrVariadicIndex].isUnbounded &&
-            isAnyOrUnknown(destTypeArgs[destUnboundedOrVariadicIndex].type)
-        ) {
-            while (destTypeArgs.length < srcTypeArgs.length) {
-                destTypeArgs.splice(destUnboundedOrVariadicIndex, 0, destTypeArgs[destUnboundedOrVariadicIndex]);
-            }
-        }
-
-        // Remove any optional parameters from the end of the two lists until the lengths match.
-        while (srcTypeArgs.length > destTypeArgs.length && srcTypeArgs[srcTypeArgs.length - 1].isOptional) {
-            srcTypeArgs.splice(srcTypeArgs.length - 1, 1);
-        }
-
-        while (destTypeArgs.length > srcTypeArgs.length && destTypeArgs[destTypeArgs.length - 1].isOptional) {
-            destTypeArgs.splice(destTypeArgs.length - 1, 1);
-        }
-
-        const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
-        let skipAdjustSrc = false;
-
-        // If we're doing reverse type mappings and the source contains a variadic
-        // TypeVar, we need to adjust the dest so the reverse type mapping assignment
-        // can be performed.
-        if ((flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0) {
-            const destArgsToCapture = destTypeArgs.length - srcTypeArgs.length + 1;
-
-            if (srcVariadicIndex >= 0 && destArgsToCapture >= 0) {
-                // If the only removed arg from the dest type args is itself a variadic,
-                // don't bother adjusting it.
-                const skipAdjustment =
-                    destArgsToCapture === 1 && isVariadicTypeVar(destTypeArgs[srcVariadicIndex].type);
-
-                if (!skipAdjustment && tupleClass && isInstantiableClass(tupleClass)) {
-                    const removedArgs = destTypeArgs.splice(srcVariadicIndex, destArgsToCapture);
-
-                    // Package up the remaining type arguments into a tuple object.
-                    const variadicTuple = makeTupleObject(
-                        removedArgs.map((typeArg) => {
-                            return {
-                                type: typeArg.type,
-                                isUnbounded: typeArg.isUnbounded,
-                                isOptional: typeArg.isOptional,
-                            };
-                        }),
-                        /* isUnpackedTuple */ true
-                    );
-
-                    destTypeArgs.splice(srcVariadicIndex, 0, {
-                        type: variadicTuple,
-                        isUnbounded: false,
-                    });
-                }
-
-                skipAdjustSrc = true;
-            }
-        } else {
-            if (destUnboundedOrVariadicIndex >= 0 && srcArgsToCapture >= 0) {
-                // If the dest contains a variadic element, determine which source
-                // args map to this element and package them up into an unpacked tuple.
-                if (isVariadicTypeVar(destTypeArgs[destUnboundedOrVariadicIndex].type)) {
-                    if (tupleClass && isInstantiableClass(tupleClass)) {
-                        const removedArgs = srcTypeArgs.splice(destUnboundedOrVariadicIndex, srcArgsToCapture);
-
-                        let variadicTuple: Type;
-
-                        // If we're left with a single unpacked variadic type var, there's no
-                        // need to wrap it in a nested tuple.
-                        if (removedArgs.length === 1 && isUnpackedVariadicTypeVar(removedArgs[0].type)) {
-                            variadicTuple = removedArgs[0].type;
-                        } else {
-                            // Package up the remaining type arguments into a tuple object.
-                            variadicTuple = makeTupleObject(
-                                removedArgs.map((typeArg) => {
-                                    return {
-                                        type: typeArg.type,
-                                        isUnbounded: typeArg.isUnbounded,
-                                        isOptional: typeArg.isOptional,
-                                    };
-                                }),
-                                /* isUnpackedTuple */ true
-                            );
-                        }
-
-                        srcTypeArgs.splice(destUnboundedOrVariadicIndex, 0, {
-                            type: variadicTuple,
-                            isUnbounded: false,
-                        });
-                    }
-
-                    skipAdjustSrc = true;
-                }
-            }
-        }
-
-        if (!skipAdjustSrc && destUnboundedOrVariadicIndex >= 0 && srcArgsToCapture >= 0) {
-            // If possible, package up the source entries that correspond to
-            // the dest unbounded tuple. This isn't possible if the source contains
-            // an unbounded tuple outside of this range.
-            if (
-                srcUnboundedIndex < 0 ||
-                (srcUnboundedIndex >= destUnboundedOrVariadicIndex &&
-                    srcUnboundedIndex < destUnboundedOrVariadicIndex + srcArgsToCapture)
-            ) {
-                const removedArgTypes = srcTypeArgs.splice(destUnboundedOrVariadicIndex, srcArgsToCapture).map((t) => {
-                    if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type) && !t.type.priv.isVariadicInUnion) {
-                        return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
-                    }
-                    return t.type;
-                });
-
-                srcTypeArgs.splice(destUnboundedOrVariadicIndex, 0, {
-                    type: removedArgTypes.length > 0 ? combineTypes(removedArgTypes) : AnyType.create(),
-                    isUnbounded: false,
-                });
-            }
-        }
-
-        return destTypeArgs.length === srcTypeArgs.length;
-    }
-
-    function assignTupleTypeArguments(
-        destType: ClassType,
-        srcType: ClassType,
-        diag: DiagnosticAddendum | undefined,
-        destTypeVarContext: TypeVarContext | undefined,
-        srcTypeVarContext: TypeVarContext | undefined,
-        flags: AssignTypeFlags,
-        recursionCount: number
-    ) {
-        const destTypeArgs = [...(destType.priv.tupleTypeArguments ?? [])];
-        const srcTypeArgs = [...(srcType.priv.tupleTypeArguments ?? [])];
-
-        if (adjustTupleTypeArgs(destTypeArgs, srcTypeArgs, flags)) {
-            for (let argIndex = 0; argIndex < srcTypeArgs.length; argIndex++) {
-                const entryDiag = diag?.createAddendum();
-                const destArgType = destTypeArgs[argIndex].type;
-                const srcArgType = srcTypeArgs[argIndex].type;
-
-                // Handle the special case where the dest is a TypeVarTuple
-                // and the source is a `*tuple[Any, ...]`. This is allowed.
-                if (
-                    isVariadicTypeVar(destArgType) &&
-                    destArgType.priv.isVariadicUnpacked &&
-                    !destArgType.priv.isVariadicInUnion &&
-                    isTupleGradualForm(srcArgType)
-                ) {
-                    return true;
-                }
-
-                if (
-                    !assignType(
-                        destArgType,
-                        srcArgType,
-                        entryDiag?.createAddendum(),
-                        destTypeVarContext,
-                        srcTypeVarContext,
-                        flags,
-                        recursionCount
-                    )
-                ) {
-                    if (entryDiag) {
-                        entryDiag.addMessage(
-                            LocAddendum.tupleEntryTypeMismatch().format({
-                                entry: argIndex + 1,
-                            })
-                        );
-                    }
-                    return false;
-                }
-            }
-        } else {
-            const isDestIndeterminate = destTypeArgs.some((t) => t.isUnbounded || isVariadicTypeVar(t.type));
-
-            if (srcTypeArgs.some((t) => t.isUnbounded || isVariadicTypeVar(t.type))) {
-                if (isDestIndeterminate) {
-                    diag?.addMessage(
-                        LocAddendum.tupleSizeIndeterminateSrcDest().format({
-                            expected: destTypeArgs.length - 1,
-                        })
-                    );
-                } else {
-                    diag?.addMessage(
-                        LocAddendum.tupleSizeIndeterminateSrc().format({
-                            expected: destTypeArgs.length,
-                        })
-                    );
-                }
-            } else {
-                if (isDestIndeterminate) {
-                    diag?.addMessage(
-                        LocAddendum.tupleSizeMismatchIndeterminateDest().format({
-                            expected: destTypeArgs.length - 1,
-                            received: srcTypeArgs.length,
-                        })
-                    );
-                } else {
-                    diag?.addMessage(
-                        LocAddendum.tupleSizeMismatch().format({
-                            expected: destTypeArgs.length,
-                            received: srcTypeArgs.length,
-                        })
-                    );
-                }
-            }
-
-            return false;
-        }
-
-        return true;
-    }
-
     // Determines whether the specified type can be assigned to the
     // specified inheritance chain, taking into account its type arguments.
     function assignClassWithTypeArgs(
@@ -23464,6 +23161,7 @@ export function createTypeEvaluator(
         // Handle tuple, which supports a variable number of type arguments.
         if (destType.priv.tupleTypeArguments && curSrcType.priv.tupleTypeArguments) {
             return assignTupleTypeArguments(
+                evaluatorInterface,
                 destType,
                 curSrcType,
                 diag,
