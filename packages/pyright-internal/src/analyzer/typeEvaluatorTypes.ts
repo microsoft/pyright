@@ -493,6 +493,7 @@ export interface TypeEvaluator {
     getTypeOfExpression: (node: ExpressionNode, flags?: EvalFlags, context?: InferenceContext) => TypeResult;
     getTypeOfAnnotation: (node: ExpressionNode, options?: ExpectedTypeOptions) => Type;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
+    createSubclass: (errorNode: ExpressionNode, type1: ClassType, type2: ClassType) => ClassType;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
     getTypeOfExpressionExpectingType: (node: ExpressionNode, options?: ExpectedTypeOptions) => TypeResult;
     evaluateTypeForSubnode: (subnode: ParseNode, callback: () => void) => TypeResult | undefined;

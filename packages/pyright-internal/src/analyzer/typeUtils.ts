@@ -946,11 +946,11 @@ export function getFullNameOfType(type: Type): string | undefined {
     return undefined;
 }
 
-export function addConditionToType(
-    type: Type,
+export function addConditionToType<T extends Type>(
+    type: T,
     condition: TypeCondition[] | undefined,
     skipSelfCondition = false
-): Type {
+): T {
     if (!condition) {
         return type;
     }
@@ -975,15 +975,13 @@ export function addConditionToType(
             return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
 
         case TypeCategory.OverloadedFunction:
-            return OverloadedFunctionType.create(
-                type.priv.overloads.map((t) => addConditionToType(t, condition) as FunctionType)
-            );
+            return OverloadedFunctionType.create(type.priv.overloads.map((t) => addConditionToType(t, condition))) as T;
 
         case TypeCategory.Class:
             return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
 
         case TypeCategory.Union:
-            return combineTypes(type.priv.subtypes.map((t) => addConditionToType(t, condition)));
+            return combineTypes(type.priv.subtypes.map((t) => addConditionToType(t, condition))) as T;
     }
 }
 

@@ -976,7 +976,7 @@ function narrowTypeForUserDefinedTypeGuard(
             // If the type guard is a non-constrained TypeVar, add a
             // condition to the resulting type.
             if (isTypeVar(type) && !type.shared.isParamSpec && type.shared.constraints.length === 0) {
-                result = addConditionToType(result, [{ typeVar: type, constraintIndex: 0 }]) as ClassType;
+                result = addConditionToType(result, [{ typeVar: type, constraintIndex: 0 }]);
             }
             return result;
         }
@@ -1503,66 +1503,23 @@ function narrowTypeForIsInstanceInternal(
                         // be a mix-in class used with the other. In this case, we'll
                         // synthesize a new class type that represents an intersection of
                         // the two types.
-                        const className = `<subclass of ${concreteVarType.shared.name} and ${concreteFilterType.shared.name}>`;
-                        const fileInfo = getFileInfo(errorNode);
-
-                        // The effective metaclass of the intersection is the narrower of the two metaclasses.
-                        let effectiveMetaclass = concreteVarType.shared.effectiveMetaclass;
-                        if (concreteFilterType.shared.effectiveMetaclass) {
-                            if (
-                                !effectiveMetaclass ||
-                                evaluator.assignType(effectiveMetaclass, concreteFilterType.shared.effectiveMetaclass)
-                            ) {
-                                effectiveMetaclass = concreteFilterType.shared.effectiveMetaclass;
-                            }
-                        }
-
-                        let newClassType = ClassType.createInstantiable(
-                            className,
-                            ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
-                            fileInfo.moduleName,
-                            fileInfo.fileUri,
-                            ClassTypeFlags.None,
-                            ParseTreeUtils.getTypeSourceId(errorNode),
-                            /* declaredMetaclass */ undefined,
-                            effectiveMetaclass,
-                            concreteVarType.shared.docString
-                        );
-                        newClassType.shared.baseClasses = [
-                            ClassType.cloneAsInstantiable(concreteVarType),
-                            concreteFilterType,
-                        ];
-                        computeMroLinearization(newClassType);
-
-                        newClassType = addConditionToType(
-                            newClassType,
-                            concreteFilterType.props?.condition
-                        ) as ClassType;
-
+                        let newClassType = evaluator.createSubclass(errorNode, concreteVarType, concreteFilterType);
                         if (
                             isTypeVar(varType) &&
                             !varType.shared.isParamSpec &&
                             varType.shared.constraints.length === 0
                         ) {
-                            newClassType = addConditionToType(newClassType, [
-                                { typeVar: varType, constraintIndex: 0 },
-                            ]) as ClassType;
+                            newClassType = addConditionToType(newClassType, [{ typeVar: varType, constraintIndex: 0 }]);
                         }
 
-                        let newClassInstanceType = ClassType.cloneAsInstance(newClassType);
-
-                        if (concreteVarType.props?.condition) {
-                            newClassInstanceType = addConditionToType(
-                                newClassInstanceType,
-                                concreteVarType.props?.condition
-                            ) as ClassType;
-                        }
+                        let newClassObjType = ClassType.cloneAsInstance(newClassType);
+                        newClassObjType = addConditionToType(newClassObjType, concreteVarType.props?.condition);
 
                         // If this is a issubclass check, we do a double conversion from instantiable
                         // to instance back to instantiable to make sure that the includeSubclasses flag
                         // gets cleared.
                         filteredTypes.push(
-                            isInstanceCheck ? newClassInstanceType : ClassType.cloneAsInstantiable(newClassInstanceType)
+                            isInstanceCheck ? newClassObjType : ClassType.cloneAsInstantiable(newClassObjType)
                         );
                     }
                 }
@@ -2726,7 +2683,7 @@ function narrowTypeForCallable(
                         newClassType.shared.baseClasses = [ClassType.cloneAsInstantiable(subtype)];
                         computeMroLinearization(newClassType);
 
-                        newClassType = addConditionToType(newClassType, subtype.props?.condition) as ClassType;
+                        newClassType = addConditionToType(newClassType, subtype.props?.condition);
 
                         // Add a __call__ method to the new class.
                         const callMethod = FunctionType.createSynthesizedInstance('__call__');

@@ -8592,7 +8592,7 @@ export function createTypeEvaluator(
             if (bindToType && implicitBindToType) {
                 const typeCondition = getTypeCondition(implicitBindToType);
                 if (typeCondition) {
-                    bindToType = addConditionToType(bindToType, typeCondition) as ClassType;
+                    bindToType = addConditionToType(bindToType, typeCondition);
                 } else if (isClass(implicitBindToType)) {
                     bindToType = implicitBindToType;
                 }
@@ -16523,6 +16523,40 @@ export function createTypeEvaluator(
 
     function getPseudoGenericTypeVarName(paramName: string) {
         return `__type_of_${paramName}`;
+    }
+
+    // Creates a new class type that is a subclass of two other specified classes.
+    function createSubclass(errorNode: ExpressionNode, type1: ClassType, type2: ClassType): ClassType {
+        assert(isInstantiableClass(type1) && isInstantiableClass(type2));
+        const className = `<subclass of ${type1.shared.name} and ${type2.shared.name}>`;
+        const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
+
+        // The effective metaclass of the intersection is the narrower of the two metaclasses.
+        let effectiveMetaclass = type1.shared.effectiveMetaclass;
+        if (type2.shared.effectiveMetaclass) {
+            if (!effectiveMetaclass || assignType(effectiveMetaclass, type2.shared.effectiveMetaclass)) {
+                effectiveMetaclass = type2.shared.effectiveMetaclass;
+            }
+        }
+
+        let newClassType = ClassType.createInstantiable(
+            className,
+            ParseTreeUtils.getClassFullName(errorNode, fileInfo.moduleName, className),
+            fileInfo.moduleName,
+            fileInfo.fileUri,
+            ClassTypeFlags.None,
+            ParseTreeUtils.getTypeSourceId(errorNode),
+            /* declaredMetaclass */ undefined,
+            effectiveMetaclass,
+            type1.shared.docString
+        );
+        newClassType.shared.baseClasses = [ClassType.cloneAsInstantiable(type1), type2];
+        computeMroLinearization(newClassType);
+
+        newClassType = addConditionToType(newClassType, type1.props?.condition);
+        newClassType = addConditionToType(newClassType, type2.props?.condition);
+
+        return newClassType;
     }
 
     function getTypeOfClass(node: ClassNode): ClassTypeResult | undefined {
@@ -27657,6 +27691,7 @@ export function createTypeEvaluator(
         getTypeOfExpression,
         getTypeOfAnnotation,
         getTypeOfClass,
+        createSubclass,
         getTypeOfFunction,
         getTypeOfExpressionExpectingType,
         getExpectedType,
