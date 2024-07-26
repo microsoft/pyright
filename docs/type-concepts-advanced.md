@@ -565,11 +565,11 @@ If one of these conditional expressions evaluates statically to false, pyright d
 ### Reachability
 Pyright performs “reachability analysis” to determine whether statements will be executed at runtime.
 
-Reachability analysis is based on both non-type and type information. Non-type information includes statements that unconditionally affect code flow such as `continue`, `raise` and `return`. It also includes conditional statements (`if`, `elif`, or `while`) where the conditional expression is one of the [supported expression forms](type-concepts-advanced#static-conditional-evaluation). Type analysis is not performed on code that is determined to be unreachable using non-type information. Therefore, no type errors is reported for this code, and language server features like completion suggestions are not available.
+Reachability analysis is based on both non-type and type information. Non-type information includes statements that unconditionally affect code flow such as `continue`, `raise` and `return`. It also includes conditional statements (`if`, `elif`, or `while`) where the conditional expression is one of these [supported expression forms](type-concepts-advanced#static-conditional-evaluation). Type analysis is not performed on code determined to be unreachable using non-type information. Therefore, language server features like completion suggestions are not available for this code.
+
+Here are some examples of code determined to be unreachable using non-type information.
 
 ```python
-# Examples of code determined to be unreachable using non-type information
-
 from typing import TYPE_CHECKING
 import sys
 
@@ -596,10 +596,10 @@ def func2():
 
 Pyright can also detect code that is unreachable based on static type analysis. This analysis is based on the assumption that any provided type annotations are accurate.
 
-```python
-# Examples of code determined to be unreachable using type analysis
+Here are some examples of code determined to be unreachable using type analysis.
 
-from typing import NoReturn
+```python
+from typing import Literal, NoReturn
 
 def always_raise() -> NoReturn:
     raise ValueError
