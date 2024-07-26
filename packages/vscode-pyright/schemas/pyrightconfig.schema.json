@@ -89,6 +89,11 @@
       "title": "Allow \"# type: ignore\" comments",
       "default": true
     },
+    "enableReachabilityAnalysis": {
+      "type": "boolean",
+      "title": "Identify code determined to be unreachable through type analysis",
+      "default": true
+    },
     "deprecateTypingAliases": {
       "type": "boolean",
       "title": "Treat typing-specific aliases to standard types as deprecated",
@@ -607,6 +612,9 @@
     "enableTypeIgnoreComments": {
       "$ref": "#/definitions/enableTypeIgnoreComments"
     },
+    "enableReachabilityAnalysis": {
+      "$ref": "#/definitions/enableReachabilityAnalysis"
+    },
     "deprecateTypingAliases": {
       "$ref": "#/definitions/deprecateTypingAliases"
     },
@@ -921,6 +929,9 @@
           },
           "enableTypeIgnoreComments": {
             "$ref": "#/definitions/enableTypeIgnoreComments"
+          },
+          "enableReachabilityAnalysis": {
+            "$ref": "#/definitions/enableReachabilityAnalysis"
           },
           "deprecateTypingAliases": {
             "$ref": "#/definitions/deprecateTypingAliases"

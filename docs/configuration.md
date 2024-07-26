@@ -59,6 +59,8 @@ Relative paths specified within the config file are relative to the config fileâ
 
 - <a name="deprecateTypingAliases"></a> **deprecateTypingAliases** [boolean]: PEP 585 indicates that aliases to types in standard collections that were introduced solely to support generics are deprecated as of Python 3.9. This switch controls whether these are treated as deprecated. This applies only when pythonVersion is 3.9 or newer. The default value for this setting is `false` but may be switched to `true` in the future.
 
+- <a name="enableReachabilityAnalysis"></a> **enableReachabilityAnalysis** [boolean]: If enabled, code that is determined to be unreachable by type analysis is reported using a tagged hint. This setting does not affect code that is determined to be unreachable regardless of type analysis; such code is always reported as unreachable. This setting also has no effect when when using the command-line version of pyright because it never emits tagged hints for unreachable code.
+
 - <a name="enableExperimentalFeatures"></a> **enableExperimentalFeatures** [boolean]: Enables a set of experimental (mostly undocumented) features that correspond to proposed or exploratory changes to the Python typing standard. These features will likely change or be removed, so they should not be used except for experimentation purposes. The default value for this setting is `false`.
 
 - <a name="disableBytesTypePromotions"></a> **disableBytesTypePromotions** [boolean]: Disables legacy behavior where `bytearray` and `memoryview` are considered subtypes of `bytes`. [PEP 688](https://peps.python.org/pep-0688/#no-special-meaning-for-bytes) deprecates this behavior, but this switch is provided to restore the older behavior. The default value for this setting is `false`.
@@ -343,6 +345,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | analyzeUnannotatedFunctions               | true       | true       | true       | true       |
 | strictParameterNoneValue                  | true       | true       | true       | true       |
 | enableTypeIgnoreComments                  | true       | true       | true       | true       |
+| enableReachabilityAnalysis                | false      | true       | true       | true       |
 | disableBytesTypePromotions                | false      | false      | false      | true       |
 | strictListInference                       | false      | false      | false      | true       |
 | strictDictionaryInference                 | false      | false      | false      | true       |

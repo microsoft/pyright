@@ -674,7 +674,7 @@ export interface TypeEvaluator {
 
     addInformation: (message: string, node: ParseNode, range?: TextRange) => Diagnostic | undefined;
     addUnusedCode: (node: ParseNode, textRange: TextRange) => void;
-    addUnreachableCode: (node: ParseNode, textRange: TextRange) => void;
+    addUnreachableCode: (node: ParseNode, reachability: Reachability, textRange: TextRange) => void;
     addDeprecated: (message: string, node: ParseNode) => void;
 
     addDiagnostic: (
