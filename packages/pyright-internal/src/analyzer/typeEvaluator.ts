@@ -23193,9 +23193,17 @@ export function createTypeEvaluator(
             // Populate the typeVar map with type arguments of the source.
             const srcTypeArgs = curSrcType.priv.typeArguments;
             for (let i = 0; i < destType.shared.typeParameters.length; i++) {
-                const typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
+                let typeArgType: Type;
                 const typeParam = destType.shared.typeParameters[i];
                 const variance = TypeVarType.getVariance(typeParam);
+
+                if (curSrcType.priv.tupleTypeArguments) {
+                    typeArgType = convertToInstance(
+                        makeTupleObject(curSrcType.priv.tupleTypeArguments, /* isUnpackedTuple */ true)
+                    );
+                } else {
+                    typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
+                }
 
                 updateTypeVarType(
                     evaluatorInterface,
@@ -23203,7 +23211,6 @@ export function createTypeEvaluator(
                     typeParam,
                     variance !== Variance.Contravariant ? typeArgType : undefined,
                     variance !== Variance.Covariant ? typeArgType : undefined,
-                    /* tupleTypes */ curSrcType.priv.tupleTypeArguments,
                     /* forceRetainLiterals */ true
                 );
             }

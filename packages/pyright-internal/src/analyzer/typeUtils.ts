@@ -40,6 +40,7 @@ import {
     isUnbound,
     isUnion,
     isUnknown,
+    isUnpackedClass,
     isUnpackedVariadicTypeVar,
     isVariadicTypeVar,
     maxTypeRecursionCount,
@@ -1609,19 +1610,6 @@ export function applySourceContextTypeVarsToSignature(
         const newWideTypeBound = entry.wideBound ? applySolvedTypeVars(entry.wideBound, srcContext) : undefined;
 
         destSignature.setTypeVarType(entry.typeVar, newNarrowTypeBound, newNarrowTypeBoundNoLiterals, newWideTypeBound);
-
-        if (entry.tupleTypes) {
-            destSignature.setTupleTypeVar(
-                entry.typeVar,
-                entry.tupleTypes.map((arg) => {
-                    return {
-                        type: applySolvedTypeVars(arg.type, srcContext),
-                        isUnbounded: arg.isUnbounded,
-                        isOptional: arg.isOptional,
-                    };
-                })
-            );
-        }
     });
 }
 
@@ -1649,19 +1637,6 @@ export function applyInScopePlaceholders(typeVarContext: TypeVarContext) {
                     newNarrowTypeBoundNoLiterals,
                     newWideTypeBound
                 );
-
-                if (entry.tupleTypes) {
-                    signature.setTupleTypeVar(
-                        entry.typeVar,
-                        entry.tupleTypes.map((arg) => {
-                            return {
-                                type: applyInScopePlaceholdersToType(arg.type, signature),
-                                isUnbounded: arg.isUnbounded,
-                                isOptional: arg.isOptional,
-                            };
-                        })
-                    );
-                }
             }
         });
     });
@@ -2250,18 +2225,24 @@ export function setTypeArgumentsRecursive(
 // _T1 with str and _T2 with int.
 export function buildTypeVarContextFromSpecializedClass(classType: ClassType): TypeVarContext {
     const typeParameters = ClassType.getTypeParameters(classType);
+    let typeArgs: Type[] | undefined;
 
-    const typeVarContext = buildTypeVarContext(
-        typeParameters,
-        classType.priv.typeArguments,
-        getTypeVarScopeId(classType)
-    );
-
-    if (ClassType.isTupleClass(classType) && classType.priv.tupleTypeArguments && typeParameters.length > 0) {
-        typeVarContext.setTupleTypeVar(typeParameters[0], classType.priv.tupleTypeArguments);
+    if (classType.priv.tupleTypeArguments) {
+        typeArgs = [
+            convertToInstance(
+                specializeTupleClass(
+                    classType,
+                    classType.priv.tupleTypeArguments,
+                    classType.priv.isTypeArgumentExplicit,
+                    /* isUnpackedTuple */ true
+                )
+            ),
+        ];
+    } else {
+        typeArgs = classType.priv.typeArguments;
     }
 
-    return typeVarContext;
+    return buildTypeVarContext(typeParameters, typeArgs, getTypeVarScopeId(classType));
 }
 
 export function buildTypeVarContext(
@@ -2908,16 +2889,8 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined):
     );
 }
 
-// Tuples require special handling for specialization. This method computes
-// the "effective" type argument, which is a union of the variadic type
-// arguments.
-export function specializeTupleClass(
-    classType: ClassType,
-    typeArgs: TupleTypeArgument[],
-    isTypeArgumentExplicit = true,
-    isUnpackedTuple = false
-): ClassType {
-    const combinedTupleType = combineTypes(
+export function combineTupleTypeArgs(typeArgs: TupleTypeArgument[]): Type {
+    return combineTypes(
         typeArgs.map((t) => {
             if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type)) {
                 // Treat the unpacked TypeVarTuple as a union.
@@ -2927,10 +2900,20 @@ export function specializeTupleClass(
             return t.type;
         })
     );
+}
 
+// Tuples require special handling for specialization. This method computes
+// the "effective" type argument, which is a union of the variadic type
+// arguments.
+export function specializeTupleClass(
+    classType: ClassType,
+    typeArgs: TupleTypeArgument[],
+    isTypeArgumentExplicit = true,
+    isUnpackedTuple = false
+): ClassType {
     const clonedClassType = ClassType.cloneForSpecialization(
         classType,
-        [combinedTupleType],
+        [combineTupleTypeArgs(typeArgs)],
         isTypeArgumentExplicit,
         /* includeSubclasses */ undefined,
         typeArgs
@@ -3861,18 +3844,7 @@ class TypeVarTransformer {
             // If this is an empty tuple, don't recompute the non-tuple type argument.
             if (newTupleTypeArgs && newTupleTypeArgs.length > 0) {
                 // Combine the tuple type args into a single non-tuple type argument.
-                newTypeArgs = [
-                    combineTypes(
-                        newTupleTypeArgs.map((t) => {
-                            if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type)) {
-                                // Treat the unpacked TypeVarTuple as a union.
-                                return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
-                            }
-
-                            return t.type;
-                        })
-                    ),
-                ];
+                newTypeArgs = [combineTupleTypeArgs(newTupleTypeArgs)];
             }
         }
 
@@ -4388,6 +4360,17 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                     return TypeVarType.cloneForUnpacked(replacement, typeVar.priv.isVariadicInUnion);
                 }
 
+                // If this isn't a variadic typeVar, combine all of the tuple
+                // type args into a common type.
+                if (
+                    !isVariadicTypeVar(typeVar) &&
+                    isClassInstance(replacement) &&
+                    replacement.priv.tupleTypeArguments &&
+                    replacement.priv.isUnpacked
+                ) {
+                    replacement = combineTupleTypeArgs(replacement.priv.tupleTypeArguments);
+                }
+
                 if (
                     !isTypeVar(replacement) ||
                     !replacement.priv.isInScopePlaceholder ||
@@ -4497,7 +4480,11 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         const signatureContext = this._typeVarContext.getSignatureContext(
             this._activeTypeVarSignatureContextIndex ?? 0
         );
-        return signatureContext.getTupleTypeVar(typeVar);
+        const value = signatureContext.getTypeVarType(typeVar);
+        if (value && isClassInstance(value) && value.priv.tupleTypeArguments && isUnpackedClass(value)) {
+            return value.priv.tupleTypeArguments;
+        }
+        return undefined;
     }
 
     override transformParamSpec(paramSpec: TypeVarType, recursionCount: number): FunctionType | undefined {
