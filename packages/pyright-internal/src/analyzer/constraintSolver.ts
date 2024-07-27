@@ -93,7 +93,6 @@ export function assignTypeToTypeVar(
         console.log(`${indent}srcType: ${evaluator.printType(srcType)}`);
         console.log(`${indent}flags: ${flags}`);
         console.log(`${indent}scopes: ${(typeVarContext.getSolveForScopes() || []).join(', ')}`);
-        console.log(`${indent}pre-call context #${typeVarContext.getId()}: `);
         logTypeVarContext(evaluator, typeVarContext, indent);
     }
 
@@ -631,7 +630,6 @@ export function assignTypeToTypeVar(
     if (logTypeVarContextUpdates) {
         const indent = ' '.repeat(recursionCount * 2);
         console.log(`${indent}`);
-        console.log(`${indent}post-call context #${typeVarContext.getId()}: `);
         logTypeVarContext(evaluator, typeVarContext, indent);
     }
 

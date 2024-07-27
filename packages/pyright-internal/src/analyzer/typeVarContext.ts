@@ -4,8 +4,8 @@
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * Module that records the relationship between type variables (and ParamSpecs)
- * and their types. It is used by the type evaluator to "solve" for the type of
+ * Module that records the relationship between type variables and their
+ * types. It is used by the type evaluator to "solve" for the type of
  * each type variable.
  */
 
@@ -182,19 +182,6 @@ export class TypeVarSignatureContext {
         return entries;
     }
 
-    getTypeVarCount() {
-        return this._typeVarMap.size;
-    }
-
-    getWideTypeBound(reference: TypeVarType): Type | undefined {
-        const entry = this.getTypeVar(reference);
-        if (entry) {
-            return entry.wideBound;
-        }
-
-        return undefined;
-    }
-
     addSourceTypeVarScopeId(scopeId: TypeVarScopeId) {
         if (!this._sourceTypeVarScopeId) {
             this._sourceTypeVarScopeId = new Set<string>();
@@ -213,15 +200,11 @@ export class TypeVarSignatureContext {
 }
 
 export class TypeVarContext {
-    static nextTypeVarContextId = 1;
-    private _id;
     private _solveForScopes: TypeVarScopeId[] | undefined;
     private _isLocked = false;
     private _signatureContexts: TypeVarSignatureContext[];
 
     constructor(solveForScopes?: TypeVarScopeId[] | TypeVarScopeId) {
-        this._id = TypeVarContext.nextTypeVarContextId++;
-
         if (Array.isArray(solveForScopes)) {
             this._solveForScopes = solveForScopes;
         } else if (solveForScopes !== undefined) {
@@ -288,10 +271,6 @@ export class TypeVarContext {
         }
 
         return this._signatureContexts.every((context, index) => context.isSame(other._signatureContexts[index]));
-    }
-
-    getId() {
-        return this._id;
     }
 
     // Returns the list of scopes this type var map is "solving".
