@@ -197,6 +197,7 @@
         "expectedYieldExpr": "Expected expression in yield statement",
         "finalClassIsAbstract": "Class \"{type}\" is marked final and must implement all abstract symbols",
         "finalContext": "\"Final\" is not allowed in this context",
+        "finalInLoop": "A \"Final\" variable cannot be assigned within a loop",
         "finalMethodOverride": "Method \"{name}\" cannot override final method defined in class \"{className}\"",
         "finalNonMethod": "Function \"{name}\" cannot be marked @final because it is not a method",
         "finalReassigned": "\"{name}\" is declared as Final and cannot be reassigned",
