@@ -16,7 +16,6 @@ import {
     ClassType,
     FunctionType,
     InScopePlaceholderScopeId,
-    TupleTypeArgument,
     Type,
     TypeCategory,
     TypeVarScopeId,
@@ -47,9 +46,6 @@ export interface TypeVarMapEntry {
     narrowBound?: Type | undefined;
     narrowBoundNoLiterals?: Type | undefined;
     wideBound?: Type | undefined;
-
-    // For tuples, the variadic types can be individually specified
-    tupleTypes?: TupleTypeArgument[];
 }
 
 export class TypeVarSignatureContext {
@@ -65,10 +61,6 @@ export class TypeVarSignatureContext {
 
         this._typeVarMap.forEach((value) => {
             newContext.setTypeVarType(value.typeVar, value.narrowBound, value.narrowBoundNoLiterals, value.wideBound);
-
-            if (value.tupleTypes) {
-                newContext.setTupleTypeVar(value.typeVar, value.tupleTypes);
-            }
         });
 
         if (this._sourceTypeVarScopeId) {
@@ -167,8 +159,7 @@ export class TypeVarSignatureContext {
         reference: TypeVarType,
         narrowBound: Type | undefined,
         narrowBoundNoLiterals?: Type,
-        wideBound?: Type,
-        tupleTypes?: TupleTypeArgument[]
+        wideBound?: Type
     ) {
         const key = TypeVarType.getNameWithScope(reference);
         this._typeVarMap.set(key, {
@@ -176,20 +167,7 @@ export class TypeVarSignatureContext {
             narrowBound,
             narrowBoundNoLiterals,
             wideBound,
-            tupleTypes,
         });
-    }
-
-    getTupleTypeVar(reference: TypeVarType): TupleTypeArgument[] | undefined {
-        return this.getTypeVar(reference)?.tupleTypes;
-    }
-
-    setTupleTypeVar(reference: TypeVarType, types: TupleTypeArgument[]) {
-        // Caller should have already assigned a value to this type variable.
-        const entry = this.getTypeVar(reference);
-        assert(entry);
-
-        entry.tupleTypes = types;
     }
 
     getTypeVar(reference: TypeVarType): TypeVarMapEntry | undefined {
@@ -462,21 +440,12 @@ export class TypeVarContext {
         reference: TypeVarType,
         narrowBound: Type | undefined,
         narrowBoundNoLiterals?: Type,
-        wideBound?: Type,
-        tupleTypes?: TupleTypeArgument[]
+        wideBound?: Type
     ) {
         assert(!this._isLocked);
 
         return this._signatureContexts.forEach((context) => {
-            context.setTypeVarType(reference, narrowBound, narrowBoundNoLiterals, wideBound, tupleTypes);
-        });
-    }
-
-    setTupleTypeVar(reference: TypeVarType, tupleTypes: TupleTypeArgument[]) {
-        assert(!this._isLocked);
-
-        return this._signatureContexts.forEach((context) => {
-            context.setTupleTypeVar(reference, tupleTypes);
+            context.setTypeVarType(reference, narrowBound, narrowBoundNoLiterals, wideBound);
         });
     }
 
