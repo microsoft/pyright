@@ -10,20 +10,17 @@
  */
 
 import { assert } from '../common/debug';
+import { getComplexityScoreForType } from './typeComplexity';
 import { getUnknownTypeForParamSpec } from './typeUtils';
 import {
-    AnyType,
-    ClassType,
     FunctionType,
     InScopePlaceholderScopeId,
     Type,
-    TypeCategory,
     TypeVarScopeId,
     TypeVarType,
     isAnyOrUnknown,
     isFunction,
     isTypeSame,
-    maxTypeRecursionCount,
 } from './types';
 
 // The maximum number of signature contexts that can be associated
@@ -116,7 +113,7 @@ export class TypeVarSignatureContext {
             // The more complex, the lower the score. In the spirit of Occam's
             // Razor, we always want to favor simple answers.
             const typeVarType = this.getTypeVarType(value.typeVar)!;
-            score += 1.0 - this._getComplexityScoreForType(typeVarType);
+            score += 1.0 - getComplexityScoreForType(typeVarType);
         });
 
         return score;
@@ -212,85 +209,6 @@ export class TypeVarSignatureContext {
         }
 
         return this._sourceTypeVarScopeId.has(scopeId);
-    }
-
-    // Returns a "score" for a type that captures the relative complexity
-    // of the type. Scores should all be between 0 and 1 where 0 means
-    // very simple and 1 means complex. This is a heuristic, so there's
-    // often no objectively correct answer.
-    private _getComplexityScoreForType(type: Type, recursionCount = 0): number {
-        if (recursionCount > maxTypeRecursionCount) {
-            return 1;
-        }
-        recursionCount++;
-
-        switch (type.category) {
-            case TypeCategory.Unknown:
-            case TypeCategory.Any:
-            case TypeCategory.TypeVar: {
-                return 0.5;
-            }
-
-            case TypeCategory.Function:
-            case TypeCategory.OverloadedFunction: {
-                // Classes and unions should be preferred over functions,
-                // so make this relatively high (more than 0.75).
-                return 0.8;
-            }
-
-            case TypeCategory.Unbound:
-            case TypeCategory.Never:
-                return 1.0;
-
-            case TypeCategory.Union: {
-                let maxScore = 0;
-
-                // If this union has a very large number of subtypes, don't bother
-                // accurately computing the score. Assume a fixed value.
-                if (type.priv.subtypes.length < 16) {
-                    type.priv.subtypes.forEach((subtype) => {
-                        const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount);
-                        maxScore = Math.max(maxScore, subtypeScore);
-                    });
-                } else {
-                    maxScore = 0.5;
-                }
-
-                return maxScore;
-            }
-
-            case TypeCategory.Class: {
-                return this._getComplexityScoreForClass(type, recursionCount);
-            }
-        }
-
-        // For all other types, return a score of 0.
-        return 0;
-    }
-
-    private _getComplexityScoreForClass(classType: ClassType, recursionCount: number): number {
-        let typeArgScoreSum = 0;
-        let typeArgCount = 0;
-
-        if (classType.priv.tupleTypeArguments) {
-            classType.priv.tupleTypeArguments.forEach((typeArg) => {
-                typeArgScoreSum += this._getComplexityScoreForType(typeArg.type, recursionCount);
-                typeArgCount++;
-            });
-        } else if (classType.priv.typeArguments) {
-            classType.priv.typeArguments.forEach((type) => {
-                typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount);
-                typeArgCount++;
-            });
-        } else if (classType.shared.typeParameters) {
-            classType.shared.typeParameters.forEach((type) => {
-                typeArgScoreSum += this._getComplexityScoreForType(AnyType.create(), recursionCount);
-                typeArgCount++;
-            });
-        }
-
-        const averageTypeArgComplexity = typeArgCount > 0 ? typeArgScoreSum / typeArgCount : 0;
-        return 0.5 + averageTypeArgComplexity * 0.25;
     }
 }
 
