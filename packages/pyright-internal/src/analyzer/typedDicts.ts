@@ -16,7 +16,7 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { LocAddendum, LocMessage } from '../localization/localize';
 import {
-    ArgumentCategory,
+    ArgCategory,
     ClassNode,
     DictionaryNode,
     ExpressionNode,
@@ -30,7 +30,7 @@ import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { getLastTypedDeclarationForSymbol } from './symbolUtils';
-import { EvaluatorUsage, FunctionArgument, TypeEvaluator, TypeResult, TypeResultWithNode } from './typeEvaluatorTypes';
+import { Arg, EvaluatorUsage, TypeEvaluator, TypeResult, TypeResultWithNode } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -73,7 +73,7 @@ export function createTypedDictType(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     typedDictClass: ClassType,
-    argList: FunctionArgument[]
+    argList: Arg[]
 ): ClassType {
     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
 
@@ -86,7 +86,7 @@ export function createTypedDictType(
     } else {
         const nameArg = argList[0];
         if (
-            nameArg.argumentCategory !== ArgumentCategory.Simple ||
+            nameArg.argCategory !== ArgCategory.Simple ||
             !nameArg.valueExpression ||
             nameArg.valueExpression.nodeType !== ParseNodeType.StringList
         ) {
@@ -127,7 +127,7 @@ export function createTypedDictType(
         const entriesArg = argList[1];
 
         if (
-            entriesArg.argumentCategory === ArgumentCategory.Simple &&
+            entriesArg.argCategory === ArgCategory.Simple &&
             entriesArg.valueExpression &&
             entriesArg.valueExpression.nodeType === ParseNodeType.Dictionary
         ) {
@@ -583,7 +583,7 @@ export function synthesizeTypedDictClassMethods(
                         ClassType.cloneForSpecialization(
                             iterableType,
                             [combineTypes(tuplesToCombine)],
-                            /* isTypeArgumentExplicit */ true
+                            /* isTypeArgExplicit */ true
                         ),
                         FunctionParamFlags.TypeDeclared,
                         '__m'
@@ -701,7 +701,7 @@ export function synthesizeTypedDictClassMethods(
                         { type: strType, isUnbounded: false },
                         { type: dictValueType, isUnbounded: false },
                     ],
-                    /* isTypeArgumentExplicit */ true
+                    /* isTypeArgExplicit */ true
                 );
             } else {
                 tupleType = UnknownType.create();
@@ -729,7 +729,7 @@ export function synthesizeTypedDictClassMethods(
                     method.shared.declaredReturnType = ClassType.cloneForSpecialization(
                         ClassType.cloneAsInstance(returnTypeClass),
                         [strType, mappingValueType],
-                        /* isTypeArgumentExplicit */ true
+                        /* isTypeArgExplicit */ true
                     );
 
                     symbolTable.set(methodName, Symbol.createWithType(SymbolFlags.ClassMember, method));
@@ -1279,11 +1279,11 @@ export function assignToTypedDict(
         typeVarContext = new TypeVarContext(getTypeVarScopeId(classType));
 
         // Create a generic (nonspecialized version) of the class.
-        if (classType.priv.typeArguments) {
+        if (classType.priv.typeArgs) {
             genericClassType = ClassType.cloneForSpecialization(
                 classType,
-                /* typeArguments */ undefined,
-                /* isTypeArgumentExplicit */ false
+                /* typeArgs */ undefined,
+                /* isTypeArgExplicit */ false
             );
         }
     }
@@ -1426,7 +1426,7 @@ export function getTypeOfIndexedTypedDict(
     }
 
     // Look for subscript types that are not supported by TypedDict.
-    if (node.d.trailingComma || node.d.items[0].d.name || node.d.items[0].d.argCategory !== ArgumentCategory.Simple) {
+    if (node.d.trailingComma || node.d.items[0].d.name || node.d.items[0].d.argCategory !== ArgCategory.Simple) {
         return undefined;
     }
 

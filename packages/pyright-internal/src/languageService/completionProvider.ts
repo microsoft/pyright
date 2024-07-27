@@ -89,7 +89,7 @@ import { Uri } from '../common/uri/uri';
 import { convertToTextEdits } from '../common/workspaceEditUtils';
 import { Localizer } from '../localization/localize';
 import {
-    ArgumentCategory,
+    ArgCategory,
     DecoratorNode,
     DictionaryKeyEntryNode,
     DictionaryNode,
@@ -1986,7 +1986,7 @@ export class CompletionProvider {
         return (
             currentNode &&
             currentNode.nodeType === ParseNodeType.Argument &&
-            currentNode.d.argCategory === ArgumentCategory.Simple &&
+            currentNode.d.argCategory === ArgCategory.Simple &&
             currentNode.parent &&
             currentNode.parent.nodeType === ParseNodeType.Index &&
             currentNode.parent.d.leftExpr &&

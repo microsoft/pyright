@@ -14,11 +14,11 @@ import { appendArray } from '../common/collectionUtils';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
-import { ArgumentCategory, ExpressionNode, ParameterCategory } from '../parser/parseNodes';
+import { ArgCategory, ExpressionNode, ParameterCategory } from '../parser/parseNodes';
 import { createFunctionFromConstructor } from './constructors';
 import { getParameterListDetails, ParameterKind } from './parameterUtils';
 import { Symbol, SymbolFlags } from './symbol';
-import { FunctionArgument, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
+import { Arg, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -55,7 +55,7 @@ export function hasConstructorTransform(classType: ClassType): boolean {
 export function applyConstructorTransform(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
-    argList: FunctionArgument[],
+    argList: Arg[],
     classType: ClassType,
     result: FunctionResult
 ): FunctionResult {
@@ -71,7 +71,7 @@ export function applyConstructorTransform(
 function applyPartialTransform(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
-    argList: FunctionArgument[],
+    argList: Arg[],
     result: FunctionResult
 ): FunctionResult {
     // We assume that the normal return result is a functools.partial class instance.
@@ -93,7 +93,7 @@ function applyPartialTransform(
         return result;
     }
 
-    const origFunctionTypeResult = evaluator.getTypeOfArgument(argList[0], /* inferenceContext */ undefined);
+    const origFunctionTypeResult = evaluator.getTypeOfArg(argList[0], /* inferenceContext */ undefined);
     let origFunctionType = origFunctionTypeResult.type;
     const origFunctionTypeConcrete = evaluator.makeTopLevelTypeVarsConcrete(origFunctionType);
 
@@ -113,7 +113,7 @@ function applyPartialTransform(
     evaluator.inferReturnTypeIfNecessary(origFunctionType);
 
     // We don't currently handle unpacked arguments.
-    if (argList.some((arg) => arg.argumentCategory !== ArgumentCategory.Simple)) {
+    if (argList.some((arg) => arg.argCategory !== ArgCategory.Simple)) {
         return result;
     }
 
@@ -215,7 +215,7 @@ function applyPartialTransform(
 function applyPartialTransformToFunction(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode | undefined,
-    argList: FunctionArgument[],
+    argList: Arg[],
     partialCallMemberType: FunctionType,
     origFunctionType: FunctionType
 ): FunctionResult | undefined {

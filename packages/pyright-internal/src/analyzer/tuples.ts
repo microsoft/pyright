@@ -21,7 +21,7 @@ import {
     isTypeVar,
     isUnpackedVariadicTypeVar,
     isVariadicTypeVar,
-    TupleTypeArgument,
+    TupleTypeArg,
     Type,
     TypeVarType,
 } from './types';
@@ -31,7 +31,7 @@ import { TypeVarContext } from './typeVarContext';
 // Assigns the source type arguments to the dest type arguments. It assumed
 // the the caller has already verified that both the dest and source are
 // tuple classes.
-export function assignTupleTypeArguments(
+export function assignTupleTypeArgs(
     evaluator: TypeEvaluator,
     destType: ClassType,
     srcType: ClassType,
@@ -41,8 +41,8 @@ export function assignTupleTypeArguments(
     flags: AssignTypeFlags,
     recursionCount: number
 ) {
-    const destTypeArgs = [...(destType.priv.tupleTypeArguments ?? [])];
-    const srcTypeArgs = [...(srcType.priv.tupleTypeArguments ?? [])];
+    const destTypeArgs = [...(destType.priv.tupleTypeArgs ?? [])];
+    const srcTypeArgs = [...(srcType.priv.tupleTypeArgs ?? [])];
 
     if (adjustTupleTypeArgs(evaluator, destTypeArgs, srcTypeArgs, flags)) {
         for (let argIndex = 0; argIndex < srcTypeArgs.length; argIndex++) {
@@ -129,8 +129,8 @@ export function assignTupleTypeArguments(
 // if the source is potentially compatible with the dest type, false otherwise.
 export function adjustTupleTypeArgs(
     evaluator: TypeEvaluator,
-    destTypeArgs: TupleTypeArgument[],
-    srcTypeArgs: TupleTypeArgument[],
+    destTypeArgs: TupleTypeArg[],
+    srcTypeArgs: TupleTypeArg[],
     flags: AssignTypeFlags
 ): boolean {
     const destUnboundedOrVariadicIndex = destTypeArgs.findIndex((t) => t.isUnbounded || isVariadicTypeVar(t.type));
@@ -204,7 +204,7 @@ export function adjustTupleTypeArgs(
                                 isOptional: typeArg.isOptional,
                             };
                         }),
-                        /* isTypeArgumentExplicit */ true,
+                        /* isTypeArgExplicit */ true,
                         /* isUnpackedTuple */ true
                     )
                 );
@@ -245,7 +245,7 @@ export function adjustTupleTypeArgs(
                                         isOptional: typeArg.isOptional,
                                     };
                                 }),
-                                /* isTypeArgumentExplicit */ true,
+                                /* isTypeArgExplicit */ true,
                                 /* isUnpackedTuple */ true
                             )
                         );
@@ -296,11 +296,11 @@ export function getSlicedTupleType(
     sliceNode: SliceNode
 ): Type | undefined {
     // We don't handle step values.
-    if (sliceNode.d.stepValue || !tupleType.priv.tupleTypeArguments) {
+    if (sliceNode.d.stepValue || !tupleType.priv.tupleTypeArgs) {
         return undefined;
     }
 
-    const tupleTypeArgs = tupleType.priv.tupleTypeArguments;
+    const tupleTypeArgs = tupleType.priv.tupleTypeArgs;
     const startValue = getTupleSliceParameter(evaluator, sliceNode.d.startValue, 0, tupleTypeArgs);
     const endValue = getTupleSliceParameter(evaluator, sliceNode.d.endValue, tupleTypeArgs.length, tupleTypeArgs);
 
@@ -316,7 +316,7 @@ function getTupleSliceParameter(
     evaluator: TypeEvaluator,
     expression: ExpressionNode | undefined,
     defaultValue: number,
-    tupleTypeArgs: TupleTypeArgument[]
+    tupleTypeArgs: TupleTypeArg[]
 ): number | undefined {
     let value = defaultValue;
 

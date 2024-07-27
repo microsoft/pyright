@@ -1964,7 +1964,7 @@ export namespace ListNode {
     }
 }
 
-export const enum ArgumentCategory {
+export const enum ArgCategory {
     Simple,
     UnpackedList,
     UnpackedDictionary,
@@ -1972,7 +1972,7 @@ export const enum ArgumentCategory {
 
 export interface ArgumentNode extends ParseNodeBase<ParseNodeType.Argument> {
     d: {
-        argCategory: ArgumentCategory;
+        argCategory: ArgCategory;
         name: NameNode | undefined;
         valueExpr: ExpressionNode;
 
@@ -1982,7 +1982,7 @@ export interface ArgumentNode extends ParseNodeBase<ParseNodeType.Argument> {
 }
 
 export namespace ArgumentNode {
-    export function create(startToken: Token | undefined, valueExpr: ExpressionNode, argCategory: ArgumentCategory) {
+    export function create(startToken: Token | undefined, valueExpr: ExpressionNode, argCategory: ArgCategory) {
         const node: ArgumentNode = {
             start: startToken ? startToken.start : valueExpr.start,
             length: startToken ? startToken.length : valueExpr.length,

@@ -30,7 +30,7 @@ import {
     isVariadicTypeVar,
     maxTypeRecursionCount,
     OverloadedFunctionType,
-    TupleTypeArgument,
+    TupleTypeArg,
     Type,
     TypeBase,
     TypeCategory,
@@ -49,7 +49,7 @@ export const enum PrintTypeFlags {
     PrintUnknownWithAny = 1 << 0,
 
     // Omit type arguments for generic classes if they are "Unknown".
-    OmitTypeArgumentsIfUnknown = 1 << 1,
+    OmitTypeArgsIfUnknown = 1 << 1,
 
     // Omit printing type for param if type is not specified.
     OmitUnannotatedParamType = 1 << 2,
@@ -261,13 +261,13 @@ function printTypeInternal(
                     let argumentStrings: string[] | undefined;
 
                     // If there is a type arguments array, it's a specialized type alias.
-                    if (aliasInfo.typeArguments) {
+                    if (aliasInfo.typeArgs) {
                         if (
-                            (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfUnknown) === 0 ||
-                            aliasInfo.typeArguments.some((typeArg) => !isUnknown(typeArg))
+                            (printTypeFlags & PrintTypeFlags.OmitTypeArgsIfUnknown) === 0 ||
+                            aliasInfo.typeArgs.some((typeArg) => !isUnknown(typeArg))
                         ) {
                             argumentStrings = [];
-                            aliasInfo.typeArguments.forEach((typeArg, index) => {
+                            aliasInfo.typeArgs.forEach((typeArg, index) => {
                                 // Which type parameter does this map to?
                                 const typeParam =
                                     index < typeParams.length ? typeParams[index] : typeParams[typeParams.length - 1];
@@ -277,10 +277,10 @@ function printTypeInternal(
                                     isVariadicTypeVar(typeParam) &&
                                     isClassInstance(typeArg) &&
                                     isTupleClass(typeArg) &&
-                                    typeArg.priv.tupleTypeArguments &&
-                                    typeArg.priv.tupleTypeArguments.every((typeArg) => !typeArg.isUnbounded)
+                                    typeArg.priv.tupleTypeArgs &&
+                                    typeArg.priv.tupleTypeArgs.every((typeArg) => !typeArg.isUnbounded)
                                 ) {
-                                    typeArg.priv.tupleTypeArguments.forEach((tupleTypeArg) => {
+                                    typeArg.priv.tupleTypeArgs.forEach((tupleTypeArg) => {
                                         argumentStrings!.push(
                                             printTypeInternal(
                                                 tupleTypeArg.type,
@@ -308,7 +308,7 @@ function printTypeInternal(
                         }
                     } else {
                         if (
-                            (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfUnknown) === 0 ||
+                            (printTypeFlags & PrintTypeFlags.OmitTypeArgsIfUnknown) === 0 ||
                             typeParams.some((typeParam) => !isUnknown(typeParam))
                         ) {
                             argumentStrings = [];
@@ -937,9 +937,9 @@ function printObjectTypeForClassInternal(
         const isVariadic = lastTypeParam ? lastTypeParam.shared.isVariadic : false;
 
         // If there is a type arguments array, it's a specialized class.
-        const typeArgs: TupleTypeArgument[] | undefined =
-            type.priv.tupleTypeArguments ??
-            type.priv.typeArguments?.map((t) => {
+        const typeArgs: TupleTypeArg[] | undefined =
+            type.priv.tupleTypeArgs ??
+            type.priv.typeArgs?.map((t) => {
                 return { type: t, isUnbounded: false };
             });
         if (typeArgs) {
@@ -955,10 +955,10 @@ function printObjectTypeForClassInternal(
                         typeParam.shared.isVariadic &&
                         isClassInstance(typeArg.type) &&
                         ClassType.isBuiltIn(typeArg.type, 'tuple') &&
-                        typeArg.type.priv.tupleTypeArguments
+                        typeArg.type.priv.tupleTypeArgs
                     ) {
                         // Expand the tuple type that maps to the variadic type parameter.
-                        if (typeArg.type.priv.tupleTypeArguments.length === 0) {
+                        if (typeArg.type.priv.tupleTypeArgs.length === 0) {
                             if (!isUnknown(typeArg.type)) {
                                 isAllUnknown = false;
                             }
@@ -969,7 +969,7 @@ function printObjectTypeForClassInternal(
                         } else {
                             appendArray(
                                 typeArgStrings,
-                                typeArg.type.priv.tupleTypeArguments.map((typeArg) => {
+                                typeArg.type.priv.tupleTypeArgs.map((typeArg) => {
                                     if (!isUnknown(typeArg.type)) {
                                         isAllUnknown = false;
                                     }
@@ -1021,7 +1021,7 @@ function printObjectTypeForClassInternal(
                     objName = _printUnpack(objName, printTypeFlags);
                 }
 
-                if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfUnknown) === 0 || !isAllUnknown) {
+                if ((printTypeFlags & PrintTypeFlags.OmitTypeArgsIfUnknown) === 0 || !isAllUnknown) {
                     objName += '[' + typeArgStrings.join(', ') + ']';
                 }
             } else {
@@ -1040,7 +1040,7 @@ function printObjectTypeForClassInternal(
 
             if (typeParams.length > 0) {
                 if (
-                    (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfUnknown) === 0 ||
+                    (printTypeFlags & PrintTypeFlags.OmitTypeArgsIfUnknown) === 0 ||
                     typeParams.some((typeParam) => !isUnknown(typeParam))
                 ) {
                     objName +=
@@ -1102,9 +1102,9 @@ function printFunctionPartsInternal(
             if (
                 isClassInstance(specializedParamType) &&
                 ClassType.isBuiltIn(specializedParamType, 'tuple') &&
-                specializedParamType.priv.tupleTypeArguments
+                specializedParamType.priv.tupleTypeArgs
             ) {
-                specializedParamType.priv.tupleTypeArguments.forEach((paramType) => {
+                specializedParamType.priv.tupleTypeArgs.forEach((paramType) => {
                     const paramString = printTypeInternal(
                         paramType.type,
                         printTypeFlags,
@@ -1208,7 +1208,7 @@ function printFunctionPartsInternal(
                 // PEP8 indicates that the "=" for the default value should have surrounding
                 // spaces when used with a type annotation.
                 defaultValueAssignment = ' = ';
-            } else if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfUnknown) === 0) {
+            } else if ((printTypeFlags & PrintTypeFlags.OmitTypeArgsIfUnknown) === 0) {
                 if (!FunctionParam.isNameSynthesized(param)) {
                     paramString += ': ';
                 }
@@ -1359,11 +1359,11 @@ class UniqueNameMap {
                 this._addIfUnique(typeAliasName, type, /* useTypeAliasName */ true);
 
                 // Recursively add the type arguments if present.
-                if (aliasInfo.typeArguments) {
+                if (aliasInfo.typeArgs) {
                     recursionTypes.push(type);
 
                     try {
-                        aliasInfo.typeArguments.forEach((typeArg) => {
+                        aliasInfo.typeArgs.forEach((typeArg) => {
                             this.build(typeArg, recursionTypes, recursionCount);
                         });
                     } finally {
@@ -1413,12 +1413,12 @@ class UniqueNameMap {
                     this._addIfUnique(className, type);
 
                     if (!ClassType.isPseudoGenericClass(type)) {
-                        if (type.priv.tupleTypeArguments) {
-                            type.priv.tupleTypeArguments.forEach((typeArg) => {
+                        if (type.priv.tupleTypeArgs) {
+                            type.priv.tupleTypeArgs.forEach((typeArg) => {
                                 this.build(typeArg.type, recursionTypes, recursionCount);
                             });
-                        } else if (type.priv.typeArguments) {
-                            type.priv.typeArguments.forEach((typeArg) => {
+                        } else if (type.priv.typeArgs) {
+                            type.priv.typeArgs.forEach((typeArg) => {
                                 this.build(typeArg, recursionTypes, recursionCount);
                             });
                         }

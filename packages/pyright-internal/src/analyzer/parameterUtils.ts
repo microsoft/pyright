@@ -161,10 +161,10 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
         if (param.category === ParameterCategory.ArgsList) {
             // If this is an unpacked tuple, expand the entries.
             const paramType = FunctionType.getEffectiveParameterType(type, index);
-            if (param.name && isUnpackedClass(paramType) && paramType.priv.tupleTypeArguments) {
+            if (param.name && isUnpackedClass(paramType) && paramType.priv.tupleTypeArgs) {
                 const addToPositionalOnly = index < result.positionOnlyParamCount;
 
-                paramType.priv.tupleTypeArguments.forEach((tupleArg, tupleIndex) => {
+                paramType.priv.tupleTypeArgs.forEach((tupleArg, tupleIndex) => {
                     const category =
                         isVariadicTypeVar(tupleArg.type) || tupleArg.isUnbounded
                             ? ParameterCategory.ArgsList
@@ -321,7 +321,7 @@ export function getParameterListDetails(type: FunctionType): ParameterListDetail
 
 // Returns true if the type of the argument type is "*args: P.args" or
 // "*args: Any". Both of these match a parameter of type "*args: P.args".
-export function isParamSpecArgsArgument(paramSpec: TypeVarType, argType: Type) {
+export function isParamSpecArgs(paramSpec: TypeVarType, argType: Type) {
     let isCompatible = true;
 
     doForEachSubtype(argType, (argSubtype) => {
@@ -335,10 +335,10 @@ export function isParamSpecArgsArgument(paramSpec: TypeVarType, argType: Type) {
 
         if (
             isClassInstance(argSubtype) &&
-            argSubtype.priv.tupleTypeArguments &&
-            argSubtype.priv.tupleTypeArguments.length === 1 &&
-            argSubtype.priv.tupleTypeArguments[0].isUnbounded &&
-            isAnyOrUnknown(argSubtype.priv.tupleTypeArguments[0].type)
+            argSubtype.priv.tupleTypeArgs &&
+            argSubtype.priv.tupleTypeArgs.length === 1 &&
+            argSubtype.priv.tupleTypeArgs[0].isUnbounded &&
+            isAnyOrUnknown(argSubtype.priv.tupleTypeArgs[0].type)
         ) {
             return;
         }
@@ -355,7 +355,7 @@ export function isParamSpecArgsArgument(paramSpec: TypeVarType, argType: Type) {
 
 // Returns true if the type of the argument type is "**kwargs: P.kwargs" or
 // "*kwargs: Any". Both of these match a parameter of type "*kwargs: P.kwargs".
-export function isParamSpecKwargsArgument(paramSpec: TypeVarType, argType: Type) {
+export function isParamSpecKwargs(paramSpec: TypeVarType, argType: Type) {
     let isCompatible = true;
 
     doForEachSubtype(argType, (argSubtype) => {
@@ -370,11 +370,11 @@ export function isParamSpecKwargsArgument(paramSpec: TypeVarType, argType: Type)
         if (
             isClassInstance(argSubtype) &&
             ClassType.isBuiltIn(argSubtype, 'dict') &&
-            argSubtype.priv.typeArguments &&
-            argSubtype.priv.typeArguments.length === 2 &&
-            isClassInstance(argSubtype.priv.typeArguments[0]) &&
-            ClassType.isBuiltIn(argSubtype.priv.typeArguments[0], 'str') &&
-            isAnyOrUnknown(argSubtype.priv.typeArguments[1])
+            argSubtype.priv.typeArgs &&
+            argSubtype.priv.typeArgs.length === 2 &&
+            isClassInstance(argSubtype.priv.typeArgs[0]) &&
+            ClassType.isBuiltIn(argSubtype.priv.typeArgs[0], 'str') &&
+            isAnyOrUnknown(argSubtype.priv.typeArgs[1])
         ) {
             return;
         }

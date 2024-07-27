@@ -29,7 +29,7 @@ import { TextRange, getEmptyRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { LocMessage } from '../localization/localize';
 import {
-    ArgumentCategory,
+    ArgCategory,
     AssertNode,
     AssignmentExpressionNode,
     AssignmentNode,
@@ -649,7 +649,7 @@ export class Binder extends ParseTreeWalker {
         this._disableTrueFalseTargets(() => {
             this.walk(node.d.leftExpr);
 
-            const sortedArgs = ParseTreeUtils.getArgumentsByRuntimeOrder(node);
+            const sortedArgs = ParseTreeUtils.getArgsByRuntimeOrder(node);
 
             sortedArgs.forEach((argNode) => {
                 if (this._currentFlowNode) {
@@ -3002,7 +3002,7 @@ export class Binder extends ParseTreeWalker {
                             expression.nodeType === ParseNodeType.Index &&
                             expression.d.items.length === 1 &&
                             !expression.d.trailingComma &&
-                            expression.d.items[0].d.argCategory === ArgumentCategory.Simple
+                            expression.d.items[0].d.argCategory === ArgCategory.Simple
                         ) {
                             if (isCodeFlowSupportedForReference(expression.d.leftExpr)) {
                                 expressionList.push(expression.d.leftExpr);
@@ -3054,7 +3054,7 @@ export class Binder extends ParseTreeWalker {
                         expression.d.leftExpr.d.leftExpr.nodeType === ParseNodeType.Name &&
                         expression.d.leftExpr.d.leftExpr.d.value === 'type' &&
                         expression.d.leftExpr.d.args.length === 1 &&
-                        expression.d.leftExpr.d.args[0].d.argCategory === ArgumentCategory.Simple
+                        expression.d.leftExpr.d.args[0].d.argCategory === ArgCategory.Simple
                     ) {
                         return this._isNarrowingExpression(
                             expression.d.leftExpr.d.args[0].d.valueExpr,
@@ -3929,7 +3929,7 @@ export class Binder extends ParseTreeWalker {
                 const finalInfo = this._isAnnotationFinal(typeAnnotation.d.leftExpr);
                 if (
                     finalInfo.isFinal &&
-                    typeAnnotation.d.items[0].d.argCategory === ArgumentCategory.Simple &&
+                    typeAnnotation.d.items[0].d.argCategory === ArgCategory.Simple &&
                     !typeAnnotation.d.items[0].d.name &&
                     !typeAnnotation.d.trailingComma
                 ) {
@@ -3969,7 +3969,7 @@ export class Binder extends ParseTreeWalker {
                 const finalInfo = this._isAnnotationClassVar(typeAnnotation.d.leftExpr);
                 if (
                     finalInfo.isClassVar &&
-                    typeAnnotation.d.items[0].d.argCategory === ArgumentCategory.Simple &&
+                    typeAnnotation.d.items[0].d.argCategory === ArgCategory.Simple &&
                     !typeAnnotation.d.items[0].d.name &&
                     !typeAnnotation.d.trailingComma
                 ) {

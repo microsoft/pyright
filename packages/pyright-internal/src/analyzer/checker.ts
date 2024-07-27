@@ -26,7 +26,7 @@ import { Uri } from '../common/uri/uri';
 import { DefinitionProvider } from '../languageService/definitionProvider';
 import { LocAddendum, LocMessage } from '../localization/localize';
 import {
-    ArgumentCategory,
+    ArgCategory,
     AssertNode,
     AssignmentExpressionNode,
     AssignmentNode,
@@ -118,7 +118,7 @@ import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclarationForSymbol } from './symbolUtils';
 import { maxCodeComplexity } from './typeEvaluator';
 import {
-    FunctionArgument,
+    Arg,
     FunctionTypeResult,
     MemberAccessDeprecationInfo,
     Reachability,
@@ -146,7 +146,7 @@ import {
     getGeneratorTypeArgs,
     getProtocolSymbolsRecursive,
     getSpecializedTupleType,
-    getTypeVarArgumentsRecursive,
+    getTypeVarArgsRecursive,
     getTypeVarScopeId,
     isLiteralType,
     isLiteralTypeOrUnion,
@@ -976,7 +976,7 @@ export class Checker extends ParseTreeWalker {
                     } else {
                         // See if the declared return type includes one or more constrained TypeVars. If so,
                         // try to narrow these TypeVars to a single type.
-                        const uniqueTypeVars = getTypeVarArgumentsRecursive(declaredReturnType);
+                        const uniqueTypeVars = getTypeVarArgsRecursive(declaredReturnType);
 
                         if (uniqueTypeVars && uniqueTypeVars.some((typeVar) => typeVar.shared.constraints.length > 0)) {
                             const typeVarContext = new TypeVarContext();
@@ -1157,8 +1157,8 @@ export class Checker extends ParseTreeWalker {
         //   assert (x > 3, "bad value x")
         const type = this._evaluator.getType(node.d.testExpr);
         if (type && isClassInstance(type)) {
-            if (isTupleClass(type) && type.priv.tupleTypeArguments) {
-                if (type.priv.tupleTypeArguments.length > 0) {
+            if (isTupleClass(type) && type.priv.tupleTypeArgs) {
+                if (type.priv.tupleTypeArgs.length > 0) {
                     if (!isUnboundedTupleClass(type)) {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
@@ -1237,20 +1237,16 @@ export class Checker extends ParseTreeWalker {
             doForEachSubtype(baseType, (subtype) => {
                 const tupleType = getSpecializedTupleType(subtype);
 
-                if (
-                    !isClassInstance(subtype) ||
-                    !tupleType?.priv.tupleTypeArguments ||
-                    isUnboundedTupleClass(tupleType)
-                ) {
+                if (!isClassInstance(subtype) || !tupleType?.priv.tupleTypeArgs || isUnboundedTupleClass(tupleType)) {
                     return;
                 }
 
-                const tupleLength = tupleType.priv.tupleTypeArguments.length;
+                const tupleLength = tupleType.priv.tupleTypeArgs.length;
 
                 if (
                     node.d.items.length !== 1 ||
                     node.d.trailingComma ||
-                    node.d.items[0].d.argCategory !== ArgumentCategory.Simple ||
+                    node.d.items[0].d.argCategory !== ArgCategory.Simple ||
                     node.d.items[0].d.name
                 ) {
                     return;
@@ -2227,13 +2223,13 @@ export class Checker extends ParseTreeWalker {
             ) {
                 const genericLeftType = ClassType.cloneForSpecialization(
                     leftType,
-                    /* typeArguments */ undefined,
-                    /* isTypeArgumentExplicit */ false
+                    /* typeArgs */ undefined,
+                    /* isTypeArgExplicit */ false
                 );
                 const genericRightType = ClassType.cloneForSpecialization(
                     rightType,
-                    /* typeArguments */ undefined,
-                    /* isTypeArgumentExplicit */ false
+                    /* typeArgs */ undefined,
+                    /* isTypeArgExplicit */ false
                 );
 
                 if (
@@ -2259,13 +2255,13 @@ export class Checker extends ParseTreeWalker {
             if (isClassInstance(rightType)) {
                 const genericLeftType = ClassType.cloneForSpecialization(
                     leftType,
-                    /* typeArguments */ undefined,
-                    /* isTypeArgumentExplicit */ false
+                    /* typeArgs */ undefined,
+                    /* isTypeArgExplicit */ false
                 );
                 const genericRightType = ClassType.cloneForSpecialization(
                     rightType,
-                    /* typeArguments */ undefined,
-                    /* isTypeArgumentExplicit */ false
+                    /* typeArgs */ undefined,
+                    /* isTypeArgsExplicit */ false
                 );
 
                 if (
@@ -2347,7 +2343,7 @@ export class Checker extends ParseTreeWalker {
             ClassType.cloneForSpecialization(
                 generatorType,
                 [AnyType.create(), AnyType.create(), AnyType.create()],
-                /* isTypeArgumentExplicit */ true
+                /* isTypeExplicit */ true
             )
         );
 
@@ -2975,8 +2971,8 @@ export class Checker extends ParseTreeWalker {
                     return;
                 }
 
-                if (allowTuple && exceptionSubtype.priv.tupleTypeArguments) {
-                    exceptionSubtype.priv.tupleTypeArguments.forEach((typeArg) => {
+                if (allowTuple && exceptionSubtype.priv.tupleTypeArgs) {
+                    exceptionSubtype.priv.tupleTypeArgs.forEach((typeArg) => {
                         this._validateExceptionTypeRecursive(
                             typeArg.type,
                             diag,
@@ -3799,13 +3795,9 @@ export class Checker extends ParseTreeWalker {
         let isValidType = true;
         const diag = new DiagnosticAddendum();
         doForEachSubtype(arg1Type, (arg1Subtype) => {
-            if (
-                isClassInstance(arg1Subtype) &&
-                ClassType.isTupleClass(arg1Subtype) &&
-                arg1Subtype.priv.tupleTypeArguments
-            ) {
+            if (isClassInstance(arg1Subtype) && ClassType.isTupleClass(arg1Subtype) && arg1Subtype.priv.tupleTypeArgs) {
                 if (
-                    arg1Subtype.priv.tupleTypeArguments.some(
+                    arg1Subtype.priv.tupleTypeArgs.some(
                         (typeArg) => !this._isTypeSupportedTypeForIsInstance(typeArg.type, isInstanceCheck, diag)
                     )
                 ) {
@@ -3841,9 +3833,9 @@ export class Checker extends ParseTreeWalker {
                 if (
                     isClassInstance(arg1Subtype) &&
                     ClassType.isTupleClass(arg1Subtype) &&
-                    arg1Subtype.priv.tupleTypeArguments
+                    arg1Subtype.priv.tupleTypeArgs
                 ) {
-                    arg1Subtype.priv.tupleTypeArguments.forEach((typeArg) => {
+                    arg1Subtype.priv.tupleTypeArgs.forEach((typeArg) => {
                         this._validateNotDataProtocol(typeArg.type, diag);
                     });
                 } else {
@@ -3913,8 +3905,8 @@ export class Checker extends ParseTreeWalker {
                     // The isinstance and issubclass call supports a variation where the second
                     // parameter is a tuple of classes.
                     if (isTupleClass(arg1Subtype)) {
-                        if (arg1Subtype.priv.tupleTypeArguments) {
-                            arg1Subtype.priv.tupleTypeArguments.forEach((typeArg) => {
+                        if (arg1Subtype.priv.tupleTypeArgs) {
+                            arg1Subtype.priv.tupleTypeArgs.forEach((typeArg) => {
                                 if (isInstantiableClass(typeArg.type)) {
                                     classTypeList.push(typeArg.type);
 
@@ -4136,7 +4128,7 @@ export class Checker extends ParseTreeWalker {
                     } else if (ClassType.isTypedDictClass(subtype)) {
                         diag.addMessage(LocAddendum.typedDictClassNotAllowed());
                         isSupported = false;
-                    } else if (subtype.priv.isTypeArgumentExplicit && !subtype.priv.includeSubclasses) {
+                    } else if (subtype.priv.isTypeArgExplicit && !subtype.priv.includeSubclasses) {
                         // If it's a class, make sure that it has not been given explicit
                         // type arguments. This will result in a TypeError exception.
                         diag.addMessage(LocAddendum.genericClassNotAllowed());
@@ -4743,11 +4735,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        if (
-            !isClassInstance(returnType) ||
-            !returnType.priv.typeArguments ||
-            returnType.priv.typeArguments.length < 1
-        ) {
+        if (!isClassInstance(returnType) || !returnType.priv.typeArgs || returnType.priv.typeArgs.length < 1) {
             return;
         }
 
@@ -4779,7 +4767,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (isTypeIs) {
-            const typeGuardType = returnType.priv.typeArguments[0];
+            const typeGuardType = returnType.priv.typeArgs[0];
 
             // Determine the type of the first parameter.
             const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
@@ -5107,18 +5095,18 @@ export class Checker extends ParseTreeWalker {
                 if (!isAnyOrUnknown(assignedValueType)) {
                     // Construct an argument list. If the assigned type is a tuple, we'll
                     // unpack it. Otherwise, only one argument is passed.
-                    const argList: FunctionArgument[] = [
+                    const argList: Arg[] = [
                         {
-                            argumentCategory:
+                            argCategory:
                                 isClassInstance(assignedValueType) && isTupleClass(assignedValueType)
-                                    ? ArgumentCategory.UnpackedList
-                                    : ArgumentCategory.Simple,
+                                    ? ArgCategory.UnpackedList
+                                    : ArgCategory.Simple,
                             typeResult: { type: assignedValueType },
                         },
                     ];
 
                     if (newMemberTypeResult) {
-                        this._evaluator.validateCallArguments(
+                        this._evaluator.validateCallArgs(
                             errorNode,
                             argList,
                             newMemberTypeResult,
@@ -5129,7 +5117,7 @@ export class Checker extends ParseTreeWalker {
                     }
 
                     if (initMemberTypeResult) {
-                        this._evaluator.validateCallArguments(
+                        this._evaluator.validateCallArgs(
                             errorNode,
                             argList,
                             initMemberTypeResult,
@@ -5530,12 +5518,8 @@ export class Checker extends ParseTreeWalker {
                 return i === paramIndex || p.shared.isVariadic ? p : dummyTypeObject;
             });
 
-            const srcType = ClassType.cloneForSpecialization(classType, srcTypeArgs, /* isTypeArgumentExplicit */ true);
-            const destType = ClassType.cloneForSpecialization(
-                classType,
-                destTypeArgs,
-                /* isTypeArgumentExplicit */ true
-            );
+            const srcType = ClassType.cloneForSpecialization(classType, srcTypeArgs, /* isTypeArgExplicit */ true);
+            const destType = ClassType.cloneForSpecialization(classType, destTypeArgs, /* isTypeArgExplicit */ true);
 
             const isDestSubtypeOfSrc = this._evaluator.assignClassToSelf(srcType, destType, Variance.Covariant);
 
@@ -7332,7 +7316,7 @@ export class Checker extends ParseTreeWalker {
         // use of class-scoped TypeVars, which are not allowed in this context
         // according to the typing spec.
         if (functionType.shared.name === '__init__' && functionType.shared.methodClass) {
-            const typeVars = getTypeVarArgumentsRecursive(paramInfo.type);
+            const typeVars = getTypeVarArgsRecursive(paramInfo.type);
 
             if (
                 typeVars.some(
@@ -7471,7 +7455,7 @@ export class Checker extends ParseTreeWalker {
 
         const generatorTypeArgs = [yieldType, sendType ?? UnknownType.create(), UnknownType.create()];
         const specializedGenerator = ClassType.cloneAsInstance(
-            ClassType.cloneForSpecialization(generatorType, generatorTypeArgs, /* isTypeArgumentExplicit */ true)
+            ClassType.cloneForSpecialization(generatorType, generatorTypeArgs, /* isTypeArgExplicit */ true)
         );
 
         const diagAddendum = new DiagnosticAddendum();

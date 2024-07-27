@@ -9,13 +9,13 @@
 
 import { assert } from '../common/debug';
 import { pythonVersion3_13 } from '../common/pythonVersion';
-import { ArgumentCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ArgCategory, ExpressionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { VariableDeclaration } from './declaration';
 import { getClassFullName, getEnclosingClass, getTypeSourceId } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName, isSingleDunderName } from './symbolNameUtils';
-import { EvalFlags, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { Arg, EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import { enumerateLiteralsForType } from './typeGuards';
 import { MemberAccessFlags, computeMroLinearization, lookUpClassMember, makeInferenceContext } from './typeUtils';
 import {
@@ -69,7 +69,7 @@ export function createEnumType(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     enumClass: ClassType,
-    argList: FunctionArgument[]
+    argList: Arg[]
 ): ClassType | undefined {
     const fileInfo = getFileInfo(errorNode);
 
@@ -79,7 +79,7 @@ export function createEnumType(
 
     const nameArg = argList[0];
     if (
-        nameArg.argumentCategory !== ArgumentCategory.Simple ||
+        nameArg.argCategory !== ArgCategory.Simple ||
         !nameArg.valueExpression ||
         nameArg.valueExpression.nodeType !== ParseNodeType.StringList ||
         nameArg.valueExpression.d.strings.length !== 1 ||
@@ -113,7 +113,7 @@ export function createEnumType(
     }
 
     const initArg = argList[1];
-    if (initArg.argumentCategory !== ArgumentCategory.Simple || !initArg.valueExpression) {
+    if (initArg.argCategory !== ArgCategory.Simple || !initArg.valueExpression) {
         return undefined;
     }
 
@@ -445,8 +445,8 @@ export function transformTypeForEnumMember(
     if (assignedType && isClassInstance(assignedType) && ClassType.isBuiltIn(assignedType)) {
         if (assignedType.shared.fullName === 'enum.nonmember') {
             const nonMemberType =
-                assignedType.priv.typeArguments && assignedType.priv.typeArguments.length > 0
-                    ? assignedType.priv.typeArguments[0]
+                assignedType.priv.typeArgs && assignedType.priv.typeArgs.length > 0
+                    ? assignedType.priv.typeArgs[0]
                     : UnknownType.create();
 
             // If the type of the nonmember is declared and the assigned value has
@@ -460,8 +460,8 @@ export function transformTypeForEnumMember(
 
         if (assignedType.shared.fullName === 'enum.member') {
             valueType =
-                assignedType.priv.typeArguments && assignedType.priv.typeArguments.length > 0
-                    ? assignedType.priv.typeArguments[0]
+                assignedType.priv.typeArgs && assignedType.priv.typeArgs.length > 0
+                    ? assignedType.priv.typeArgs[0]
                     : UnknownType.create();
             isMemberOfEnumeration = true;
         }

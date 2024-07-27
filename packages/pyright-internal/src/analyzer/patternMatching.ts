@@ -15,7 +15,7 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocAddendum, LocMessage } from '../localization/localize';
 import {
-    ArgumentCategory,
+    ArgCategory,
     ExpressionNode,
     ParseNode,
     ParseNodeType,
@@ -230,10 +230,8 @@ function narrowTypeBasedOnSequencePattern(
                 canNarrowTuple = false;
             }
 
-            if (isClassInstance(entry.subtype) && entry.subtype.priv.tupleTypeArguments) {
-                const unboundedIndex = entry.subtype.priv.tupleTypeArguments.findIndex(
-                    (typeArg) => typeArg.isUnbounded
-                );
+            if (isClassInstance(entry.subtype) && entry.subtype.priv.tupleTypeArgs) {
+                const unboundedIndex = entry.subtype.priv.tupleTypeArgs.findIndex((typeArg) => typeArg.isUnbounded);
 
                 if (unboundedIndex >= 0) {
                     // If the pattern includes a "star" entry that aligns exactly with
@@ -274,13 +272,13 @@ function narrowTypeBasedOnSequencePattern(
                 if (index === pattern.d.starEntryIndex) {
                     if (
                         isClassInstance(narrowedEntryType) &&
-                        narrowedEntryType.priv.tupleTypeArguments &&
+                        narrowedEntryType.priv.tupleTypeArgs &&
                         !isUnboundedTupleClass(narrowedEntryType) &&
-                        narrowedEntryType.priv.tupleTypeArguments
+                        narrowedEntryType.priv.tupleTypeArgs
                     ) {
                         appendArray(
                             narrowedEntryTypes,
-                            narrowedEntryType.priv.tupleTypeArguments.map((t) => t.type)
+                            narrowedEntryType.priv.tupleTypeArgs.map((t) => t.type)
                         );
                     } else {
                         narrowedEntryTypes.push(narrowedEntryType);
@@ -396,7 +394,7 @@ function narrowTypeBasedOnSequencePattern(
                     typeArgType = containsAnyOrUnknown(typeArgType, /* recurse */ false) ?? typeArgType;
 
                     entry.subtype = ClassType.cloneAsInstance(
-                        ClassType.cloneForSpecialization(sequenceType, [typeArgType], /* isTypeArgumentExplicit */ true)
+                        ClassType.cloneForSpecialization(sequenceType, [typeArgType], /* isTypeArgExplicit */ true)
                     );
                 }
             }
@@ -633,9 +631,9 @@ function getPositionalMatchArgNames(evaluator: TypeEvaluator, type: ClassType): 
             isClassInstance(matchArgsType) &&
             isTupleClass(matchArgsType) &&
             !isUnboundedTupleClass(matchArgsType) &&
-            matchArgsType.priv.tupleTypeArguments
+            matchArgsType.priv.tupleTypeArgs
         ) {
-            const tupleArgs = matchArgsType.priv.tupleTypeArguments;
+            const tupleArgs = matchArgsType.priv.tupleTypeArgs;
 
             // Are all the args string literals?
             if (
@@ -750,8 +748,8 @@ function narrowTypeBasedOnClassPattern(
         if (classType.shared.typeParameters.length > 0) {
             classType = ClassType.cloneForSpecialization(
                 classType,
-                /* typeArguments */ undefined,
-                /* isTypeArgumentExplicit */ false
+                /* typeArgs */ undefined,
+                /* isTypeArgExplicit */ false
             );
         }
 
@@ -828,7 +826,7 @@ function narrowTypeBasedOnClassPattern(
                 }
 
                 for (let index = 0; index < pattern.d.args.length; index++) {
-                    const narrowedArgType = narrowTypeOfClassPatternArgument(
+                    const narrowedArgType = narrowTypeOfClassPatternArg(
                         evaluator,
                         pattern.d.args[index],
                         index,
@@ -959,8 +957,8 @@ function narrowTypeBasedOnClassPattern(
                                     const typeVarContext = new TypeVarContext(getTypeVarScopeId(unexpandedSubtype));
                                     const unspecializedMatchType = ClassType.cloneForSpecialization(
                                         unexpandedSubtype,
-                                        /* typeArguments */ undefined,
-                                        /* isTypeArgumentExplicit */ false
+                                        /* typeArgs */ undefined,
+                                        /* isTypeArgExplicit */ false
                                     );
 
                                     const matchTypeInstance = ClassType.cloneAsInstance(unspecializedMatchType);
@@ -997,7 +995,7 @@ function narrowTypeBasedOnClassPattern(
                             // Narrow the arg pattern. It's possible that the actual type of the object
                             // being matched is a subtype of the resultType, so it might contain additional
                             // attributes that we don't know about.
-                            const narrowedArgType = narrowTypeOfClassPatternArgument(
+                            const narrowedArgType = narrowTypeOfClassPatternArg(
                                 evaluator,
                                 arg,
                                 index,
@@ -1049,7 +1047,7 @@ function isClassSpecialCaseForClassPattern(classType: ClassType) {
 }
 
 // Narrows the pattern provided for a class pattern argument.
-function narrowTypeOfClassPatternArgument(
+function narrowTypeOfClassPatternArg(
     evaluator: TypeEvaluator,
     arg: PatternClassArgumentNode,
     argIndex: number,
@@ -1268,14 +1266,14 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
             if (evaluator.assignType(mappingObject, subtype, /* diag */ undefined, typeVarContext)) {
                 const specializedMapping = applySolvedTypeVars(mappingObject, typeVarContext) as ClassType;
 
-                if (specializedMapping.priv.typeArguments && specializedMapping.priv.typeArguments.length >= 2) {
+                if (specializedMapping.priv.typeArgs && specializedMapping.priv.typeArgs.length >= 2) {
                     mappingInfo.push({
                         subtype,
                         isDefinitelyMapping: true,
                         isDefinitelyNotMapping: false,
                         dictTypeArgs: {
-                            key: specializedMapping.priv.typeArguments[0],
-                            value: specializedMapping.priv.typeArguments[1],
+                            key: specializedMapping.priv.typeArgs[0],
+                            value: specializedMapping.priv.typeArgs[1],
                         },
                     });
                 }
@@ -1365,7 +1363,7 @@ function getSequencePatternInfo(
                 ) as ClassType;
 
                 if (isTupleClass(specializedSequence)) {
-                    const typeArgs = specializedSequence.priv.tupleTypeArguments ?? [
+                    const typeArgs = specializedSequence.priv.tupleTypeArgs ?? [
                         { type: UnknownType.create(), isUnbounded: true },
                     ];
 
@@ -1503,8 +1501,8 @@ function getSequencePatternInfo(
                     sequenceInfo.push({
                         subtype,
                         entryTypes: [
-                            specializedSequence.priv.typeArguments && specializedSequence.priv.typeArguments.length > 0
-                                ? specializedSequence.priv.typeArguments[0]
+                            specializedSequence.priv.typeArgs && specializedSequence.priv.typeArgs.length > 0
+                                ? specializedSequence.priv.typeArgs[0]
                                 : UnknownType.create(),
                         ],
                         isIndeterminateLength: true,
@@ -1526,10 +1524,10 @@ function getSequencePatternInfo(
                 if (evaluator.assignType(sequenceObject, subtype, /* diag */ undefined, typeVarContext)) {
                     const specializedSequence = applySolvedTypeVars(sequenceObject, typeVarContext) as ClassType;
 
-                    if (specializedSequence.priv.typeArguments && specializedSequence.priv.typeArguments.length > 0) {
+                    if (specializedSequence.priv.typeArgs && specializedSequence.priv.typeArgs.length > 0) {
                         sequenceInfo.push({
                             subtype,
-                            entryTypes: [specializedSequence.priv.typeArguments[0]],
+                            entryTypes: [specializedSequence.priv.typeArgs[0]],
                             isIndeterminateLength: true,
                             isDefiniteNoMatch: false,
                             isPotentialNoMatch: false,
@@ -1555,10 +1553,10 @@ function getSequencePatternInfo(
                         sequenceTypeVarContext
                     ) as ClassType;
 
-                    if (specializedSequence.priv.typeArguments && specializedSequence.priv.typeArguments.length > 0) {
+                    if (specializedSequence.priv.typeArgs && specializedSequence.priv.typeArgs.length > 0) {
                         sequenceInfo.push({
                             subtype,
-                            entryTypes: [specializedSequence.priv.typeArguments[0]],
+                            entryTypes: [specializedSequence.priv.typeArgs[0]],
                             isIndeterminateLength: true,
                             isDefiniteNoMatch: false,
                             isPotentialNoMatch: true,
@@ -1573,7 +1571,7 @@ function getSequencePatternInfo(
                         ClassType.cloneForSpecialization(
                             ClassType.cloneAsInstance(sequenceType),
                             [UnknownType.create()],
-                            /* isTypeArgumentExplicit */ true
+                            /* isTypeArgExplicit */ true
                         )
                     )
                 ) {
@@ -1831,7 +1829,7 @@ export function assignTypeToPatternTargets(
                                   ClassType.cloneForSpecialization(
                                       dictClass,
                                       [keyType, valueType],
-                                      /* isTypeArgumentExplicit */ true
+                                      /* isTypeArgExplicit */ true
                                   )
                               )
                             : UnknownType.create();
@@ -1869,7 +1867,7 @@ export function assignTypeToPatternTargets(
                             }
 
                             pattern.d.args.forEach((arg, index) => {
-                                const narrowedArgType = narrowTypeOfClassPatternArgument(
+                                const narrowedArgType = narrowTypeOfClassPatternArg(
                                     evaluator,
                                     arg,
                                     index,
@@ -1918,7 +1916,7 @@ function wrapTypeInList(evaluator: TypeEvaluator, node: ParseNode, type: Type): 
         // types before wrapping it in a list.
         type = containsAnyOrUnknown(type, /* recurse */ false) ?? type;
 
-        return ClassType.cloneForSpecialization(listObjectType, [type], /* isTypeArgumentExplicit */ true);
+        return ClassType.cloneForSpecialization(listObjectType, [type], /* isTypeArgExplicit */ true);
     }
 
     return UnknownType.create();
@@ -1941,8 +1939,8 @@ export function validateClassPattern(evaluator: TypeEvaluator, pattern: PatternC
     if (
         exprType.props?.typeAliasInfo &&
         isInstantiableClass(exprType) &&
-        exprType.priv.typeArguments &&
-        exprType.priv.isTypeArgumentExplicit
+        exprType.priv.typeArgs &&
+        exprType.priv.isTypeArgExplicit
     ) {
         evaluator.addDiagnostic(
             DiagnosticRule.reportGeneralTypeIssues,
@@ -2017,7 +2015,7 @@ export function getPatternSubtypeNarrowingCallback(
         subjectExpression.nodeType === ParseNodeType.Index &&
         subjectExpression.d.items.length === 1 &&
         !subjectExpression.d.trailingComma &&
-        subjectExpression.d.items[0].d.argCategory === ArgumentCategory.Simple &&
+        subjectExpression.d.items[0].d.argCategory === ArgCategory.Simple &&
         isMatchingExpression(reference, subjectExpression.d.leftExpr)
     ) {
         const indexTypeResult = evaluator.getTypeOfExpression(subjectExpression.d.items[0].d.valueExpr);
@@ -2094,11 +2092,11 @@ export function getPatternSubtypeNarrowingCallback(
                     if (
                         isClassInstance(subtype) &&
                         ClassType.isBuiltIn(subtype, 'tuple') &&
-                        subtype.priv.tupleTypeArguments &&
-                        matchingEntryIndex < subtype.priv.tupleTypeArguments.length &&
-                        subtype.priv.tupleTypeArguments.every((e) => !e.isUnbounded)
+                        subtype.priv.tupleTypeArgs &&
+                        matchingEntryIndex < subtype.priv.tupleTypeArgs.length &&
+                        subtype.priv.tupleTypeArgs.every((e) => !e.isUnbounded)
                     ) {
-                        narrowedSubtypes.push(subtype.priv.tupleTypeArguments[matchingEntryIndex].type);
+                        narrowedSubtypes.push(subtype.priv.tupleTypeArgs[matchingEntryIndex].type);
                     } else if (isNever(narrowedSubjectType)) {
                         narrowedSubtypes.push(narrowedSubjectType);
                     } else {

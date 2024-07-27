@@ -69,13 +69,13 @@ function getComplexityScoreForClass(classType: ClassType, recursionCount: number
     let typeArgScoreSum = 0;
     let typeArgCount = 0;
 
-    if (classType.priv.tupleTypeArguments) {
-        classType.priv.tupleTypeArguments.forEach((typeArg) => {
+    if (classType.priv.tupleTypeArgs) {
+        classType.priv.tupleTypeArgs.forEach((typeArg) => {
             typeArgScoreSum += getComplexityScoreForType(typeArg.type, recursionCount);
             typeArgCount++;
         });
-    } else if (classType.priv.typeArguments) {
-        classType.priv.typeArguments.forEach((type) => {
+    } else if (classType.priv.typeArgs) {
+        classType.priv.typeArgs.forEach((type) => {
             typeArgScoreSum += getComplexityScoreForType(type, recursionCount);
             typeArgCount++;
         });

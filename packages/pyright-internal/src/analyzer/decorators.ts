@@ -12,7 +12,7 @@ import { appendArray } from '../common/collectionUtils';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
 import {
-    ArgumentCategory,
+    ArgCategory,
     CallNode,
     DecoratorNode,
     FunctionNode,
@@ -33,7 +33,7 @@ import {
     createProperty,
     validatePropertyMethod,
 } from './properties';
-import { EvalFlags, FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
+import { Arg, EvalFlags, TypeEvaluator } from './typeEvaluatorTypes';
 import { isPartlyUnknown, isProperty } from './typeUtils';
 import {
     ClassType,
@@ -410,14 +410,14 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
         return functionOrClassType;
     }
 
-    const argList: FunctionArgument[] = [
+    const argList: Arg[] = [
         {
-            argumentCategory: ArgumentCategory.Simple,
+            argCategory: ArgCategory.Simple,
             typeResult: { type: functionOrClassType },
         },
     ];
 
-    const callTypeResult = evaluator.validateCallArguments(
+    const callTypeResult = evaluator.validateCallArgs(
         node.d.expr,
         argList,
         decoratorTypeResult,
@@ -582,7 +582,7 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
 export function getDeprecatedMessageFromCall(node: CallNode): string {
     if (
         node.d.args.length > 0 &&
-        node.d.args[0].d.argCategory === ArgumentCategory.Simple &&
+        node.d.args[0].d.argCategory === ArgCategory.Simple &&
         node.d.args[0].d.valueExpr.nodeType === ParseNodeType.StringList
     ) {
         const stringListNode = node.d.args[0].d.valueExpr;

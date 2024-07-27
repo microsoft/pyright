@@ -141,7 +141,7 @@ export interface TypeAliasInfo {
     usageVariance: Variance[] | undefined;
 
     // Type argument, if type alias is specialized
-    typeArguments: Type[] | undefined;
+    typeArgs: Type[] | undefined;
 }
 
 interface CachedTypeInfo {
@@ -333,7 +333,7 @@ export namespace TypeBase {
             isPep695Syntax,
             typeParameters: typeParams,
             usageVariance: undefined,
-            typeArguments: typeArgs,
+            typeArgs: typeArgs,
         });
 
         return typeClone;
@@ -713,7 +713,7 @@ interface ClassDetailsShared {
     inheritedSlotsNamesCached?: string[];
 }
 
-export interface TupleTypeArgument {
+export interface TupleTypeArg {
     type: Type;
 
     // Does the type argument represent a single value or
@@ -738,7 +738,7 @@ export interface ClassDetailsPriv {
     // A generic class that has been completely or partially
     // specialized will have type arguments that correspond to
     // some or all of the type parameters.
-    typeArguments?: Type[] | undefined;
+    typeArgs?: Type[] | undefined;
 
     // If a generic container class (like a list or dict) is known
     // to contain no elements, its type arguments may be "Unknown".
@@ -749,9 +749,9 @@ export interface ClassDetailsPriv {
     // For tuples, the class definition calls for a single type parameter but
     // the spec allows the programmer to provide an arbitrary number of
     // type arguments. This field holds the individual type arguments
-    // while the "typeArguments" field holds the derived non-variadic
+    // while the "typeArgs" field holds the derived non-variadic
     // type argument, which is the union of the tuple type arguments.
-    tupleTypeArguments?: TupleTypeArgument[] | undefined;
+    tupleTypeArgs?: TupleTypeArg[] | undefined;
 
     // We sometimes package multiple types into a tuple internally
     // for matching against a variadic type variable or another unpacked
@@ -760,7 +760,7 @@ export interface ClassDetailsPriv {
 
     // If type arguments are present, were they explicit (i.e.
     // provided explicitly in the code)?
-    isTypeArgumentExplicit?: boolean | undefined;
+    isTypeArgExplicit?: boolean | undefined;
 
     // This class type represents the class and any classes that
     // derive from it, as opposed to the original class only. This
@@ -892,22 +892,22 @@ export namespace ClassType {
 
     export function cloneForSpecialization(
         classType: ClassType,
-        typeArguments: Type[] | undefined,
-        isTypeArgumentExplicit: boolean,
+        typeArgs: Type[] | undefined,
+        isTypeArgExplicit: boolean,
         includeSubclasses = false,
-        tupleTypeArguments?: TupleTypeArgument[],
+        tupleTypeArgs?: TupleTypeArg[],
         isEmptyContainer?: boolean
     ): ClassType {
         const newClassType = TypeBase.cloneType(classType);
 
-        newClassType.priv.typeArguments = typeArguments?.length === 0 ? undefined : typeArguments;
-        newClassType.priv.isTypeArgumentExplicit = isTypeArgumentExplicit;
+        newClassType.priv.typeArgs = typeArgs?.length === 0 ? undefined : typeArgs;
+        newClassType.priv.isTypeArgExplicit = isTypeArgExplicit;
 
         if (includeSubclasses) {
             newClassType.priv.includeSubclasses = true;
         }
 
-        newClassType.priv.tupleTypeArguments = tupleTypeArguments ? [...tupleTypeArguments] : undefined;
+        newClassType.priv.tupleTypeArgs = tupleTypeArgs ? [...tupleTypeArgs] : undefined;
 
         if (isEmptyContainer !== undefined) {
             newClassType.priv.isEmptyContainer = isEmptyContainer;
@@ -1078,7 +1078,7 @@ export namespace ClassType {
 
     // Is the class generic but not specialized?
     export function isUnspecialized(classType: ClassType) {
-        return classType.shared.typeParameters.length > 0 && classType.priv.typeArguments === undefined;
+        return classType.shared.typeParameters.length > 0 && classType.priv.typeArgs === undefined;
     }
 
     export function isSpecialBuiltIn(classType: ClassType, className?: string) {
@@ -3195,9 +3195,9 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
 
             if (!options.ignorePseudoGeneric || !ClassType.isPseudoGenericClass(type1)) {
                 // Make sure the type args match.
-                if (type1.priv.tupleTypeArguments && classType2.priv.tupleTypeArguments) {
-                    const type1TupleTypeArgs = type1.priv.tupleTypeArguments || [];
-                    const type2TupleTypeArgs = classType2.priv.tupleTypeArguments || [];
+                if (type1.priv.tupleTypeArgs && classType2.priv.tupleTypeArgs) {
+                    const type1TupleTypeArgs = type1.priv.tupleTypeArgs || [];
+                    const type2TupleTypeArgs = classType2.priv.tupleTypeArgs || [];
                     if (type1TupleTypeArgs.length !== type2TupleTypeArgs.length) {
                         return false;
                     }
@@ -3219,8 +3219,8 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                         }
                     }
                 } else {
-                    const type1TypeArgs = type1.priv.typeArguments || [];
-                    const type2TypeArgs = classType2.priv.typeArguments || [];
+                    const type1TypeArgs = type1.priv.typeArgs || [];
+                    const type2TypeArgs = classType2.priv.typeArgs || [];
                     const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
 
                     for (let i = 0; i < typeArgCount; i++) {
@@ -3379,8 +3379,8 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             // Handle the case where this is a generic recursive type alias. Make
             // sure that the type argument types match.
             if (type1.shared.recursiveAlias && type2TypeVar.shared.recursiveAlias) {
-                const type1TypeArgs = type1?.props?.typeAliasInfo?.typeArguments || [];
-                const type2TypeArgs = type2?.props?.typeAliasInfo?.typeArguments || [];
+                const type1TypeArgs = type1?.props?.typeAliasInfo?.typeArgs || [];
+                const type2TypeArgs = type2?.props?.typeAliasInfo?.typeArgs || [];
                 const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
 
                 for (let i = 0; i < typeArgCount; i++) {
@@ -3738,7 +3738,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
                 unionType.priv.subtypes[i] = ClassType.cloneForSpecialization(
                     typeToAdd,
                     typeToAdd.shared.typeParameters.map(() => UnknownType.create()),
-                    /* isTypeArgumentExplicit */ true
+                    /* isTypeArgExplicit */ true
                 );
                 return;
             }
@@ -3774,7 +3774,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
             // existing type, see if one of them is a proper subset of the other.
             if (ClassType.isTypedDictClass(type) && ClassType.isSameGenericClass(type, typeToAdd)) {
                 // Do not proceed if the TypedDicts are generic and have different type arguments.
-                if (!type.priv.typeArguments && !typeToAdd.priv.typeArguments) {
+                if (!type.priv.typeArgs && !typeToAdd.priv.typeArgs) {
                     if (ClassType.isTypedDictNarrower(typeToAdd, type)) {
                         return;
                     } else if (ClassType.isTypedDictNarrower(type, typeToAdd)) {

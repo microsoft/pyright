@@ -737,13 +737,13 @@ function assignClassToProtocolInternal(
         const genericProtocolType = ClassType.cloneForSpecialization(
             destType,
             undefined,
-            /* isTypeArgumentExplicit */ false
+            /* isTypeArgExplicit */ false
         );
         const specializedProtocolType = applySolvedTypeVars(genericProtocolType, protocolTypeVarContext) as ClassType;
 
-        if (destType.priv.typeArguments) {
+        if (destType.priv.typeArgs) {
             if (
-                !evaluator.assignTypeArguments(
+                !evaluator.assignTypeArgs(
                     destType,
                     specializedProtocolType,
                     diag,
@@ -794,8 +794,8 @@ function createProtocolTypeVarContext(
                 entry.narrowBoundNoLiterals,
                 entry.wideBound
             );
-        } else if (destType.priv.typeArguments && index < destType.priv.typeArguments.length) {
-            let typeArg = destType.priv.typeArguments[index];
+        } else if (destType.priv.typeArgs && index < destType.priv.typeArgs.length) {
+            let typeArg = destType.priv.typeArgs[index];
             let flags: AssignTypeFlags;
             let hasUnsolvedTypeVars = requiresSpecialization(typeArg);
 

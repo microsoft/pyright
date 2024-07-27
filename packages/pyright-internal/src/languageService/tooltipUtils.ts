@@ -361,9 +361,9 @@ export function combineExpressionTypes(typeNodes: ExpressionNode[], evaluator: T
         typeList.length === 1 &&
         result.category === TypeCategory.Class &&
         ClassType.isBuiltIn(result, 'list') &&
-        result.priv.typeArguments
+        result.priv.typeArgs
     ) {
-        result = result.priv.typeArguments[0];
+        result = result.priv.typeArgs[0];
     } else if (
         typeList.length === 1 &&
         result.category === TypeCategory.Class &&

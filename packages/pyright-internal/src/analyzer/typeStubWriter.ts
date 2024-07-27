@@ -10,7 +10,7 @@
 
 import { Uri } from '../common/uri/uri';
 import {
-    ArgumentCategory,
+    ArgCategory,
     AssignmentNode,
     AugmentedAssignmentNode,
     ClassNode,
@@ -202,7 +202,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         const args = node.d.arguments.filter(
             (arg) =>
                 arg.d.name !== undefined ||
-                arg.d.argCategory !== ArgumentCategory.Simple ||
+                arg.d.argCategory !== ArgCategory.Simple ||
                 arg.d.valueExpr.nodeType !== ParseNodeType.Name ||
                 arg.d.valueExpr.d.value !== 'object'
         );

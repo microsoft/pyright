@@ -14,7 +14,7 @@
 import { ConsoleInterface } from '../common/console';
 import { assert, fail } from '../common/debug';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { ArgumentCategory, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ArgCategory, ExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getFileInfo, getImportInfo } from './analyzerNodeInfo';
 import {
     CodeFlowReferenceExpressionNode,
@@ -65,7 +65,7 @@ import {
 } from './types';
 import {
     cleanIncompleteUnknown,
-    convertArgumentNodeToFunctionArgument,
+    convertNodeToArg,
     derivesFromStdlibClass,
     doForEachSubtype,
     isIncompleteUnknown,
@@ -559,7 +559,7 @@ export function getCodeFlowEngine(
                                     targetNode.d.items.length === 1 &&
                                     !targetNode.d.trailingComma &&
                                     !targetNode.d.items[0].d.name &&
-                                    targetNode.d.items[0].d.argCategory === ArgumentCategory.Simple &&
+                                    targetNode.d.items[0].d.argCategory === ArgCategory.Simple &&
                                     targetNode.d.items[0].d.valueExpr.nodeType === ParseNodeType.StringList &&
                                     targetNode.d.items[0].d.valueExpr.d.strings.length === 1 &&
                                     targetNode.d.items[0].d.valueExpr.d.strings[0].nodeType === ParseNodeType.String
@@ -1763,7 +1763,7 @@ export function getCodeFlowEngine(
                             // the applicable overload returns a NoReturn.
                             const callResult = evaluator.validateOverloadedArgTypes(
                                 node,
-                                node.d.args.map((arg) => convertArgumentNodeToFunctionArgument(arg)),
+                                node.d.args.map((arg) => convertNodeToArg(arg)),
                                 { type: callSubtype, isIncomplete: callTypeResult.isIncomplete },
                                 /* typeVarContext */ undefined,
                                 /* skipUnknownArgCheck */ false,
@@ -1800,10 +1800,10 @@ export function getCodeFlowEngine(
             if (
                 isClassInstance(returnType) &&
                 ClassType.isBuiltIn(returnType, 'Coroutine') &&
-                returnType.priv.typeArguments &&
-                returnType.priv.typeArguments.length >= 3
+                returnType.priv.typeArgs &&
+                returnType.priv.typeArgs.length >= 3
             ) {
-                if (isNever(returnType.priv.typeArguments[2]) && isCallAwaited) {
+                if (isNever(returnType.priv.typeArgs[2]) && isCallAwaited) {
                     return true;
                 }
             }
@@ -1909,10 +1909,10 @@ export function getCodeFlowEngine(
                         if (
                             isClassInstance(returnType) &&
                             ClassType.isBuiltIn(returnType, 'Coroutine') &&
-                            returnType.priv.typeArguments &&
-                            returnType.priv.typeArguments.length >= 3
+                            returnType.priv.typeArgs &&
+                            returnType.priv.typeArgs.length >= 3
                         ) {
-                            returnType = returnType.priv.typeArguments[2];
+                            returnType = returnType.priv.typeArgs[2];
                         }
                     }
 

@@ -14,7 +14,7 @@ import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';
 import {
-    ArgumentCategory,
+    ArgCategory,
     ArgumentNode,
     CallNode,
     CaseNode,
@@ -292,8 +292,8 @@ export interface AbstractSymbol {
     hasImplementation: boolean;
 }
 
-export interface FunctionArgumentBase {
-    argumentCategory: ArgumentCategory;
+export interface ArgBase {
+    argCategory: ArgCategory;
     node?: ArgumentNode | undefined;
     name?: NameNode | undefined;
     typeResult?: TypeResult | undefined;
@@ -301,15 +301,15 @@ export interface FunctionArgumentBase {
     active?: boolean | undefined;
 }
 
-export interface FunctionArgumentWithType extends FunctionArgumentBase {
+export interface ArgWithType extends ArgBase {
     typeResult: TypeResult;
 }
 
-export interface FunctionArgumentWithExpression extends FunctionArgumentBase {
+export interface ArgWithExpression extends ArgBase {
     valueExpression: ExpressionNode;
 }
 
-export type FunctionArgument = FunctionArgumentWithType | FunctionArgumentWithExpression;
+export type Arg = ArgWithType | ArgWithExpression;
 
 export interface EffectiveTypeResult {
     type: Type;
@@ -325,7 +325,7 @@ export interface ValidateArgTypeParams {
     paramCategory: ParameterCategory;
     paramType: Type;
     requiresTypeVarMatching: boolean;
-    argument: FunctionArgument;
+    argument: Arg;
     isDefaultArg?: boolean;
     argType?: Type | undefined;
     errorNode: ExpressionNode;
@@ -385,7 +385,7 @@ export interface CallResult {
     argumentErrors?: boolean;
 
     // Did one or more arguments evaluated to Any or Unknown?
-    anyOrUnknownArgument?: UnknownType | AnyType;
+    anyOrUnknownArg?: UnknownType | AnyType;
 
     // The parameter associated with the "active" argument (used
     // for signature help provider)
@@ -451,7 +451,7 @@ export interface PrintTypeOptions {
     useTypingUnpack?: boolean;
     printUnknownWithAny?: boolean;
     printTypeVarVariance?: boolean;
-    omitTypeArgumentsIfUnknown?: boolean;
+    omitTypeArgsIfUnknown?: boolean;
 }
 
 export interface DeclaredSymbolTypeInfo {
@@ -514,7 +514,7 @@ export interface TypeEvaluator {
     verifyDeleteExpression: (node: ExpressionNode) => void;
     validateOverloadedArgTypes: (
         errorNode: ExpressionNode,
-        argList: FunctionArgument[],
+        argList: Arg[],
         typeResult: TypeResult<OverloadedFunctionType>,
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean,
@@ -557,7 +557,7 @@ export interface TypeEvaluator {
         emitNotIterableError?: boolean
     ) => TypeResult | undefined;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
-    getTypeOfArgument: (arg: FunctionArgument, inferenceContext: InferenceContext | undefined) => TypeResult;
+    getTypeOfArg: (arg: Arg, inferenceContext: InferenceContext | undefined) => TypeResult;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     expandPromotionTypes: (node: ParseNode, type: Type) => Type;
     makeTopLevelTypeVarsConcrete: (type: Type, makeParamSpecsConcrete?: boolean) => Type;
@@ -579,10 +579,10 @@ export interface TypeEvaluator {
     getDeclaredTypeForExpression: (expression: ExpressionNode, usage?: EvaluatorUsage) => Type | undefined;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
     getFunctionInferredReturnType: (type: FunctionType, callSiteInfo?: CallSiteEvaluationInfo) => Type;
-    getBestOverloadForArguments: (
+    getBestOverloadForArgs: (
         errorNode: ExpressionNode,
         typeResult: TypeResult<OverloadedFunctionType>,
-        argList: FunctionArgument[]
+        argList: Arg[]
     ) => FunctionType | undefined;
     getBuiltInType: (node: ParseNode, name: string) => Type;
     getTypeOfMember: (member: ClassMember) => Type;
@@ -638,9 +638,9 @@ export interface TypeEvaluator {
         diag: DiagnosticAddendum,
         enforceParamNames?: boolean
     ) => boolean;
-    validateCallArguments: (
+    validateCallArgs: (
         errorNode: ExpressionNode,
-        argList: FunctionArgument[],
+        argList: Arg[],
         callTypeResult: TypeResult,
         typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck: boolean | undefined,
@@ -649,7 +649,7 @@ export interface TypeEvaluator {
     validateTypeArg: (argResult: TypeResultWithNode, options?: ValidateTypeArgsOptions) => boolean;
     assignTypeToExpression: (target: ExpressionNode, typeResult: TypeResult, srcExpr: ExpressionNode) => void;
     assignClassToSelf: (destType: ClassType, srcType: ClassType, assumedVariance: Variance) => boolean;
-    getBuiltInObject: (node: ParseNode, name: string, typeArguments?: Type[]) => Type;
+    getBuiltInObject: (node: ParseNode, name: string, typeArgs?: Type[]) => Type;
     getTypedDictClassType: () => ClassType | undefined;
     getTupleClassType: () => ClassType | undefined;
     getObjectType: () => Type;
@@ -659,7 +659,7 @@ export interface TypeEvaluator {
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     inferReturnTypeIfNecessary: (type: Type) => void;
     inferTypeParameterVarianceForClass: (type: ClassType) => void;
-    assignTypeArguments: (
+    assignTypeArgs: (
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
@@ -668,7 +668,7 @@ export interface TypeEvaluator {
         flags: AssignTypeFlags,
         recursionCount: number
     ) => boolean;
-    reportMissingTypeArguments: (node: ExpressionNode, type: Type, flags: EvalFlags) => Type;
+    reportMissingTypeArgs: (node: ExpressionNode, type: Type, flags: EvalFlags) => Type;
 
     isFinalVariable: (symbol: Symbol) => boolean;
     isFinalVariableDeclaration: (decl: Declaration) => boolean;

@@ -15,7 +15,7 @@
 
 import { assert, fail } from '../common/debug';
 import {
-    ArgumentCategory,
+    ArgCategory,
     CallNode,
     CaseNode,
     ExpressionNode,
@@ -183,7 +183,7 @@ export function isCodeFlowSupportedForReference(
             reference.d.items.length !== 1 ||
             reference.d.trailingComma ||
             reference.d.items[0].d.name !== undefined ||
-            reference.d.items[0].d.argCategory !== ArgumentCategory.Simple
+            reference.d.items[0].d.argCategory !== ArgCategory.Simple
         ) {
             return false;
         }

@@ -36,7 +36,7 @@ import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
 import { LocAddendum, LocMessage } from '../localization/localize';
 import {
-    ArgumentCategory,
+    ArgCategory,
     ArgumentNode,
     AssertNode,
     AssignmentExpressionNode,
@@ -3641,11 +3641,11 @@ export class Parser {
                 break;
             }
 
-            let argType = ArgumentCategory.Simple;
+            let argType = ArgCategory.Simple;
             if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
-                argType = ArgumentCategory.UnpackedList;
+                argType = ArgCategory.UnpackedList;
             } else if (this._consumeTokenIfOperator(OperatorType.Power)) {
-                argType = ArgumentCategory.UnpackedDictionary;
+                argType = ArgCategory.UnpackedDictionary;
             }
 
             const startOfSubscriptIndex = this._tokenIndex;
@@ -3653,7 +3653,7 @@ export class Parser {
             let nameIdentifier: IdentifierToken | undefined;
 
             // Is this a keyword argument?
-            if (argType === ArgumentCategory.Simple) {
+            if (argType === ArgCategory.Simple) {
                 if (this._consumeTokenIfOperator(OperatorType.Assign)) {
                     const nameExpr = valueExpr;
                     valueExpr = this._parsePossibleSlice();
@@ -3685,7 +3685,7 @@ export class Parser {
 
             if (argNode.d.name) {
                 sawKeywordArg = true;
-            } else if (sawKeywordArg && argNode.d.argCategory === ArgumentCategory.Simple) {
+            } else if (sawKeywordArg && argNode.d.argCategory === ArgCategory.Simple) {
                 this._addSyntaxError(LocMessage.positionArgAfterNamedArg(), argNode);
             }
             argList.push(argNode);
@@ -3694,17 +3694,17 @@ export class Parser {
                 this._addSyntaxError(LocMessage.keywordSubscriptIllegal(), argNode.d.name);
             }
 
-            if (argType !== ArgumentCategory.Simple) {
+            if (argType !== ArgCategory.Simple) {
                 const unpackListAllowed =
                     this._parseOptions.isStubFile ||
                     this._isParsingQuotedText ||
                     this._getLanguageVersion().isGreaterOrEqualTo(pythonVersion3_11);
 
-                if (argType === ArgumentCategory.UnpackedList && !unpackListAllowed) {
+                if (argType === ArgCategory.UnpackedList && !unpackListAllowed) {
                     this._addSyntaxError(LocMessage.unpackedSubscriptIllegal(), argNode);
                 }
 
-                if (argType === ArgumentCategory.UnpackedDictionary) {
+                if (argType === ArgCategory.UnpackedDictionary) {
                     this._addSyntaxError(LocMessage.unpackedDictSubscriptIllegal(), argNode);
                 }
             }
@@ -3726,7 +3726,7 @@ export class Parser {
                 /* childNode */ undefined,
                 [TokenType.CloseBracket]
             );
-            argList.push(ArgumentNode.create(this._peekToken(), errorNode, ArgumentCategory.Simple));
+            argList.push(ArgumentNode.create(this._peekToken(), errorNode, ArgCategory.Simple));
         }
 
         return {
@@ -3813,7 +3813,7 @@ export class Parser {
             const arg = this._parseArgument();
             if (arg.d.name) {
                 sawKeywordArg = true;
-            } else if (sawKeywordArg && arg.d.argCategory === ArgumentCategory.Simple) {
+            } else if (sawKeywordArg && arg.d.argCategory === ArgCategory.Simple) {
                 this._addSyntaxError(LocMessage.positionArgAfterNamedArg(), arg);
             }
             argList.push(arg);
@@ -3836,11 +3836,11 @@ export class Parser {
     private _parseArgument(): ArgumentNode {
         const firstToken = this._peekToken();
 
-        let argType = ArgumentCategory.Simple;
+        let argType = ArgCategory.Simple;
         if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
-            argType = ArgumentCategory.UnpackedList;
+            argType = ArgCategory.UnpackedList;
         } else if (this._consumeTokenIfOperator(OperatorType.Power)) {
-            argType = ArgumentCategory.UnpackedDictionary;
+            argType = ArgCategory.UnpackedDictionary;
         }
 
         let valueExpr = this._parseTestExpression(/* allowAssignmentExpression */ true);
@@ -3848,7 +3848,7 @@ export class Parser {
         let isNameSameAsValue = false;
         let assignmentToken: Token | undefined;
 
-        if (argType === ArgumentCategory.Simple) {
+        if (argType === ArgCategory.Simple) {
             const nextToken = this._peekToken();
 
             if (this._consumeTokenIfOperator(OperatorType.Assign)) {

@@ -754,8 +754,8 @@ export class PackageTypeVerifier {
         let knownStatus = TypeKnownStatus.Known;
 
         const aliasInfo = type.props?.typeAliasInfo;
-        if (aliasInfo?.typeArguments) {
-            aliasInfo.typeArguments.forEach((typeArg, index) => {
+        if (aliasInfo?.typeArgs) {
+            aliasInfo.typeArgs.forEach((typeArg, index) => {
                 if (isUnknown(typeArg)) {
                     this._addSymbolError(
                         symbolInfo,
@@ -917,8 +917,8 @@ export class PackageTypeVerifier {
                 }
 
                 // Analyze type arguments if present to make sure they are known.
-                if (type.priv.typeArguments) {
-                    type.priv.typeArguments!.forEach((typeArg, index) => {
+                if (type.priv.typeArgs) {
+                    type.priv.typeArgs!.forEach((typeArg, index) => {
                         if (isUnknown(typeArg)) {
                             this._addSymbolError(
                                 symbolInfo,
@@ -1297,8 +1297,8 @@ export class PackageTypeVerifier {
         let knownStatus = TypeKnownStatus.Known;
 
         const aliasInfo = type.props?.typeAliasInfo;
-        if (aliasInfo?.typeArguments) {
-            aliasInfo.typeArguments.forEach((typeArg, index) => {
+        if (aliasInfo?.typeArgs) {
+            aliasInfo.typeArgs.forEach((typeArg, index) => {
                 if (isUnknown(typeArg)) {
                     diag.addMessage(`Type argument ${index + 1} for type alias "${aliasInfo!.name}" has unknown type`);
                     knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
@@ -1378,8 +1378,8 @@ export class PackageTypeVerifier {
                 }
 
                 // Analyze type arguments if present to make sure they are known.
-                if (type.priv.typeArguments) {
-                    type.priv.typeArguments!.forEach((typeArg, index) => {
+                if (type.priv.typeArgs) {
+                    type.priv.typeArgs!.forEach((typeArg, index) => {
                         if (isUnknown(typeArg)) {
                             diag.addMessage(
                                 `Type argument ${index + 1} for class "${type.shared.name}" has unknown type`

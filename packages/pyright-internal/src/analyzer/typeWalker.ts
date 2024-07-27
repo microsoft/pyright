@@ -110,8 +110,8 @@ export class TypeWalker {
         const aliasInfo = type.props?.typeAliasInfo;
         assert(aliasInfo !== undefined);
 
-        if (aliasInfo.typeArguments) {
-            for (const typeArg of aliasInfo.typeArguments) {
+        if (aliasInfo.typeArgs) {
+            for (const typeArg of aliasInfo.typeArgs) {
                 this.walk(typeArg);
                 if (this._isWalkCanceled) {
                     break;
@@ -167,7 +167,7 @@ export class TypeWalker {
 
     visitClass(type: ClassType): void {
         if (!ClassType.isPseudoGenericClass(type)) {
-            const typeArgs = type.priv.tupleTypeArguments?.map((t) => t.type) || type.priv.typeArguments;
+            const typeArgs = type.priv.tupleTypeArgs?.map((t) => t.type) || type.priv.typeArgs;
             if (typeArgs) {
                 for (const argType of typeArgs) {
                     this.walk(argType);

@@ -12,20 +12,14 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { LocMessage } from '../localization/localize';
-import {
-    ArgumentCategory,
-    ExpressionNode,
-    ParameterCategory,
-    ParseNodeType,
-    StringListNode,
-} from '../parser/parseNodes';
+import { ArgCategory, ExpressionNode, ParameterCategory, ParseNodeType, StringListNode } from '../parser/parseNodes';
 import { Tokenizer } from '../parser/tokenizer';
 import { getFileInfo } from './analyzerNodeInfo';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
-import { FunctionArgument, TypeEvaluator } from './typeEvaluatorTypes';
+import { Arg, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     computeMroLinearization,
     convertToInstance,
@@ -44,7 +38,7 @@ import {
     FunctionParamFlags,
     FunctionType,
     FunctionTypeFlags,
-    TupleTypeArgument,
+    TupleTypeArg,
     Type,
     UnknownType,
     combineTypes,
@@ -58,7 +52,7 @@ import {
 export function createNamedTupleType(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
-    argList: FunctionArgument[],
+    argList: Arg[],
     includesTypes: boolean
 ): ClassType {
     const fileInfo = getFileInfo(errorNode);
@@ -68,7 +62,7 @@ export function createNamedTupleType(
     let allowRename = false;
     if (!includesTypes) {
         const renameArg = argList.find(
-            (arg) => arg.argumentCategory === ArgumentCategory.Simple && arg.name?.d.value === 'rename'
+            (arg) => arg.argCategory === ArgCategory.Simple && arg.name?.d.value === 'rename'
         );
 
         if (renameArg?.valueExpression) {
@@ -87,7 +81,7 @@ export function createNamedTupleType(
         evaluator.addDiagnostic(DiagnosticRule.reportCallIssue, LocMessage.namedTupleFirstArg(), errorNode);
     } else {
         const nameArg = argList[0];
-        if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
+        if (nameArg.argCategory !== ArgCategory.Simple) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportArgumentType,
                 LocMessage.namedTupleFirstArg(),
@@ -108,9 +102,9 @@ export function createNamedTupleType(
             isClassInstance(defaultsArgType) &&
             isTupleClass(defaultsArgType) &&
             !isUnboundedTupleClass(defaultsArgType) &&
-            defaultsArgType.priv.tupleTypeArguments
+            defaultsArgType.priv.tupleTypeArgs
         ) {
-            defaultArgCount = defaultsArgType.priv.tupleTypeArguments.length;
+            defaultArgCount = defaultsArgType.priv.tupleTypeArgs.length;
         } else {
             defaultArgCount = undefined;
         }
@@ -167,7 +161,7 @@ export function createNamedTupleType(
         addGenericGetAttribute = true;
     } else {
         const entriesArg = argList[1];
-        if (entriesArg.argumentCategory !== ArgumentCategory.Simple) {
+        if (entriesArg.argCategory !== ArgCategory.Simple) {
             addGenericGetAttribute = true;
         } else {
             if (
@@ -414,7 +408,7 @@ export function createNamedTupleType(
         tupleClassType &&
         isInstantiableClass(tupleClassType)
     ) {
-        const literalTypes: TupleTypeArgument[] = matchArgsNames.map((name) => {
+        const literalTypes: TupleTypeArg[] = matchArgsNames.map((name) => {
             return { type: ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strType, name)), isUnbounded: false };
         });
         const matchArgsType = ClassType.cloneAsInstance(specializeTupleClass(tupleClassType, literalTypes));
@@ -428,11 +422,7 @@ export function createNamedTupleType(
     return classType;
 }
 
-export function updateNamedTupleBaseClass(
-    classType: ClassType,
-    typeArgs: Type[],
-    isTypeArgumentExplicit: boolean
-): boolean {
+export function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[], isTypeArgExplicit: boolean): boolean {
     let isUpdateNeeded = false;
 
     classType.shared.baseClasses = classType.shared.baseClasses.map((baseClass) => {
@@ -440,9 +430,9 @@ export function updateNamedTupleBaseClass(
             return baseClass;
         }
 
-        const tupleTypeArgs: TupleTypeArgument[] = [];
+        const tupleTypeArgs: TupleTypeArg[] = [];
 
-        if (!isTypeArgumentExplicit) {
+        if (!isTypeArgExplicit) {
             tupleTypeArgs.push({
                 type: typeArgs.length > 0 ? combineTypes(typeArgs) : UnknownType.create(),
                 isUnbounded: true,
@@ -456,8 +446,8 @@ export function updateNamedTupleBaseClass(
         // Create a copy of the NamedTuple class that replaces the tuple base class.
         const clonedNamedTupleClass = ClassType.cloneForSpecialization(
             baseClass,
-            /* typeArguments */ undefined,
-            isTypeArgumentExplicit
+            /* typeArgs */ undefined,
+            isTypeArgExplicit
         );
         clonedNamedTupleClass.shared = { ...clonedNamedTupleClass.shared };
 
@@ -467,7 +457,7 @@ export function updateNamedTupleBaseClass(
                     return namedTupleBaseClass;
                 }
 
-                return specializeTupleClass(namedTupleBaseClass, tupleTypeArgs, isTypeArgumentExplicit);
+                return specializeTupleClass(namedTupleBaseClass, tupleTypeArgs, isTypeArgExplicit);
             }
         );
 

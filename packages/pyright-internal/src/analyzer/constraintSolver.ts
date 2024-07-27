@@ -30,7 +30,7 @@ import {
     isUnpacked,
     isUnpackedClass,
     isVariadicTypeVar,
-    TupleTypeArgument,
+    TupleTypeArg,
     Type,
     TypeBase,
     TypeVarScopeId,
@@ -127,9 +127,9 @@ export function assignTypeToTypeVar(
         // Handle a type[Any] as a source.
         if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'type')) {
             if (
-                !srcType.priv.typeArguments ||
-                srcType.priv.typeArguments.length < 1 ||
-                isAnyOrUnknown(srcType.priv.typeArguments[0])
+                !srcType.priv.typeArgs ||
+                srcType.priv.typeArgs.length < 1 ||
+                isAnyOrUnknown(srcType.priv.typeArgs[0])
             ) {
                 if (TypeBase.isInstantiable(destType)) {
                     return true;
@@ -202,7 +202,7 @@ export function assignTypeToTypeVar(
                     specializeTupleClass(
                         tupleClassType,
                         [{ type: srcType, isUnbounded: false }],
-                        /* isTypeArgumentExplicit */ true,
+                        /* isTypeArgExplicit */ true,
                         /* isUnpackedTuple */ true
                     )
                 );
@@ -257,7 +257,7 @@ export function assignTypeToTypeVar(
 
     // If the source is a class that is missing type arguments, fill
     // in missing type arguments with Unknown.
-    if ((flags & AssignTypeFlags.AllowUnspecifiedTypeArguments) === 0) {
+    if ((flags & AssignTypeFlags.AllowUnspecifiedTypeArgs) === 0) {
         if (isClass(adjSrcType) && adjSrcType.priv.includeSubclasses) {
             adjSrcType = specializeWithDefaultTypeArgs(adjSrcType);
         }
@@ -1021,7 +1021,7 @@ export function addConstraintsForExpectedType(
     }
 
     // If the expected type is generic (but not specialized), we can't proceed.
-    const expectedTypeArgs = expectedType.priv.typeArguments;
+    const expectedTypeArgs = expectedType.priv.typeArgs;
     if (!expectedTypeArgs) {
         return evaluator.assignType(
             type,
@@ -1081,7 +1081,7 @@ export function addConstraintsForExpectedType(
     const genericExpectedType = ClassType.cloneForSpecialization(
         expectedType,
         synthExpectedTypeArgs,
-        /* isTypeArgumentExplicit */ true
+        /* isTypeArgExplicit */ true
     );
 
     // For each type param in the target type, create a placeholder type variable.
@@ -1096,7 +1096,7 @@ export function addConstraintsForExpectedType(
         return TypeVarType.cloneAsInScopePlaceholder(typeVar);
     });
 
-    const specializedType = ClassType.cloneForSpecialization(type, typeArgs, /* isTypeArgumentExplicit */ true);
+    const specializedType = ClassType.cloneForSpecialization(type, typeArgs, /* isTypeArgExplicit */ true);
     const syntheticTypeVarContext = new TypeVarContext(expectedTypeScopeId);
     if (
         evaluator.assignType(
@@ -1211,9 +1211,9 @@ function widenTypeForVariadicTypeVar(evaluator: TypeEvaluator, type1: Type, type
 
     // If the two unpacked tuples are not the same length, we can't combine them.
     if (
-        !type1.priv.tupleTypeArguments ||
-        !type2.priv.tupleTypeArguments ||
-        type1.priv.tupleTypeArguments.length !== type2.priv.tupleTypeArguments.length
+        !type1.priv.tupleTypeArgs ||
+        !type2.priv.tupleTypeArgs ||
+        type1.priv.tupleTypeArgs.length !== type2.priv.tupleTypeArgs.length
     ) {
         return undefined;
     }
@@ -1231,12 +1231,12 @@ function widenTypeForVariadicTypeVar(evaluator: TypeEvaluator, type1: Type, type
 // If the provided type is an unpacked tuple, this function strips the
 // literals from types of the corresponding elements.
 function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type): Type {
-    if (!isUnpackedClass(type) || !type.priv.tupleTypeArguments) {
+    if (!isUnpackedClass(type) || !type.priv.tupleTypeArgs) {
         return type;
     }
 
     let strippedLiteral = false;
-    const tupleTypeArgs: TupleTypeArgument[] = type.priv.tupleTypeArguments.map((arg) => {
+    const tupleTypeArgs: TupleTypeArg[] = type.priv.tupleTypeArgs.map((arg) => {
         const strippedType = evaluator.stripLiteralValue(arg.type);
 
         if (strippedType !== arg.type) {
@@ -1254,7 +1254,7 @@ function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type)
         return type;
     }
 
-    return specializeTupleClass(type, tupleTypeArgs, /* isTypeArgumentExplicit */ true, /* isUnpackedTuple */ true);
+    return specializeTupleClass(type, tupleTypeArgs, /* isTypeArgExplicit */ true, /* isUnpackedTuple */ true);
 }
 
 // This function is used for debugging only. It dumps the current contents of

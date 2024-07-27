@@ -14,7 +14,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { pythonVersion3_13 } from '../common/pythonVersion';
 import { LocMessage } from '../localization/localize';
 import {
-    ArgumentCategory,
+    ArgCategory,
     ArgumentNode,
     CallNode,
     ClassNode,
@@ -34,7 +34,7 @@ import { getClassFullName, getEnclosingClassOrFunction, getScopeIdForNode, getTy
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol, SymbolFlags } from './symbol';
 import { isPrivateName } from './symbolNameUtils';
-import { EvalFlags, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { Arg, EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -53,7 +53,7 @@ import {
     isOverloadedFunction,
     isUnion,
     OverloadedFunctionType,
-    TupleTypeArgument,
+    TupleTypeArg,
     Type,
     TypeVarType,
     UnknownType,
@@ -62,7 +62,7 @@ import {
     applySolvedTypeVars,
     buildTypeVarContextFromSpecializedClass,
     computeMroLinearization,
-    convertArgumentNodeToFunctionArgument,
+    convertNodeToArg,
     convertToInstance,
     doForEachSignature,
     getTypeVarScopeId,
@@ -592,7 +592,7 @@ export function synthesizeDataClassMethods(
                 matchArgsNames.push(entry.name);
             }
         });
-        const literalTypes: TupleTypeArgument[] = matchArgsNames.map((name) => {
+        const literalTypes: TupleTypeArg[] = matchArgsNames.map((name) => {
             return { type: ClassType.cloneAsInstance(ClassType.cloneWithLiteral(strType, name)), isUnbounded: false };
         });
         const matchArgsType = ClassType.cloneAsInstance(specializeTupleClass(tupleClassType, literalTypes));
@@ -663,7 +663,7 @@ export function synthesizeDataClassMethods(
             ClassType.cloneForSpecialization(
                 dictType,
                 [evaluator.getBuiltInObject(node, 'str'), AnyType.create()],
-                /* isTypeArgumentExplicit */ true
+                /* isTypeArgExplicit */ true
             )
         );
     }
@@ -688,7 +688,7 @@ export function synthesizeDataClassMethods(
                 ClassType.cloneForSpecialization(
                     iterableType,
                     [evaluator.getBuiltInObject(node, 'str')],
-                    /* isTypeArgumentExplicit */ true
+                    /* isTypeArgExplicit */ true
                 )
             );
         }
@@ -705,7 +705,7 @@ export function synthesizeDataClassMethods(
         updateNamedTupleBaseClass(
             classType,
             fullDataClassEntries.map((entry) => entry.type),
-            /* isTypeArgumentExplicit */ true
+            /* isTypeArgExplicit */ true
         )
     ) {
         // Recompute the MRO based on the updated NamedTuple base class.
@@ -729,10 +729,10 @@ function getDefaultArgValueForFieldSpecifier(
     if (isFunction(callType)) {
         callTarget = callType;
     } else if (isOverloadedFunction(callType)) {
-        callTarget = evaluator.getBestOverloadForArguments(
+        callTarget = evaluator.getBestOverloadForArgs(
             callNode,
             { type: callType, isIncomplete: callTypeResult.isIncomplete },
-            callNode.d.args.map((arg) => convertArgumentNodeToFunctionArgument(arg))
+            callNode.d.args.map((arg) => convertNodeToArg(arg))
         );
     } else if (isInstantiableClass(callType)) {
         const initMethodResult = getBoundInitMethod(evaluator, callNode, callType);
@@ -740,10 +740,10 @@ function getDefaultArgValueForFieldSpecifier(
             if (isFunction(initMethodResult.type)) {
                 callTarget = initMethodResult.type;
             } else if (isOverloadedFunction(initMethodResult.type)) {
-                callTarget = evaluator.getBestOverloadForArguments(
+                callTarget = evaluator.getBestOverloadForArgs(
                     callNode,
                     { type: initMethodResult.type },
-                    callNode.d.args.map((arg) => convertArgumentNodeToFunctionArgument(arg))
+                    callNode.d.args.map((arg) => convertNodeToArg(arg))
                 );
             }
         }
@@ -1072,7 +1072,7 @@ export function validateDataClassTransformDecorator(
 
     // Parse the arguments to the call.
     node.d.args.forEach((arg) => {
-        if (!arg.d.name || arg.d.argCategory !== ArgumentCategory.Simple) {
+        if (!arg.d.name || arg.d.argCategory !== ArgCategory.Simple) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportCallIssue,
                 LocMessage.dataClassTransformPositionalParam(),
@@ -1173,8 +1173,8 @@ export function validateDataClassTransformDecorator(
                 if (
                     !isClassInstance(valueType) ||
                     !ClassType.isBuiltIn(valueType, 'tuple') ||
-                    !valueType.priv.tupleTypeArguments ||
-                    valueType.priv.tupleTypeArguments.some(
+                    !valueType.priv.tupleTypeArgs ||
+                    valueType.priv.tupleTypeArgs.some(
                         (entry) =>
                             !isInstantiableClass(entry.type) &&
                             !isFunction(entry.type) &&
@@ -1191,7 +1191,7 @@ export function validateDataClassTransformDecorator(
                     return;
                 }
 
-                valueType.priv.tupleTypeArguments.forEach((arg) => {
+                valueType.priv.tupleTypeArgs.forEach((arg) => {
                     if (isInstantiableClass(arg.type) || isFunction(arg.type)) {
                         behaviors.fieldDescriptorNames.push(arg.type.shared.fullName);
                     } else if (isOverloadedFunction(arg.type)) {
@@ -1371,7 +1371,7 @@ export function applyDataClassClassBehaviorOverrides(
     evaluator: TypeEvaluator,
     errorNode: ParseNode,
     classType: ClassType,
-    args: FunctionArgument[],
+    args: Arg[],
     defaultBehaviors: DataClassBehaviors
 ) {
     let sawFrozenArg = false;
@@ -1427,7 +1427,7 @@ export function applyDataClassDecorator(
         evaluator,
         errorNode,
         classType,
-        (callNode?.d.args ?? []).map((arg) => convertArgumentNodeToFunctionArgument(arg)),
+        (callNode?.d.args ?? []).map((arg) => convertNodeToArg(arg)),
         defaultBehaviors
     );
 }

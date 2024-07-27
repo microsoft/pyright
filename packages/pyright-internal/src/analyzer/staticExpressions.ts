@@ -10,7 +10,7 @@
 
 import { ExecutionEnvironment, PythonPlatform } from '../common/configOptions';
 import { PythonReleaseLevel, PythonVersion } from '../common/pythonVersion';
-import { ArgumentCategory, ExpressionNode, NameNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
+import { ArgCategory, ExpressionNode, NameNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
 // Returns undefined if the expression cannot be evaluated
@@ -89,7 +89,7 @@ export function evaluateStaticBoolExpression(
             node.d.leftExpr.d.items.length === 1 &&
             !node.d.leftExpr.d.trailingComma &&
             !node.d.leftExpr.d.items[0].d.name &&
-            node.d.leftExpr.d.items[0].d.argCategory === ArgumentCategory.Simple &&
+            node.d.leftExpr.d.items[0].d.argCategory === ArgCategory.Simple &&
             node.d.leftExpr.d.items[0].d.valueExpr.nodeType === ParseNodeType.Number &&
             !node.d.leftExpr.d.items[0].d.valueExpr.d.isImaginary &&
             node.d.leftExpr.d.items[0].d.valueExpr.d.value === 0 &&

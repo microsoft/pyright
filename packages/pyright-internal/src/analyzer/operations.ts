@@ -277,10 +277,10 @@ export function validateBinaryOperation(
                                 operator === OperatorType.Add &&
                                 isClassInstance(leftSubtypeExpanded) &&
                                 isTupleClass(leftSubtypeExpanded) &&
-                                leftSubtypeExpanded.priv.tupleTypeArguments &&
+                                leftSubtypeExpanded.priv.tupleTypeArgs &&
                                 isClassInstance(rightSubtypeExpanded) &&
                                 isTupleClass(rightSubtypeExpanded) &&
-                                rightSubtypeExpanded.priv.tupleTypeArguments &&
+                                rightSubtypeExpanded.priv.tupleTypeArgs &&
                                 tupleClassType &&
                                 isInstantiableClass(tupleClassType)
                             ) {
@@ -295,8 +295,8 @@ export function validateBinaryOperation(
                                 ) {
                                     return ClassType.cloneAsInstance(
                                         specializeTupleClass(tupleClassType, [
-                                            ...leftSubtypeExpanded.priv.tupleTypeArguments,
-                                            ...rightSubtypeExpanded.priv.tupleTypeArguments,
+                                            ...leftSubtypeExpanded.priv.tupleTypeArgs,
+                                            ...rightSubtypeExpanded.priv.tupleTypeArgs,
                                         ])
                                     );
                                 }
@@ -449,8 +449,8 @@ export function getTypeOfBinaryOperation(
         inferenceContext &&
         isClassInstance(inferenceContext.expectedType) &&
         ClassType.isBuiltIn(inferenceContext.expectedType, 'list') &&
-        inferenceContext.expectedType.priv.typeArguments &&
-        inferenceContext.expectedType.priv.typeArguments.length >= 1 &&
+        inferenceContext.expectedType.priv.typeArgs &&
+        inferenceContext.expectedType.priv.typeArgs.length >= 1 &&
         node.d.leftExpr.nodeType === ParseNodeType.List
     ) {
         expectedLeftOperandType = inferenceContext.expectedType;
@@ -551,12 +551,12 @@ export function getTypeOfBinaryOperation(
                 return { type: UnknownType.create() };
             }
 
-            adjustedLeftType = evaluator.reportMissingTypeArguments(
+            adjustedLeftType = evaluator.reportMissingTypeArgs(
                 node.d.leftExpr,
                 adjustedLeftType,
                 flags | EvalFlags.InstantiableType
             );
-            adjustedRightType = evaluator.reportMissingTypeArguments(
+            adjustedRightType = evaluator.reportMissingTypeArgs(
                 node.d.rightExpr,
                 adjustedRightType,
                 flags | EvalFlags.InstantiableType
@@ -590,7 +590,7 @@ export function getTypeOfBinaryOperation(
                 if (stringNode && otherNode && otherType) {
                     let isAllowed = true;
                     if (isClass(otherType)) {
-                        if (!otherType.priv.isTypeArgumentExplicit || isClassInstance(otherType)) {
+                        if (!otherType.priv.isTypeArgExplicit || isClassInstance(otherType)) {
                             isAllowed = false;
                         }
                     }

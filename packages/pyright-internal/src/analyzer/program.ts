@@ -1540,7 +1540,7 @@ export class Program {
         }
 
         if (configOptions.diagnosticRuleSet.omitTypeArgsIfUnknown) {
-            flags |= PrintTypeFlags.OmitTypeArgumentsIfUnknown;
+            flags |= PrintTypeFlags.OmitTypeArgsIfUnknown;
         }
 
         if (configOptions.diagnosticRuleSet.omitUnannotatedParamType) {

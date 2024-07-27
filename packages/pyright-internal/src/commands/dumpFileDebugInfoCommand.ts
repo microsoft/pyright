@@ -32,7 +32,7 @@ import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Uri } from '../common/uri/uri';
 import {
-    ArgumentCategory,
+    ArgCategory,
     ArgumentNode,
     AssertNode,
     AssignmentExpressionNode,
@@ -578,7 +578,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitArgument(node: ArgumentNode) {
-        this._log(`${this._getPrefix(node)} ${getArgumentCategoryString(node.d.argCategory)}`);
+        this._log(`${this._getPrefix(node)} ${getArgCategoryString(node.d.argCategory)}`);
         return true;
     }
 
@@ -1024,13 +1024,13 @@ function getParameterCategoryString(type: ParameterCategory) {
     }
 }
 
-function getArgumentCategoryString(type: ArgumentCategory) {
+function getArgCategoryString(type: ArgCategory) {
     switch (type) {
-        case ArgumentCategory.Simple:
+        case ArgCategory.Simple:
             return 'Simple';
-        case ArgumentCategory.UnpackedList:
+        case ArgCategory.UnpackedList:
             return 'UnpackedList';
-        case ArgumentCategory.UnpackedDictionary:
+        case ArgCategory.UnpackedDictionary:
             return 'UnpackedDictionary';
         default:
             return `Unknown Value!! (${type})`;

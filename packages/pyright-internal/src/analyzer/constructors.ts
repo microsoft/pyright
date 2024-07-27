@@ -17,7 +17,7 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
-import { CallResult, FunctionArgument, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
+import { Arg, CallResult, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     InferenceContext,
     MemberAccessFlags,
@@ -28,7 +28,7 @@ import {
     convertTypeToParamSpecValue,
     doForEachSignature,
     doForEachSubtype,
-    getTypeVarArgumentsRecursive,
+    getTypeVarArgsRecursive,
     getTypeVarScopeId,
     getTypeVarScopeIds,
     isTupleClass,
@@ -110,10 +110,10 @@ export function getBoundCallMethod(evaluator: TypeEvaluator, errorNode: Expressi
 // Matches the arguments of a call to the constructor for a class.
 // If successful, it returns the resulting (specialized) object type that
 // is allocated by the constructor. If unsuccessful, it reports diagnostics.
-export function validateConstructorArguments(
+export function validateConstructorArgs(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
-    argList: FunctionArgument[],
+    argList: Arg[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined
@@ -121,7 +121,7 @@ export function validateConstructorArguments(
     // If this is an unspecialized generic type alias, specialize it now
     // using default type argument values.
     const aliasInfo = type.props?.typeAliasInfo;
-    if (aliasInfo?.typeParameters && !aliasInfo.typeArguments) {
+    if (aliasInfo?.typeParameters && !aliasInfo.typeArgs) {
         const typeAliasTypeVarContext = new TypeVarContext(aliasInfo.typeVarScopeId);
         type = applySolvedTypeVars(type, typeAliasTypeVarContext, { unknownIfNotFound: true }) as ClassType;
     }
@@ -226,7 +226,7 @@ export function validateConstructorArguments(
 function validateNewAndInitMethods(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
-    argList: FunctionArgument[],
+    argList: Arg[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined,
@@ -304,8 +304,8 @@ function validateNewAndInitMethods(
         // type and rely on the __init__ method to supply the type arguments instead.
         let initMethodBindToType = newMethodReturnType;
         if (
-            initMethodBindToType.priv.typeArguments &&
-            initMethodBindToType.priv.typeArguments.some((typeArg) => isUnknown(typeArg))
+            initMethodBindToType.priv.typeArgs &&
+            initMethodBindToType.priv.typeArgs.some((typeArg) => isUnknown(typeArg))
         ) {
             initMethodBindToType = ClassType.cloneAsInstance(type);
         }
@@ -392,7 +392,7 @@ function validateNewAndInitMethods(
 function validateNewMethod(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
-    argList: FunctionArgument[],
+    argList: Arg[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined,
@@ -408,7 +408,7 @@ function validateNewMethod(
     typeVarContext.addSolveForScope(getTypeVarScopeId(newMethodTypeResult.type));
 
     const callResult = evaluator.useSpeculativeMode(useSpeculativeModeForArgs ? errorNode : undefined, () => {
-        return evaluator.validateCallArguments(
+        return evaluator.validateCallArgs(
             errorNode,
             argList,
             newMethodTypeResult,
@@ -427,7 +427,7 @@ function validateNewMethod(
 
         // Evaluate the arguments in a non-speculative manner to generate any diagnostics.
         typeVarContext.unlock();
-        evaluator.validateCallArguments(
+        evaluator.validateCallArgs(
             errorNode,
             argList,
             newMethodTypeResult,
@@ -446,10 +446,10 @@ function validateNewMethod(
     if (newReturnType) {
         // Special-case the 'tuple' type specialization to use the homogenous
         // arbitrary-length form.
-        if (isClassInstance(newReturnType) && isTupleClass(newReturnType) && !newReturnType.priv.tupleTypeArguments) {
-            if (newReturnType.priv.typeArguments && newReturnType.priv.typeArguments.length === 1) {
+        if (isClassInstance(newReturnType) && isTupleClass(newReturnType) && !newReturnType.priv.tupleTypeArgs) {
+            if (newReturnType.priv.typeArgs && newReturnType.priv.typeArgs.length === 1) {
                 newReturnType = specializeTupleClass(newReturnType, [
-                    { type: newReturnType.priv.typeArguments[0], isUnbounded: true },
+                    { type: newReturnType.priv.typeArgs[0], isUnbounded: true },
                 ]);
             }
 
@@ -465,7 +465,7 @@ function validateNewMethod(
 function validateInitMethod(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
-    argList: FunctionArgument[],
+    argList: Arg[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined,
@@ -475,13 +475,13 @@ function validateInitMethod(
     let argumentErrors = false;
     const overloadsUsedForCall: FunctionType[] = [];
 
-    const typeVarContext = type.priv.typeArguments
+    const typeVarContext = type.priv.typeArgs
         ? buildTypeVarContextFromSpecializedClass(type)
         : new TypeVarContext(getTypeVarScopeId(type));
     typeVarContext.addSolveForScope(getTypeVarScopeId(initMethodType));
 
     const returnTypeOverride = selfSpecializeClass(type);
-    const callResult = evaluator.validateCallArguments(
+    const callResult = evaluator.validateCallArgs(
         errorNode,
         argList,
         { type: initMethodType },
@@ -522,7 +522,7 @@ function validateInitMethod(
 function validateFallbackConstructorCall(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
-    argList: FunctionArgument[],
+    argList: Arg[],
     type: ClassType,
     inferenceContext: InferenceContext | undefined
 ): CallResult {
@@ -557,7 +557,7 @@ function validateFallbackConstructorCall(
 function validateMetaclassCall(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
-    argList: FunctionArgument[],
+    argList: Arg[],
     type: ClassType,
     skipUnknownArgCheck: boolean | undefined,
     inferenceContext: InferenceContext | undefined
@@ -568,7 +568,7 @@ function validateMetaclassCall(
         return undefined;
     }
 
-    const callResult = evaluator.validateCallArguments(
+    const callResult = evaluator.validateCallArgs(
         errorNode,
         argList,
         metaclassCallMethodInfo,
@@ -625,7 +625,7 @@ function applyExpectedTypeForConstructor(
 
     // If this isn't a generic type or it's a type that has already been
     // explicitly specialized, the expected type isn't applicable.
-    if (type.shared.typeParameters.length === 0 || type.priv.typeArguments) {
+    if (type.shared.typeParameters.length === 0 || type.priv.typeArgs) {
         return applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarContext, { applyInScopePlaceholders: true });
     }
 
@@ -641,7 +641,7 @@ function applyExpectedTypeForConstructor(
         // If the expected type didn't provide TypeVar values, remaining
         // unsolved TypeVars should be considered Unknown unless they were
         // provided explicitly in the constructor call.
-        if (type.priv.typeArguments) {
+        if (type.priv.typeArgs) {
             unsolvedTypeVarsAreUnknown = false;
         }
     }
@@ -662,9 +662,9 @@ function applyExpectedTypeForTupleConstructor(type: ClassType, inferenceContext:
         inferenceContext &&
         isClassInstance(inferenceContext.expectedType) &&
         isTupleClass(inferenceContext.expectedType) &&
-        inferenceContext.expectedType.priv.tupleTypeArguments
+        inferenceContext.expectedType.priv.tupleTypeArgs
     ) {
-        specializedType = specializeTupleClass(type, inferenceContext.expectedType.priv.tupleTypeArguments);
+        specializedType = specializeTupleClass(type, inferenceContext.expectedType.priv.tupleTypeArgs);
     }
 
     return specializedType;
@@ -803,7 +803,7 @@ function createFunctionFromNewMethod(
             }
 
             const paramType = FunctionType.getEffectiveParameterType(newSubtype, index);
-            const typeVars = getTypeVarArgumentsRecursive(paramType);
+            const typeVars = getTypeVarArgsRecursive(paramType);
             return typeVars.some((typeVar) => typeVar.priv.scopeId === getTypeVarScopeId(classType));
         });
 
@@ -923,7 +923,7 @@ function createFunctionFromInitMethod(
 
             // If this is a generic type, self-specialize the class (i.e. fill in
             // its own type parameters as type arguments).
-            if (objectType.shared.typeParameters.length > 0 && !objectType.priv.typeArguments) {
+            if (objectType.shared.typeParameters.length > 0 && !objectType.priv.typeArgs) {
                 const typeVarContext = new TypeVarContext(getTypeVarScopeIds(objectType));
 
                 // If a TypeVar is not used in any of the parameter types, it should take
@@ -932,7 +932,7 @@ function createFunctionFromInitMethod(
 
                 convertedInit.shared.parameters.forEach((param, index) => {
                     const paramType = FunctionType.getEffectiveParameterType(convertedInit, index);
-                    addTypeVarsToListIfUnique(typeVarsInParams, getTypeVarArgumentsRecursive(paramType));
+                    addTypeVarsToListIfUnique(typeVarsInParams, getTypeVarArgsRecursive(paramType));
                 });
 
                 typeVarsInParams.forEach((typeVar) => {
