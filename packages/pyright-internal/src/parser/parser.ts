@@ -85,7 +85,7 @@ import {
     NameNode,
     NonlocalNode,
     NumberNode,
-    ParameterCategory,
+    ParamCategory,
     ParameterNode,
     ParseNode,
     ParseNodeType,
@@ -116,7 +116,7 @@ import {
     TupleNode,
     TypeAliasNode,
     TypeAnnotationNode,
-    TypeParameterKind,
+    TypeParamKind,
     TypeParameterListNode,
     TypeParameterNode,
     UnaryOperationNode,
@@ -547,11 +547,11 @@ export class Parser {
 
     // type_param: ['*' | '**'] NAME [':' bound_expr] ['=' default_expr]
     private _parseTypeParameter(): TypeParameterNode | undefined {
-        let typeParamCategory = TypeParameterKind.TypeVar;
+        let typeParamCategory = TypeParamKind.TypeVar;
         if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
-            typeParamCategory = TypeParameterKind.TypeVarTuple;
+            typeParamCategory = TypeParamKind.TypeVarTuple;
         } else if (this._consumeTokenIfOperator(OperatorType.Power)) {
-            typeParamCategory = TypeParameterKind.ParamSpec;
+            typeParamCategory = TypeParamKind.ParamSpec;
         }
 
         const nameToken = this._getTokenIfIdentifier();
@@ -566,7 +566,7 @@ export class Parser {
         if (this._consumeTokenIfType(TokenType.Colon)) {
             boundExpression = this._parseExpression(/* allowUnpack */ false);
 
-            if (typeParamCategory !== TypeParameterKind.TypeVar) {
+            if (typeParamCategory !== TypeParamKind.TypeVar) {
                 this._addSyntaxError(LocMessage.typeParameterBoundNotAllowed(), boundExpression);
             }
         }
@@ -574,7 +574,7 @@ export class Parser {
         let defaultExpression: ExpressionNode | undefined;
         if (this._consumeTokenIfOperator(OperatorType.Assign)) {
             defaultExpression = this._parseExpression(
-                /* allowUnpack */ typeParamCategory === TypeParameterKind.TypeVarTuple
+                /* allowUnpack */ typeParamCategory === TypeParamKind.TypeVarTuple
             );
 
             if (!this._parseOptions.isStubFile && this._getLanguageVersion().isLessThan(pythonVersion3_13)) {
@@ -2016,13 +2016,13 @@ export class Parser {
                 } else {
                     paramMap.set(name, name);
                 }
-            } else if (param.d.category === ParameterCategory.Simple) {
+            } else if (param.d.category === ParamCategory.Simple) {
                 if (paramList.length === 0) {
                     this._addSyntaxError(LocMessage.positionOnlyFirstParam(), param);
                 }
             }
 
-            if (param.d.category === ParameterCategory.Simple) {
+            if (param.d.category === ParamCategory.Simple) {
                 if (!param.d.name) {
                     if (sawPositionOnlySeparator) {
                         this._addSyntaxError(LocMessage.duplicatePositionOnly(), param);
@@ -2051,7 +2051,7 @@ export class Parser {
 
             paramList.push(param);
 
-            if (param.d.category === ParameterCategory.ArgsList) {
+            if (param.d.category === ParamCategory.ArgsList) {
                 if (!param.d.name) {
                     if (sawKeywordOnlySeparator) {
                         this._addSyntaxError(LocMessage.duplicateKeywordOnly(), param);
@@ -2067,7 +2067,7 @@ export class Parser {
                 }
             }
 
-            if (param.d.category === ParameterCategory.KwargsDict) {
+            if (param.d.category === ParamCategory.KwargsDict) {
                 if (sawKwArgs) {
                     this._addSyntaxError(LocMessage.duplicateKwargsParam(), param);
                 }
@@ -2100,7 +2100,7 @@ export class Parser {
 
         if (paramList.length > 0) {
             const lastParam = paramList[paramList.length - 1];
-            if (lastParam.d.category === ParameterCategory.ArgsList && !lastParam.d.name) {
+            if (lastParam.d.category === ParamCategory.ArgsList && !lastParam.d.name) {
                 this._addSyntaxError(LocMessage.expectedNamedParameter(), lastParam);
             }
         }
@@ -2127,10 +2127,10 @@ export class Parser {
         const paramName = this._getTokenIfIdentifier();
         if (!paramName) {
             if (starCount === 1) {
-                const paramNode = ParameterNode.create(firstToken, ParameterCategory.ArgsList);
+                const paramNode = ParameterNode.create(firstToken, ParamCategory.ArgsList);
                 return paramNode;
             } else if (slashCount === 1) {
-                const paramNode = ParameterNode.create(firstToken, ParameterCategory.Simple);
+                const paramNode = ParameterNode.create(firstToken, ParamCategory.Simple);
                 return paramNode;
             }
 
@@ -2146,11 +2146,11 @@ export class Parser {
             }
         }
 
-        let paramType = ParameterCategory.Simple;
+        let paramType = ParamCategory.Simple;
         if (starCount === 1) {
-            paramType = ParameterCategory.ArgsList;
+            paramType = ParamCategory.ArgsList;
         } else if (starCount === 2) {
-            paramType = ParameterCategory.KwargsDict;
+            paramType = ParamCategory.KwargsDict;
         }
         const paramNode = ParameterNode.create(firstToken, paramType);
         if (paramName) {
@@ -2160,7 +2160,7 @@ export class Parser {
         }
 
         if (allowAnnotations && this._consumeTokenIfType(TokenType.Colon)) {
-            paramNode.d.annotation = this._parseTypeAnnotation(paramType === ParameterCategory.ArgsList);
+            paramNode.d.annotation = this._parseTypeAnnotation(paramType === ParamCategory.ArgsList);
             paramNode.d.annotation.parent = paramNode;
             extendRange(paramNode, paramNode.d.annotation);
         }

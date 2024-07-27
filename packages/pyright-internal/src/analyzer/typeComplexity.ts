@@ -79,8 +79,8 @@ function getComplexityScoreForClass(classType: ClassType, recursionCount: number
             typeArgScoreSum += getComplexityScoreForType(type, recursionCount);
             typeArgCount++;
         });
-    } else if (classType.shared.typeParameters) {
-        classType.shared.typeParameters.forEach((type) => {
+    } else if (classType.shared.typeParams) {
+        classType.shared.typeParams.forEach((type) => {
             typeArgScoreSum += getComplexityScoreForType(AnyType.create(), recursionCount);
             typeArgCount++;
         });

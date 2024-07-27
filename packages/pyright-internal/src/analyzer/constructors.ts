@@ -15,7 +15,7 @@
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
+import { ExpressionNode, ParamCategory } from '../parser/parseNodes';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
 import { Arg, CallResult, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
@@ -121,7 +121,7 @@ export function validateConstructorArgs(
     // If this is an unspecialized generic type alias, specialize it now
     // using default type argument values.
     const aliasInfo = type.props?.typeAliasInfo;
-    if (aliasInfo?.typeParameters && !aliasInfo.typeArgs) {
+    if (aliasInfo?.typeParams && !aliasInfo.typeArgs) {
         const typeAliasTypeVarContext = new TypeVarContext(aliasInfo.typeVarScopeId);
         type = applySolvedTypeVars(type, typeAliasTypeVarContext, { unknownIfNotFound: true }) as ClassType;
     }
@@ -625,7 +625,7 @@ function applyExpectedTypeForConstructor(
 
     // If this isn't a generic type or it's a type that has already been
     // explicitly specialized, the expected type isn't applicable.
-    if (type.shared.typeParameters.length === 0 || type.priv.typeArgs) {
+    if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
         return applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarContext, { applyInScopePlaceholders: true });
     }
 
@@ -797,18 +797,18 @@ function createFunctionFromNewMethod(
         // If there are no parameters that include class-scoped type parameters,
         // self-specialize the class because the type arguments for the class
         // can't be solved if there are no parameters to supply them.
-        const hasParametersWithTypeVars = newSubtype.shared.parameters.some((param, index) => {
+        const hasParamsWithTypeVars = newSubtype.shared.parameters.some((param, index) => {
             if (index === 0 || !param.name) {
                 return false;
             }
 
-            const paramType = FunctionType.getEffectiveParameterType(newSubtype, index);
+            const paramType = FunctionType.getEffectiveParamType(newSubtype, index);
             const typeVars = getTypeVarArgsRecursive(paramType);
             return typeVars.some((typeVar) => typeVar.priv.scopeId === getTypeVarScopeId(classType));
         });
 
         const boundNew = evaluator.bindFunctionToClassOrObject(
-            hasParametersWithTypeVars ? selfSpecializeClass(classType) : classType,
+            hasParamsWithTypeVars ? selfSpecializeClass(classType) : classType,
             newSubtype,
             newInfo && isInstantiableClass(newInfo.classType) ? newInfo.classType : undefined,
             /* treatConstructorAsClassMethod */ true,
@@ -869,7 +869,7 @@ function createFunctionFromObjectNewMethod(classType: ClassType) {
     // If this is type[T] or a protocol, we don't know what parameters are accepted
     // by the constructor, so add the default parameters.
     if (classType.priv.includeSubclasses || ClassType.isProtocolClass(classType)) {
-        FunctionType.addDefaultParameters(constructorFunction);
+        FunctionType.addDefaultParams(constructorFunction);
     }
 
     if (!constructorFunction.shared.docString && classType.shared.docString) {
@@ -923,7 +923,7 @@ function createFunctionFromInitMethod(
 
             // If this is a generic type, self-specialize the class (i.e. fill in
             // its own type parameters as type arguments).
-            if (objectType.shared.typeParameters.length > 0 && !objectType.priv.typeArgs) {
+            if (objectType.shared.typeParams.length > 0 && !objectType.priv.typeArgs) {
                 const typeVarContext = new TypeVarContext(getTypeVarScopeIds(objectType));
 
                 // If a TypeVar is not used in any of the parameter types, it should take
@@ -931,7 +931,7 @@ function createFunctionFromInitMethod(
                 const typeVarsInParams: TypeVarType[] = [];
 
                 convertedInit.shared.parameters.forEach((param, index) => {
-                    const paramType = FunctionType.getEffectiveParameterType(convertedInit, index);
+                    const paramType = FunctionType.getEffectiveParamType(convertedInit, index);
                     addTypeVarsToListIfUnique(typeVarsInParams, getTypeVarArgsRecursive(paramType));
                 });
 
@@ -1058,7 +1058,7 @@ function isDefaultNewMethod(newMethod?: Type): boolean {
         return false;
     }
 
-    if (params[0].category !== ParameterCategory.ArgsList || params[1].category !== ParameterCategory.KwargsDict) {
+    if (params[0].category !== ParamCategory.ArgsList || params[1].category !== ParamCategory.KwargsDict) {
         return false;
     }
 

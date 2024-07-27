@@ -473,10 +473,10 @@ function isVisibleOutside(evaluator: TypeEvaluator, currentUri: Uri, node: NameN
                 case DeclarationType.Function:
                     return isVisible && isContainerExternallyVisible(decl.node.d.name, recursionCount);
 
-                case DeclarationType.Parameter:
+                case DeclarationType.Param:
                     return isVisible && isContainerExternallyVisible(decl.node.d.name!, recursionCount);
 
-                case DeclarationType.TypeParameter:
+                case DeclarationType.TypeParam:
                     return false;
 
                 case DeclarationType.Variable:

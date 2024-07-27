@@ -16,7 +16,7 @@ import {
     ExpressionNode,
     isExpressionNode,
     NameNode,
-    ParameterCategory,
+    ParamCategory,
     ParseNode,
     ParseNodeType,
 } from '../parser/parseNodes';
@@ -918,7 +918,7 @@ function getDeclsForLocalVar(
 
     if (
         decls.length === 0 ||
-        decls.some((decl) => decl.type !== DeclarationType.Variable && decl.type !== DeclarationType.Parameter)
+        decls.some((decl) => decl.type !== DeclarationType.Variable && decl.type !== DeclarationType.Param)
     ) {
         return undefined;
     }
@@ -928,7 +928,7 @@ function getDeclsForLocalVar(
     let prevDeclScope: ParseNode | undefined;
     if (
         decls.some((decl) => {
-            const nodeToConsider = decl.type === DeclarationType.Parameter ? decl.node.d.name! : decl.node;
+            const nodeToConsider = decl.type === DeclarationType.Param ? decl.node.d.name! : decl.node;
             const declScopeNode = ParseTreeUtils.getExecutionScopeNode(nodeToConsider);
             if (prevDeclScope && declScopeNode !== prevDeclScope) {
                 return true;
@@ -1178,8 +1178,8 @@ function getIsInstanceClassTypes(
             } else if (
                 isFunction(subtype) &&
                 subtype.shared.parameters.length === 2 &&
-                subtype.shared.parameters[0].category === ParameterCategory.ArgsList &&
-                subtype.shared.parameters[1].category === ParameterCategory.KwargsDict
+                subtype.shared.parameters[0].category === ParamCategory.ArgsList &&
+                subtype.shared.parameters[1].category === ParamCategory.KwargsDict
             ) {
                 classTypeList.push(subtype);
             } else {
@@ -1449,10 +1449,7 @@ function narrowTypeForIsInstanceInternal(
                             // important because a specialized version of the filter cannot
                             // be passed to isinstance or issubclass.
                             if (isClass(filterType)) {
-                                if (
-                                    ClassType.isSpecialBuiltIn(filterType) ||
-                                    filterType.shared.typeParameters.length > 0
-                                ) {
+                                if (ClassType.isSpecialBuiltIn(filterType) || filterType.shared.typeParams.length > 0) {
                                     if (
                                         !filterType.priv.isTypeArgExplicit &&
                                         !ClassType.isSameGenericClass(concreteVarType, filterType)
@@ -2725,13 +2722,13 @@ function narrowTypeForCallable(
                         // Add a __call__ method to the new class.
                         const callMethod = FunctionType.createSynthesizedInstance('__call__');
                         const selfParam = FunctionParam.create(
-                            ParameterCategory.Simple,
+                            ParamCategory.Simple,
                             ClassType.cloneAsInstance(newClassType),
                             FunctionParamFlags.TypeDeclared,
                             'self'
                         );
-                        FunctionType.addParameter(callMethod, selfParam);
-                        FunctionType.addDefaultParameters(callMethod);
+                        FunctionType.addParam(callMethod, selfParam);
+                        FunctionType.addDefaultParams(callMethod);
                         callMethod.shared.declaredReturnType = UnknownType.create();
                         ClassType.getSymbolTable(newClassType).set(
                             '__call__',

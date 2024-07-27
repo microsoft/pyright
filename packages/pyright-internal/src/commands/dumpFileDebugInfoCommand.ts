@@ -79,7 +79,7 @@ import {
     NameNode,
     NonlocalNode,
     NumberNode,
-    ParameterCategory,
+    ParamCategory,
     ParameterNode,
     ParseNode,
     ParseNodeType,
@@ -107,7 +107,7 @@ import {
     TupleNode,
     TypeAliasNode,
     TypeAnnotationNode,
-    TypeParameterKind,
+    TypeParamKind,
     TypeParameterListNode,
     TypeParameterNode,
     UnaryOperationNode,
@@ -1002,24 +1002,24 @@ class TreeDumper extends ParseTreeWalker {
     }
 }
 
-function getTypeParameterCategoryString(type: TypeParameterKind) {
+function getTypeParameterCategoryString(type: TypeParamKind) {
     switch (type) {
-        case TypeParameterKind.TypeVar:
+        case TypeParamKind.TypeVar:
             return 'TypeVar';
-        case TypeParameterKind.TypeVarTuple:
+        case TypeParamKind.TypeVarTuple:
             return 'TypeVarTuple';
-        case TypeParameterKind.ParamSpec:
+        case TypeParamKind.ParamSpec:
             return 'ParamSpec';
     }
 }
 
-function getParameterCategoryString(type: ParameterCategory) {
+function getParameterCategoryString(type: ParamCategory) {
     switch (type) {
-        case ParameterCategory.Simple:
+        case ParamCategory.Simple:
             return 'Simple';
-        case ParameterCategory.ArgsList:
+        case ParamCategory.ArgsList:
             return 'ArgsList';
-        case ParameterCategory.KwargsDict:
+        case ParamCategory.KwargsDict:
             return 'KwargsDict';
     }
 }

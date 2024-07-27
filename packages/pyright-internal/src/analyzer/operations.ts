@@ -476,7 +476,7 @@ export function getTypeOfBinaryOperation(
                         return false;
                     }
 
-                    return ClassType.isTypedDictClass(subtype) || subtype.shared.typeParameters.length > 0;
+                    return ClassType.isTypedDictClass(subtype) || subtype.shared.typeParams.length > 0;
                 })
             ) {
                 expectedOperandType = leftType;

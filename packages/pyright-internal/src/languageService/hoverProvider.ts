@@ -358,7 +358,7 @@ export class HoverProvider {
                 break;
             }
 
-            case DeclarationType.Parameter: {
+            case DeclarationType.Param: {
                 this._addResultsPart(parts, '(parameter) ' + node.d.value + this._getTypeText(node), /* python */ true);
 
                 if (resolvedDecl.docString) {
@@ -368,7 +368,7 @@ export class HoverProvider {
                 break;
             }
 
-            case DeclarationType.TypeParameter: {
+            case DeclarationType.TypeParam: {
                 // If the user is hovering over a type parameter name in a class type parameter
                 // list, display the computed variance of the type param.
                 const typeParamListNode = ParseTreeUtils.getParentNodeOfType(node, ParseNodeType.TypeParameterList);

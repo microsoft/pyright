@@ -497,7 +497,7 @@ export namespace FunctionNode {
     }
 }
 
-export const enum ParameterCategory {
+export const enum ParamCategory {
     Simple,
     ArgsList,
     KwargsDict,
@@ -505,7 +505,7 @@ export const enum ParameterCategory {
 
 export interface ParameterNode extends ParseNodeBase<ParseNodeType.Parameter> {
     d: {
-        category: ParameterCategory;
+        category: ParamCategory;
         name: NameNode | undefined;
         annotation: ExpressionNode | undefined;
         annotationComment: ExpressionNode | undefined;
@@ -514,7 +514,7 @@ export interface ParameterNode extends ParseNodeBase<ParseNodeType.Parameter> {
 }
 
 export namespace ParameterNode {
-    export function create(startToken: Token, paramCategory: ParameterCategory) {
+    export function create(startToken: Token, paramCategory: ParamCategory) {
         const node: ParameterNode = {
             start: startToken.start,
             length: startToken.length,
@@ -1019,7 +1019,7 @@ export namespace AssignmentNode {
     }
 }
 
-export enum TypeParameterKind {
+export enum TypeParamKind {
     TypeVar,
     TypeVarTuple,
     ParamSpec,
@@ -1028,7 +1028,7 @@ export enum TypeParameterKind {
 export interface TypeParameterNode extends ParseNodeBase<ParseNodeType.TypeParameter> {
     d: {
         name: NameNode;
-        typeParamKind: TypeParameterKind;
+        typeParamKind: TypeParamKind;
         boundExpr?: ExpressionNode;
         defaultExpr?: ExpressionNode;
     };
@@ -1037,7 +1037,7 @@ export interface TypeParameterNode extends ParseNodeBase<ParseNodeType.TypeParam
 export namespace TypeParameterNode {
     export function create(
         name: NameNode,
-        typeParamKind: TypeParameterKind,
+        typeParamKind: TypeParamKind,
         boundExpr?: ExpressionNode,
         defaultExpr?: ExpressionNode
     ) {

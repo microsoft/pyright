@@ -24,7 +24,7 @@ import {
     MemberAccessNode,
     ModuleNameNode,
     NameNode,
-    ParameterCategory,
+    ParamCategory,
     ParameterNode,
     ParseNode,
     ParseNodeType,
@@ -33,7 +33,7 @@ import {
     TryNode,
     TypeAliasNode,
     TypeAnnotationNode,
-    TypeParameterKind,
+    TypeParamKind,
     TypeParameterListNode,
     TypeParameterNode,
     WhileNode,
@@ -195,7 +195,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         let line = `class ${className}`;
 
         if (node.d.typeParams) {
-            line += this._printTypeParameters(node.d.typeParams);
+            line += this._printTypeParams(node.d.typeParams);
         }
 
         // Remove "object" from the list, since it's implied
@@ -246,10 +246,10 @@ export class TypeStubWriter extends ParseTreeWalker {
             line += `def ${functionName}`;
 
             if (node.d.typeParams) {
-                line += this._printTypeParameters(node.d.typeParams);
+                line += this._printTypeParams(node.d.typeParams);
             }
 
-            line += `(${node.d.params.map((param, index) => this._printParameter(param, node, index)).join(', ')})`;
+            line += `(${node.d.params.map((param, index) => this._printParam(param, node, index)).join(', ')})`;
 
             let returnAnnotation: string | undefined;
             if (node.d.returnAnnotation) {
@@ -373,7 +373,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         line = this._printExpression(node.d.name);
 
         if (node.d.typeParams) {
-            line += this._printTypeParameters(node.d.typeParams);
+            line += this._printTypeParams(node.d.typeParams);
         }
 
         line += ' = ';
@@ -622,16 +622,16 @@ export class TypeStubWriter extends ParseTreeWalker {
         this._typeStubText += line + this._lineEnd;
     }
 
-    private _printTypeParameters(node: TypeParameterListNode): string {
-        return `[${node.d.params.map((typeParam) => this._printTypeParameter(typeParam)).join(',')}]`;
+    private _printTypeParams(node: TypeParameterListNode): string {
+        return `[${node.d.params.map((typeParam) => this._printTypeParam(typeParam)).join(',')}]`;
     }
 
-    private _printTypeParameter(node: TypeParameterNode): string {
+    private _printTypeParam(node: TypeParameterNode): string {
         let line = '';
 
-        if (node.d.typeParamKind === TypeParameterKind.TypeVarTuple) {
+        if (node.d.typeParamKind === TypeParamKind.TypeVarTuple) {
             line += '*';
-        } else if (node.d.typeParamKind === TypeParameterKind.ParamSpec) {
+        } else if (node.d.typeParamKind === TypeParamKind.ParamSpec) {
             line += '**';
         }
 
@@ -659,21 +659,21 @@ export class TypeStubWriter extends ParseTreeWalker {
         return line;
     }
 
-    private _printParameter(paramNode: ParameterNode, functionNode: FunctionNode, paramIndex: number): string {
+    private _printParam(paramNode: ParameterNode, functionNode: FunctionNode, paramIndex: number): string {
         let line = '';
-        if (paramNode.d.category === ParameterCategory.ArgsList) {
+        if (paramNode.d.category === ParamCategory.ArgsList) {
             line += '*';
-        } else if (paramNode.d.category === ParameterCategory.KwargsDict) {
+        } else if (paramNode.d.category === ParamCategory.KwargsDict) {
             line += '**';
         }
 
         if (paramNode.d.name) {
             line += paramNode.d.name.d.value;
-        } else if (paramNode.d.category === ParameterCategory.Simple) {
+        } else if (paramNode.d.category === ParamCategory.Simple) {
             line += '/';
         }
 
-        const paramTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParameter(functionNode, paramIndex);
+        const paramTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParam(functionNode, paramIndex);
         let paramType = '';
         if (paramTypeAnnotation) {
             paramType = this._printExpression(paramTypeAnnotation, /* treatStringsAsSymbols */ true);

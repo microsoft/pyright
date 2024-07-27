@@ -20,7 +20,7 @@ import {
     ClassNode,
     ExpressionNode,
     NameNode,
-    ParameterCategory,
+    ParamCategory,
     ParseNode,
     ParseNodeType,
     TypeAnnotationNode,
@@ -100,21 +100,21 @@ export function synthesizeDataClassMethods(
     // __new__ method are based on field definitions for NamedTuple classes,
     // and the parameters of the __init__ method are based on field definitions
     // in other cases.
-    FunctionType.addParameter(
+    FunctionType.addParam(
         newType,
-        FunctionParam.create(ParameterCategory.Simple, classTypeVar, FunctionParamFlags.TypeDeclared, 'cls')
+        FunctionParam.create(ParamCategory.Simple, classTypeVar, FunctionParamFlags.TypeDeclared, 'cls')
     );
     if (!isNamedTuple) {
-        FunctionType.addDefaultParameters(newType);
+        FunctionType.addDefaultParams(newType);
         newType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
     }
     newType.shared.declaredReturnType = convertToInstance(classTypeVar);
 
     const selfType = synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false);
-    const selfParam = FunctionParam.create(ParameterCategory.Simple, selfType, FunctionParamFlags.TypeDeclared, 'self');
-    FunctionType.addParameter(initType, selfParam);
+    const selfParam = FunctionParam.create(ParamCategory.Simple, selfType, FunctionParamFlags.TypeDeclared, 'self');
+    FunctionType.addParam(initType, selfParam);
     if (isNamedTuple) {
-        FunctionType.addDefaultParameters(initType);
+        FunctionType.addDefaultParams(initType);
         initType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
     }
     initType.shared.declaredReturnType = evaluator.getNoneType();
@@ -123,8 +123,8 @@ export function synthesizeDataClassMethods(
     let replaceType: FunctionType | undefined;
     if (AnalyzerNodeInfo.getFileInfo(node).executionEnvironment.pythonVersion >= pythonVersion3_13) {
         replaceType = FunctionType.createSynthesizedInstance('__replace__');
-        FunctionType.addParameter(replaceType, selfParam);
-        FunctionType.addKeywordOnlyParameterSeparator(replaceType);
+        FunctionType.addParam(replaceType, selfParam);
+        FunctionType.addKeywordOnlyParamSeparator(replaceType);
         replaceType.shared.declaredReturnType = selfType;
     }
 
@@ -139,10 +139,10 @@ export function synthesizeDataClassMethods(
         // If one or more ancestor classes have an unknown type, we cannot
         // safely determine the parameter list, so we'll accept any parameters
         // to avoid a false positive.
-        FunctionType.addDefaultParameters(initType);
+        FunctionType.addDefaultParams(initType);
 
         if (replaceType) {
-            FunctionType.addDefaultParameters(replaceType);
+            FunctionType.addDefaultParams(replaceType);
         }
     }
 
@@ -536,7 +536,7 @@ export function synthesizeDataClassMethods(
                     }
 
                     const functionParam = FunctionParam.create(
-                        ParameterCategory.Simple,
+                        ParamCategory.Simple,
                         effectiveType,
                         FunctionParamFlags.TypeDeclared,
                         effectiveName,
@@ -546,7 +546,7 @@ export function synthesizeDataClassMethods(
                     if (entry.isKeywordOnly) {
                         keywordOnlyParams.push(functionParam);
                     } else {
-                        FunctionType.addParameter(constructorType, functionParam);
+                        FunctionType.addParam(constructorType, functionParam);
                     }
 
                     if (replaceType) {
@@ -554,15 +554,15 @@ export function synthesizeDataClassMethods(
                             ...functionParam,
                             defaultType: AnyType.create(/* isEllipsis */ true),
                         };
-                        FunctionType.addParameter(replaceType, paramWithDefault);
+                        FunctionType.addParam(replaceType, paramWithDefault);
                     }
                 }
             });
 
             if (keywordOnlyParams.length > 0) {
-                FunctionType.addKeywordOnlyParameterSeparator(constructorType);
+                FunctionType.addKeywordOnlyParamSeparator(constructorType);
                 keywordOnlyParams.forEach((param) => {
-                    FunctionType.addParameter(constructorType, param);
+                    FunctionType.addParam(constructorType, param);
                 });
             }
         }
@@ -601,10 +601,10 @@ export function synthesizeDataClassMethods(
 
     const synthesizeComparisonMethod = (operator: string, paramType: Type) => {
         const operatorMethod = FunctionType.createSynthesizedInstance(operator);
-        FunctionType.addParameter(operatorMethod, selfParam);
-        FunctionType.addParameter(
+        FunctionType.addParam(operatorMethod, selfParam);
+        FunctionType.addParam(
             operatorMethod,
-            FunctionParam.create(ParameterCategory.Simple, paramType, FunctionParamFlags.TypeDeclared, 'other')
+            FunctionParam.create(ParamCategory.Simple, paramType, FunctionParamFlags.TypeDeclared, 'other')
         );
         operatorMethod.shared.declaredReturnType = evaluator.getBuiltInObject(node, 'bool');
         // If a method of this name already exists, don't override it.
@@ -641,7 +641,7 @@ export function synthesizeDataClassMethods(
 
     if (synthesizeHashFunction) {
         const hashMethod = FunctionType.createSynthesizedInstance('__hash__');
-        FunctionType.addParameter(hashMethod, selfParam);
+        FunctionType.addParam(hashMethod, selfParam);
         hashMethod.shared.declaredReturnType = evaluator.getBuiltInObject(node, 'int');
         symbolTable.set(
             '__hash__',
@@ -791,16 +791,16 @@ function getConverterInputType(
     const targetFunction = FunctionType.createSynthesizedInstance('');
     targetFunction.shared.typeVarScopeId = typeVar.priv.scopeId;
     targetFunction.shared.declaredReturnType = fieldType;
-    FunctionType.addParameter(
+    FunctionType.addParam(
         targetFunction,
         FunctionParam.create(
-            ParameterCategory.Simple,
+            ParamCategory.Simple,
             typeVar,
             FunctionParamFlags.TypeDeclared | FunctionParamFlags.NameSynthesized,
             '__input'
         )
     );
-    FunctionType.addPositionOnlyParameterSeparator(targetFunction);
+    FunctionType.addPositionOnlyParamSeparator(targetFunction);
 
     if (isFunction(converterType) || isOverloadedFunction(converterType)) {
         const acceptedTypes: Type[] = [];
@@ -927,34 +927,34 @@ function getDescriptorForConverterField(
     const selfType = synthesizeTypeVarForSelfCls(descriptorClass, /* isClsParam */ false);
 
     const setFunction = FunctionType.createSynthesizedInstance('__set__');
-    FunctionType.addParameter(
+    FunctionType.addParam(
         setFunction,
-        FunctionParam.create(ParameterCategory.Simple, selfType, FunctionParamFlags.TypeDeclared, 'self')
+        FunctionParam.create(ParamCategory.Simple, selfType, FunctionParamFlags.TypeDeclared, 'self')
     );
-    FunctionType.addParameter(
+    FunctionType.addParam(
         setFunction,
-        FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'obj')
+        FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'obj')
     );
-    FunctionType.addParameter(
+    FunctionType.addParam(
         setFunction,
-        FunctionParam.create(ParameterCategory.Simple, setType, FunctionParamFlags.TypeDeclared, 'value')
+        FunctionParam.create(ParamCategory.Simple, setType, FunctionParamFlags.TypeDeclared, 'value')
     );
     setFunction.shared.declaredReturnType = evaluator.getNoneType();
     const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
     fields.set('__set__', setSymbol);
 
     const getFunction = FunctionType.createSynthesizedInstance('__get__');
-    FunctionType.addParameter(
+    FunctionType.addParam(
         getFunction,
-        FunctionParam.create(ParameterCategory.Simple, selfType, FunctionParamFlags.TypeDeclared, 'self')
+        FunctionParam.create(ParamCategory.Simple, selfType, FunctionParamFlags.TypeDeclared, 'self')
     );
-    FunctionType.addParameter(
+    FunctionType.addParam(
         getFunction,
-        FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'obj')
+        FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'obj')
     );
-    FunctionType.addParameter(
+    FunctionType.addParam(
         getFunction,
-        FunctionParam.create(ParameterCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'objtype')
+        FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'objtype')
     );
     getFunction.shared.declaredReturnType = getType;
     const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
@@ -981,7 +981,7 @@ function transformDescriptorType(evaluator: TypeEvaluator, type: Type): Type {
     }
 
     // The value parameter for a bound __set__ method is parameter index 1.
-    return FunctionType.getEffectiveParameterType(setMethodType, 1);
+    return FunctionType.getEffectiveParamType(setMethodType, 1);
 }
 
 // Builds a sorted list of dataclass entries that are inherited by

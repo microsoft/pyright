@@ -743,7 +743,7 @@ function narrowTypeBasedOnClassPattern(
 
         let classType = exprType;
 
-        if (classType.shared.typeParameters.length > 0) {
+        if (classType.shared.typeParams.length > 0) {
             classType = ClassType.specialize(classType, /* typeArgs */ undefined);
         }
 
@@ -879,7 +879,7 @@ function narrowTypeBasedOnClassPattern(
                                 '',
                                 FunctionTypeFlags.GradualCallableForm
                             );
-                            FunctionType.addDefaultParameters(
+                            FunctionType.addDefaultParams(
                                 unknownCallable,
                                 /* useUnknown */ isUnknown(subjectSubtypeExpanded)
                             );
@@ -946,7 +946,7 @@ function narrowTypeBasedOnClassPattern(
                             if (isInstantiableClass(unexpandedSubtype) && isClassInstance(subjectSubtypeExpanded)) {
                                 if (
                                     ClassType.isSpecialBuiltIn(unexpandedSubtype) ||
-                                    unexpandedSubtype.shared.typeParameters.length > 0
+                                    unexpandedSubtype.shared.typeParams.length > 0
                                 ) {
                                     const typeVarContext = new TypeVarContext(getTypeVarScopeId(unexpandedSubtype));
                                     const unspecializedMatchType = ClassType.specialize(

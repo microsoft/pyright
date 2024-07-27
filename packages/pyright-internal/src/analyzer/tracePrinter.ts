@@ -128,11 +128,11 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
                         decl.uri
                     )})`;
 
-                case DeclarationType.Parameter:
-                    return `Parameter, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
+                case DeclarationType.Param:
+                    return `Param, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
 
-                case DeclarationType.TypeParameter:
-                    return `TypeParameter, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
+                case DeclarationType.TypeParam:
+                    return `TypeParam, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
 
                 case DeclarationType.SpecialBuiltInClass:
                     return `SpecialBuiltInClass, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;

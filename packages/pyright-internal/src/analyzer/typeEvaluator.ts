@@ -63,7 +63,7 @@ import {
     MemberAccessNode,
     NameNode,
     NumberNode,
-    ParameterCategory,
+    ParamCategory,
     ParameterNode,
     ParseNode,
     ParseNodeType,
@@ -75,7 +75,7 @@ import {
     TupleNode,
     TypeAliasNode,
     TypeAnnotationNode,
-    TypeParameterKind,
+    TypeParamKind,
     TypeParameterListNode,
     TypeParameterNode,
     TypeParameterScopeNode,
@@ -143,10 +143,10 @@ import {
     getTypeOfUnaryOperation,
 } from './operations';
 import {
-    ParameterKind,
-    ParameterListDetails,
-    VirtualParameterDetails,
-    getParameterListDetails,
+    ParamKind,
+    ParamListDetails,
+    VirtualParamDetails,
+    getParamListDetails,
     isParamSpecArgs,
     isParamSpecKwargs,
 } from './parameterUtils';
@@ -869,8 +869,8 @@ export function createTypeEvaluator(
                 const classTypeResult = getTypeOfClass(typeParamListNode.parent);
 
                 if (classTypeResult) {
-                    inferTypeParameterVarianceForClass(classTypeResult.classType);
-                    const typeParam = classTypeResult.classType.shared.typeParameters.find((param) =>
+                    inferVarianceForClass(classTypeResult.classType);
+                    const typeParam = classTypeResult.classType.shared.typeParams.find((param) =>
                         isTypeSame(param, typeVarType, { ignoreTypeFlags: true })
                     );
 
@@ -1728,11 +1728,11 @@ export function createTypeEvaluator(
         });
     }
 
-    function getTypeOfParameterAnnotation(paramTypeNode: ExpressionNode, paramCategory: ParameterCategory) {
+    function getTypeOfParamAnnotation(paramTypeNode: ExpressionNode, paramCategory: ParamCategory) {
         return getTypeOfAnnotation(paramTypeNode, {
             typeVarGetsCurScope: true,
-            allowUnpackedTuple: paramCategory === ParameterCategory.ArgsList,
-            allowUnpackedTypedDict: paramCategory === ParameterCategory.KwargsDict,
+            allowUnpackedTuple: paramCategory === ParamCategory.ArgsList,
+            allowUnpackedTypedDict: paramCategory === ParamCategory.KwargsDict,
         });
     }
 
@@ -2099,7 +2099,7 @@ export function createTypeEvaluator(
         if (
             isInstantiableClass(objectType) &&
             !objectType.priv.includeSubclasses &&
-            objectType.shared.typeParameters.length > 0
+            objectType.shared.typeParams.length > 0
         ) {
             // Skip this if we're suppressing the use of attribute access override,
             // such as with dundered methods (like __call__).
@@ -2448,14 +2448,14 @@ export function createTypeEvaluator(
     // parameter is expanded to include individual keyword args.
     function expandTypedKwargs(functionType: FunctionType): FunctionType {
         const kwargsIndex = functionType.shared.parameters.findIndex(
-            (param) => param.category === ParameterCategory.KwargsDict
+            (param) => param.category === ParamCategory.KwargsDict
         );
         if (kwargsIndex < 0) {
             return functionType;
         }
         assert(kwargsIndex === functionType.shared.parameters.length - 1);
 
-        const kwargsType = FunctionType.getEffectiveParameterType(functionType, kwargsIndex);
+        const kwargsType = FunctionType.getEffectiveParamType(functionType, kwargsIndex);
         if (!isClassInstance(kwargsType) || !ClassType.isTypedDictClass(kwargsType) || !kwargsType.priv.isUnpacked) {
             return functionType;
         }
@@ -2472,19 +2472,19 @@ export function createTypeEvaluator(
         }
 
         const kwSeparatorIndex = functionType.shared.parameters.findIndex(
-            (param) => param.category === ParameterCategory.ArgsList
+            (param) => param.category === ParamCategory.ArgsList
         );
 
         // Add a keyword separator if necessary.
         if (kwSeparatorIndex < 0) {
-            FunctionType.addKeywordOnlyParameterSeparator(newFunction);
+            FunctionType.addKeywordOnlyParamSeparator(newFunction);
         }
 
         tdEntries.forEach((tdEntry, name) => {
-            FunctionType.addParameter(
+            FunctionType.addParam(
                 newFunction,
                 FunctionParam.create(
-                    ParameterCategory.Simple,
+                    ParamCategory.Simple,
                     tdEntry.valueType,
                     FunctionParamFlags.TypeDeclared,
                     name,
@@ -2605,7 +2605,7 @@ export function createTypeEvaluator(
                 if (baseType && isClassInstance(baseType)) {
                     const setItemType = getBoundMagicMethod(baseType, '__setitem__');
                     if (setItemType && isFunction(setItemType) && setItemType.shared.parameters.length >= 2) {
-                        const paramType = FunctionType.getEffectiveParameterType(setItemType, 1);
+                        const paramType = FunctionType.getEffectiveParamType(setItemType, 1);
                         if (!isAnyOrUnknown(paramType)) {
                             return paramType;
                         }
@@ -2664,11 +2664,7 @@ export function createTypeEvaluator(
     // (object that provides an __await__ that returns a generator object).
     // If errorNode is undefined, no errors are reported.
     function getTypeOfAwaitable(type: Type, errorNode?: ExpressionNode): Type {
-        if (
-            !awaitableClass ||
-            !isInstantiableClass(awaitableClass) ||
-            awaitableClass.shared.typeParameters.length !== 1
-        ) {
+        if (!awaitableClass || !isInstantiableClass(awaitableClass) || awaitableClass.shared.typeParams.length !== 1) {
             return UnknownType.create();
         }
 
@@ -4024,16 +4020,16 @@ export function createTypeEvaluator(
 
         // TODO - handle functions and tuples
         if (isClass(type) && type.priv.typeArgs && !type.priv.tupleTypeArgs) {
-            inferTypeParameterVarianceForClass(type);
+            inferVarianceForClass(type);
 
             let typeWasTransformed = false;
 
             const filteredTypeArgs = type.priv.typeArgs.map((typeArg, index) => {
-                if (index >= type.shared.typeParameters.length) {
+                if (index >= type.shared.typeParams.length) {
                     return typeArg;
                 }
 
-                const variance = TypeVarType.getVariance(type.shared.typeParameters[index]);
+                const variance = TypeVarType.getVariance(type.shared.typeParams[index]);
                 if (variance !== Variance.Covariant) {
                     return typeArg;
                 }
@@ -4637,7 +4633,7 @@ export function createTypeEvaluator(
             !decls.every(
                 (decl) =>
                     decl.type === DeclarationType.Variable ||
-                    decl.type === DeclarationType.Parameter ||
+                    decl.type === DeclarationType.Param ||
                     decl.type === DeclarationType.Alias
             )
         ) {
@@ -4650,7 +4646,7 @@ export function createTypeEvaluator(
         if (
             !decls.every(
                 (decl) =>
-                    decl.type === DeclarationType.Parameter ||
+                    decl.type === DeclarationType.Param ||
                     ScopeUtils.getScopeForNode(decl.node) === symbolWithScope.scope
             )
         ) {
@@ -4692,7 +4688,7 @@ export function createTypeEvaluator(
                         symbolWithScope.symbol.getDeclarations().every((decl) => {
                             // Parameter declarations always start life at the beginning
                             // of the execution scope, so they are always safe to narrow.
-                            if (decl.type === DeclarationType.Parameter) {
+                            if (decl.type === DeclarationType.Param) {
                                 return true;
                             }
 
@@ -4955,15 +4951,15 @@ export function createTypeEvaluator(
         if (
             (flags & EvalFlags.InstantiableType) !== 0 &&
             aliasInfo &&
-            aliasInfo.typeParameters &&
-            aliasInfo.typeParameters.length > 0 &&
+            aliasInfo.typeParams &&
+            aliasInfo.typeParams.length > 0 &&
             !aliasInfo.typeArgs
         ) {
             let reportMissingTypeArgs = false;
             const defaultTypeArgs: Type[] = [];
             const typeVarContext = new TypeVarContext(aliasInfo.typeVarScopeId);
 
-            aliasInfo.typeParameters.forEach((param) => {
+            aliasInfo.typeParams.forEach((param) => {
                 if (!param.shared.isDefaultExplicit) {
                     reportMissingTypeArgs = true;
                 }
@@ -5008,7 +5004,7 @@ export function createTypeEvaluator(
                 aliasInfo.fileUri,
                 aliasInfo.typeVarScopeId,
                 aliasInfo.isPep695Syntax,
-                aliasInfo.typeParameters,
+                aliasInfo.typeParams,
                 defaultTypeArgs
             );
         }
@@ -5031,31 +5027,31 @@ export function createTypeEvaluator(
             }
             curNode = scopeNode;
 
-            let typeParametersForScope: TypeVarType[] | undefined;
-            let scopeUsesTypeParameterSyntax = false;
+            let typeParamsForScope: TypeVarType[] | undefined;
+            let scopeUsesTypeParamSyntax = false;
 
             if (curNode.nodeType === ParseNodeType.Class) {
                 const classTypeInfo = getTypeOfClass(curNode);
                 if (classTypeInfo && !ClassType.isPartiallyEvaluated(classTypeInfo.classType)) {
-                    typeParametersForScope = classTypeInfo.classType.shared.typeParameters;
+                    typeParamsForScope = classTypeInfo.classType.shared.typeParams;
                 }
 
-                scopeUsesTypeParameterSyntax = !!curNode.d.typeParams;
+                scopeUsesTypeParamSyntax = !!curNode.d.typeParams;
                 nestedClassCount++;
             } else if (curNode.nodeType === ParseNodeType.Function) {
                 const functionType = getTypeOfFunctionPredecorated(curNode);
                 if (functionType) {
                     const functionDetails = functionType.shared;
-                    typeParametersForScope = functionDetails.typeParameters;
+                    typeParamsForScope = functionDetails.typeParams;
                 }
 
-                scopeUsesTypeParameterSyntax = !!curNode.d.typeParams;
+                scopeUsesTypeParamSyntax = !!curNode.d.typeParams;
             } else if (curNode.nodeType === ParseNodeType.TypeAlias) {
-                scopeUsesTypeParameterSyntax = !!curNode.d.typeParams;
+                scopeUsesTypeParamSyntax = !!curNode.d.typeParams;
             }
 
-            if (typeParametersForScope) {
-                const match = typeParametersForScope.find((typeVar) => typeVar.shared.name === type.shared.name);
+            if (typeParamsForScope) {
+                const match = typeParamsForScope.find((typeVar) => typeVar.shared.name === type.shared.name);
 
                 if (
                     match?.priv.scopeId !== undefined &&
@@ -5072,7 +5068,7 @@ export function createTypeEvaluator(
                     return {
                         type,
                         scopeNode,
-                        foundInterveningClass: nestedClassCount > 1 && !scopeUsesTypeParameterSyntax,
+                        foundInterveningClass: nestedClassCount > 1 && !scopeUsesTypeParamSyntax,
                     };
                 }
             }
@@ -5111,10 +5107,10 @@ export function createTypeEvaluator(
                             node
                         );
                     } else {
-                        // If this is a TypeAliasType call, the recursiveTypeParameters will already
+                        // If this is a TypeAliasType call, the recursive type parameters will already
                         // be populated, and we need to verify that the type parameter is in the
                         // list of allowed type parameters.
-                        const allowedTypeParams = leftType.shared.recursiveAlias?.typeParameters;
+                        const allowedTypeParams = leftType.shared.recursiveAlias?.typeParams;
                         if (allowedTypeParams) {
                             if (!allowedTypeParams.some((param) => param.shared.name === type.shared.name)) {
                                 // Return the original type.
@@ -5319,8 +5315,8 @@ export function createTypeEvaluator(
                     // Handle special cases for "P.args" and "P.kwargs".
                     if (memberName === 'args' || memberName === 'kwargs') {
                         const isArgs = memberName === 'args';
-                        const paramNode = ParseTreeUtils.getEnclosingParameter(node);
-                        const expectedCategory = isArgs ? ParameterCategory.ArgsList : ParameterCategory.KwargsDict;
+                        const paramNode = ParseTreeUtils.getEnclosingParam(node);
+                        const expectedCategory = isArgs ? ParamCategory.ArgsList : ParamCategory.KwargsDict;
 
                         if (!paramNode || paramNode.d.category !== expectedCategory) {
                             const errorMessage = isArgs
@@ -6363,7 +6359,7 @@ export function createTypeEvaluator(
             if (isFunction(getterType) && isFunction(setterType)) {
                 // If there's no declared return type on the getter, assume it's symmetric.
                 if (setterType.shared.parameters.length >= 3 && getterType.shared.declaredReturnType) {
-                    const setterValueType = FunctionType.getEffectiveParameterType(setterType, 2);
+                    const setterValueType = FunctionType.getEffectiveParamType(setterType, 2);
                     const getterReturnType = FunctionType.getEffectiveReturnType(getterType) ?? UnknownType.create();
 
                     if (!isTypeSame(setterValueType, getterReturnType)) {
@@ -6400,7 +6396,7 @@ export function createTypeEvaluator(
             if (isFunction(getterType) && isFunction(setterType)) {
                 // If there's no declared return type on the getter, assume it's symmetric.
                 if (setterType.shared.parameters.length >= 3 && getterType.shared.declaredReturnType) {
-                    const setterValueType = FunctionType.getEffectiveParameterType(setterType, 2);
+                    const setterValueType = FunctionType.getEffectiveParamType(setterType, 2);
                     const getterReturnType = FunctionType.getEffectiveReturnType(getterType) ?? UnknownType.create();
 
                     if (!isTypeSame(setterValueType, getterReturnType)) {
@@ -6611,10 +6607,10 @@ export function createTypeEvaluator(
     // the supplied type arguments to map to the type parameter list.
     function adjustTypeArgsForVariadicTypeVar(
         typeArgs: TypeResultWithNode[],
-        typeParameters: TypeVarType[],
+        typeParams: TypeVarType[],
         errorNode: ExpressionNode
     ): TypeResultWithNode[] {
-        const variadicIndex = typeParameters.findIndex((param) => isVariadicTypeVar(param));
+        const variadicIndex = typeParams.findIndex((param) => isVariadicTypeVar(param));
 
         // Is there a *tuple[T, ...] somewhere in the type arguments that we can expand if needed?
         let srcUnboundedTupleType: Type | undefined;
@@ -6636,7 +6632,7 @@ export function createTypeEvaluator(
             srcUnboundedTupleType &&
             srcUnboundedTupleIndex >= 0 &&
             variadicIndex >= 0 &&
-            typeArgs.length < typeParameters.length
+            typeArgs.length < typeParams.length
         ) {
             // "Smear" the tuple type across type argument slots prior to the variadic type var.
             while (variadicIndex > srcUnboundedTupleIndex) {
@@ -6649,7 +6645,7 @@ export function createTypeEvaluator(
             }
 
             // "Smear" the tuple type across type argument slots following the variadic type var.
-            while (typeArgs.length < typeParameters.length) {
+            while (typeArgs.length < typeParams.length) {
                 typeArgs = [
                     ...typeArgs.slice(0, srcUnboundedTupleIndex + 1),
                     { node: typeArgs[srcUnboundedTupleIndex].node, type: srcUnboundedTupleType },
@@ -6661,14 +6657,14 @@ export function createTypeEvaluator(
         // Do we need to adjust the type arguments to map to a variadic type
         // param somewhere in the list?
         if (variadicIndex >= 0) {
-            const variadicTypeVar = typeParameters[variadicIndex];
+            const variadicTypeVar = typeParams[variadicIndex];
 
             // If the type param list ends with a ParamSpec with a default value,
             // we can ignore it for purposes of finding type args that map to the
             // TypeVarTuple.
-            let typeParamCount = typeParameters.length;
+            let typeParamCount = typeParams.length;
             while (typeParamCount > 0) {
-                const lastTypeParam = typeParameters[typeParamCount - 1];
+                const lastTypeParam = typeParams[typeParamCount - 1];
                 if (!lastTypeParam.shared.isParamSpec || !lastTypeParam.shared.isDefaultExplicit) {
                     break;
                 }
@@ -6759,7 +6755,7 @@ export function createTypeEvaluator(
         flags: EvalFlags
     ): TypeResultWithNode | undefined {
         const aliasInfo = baseType.props?.typeAliasInfo;
-        if (!aliasInfo?.typeParameters || (aliasInfo.typeParameters.length === 0 && aliasInfo.typeArgs)) {
+        if (!aliasInfo?.typeParams || (aliasInfo.typeParams.length === 0 && aliasInfo.typeArgs)) {
             return undefined;
         }
 
@@ -6773,14 +6769,14 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        const typeParameters = aliasInfo.typeParameters;
-        let typeArgs = adjustTypeArgsForVariadicTypeVar(getTypeArgs(node, flags), typeParameters, node);
+        const typeParams = aliasInfo.typeParams;
+        let typeArgs = adjustTypeArgsForVariadicTypeVar(getTypeArgs(node, flags), typeParams, node);
 
         // PEP 612 says that if the class has only one type parameter consisting
         // of a ParamSpec, the list of arguments does not need to be enclosed in
         // a list. We'll handle that case specially here. Presumably this applies to
         // type aliases as well.
-        if (typeParameters.length === 1 && typeParameters[0].shared.isParamSpec && typeArgs) {
+        if (typeParams.length === 1 && typeParams[0].shared.isParamSpec && typeArgs) {
             if (
                 typeArgs.every(
                     (typeArg) => !isEllipsisType(typeArg.type) && !typeArg.typeList && !isParamSpec(typeArg.type)
@@ -6796,28 +6792,28 @@ export function createTypeEvaluator(
             }
         }
 
-        let minTypeArgCount = typeParameters.length;
-        const firstDefaultParamIndex = typeParameters.findIndex((param) => !!param.shared.isDefaultExplicit);
+        let minTypeArgCount = typeParams.length;
+        const firstDefaultParamIndex = typeParams.findIndex((param) => !!param.shared.isDefaultExplicit);
         if (firstDefaultParamIndex >= 0) {
             minTypeArgCount = firstDefaultParamIndex;
         }
 
-        if (typeArgs.length > typeParameters.length) {
+        if (typeArgs.length > typeParams.length) {
             addDiagnostic(
                 DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.typeArgsTooMany().format({
                     name: printType(baseType),
-                    expected: typeParameters.length,
+                    expected: typeParams.length,
                     received: typeArgs.length,
                 }),
-                typeArgs[typeParameters.length].node
+                typeArgs[typeParams.length].node
             );
         } else if (typeArgs.length < minTypeArgCount) {
             addDiagnostic(
                 DiagnosticRule.reportInvalidTypeForm,
                 LocMessage.typeArgsTooFew().format({
                     name: printType(baseType),
-                    expected: typeParameters.length,
+                    expected: typeParams.length,
                     received: typeArgs.length,
                 }),
                 node.d.items[node.d.items.length - 1]
@@ -6836,7 +6832,7 @@ export function createTypeEvaluator(
         const typeVarContext = new TypeVarContext(aliasInfo.typeVarScopeId);
         const diag = new DiagnosticAddendum();
 
-        typeParameters.forEach((param, index) => {
+        typeParams.forEach((param, index) => {
             if (param.shared.isParamSpec && index < typeArgs.length) {
                 const typeArgType = typeArgs[index].type;
                 const typeList = typeArgs[index].typeList;
@@ -6844,10 +6840,10 @@ export function createTypeEvaluator(
                 if (typeList) {
                     const functionType = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.ParamSpecValue);
                     typeList.forEach((paramType, paramIndex) => {
-                        FunctionType.addParameter(
+                        FunctionType.addParam(
                             functionType,
                             FunctionParam.create(
-                                ParameterCategory.Simple,
+                                ParamCategory.Simple,
                                 convertToInstance(paramType.type),
                                 FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
                                 `__p${paramIndex}`
@@ -6856,7 +6852,7 @@ export function createTypeEvaluator(
                     });
 
                     if (typeList.length > 0) {
-                        FunctionType.addPositionOnlyParameterSeparator(functionType);
+                        FunctionType.addPositionOnlyParamSeparator(functionType);
                     }
 
                     assignTypeToTypeVar(
@@ -6883,19 +6879,19 @@ export function createTypeEvaluator(
                     if (concatTypeArgs && concatTypeArgs.length > 0) {
                         concatTypeArgs.forEach((typeArg, index) => {
                             if (index === concatTypeArgs.length - 1) {
-                                FunctionType.addPositionOnlyParameterSeparator(functionType);
+                                FunctionType.addPositionOnlyParamSeparator(functionType);
 
                                 if (isParamSpec(typeArg)) {
                                     FunctionType.addParamSpecVariadics(functionType, typeArg);
                                 } else if (isEllipsisType(typeArg)) {
-                                    FunctionType.addDefaultParameters(functionType);
+                                    FunctionType.addDefaultParams(functionType);
                                     functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
                                 }
                             } else {
-                                FunctionType.addParameter(
+                                FunctionType.addParam(
                                     functionType,
                                     FunctionParam.create(
-                                        ParameterCategory.Simple,
+                                        ParamCategory.Simple,
                                         typeArg,
                                         FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
                                         `__p${index}`
@@ -6918,7 +6914,7 @@ export function createTypeEvaluator(
                         '',
                         FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.GradualCallableForm
                     );
-                    FunctionType.addDefaultParameters(functionType);
+                    FunctionType.addDefaultParams(functionType);
                     assignTypeToTypeVar(evaluatorInterface, param, functionType, diag, typeVarContext);
                 } else {
                     addDiagnostic(
@@ -6949,7 +6945,7 @@ export function createTypeEvaluator(
                 }
 
                 if ((flags & EvalFlags.EnforceVarianceConsistency) !== 0) {
-                    const usageVariances = inferTypeParameterVarianceForTypeAlias(baseType);
+                    const usageVariances = inferVarianceForTypeAlias(baseType);
                     if (usageVariances && index < usageVariances.length) {
                         const usageVariance = usageVariances[index];
 
@@ -6958,7 +6954,7 @@ export function createTypeEvaluator(
                             messageDiag.addMessage(
                                 LocAddendum.varianceMismatchForTypeAlias().format({
                                     typeVarName: printType(typeArgType),
-                                    typeAliasParam: printType(typeParameters[index]),
+                                    typeAliasParam: printType(typeParams[index]),
                                 })
                             );
                             messageDiag.addTextRange(typeArgs[index].node);
@@ -6996,7 +6992,7 @@ export function createTypeEvaluator(
         const primarySignatureContext = typeVarContext.getPrimarySignature();
         const aliasTypeArgs: Type[] = [];
 
-        aliasInfo.typeParameters?.forEach((typeParam) => {
+        aliasInfo.typeParams?.forEach((typeParam) => {
             let typeVarType: Type | undefined;
 
             if (isParamSpec(typeParam)) {
@@ -7027,7 +7023,7 @@ export function createTypeEvaluator(
             aliasInfo.fileUri,
             aliasInfo.typeVarScopeId,
             aliasInfo.isPep695Syntax,
-            aliasInfo.typeParameters,
+            aliasInfo.typeParams,
             aliasTypeArgs
         );
 
@@ -7056,7 +7052,7 @@ export function createTypeEvaluator(
                 Uri.empty(),
                 baseTypeResult.type.shared.recursiveAlias!.scopeId,
                 !!baseTypeResult.type.shared.recursiveAlias!.isPep695Syntax,
-                baseTypeResult.type.shared.recursiveAlias!.typeParameters,
+                baseTypeResult.type.shared.recursiveAlias!.typeParams,
                 typeArgTypes
             );
             return { type };
@@ -7192,7 +7188,7 @@ export function createTypeEvaluator(
                     const hasCustomClassGetItem =
                         isInstantiableClass(concreteSubtype) && ClassType.hasCustomClassGetItem(concreteSubtype);
                     const isGenericClass =
-                        concreteSubtype.shared.typeParameters?.length > 0 ||
+                        concreteSubtype.shared.typeParams?.length > 0 ||
                         ClassType.isSpecialBuiltIn(concreteSubtype) ||
                         ClassType.isBuiltIn(concreteSubtype, 'type') ||
                         ClassType.isPartiallyEvaluated(concreteSubtype);
@@ -7209,11 +7205,7 @@ export function createTypeEvaluator(
                     });
 
                     if (!isAnnotatedClass) {
-                        typeArgs = adjustTypeArgsForVariadicTypeVar(
-                            typeArgs,
-                            concreteSubtype.shared.typeParameters,
-                            node
-                        );
+                        typeArgs = adjustTypeArgsForVariadicTypeVar(typeArgs, concreteSubtype.shared.typeParams, node);
                     }
 
                     // If this is a custom __class_getitem__, there's no need to specialize the class.
@@ -7304,11 +7296,11 @@ export function createTypeEvaluator(
     // type alias. Normally, variance is not important for type aliases, but
     // it can be important in cases where the type alias is used to specify
     // a base class in a class definition.
-    function inferTypeParameterVarianceForTypeAlias(type: Type): Variance[] | undefined {
+    function inferVarianceForTypeAlias(type: Type): Variance[] | undefined {
         const aliasInfo = type.props?.typeAliasInfo;
 
         // If this isn't a generic type alias, there's nothing to do.
-        if (!aliasInfo || !aliasInfo.typeParameters) {
+        if (!aliasInfo || !aliasInfo.typeParams) {
             return undefined;
         }
 
@@ -7317,7 +7309,7 @@ export function createTypeEvaluator(
             return aliasInfo.usageVariance;
         }
 
-        const typeParams = aliasInfo.typeParameters;
+        const typeParams = aliasInfo.typeParams;
 
         // Start with all of the usage variances unknown.
         const usageVariances: Variance[] = typeParams.map(() => Variance.Unknown);
@@ -7376,15 +7368,15 @@ export function createTypeEvaluator(
                 if (subtype.priv.typeArgs) {
                     // If the class includes type parameters that uses auto variance,
                     // compute the calculated variance.
-                    inferTypeParameterVarianceForClass(subtype);
+                    inferVarianceForClass(subtype);
 
                     // Is the class specialized using any type arguments that correspond to
                     // the type alias' type parameters?
                     subtype.priv.typeArgs.forEach((typeArg, classParamIndex) => {
                         if (isTupleClass(subtype)) {
                             updateUsageVarianceForType(typeArg, Variance.Covariant);
-                        } else if (classParamIndex < subtype.shared.typeParameters.length) {
-                            const classTypeParam = subtype.shared.typeParameters[classParamIndex];
+                        } else if (classParamIndex < subtype.shared.typeParams.length) {
+                            const classTypeParam = subtype.shared.typeParams[classParamIndex];
                             if (isUnpackedClass(typeArg) && typeArg.priv.tupleTypeArgs) {
                                 typeArg.priv.tupleTypeArgs.forEach((tupleTypeArg) => {
                                     updateUsageVarianceForType(tupleTypeArg.type, Variance.Invariant);
@@ -8166,10 +8158,10 @@ export function createTypeEvaluator(
                 isArgTypeIncomplete = true;
             }
 
-            FunctionType.addParameter(
+            FunctionType.addParam(
                 expectedType,
                 FunctionParam.create(
-                    ParameterCategory.Simple,
+                    ParamCategory.Simple,
                     argTypeResult.type,
                     FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
                     `p${index.toString()}`
@@ -8182,8 +8174,8 @@ export function createTypeEvaluator(
         const lambdaParams = node.d.leftExpr.d.params;
         if (lambdaParams.length > 0) {
             const lastParam = lambdaParams[lambdaParams.length - 1];
-            if (lastParam.d.category === ParameterCategory.Simple && !lastParam.d.name) {
-                FunctionType.addPositionOnlyParameterSeparator(expectedType);
+            if (lastParam.d.category === ParamCategory.Simple && !lastParam.d.name) {
+                FunctionType.addPositionOnlyParamSeparator(expectedType);
             }
         }
 
@@ -10185,7 +10177,7 @@ export function createTypeEvaluator(
         overloadIndex: number
     ): MatchArgsToParamsResult {
         const overload = typeResult.type;
-        const paramDetails = getParameterListDetails(overload);
+        const paramDetails = getParamListDetails(overload);
         const paramSpec = FunctionType.getParamSpecFromArgsKwargs(overload);
 
         let argIndex = 0;
@@ -10202,11 +10194,11 @@ export function createTypeEvaluator(
         paramDetails.params.forEach((paramInfo) => {
             assert(paramInfo !== undefined, 'paramInfo is undefined for param name map');
             const param = paramInfo.param;
-            if (param.name && param.category === ParameterCategory.Simple) {
+            if (param.name && param.category === ParamCategory.Simple) {
                 paramMap.set(param.name, {
-                    argsNeeded: param.category === ParameterCategory.Simple && !param.defaultType ? 1 : 0,
+                    argsNeeded: param.category === ParamCategory.Simple && !param.defaultType ? 1 : 0,
                     argsReceived: 0,
-                    isPositionalOnly: paramInfo.kind === ParameterKind.Positional,
+                    isPositionalOnly: paramInfo.kind === ParamKind.Positional,
                 });
             }
         });
@@ -10281,7 +10273,7 @@ export function createTypeEvaluator(
                         assert(paramInfo, 'paramInfo entry is undefined fork kwargs check');
                         return (
                             paramInfo.param.name === arg.name!.d.value &&
-                            paramInfo.param.category === ParameterCategory.Simple
+                            paramInfo.param.category === ParamCategory.Simple
                         );
                     });
 
@@ -10384,8 +10376,7 @@ export function createTypeEvaluator(
             const paramType = paramInfo.type;
             const paramName = paramInfo.param.name;
 
-            const isParamVariadic =
-                paramInfo.param.category === ParameterCategory.ArgsList && isVariadicTypeVar(paramType);
+            const isParamVariadic = paramInfo.param.category === ParamCategory.ArgsList && isVariadicTypeVar(paramType);
 
             if (argList[argIndex].argCategory === ArgCategory.UnpackedList) {
                 let isArgCompatibleWithVariadic = false;
@@ -10403,7 +10394,7 @@ export function createTypeEvaluator(
                     if (
                         isTypeVar(argTypeResult.type) &&
                         argTypeResult.type.priv.paramSpecAccess === 'args' &&
-                        paramInfo.param.category !== ParameterCategory.ArgsList
+                        paramInfo.param.category !== ParamCategory.ArgsList
                     ) {
                         if (!canSkipDiagnosticForNode(errorNode) && !isTypeIncomplete) {
                             addDiagnostic(
@@ -10465,7 +10456,7 @@ export function createTypeEvaluator(
                         /* emitNotIterableError */ false
                     )?.type;
 
-                    if (paramInfo.param.category !== ParameterCategory.ArgsList) {
+                    if (paramInfo.param.category !== ParamCategory.ArgsList) {
                         matchedUnpackedListOfUnknownLength = true;
                     }
                 }
@@ -10493,7 +10484,7 @@ export function createTypeEvaluator(
                     }
                     reportedArgError = true;
                 } else {
-                    if (paramSpecArgList && paramInfo.param.category !== ParameterCategory.Simple) {
+                    if (paramSpecArgList && paramInfo.param.category !== ParamCategory.Simple) {
                         paramSpecArgList.push(argList[argIndex]);
                     }
 
@@ -10516,23 +10507,23 @@ export function createTypeEvaluator(
                 // Note that the parameter has received an argument.
                 if (
                     paramName &&
-                    paramDetails.params[paramIndex].param.category === ParameterCategory.Simple &&
+                    paramDetails.params[paramIndex].param.category === ParamCategory.Simple &&
                     paramMap.has(paramName)
                 ) {
                     paramMap.get(paramName)!.argsReceived++;
                 }
 
-                if (advanceToNextArg || paramDetails.params[paramIndex].param.category === ParameterCategory.ArgsList) {
+                if (advanceToNextArg || paramDetails.params[paramIndex].param.category === ParamCategory.ArgsList) {
                     argIndex++;
                 }
 
                 if (
                     isVariadicTypeVarFullyMatched ||
-                    paramDetails.params[paramIndex].param.category !== ParameterCategory.ArgsList
+                    paramDetails.params[paramIndex].param.category !== ParamCategory.ArgsList
                 ) {
                     paramIndex++;
                 }
-            } else if (paramDetails.params[paramIndex].param.category === ParameterCategory.ArgsList) {
+            } else if (paramDetails.params[paramIndex].param.category === ParamCategory.ArgsList) {
                 trySetActive(argList[argIndex], paramDetails.params[paramIndex].param);
 
                 if (paramSpecArgList) {
@@ -10552,8 +10543,8 @@ export function createTypeEvaluator(
                     }
 
                     paramCategory = isVariadicTypeVar(effectiveParamType)
-                        ? ParameterCategory.ArgsList
-                        : ParameterCategory.Simple;
+                        ? ParamCategory.ArgsList
+                        : ParamCategory.Simple;
 
                     if (remainingArgCount <= remainingParamCount) {
                         if (remainingArgCount < remainingParamCount) {
@@ -10621,7 +10612,7 @@ export function createTypeEvaluator(
             positionalOnlyLimitIndex >= 0 &&
             paramIndex < positionalOnlyLimitIndex &&
             paramIndex < paramDetails.params.length &&
-            paramDetails.params[paramIndex].param.category === ParameterCategory.ArgsList &&
+            paramDetails.params[paramIndex].param.category === ParamCategory.ArgsList &&
             !isParamSpec(paramDetails.params[paramIndex].param.type)
         ) {
             paramIndex++;
@@ -10650,8 +10641,7 @@ export function createTypeEvaluator(
             }
 
             const firstArgsParam = paramDetails.params.findIndex(
-                (paramInfo) =>
-                    paramInfo.param.category === ParameterCategory.ArgsList && !isParamSpec(paramInfo.param.type)
+                (paramInfo) => paramInfo.param.category === ParamCategory.ArgsList && !isParamSpec(paramInfo.param.type)
             );
             if (firstArgsParam >= paramIndex && firstArgsParam < positionalOnlyLimitIndex) {
                 // If there is another args parameter beyond the current param index,
@@ -10718,7 +10708,7 @@ export function createTypeEvaluator(
                                     const paramType = paramDetails.params[paramInfoIndex].type;
 
                                     validateArgTypeParams.push({
-                                        paramCategory: ParameterCategory.Simple,
+                                        paramCategory: ParamCategory.Simple,
                                         paramType,
                                         requiresTypeVarMatching: requiresSpecialization(paramType),
                                         argument: {
@@ -10732,7 +10722,7 @@ export function createTypeEvaluator(
                             } else if (paramDetails.kwargsIndex !== undefined) {
                                 const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
                                 validateArgTypeParams.push({
-                                    paramCategory: ParameterCategory.KwargsDict,
+                                    paramCategory: ParamCategory.KwargsDict,
                                     paramType,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: {
@@ -10752,7 +10742,7 @@ export function createTypeEvaluator(
                             } else {
                                 // If the function doesn't have a **kwargs parameter, we need to emit an error.
                                 // However, it's possible that there was a **kwargs but it was eliminated by
-                                // getParameterListDetails because it was associated with an unpacked TypedDict.
+                                // getParamListDetails because it was associated with an unpacked TypedDict.
                                 // In this case, we can skip the error.
                                 if (!paramDetails.hasUnpackedTypedDict) {
                                     diag.addMessage(LocMessage.paramNameMissing().format({ name }));
@@ -10775,7 +10765,7 @@ export function createTypeEvaluator(
 
                         if (!paramSpecArgList) {
                             validateArgTypeParams.push({
-                                paramCategory: ParameterCategory.KwargsDict,
+                                paramCategory: ParamCategory.KwargsDict,
                                 paramType: paramSpec,
                                 requiresTypeVarMatching: false,
                                 argument: argList[argIndex],
@@ -10828,7 +10818,7 @@ export function createTypeEvaluator(
                             if (paramDetails.kwargsIndex !== undefined && unpackedDictionaryArgType) {
                                 const paramType = paramDetails.params[paramDetails.kwargsIndex].type;
                                 validateArgTypeParams.push({
-                                    paramCategory: ParameterCategory.Simple,
+                                    paramCategory: ParamCategory.Simple,
                                     paramType,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argType: unpackedDictionaryArgType,
@@ -10882,7 +10872,7 @@ export function createTypeEvaluator(
                                 const paramType = paramDetails.params[paramInfoIndex].type;
 
                                 validateArgTypeParams.push({
-                                    paramCategory: ParameterCategory.Simple,
+                                    paramCategory: ParamCategory.Simple,
                                     paramType,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: argList[argIndex],
@@ -10906,7 +10896,7 @@ export function createTypeEvaluator(
                                 reportedArgError = true;
                             } else {
                                 validateArgTypeParams.push({
-                                    paramCategory: ParameterCategory.KwargsDict,
+                                    paramCategory: ParamCategory.KwargsDict,
                                     paramType,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: argList[argIndex],
@@ -10966,7 +10956,7 @@ export function createTypeEvaluator(
 
                             if (isParamSpecArgs(paramSpec, argType)) {
                                 validateArgTypeParams.push({
-                                    paramCategory: ParameterCategory.ArgsList,
+                                    paramCategory: ParamCategory.ArgsList,
                                     paramType: paramSpec,
                                     requiresTypeVarMatching: false,
                                     argument: argList[argIndex],
@@ -10991,14 +10981,14 @@ export function createTypeEvaluator(
                     const param = paramInfo.param;
                     if (
                         paramIndex >= paramDetails.firstPositionOrKeywordIndex &&
-                        param.category === ParameterCategory.Simple &&
+                        param.category === ParamCategory.Simple &&
                         param.name &&
                         paramMap.has(param.name) &&
                         paramMap.get(param.name)!.argsReceived === 0
                     ) {
                         const paramType = paramDetails.params[paramIndex].type;
                         validateArgTypeParams.push({
-                            paramCategory: ParameterCategory.Simple,
+                            paramCategory: ParamCategory.Simple,
                             paramType,
                             requiresTypeVarMatching: requiresSpecialization(paramType),
                             argument: {
@@ -11021,7 +11011,7 @@ export function createTypeEvaluator(
             // but have not yet received them. If we received a dictionary argument
             // (i.e. an arg starting with a "**"), we will assume that all parameters
             // are matched.
-            if (!unpackedDictionaryArgType && !FunctionType.isDefaultParameterCheckDisabled(overload)) {
+            if (!unpackedDictionaryArgType && !FunctionType.isDefaultParamCheckDisabled(overload)) {
                 const unassignedParams = Array.from(paramMap.keys()).filter((name) => {
                     const entry = paramMap.get(name)!;
                     return !entry || entry.argsReceived < entry.argsNeeded;
@@ -11050,7 +11040,7 @@ export function createTypeEvaluator(
                 // value's type if it's not provided by the caller.
                 paramDetails.params.forEach((paramInfo) => {
                     const param = paramInfo.param;
-                    if (param.category === ParameterCategory.Simple && param.name) {
+                    if (param.category === ParamCategory.Simple && param.name) {
                         const entry = paramMap.get(param.name)!;
                         if (entry.argsNeeded === 0 && entry.argsReceived === 0) {
                             const defaultArgType = paramInfo.defaultArgType ?? param.defaultType;
@@ -11149,7 +11139,7 @@ export function createTypeEvaluator(
                     }
 
                     const combinedArg: ValidateArgTypeParams = {
-                        paramCategory: ParameterCategory.ArgsList,
+                        paramCategory: ParamCategory.ArgsList,
                         paramType,
                         requiresTypeVarMatching: true,
                         argument: {
@@ -11415,7 +11405,7 @@ export function createTypeEvaluator(
             ClassType.isSameGenericClass(type.priv.strippedFirstParamType, type.priv.boundToType) &&
             type.priv.strippedFirstParamType.priv.typeArgs
         ) {
-            const typeParams = type.priv.strippedFirstParamType.shared.typeParameters;
+            const typeParams = type.priv.strippedFirstParamType.shared.typeParams;
             specializedInitSelfType = type.priv.strippedFirstParamType;
             type.priv.strippedFirstParamType.priv.typeArgs.forEach((typeArg, index) => {
                 if (index < typeParams.length) {
@@ -12055,7 +12045,7 @@ export function createTypeEvaluator(
         // If we're assigning to a var arg dictionary with a TypeVar type,
         // strip literals before performing the assignment. This is used in
         // places like a dict constructor.
-        if (argParam.paramCategory === ParameterCategory.KwargsDict && isTypeVar(argParam.paramType)) {
+        if (argParam.paramCategory === ParamCategory.KwargsDict && isTypeVar(argParam.paramType)) {
             argType = stripLiteralValue(argType);
         }
 
@@ -12681,7 +12671,7 @@ export function createTypeEvaluator(
         const functionType = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.ParamSpecValue);
 
         if (node.nodeType === ParseNodeType.Ellipsis) {
-            FunctionType.addDefaultParameters(functionType);
+            FunctionType.addDefaultParams(functionType);
             functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
             return functionType;
         }
@@ -12694,10 +12684,10 @@ export function createTypeEvaluator(
                     typeExpression: true,
                 });
 
-                FunctionType.addParameter(
+                FunctionType.addParam(
                     functionType,
                     FunctionParam.create(
-                        ParameterCategory.Simple,
+                        ParamCategory.Simple,
                         convertToInstance(typeResult.type),
                         FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
                         `__p${index}`
@@ -12706,7 +12696,7 @@ export function createTypeEvaluator(
             });
 
             if (node.d.items.length > 0) {
-                FunctionType.addPositionOnlyParameterSeparator(functionType);
+                FunctionType.addPositionOnlyParamSeparator(functionType);
             }
 
             // Update the type cache so we don't attempt to re-evaluate this node.
@@ -12733,7 +12723,7 @@ export function createTypeEvaluator(
                 isClassInstance(typeResult.type) &&
                 ClassType.isBuiltIn(typeResult.type, ['EllipsisType', 'ellipsis'])
             ) {
-                FunctionType.addDefaultParameters(functionType);
+                FunctionType.addDefaultParams(functionType);
                 return functionType;
             }
         }
@@ -12810,7 +12800,7 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        let typeParameters: TypeVarType[] | undefined;
+        let typeParams: TypeVarType[] | undefined;
         if (typeParamsExpr) {
             if (typeParamsExpr.nodeType !== ParseNodeType.Tuple) {
                 addDiagnostic(
@@ -12821,7 +12811,7 @@ export function createTypeEvaluator(
                 return undefined;
             }
 
-            typeParameters = [];
+            typeParams = [];
             let isTypeParamListValid = true;
             typeParamsExpr.d.items.map((expr) => {
                 let entryType = getTypeOfExpression(
@@ -12841,7 +12831,7 @@ export function createTypeEvaluator(
                         );
                     }
 
-                    typeParameters!.push(entryType);
+                    typeParams!.push(entryType);
                 } else {
                     isTypeParamListValid = false;
                 }
@@ -12863,7 +12853,7 @@ export function createTypeEvaluator(
             valueExpr,
             /* isPep695Syntax */ true,
             /* typeParamNodes */ undefined,
-            () => typeParameters
+            () => typeParams
         );
     }
 
@@ -13005,19 +12995,19 @@ export function createTypeEvaluator(
         if (!isBaseClassAny) {
             // Synthesize an __init__ method that accepts only the specified type.
             const initType = FunctionType.createSynthesizedInstance('__init__');
-            FunctionType.addParameter(
+            FunctionType.addParam(
                 initType,
                 FunctionParam.create(
-                    ParameterCategory.Simple,
+                    ParamCategory.Simple,
                     ClassType.cloneAsInstance(classType),
                     FunctionParamFlags.TypeDeclared,
                     'self'
                 )
             );
-            FunctionType.addParameter(
+            FunctionType.addParam(
                 initType,
                 FunctionParam.create(
-                    ParameterCategory.Simple,
+                    ParamCategory.Simple,
                     ClassType.cloneAsInstance(baseClass),
                     FunctionParamFlags.TypeDeclared,
                     '_x'
@@ -13031,11 +13021,11 @@ export function createTypeEvaluator(
 
             // Synthesize a trivial __new__ method.
             const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
-            FunctionType.addParameter(
+            FunctionType.addParam(
                 newType,
-                FunctionParam.create(ParameterCategory.Simple, classType, FunctionParamFlags.TypeDeclared, 'cls')
+                FunctionParam.create(ParamCategory.Simple, classType, FunctionParamFlags.TypeDeclared, 'cls')
             );
-            FunctionType.addDefaultParameters(newType);
+            FunctionType.addDefaultParams(newType);
             newType.shared.declaredReturnType = ClassType.cloneAsInstance(classType);
             newType.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
             ClassType.getSymbolTable(classType).set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
@@ -13395,8 +13385,8 @@ export function createTypeEvaluator(
         // and Iterable use covariant value types, so they can be narrowed.
         let isValueTypeInvariant = false;
         if (isClassInstance(inferenceContext.expectedType)) {
-            if (inferenceContext.expectedType.shared.typeParameters.length >= 2) {
-                const valueTypeParam = inferenceContext.expectedType.shared.typeParameters[1];
+            if (inferenceContext.expectedType.shared.typeParams.length >= 2) {
+                const valueTypeParam = inferenceContext.expectedType.shared.typeParams[1];
                 if (TypeVarType.getVariance(valueTypeParam) === Variance.Invariant) {
                     isValueTypeInvariant = true;
                 }
@@ -13921,10 +13911,10 @@ export function createTypeEvaluator(
         let isTypeInvariant = false;
 
         if (isClassInstance(inferenceContext.expectedType)) {
-            inferTypeParameterVarianceForClass(inferenceContext.expectedType);
+            inferVarianceForClass(inferenceContext.expectedType);
 
             if (
-                inferenceContext.expectedType.shared.typeParameters.some(
+                inferenceContext.expectedType.shared.typeParams.some(
                     (t) => TypeVarType.getVariance(t) === Variance.Invariant
                 )
             ) {
@@ -14263,13 +14253,13 @@ export function createTypeEvaluator(
         let paramsArePositionOnly = true;
 
         let expectedReturnType: Type | undefined;
-        let expectedParamDetails: ParameterListDetails | undefined;
+        let expectedParamDetails: ParamListDetails | undefined;
 
         if (expectedType) {
             const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
             expectedType = transformExpectedType(expectedType, liveTypeVarScopes, node.start) as FunctionType;
 
-            expectedParamDetails = getParameterListDetails(expectedType);
+            expectedParamDetails = getParamListDetails(expectedType);
             expectedReturnType = getFunctionEffectiveReturnType(expectedType);
         }
 
@@ -14316,7 +14306,7 @@ export function createTypeEvaluator(
                 } else if (param.d.defaultValue) {
                     // If there is no inference context but we have a default value,
                     // use the default value to infer the parameter's type.
-                    paramType = inferParameterTypeFromDefaultValue(param.d.defaultValue);
+                    paramType = inferParamTypeFromDefaultValue(param.d.defaultValue);
                 }
 
                 if (param.d.name) {
@@ -14340,7 +14330,7 @@ export function createTypeEvaluator(
                 if (index >= 0) {
                     let isImplicitPositionOnlyParam = false;
 
-                    if (param.d.category === ParameterCategory.Simple && param.d.name) {
+                    if (param.d.category === ParamCategory.Simple && param.d.name) {
                         if (isPrivateName(param.d.name.d.value)) {
                             isImplicitPositionOnlyParam = true;
                         }
@@ -14353,7 +14343,7 @@ export function createTypeEvaluator(
                         !isImplicitPositionOnlyParam &&
                         functionType.shared.parameters.length > 0
                     ) {
-                        FunctionType.addPositionOnlyParameterSeparator(functionType);
+                        FunctionType.addPositionOnlyParamSeparator(functionType);
                     }
 
                     if (!isImplicitPositionOnlyParam) {
@@ -14369,11 +14359,11 @@ export function createTypeEvaluator(
                     param.d.defaultValue ? AnyType.create(/* isEllipsis */ true) : undefined
                 );
 
-                FunctionType.addParameter(functionType, functionParam);
+                FunctionType.addParam(functionType, functionParam);
             });
 
             if (paramsArePositionOnly && functionType.shared.parameters.length > 0) {
-                FunctionType.addPositionOnlyParameterSeparator(functionType);
+                FunctionType.addPositionOnlyParamSeparator(functionType);
             }
 
             let typeErrors = false;
@@ -14770,16 +14760,16 @@ export function createTypeEvaluator(
 
                 typeList.forEach((entry, index) => {
                     let entryType = entry.type;
-                    let paramCategory: ParameterCategory = ParameterCategory.Simple;
+                    let paramCategory: ParamCategory = ParamCategory.Simple;
                     const paramName = `__p${index.toString()}`;
 
                     if (isVariadicTypeVar(entryType)) {
                         validateVariadicTypeVarIsUnpacked(entryType, entry.node);
-                        paramCategory = ParameterCategory.ArgsList;
+                        paramCategory = ParamCategory.ArgsList;
                         noteSawUnpacked(entry);
                     } else if (validateTypeArg(entry, { allowUnpackedTuples: true })) {
                         if (isUnpackedClass(entryType)) {
-                            paramCategory = ParameterCategory.ArgsList;
+                            paramCategory = ParamCategory.ArgsList;
 
                             if (
                                 entryType.priv.tupleTypeArgs?.some(
@@ -14793,7 +14783,7 @@ export function createTypeEvaluator(
                         entryType = UnknownType.create();
                     }
 
-                    FunctionType.addParameter(
+                    FunctionType.addParam(
                         functionType,
                         FunctionParam.create(
                             paramCategory,
@@ -14805,10 +14795,10 @@ export function createTypeEvaluator(
                 });
 
                 if (typeList.length > 0) {
-                    FunctionType.addPositionOnlyParameterSeparator(functionType);
+                    FunctionType.addPositionOnlyParamSeparator(functionType);
                 }
             } else if (isEllipsisType(typeArgs[0].type)) {
-                FunctionType.addDefaultParameters(functionType);
+                FunctionType.addDefaultParams(functionType);
                 functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
             } else if (isParamSpec(typeArgs[0].type)) {
                 paramSpec = typeArgs[0].type;
@@ -14818,19 +14808,19 @@ export function createTypeEvaluator(
                     if (concatTypeArgs && concatTypeArgs.length > 0) {
                         concatTypeArgs.forEach((typeArg, index) => {
                             if (index === concatTypeArgs.length - 1) {
-                                FunctionType.addPositionOnlyParameterSeparator(functionType);
+                                FunctionType.addPositionOnlyParamSeparator(functionType);
 
                                 if (isParamSpec(typeArg)) {
                                     paramSpec = typeArg;
                                 } else if (isEllipsisType(typeArg)) {
-                                    FunctionType.addDefaultParameters(functionType);
+                                    FunctionType.addDefaultParams(functionType);
                                     functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
                                 }
                             } else {
-                                FunctionType.addParameter(
+                                FunctionType.addParam(
                                     functionType,
                                     FunctionParam.create(
-                                        ParameterCategory.Simple,
+                                        ParamCategory.Simple,
                                         typeArg,
                                         FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
                                         `__p${index}`
@@ -14864,7 +14854,7 @@ export function createTypeEvaluator(
                 addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.callableExtraArgs(), typeArgs[2].node);
             }
         } else {
-            FunctionType.addDefaultParameters(functionType, /* useUnknown */ true);
+            FunctionType.addDefaultParams(functionType, /* useUnknown */ true);
             functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
         }
 
@@ -15091,7 +15081,7 @@ export function createTypeEvaluator(
     }
 
     // Creates a "TypeGuard" and "TypeIs" type. This is an alias for 'bool', which
-    // isn't a generic type and therefore doesn't have a typeParameter.
+    // isn't a generic type and therefore doesn't have a typeParam.
     // We'll abuse our internal types a bit by specializing it with
     // a type argument anyway.
     function createTypeGuardType(
@@ -15179,7 +15169,7 @@ export function createTypeEvaluator(
                 }
 
                 if (enclosingFunction.d.params.length > 0) {
-                    const firstParamTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParameter(enclosingFunction, 0);
+                    const firstParamTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParam(enclosingFunction, 0);
                     if (
                         firstParamTypeAnnotation &&
                         !ParseTreeUtils.isNodeContainedWithin(errorNode, firstParamTypeAnnotation)
@@ -15806,7 +15796,7 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         isPep695Syntax: boolean,
         isPep695TypeVarType: boolean,
-        typeParameters?: TypeVarType[],
+        typeParams?: TypeVarType[],
         typeParamNodes?: TypeParameterNode[]
     ): Type {
         if (!TypeBase.isInstantiable(type)) {
@@ -15819,19 +15809,19 @@ export function createTypeEvaluator(
             return type;
         }
 
-        if (!typeParameters) {
+        if (!typeParams) {
             // Determine if there are any generic type parameters associated
             // with this type alias.
-            typeParameters = [];
+            typeParams = [];
 
-            addTypeVarsToListIfUnique(typeParameters, getTypeVarArgsRecursive(type));
+            addTypeVarsToListIfUnique(typeParams, getTypeVarArgsRecursive(type));
 
             // Don't include any synthesized type variables.
-            typeParameters = typeParameters.filter((typeVar) => !typeVar.shared.isSynthesized);
+            typeParams = typeParams.filter((typeVar) => !typeVar.shared.isSynthesized);
         }
 
         // Convert all type variables to instances.
-        typeParameters = typeParameters.map((typeVar) => {
+        typeParams = typeParams.map((typeVar) => {
             if (TypeBase.isInstance(typeVar)) {
                 return typeVar;
             }
@@ -15840,9 +15830,9 @@ export function createTypeEvaluator(
 
         // See if the type alias includes a TypeVarTuple followed by a TypeVar
         // with a default value. This isn't allowed.
-        const firstTypeVarTupleIndex = typeParameters.findIndex((typeVar) => isVariadicTypeVar(typeVar));
+        const firstTypeVarTupleIndex = typeParams.findIndex((typeVar) => isVariadicTypeVar(typeVar));
         if (firstTypeVarTupleIndex >= 0) {
-            const typeVarWithDefaultIndex = typeParameters.findIndex(
+            const typeVarWithDefaultIndex = typeParams.findIndex(
                 (typeVar, index) =>
                     index > firstTypeVarTupleIndex && !typeVar.shared.isParamSpec && typeVar.shared.isDefaultExplicit
             );
@@ -15851,8 +15841,8 @@ export function createTypeEvaluator(
                 addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
                     LocMessage.typeVarWithDefaultFollowsVariadic().format({
-                        typeVarName: typeParameters[typeVarWithDefaultIndex].shared.name,
-                        variadicName: typeParameters[firstTypeVarTupleIndex].shared.name,
+                        typeVarName: typeParams[typeVarWithDefaultIndex].shared.name,
+                        variadicName: typeParams[firstTypeVarTupleIndex].shared.name,
                     }),
                     typeParamNodes ? typeParamNodes[typeVarWithDefaultIndex].d.name : name
                 );
@@ -15862,17 +15852,17 @@ export function createTypeEvaluator(
         const typeAliasScopeId = ParseTreeUtils.getScopeIdForNode(name);
 
         // Validate the default types for all type parameters.
-        typeParameters.forEach((typeParam, index) => {
-            assert(typeParameters !== undefined);
+        typeParams.forEach((typeParam, index) => {
+            assert(typeParams !== undefined);
             let bestErrorNode = errorNode;
             if (typeParamNodes && index < typeParamNodes.length) {
                 bestErrorNode = typeParamNodes[index].d.defaultExpr ?? typeParamNodes[index].d.name;
             }
-            validateTypeParameterDefault(bestErrorNode, typeParam, typeParameters.slice(0, index), typeAliasScopeId);
+            validateTypeParamDefault(bestErrorNode, typeParam, typeParams.slice(0, index), typeAliasScopeId);
         });
 
         // Verify that we have at most one variadic type variable.
-        const variadics = typeParameters.filter((param) => isVariadicTypeVar(param));
+        const variadics = typeParams.filter((param) => isVariadicTypeVar(param));
         if (variadics.length > 1) {
             addDiagnostic(
                 DiagnosticRule.reportInvalidTypeForm,
@@ -15884,7 +15874,7 @@ export function createTypeEvaluator(
         }
 
         if (!isPep695Syntax && !isPep695TypeVarType) {
-            const boundTypeVars = typeParameters.filter(
+            const boundTypeVars = typeParams.filter(
                 (typeVar) =>
                     typeVar.priv.scopeId !== typeAliasScopeId && typeVar.priv.scopeType === TypeVarScopeType.Class
             );
@@ -15909,7 +15899,7 @@ export function createTypeEvaluator(
             fileInfo.fileUri,
             typeAliasScopeId,
             isPep695Syntax,
-            typeParameters.length > 0 ? typeParameters : undefined
+            typeParams.length > 0 ? typeParams : undefined
         );
 
         // All PEP 695 type aliases are special forms because they are
@@ -15956,7 +15946,7 @@ export function createTypeEvaluator(
                 TypeVarScopeType.Class
             );
             typeParam.shared.declaredVariance = aliasMapEntry.typeParamVariance;
-            specialClassType.shared.typeParameters.push(typeParam);
+            specialClassType.shared.typeParams.push(typeParam);
         }
 
         const specialBuiltInClassDeclaration = (AnalyzerNodeInfo.getDeclaration(node) ??
@@ -16269,8 +16259,7 @@ export function createTypeEvaluator(
 
                 // Record the type parameters within the recursive type alias so it
                 // can be specialized.
-                typeAliasPlaceholder.shared.recursiveAlias!.typeParameters =
-                    rightHandType.props?.typeAliasInfo?.typeParameters;
+                typeAliasPlaceholder.shared.recursiveAlias!.typeParams = rightHandType.props?.typeAliasInfo?.typeParams;
             } else {
                 // If the RHS is a constant boolean expression, assign it a literal type.
                 const constExprValue = evaluateStaticBoolExpression(
@@ -16310,7 +16299,7 @@ export function createTypeEvaluator(
             name: nameNode.d.value,
             scopeId,
             isPep695Syntax: false,
-            typeParameters: undefined,
+            typeParams: undefined,
         };
         placeholder.priv.scopeId = scopeId;
 
@@ -16329,7 +16318,7 @@ export function createTypeEvaluator(
             node.d.typeParams?.d.params,
             () => {
                 if (node.d.typeParams) {
-                    return evaluateTypeParameterList(node.d.typeParams);
+                    return evaluateTypeParamList(node.d.typeParams);
                 }
                 return undefined;
             }
@@ -16366,9 +16355,9 @@ export function createTypeEvaluator(
             setSymbolResolutionPartialType(typeAliasSymbol.symbol, typeAliasDecl, typeAliasTypeVar);
         }
 
-        const typeParameters = getTypeParamCallback();
+        const typeParams = getTypeParamCallback();
         if (typeAliasTypeVar.shared.recursiveAlias) {
-            typeAliasTypeVar.shared.recursiveAlias.typeParameters = typeParameters ?? [];
+            typeAliasTypeVar.shared.recursiveAlias.typeParams = typeParams ?? [];
         }
 
         const aliasTypeResult = getTypeOfExpressionExpectingType(valueNode, {
@@ -16387,7 +16376,7 @@ export function createTypeEvaluator(
             nameNode,
             isPep695Syntax,
             /* isPep695TypeVarType */ true,
-            typeParameters,
+            typeParams,
             typeParamNodes
         );
 
@@ -16550,18 +16539,16 @@ export function createTypeEvaluator(
 
             // Keep a list of unique type parameters that are used in the
             // base class arguments.
-            let typeParameters: TypeVarType[] = [];
+            let typeParams: TypeVarType[] = [];
 
             if (node.d.typeParams) {
-                typeParameters = evaluateTypeParameterList(node.d.typeParams).map((t) =>
-                    TypeVarType.cloneAsInstance(t)
-                );
+                typeParams = evaluateTypeParamList(node.d.typeParams).map((t) => TypeVarType.cloneAsInstance(t));
             }
 
             // If the class derives from "Generic" directly, it will provide
             // all of the type parameters in the specified order.
-            let genericTypeParameters: TypeVarType[] | undefined;
-            let protocolTypeParameters: TypeVarType[] | undefined;
+            let genericTypeParams: TypeVarType[] | undefined;
+            let protocolTypeParams: TypeVarType[] | undefined;
             let isNamedTupleSubclass = false;
 
             const initSubclassArgs: Arg[] = [];
@@ -16760,7 +16747,7 @@ export function createTypeEvaluator(
                         }
                     }
 
-                    addTypeVarsToListIfUnique(typeParameters, getTypeVarArgsRecursive(argType));
+                    addTypeVarsToListIfUnique(typeParams, getTypeVarArgsRecursive(argType));
                     if (isInstantiableClass(argType)) {
                         if (ClassType.isBuiltIn(argType, 'Generic')) {
                             // 'Generic' is implicitly added if type parameter syntax is used.
@@ -16771,16 +16758,16 @@ export function createTypeEvaluator(
                                     arg.d.valueExpr
                                 );
                             } else {
-                                if (!genericTypeParameters) {
-                                    if (protocolTypeParameters) {
+                                if (!genericTypeParams) {
+                                    if (protocolTypeParams) {
                                         addDiagnostic(
                                             DiagnosticRule.reportGeneralTypeIssues,
                                             LocMessage.duplicateGenericAndProtocolBase(),
                                             arg.d.valueExpr
                                         );
                                     }
-                                    genericTypeParameters = [];
-                                    addTypeVarsToListIfUnique(genericTypeParameters, getTypeVarArgsRecursive(argType));
+                                    genericTypeParams = [];
+                                    addTypeVarsToListIfUnique(genericTypeParams, getTypeVarArgsRecursive(argType));
                                 }
                             }
                         } else if (
@@ -16788,24 +16775,24 @@ export function createTypeEvaluator(
                             argType.priv.typeArgs &&
                             argType.priv.typeArgs.length > 0
                         ) {
-                            if (!protocolTypeParameters) {
-                                if (genericTypeParameters) {
+                            if (!protocolTypeParams) {
+                                if (genericTypeParams) {
                                     addDiagnostic(
                                         DiagnosticRule.reportGeneralTypeIssues,
                                         LocMessage.duplicateGenericAndProtocolBase(),
                                         arg.d.valueExpr
                                     );
                                 }
-                                protocolTypeParameters = [];
-                                addTypeVarsToListIfUnique(protocolTypeParameters, getTypeVarArgsRecursive(argType));
+                                protocolTypeParams = [];
+                                addTypeVarsToListIfUnique(protocolTypeParams, getTypeVarArgsRecursive(argType));
 
-                                if (node.d.typeParams && protocolTypeParameters.length > 0) {
+                                if (node.d.typeParams && protocolTypeParams.length > 0) {
                                     addDiagnostic(
                                         DiagnosticRule.reportGeneralTypeIssues,
                                         LocMessage.protocolBaseClassWithTypeArgs(),
                                         arg.d.valueExpr
                                     );
-                                    protocolTypeParameters = [];
+                                    protocolTypeParams = [];
                                 }
                             }
                         }
@@ -16894,17 +16881,17 @@ export function createTypeEvaluator(
                 classType.shared.baseClasses.push(getBuiltInType(node, 'object'));
             }
 
-            // If genericTypeParameters or protocolTypeParameters are provided,
-            // make sure that typeParameters is a proper subset.
-            genericTypeParameters = genericTypeParameters ?? protocolTypeParameters;
-            if (genericTypeParameters && !node.d.typeParams) {
-                verifyGenericTypeParameters(node.d.name, typeParameters, genericTypeParameters);
+            // If genericTypeParams or protocolTypeParams are provided,
+            // make sure that typeParams is a proper subset.
+            genericTypeParams = genericTypeParams ?? protocolTypeParams;
+            if (genericTypeParams && !node.d.typeParams) {
+                verifyGenericTypeParams(node.d.name, typeParams, genericTypeParams);
             }
-            classType.shared.typeParameters = genericTypeParameters ?? typeParameters;
+            classType.shared.typeParams = genericTypeParams ?? typeParams;
 
             // Determine if one or more type parameters is autovariance.
             if (
-                classType.shared.typeParameters.some(
+                classType.shared.typeParams.some(
                     (param) =>
                         param.shared.declaredVariance === Variance.Auto && param.priv.computedVariance === undefined
                 )
@@ -16913,7 +16900,7 @@ export function createTypeEvaluator(
             }
 
             // Make sure there's at most one variadic type parameter.
-            const variadics = typeParameters.filter((param) => isVariadicTypeVar(param));
+            const variadics = typeParams.filter((param) => isVariadicTypeVar(param));
             if (variadics.length > 1) {
                 addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -16925,10 +16912,8 @@ export function createTypeEvaluator(
                 );
             } else if (variadics.length > 0) {
                 // Make sure a TypeVar with a default doesn't come after a variadic type parameter.
-                const firstVariadicIndex = classType.shared.typeParameters.findIndex((param) =>
-                    isVariadicTypeVar(param)
-                );
-                const typeVarWithDefaultIndex = classType.shared.typeParameters.findIndex(
+                const firstVariadicIndex = classType.shared.typeParams.findIndex((param) => isVariadicTypeVar(param));
+                const typeVarWithDefaultIndex = classType.shared.typeParams.findIndex(
                     (param, index) =>
                         index > firstVariadicIndex && !param.shared.isParamSpec && param.shared.isDefaultExplicit
                 );
@@ -16937,8 +16922,8 @@ export function createTypeEvaluator(
                     addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.typeVarWithDefaultFollowsVariadic().format({
-                            typeVarName: typeParameters[typeVarWithDefaultIndex].shared.name,
-                            variadicName: typeParameters[firstVariadicIndex].shared.name,
+                            typeVarName: typeParams[typeVarWithDefaultIndex].shared.name,
+                            variadicName: typeParams[firstVariadicIndex].shared.name,
                         }),
                         node.d.typeParams ? node.d.typeParams.d.params[typeVarWithDefaultIndex].d.name : node.d.name
                     );
@@ -16946,16 +16931,16 @@ export function createTypeEvaluator(
             }
 
             // Validate the default types for all type parameters.
-            classType.shared.typeParameters.forEach((typeParam, index) => {
+            classType.shared.typeParams.forEach((typeParam, index) => {
                 let bestErrorNode: ExpressionNode = node.d.name;
                 if (node.d.typeParams && index < node.d.typeParams.d.params.length) {
                     const typeParamNode = node.d.typeParams.d.params[index];
                     bestErrorNode = typeParamNode.d.defaultExpr ?? typeParamNode.d.name;
                 }
-                validateTypeParameterDefault(
+                validateTypeParamDefault(
                     bestErrorNode,
                     typeParam,
-                    classType.shared.typeParameters.slice(0, index),
+                    classType.shared.typeParams.slice(0, index),
                     classType.shared.typeVarScopeId!
                 );
             });
@@ -16998,7 +16983,7 @@ export function createTypeEvaluator(
             // by having an __init__ method with parameters that lack type annotations.
             // For such classes, we'll treat them as generic, with the type arguments provided
             // by the callers of the constructor.
-            if (!fileInfo.isStubFile && classType.shared.typeParameters.length === 0) {
+            if (!fileInfo.isStubFile && classType.shared.typeParams.length === 0) {
                 const initMethod = classType.shared.fields.get('__init__');
                 if (initMethod) {
                     const initDecls = initMethod.getTypedDeclarations();
@@ -17009,14 +16994,14 @@ export function createTypeEvaluator(
                         if (
                             initParams.length > 1 &&
                             !initParams.some(
-                                (param, index) => !!ParseTreeUtils.getTypeAnnotationForParameter(initDeclNode, index)
+                                (param, index) => !!ParseTreeUtils.getTypeAnnotationForParam(initDeclNode, index)
                             )
                         ) {
                             const genericParams = initParams.filter(
                                 (param, index) =>
                                     index > 0 &&
                                     param.d.name &&
-                                    param.d.category === ParameterCategory.Simple &&
+                                    param.d.category === ParamCategory.Simple &&
                                     !param.d.defaultValue
                             );
 
@@ -17025,7 +17010,7 @@ export function createTypeEvaluator(
 
                                 // Create a type parameter for each simple, named parameter
                                 // in the __init__ method.
-                                classType.shared.typeParameters = genericParams.map((param) => {
+                                classType.shared.typeParams = genericParams.map((param) => {
                                     const typeVar = TypeVarType.createInstance(
                                         getPseudoGenericTypeVarName(param.d.name!.d.value)
                                     );
@@ -17048,7 +17033,7 @@ export function createTypeEvaluator(
             // Determine if the class has a custom __class_getitem__ method. This applies
             // only to classes that have no type parameters, since those with type parameters
             // are assumed to follow normal subscripting semantics for generic classes.
-            if (classType.shared.typeParameters.length === 0 && !ClassType.isBuiltIn(classType, 'type')) {
+            if (classType.shared.typeParams.length === 0 && !ClassType.isBuiltIn(classType, 'type')) {
                 if (
                     classType.shared.baseClasses.some(
                         (baseClass) => isInstantiableClass(baseClass) && ClassType.hasCustomClassGetItem(baseClass)
@@ -17276,7 +17261,7 @@ export function createTypeEvaluator(
     // type parameter. If so, validates that it is in the list of "live" type
     // parameters and updates the scope of the type parameter referred to in the
     // default type expression.
-    function validateTypeParameterDefault(
+    function validateTypeParamDefault(
         errorNode: ExpressionNode,
         typeParam: TypeVarType,
         otherLiveTypeParams: TypeVarType[],
@@ -17324,7 +17309,7 @@ export function createTypeEvaluator(
         }
     }
 
-    function inferTypeParameterVarianceForClass(classType: ClassType): void {
+    function inferVarianceForClass(classType: ClassType): void {
         if (!classType.shared.requiresVarianceInference) {
             return;
         }
@@ -17335,7 +17320,7 @@ export function createTypeEvaluator(
 
         // Presumptively mark the computed variance to "unknown". We'll
         // replace this below once the variance has been inferred.
-        classType.shared.typeParameters.forEach((param) => {
+        classType.shared.typeParams.forEach((param) => {
             if (param.shared.declaredVariance === Variance.Auto) {
                 param.priv.computedVariance = Variance.Unknown;
             }
@@ -17352,7 +17337,7 @@ export function createTypeEvaluator(
             undefined
         );
 
-        classType.shared.typeParameters.forEach((param, paramIndex) => {
+        classType.shared.typeParams.forEach((param, paramIndex) => {
             // Skip variadics and ParamSpecs.
             if (param.shared.isVariadic || param.shared.isParamSpec) {
                 return;
@@ -17365,7 +17350,7 @@ export function createTypeEvaluator(
 
             // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with an object instance.
-            const srcTypeArgs = classType.shared.typeParameters.map((p, i) => {
+            const srcTypeArgs = classType.shared.typeParams.map((p, i) => {
                 if (p.shared.isVariadic) {
                     return p;
                 }
@@ -17374,7 +17359,7 @@ export function createTypeEvaluator(
 
             // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with itself.
-            const destTypeArgs = classType.shared.typeParameters.map((p, i) => {
+            const destTypeArgs = classType.shared.typeParams.map((p, i) => {
                 return i === paramIndex || p.shared.isVariadic ? p : dummyTypeObject;
             });
 
@@ -17408,11 +17393,11 @@ export function createTypeEvaluator(
             // We assume here that we don't need to clone the type var object
             // because it was already cloned when it was associated with this
             // class scope.
-            classType.shared.typeParameters[paramIndex].priv.computedVariance = inferredVariance;
+            classType.shared.typeParams[paramIndex].priv.computedVariance = inferredVariance;
         });
     }
 
-    function evaluateTypeParameterList(node: TypeParameterListNode): TypeVarType[] {
+    function evaluateTypeParamList(node: TypeParameterListNode): TypeVarType[] {
         const paramTypes: TypeVarType[] = [];
         const typeParamScope = AnalyzerNodeInfo.getScope(node);
 
@@ -17503,7 +17488,7 @@ export function createTypeEvaluator(
     // or "Protocol" are also provided within the "Generic". For example:
     //    class Foo(Mapping[K, V], Generic[V])
     // is illegal because K is not included in Generic.
-    function verifyGenericTypeParameters(
+    function verifyGenericTypeParams(
         errorNode: ExpressionNode,
         typeVars: TypeVarType[],
         genericTypeVars: TypeVarType[]
@@ -17624,14 +17609,14 @@ export function createTypeEvaluator(
         if (newMethodMember) {
             const newMethodType = getTypeOfMember(newMethodMember);
             if (isFunction(newMethodType)) {
-                const paramListDetails = getParameterListDetails(newMethodType);
+                const paramListDetails = getParamListDetails(newMethodType);
 
                 if (paramListDetails.firstKeywordOnlyIndex !== undefined) {
                     // Build a map of the keyword-only parameters.
                     const paramMap = new Map<string, number>();
                     for (let i = paramListDetails.firstKeywordOnlyIndex; i < paramListDetails.params.length; i++) {
                         const paramInfo = paramListDetails.params[i];
-                        if (paramInfo.param.category === ParameterCategory.Simple && paramInfo.param.name) {
+                        if (paramInfo.param.category === ParamCategory.Simple && paramInfo.param.name) {
                             paramMap.set(paramInfo.param.name, i);
                         }
                     }
@@ -17956,13 +17941,13 @@ export function createTypeEvaluator(
 
             // If this function uses PEP 695 syntax for type parameters,
             // accumulate the list of type parameters upfront.
-            const typeParametersSeen: TypeVarType[] = [];
+            const typeParamsSeen: TypeVarType[] = [];
             if (node.d.typeParams) {
-                functionType.shared.typeParameters = evaluateTypeParameterList(node.d.typeParams).map((typeParam) =>
+                functionType.shared.typeParams = evaluateTypeParamList(node.d.typeParams).map((typeParam) =>
                     convertToInstance(typeParam)
                 );
             } else {
-                functionType.shared.typeParameters = typeParametersSeen;
+                functionType.shared.typeParams = typeParamsSeen;
             }
 
             let paramsArePositionOnly = true;
@@ -18006,12 +17991,12 @@ export function createTypeEvaluator(
                     if ((functionInfo.flags & FunctionTypeFlags.NoTypeCheck) !== 0) {
                         annotatedType = UnknownType.create();
                     } else {
-                        annotatedType = getTypeOfParameterAnnotation(paramTypeNode, param.d.category);
+                        annotatedType = getTypeOfParamAnnotation(paramTypeNode, param.d.category);
                     }
 
                     if (annotatedType) {
                         addTypeVarsToListIfUnique(
-                            typeParametersSeen,
+                            typeParamsSeen,
                             getTypeVarArgsRecursive(annotatedType),
                             functionType.shared.typeVarScopeId
                         );
@@ -18033,19 +18018,19 @@ export function createTypeEvaluator(
                 if (!annotatedType && addGenericParamTypes) {
                     if (
                         index > 0 &&
-                        param.d.category === ParameterCategory.Simple &&
+                        param.d.category === ParamCategory.Simple &&
                         param.d.name &&
                         !param.d.defaultValue
                     ) {
                         const typeParamName = getPseudoGenericTypeVarName(param.d.name.d.value);
-                        annotatedType = containingClassType!.shared.typeParameters.find(
+                        annotatedType = containingClassType!.shared.typeParams.find(
                             (param) => param.shared.name === typeParamName
                         );
                     }
                 }
 
                 if (annotatedType) {
-                    const adjustedAnnotatedType = adjustParameterAnnotatedType(param, annotatedType);
+                    const adjustedAnnotatedType = adjustParamAnnotatedType(param, annotatedType);
                     if (adjustedAnnotatedType !== annotatedType) {
                         annotatedType = adjustedAnnotatedType;
                     }
@@ -18104,10 +18089,10 @@ export function createTypeEvaluator(
                 if (index >= firstNonClsSelfParamIndex) {
                     let isImplicitPositionOnlyParam = false;
 
-                    if (param.d.category === ParameterCategory.Simple && param.d.name) {
+                    if (param.d.category === ParamCategory.Simple && param.d.name) {
                         if (
                             isPrivateName(param.d.name.d.value) &&
-                            !node.d.params.some((p) => p.d.category === ParameterCategory.Simple && !p.d.name)
+                            !node.d.params.some((p) => p.d.category === ParamCategory.Simple && !p.d.name)
                         ) {
                             isImplicitPositionOnlyParam = true;
 
@@ -18115,7 +18100,7 @@ export function createTypeEvaluator(
                             // but we have already seen non-position-only parameters, report an error.
                             if (
                                 !paramsArePositionOnly &&
-                                functionType.shared.parameters.every((p) => p.category === ParameterCategory.Simple)
+                                functionType.shared.parameters.every((p) => p.category === ParamCategory.Simple)
                             ) {
                                 addDiagnostic(
                                     DiagnosticRule.reportGeneralTypeIssues,
@@ -18133,7 +18118,7 @@ export function createTypeEvaluator(
                         !isImplicitPositionOnlyParam &&
                         functionType.shared.parameters.length > firstNonClsSelfParamIndex
                     ) {
-                        FunctionType.addPositionOnlyParameterSeparator(functionType);
+                        FunctionType.addPositionOnlyParamSeparator(functionType);
                     }
 
                     if (!isImplicitPositionOnlyParam) {
@@ -18145,12 +18130,7 @@ export function createTypeEvaluator(
                 let isTypeInferred = false;
                 if (!paramTypeNode) {
                     isTypeInferred = true;
-                    const inferredType = inferParameterType(
-                        node,
-                        functionType.shared.flags,
-                        index,
-                        containingClassType
-                    );
+                    const inferredType = inferParamType(node, functionType.shared.flags, index, containingClassType);
                     if (inferredType) {
                         paramType = inferredType;
                     }
@@ -18165,11 +18145,11 @@ export function createTypeEvaluator(
                     defaultValueType
                 );
 
-                FunctionType.addParameter(functionType, functionParam);
+                FunctionType.addParam(functionType, functionParam);
 
                 if (FunctionParam.isTypeDeclared(functionParam)) {
                     addTypeVarsToListIfUnique(
-                        typeParametersSeen,
+                        typeParamsSeen,
                         getTypeVarArgsRecursive(functionParam.type),
                         functionType.shared.typeVarScopeId
                     );
@@ -18184,7 +18164,7 @@ export function createTypeEvaluator(
             });
 
             if (paramsArePositionOnly && functionType.shared.parameters.length > firstNonClsSelfParamIndex) {
-                FunctionType.addPositionOnlyParameterSeparator(functionType);
+                FunctionType.addPositionOnlyParamSeparator(functionType);
             }
 
             // Update the types for the nodes associated with the parameters.
@@ -18221,7 +18201,7 @@ export function createTypeEvaluator(
             // are annotated as Any or are unannotated, make it exempt from
             // args/kwargs compatibility checks.
             const variadicsWithAnyType = functionType.shared.parameters.filter(
-                (param) => param.category !== ParameterCategory.Simple && param.name && isAnyOrUnknown(param.type)
+                (param) => param.category !== ParamCategory.Simple && param.name && isAnyOrUnknown(param.type)
             );
             if (variadicsWithAnyType.length >= 2) {
                 functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
@@ -18258,7 +18238,7 @@ export function createTypeEvaluator(
             // Accumulate any type parameters used in the return type.
             if (functionType.shared.declaredReturnType && returnTypeAnnotationNode) {
                 addTypeVarsToListIfUnique(
-                    typeParametersSeen,
+                    typeParamsSeen,
                     getTypeVarArgsRecursive(functionType.shared.declaredReturnType),
                     functionType.shared.typeVarScopeId
                 );
@@ -18283,17 +18263,17 @@ export function createTypeEvaluator(
             }
 
             // Validate the default types for all type parameters.
-            functionType.shared.typeParameters.forEach((typeParam, index) => {
+            functionType.shared.typeParams.forEach((typeParam, index) => {
                 let bestErrorNode: ExpressionNode = node.d.name;
                 if (node.d.typeParams && index < node.d.typeParams.d.params.length) {
                     const typeParamNode = node.d.typeParams.d.params[index];
                     bestErrorNode = typeParamNode.d.defaultExpr ?? typeParamNode.d.name;
                 }
 
-                validateTypeParameterDefault(
+                validateTypeParamDefault(
                     bestErrorNode,
                     typeParam,
-                    functionType.shared.typeParameters.slice(0, index),
+                    functionType.shared.typeParams.slice(0, index),
                     functionType.shared.typeVarScopeId!
                 );
             });
@@ -18321,7 +18301,7 @@ export function createTypeEvaluator(
         }
     }
 
-    function adjustParameterAnnotatedType(param: ParameterNode, type: Type): Type {
+    function adjustParamAnnotatedType(param: ParameterNode, type: Type): Type {
         // PEP 484 indicates that if a parameter has a default value of 'None'
         // the type checker should assume that the type is optional (i.e. a union
         // of the specified type and 'None'). Skip this step if the type is already
@@ -18339,7 +18319,7 @@ export function createTypeEvaluator(
     }
 
     // Attempts to infer an unannotated parameter type from available context.
-    function inferParameterType(
+    function inferParamType(
         functionNode: FunctionNode,
         functionFlags: FunctionTypeFlags,
         paramIndex: number,
@@ -18384,7 +18364,7 @@ export function createTypeEvaluator(
                         const baseClassParamAnnotation =
                             baseClassParam.d.annotation ?? baseClassParam.d.annotationComment;
                         if (baseClassParamAnnotation) {
-                            let inferredParamType = getTypeOfParameterAnnotation(
+                            let inferredParamType = getTypeOfParamAnnotation(
                                 baseClassParamAnnotation,
                                 functionNode.d.params[paramIndex].d.category
                             );
@@ -18422,13 +18402,13 @@ export function createTypeEvaluator(
         // type from this information.
         const paramValueExpr = functionNode.d.params[paramIndex].d.defaultValue;
         if (paramValueExpr) {
-            return inferParameterTypeFromDefaultValue(paramValueExpr);
+            return inferParamTypeFromDefaultValue(paramValueExpr);
         }
 
         return undefined;
     }
 
-    function inferParameterTypeFromDefaultValue(paramValueExpr: ExpressionNode) {
+    function inferParamTypeFromDefaultValue(paramValueExpr: ExpressionNode) {
         const defaultValueType = getTypeOfExpression(paramValueExpr, EvalFlags.ConvertEllipsisToAny).type;
 
         let inferredParamType: Type | undefined;
@@ -18477,13 +18457,13 @@ export function createTypeEvaluator(
     // Transforms the parameter type based on its category. If it's a simple parameter,
     // no transform is applied. If it's a var-arg or keyword-arg parameter, the type
     // is wrapped in a List or Dict.
-    function transformVariadicParamType(node: ParseNode, paramCategory: ParameterCategory, type: Type): Type {
+    function transformVariadicParamType(node: ParseNode, paramCategory: ParamCategory, type: Type): Type {
         switch (paramCategory) {
-            case ParameterCategory.Simple: {
+            case ParamCategory.Simple: {
                 return type;
             }
 
-            case ParameterCategory.ArgsList: {
+            case ParamCategory.ArgsList: {
                 if (isTypeVar(type) && type.priv.paramSpecAccess) {
                     return type;
                 }
@@ -18495,7 +18475,7 @@ export function createTypeEvaluator(
                 return makeTupleObject([{ type, isUnbounded: !isVariadicTypeVar(type) }]);
             }
 
-            case ParameterCategory.KwargsDict: {
+            case ParamCategory.KwargsDict: {
                 // Leave a ParamSpec alone.
                 if (isTypeVar(type) && type.priv.paramSpecAccess) {
                     return type;
@@ -19480,10 +19460,10 @@ export function createTypeEvaluator(
                 varTypeAnnotation: annotationNode.parent?.nodeType === ParseNodeType.TypeAnnotation,
                 allowUnpackedTuple:
                     annotationParent.nodeType === ParseNodeType.Parameter &&
-                    annotationParent.d.category === ParameterCategory.ArgsList,
+                    annotationParent.d.category === ParamCategory.ArgsList,
                 allowUnpackedTypedDict:
                     annotationParent.nodeType === ParseNodeType.Parameter &&
-                    annotationParent.d.category === ParameterCategory.KwargsDict,
+                    annotationParent.d.category === ParamCategory.KwargsDict,
             });
             return;
         }
@@ -19603,7 +19583,7 @@ export function createTypeEvaluator(
                     // If this is a bound or default expression in a type parameter list,
                     // we need to evaluate it in the context of the type parameter.
                     if (node === parent.d.boundExpr || node === parent.d.defaultExpr) {
-                        getTypeOfTypeParameter(parent);
+                        getTypeOfTypeParam(parent);
                         return;
                     }
 
@@ -19655,7 +19635,7 @@ export function createTypeEvaluator(
 
             case ParseNodeType.Parameter: {
                 if (nodeToEvaluate !== parent.d.defaultValue) {
-                    evaluateTypeOfParameter(parent);
+                    evaluateTypeOfParam(parent);
                     return;
                 }
                 break;
@@ -19712,7 +19692,7 @@ export function createTypeEvaluator(
         getTypeOfExpression(nodeToEvaluate, flags);
     }
 
-    function evaluateTypeOfParameter(node: ParameterNode): void {
+    function evaluateTypeOfParam(node: ParameterNode): void {
         // If this parameter has no name, we have nothing to do.
         if (!node.d.name) {
             return;
@@ -19732,11 +19712,11 @@ export function createTypeEvaluator(
         const functionNode = parent as FunctionNode;
 
         const paramIndex = functionNode.d.params.findIndex((param) => param === node);
-        const typeAnnotation = ParseTreeUtils.getTypeAnnotationForParameter(functionNode, paramIndex);
+        const typeAnnotation = ParseTreeUtils.getTypeAnnotationForParam(functionNode, paramIndex);
 
         if (typeAnnotation) {
             const param = functionNode.d.params[paramIndex];
-            const annotatedType = getTypeOfParameterAnnotation(
+            const annotatedType = getTypeOfParamAnnotation(
                 typeAnnotation,
                 functionNode.d.params[paramIndex].d.category
             );
@@ -19744,7 +19724,7 @@ export function createTypeEvaluator(
             const adjType = transformVariadicParamType(
                 node,
                 node.d.category,
-                adjustParameterAnnotatedType(param, annotatedType)
+                adjustParamAnnotatedType(param, annotatedType)
             );
 
             writeTypeCache(node.d.name, { type: adjType }, EvalFlags.None);
@@ -19760,7 +19740,7 @@ export function createTypeEvaluator(
             functionNode.d.name.d.value === '__init__'
         ) {
             const typeParamName = getPseudoGenericTypeVarName(node.d.name.d.value);
-            const paramType = classInfo.classType.shared.typeParameters.find(
+            const paramType = classInfo.classType.shared.typeParams.find(
                 (param) => param.shared.name === typeParamName
             );
 
@@ -19780,7 +19760,7 @@ export function createTypeEvaluator(
         ).flags;
 
         let inferredParamType =
-            inferParameterType(functionNode, functionFlags, paramIndex, classInfo?.classType) ?? UnknownType.create();
+            inferParamType(functionNode, functionFlags, paramIndex, classInfo?.classType) ?? UnknownType.create();
         const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
         inferredParamType = updateTypeWithInternalTypeVars(inferredParamType, liveTypeVarScopes);
 
@@ -19839,7 +19819,7 @@ export function createTypeEvaluator(
                 }
 
                 case ParseNodeType.Parameter: {
-                    evaluateTypeOfParameter(curNode);
+                    evaluateTypeOfParam(curNode);
                     return;
                 }
 
@@ -20252,47 +20232,47 @@ export function createTypeEvaluator(
         let typeArgCount = typeArgs ? typeArgs.length : 0;
 
         // Make sure the argument list count is correct.
-        const typeParameters = ClassType.isPseudoGenericClass(classType) ? [] : ClassType.getTypeParameters(classType);
+        const typeParams = ClassType.isPseudoGenericClass(classType) ? [] : ClassType.getTypeParams(classType);
 
         // If there are no type parameters or args, the class is already specialized.
         // No need to do any more work.
-        if (typeParameters.length === 0 && typeArgCount === 0) {
+        if (typeParams.length === 0 && typeArgCount === 0) {
             return { type: classType };
         }
 
-        const variadicTypeParamIndex = typeParameters.findIndex((param) => isVariadicTypeVar(param));
+        const variadicTypeParamIndex = typeParams.findIndex((param) => isVariadicTypeVar(param));
 
         if (typeArgs) {
-            let minTypeArgCount = typeParameters.length;
-            const firstDefaultParamIndex = typeParameters.findIndex((param) => !!param.shared.isDefaultExplicit);
+            let minTypeArgCount = typeParams.length;
+            const firstDefaultParamIndex = typeParams.findIndex((param) => !!param.shared.isDefaultExplicit);
 
             if (firstDefaultParamIndex >= 0) {
                 minTypeArgCount = firstDefaultParamIndex;
             }
 
-            if (typeArgCount > typeParameters.length) {
+            if (typeArgCount > typeParams.length) {
                 if (!ClassType.isPartiallyEvaluated(classType) && !ClassType.isTupleClass(classType)) {
-                    if (typeParameters.length === 0) {
+                    if (typeParams.length === 0) {
                         addDiagnostic(
                             DiagnosticRule.reportInvalidTypeArguments,
                             LocMessage.typeArgsExpectingNone().format({
                                 name: classType.priv.aliasName || classType.shared.name,
                             }),
-                            typeArgs[typeParameters.length].node
+                            typeArgs[typeParams.length].node
                         );
-                    } else if (typeParameters.length !== 1 || !isParamSpec(typeParameters[0])) {
+                    } else if (typeParams.length !== 1 || !isParamSpec(typeParams[0])) {
                         addDiagnostic(
                             DiagnosticRule.reportInvalidTypeArguments,
                             LocMessage.typeArgsTooMany().format({
                                 name: classType.priv.aliasName || classType.shared.name,
-                                expected: typeParameters.length,
+                                expected: typeParams.length,
                                 received: typeArgCount,
                             }),
-                            typeArgs[typeParameters.length].node
+                            typeArgs[typeParams.length].node
                         );
                     }
 
-                    typeArgCount = typeParameters.length;
+                    typeArgCount = typeParams.length;
                 }
             } else if (typeArgCount < minTypeArgCount) {
                 addDiagnostic(
@@ -20321,7 +20301,7 @@ export function createTypeEvaluator(
                     }
                 }
 
-                const typeParam = index < typeParameters.length ? typeParameters[index] : undefined;
+                const typeParam = index < typeParams.length ? typeParams[index] : undefined;
                 const isParamSpecTarget = typeParam?.shared.isParamSpec;
 
                 validateTypeArg(typeArg, {
@@ -20333,7 +20313,7 @@ export function createTypeEvaluator(
 
         // Handle ParamSpec arguments and fill in any missing type arguments with Unknown.
         let typeArgTypes: Type[] = [];
-        const fullTypeParams = ClassType.getTypeParameters(classType);
+        const fullTypeParams = ClassType.getTypeParams(classType);
 
         // PEP 612 says that if the class has only one type parameter consisting
         // of a ParamSpec, the list of arguments does not need to be enclosed in
@@ -20391,7 +20371,7 @@ export function createTypeEvaluator(
                     const functionType = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.ParamSpecValue);
 
                     if (isEllipsisType(typeArg.type)) {
-                        FunctionType.addDefaultParameters(functionType);
+                        FunctionType.addDefaultParams(functionType);
                         functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
                         typeArgTypes.push(functionType);
                         typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(functionType));
@@ -20400,10 +20380,10 @@ export function createTypeEvaluator(
 
                     if (typeArg.typeList) {
                         typeArg.typeList!.forEach((paramType, paramIndex) => {
-                            FunctionType.addParameter(
+                            FunctionType.addParam(
                                 functionType,
                                 FunctionParam.create(
-                                    ParameterCategory.Simple,
+                                    ParamCategory.Simple,
                                     convertToInstance(paramType.type),
                                     FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
                                     `__p${paramIndex}`
@@ -20412,7 +20392,7 @@ export function createTypeEvaluator(
                         });
 
                         if (typeArg.typeList.length > 0) {
-                            FunctionType.addPositionOnlyParameterSeparator(functionType);
+                            FunctionType.addPositionOnlyParamSeparator(functionType);
                         }
 
                         typeArgTypes.push(functionType);
@@ -20428,14 +20408,14 @@ export function createTypeEvaluator(
                                     if (isParamSpec(typeArg)) {
                                         FunctionType.addParamSpecVariadics(functionType, typeArg);
                                     } else if (isEllipsisType(typeArg)) {
-                                        FunctionType.addDefaultParameters(functionType);
+                                        FunctionType.addDefaultParams(functionType);
                                         functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
                                     }
                                 } else {
-                                    FunctionType.addParameter(
+                                    FunctionType.addParam(
                                         functionType,
                                         FunctionParam.create(
-                                            ParameterCategory.Simple,
+                                            ParamCategory.Simple,
                                             typeArg,
                                             FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
                                             `__p${index}`
@@ -20471,11 +20451,11 @@ export function createTypeEvaluator(
         typeArgTypes = typeArgTypes.map((typeArgType, index) => {
             if (index < typeArgCount) {
                 const diag = new DiagnosticAddendum();
-                let adjustedTypeArgType = applyTypeArgToTypeVar(typeParameters[index], typeArgType, diag);
+                let adjustedTypeArgType = applyTypeArgToTypeVar(typeParams[index], typeArgType, diag);
 
                 // Determine if the variance must match.
                 if (adjustedTypeArgType && (flags & EvalFlags.EnforceVarianceConsistency) !== 0) {
-                    const destType = typeParameters[index];
+                    const destType = typeParams[index];
                     const declaredVariance = destType.shared.declaredVariance;
 
                     if (!isVarianceOfTypeArgCompatible(adjustedTypeArgType, declaredVariance)) {
@@ -20499,7 +20479,7 @@ export function createTypeEvaluator(
                             DiagnosticRule.reportInvalidTypeArguments,
                             LocMessage.typeVarAssignmentMismatch().format({
                                 type: printType(typeArgType),
-                                name: TypeVarType.getReadableName(typeParameters[index]),
+                                name: TypeVarType.getReadableName(typeParams[index]),
                             }) + diag.getString(),
                             typeArgs[index].node
                         );
@@ -20513,7 +20493,7 @@ export function createTypeEvaluator(
         // If the class is partially constructed and doesn't yet have
         // type parameters, assume that the number and types of supplied type
         // arguments are correct.
-        if (typeArgs && classType.shared.typeParameters.length === 0 && ClassType.isPartiallyEvaluated(classType)) {
+        if (typeArgs && classType.shared.typeParams.length === 0 && ClassType.isPartiallyEvaluated(classType)) {
             typeArgTypes = typeArgs.map((t) => convertToInstance(t.type));
         }
 
@@ -20668,8 +20648,8 @@ export function createTypeEvaluator(
         // within the local scope.
         let scopeTypeHonorsCodeFlow = scopeType !== ScopeType.Function && scopeType !== ScopeType.Comprehension;
 
-        // TypeParameter scopes don't honor code flow, but if the symbol is resolved
-        // using the proxy scope for the TypeParameter scope, we should use code flow.
+        // Type parameter scopes don't honor code flow, but if the symbol is resolved
+        // using the proxy scope for the type parameter scope, we should use code flow.
         if (scopeType === ScopeType.TypeParameter && symbolWithScope && symbolWithScope.scope === scope) {
             scopeTypeHonorsCodeFlow = false;
         }
@@ -20900,7 +20880,7 @@ export function createTypeEvaluator(
         return speculativeTypeTracker.isSpeculative(node);
     }
 
-    function getDeclarationFromFunctionNamedParameter(type: FunctionType, paramName: string): Declaration | undefined {
+    function getDeclarationFromKeywordParam(type: FunctionType, paramName: string): Declaration | undefined {
         if (isFunction(type)) {
             if (type.shared.declaration) {
                 const functionDecl = type.shared.declaration;
@@ -20910,12 +20890,10 @@ export function createTypeEvaluator(
                     if (functionScope) {
                         const paramSymbol = functionScope.lookUpSymbol(paramName)!;
                         if (paramSymbol) {
-                            return paramSymbol
-                                .getDeclarations()
-                                .find((decl) => decl.type === DeclarationType.Parameter);
+                            return paramSymbol.getDeclarations().find((decl) => decl.type === DeclarationType.Param);
                         }
 
-                        const parameterDetails = getParameterListDetails(type);
+                        const parameterDetails = getParamListDetails(type);
                         if (parameterDetails.unpackedKwargsTypedDictType) {
                             const lookupResults = lookUpClassMember(
                                 parameterDetails.unpackedKwargsTypedDictType,
@@ -21089,13 +21067,13 @@ export function createTypeEvaluator(
 
                 if (baseType) {
                     if (isFunction(baseType) && baseType.shared.declaration) {
-                        const paramDecl = getDeclarationFromFunctionNamedParameter(baseType, paramName);
+                        const paramDecl = getDeclarationFromKeywordParam(baseType, paramName);
                         if (paramDecl) {
                             declarations.push(paramDecl);
                         }
                     } else if (isOverloadedFunction(baseType)) {
                         baseType.priv.overloads.forEach((f) => {
-                            const paramDecl = getDeclarationFromFunctionNamedParameter(f, paramName);
+                            const paramDecl = getDeclarationFromKeywordParam(f, paramName);
                             if (paramDecl) {
                                 declarations.push(paramDecl);
                             }
@@ -21108,7 +21086,7 @@ export function createTypeEvaluator(
                         )?.type;
 
                         if (initMethodType && isFunction(initMethodType)) {
-                            const paramDecl = getDeclarationFromFunctionNamedParameter(initMethodType, paramName);
+                            const paramDecl = getDeclarationFromKeywordParam(initMethodType, paramName);
                             if (paramDecl) {
                                 declarations.push(paramDecl);
                             } else if (ClassType.isDataClass(baseType) || ClassType.isTypedDictClass(baseType)) {
@@ -21231,7 +21209,7 @@ export function createTypeEvaluator(
                 return { type: getTypeOfTypeAlias(declaration.node) };
             }
 
-            case DeclarationType.Parameter: {
+            case DeclarationType.Param: {
                 let typeAnnotationNode = declaration.node.d.annotation || declaration.node.d.annotationComment;
 
                 // If there wasn't an annotation, see if the parent function
@@ -21245,13 +21223,13 @@ export function createTypeEvaluator(
                             !functionNode.d.funcAnnotationComment.d.isEllipsis
                         ) {
                             const paramIndex = functionNode.d.params.findIndex((param) => param === declaration.node);
-                            typeAnnotationNode = ParseTreeUtils.getTypeAnnotationForParameter(functionNode, paramIndex);
+                            typeAnnotationNode = ParseTreeUtils.getTypeAnnotationForParam(functionNode, paramIndex);
                         }
                     }
                 }
 
                 if (typeAnnotationNode) {
-                    let declaredType = getTypeOfParameterAnnotation(typeAnnotationNode, declaration.node.d.category);
+                    let declaredType = getTypeOfParamAnnotation(typeAnnotationNode, declaration.node.d.category);
 
                     const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(declaration.node);
 
@@ -21261,7 +21239,7 @@ export function createTypeEvaluator(
                         type: transformVariadicParamType(
                             declaration.node,
                             declaration.node.d.category,
-                            adjustParameterAnnotatedType(declaration.node, declaredType)
+                            adjustParamAnnotatedType(declaration.node, declaredType)
                         ),
                     };
                 }
@@ -21269,8 +21247,8 @@ export function createTypeEvaluator(
                 return { type: undefined };
             }
 
-            case DeclarationType.TypeParameter: {
-                return { type: getTypeOfTypeParameter(declaration.node) };
+            case DeclarationType.TypeParam: {
+                return { type: getTypeOfTypeParam(declaration.node) };
             }
 
             case DeclarationType.Variable: {
@@ -21332,7 +21310,7 @@ export function createTypeEvaluator(
         }
     }
 
-    function getTypeOfTypeParameter(node: TypeParameterNode): TypeVarType {
+    function getTypeOfTypeParam(node: TypeParameterNode): TypeVarType {
         // Is this type already cached?
         const cachedTypeVarType = readTypeCache(node.d.name, EvalFlags.None) as FunctionType;
         if (cachedTypeVarType && isTypeVar(cachedTypeVarType)) {
@@ -21340,9 +21318,9 @@ export function createTypeEvaluator(
         }
 
         let runtimeClassName = 'TypeVar';
-        if (node.d.typeParamKind === TypeParameterKind.TypeVarTuple) {
+        if (node.d.typeParamKind === TypeParamKind.TypeVarTuple) {
             runtimeClassName = 'TypeVarTuple';
-        } else if (node.d.typeParamKind === TypeParameterKind.ParamSpec) {
+        } else if (node.d.typeParamKind === TypeParamKind.ParamSpec) {
             runtimeClassName = 'ParamSpec';
         }
         const runtimeType = getTypingType(node, runtimeClassName);
@@ -21350,14 +21328,14 @@ export function createTypeEvaluator(
 
         let typeVar = TypeVarType.createInstantiable(
             node.d.name.d.value,
-            node.d.typeParamKind === TypeParameterKind.ParamSpec
+            node.d.typeParamKind === TypeParamKind.ParamSpec
         );
         if (runtimeClass) {
             typeVar = TypeBase.cloneAsSpecialForm(typeVar, ClassType.cloneAsInstance(runtimeClass));
         }
         typeVar.shared.isTypeParamSyntax = true;
 
-        if (node.d.typeParamKind === TypeParameterKind.TypeVarTuple) {
+        if (node.d.typeParamKind === TypeParamKind.TypeVarTuple) {
             typeVar.shared.isVariadic = true;
         }
 
@@ -21396,7 +21374,7 @@ export function createTypeEvaluator(
                         LocMessage.typeVarSingleConstraint(),
                         node.d.boundExpr
                     );
-                } else if (node.d.typeParamKind === TypeParameterKind.TypeVar) {
+                } else if (node.d.typeParamKind === TypeParamKind.TypeVar) {
                     typeVar.shared.constraints = constraints;
                 }
             } else {
@@ -21414,13 +21392,13 @@ export function createTypeEvaluator(
                     );
                 }
 
-                if (node.d.typeParamKind === TypeParameterKind.TypeVar) {
+                if (node.d.typeParamKind === TypeParamKind.TypeVar) {
                     typeVar.shared.boundType = convertToInstance(boundType);
                 }
             }
         }
 
-        if (node.d.typeParamKind === TypeParameterKind.ParamSpec) {
+        if (node.d.typeParamKind === TypeParamKind.ParamSpec) {
             const defaultType = node.d.defaultExpr
                 ? getParamSpecDefaultType(node.d.defaultExpr, /* isPep695Syntax */ true)
                 : undefined;
@@ -21431,7 +21409,7 @@ export function createTypeEvaluator(
             } else {
                 typeVar.shared.defaultType = getUnknownTypeForParamSpec();
             }
-        } else if (node.d.typeParamKind === TypeParameterKind.TypeVarTuple) {
+        } else if (node.d.typeParamKind === TypeParamKind.TypeVarTuple) {
             const defaultType = node.d.defaultExpr
                 ? getTypeVarTupleDefaultType(node.d.defaultExpr, /* isPep695Syntax */ true)
                 : undefined;
@@ -21625,10 +21603,10 @@ export function createTypeEvaluator(
 
         // If the resolved declaration had no defined type, use the
         // inferred type for this node.
-        if (resolvedDecl.type === DeclarationType.Parameter) {
+        if (resolvedDecl.type === DeclarationType.Param) {
             assert(resolvedDecl.node.d.name !== undefined);
             return evaluateTypeForSubnode(resolvedDecl.node.d.name, () => {
-                evaluateTypeOfParameter(resolvedDecl.node);
+                evaluateTypeOfParam(resolvedDecl.node);
             })?.type;
         }
 
@@ -22843,7 +22821,7 @@ export function createTypeEvaluator(
         recursionCount = 0
     ): boolean {
         assert(ClassType.isSameGenericClass(destType, srcType));
-        assert(destType.shared.typeParameters.length > 0);
+        assert(destType.shared.typeParams.length > 0);
 
         const typeVarContext = new TypeVarContext();
         let isAssignable = true;
@@ -22852,7 +22830,7 @@ export function createTypeEvaluator(
         // the assignClassToSelfClass to undefined if an exception occurs.
         try {
             // Stash the current class type so any references to it are treated
-            // as though all TypeParameters are invariant.
+            // as though all type parameters are invariant.
             assignClassToSelfStack.push({ class: destType, assumedVariance });
 
             ClassType.getSymbolTable(destType).forEach((symbol, name) => {
@@ -22939,13 +22917,13 @@ export function createTypeEvaluator(
                     !ClassType.isBuiltIn(baseClass, 'object') &&
                     !ClassType.isBuiltIn(baseClass, 'Protocol') &&
                     !ClassType.isBuiltIn(baseClass, 'Generic') &&
-                    baseClass.shared.typeParameters.length > 0
+                    baseClass.shared.typeParams.length > 0
                 ) {
                     const specializedDestBaseClass = specializeForBaseClass(destType, baseClass);
                     const specializedSrcBaseClass = specializeForBaseClass(srcType, baseClass);
 
                     if (!ignoreBaseClassVariance) {
-                        specializedDestBaseClass.shared.typeParameters.forEach((param, index) => {
+                        specializedDestBaseClass.shared.typeParams.forEach((param, index) => {
                             if (
                                 !param.shared.isParamSpec &&
                                 !param.shared.isVariadic &&
@@ -23008,7 +22986,7 @@ export function createTypeEvaluator(
         let curSrcType = srcType;
         let prevSrcType: ClassType | undefined;
 
-        inferTypeParameterVarianceForClass(destType);
+        inferVarianceForClass(destType);
 
         // If we're enforcing invariance, literal types must match.
         if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
@@ -23056,7 +23034,7 @@ export function createTypeEvaluator(
             }
 
             // If there are no type parameters on this class, we're done.
-            const ancestorTypeParams = ClassType.getTypeParameters(ancestorType);
+            const ancestorTypeParams = ClassType.getTypeParams(ancestorType);
             if (ancestorTypeParams.length === 0) {
                 continue;
             }
@@ -23112,9 +23090,9 @@ export function createTypeEvaluator(
         if (destTypeVarContext && curSrcType.priv.typeArgs && !destTypeVarContext.isLocked()) {
             // Populate the typeVar map with type arguments of the source.
             const srcTypeArgs = curSrcType.priv.typeArgs;
-            for (let i = 0; i < destType.shared.typeParameters.length; i++) {
+            for (let i = 0; i < destType.shared.typeParams.length; i++) {
                 let typeArgType: Type;
-                const typeParam = destType.shared.typeParameters[i];
+                const typeParam = destType.shared.typeParams[i];
                 const variance = TypeVarType.getVariance(typeParam);
 
                 if (curSrcType.priv.tupleTypeArgs) {
@@ -23166,9 +23144,9 @@ export function createTypeEvaluator(
     ): boolean {
         assert(ClassType.isSameGenericClass(destType, srcType));
 
-        inferTypeParameterVarianceForClass(destType);
+        inferVarianceForClass(destType);
 
-        const destTypeParams = ClassType.getTypeParameters(destType);
+        const destTypeParams = ClassType.getTypeParams(destType);
         let destTypeArgs: Type[];
         let srcTypeArgs: Type[] | undefined;
 
@@ -24915,7 +24893,7 @@ export function createTypeEvaluator(
         return getBoundMagicMethod(objType, '__call__', /* selfType */ undefined, /* diag */ undefined, recursionCount);
     }
 
-    function assignFunctionParameter(
+    function assignParam(
         destType: Type,
         srcType: Type,
         paramIndex: number | undefined,
@@ -25005,10 +24983,7 @@ export function createTypeEvaluator(
 
     // Determines whether we need to pack some of the source positionals
     // into a tuple that matches a variadic *args parameter in the destination.
-    function adjustSourceParamDetailsForDestVariadic(
-        srcDetails: ParameterListDetails,
-        destDetails: ParameterListDetails
-    ) {
+    function adjustSourceParamDetailsForDestVariadic(srcDetails: ParamListDetails, destDetails: ParamListDetails) {
         // If there is no *args parameter in the dest, we have nothing to do.
         if (destDetails.argsIndex === undefined) {
             return;
@@ -25027,7 +25002,7 @@ export function createTypeEvaluator(
 
         let srcLastToPackIndex = srcDetails.params.findIndex((p, i) => {
             assert(destDetails.argsIndex !== undefined);
-            return i >= destDetails.argsIndex && p.kind === ParameterKind.Keyword;
+            return i >= destDetails.argsIndex && p.kind === ParamKind.Keyword;
         });
         if (srcLastToPackIndex < 0) {
             srcLastToPackIndex = srcDetails.params.length;
@@ -25045,7 +25020,7 @@ export function createTypeEvaluator(
         const srcPositionalsToPack = srcDetails.params.slice(destDetails.argsIndex, srcLastToPackIndex - suffixLength);
         const srcTupleTypes: TupleTypeArg[] = [];
         srcPositionalsToPack.forEach((entry) => {
-            if (entry.param.category === ParameterCategory.ArgsList) {
+            if (entry.param.category === ParamCategory.ArgsList) {
                 if (isUnpackedVariadicTypeVar(entry.type)) {
                     srcTupleTypes.push({ type: entry.type, isUnbounded: false });
                 } else if (isUnpackedClass(entry.type) && entry.type.priv.tupleTypeArgs) {
@@ -25068,14 +25043,14 @@ export function createTypeEvaluator(
                 ...srcDetails.params.slice(0, destDetails.argsIndex),
                 {
                     param: FunctionParam.create(
-                        ParameterCategory.ArgsList,
+                        ParamCategory.ArgsList,
                         srcPositionalsType,
                         FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
                         '_arg_combined'
                     ),
                     type: srcPositionalsType,
                     index: -1,
-                    kind: ParameterKind.Positional,
+                    kind: ParamKind.Positional,
                 },
                 ...srcDetails.params.slice(
                     destDetails.argsIndex + srcPositionalsToPack.length,
@@ -25083,25 +25058,23 @@ export function createTypeEvaluator(
                 ),
             ];
 
-            const argsIndex = srcDetails.params.findIndex(
-                (param) => param.param.category === ParameterCategory.ArgsList
-            );
+            const argsIndex = srcDetails.params.findIndex((param) => param.param.category === ParamCategory.ArgsList);
             srcDetails.argsIndex = argsIndex >= 0 ? argsIndex : undefined;
 
             const kwargsIndex = srcDetails.params.findIndex(
-                (param) => param.param.category === ParameterCategory.KwargsDict
+                (param) => param.param.category === ParamCategory.KwargsDict
             );
             srcDetails.kwargsIndex = kwargsIndex >= 0 ? kwargsIndex : undefined;
 
-            const firstKeywordOnlyIndex = srcDetails.params.findIndex((param) => param.kind === ParameterKind.Keyword);
+            const firstKeywordOnlyIndex = srcDetails.params.findIndex((param) => param.kind === ParamKind.Keyword);
             srcDetails.firstKeywordOnlyIndex = firstKeywordOnlyIndex >= 0 ? firstKeywordOnlyIndex : undefined;
 
             srcDetails.positionOnlyParamCount = Math.max(
                 0,
                 srcDetails.params.findIndex(
                     (p) =>
-                        p.kind !== ParameterKind.Positional ||
-                        p.param.category !== ParameterCategory.Simple ||
+                        p.kind !== ParamKind.Positional ||
+                        p.param.category !== ParamCategory.Simple ||
                         !!p.param.defaultType
                 )
             );
@@ -25132,8 +25105,8 @@ export function createTypeEvaluator(
             srcType = FunctionType.cloneRemoveParamSpecArgsKwargs(srcType);
         }
 
-        const destParamDetails = getParameterListDetails(destType);
-        const srcParamDetails = getParameterListDetails(srcType);
+        const destParamDetails = getParamListDetails(destType);
+        const srcParamDetails = getParamListDetails(srcType);
 
         adjustSourceParamDetailsForDestVariadic(
             reverseMatching ? destParamDetails : srcParamDetails,
@@ -25174,13 +25147,13 @@ export function createTypeEvaluator(
             const destParamName = destParam.param.name ?? '';
             const srcParamName = srcParam.param.name ?? '';
             if (destParamName) {
-                const isDestPositionalOnly = destParam.kind === ParameterKind.Positional;
+                const isDestPositionalOnly = destParam.kind === ParamKind.Positional;
                 if (
                     !isDestPositionalOnly &&
-                    destParam.param.category !== ParameterCategory.ArgsList &&
-                    srcParam.param.category !== ParameterCategory.ArgsList
+                    destParam.param.category !== ParamCategory.ArgsList &&
+                    srcParam.param.category !== ParamCategory.ArgsList
                 ) {
-                    if (srcParam.kind === ParameterKind.Positional) {
+                    if (srcParam.kind === ParamKind.Positional) {
                         diag?.createAddendum().addMessage(
                             LocAddendum.functionParamPositionOnly().format({
                                 name: destParamName,
@@ -25229,7 +25202,7 @@ export function createTypeEvaluator(
             if (isUnpacked(srcParamType)) {
                 canAssign = false;
             } else if (
-                !assignFunctionParameter(
+                !assignParam(
                     destParamType,
                     srcParamType,
                     paramIndex,
@@ -25250,13 +25223,13 @@ export function createTypeEvaluator(
                     canAssign = false;
                 }
             } else if (
-                destParam.kind !== ParameterKind.Positional &&
-                srcParam.kind === ParameterKind.Positional &&
+                destParam.kind !== ParamKind.Positional &&
+                srcParam.kind === ParamKind.Positional &&
                 srcParamDetails.kwargsIndex === undefined &&
                 !srcParamDetails.params.some(
                     (p) =>
-                        p.kind === ParameterKind.Keyword &&
-                        p.param.category === ParameterCategory.Simple &&
+                        p.kind === ParamKind.Keyword &&
+                        p.param.category === ParamCategory.Simple &&
                         p.param.name === destParam.param.name
                 )
             ) {
@@ -25291,7 +25264,7 @@ export function createTypeEvaluator(
                     const destArgsType = destParamDetails.params[destParamDetails.argsIndex].type;
                     const srcParamType = srcParamDetails.params[i].type;
                     if (
-                        !assignFunctionParameter(
+                        !assignParam(
                             destArgsType,
                             srcParamType,
                             i,
@@ -25338,18 +25311,18 @@ export function createTypeEvaluator(
 
                 // If the source parameter is also addressable by keyword, it is OK
                 // that there is no matching positional parameter in the dest.
-                if (srcParam.kind === ParameterKind.Standard) {
+                if (srcParam.kind === ParamKind.Standard) {
                     continue;
                 }
 
                 // If the source parameter is a variadic, it is OK that there is no
                 // matching positional parameter in the dest.
-                if (srcParam.param.category === ParameterCategory.ArgsList) {
+                if (srcParam.param.category === ParamCategory.ArgsList) {
                     continue;
                 }
 
                 const nonDefaultSrcParamCount = srcParamDetails.params.filter(
-                    (p) => !!p.param.name && !p.param.defaultType && p.param.category === ParameterCategory.Simple
+                    (p) => !!p.param.name && !p.param.defaultType && p.param.category === ParamCategory.Simple
                 ).length;
 
                 diag?.createAddendum().addMessage(
@@ -25377,7 +25350,7 @@ export function createTypeEvaluator(
                         canAssign = false;
                     } else {
                         if (
-                            !assignFunctionParameter(
+                            !assignParam(
                                 destParamType,
                                 srcArgsType,
                                 paramIndex,
@@ -25392,7 +25365,7 @@ export function createTypeEvaluator(
                         }
 
                         if (
-                            destParamDetails.params[paramIndex].kind !== ParameterKind.Positional &&
+                            destParamDetails.params[paramIndex].kind !== ParamKind.Positional &&
                             srcParamDetails.kwargsIndex === undefined
                         ) {
                             diag?.addMessage(
@@ -25443,7 +25416,7 @@ export function createTypeEvaluator(
             }
 
             if (
-                !assignFunctionParameter(
+                !assignParam(
                     destArgsType,
                     srcArgsType,
                     destParamDetails.params[destParamDetails.argsIndex].index,
@@ -25478,12 +25451,12 @@ export function createTypeEvaluator(
         // Handle matching of named (keyword) parameters.
         if (!targetIncludesParamSpec) {
             // Build a dictionary of named parameters in the dest.
-            const destParamMap = new Map<string, VirtualParameterDetails>();
+            const destParamMap = new Map<string, VirtualParamDetails>();
 
             if (destParamDetails.firstKeywordOnlyIndex !== undefined) {
                 destParamDetails.params.forEach((param, index) => {
                     if (index >= destParamDetails.firstKeywordOnlyIndex!) {
-                        if (param.param.name && param.param.category === ParameterCategory.Simple) {
+                        if (param.param.name && param.param.category === ParamCategory.Simple) {
                             destParamMap.set(param.param.name, param);
                         }
                     }
@@ -25505,8 +25478,8 @@ export function createTypeEvaluator(
                     if (index >= srcStartOfNamed) {
                         if (
                             srcParamInfo.param.name &&
-                            srcParamInfo.param.category === ParameterCategory.Simple &&
-                            srcParamInfo.kind !== ParameterKind.Positional
+                            srcParamInfo.param.category === ParamCategory.Simple &&
+                            srcParamInfo.kind !== ParamKind.Positional
                         ) {
                             const destParamInfo = destParamMap.get(srcParamInfo.param.name);
                             const paramDiag = diag?.createAddendum();
@@ -25525,7 +25498,7 @@ export function createTypeEvaluator(
                                 } else if (destParamDetails.kwargsIndex !== undefined) {
                                     // Make sure we can assign the type to the Kwargs.
                                     if (
-                                        !assignFunctionParameter(
+                                        !assignParam(
                                             destParamDetails.params[destParamDetails.kwargsIndex].type,
                                             srcParamType,
                                             destParamDetails.params[destParamDetails.kwargsIndex].index,
@@ -25566,7 +25539,7 @@ export function createTypeEvaluator(
                                     : destParamType;
 
                                 if (
-                                    !assignFunctionParameter(
+                                    !assignParam(
                                         destParamInfo.type,
                                         srcParamType,
                                         /* paramIndex */ undefined,
@@ -25610,7 +25583,7 @@ export function createTypeEvaluator(
                 if (srcParamDetails.kwargsIndex !== undefined && destParamInfo.param.name) {
                     // Make sure the src kwargs type is compatible.
                     if (
-                        !assignFunctionParameter(
+                        !assignParam(
                             destParamInfo.param.type,
                             srcParamDetails.params[srcParamDetails.kwargsIndex].type,
                             destParamInfo.index,
@@ -25635,7 +25608,7 @@ export function createTypeEvaluator(
             // If both src and dest have a "**kwargs" parameter, make sure their types are compatible.
             if (srcParamDetails.kwargsIndex !== undefined && destParamDetails.kwargsIndex !== undefined) {
                 if (
-                    !assignFunctionParameter(
+                    !assignParam(
                         destParamDetails.params[destParamDetails.kwargsIndex].type,
                         srcParamDetails.params[srcParamDetails.kwargsIndex].type,
                         destParamDetails.params[destParamDetails.kwargsIndex].index,
@@ -25706,7 +25679,7 @@ export function createTypeEvaluator(
                         return false;
                     }
 
-                    if (p.category === ParameterCategory.Simple && isParamSpec(p.type)) {
+                    if (p.category === ParamCategory.Simple && isParamSpec(p.type)) {
                         return false;
                     }
                     return true;
@@ -25729,7 +25702,7 @@ export function createTypeEvaluator(
                         remainingParams.push(
                             FunctionParam.create(
                                 p.category,
-                                FunctionType.getEffectiveParameterType(effectiveSrcType, index),
+                                FunctionType.getEffectiveParamType(effectiveSrcType, index),
                                 p.flags,
                                 p.name,
                                 p.defaultType ? AnyType.create(/* isEllipsis */ true) : undefined
@@ -25757,7 +25730,7 @@ export function createTypeEvaluator(
                     remainingFunction.priv.constructorTypeVarScopeId = effectiveSrcType.priv.constructorTypeVarScopeId;
                     remainingFunction.shared.methodClass = effectiveSrcType.shared.methodClass;
                     remainingParams.forEach((param) => {
-                        FunctionType.addParameter(remainingFunction, param);
+                        FunctionType.addParam(remainingFunction, param);
                     });
                     if (effectiveSrcParamSpec) {
                         FunctionType.addParamSpecVariadics(remainingFunction, convertToInstance(effectiveSrcParamSpec));
@@ -25896,9 +25869,9 @@ export function createTypeEvaluator(
         recursionCount++;
 
         if (
-            assignedType.shared.typeParameters.length > 0 &&
+            assignedType.shared.typeParams.length > 0 &&
             assignedType.priv.typeArgs &&
-            assignedType.priv.typeArgs.length <= assignedType.shared.typeParameters.length &&
+            assignedType.priv.typeArgs.length <= assignedType.shared.typeParams.length &&
             !assignedType.priv.tupleTypeArgs
         ) {
             const typeVarContext = new TypeVarContext(getTypeVarScopeId(assignedType));
@@ -25913,7 +25886,7 @@ export function createTypeEvaluator(
 
             let replacedTypeArg = false;
             const newTypeArgs = assignedType.priv.typeArgs.map((typeArg, index) => {
-                const typeParam = assignedType.shared.typeParameters[index];
+                const typeParam = assignedType.shared.typeParams[index];
                 const expectedTypeArgType = typeVarContext.getPrimarySignature().getTypeVarType(typeParam);
 
                 if (expectedTypeArgType) {
@@ -26211,14 +26184,14 @@ export function createTypeEvaluator(
             return true;
         }
 
-        const baseParamDetails = getParameterListDetails(baseMethod);
+        const baseParamDetails = getParamListDetails(baseMethod);
         if (baseParamDetails.params.length === 0) {
             return true;
         }
 
         const baseParamType = baseParamDetails.params[0].param;
 
-        if (baseParamType.category !== ParameterCategory.Simple || !FunctionParam.isTypeDeclared(baseParamType)) {
+        if (baseParamType.category !== ParamCategory.Simple || !FunctionParam.isTypeDeclared(baseParamType)) {
             return true;
         }
 
@@ -26255,8 +26228,8 @@ export function createTypeEvaluator(
         enforceParamNames: boolean,
         exemptSelfClsParam = true
     ): boolean {
-        const baseParamDetails = getParameterListDetails(baseMethod);
-        const overrideParamDetails = getParameterListDetails(overrideMethod);
+        const baseParamDetails = getParamListDetails(baseMethod);
+        const overrideParamDetails = getParamListDetails(overrideMethod);
 
         let canOverride = true;
 
@@ -26321,7 +26294,7 @@ export function createTypeEvaluator(
                     const overrideParam = overrideParamDetails.params[i].param;
 
                     if (
-                        overrideParam.category === ParameterCategory.Simple &&
+                        overrideParam.category === ParamCategory.Simple &&
                         overrideParam.name &&
                         !overrideParam.defaultType
                     ) {
@@ -26365,14 +26338,14 @@ export function createTypeEvaluator(
                 if (
                     i >= baseParamDetails.positionOnlyParamCount &&
                     !isPrivateOrProtectedName(baseParam.name || '') &&
-                    baseParamDetails.params[i].kind !== ParameterKind.Positional &&
-                    baseParam.category === ParameterCategory.Simple &&
+                    baseParamDetails.params[i].kind !== ParamKind.Positional &&
+                    baseParam.category === ParamCategory.Simple &&
                     enforceParamNames &&
                     baseParam.name !== overrideParam.name
                 ) {
-                    if (overrideParam.category === ParameterCategory.Simple) {
+                    if (overrideParam.category === ParamCategory.Simple) {
                         if (!FunctionParam.isNameSynthesized(baseParam)) {
-                            if (overrideParamDetails.params[i].kind === ParameterKind.Positional) {
+                            if (overrideParamDetails.params[i].kind === ParamKind.Positional) {
                                 diag?.addMessage(
                                     LocAddendum.overrideParamNamePositionOnly().format({
                                         index: i + 1,
@@ -26397,7 +26370,7 @@ export function createTypeEvaluator(
                 ) {
                     if (
                         !FunctionParam.isNameSynthesized(baseParam) &&
-                        baseParamDetails.params[i].kind !== ParameterKind.Positional
+                        baseParamDetails.params[i].kind !== ParamKind.Positional
                     ) {
                         diag?.addMessage(
                             LocAddendum.overrideParamNamePositionOnly().format({
@@ -26457,10 +26430,7 @@ export function createTypeEvaluator(
                 for (let i = positionalParamCount; i < baseParamDetails.positionParamCount; i++) {
                     const baseParam = baseParamDetails.params[i];
 
-                    if (
-                        baseParam.kind === ParameterKind.Standard &&
-                        baseParam.param.category === ParameterCategory.Simple
-                    ) {
+                    if (baseParam.kind === ParamKind.Standard && baseParam.param.category === ParamCategory.Simple) {
                         diag?.addMessage(
                             LocAddendum.overrideParamNamePositionOnly().format({
                                 index: i + 1,
@@ -26509,12 +26479,10 @@ export function createTypeEvaluator(
 
             // Now check any keyword-only parameters.
             const baseKwOnlyParams = baseParamDetails.params.filter(
-                (paramInfo) =>
-                    paramInfo.kind === ParameterKind.Keyword && paramInfo.param.category === ParameterCategory.Simple
+                (paramInfo) => paramInfo.kind === ParamKind.Keyword && paramInfo.param.category === ParamCategory.Simple
             );
             const overrideKwOnlyParams = overrideParamDetails.params.filter(
-                (paramInfo) =>
-                    paramInfo.kind === ParameterKind.Keyword && paramInfo.param.category === ParameterCategory.Simple
+                (paramInfo) => paramInfo.kind === ParamKind.Keyword && paramInfo.param.category === ParamCategory.Simple
             );
 
             baseKwOnlyParams.forEach((paramInfo) => {
@@ -26902,7 +26870,7 @@ export function createTypeEvaluator(
 
         if (firstParamType && memberType.shared.parameters.length > 0) {
             const memberTypeFirstParam = memberType.shared.parameters[0];
-            const memberTypeFirstParamType = FunctionType.getEffectiveParameterType(memberType, 0);
+            const memberTypeFirstParamType = FunctionType.getEffectiveParamType(memberType, 0);
 
             // Fill out the typeVarContext for the "self" or "cls" parameter.
             typeVarContext.addSolveForScope(getTypeVarScopeId(memberType));
@@ -27300,7 +27268,7 @@ export function createTypeEvaluator(
         evaluateTypesForStatement,
         evaluateTypesForMatchStatement,
         evaluateTypesForCaseStatement,
-        evaluateTypeOfParameter,
+        evaluateTypeOfParam: evaluateTypeOfParam,
         canBeTruthy,
         canBeFalsy,
         stripLiteralValue,
@@ -27340,7 +27308,7 @@ export function createTypeEvaluator(
         getDeclaredTypeForExpression,
         getFunctionDeclaredReturnType,
         getFunctionInferredReturnType,
-        getBestOverloadForArgs: getBestOverloadForArgs,
+        getBestOverloadForArgs,
         getBuiltInType,
         getTypeOfMember,
         getTypeOfBoundMember,
@@ -27352,7 +27320,7 @@ export function createTypeEvaluator(
         narrowConstrainedTypeVar,
         assignType,
         validateOverrideMethod,
-        validateCallArgs: validateCallArgs,
+        validateCallArgs,
         validateTypeArg,
         assignTypeToExpression,
         assignClassToSelf,
@@ -27365,9 +27333,9 @@ export function createTypeEvaluator(
         getBuiltInObject,
         getTypingType,
         assignTypeArgs: assignTypeArgs,
-        reportMissingTypeArgs: reportMissingTypeArgs,
+        reportMissingTypeArgs,
         inferReturnTypeIfNecessary,
-        inferTypeParameterVarianceForClass,
+        inferVarianceForClass,
         isFinalVariable,
         isFinalVariableDeclaration,
         isExplicitTypeAliasDeclaration,

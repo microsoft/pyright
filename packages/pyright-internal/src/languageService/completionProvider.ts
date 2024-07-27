@@ -32,9 +32,9 @@ import { isDefinedInFile } from '../analyzer/declarationUtils';
 import { transformTypeForEnumMember } from '../analyzer/enums';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import { ImportResult } from '../analyzer/importResult';
-import { getParameterListDetails, ParameterKind } from '../analyzer/parameterUtils';
+import { getParamListDetails, ParamKind } from '../analyzer/parameterUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
+import { getCallNodeAndActiveParamIndex } from '../analyzer/parseTreeUtils';
 import { getScopeForNode } from '../analyzer/scopeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
@@ -102,7 +102,7 @@ import {
     isExpressionNode,
     ModuleNameNode,
     NameNode,
-    ParameterCategory,
+    ParamCategory,
     ParameterNode,
     ParseNode,
     ParseNodeType,
@@ -563,15 +563,13 @@ export class CompletionProvider {
                 if (parameter.d.name) {
                     results.push([
                         parameter,
-                        parameter.d.category === ParameterCategory.Simple &&
-                            !!parameter.d.name &&
-                            sawKeywordOnlySeparator,
+                        parameter.d.category === ParamCategory.Simple && !!parameter.d.name && sawKeywordOnlySeparator,
                     ]);
                 }
 
                 // All simple parameters after a `*` or `*args` parameter
                 // are considered keyword only.
-                if (parameter.d.category === ParameterCategory.ArgsList) {
+                if (parameter.d.category === ParamCategory.ArgsList) {
                     sawKeywordOnlySeparator = true;
                 }
             }
@@ -581,11 +579,11 @@ export class CompletionProvider {
 
         function convertToString(parameter: [node: ParameterNode, keywordOnly: boolean]) {
             const name = parameter[0].d.name?.d.value;
-            if (parameter[0].d.category === ParameterCategory.ArgsList) {
+            if (parameter[0].d.category === ParamCategory.ArgsList) {
                 return `*${name}`;
             }
 
-            if (parameter[0].d.category === ParameterCategory.KwargsDict) {
+            if (parameter[0].d.category === ParamCategory.KwargsDict) {
                 return `**${name}`;
             }
 
@@ -1854,9 +1852,9 @@ export class CompletionProvider {
         const paramList = node.d.params
             .map((param, index) => {
                 let paramString = '';
-                if (param.d.category === ParameterCategory.ArgsList) {
+                if (param.d.category === ParamCategory.ArgsList) {
                     paramString += '*';
-                } else if (param.d.category === ParameterCategory.KwargsDict) {
+                } else if (param.d.category === ParamCategory.KwargsDict) {
                     paramString += '**';
                 }
 
@@ -1866,7 +1864,7 @@ export class CompletionProvider {
 
                 // Currently, we don't automatically add import if the type used in the annotation is not imported
                 // in current file.
-                const paramTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParameter(node, index);
+                const paramTypeAnnotation = ParseTreeUtils.getTypeAnnotationForParam(node, index);
                 if (paramTypeAnnotation) {
                     paramString += ': ' + ParseTreeUtils.printExpression(paramTypeAnnotation, printFlags);
                 }
@@ -1880,7 +1878,7 @@ export class CompletionProvider {
                         : ParseTreeUtils.printExpression(param.d.defaultValue, printFlags);
                 }
 
-                if (!paramString && !param.d.name && param.d.category === ParameterCategory.Simple) {
+                if (!paramString && !param.d.name && param.d.category === ParamCategory.Simple) {
                     return '/';
                 }
 
@@ -2004,11 +2002,7 @@ export class CompletionProvider {
     ) {
         // If we're within the argument list of a call, add parameter names.
         const offset = convertPositionToOffset(this.position, this.parseResults.tokenizerOutput.lines)!;
-        const callInfo = getCallNodeAndActiveParameterIndex(
-            parseNode,
-            offset,
-            this.parseResults.tokenizerOutput.tokens
-        );
+        const callInfo = getCallNodeAndActiveParamIndex(parseNode, offset, this.parseResults.tokenizerOutput.tokens);
 
         if (!callInfo) {
             return;
@@ -2148,9 +2142,9 @@ export class CompletionProvider {
             doForEachSignature(getItemType, (signature) => {
                 if (
                     signature.shared.parameters.length >= 1 &&
-                    signature.shared.parameters[0].category === ParameterCategory.Simple
+                    signature.shared.parameters[0].category === ParamCategory.Simple
                 ) {
-                    typesToCombine.push(FunctionType.getEffectiveParameterType(signature, 0));
+                    typesToCombine.push(FunctionType.getEffectiveParamType(signature, 0));
                 }
             });
 
@@ -2202,7 +2196,7 @@ export class CompletionProvider {
         const declaration = declarations.length > 0 ? declarations[0] : undefined;
         if (
             !declaration ||
-            (declaration.type !== DeclarationType.Variable && declaration.type !== DeclarationType.Parameter)
+            (declaration.type !== DeclarationType.Variable && declaration.type !== DeclarationType.Param)
         ) {
             return [];
         }
@@ -2873,10 +2867,10 @@ export class CompletionProvider {
     }
 
     private _addNamedParametersToMap(type: FunctionType, names: Set<string>) {
-        const paramDetails = getParameterListDetails(type);
+        const paramDetails = getParamListDetails(type);
 
         paramDetails.params.forEach((paramInfo) => {
-            if (paramInfo.param.name && paramInfo.kind !== ParameterKind.Positional) {
+            if (paramInfo.param.name && paramInfo.kind !== ParamKind.Positional) {
                 if (!SymbolNameUtils.isPrivateOrProtectedName(paramInfo.param.name)) {
                     names.add(paramInfo.param.name);
                 }
@@ -3056,10 +3050,10 @@ export class CompletionProvider {
                     ? CompletionItemKind.Class
                     : CompletionItemKind.Variable;
 
-            case DeclarationType.Parameter:
+            case DeclarationType.Param:
                 return CompletionItemKind.Variable;
 
-            case DeclarationType.TypeParameter:
+            case DeclarationType.TypeParam:
                 return CompletionItemKind.TypeParameter;
 
             case DeclarationType.Variable:

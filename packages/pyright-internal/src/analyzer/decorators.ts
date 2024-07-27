@@ -11,14 +11,7 @@
 import { appendArray } from '../common/collectionUtils';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
-import {
-    ArgCategory,
-    CallNode,
-    DecoratorNode,
-    FunctionNode,
-    ParameterCategory,
-    ParseNodeType,
-} from '../parser/parseNodes';
+import { ArgCategory, CallNode, DecoratorNode, FunctionNode, ParamCategory, ParseNodeType } from '../parser/parseNodes';
 import { getDeclaration, getFileInfo } from './analyzerNodeInfo';
 import {
     applyDataClassDecorator,
@@ -446,7 +439,7 @@ function getTypeOfDecorator(evaluator: TypeEvaluator, node: DecoratorNode, funct
                 }
 
                 // Allow *args or **kwargs parameters.
-                if (param.category !== ParameterCategory.Simple) {
+                if (param.category !== ParamCategory.Simple) {
                     return false;
                 }
 

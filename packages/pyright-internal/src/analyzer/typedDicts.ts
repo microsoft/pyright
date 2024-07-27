@@ -21,7 +21,7 @@ import {
     DictionaryNode,
     ExpressionNode,
     IndexNode,
-    ParameterCategory,
+    ParamCategory,
     ParseNodeType,
 } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
@@ -245,20 +245,20 @@ export function synthesizeTypedDictClassMethods(
 
     // Synthesize a __new__ method.
     const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
-    FunctionType.addParameter(
+    FunctionType.addParam(
         newType,
-        FunctionParam.create(ParameterCategory.Simple, classType, FunctionParamFlags.TypeDeclared, 'cls')
+        FunctionParam.create(ParamCategory.Simple, classType, FunctionParamFlags.TypeDeclared, 'cls')
     );
-    FunctionType.addDefaultParameters(newType);
+    FunctionType.addDefaultParams(newType);
     newType.shared.declaredReturnType = ClassType.cloneAsInstance(classType);
     newType.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     // Synthesize an __init__ method with two overrides.
     const initOverride1 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
-    FunctionType.addParameter(
+    FunctionType.addParam(
         initOverride1,
         FunctionParam.create(
-            ParameterCategory.Simple,
+            ParamCategory.Simple,
             ClassType.cloneAsInstance(classType),
             FunctionParamFlags.TypeDeclared,
             'self'
@@ -268,25 +268,25 @@ export function synthesizeTypedDictClassMethods(
     initOverride1.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     // The first parameter must be positional-only.
-    FunctionType.addParameter(
+    FunctionType.addParam(
         initOverride1,
         FunctionParam.create(
-            ParameterCategory.Simple,
+            ParamCategory.Simple,
             ClassType.cloneAsInstance(classType),
             FunctionParamFlags.TypeDeclared,
             '__map'
         )
     );
-    FunctionType.addPositionOnlyParameterSeparator(initOverride1);
+    FunctionType.addPositionOnlyParamSeparator(initOverride1);
 
     // All subsequent parameters must be named, so insert an empty "*".
-    FunctionType.addKeywordOnlyParameterSeparator(initOverride1);
+    FunctionType.addKeywordOnlyParamSeparator(initOverride1);
 
     const initOverride2 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
-    FunctionType.addParameter(
+    FunctionType.addParam(
         initOverride2,
         FunctionParam.create(
-            ParameterCategory.Simple,
+            ParamCategory.Simple,
             ClassType.cloneAsInstance(classType),
             FunctionParamFlags.TypeDeclared,
             'self'
@@ -296,17 +296,17 @@ export function synthesizeTypedDictClassMethods(
     initOverride2.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     // All parameters must be named, so insert an empty "*".
-    FunctionType.addKeywordOnlyParameterSeparator(initOverride2);
+    FunctionType.addKeywordOnlyParamSeparator(initOverride2);
 
     const entries = getTypedDictMembersForClass(evaluator, classType);
     const extraEntriesInfo = entries.extraItems ?? getEffectiveExtraItemsEntryType(evaluator, classType);
     let allEntriesAreReadOnly = entries.knownItems.size > 0;
 
     entries.knownItems.forEach((entry, name) => {
-        FunctionType.addParameter(
+        FunctionType.addParam(
             initOverride1,
             FunctionParam.create(
-                ParameterCategory.Simple,
+                ParamCategory.Simple,
                 entry.valueType,
                 FunctionParamFlags.TypeDeclared,
                 name,
@@ -314,10 +314,10 @@ export function synthesizeTypedDictClassMethods(
             )
         );
 
-        FunctionType.addParameter(
+        FunctionType.addParam(
             initOverride2,
             FunctionParam.create(
-                ParameterCategory.Simple,
+                ParamCategory.Simple,
                 entry.valueType,
                 FunctionParamFlags.TypeDeclared,
                 name,
@@ -331,20 +331,20 @@ export function synthesizeTypedDictClassMethods(
     });
 
     if (entries.extraItems && !isNever(entries.extraItems.valueType)) {
-        FunctionType.addParameter(
+        FunctionType.addParam(
             initOverride1,
             FunctionParam.create(
-                ParameterCategory.KwargsDict,
+                ParamCategory.KwargsDict,
                 entries.extraItems.valueType,
                 FunctionParamFlags.TypeDeclared,
                 'kwargs'
             )
         );
 
-        FunctionType.addParameter(
+        FunctionType.addParam(
             initOverride2,
             FunctionParam.create(
-                ParameterCategory.KwargsDict,
+                ParamCategory.KwargsDict,
                 entries.extraItems.valueType,
                 FunctionParamFlags.TypeDeclared,
                 'kwargs'
@@ -362,7 +362,7 @@ export function synthesizeTypedDictClassMethods(
     // Synthesize a "get", pop, and setdefault method for each named entry.
     if (isInstantiableClass(strClass)) {
         const selfParam = FunctionParam.create(
-            ParameterCategory.Simple,
+            ParamCategory.Simple,
             ClassType.cloneAsInstance(classType),
             FunctionParamFlags.TypeDeclared,
             'self'
@@ -387,11 +387,11 @@ export function synthesizeTypedDictClassMethods(
             defaultTypeMatchesField = false
         ) {
             const getOverload = FunctionType.createSynthesizedInstance('get', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(getOverload, selfParam);
+            FunctionType.addParam(getOverload, selfParam);
             getOverload.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
-            FunctionType.addParameter(
+            FunctionType.addParam(
                 getOverload,
-                FunctionParam.create(ParameterCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
+                FunctionParam.create(ParamCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
             );
 
             if (includeDefault) {
@@ -414,10 +414,10 @@ export function synthesizeTypedDictClassMethods(
                     returnType = defaultParamType;
                 }
 
-                FunctionType.addParameter(
+                FunctionType.addParam(
                     getOverload,
                     FunctionParam.create(
-                        ParameterCategory.Simple,
+                        ParamCategory.Simple,
                         defaultParamType,
                         FunctionParamFlags.TypeDeclared,
                         'default'
@@ -433,21 +433,16 @@ export function synthesizeTypedDictClassMethods(
         }
 
         function createPopMethods(keyType: Type, valueType: Type, isEntryRequired: boolean) {
-            const keyParam = FunctionParam.create(
-                ParameterCategory.Simple,
-                keyType,
-                FunctionParamFlags.TypeDeclared,
-                'k'
-            );
+            const keyParam = FunctionParam.create(ParamCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k');
 
             const popOverload1 = FunctionType.createSynthesizedInstance('pop', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(popOverload1, selfParam);
-            FunctionType.addParameter(popOverload1, keyParam);
+            FunctionType.addParam(popOverload1, selfParam);
+            FunctionType.addParam(popOverload1, keyParam);
             popOverload1.shared.declaredReturnType = valueType;
 
             const popOverload2 = FunctionType.createSynthesizedInstance('pop', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(popOverload2, selfParam);
-            FunctionType.addParameter(popOverload2, keyParam);
+            FunctionType.addParam(popOverload2, selfParam);
+            FunctionType.addParam(popOverload2, keyParam);
             popOverload2.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
             const defaultTypeVar = createDefaultTypeVar(popOverload2);
 
@@ -464,10 +459,10 @@ export function synthesizeTypedDictClassMethods(
                 returnType = defaultParamType;
             }
 
-            FunctionType.addParameter(
+            FunctionType.addParam(
                 popOverload2,
                 FunctionParam.create(
-                    ParameterCategory.Simple,
+                    ParamCategory.Simple,
                     defaultParamType,
                     FunctionParamFlags.TypeDeclared,
                     'default',
@@ -483,14 +478,14 @@ export function synthesizeTypedDictClassMethods(
                 'setdefault',
                 FunctionTypeFlags.Overloaded
             );
-            FunctionType.addParameter(setDefaultOverload, selfParam);
-            FunctionType.addParameter(
+            FunctionType.addParam(setDefaultOverload, selfParam);
+            FunctionType.addParam(
                 setDefaultOverload,
-                FunctionParam.create(ParameterCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
+                FunctionParam.create(ParamCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
             );
-            FunctionType.addParameter(
+            FunctionType.addParam(
                 setDefaultOverload,
-                FunctionParam.create(ParameterCategory.Simple, valueType, FunctionParamFlags.TypeDeclared, 'default')
+                FunctionParam.create(ParamCategory.Simple, valueType, FunctionParamFlags.TypeDeclared, 'default')
             );
             setDefaultOverload.shared.declaredReturnType = valueType;
             return setDefaultOverload;
@@ -498,10 +493,10 @@ export function synthesizeTypedDictClassMethods(
 
         function createDelItemMethod(keyType: Type) {
             const delItemOverload = FunctionType.createSynthesizedInstance('delitem', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(delItemOverload, selfParam);
-            FunctionType.addParameter(
+            FunctionType.addParam(delItemOverload, selfParam);
+            FunctionType.addParam(
                 delItemOverload,
-                FunctionParam.create(ParameterCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
+                FunctionParam.create(ParamCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
             );
             delItemOverload.shared.declaredReturnType = evaluator.getNoneType();
             return delItemOverload;
@@ -510,21 +505,21 @@ export function synthesizeTypedDictClassMethods(
         function createUpdateMethod() {
             // Overload 1: update(__m: Partial[<writable fields>], /)
             const updateMethod1 = FunctionType.createSynthesizedInstance('update', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(updateMethod1, selfParam);
+            FunctionType.addParam(updateMethod1, selfParam);
 
             // Overload 2: update(__m: Iterable[tuple[<name>, <type>]], /)
             const updateMethod2 = FunctionType.createSynthesizedInstance('update', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(updateMethod2, selfParam);
+            FunctionType.addParam(updateMethod2, selfParam);
 
             // Overload 3: update(*, <name>: <type>, ...)
             const updateMethod3 = FunctionType.createSynthesizedInstance('update', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(updateMethod3, selfParam);
+            FunctionType.addParam(updateMethod3, selfParam);
 
             // If all entries are read-only, don't allow updates.
-            FunctionType.addParameter(
+            FunctionType.addParam(
                 updateMethod1,
                 FunctionParam.create(
-                    ParameterCategory.Simple,
+                    ParamCategory.Simple,
                     allEntriesAreReadOnly
                         ? NeverType.createNever()
                         : ClassType.cloneAsInstance(ClassType.cloneForPartialTypedDict(classType)),
@@ -533,8 +528,8 @@ export function synthesizeTypedDictClassMethods(
                 )
             );
 
-            FunctionType.addPositionOnlyParameterSeparator(updateMethod1);
-            FunctionType.addKeywordOnlyParameterSeparator(updateMethod3);
+            FunctionType.addPositionOnlyParamSeparator(updateMethod1);
+            FunctionType.addKeywordOnlyParamSeparator(updateMethod3);
 
             updateMethod1.shared.declaredReturnType = evaluator.getNoneType();
             updateMethod2.shared.declaredReturnType = evaluator.getNoneType();
@@ -559,10 +554,10 @@ export function synthesizeTypedDictClassMethods(
                     }
 
                     // For writable entries, add a keyword argument.
-                    FunctionType.addParameter(
+                    FunctionType.addParam(
                         updateMethod3,
                         FunctionParam.create(
-                            ParameterCategory.Simple,
+                            ParamCategory.Simple,
                             entry.valueType,
                             FunctionParamFlags.TypeDeclared,
                             name,
@@ -576,10 +571,10 @@ export function synthesizeTypedDictClassMethods(
             if (iterableClass && isInstantiableClass(iterableClass)) {
                 const iterableType = ClassType.cloneAsInstance(iterableClass);
 
-                FunctionType.addParameter(
+                FunctionType.addParam(
                     updateMethod2,
                     FunctionParam.create(
-                        ParameterCategory.Simple,
+                        ParamCategory.Simple,
                         ClassType.specialize(iterableType, [combineTypes(tuplesToCombine)]),
                         FunctionParamFlags.TypeDeclared,
                         '__m'
@@ -587,7 +582,7 @@ export function synthesizeTypedDictClassMethods(
                 );
             }
 
-            FunctionType.addPositionOnlyParameterSeparator(updateMethod2);
+            FunctionType.addPositionOnlyParamSeparator(updateMethod2);
 
             // Note that the order of method1 and method2 is swapped. This is done so
             // the method1 signature is used in the error message when neither method2
@@ -682,12 +677,12 @@ export function synthesizeTypedDictClassMethods(
 
         if (dictValueType) {
             const clearMethod = FunctionType.createSynthesizedInstance('clear');
-            FunctionType.addParameter(clearMethod, selfParam);
+            FunctionType.addParam(clearMethod, selfParam);
             clearMethod.shared.declaredReturnType = evaluator.getNoneType();
             symbolTable.set('clear', Symbol.createWithType(SymbolFlags.ClassMember, clearMethod));
 
             const popItemMethod = FunctionType.createSynthesizedInstance('popitem');
-            FunctionType.addParameter(popItemMethod, selfParam);
+            FunctionType.addParam(popItemMethod, selfParam);
             let tupleType: Type | undefined = evaluator.getTupleClassType();
 
             if (tupleType && isInstantiableClass(tupleType)) {
@@ -714,13 +709,13 @@ export function synthesizeTypedDictClassMethods(
         if (mappingValueType) {
             ['items', 'keys', 'values'].forEach((methodName) => {
                 const method = FunctionType.createSynthesizedInstance(methodName);
-                FunctionType.addParameter(method, selfParam);
+                FunctionType.addParam(method, selfParam);
 
                 const returnTypeClass = evaluator.getTypingType(node, `dict_${methodName}`);
                 if (
                     returnTypeClass &&
                     isInstantiableClass(returnTypeClass) &&
-                    returnTypeClass.shared.typeParameters.length === 2
+                    returnTypeClass.shared.typeParams.length === 2
                 ) {
                     method.shared.declaredReturnType = ClassType.specialize(
                         ClassType.cloneAsInstance(returnTypeClass),
@@ -1270,7 +1265,7 @@ export function assignToTypedDict(
     let typeVarContext: TypeVarContext | undefined;
     let genericClassType = classType;
 
-    if (classType.shared.typeParameters.length > 0) {
+    if (classType.shared.typeParams.length > 0) {
         typeVarContext = new TypeVarContext(getTypeVarScopeId(classType));
 
         // Create a generic (nonspecialized version) of the class.

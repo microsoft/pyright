@@ -21,13 +21,13 @@ import {
     ClassDeclaration,
     Declaration,
     FunctionDeclaration,
-    ParameterDeclaration,
+    ParamDeclaration,
     SpecialBuiltInClassDeclaration,
     VariableDeclaration,
     isAliasDeclaration,
     isClassDeclaration,
     isFunctionDeclaration,
-    isParameterDeclaration,
+    isParamDeclaration,
     isSpecialBuiltInClassDeclaration,
     isVariableDeclaration,
 } from './declaration';
@@ -85,8 +85,8 @@ export class SourceMapper {
             return this._findFunctionOrTypeAliasDeclarations(stubDecl);
         } else if (isVariableDeclaration(stubDecl)) {
             return this._findVariableDeclarations(stubDecl);
-        } else if (isParameterDeclaration(stubDecl)) {
-            return this._findParameterDeclarations(stubDecl);
+        } else if (isParamDeclaration(stubDecl)) {
+            return this._findParamDeclarations(stubDecl);
         } else if (isSpecialBuiltInClassDeclaration(stubDecl)) {
             return this._findSpecialBuiltInClassDeclarations(stubDecl);
         }
@@ -200,8 +200,8 @@ export class SourceMapper {
         }
     }
 
-    private _findParameterDeclarations(stubDecl: ParameterDeclaration): ParameterDeclaration[] {
-        const result: ParameterDeclaration[] = [];
+    private _findParamDeclarations(stubDecl: ParamDeclaration): ParamDeclaration[] {
+        const result: ParamDeclaration[] = [];
 
         if (!stubDecl.node.d.name) {
             return result;
@@ -226,8 +226,8 @@ export class SourceMapper {
                 appendArray(
                     result,
                     this._lookUpSymbolDeclarations(functionDecl.node, stubDecl.node.d.name.d.value)
-                        .filter((d) => isParameterDeclaration(d))
-                        .map((d) => d as ParameterDeclaration)
+                        .filter((d) => isParamDeclaration(d))
+                        .map((d) => d as ParamDeclaration)
                 );
             }
         }

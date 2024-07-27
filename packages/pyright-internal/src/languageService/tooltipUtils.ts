@@ -429,7 +429,7 @@ export function getClassAndConstructorTypes(node: NameNode, evaluator: TypeEvalu
         !methodType ||
         (methodType &&
             isFunction(methodType) &&
-            (FunctionType.hasDefaultParameters(methodType) || methodType.shared.parameters.length === 0))
+            (FunctionType.hasDefaultParams(methodType) || methodType.shared.parameters.length === 0))
     ) {
         const newMember = lookUpClassMember(
             classType,

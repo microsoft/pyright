@@ -73,7 +73,7 @@ interface AnalyzerNodeInfo {
     dunderAllInfo?: DunderAllInfo | undefined;
 
     // Indicates that the NameNode refers to a type parameter.
-    typeParameterSymbol?: Symbol;
+    typeParamSymbol?: Symbol;
 }
 
 export type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode | ComprehensionNode;
@@ -114,8 +114,8 @@ export function cleanNodeAnalysisInfo(node: ParseNode) {
         info.dunderAllInfo = undefined;
     }
 
-    if (info?.typeParameterSymbol) {
-        info.typeParameterSymbol = undefined;
+    if (info?.typeParamSymbol) {
+        info.typeParamSymbol = undefined;
     }
 }
 

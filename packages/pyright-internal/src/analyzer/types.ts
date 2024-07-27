@@ -9,7 +9,7 @@
 
 import { assert } from '../common/debug';
 import { Uri } from '../common/uri/uri';
-import { ArgumentNode, NameNode, ParameterCategory } from '../parser/parseNodes';
+import { ArgumentNode, NameNode, ParamCategory } from '../parser/parseNodes';
 import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
@@ -134,7 +134,7 @@ export interface TypeAliasInfo {
     isPep695Syntax: boolean;
 
     // Type parameters, if type alias is generic
-    typeParameters: TypeVarType[] | undefined;
+    typeParams: TypeVarType[] | undefined;
 
     // Lazily-evaluated variance of type parameters based on how
     // they are used in the type alias
@@ -331,7 +331,7 @@ export namespace TypeBase {
             fileUri,
             typeVarScopeId,
             isPep695Syntax,
-            typeParameters: typeParams,
+            typeParams: typeParams,
             usageVariance: undefined,
             typeArgs: typeArgs,
         });
@@ -674,7 +674,7 @@ interface ClassDetailsShared {
     declaredMetaclass?: ClassType | UnknownType | undefined;
     effectiveMetaclass?: ClassType | UnknownType | undefined;
     fields: SymbolTable;
-    typeParameters: TypeVarType[];
+    typeParams: TypeVarType[];
     typeVarScopeId?: TypeVarScopeId | undefined;
     docString?: string | undefined;
     dataClassEntries?: DataClassEntry[] | undefined;
@@ -847,7 +847,7 @@ export namespace ClassType {
                 effectiveMetaclass,
                 mro: [],
                 fields: new Map<string, Symbol>(),
-                typeParameters: [],
+                typeParams: [],
                 docString,
             },
             priv: {},
@@ -1085,7 +1085,7 @@ export namespace ClassType {
 
     // Is the class generic but not specialized?
     export function isUnspecialized(classType: ClassType) {
-        return classType.shared.typeParameters.length > 0 && classType.priv.typeArgs === undefined;
+        return classType.shared.typeParams.length > 0 && classType.priv.typeArgs === undefined;
     }
 
     export function isSpecialBuiltIn(classType: ClassType, className?: string) {
@@ -1246,8 +1246,8 @@ export namespace ClassType {
         return !!(classType.shared.flags & ClassTypeFlags.ReadOnlyInstanceVariables);
     }
 
-    export function getTypeParameters(classType: ClassType) {
-        return classType.shared.typeParameters;
+    export function getTypeParams(classType: ClassType) {
+        return classType.shared.typeParams;
     }
 
     export function derivesFromAnyOrUnknown(classType: ClassType) {
@@ -1300,7 +1300,7 @@ export namespace ClassType {
             class1Details.flags !== class2Details.flags ||
             class1Details.typeSourceId !== class2Details.typeSourceId ||
             class1Details.baseClasses.length !== class2Details.baseClasses.length ||
-            class1Details.typeParameters.length !== class2Details.typeParameters.length
+            class1Details.typeParams.length !== class2Details.typeParams.length
         ) {
             return false;
         }
@@ -1348,11 +1348,11 @@ export namespace ClassType {
             }
         }
 
-        for (let i = 0; i < class1Details.typeParameters.length; i++) {
+        for (let i = 0; i < class1Details.typeParams.length; i++) {
             if (
                 !isTypeSame(
-                    class1Details.typeParameters[i],
-                    class2Details.typeParameters[i],
+                    class1Details.typeParams[i],
+                    class2Details.typeParams[i],
                     { ignorePseudoGeneric: true },
                     recursionCount
                 )
@@ -1450,7 +1450,7 @@ export enum FunctionParamFlags {
 }
 
 export interface FunctionParam {
-    category: ParameterCategory;
+    category: ParamCategory;
     type: Type;
     flags: FunctionParamFlags;
     name: string | undefined;
@@ -1459,7 +1459,7 @@ export interface FunctionParam {
 
 export namespace FunctionParam {
     export function create(
-        category: ParameterCategory,
+        category: ParamCategory,
         type: Type,
         flags = FunctionParamFlags.None,
         name?: string,
@@ -1483,12 +1483,12 @@ export namespace FunctionParam {
 
 export function isPositionOnlySeparator(param: FunctionParam) {
     // A simple parameter with no name is treated as a "/" separator.
-    return param.category === ParameterCategory.Simple && !param.name;
+    return param.category === ParamCategory.Simple && !param.name;
 }
 
 export function isKeywordOnlySeparator(param: FunctionParam) {
     // An *args parameter with no name is treated as a "*" separator.
-    return param.category === ParameterCategory.ArgsList && !param.name;
+    return param.category === ParamCategory.ArgsList && !param.name;
 }
 
 export const enum FunctionTypeFlags {
@@ -1572,7 +1572,7 @@ interface FunctionDetailsShared {
     fullName: string;
     moduleName: string;
     flags: FunctionTypeFlags;
-    typeParameters: TypeVarType[];
+    typeParams: TypeVarType[];
     parameters: FunctionParam[];
     declaredReturnType: Type | undefined;
     declaration: FunctionDeclaration | undefined;
@@ -1698,7 +1698,7 @@ export namespace FunctionType {
                 fullName,
                 moduleName,
                 flags: functionFlags,
-                typeParameters: [],
+                typeParams: [],
                 parameters: [],
                 declaredReturnType: undefined,
                 declaration: undefined,
@@ -1732,11 +1732,11 @@ export namespace FunctionType {
 
         if (stripFirstParam) {
             if (type.shared.parameters.length > 0) {
-                if (type.shared.parameters[0].category === ParameterCategory.Simple) {
+                if (type.shared.parameters[0].category === ParamCategory.Simple) {
                     if (type.shared.parameters.length > 0 && !FunctionParam.isTypeInferred(type.shared.parameters[0])) {
                         // Stash away the effective type of the first parameter if it
                         // wasn't synthesized.
-                        newFunction.priv.strippedFirstParamType = getEffectiveParameterType(type, 0);
+                        newFunction.priv.strippedFirstParamType = getEffectiveParamType(type, 0);
                     }
                     newFunction.shared.parameters = type.shared.parameters.slice(1);
                 }
@@ -1823,7 +1823,7 @@ export namespace FunctionType {
         // Make a shallow clone of the details.
         newFunction.shared = { ...newFunction.shared };
 
-        newFunction.shared.typeParameters = newFunction.shared.typeParameters.filter((t) => !isTypeSame(t, paramSpec));
+        newFunction.shared.typeParams = newFunction.shared.typeParams.filter((t) => !isTypeSame(t, paramSpec));
 
         const prevParams = Array.from(newFunction.shared.parameters);
 
@@ -1908,7 +1908,7 @@ export namespace FunctionType {
         type: FunctionType,
         newScopeId: TypeVarScopeId | undefined,
         newConstructorScopeId: TypeVarScopeId | undefined,
-        typeParameters: TypeVarType[]
+        typeParams: TypeVarType[]
     ): FunctionType {
         const newFunction = TypeBase.cloneType(type);
 
@@ -1916,11 +1916,11 @@ export namespace FunctionType {
         newFunction.shared = { ...type.shared };
         newFunction.shared.typeVarScopeId = newScopeId;
         newFunction.priv.constructorTypeVarScopeId = newConstructorScopeId;
-        newFunction.shared.typeParameters = typeParameters;
+        newFunction.shared.typeParams = typeParams;
 
         FunctionType.addHigherOrderTypeVarScopeIds(
             newFunction,
-            typeParameters.map((t) => t.priv.externalTypeVar?.priv.scopeId ?? t.priv.scopeId)
+            typeParams.map((t) => t.priv.externalTypeVar?.priv.scopeId ?? t.priv.scopeId)
         );
 
         return newFunction;
@@ -1964,15 +1964,12 @@ export namespace FunctionType {
         const argsParam = type.shared.parameters[paramCount - 2];
         const kwargsParam = type.shared.parameters[paramCount - 1];
 
-        if (
-            argsParam.category !== ParameterCategory.ArgsList ||
-            kwargsParam.category !== ParameterCategory.KwargsDict
-        ) {
+        if (argsParam.category !== ParamCategory.ArgsList || kwargsParam.category !== ParamCategory.KwargsDict) {
             return type;
         }
 
-        const argsType = FunctionType.getEffectiveParameterType(type, paramCount - 2);
-        const kwargsType = FunctionType.getEffectiveParameterType(type, paramCount - 1);
+        const argsType = FunctionType.getEffectiveParamType(type, paramCount - 2);
+        const kwargsType = FunctionType.getEffectiveParamType(type, paramCount - 1);
         if (!isParamSpec(argsType) || !isParamSpec(kwargsType) || !isTypeSame(argsType, kwargsType)) {
             return type;
         }
@@ -2030,10 +2027,10 @@ export namespace FunctionType {
         const lastParam = params[params.length - 1];
 
         if (
-            secondLastParam.category === ParameterCategory.ArgsList &&
+            secondLastParam.category === ParamCategory.ArgsList &&
             isTypeVar(secondLastParam.type) &&
             secondLastParam.type.priv.paramSpecAccess === 'args' &&
-            lastParam.category === ParameterCategory.KwargsDict &&
+            lastParam.category === ParamCategory.KwargsDict &&
             isTypeVar(lastParam.type) &&
             lastParam.type.priv.paramSpecAccess === 'kwargs'
         ) {
@@ -2044,20 +2041,20 @@ export namespace FunctionType {
     }
 
     export function addParamSpecVariadics(type: FunctionType, paramSpec: TypeVarType) {
-        FunctionType.addParameter(
+        FunctionType.addParam(
             type,
             FunctionParam.create(
-                ParameterCategory.ArgsList,
+                ParamCategory.ArgsList,
                 TypeVarType.cloneForParamSpecAccess(paramSpec, 'args'),
                 FunctionParamFlags.TypeDeclared,
                 'args'
             )
         );
 
-        FunctionType.addParameter(
+        FunctionType.addParam(
             type,
             FunctionParam.create(
-                ParameterCategory.KwargsDict,
+                ParamCategory.KwargsDict,
                 TypeVarType.cloneForParamSpecAccess(paramSpec, 'kwargs'),
                 FunctionParamFlags.TypeDeclared,
                 'kwargs'
@@ -2065,9 +2062,9 @@ export namespace FunctionType {
         );
     }
 
-    export function addDefaultParameters(type: FunctionType, useUnknown = false) {
-        getDefaultParameters(useUnknown).forEach((param) => {
-            FunctionType.addParameter(type, param);
+    export function addDefaultParams(type: FunctionType, useUnknown = false) {
+        getDefaultParams(useUnknown).forEach((param) => {
+            FunctionType.addParam(type, param);
         });
     }
 
@@ -2099,16 +2096,16 @@ export namespace FunctionType {
         });
     }
 
-    export function getDefaultParameters(useUnknown = false): FunctionParam[] {
+    export function getDefaultParams(useUnknown = false): FunctionParam[] {
         return [
             FunctionParam.create(
-                ParameterCategory.ArgsList,
+                ParamCategory.ArgsList,
                 useUnknown ? UnknownType.create() : AnyType.create(),
                 useUnknown ? FunctionParamFlags.None : FunctionParamFlags.TypeDeclared,
                 'args'
             ),
             FunctionParam.create(
-                ParameterCategory.KwargsDict,
+                ParamCategory.KwargsDict,
                 useUnknown ? UnknownType.create() : AnyType.create(),
                 useUnknown ? FunctionParamFlags.None : FunctionParamFlags.TypeDeclared,
                 'kwargs'
@@ -2117,7 +2114,7 @@ export namespace FunctionType {
     }
 
     // Indicates whether the input signature consists of (*args: Any, **kwargs: Any).
-    export function hasDefaultParameters(functionType: FunctionType): boolean {
+    export function hasDefaultParams(functionType: FunctionType): boolean {
         let sawArgs = false;
         let sawKwargs = false;
 
@@ -2129,15 +2126,15 @@ export namespace FunctionType {
                 continue;
             }
 
-            if (param.category === ParameterCategory.Simple) {
+            if (param.category === ParamCategory.Simple) {
                 return false;
-            } else if (param.category === ParameterCategory.ArgsList) {
+            } else if (param.category === ParamCategory.ArgsList) {
                 sawArgs = true;
-            } else if (param.category === ParameterCategory.KwargsDict) {
+            } else if (param.category === ParamCategory.KwargsDict) {
                 sawKwargs = true;
             }
 
-            if (!isAnyOrUnknown(FunctionType.getEffectiveParameterType(functionType, i))) {
+            if (!isAnyOrUnknown(FunctionType.getEffectiveParamType(functionType, i))) {
                 return false;
             }
         }
@@ -2187,7 +2184,7 @@ export namespace FunctionType {
         return (type.shared.flags & FunctionTypeFlags.Overloaded) !== 0;
     }
 
-    export function isDefaultParameterCheckDisabled(type: FunctionType) {
+    export function isDefaultParamCheckDisabled(type: FunctionType) {
         return (type.shared.flags & FunctionTypeFlags.DisableDefaultChecks) !== 0;
     }
 
@@ -2240,7 +2237,7 @@ export namespace FunctionType {
         return true;
     }
 
-    export function getEffectiveParameterType(type: FunctionType, index: number): Type {
+    export function getEffectiveParamType(type: FunctionType, index: number): Type {
         assert(index < type.shared.parameters.length, 'Parameter types array overflow');
 
         if (type.priv.specializedTypes && index < type.priv.specializedTypes.parameterTypes.length) {
@@ -2250,7 +2247,7 @@ export namespace FunctionType {
         return type.shared.parameters[index].type;
     }
 
-    export function getEffectiveParameterDefaultArgType(type: FunctionType, index: number): Type | undefined {
+    export function getEffectiveParamDefaultArgType(type: FunctionType, index: number): Type | undefined {
         assert(index < type.shared.parameters.length, 'Parameter types array overflow');
 
         if (
@@ -2266,7 +2263,7 @@ export namespace FunctionType {
         return type.shared.parameters[index].defaultType;
     }
 
-    export function addParameter(type: FunctionType, param: FunctionParam) {
+    export function addParam(type: FunctionType, param: FunctionParam) {
         type.shared.parameters.push(param);
 
         if (type.priv.specializedTypes) {
@@ -2274,12 +2271,12 @@ export namespace FunctionType {
         }
     }
 
-    export function addPositionOnlyParameterSeparator(type: FunctionType) {
-        addParameter(type, FunctionParam.create(ParameterCategory.Simple, AnyType.create()));
+    export function addPositionOnlyParamSeparator(type: FunctionType) {
+        addParam(type, FunctionParam.create(ParamCategory.Simple, AnyType.create()));
     }
 
-    export function addKeywordOnlyParameterSeparator(type: FunctionType) {
-        addParameter(type, FunctionParam.create(ParameterCategory.ArgsList, AnyType.create()));
+    export function addKeywordOnlyParamSeparator(type: FunctionType) {
+        addParam(type, FunctionParam.create(ParamCategory.ArgsList, AnyType.create()));
     }
 
     export function getEffectiveReturnType(type: FunctionType, includeInferred = true) {
@@ -2696,7 +2693,7 @@ export interface RecursiveAliasInfo {
     isPep695Syntax: boolean;
 
     // Type parameters for a recursive type alias.
-    typeParameters: TypeVarType[] | undefined;
+    typeParams: TypeVarType[] | undefined;
 }
 
 export interface TypeVarDetailsShared {
@@ -3301,8 +3298,8 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                     continue;
                 }
 
-                const param1Type = FunctionType.getEffectiveParameterType(type1, i);
-                const param2Type = FunctionType.getEffectiveParameterType(functionType2, i);
+                const param1Type = FunctionType.getEffectiveParamType(type1, i);
+                const param2Type = FunctionType.getEffectiveParamType(functionType2, i);
                 if (!isTypeSame(param1Type, param2Type, { ...options, ignoreTypeFlags: false }, recursionCount)) {
                     return false;
                 }
@@ -3744,7 +3741,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
             if (isTypeSame(type, typeToAdd, { ignorePseudoGeneric: true })) {
                 unionType.priv.subtypes[i] = ClassType.specialize(
                     typeToAdd,
-                    typeToAdd.shared.typeParameters.map(() => UnknownType.create())
+                    typeToAdd.shared.typeParams.map(() => UnknownType.create())
                 );
                 return;
             }

@@ -24,7 +24,7 @@ import {
     FunctionNode,
     MatchNode,
     NameNode,
-    ParameterCategory,
+    ParamCategory,
     ParameterNode,
     ParseNode,
     RaiseNode,
@@ -322,7 +322,7 @@ export interface EffectiveTypeResult {
 }
 
 export interface ValidateArgTypeParams {
-    paramCategory: ParameterCategory;
+    paramCategory: ParamCategory;
     paramType: Type;
     requiresTypeVarMatching: boolean;
     argument: Arg;
@@ -500,7 +500,7 @@ export interface TypeEvaluator {
     evaluateTypesForStatement: (node: ParseNode) => void;
     evaluateTypesForMatchStatement: (node: MatchNode) => void;
     evaluateTypesForCaseStatement: (node: CaseNode) => void;
-    evaluateTypeOfParameter: (node: ParameterNode) => void;
+    evaluateTypeOfParam: (node: ParameterNode) => void;
 
     canBeTruthy: (type: Type) => boolean;
     canBeFalsy: (type: Type) => boolean;
@@ -658,7 +658,7 @@ export interface TypeEvaluator {
     getTypeClassType(): ClassType | undefined;
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
     inferReturnTypeIfNecessary: (type: Type) => void;
-    inferTypeParameterVarianceForClass: (type: ClassType) => void;
+    inferVarianceForClass: (type: ClassType) => void;
     assignTypeArgs: (
         destType: ClassType,
         srcType: ClassType,

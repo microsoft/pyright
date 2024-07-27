@@ -9,7 +9,7 @@
 
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
-import { ArgumentNode, ParameterCategory } from '../parser/parseNodes';
+import { ArgumentNode, ParamCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isEffectivelyClassVar, isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
@@ -666,8 +666,8 @@ function compareTypes(a: Type, b: Type, recursionCount = 0): number {
                 }
 
                 const typeComparison = compareTypes(
-                    FunctionType.getEffectiveParameterType(a, i),
-                    FunctionType.getEffectiveParameterType(bFunc, i)
+                    FunctionType.getEffectiveParamType(a, i),
+                    FunctionType.getEffectiveParamType(bFunc, i)
                 );
 
                 if (typeComparison !== 0) {
@@ -742,11 +742,11 @@ function compareTypes(a: Type, b: Type, recursionCount = 0): number {
             }
 
             // Sort non-generics before generics.
-            if (a.shared.typeParameters.length > 0 || isTupleClass(a)) {
-                if (bClass.shared.typeParameters.length === 0) {
+            if (a.shared.typeParams.length > 0 || isTupleClass(a)) {
+                if (bClass.shared.typeParams.length === 0) {
                     return 1;
                 }
-            } else if (bClass.shared.typeParameters.length > 0 || isTupleClass(bClass)) {
+            } else if (bClass.shared.typeParams.length > 0 || isTupleClass(bClass)) {
                 return -1;
             }
 
@@ -1035,12 +1035,12 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
                 ? convertToInstance(type.shared.boundType)
                 : type.shared.boundType;
 
-            if (!aliasInfo?.typeArgs || !type.shared.recursiveAlias.typeParameters) {
+            if (!aliasInfo?.typeArgs || !type.shared.recursiveAlias.typeParams) {
                 return unspecializedType;
             }
 
             const typeVarContext = buildTypeVarContext(
-                type.shared.recursiveAlias.typeParameters,
+                type.shared.recursiveAlias.typeParams,
                 aliasInfo.typeArgs,
                 getTypeVarScopeId(type)
             );
@@ -1060,7 +1060,7 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
                     aliasInfo.fileUri,
                     aliasInfo.typeVarScopeId,
                     aliasInfo.isPep695Syntax,
-                    aliasInfo.typeParameters,
+                    aliasInfo.typeParams,
                     aliasInfo.typeArgs
                 );
             }
@@ -1115,13 +1115,13 @@ export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] | undefined {
 // specified, specialize it with default type arguments (Unknown or the
 // default type if provided).
 export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
-    if (type.shared.typeParameters.length === 0 || type.priv.typeArgs) {
+    if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
         return type;
     }
 
     return ClassType.specialize(
         type,
-        type.shared.typeParameters.map((param) => param.shared.defaultType),
+        type.shared.typeParams.map((param) => param.shared.defaultType),
         /* isTypeArgExplicit */ false,
         /* includeSubclasses */ type.priv.includeSubclasses
     );
@@ -1130,7 +1130,7 @@ export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
 // Specializes the class with "Unknown" type args (or the equivalent for ParamSpecs
 // or TypeVarTuples).
 export function specializeWithUnknownTypeArgs(type: ClassType, tupleClassType?: ClassType): ClassType {
-    if (type.shared.typeParameters.length === 0) {
+    if (type.shared.typeParams.length === 0) {
         return type;
     }
 
@@ -1147,7 +1147,7 @@ export function specializeWithUnknownTypeArgs(type: ClassType, tupleClassType?: 
 
     return ClassType.specialize(
         type,
-        type.shared.typeParameters.map((param) => getUnknownTypeForTypeVar(param, tupleClassType)),
+        type.shared.typeParams.map((param) => getUnknownTypeForTypeVar(param, tupleClassType)),
         /* isTypeArgExplicit */ false,
         /* includeSubclasses */ type.priv.includeSubclasses
     );
@@ -1174,7 +1174,7 @@ export function getUnknownTypeForParamSpec(): FunctionType {
         '',
         FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.GradualCallableForm
     );
-    FunctionType.addDefaultParameters(newFunction);
+    FunctionType.addDefaultParams(newFunction);
     return newFunction;
 }
 
@@ -1194,7 +1194,7 @@ export function getUnknownTypeForVariadicTypeVar(tupleClassType: ClassType): Typ
 // Returns the equivalent of "Callable[..., Unknown]".
 export function getUnknownTypeForCallable(): FunctionType {
     const newFunction = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.GradualCallableForm);
-    FunctionType.addDefaultParameters(newFunction);
+    FunctionType.addDefaultParams(newFunction);
     newFunction.shared.declaredReturnType = UnknownType.create();
     return newFunction;
 }
@@ -1203,7 +1203,7 @@ export function getUnknownTypeForCallable(): FunctionType {
 // "self specializes" the class, filling in its own type parameters
 // as type arguments.
 export function selfSpecializeClass(type: ClassType, options?: SelfSpecializeOptions): ClassType {
-    if (type.shared.typeParameters.length === 0) {
+    if (type.shared.typeParams.length === 0) {
         return type;
     }
 
@@ -1211,7 +1211,7 @@ export function selfSpecializeClass(type: ClassType, options?: SelfSpecializeOpt
         return type;
     }
 
-    const typeParams = type.shared.typeParameters.map((typeParam) => {
+    const typeParams = type.shared.typeParams.map((typeParam) => {
         return options?.useInternalTypeVars ? TypeVarType.cloneWithInternalScopeId(typeParam) : typeParam;
     });
     return ClassType.specialize(type, typeParams);
@@ -2098,7 +2098,7 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
         for (let i = 0; i < type.shared.parameters.length; i++) {
             addTypeVarsToListIfUnique(
                 combinedList,
-                getTypeVarArgsRecursive(FunctionType.getEffectiveParameterType(type, i), recursionCount)
+                getTypeVarArgsRecursive(FunctionType.getEffectiveParamType(type, i), recursionCount)
             );
         }
 
@@ -2117,7 +2117,7 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
 // type arguments with Unknown.
 export function specializeClassType(type: ClassType): ClassType {
     const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
-    const typeParams = ClassType.getTypeParameters(type);
+    const typeParams = ClassType.getTypeParams(type);
 
     typeParams.forEach((typeParam) => {
         typeVarContext.setTypeVarType(typeParam, applySolvedTypeVars(typeParam.shared.defaultType, typeVarContext));
@@ -2205,7 +2205,7 @@ export function setTypeArgsRecursive(
 // specialized type is Dict[str, int], it returns a map that associates
 // _T1 with str and _T2 with int.
 export function buildTypeVarContextFromSpecializedClass(classType: ClassType): TypeVarContext {
-    const typeParameters = ClassType.getTypeParameters(classType);
+    const typeParams = ClassType.getTypeParams(classType);
     let typeArgs: Type[] | undefined;
 
     if (classType.priv.tupleTypeArgs) {
@@ -2223,17 +2223,17 @@ export function buildTypeVarContextFromSpecializedClass(classType: ClassType): T
         typeArgs = classType.priv.typeArgs;
     }
 
-    return buildTypeVarContext(typeParameters, typeArgs, getTypeVarScopeId(classType));
+    return buildTypeVarContext(typeParams, typeArgs, getTypeVarScopeId(classType));
 }
 
 export function buildTypeVarContext(
-    typeParameters: TypeVarType[],
+    typeParams: TypeVarType[],
     typeArgs: Type[] | undefined,
     typeVarScopeId: TypeVarScopeId | undefined
 ): TypeVarContext {
     const typeVarContext = new TypeVarContext(typeVarScopeId);
 
-    typeParameters.forEach((typeParam, index) => {
+    typeParams.forEach((typeParam, index) => {
         let typeArgType: Type;
 
         if (typeArgs) {
@@ -2247,7 +2247,7 @@ export function buildTypeVarContext(
                             parameters.push(
                                 FunctionParam.create(
                                     param.category,
-                                    FunctionType.getEffectiveParameterType(typeArgFunctionType, paramIndex),
+                                    FunctionType.getEffectiveParamType(typeArgFunctionType, paramIndex),
                                     param.flags & FunctionParamFlags.NameSynthesized,
                                     param.name,
                                     param.defaultType
@@ -2281,7 +2281,7 @@ export function buildTypeVarContext(
 
 // Determines the specialized base class type that srcType derives from.
 export function specializeForBaseClass(srcType: ClassType, baseClass: ClassType): ClassType {
-    const typeParams = ClassType.getTypeParameters(baseClass);
+    const typeParams = ClassType.getTypeParams(baseClass);
 
     // If there are no type parameters for the specified base class,
     // no specialization is required.
@@ -2517,7 +2517,7 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
             aliasInfo.fileUri,
             aliasInfo.typeVarScopeId,
             aliasInfo.isPep695Syntax,
-            aliasInfo.typeParameters,
+            aliasInfo.typeParams,
             aliasInfo.typeArgs
         );
     }
@@ -2771,7 +2771,7 @@ export function isPartlyUnknown(type: Type, recursionCount = 0): boolean {
         for (let i = 0; i < type.shared.parameters.length; i++) {
             // Ignore parameters such as "*" that have no name.
             if (type.shared.parameters[i].name) {
-                const paramType = FunctionType.getEffectiveParameterType(type, i);
+                const paramType = FunctionType.getEffectiveParamType(type, i);
                 if (isPartlyUnknown(paramType, recursionCount)) {
                     return true;
                 }
@@ -2928,8 +2928,8 @@ export function getGeneratorTypeArgs(returnType: Type): Type[] | undefined {
 }
 
 export function requiresTypeArgs(classType: ClassType) {
-    if (classType.shared.typeParameters.length > 0) {
-        const firstTypeParam = classType.shared.typeParameters[0];
+    if (classType.shared.typeParams.length > 0) {
+        const firstTypeParam = classType.shared.typeParams[0];
 
         // If there are type parameters, type arguments are needed.
         // The exception is if type parameters have been synthesized
@@ -2948,7 +2948,7 @@ export function requiresTypeArgs(classType: ClassType) {
     }
 
     // There are a few built-in special classes that require
-    // type arguments even though typeParameters is empty.
+    // type arguments even though typeParams is empty.
     if (ClassType.isSpecialBuiltIn(classType)) {
         const specialClasses = [
             'Tuple',
@@ -3019,12 +3019,12 @@ function _requiresSpecialization(type: Type, options?: RequiresSpecializationOpt
                 return type.priv.typeArgs.some((typeArg) => requiresSpecialization(typeArg, options, recursionCount));
             }
 
-            return ClassType.getTypeParameters(type).length > 0;
+            return ClassType.getTypeParams(type).length > 0;
         }
 
         case TypeCategory.Function: {
             for (let i = 0; i < type.shared.parameters.length; i++) {
-                if (requiresSpecialization(FunctionType.getEffectiveParameterType(type, i), options, recursionCount)) {
+                if (requiresSpecialization(FunctionType.getEffectiveParamType(type, i), options, recursionCount)) {
                     return true;
                 }
             }
@@ -3107,8 +3107,8 @@ export function isVarianceOfTypeArgCompatible(type: Type, typeParamVariance: Var
             return typeArgVariance === typeParamVariance;
         }
     } else if (isClassInstance(type)) {
-        if (type.shared.typeParameters && type.shared.typeParameters.length > 0) {
-            return type.shared.typeParameters.every((typeParam, index) => {
+        if (type.shared.typeParams && type.shared.typeParams.length > 0) {
+            return type.shared.typeParams.every((typeParam, index) => {
                 let typeArgType: Type | undefined;
 
                 if (typeParam.shared.isParamSpec || typeParam.shared.isVariadic) {
@@ -3391,11 +3391,11 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
         newFunction.shared.deprecatedMessage = type.shared.deprecatedMessage;
 
         type.shared.parameters.forEach((param, index) => {
-            FunctionType.addParameter(
+            FunctionType.addParam(
                 newFunction,
                 FunctionParam.create(
                     param.category,
-                    FunctionType.getEffectiveParameterType(type, index),
+                    FunctionType.getEffectiveParamType(type, index),
                     param.flags & FunctionParamFlags.NameSynthesized,
                     param.name,
                     param.defaultType
@@ -3422,19 +3422,19 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
     const paramSpec = FunctionType.getParamSpecFromArgsKwargs(type);
     const withoutParamSpec = FunctionType.cloneRemoveParamSpecArgsKwargs(type);
 
-    let hasParameters = withoutParamSpec.shared.parameters.length > 0;
+    let hasParams = withoutParamSpec.shared.parameters.length > 0;
 
     if (withoutParamSpec.shared.parameters.length === 1) {
         // If the ParamSpec has a position-only separator as its only parameter,
         // treat it as though there are no parameters.
         const onlyParam = withoutParamSpec.shared.parameters[0];
         if (isPositionOnlySeparator(onlyParam)) {
-            hasParameters = false;
+            hasParams = false;
         }
     }
 
     // Can we simplify it to just a paramSpec?
-    if (!hasParameters && paramSpec) {
+    if (!hasParams && paramSpec) {
         return paramSpec;
     }
 
@@ -3451,11 +3451,11 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
     functionType.priv.constructorTypeVarScopeId = withoutParamSpec.priv.constructorTypeVarScopeId;
 
     withoutParamSpec.shared.parameters.forEach((entry, index) => {
-        FunctionType.addParameter(
+        FunctionType.addParam(
             functionType,
             FunctionParam.create(
                 entry.category,
-                FunctionType.getEffectiveParameterType(withoutParamSpec, index),
+                FunctionType.getEffectiveParamType(withoutParamSpec, index),
                 (entry.flags & FunctionParamFlags.NameSynthesized) | FunctionParamFlags.TypeDeclared,
                 entry.name,
                 entry.defaultType
@@ -3536,7 +3536,7 @@ class TypeVarTransformer {
                         aliasInfo.fileUri,
                         aliasInfo.typeVarScopeId,
                         aliasInfo.isPep695Syntax,
-                        aliasInfo.typeParameters,
+                        aliasInfo.typeParams,
                         typeArgs
                     );
                 }
@@ -3703,7 +3703,7 @@ class TypeVarTransformer {
 
     transformGenericTypeAlias(type: Type, recursionCount: number) {
         const aliasInfo = type.props?.typeAliasInfo;
-        if (!aliasInfo || !aliasInfo.typeParameters || !aliasInfo.typeArgs) {
+        if (!aliasInfo || !aliasInfo.typeParams || !aliasInfo.typeArgs) {
             return type;
         }
 
@@ -3725,7 +3725,7 @@ class TypeVarTransformer {
                   aliasInfo.fileUri,
                   aliasInfo.typeVarScopeId,
                   aliasInfo.isPep695Syntax,
-                  aliasInfo.typeParameters,
+                  aliasInfo.typeParams,
                   newTypeArgs
               )
             : type;
@@ -3737,7 +3737,7 @@ class TypeVarTransformer {
     }
 
     transformTypeVarsInClassType(classType: ClassType, recursionCount: number): ClassType {
-        const typeParams = ClassType.getTypeParameters(classType);
+        const typeParams = ClassType.getTypeParams(classType);
 
         // Handle the common case where the class has no type parameters.
         if (
@@ -3902,7 +3902,7 @@ class TypeVarTransformer {
                 : undefined;
             let typesRequiredSpecialization = declaredReturnType !== specializedReturnType;
 
-            const specializedParameters: SpecializedFunctionTypes = {
+            const specializedParams: SpecializedFunctionTypes = {
                 parameterTypes: [],
                 parameterDefaultArgs: undefined,
                 returnType: specializedReturnType,
@@ -3933,12 +3933,12 @@ class TypeVarTransformer {
             this._isTransformingTypeArg = true;
 
             for (let i = 0; i < functionType.shared.parameters.length; i++) {
-                const paramType = FunctionType.getEffectiveParameterType(functionType, i);
+                const paramType = FunctionType.getEffectiveParamType(functionType, i);
                 const specializedType = this.apply(paramType, recursionCount);
-                specializedParameters.parameterTypes.push(specializedType);
+                specializedParams.parameterTypes.push(specializedType);
 
                 // Do we need to specialize the default argument type for this parameter?
-                let defaultArgType = FunctionType.getEffectiveParameterDefaultArgType(functionType, i);
+                let defaultArgType = FunctionType.getEffectiveParamDefaultArgType(functionType, i);
                 if (defaultArgType) {
                     const specializedArgType = this.apply(defaultArgType, recursionCount);
                     if (specializedArgType !== defaultArgType) {
@@ -3951,7 +3951,7 @@ class TypeVarTransformer {
                 if (
                     variadicParamIndex === undefined &&
                     isVariadicTypeVar(paramType) &&
-                    functionType.shared.parameters[i].category === ParameterCategory.ArgsList
+                    functionType.shared.parameters[i].category === ParamCategory.ArgsList
                 ) {
                     variadicParamIndex = i;
 
@@ -4001,12 +4001,12 @@ class TypeVarTransformer {
             }
 
             if (specializedDefaultArgs.some((t) => t !== undefined)) {
-                specializedParameters.parameterDefaultArgs = specializedDefaultArgs;
+                specializedParams.parameterDefaultArgs = specializedDefaultArgs;
             }
 
             // If there was no unpacked variadic type variable, we're done.
             if (!variadicTypesToUnpack) {
-                return FunctionType.specialize(functionType, specializedParameters, specializedInferredReturnType);
+                return FunctionType.specialize(functionType, specializedParams, specializedInferredReturnType);
             }
 
             // Unpack the tuple and synthesize a new function in the process.
@@ -4016,18 +4016,18 @@ class TypeVarTransformer {
             let insertKeywordOnlySeparator = false;
             let swallowPositionOnlySeparator = false;
 
-            specializedParameters.parameterTypes.forEach((paramType, index) => {
+            specializedParams.parameterTypes.forEach((paramType, index) => {
                 if (index === variadicParamIndex) {
                     let sawUnboundedEntry = false;
 
                     // Unpack the tuple into individual parameters.
                     variadicTypesToUnpack!.forEach((unpackedType) => {
-                        FunctionType.addParameter(
+                        FunctionType.addParam(
                             newFunctionType,
                             FunctionParam.create(
                                 unpackedType.isUnbounded || isVariadicTypeVar(unpackedType.type)
-                                    ? ParameterCategory.ArgsList
-                                    : ParameterCategory.Simple,
+                                    ? ParamCategory.ArgsList
+                                    : ParamCategory.Simple,
                                 unpackedType.type,
                                 FunctionParamFlags.NameSynthesized | FunctionParamFlags.TypeDeclared,
                                 `__p${newFunctionType.shared.parameters.length}`
@@ -4049,14 +4049,14 @@ class TypeVarTransformer {
 
                     if (isKeywordOnlySeparator(param)) {
                         insertKeywordOnlySeparator = false;
-                    } else if (param.category === ParameterCategory.KwargsDict) {
+                    } else if (param.category === ParamCategory.KwargsDict) {
                         insertKeywordOnlySeparator = false;
                     }
 
                     // Insert a keyword-only separator parameter if we previously
                     // unpacked a variadic TypeVar.
-                    if (param.category === ParameterCategory.Simple && param.name && insertKeywordOnlySeparator) {
-                        FunctionType.addKeywordOnlyParameterSeparator(newFunctionType);
+                    if (param.category === ParamCategory.Simple && param.name && insertKeywordOnlySeparator) {
+                        FunctionType.addKeywordOnlyParamSeparator(newFunctionType);
                         insertKeywordOnlySeparator = false;
                     }
 
@@ -4065,13 +4065,13 @@ class TypeVarTransformer {
                         param.name = `__p${newFunctionType.shared.parameters.length}`;
                     }
 
-                    if (param.category !== ParameterCategory.Simple || param.name || !swallowPositionOnlySeparator) {
-                        FunctionType.addParameter(newFunctionType, param);
+                    if (param.category !== ParamCategory.Simple || param.name || !swallowPositionOnlySeparator) {
+                        FunctionType.addParam(newFunctionType, param);
                     }
                 }
             });
 
-            newFunctionType.shared.declaredReturnType = specializedParameters.returnType;
+            newFunctionType.shared.declaredReturnType = specializedParams.returnType;
 
             return newFunctionType;
         });
@@ -4143,7 +4143,7 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
         recursionCount: number
     ): FunctionType | OverloadedFunctionType {
         // If this function is not generic, there's no need to check for uniqueness.
-        if (sourceType.shared.typeParameters.length === 0) {
+        if (sourceType.shared.typeParams.length === 0) {
             return super.transformTypeVarsInFunctionType(sourceType, recursionCount);
         }
 
@@ -4162,7 +4162,7 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
 
                 // Create new type variables with the same scope but with
                 // different (unique) names.
-                sourceType.shared.typeParameters.forEach((typeParam) => {
+                sourceType.shared.typeParams.forEach((typeParam) => {
                     if (typeParam.priv.scopeType === TypeVarScopeType.Function) {
                         let replacement: Type = TypeVarType.cloneForNewName(
                             typeParam,
@@ -4310,7 +4310,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                                 subtype = ClassType.cloneAsInstance(ClassType.cloneAsInstantiable(subtype));
                             }
 
-                            if (subtype.shared.typeParameters && !subtype.priv.typeArgs) {
+                            if (subtype.shared.typeParams && !subtype.priv.typeArgs) {
                                 if (this._options.unknownIfNotFound) {
                                     return this._options.useUnknownOverDefault
                                         ? specializeWithUnknownTypeArgs(subtype, this._options.tupleClassType)

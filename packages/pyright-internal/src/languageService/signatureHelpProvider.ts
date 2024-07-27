@@ -22,7 +22,7 @@ import {
 
 import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
+import { getCallNodeAndActiveParamIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
@@ -107,7 +107,7 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        const callInfo = getCallNodeAndActiveParameterIndex(node, offset, this._parseResults.tokenizerOutput.tokens);
+        const callInfo = getCallNodeAndActiveParamIndex(node, offset, this._parseResults.tokenizerOutput.tokens);
         if (!callInfo) {
             return;
         }

@@ -9,7 +9,7 @@
 
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
-import { ParameterCategory } from '../parser/parseNodes';
+import { ParamCategory } from '../parser/parseNodes';
 import { isTypedKwargs } from './parameterUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import {
@@ -255,7 +255,7 @@ function printTypeInternal(
                     aliasName = aliasInfo.fullName;
                 }
 
-                const typeParams = aliasInfo.typeParameters;
+                const typeParams = aliasInfo.typeParams;
 
                 if (typeParams && typeParams.length > 0) {
                     let argumentStrings: string[] | undefined;
@@ -360,7 +360,7 @@ function printTypeInternal(
         }
 
         if (aliasInfo) {
-            if (!aliasInfo.typeParameters) {
+            if (!aliasInfo.typeParams) {
                 let name =
                     (printTypeFlags & PrintTypeFlags.UseFullyQualifiedNames) !== 0
                         ? aliasInfo.fullName
@@ -815,7 +815,7 @@ function printFunctionType(
         if (typeWithoutParamSpec.shared.parameters.length === 0) {
             isPositionalParamsOnly = true;
         } else {
-            if (typeWithoutParamSpec.shared.parameters.every((param) => param.category === ParameterCategory.Simple)) {
+            if (typeWithoutParamSpec.shared.parameters.every((param) => param.category === ParamCategory.Simple)) {
                 const lastParam =
                     typeWithoutParamSpec.shared.parameters[typeWithoutParamSpec.shared.parameters.length - 1];
                 if (!lastParam.name) {
@@ -842,7 +842,7 @@ function printFunctionType(
 
             typeWithoutParamSpec.shared.parameters.forEach((param, index) => {
                 if (param.name) {
-                    const paramType = FunctionType.getEffectiveParameterType(typeWithoutParamSpec, index);
+                    const paramType = FunctionType.getEffectiveParamType(typeWithoutParamSpec, index);
                     if (recursionTypes.length < maxTypeRecursionCount) {
                         paramTypes.push(
                             printTypeInternal(
@@ -932,7 +932,7 @@ function printObjectTypeForClassInternal(
     // If this is a pseudo-generic class, don't display the type arguments
     // or type parameters because it will confuse users.
     if (!ClassType.isPseudoGenericClass(type)) {
-        const typeParams = ClassType.getTypeParameters(type);
+        const typeParams = ClassType.getTypeParams(type);
         const lastTypeParam = typeParams.length > 0 ? typeParams[typeParams.length - 1] : undefined;
         const isVariadic = lastTypeParam ? lastTypeParam.shared.isVariadic : false;
 
@@ -1095,10 +1095,10 @@ function printFunctionPartsInternal(
         // Handle specialized variadic type parameters specially.
         if (
             index === type.shared.parameters.length - 1 &&
-            param.category === ParameterCategory.ArgsList &&
+            param.category === ParamCategory.ArgsList &&
             isVariadicTypeVar(param.type)
         ) {
-            const specializedParamType = FunctionType.getEffectiveParameterType(type, index);
+            const specializedParamType = FunctionType.getEffectiveParamType(type, index);
             if (
                 isClassInstance(specializedParamType) &&
                 ClassType.isBuiltIn(specializedParamType, 'tuple') &&
@@ -1140,11 +1140,11 @@ function printFunctionPartsInternal(
         }
 
         let paramString = '';
-        if (param.category === ParameterCategory.ArgsList) {
+        if (param.category === ParamCategory.ArgsList) {
             if (!param.name || !FunctionParam.isNameSynthesized(param)) {
                 paramString += '*';
             }
-        } else if (param.category === ParameterCategory.KwargsDict) {
+        } else if (param.category === ParamCategory.KwargsDict) {
             paramString += '**';
         }
 
@@ -1165,7 +1165,7 @@ function printFunctionPartsInternal(
         if (param.name) {
             // Avoid printing type types if parameter have unknown type.
             if (FunctionParam.isTypeDeclared(param) || FunctionParam.isTypeInferred(param)) {
-                const paramType = FunctionType.getEffectiveParameterType(type, index);
+                const paramType = FunctionType.getEffectiveParamType(type, index);
                 let paramTypeString =
                     recursionTypes.length < maxTypeRecursionCount
                         ? printTypeInternal(
@@ -1180,11 +1180,11 @@ function printFunctionPartsInternal(
 
                 if (emittedParamName) {
                     paramString += ': ';
-                } else if (param.category === ParameterCategory.ArgsList && !isUnpacked(paramType)) {
+                } else if (param.category === ParamCategory.ArgsList && !isUnpacked(paramType)) {
                     paramString += '*';
                 }
 
-                if (param.category === ParameterCategory.KwargsDict && isUnpacked(paramType)) {
+                if (param.category === ParamCategory.KwargsDict && isUnpacked(paramType)) {
                     if (printTypeFlags & PrintTypeFlags.PythonSyntax) {
                         // Use "Unpack" because ** isn't legal syntax prior to Python 3.12.
                         paramTypeString = `Unpack[${paramTypeString.substring(1)}]`;
@@ -1197,10 +1197,7 @@ function printFunctionPartsInternal(
                 paramString += paramTypeString;
 
                 if (isParamSpec(paramType)) {
-                    if (
-                        param.category === ParameterCategory.ArgsList ||
-                        param.category === ParameterCategory.KwargsDict
-                    ) {
+                    if (param.category === ParamCategory.ArgsList || param.category === ParamCategory.KwargsDict) {
                         isParamSpecArgsKwargsParam = true;
                     }
                 }
@@ -1219,7 +1216,7 @@ function printFunctionPartsInternal(
                 }
                 defaultValueAssignment = ' = ';
             }
-        } else if (param.category === ParameterCategory.Simple) {
+        } else if (param.category === ParamCategory.Simple) {
             if (sawDefinedName) {
                 paramString += '/';
             } else {
@@ -1241,9 +1238,9 @@ function printFunctionPartsInternal(
 
         // If this is a (...) signature, replace the *args, **kwargs with "...".
         if (FunctionType.isGradualCallableForm(type) && !isParamSpecArgsKwargsParam) {
-            if (param.category === ParameterCategory.ArgsList) {
+            if (param.category === ParamCategory.ArgsList) {
                 paramString = '...';
-            } else if (param.category === ParameterCategory.KwargsDict) {
+            } else if (param.category === ParamCategory.KwargsDict) {
                 return;
             }
         }
@@ -1381,7 +1378,7 @@ class UniqueNameMap {
             switch (type.category) {
                 case TypeCategory.Function: {
                     type.shared.parameters.forEach((_, index) => {
-                        const paramType = FunctionType.getEffectiveParameterType(type, index);
+                        const paramType = FunctionType.getEffectiveParamType(type, index);
                         this.build(paramType, recursionTypes, recursionCount);
                     });
 

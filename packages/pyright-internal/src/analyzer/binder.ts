@@ -112,10 +112,10 @@ import {
     FunctionDeclaration,
     IntrinsicType,
     ModuleLoaderActions,
-    ParameterDeclaration,
+    ParamDeclaration,
     SpecialBuiltInClassDeclaration,
     TypeAliasDeclaration,
-    TypeParameterDeclaration,
+    TypeParamDeclaration,
     UnresolvedModuleMarker,
     VariableDeclaration,
 } from './declaration';
@@ -542,8 +542,8 @@ export class Binder extends ParseTreeWalker {
                             }
 
                             if (symbol) {
-                                const paramDeclaration: ParameterDeclaration = {
-                                    type: DeclarationType.Parameter,
+                                const paramDeclaration: ParamDeclaration = {
+                                    type: DeclarationType.Param,
                                     node: paramNode,
                                     uri: this._fileInfo.fileUri,
                                     range: convertTextRangeToRange(paramNode, this._fileInfo.lines),
@@ -615,8 +615,8 @@ export class Binder extends ParseTreeWalker {
                     if (paramNode.d.name) {
                         const symbol = this._bindNameToScope(this._currentScope, paramNode.d.name);
                         if (symbol) {
-                            const paramDeclaration: ParameterDeclaration = {
-                                type: DeclarationType.Parameter,
+                            const paramDeclaration: ParamDeclaration = {
+                                type: DeclarationType.Param,
                                 node: paramNode,
                                 uri: this._fileInfo.fileUri,
                                 range: convertTextRangeToRange(paramNode, this._fileInfo.lines),
@@ -770,8 +770,8 @@ export class Binder extends ParseTreeWalker {
         node.d.params.forEach((param) => {
             const name = param.d.name;
             const symbol = typeParamScope.addSymbol(name.d.value, SymbolFlags.None);
-            const paramDeclaration: TypeParameterDeclaration = {
-                type: DeclarationType.TypeParameter,
+            const paramDeclaration: TypeParamDeclaration = {
+                type: DeclarationType.TypeParam,
                 node: param,
                 uri: this._fileInfo.fileUri,
                 range: convertTextRangeToRange(node, this._fileInfo.lines),

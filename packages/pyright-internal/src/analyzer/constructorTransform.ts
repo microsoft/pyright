@@ -14,9 +14,9 @@ import { appendArray } from '../common/collectionUtils';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
-import { ArgCategory, ExpressionNode, ParameterCategory } from '../parser/parseNodes';
+import { ArgCategory, ExpressionNode, ParamCategory } from '../parser/parseNodes';
 import { createFunctionFromConstructor } from './constructors';
-import { getParameterListDetails, ParameterKind } from './parameterUtils';
+import { getParamListDetails, ParamKind } from './parameterUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { Arg, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
 import {
@@ -222,7 +222,7 @@ function applyPartialTransformToFunction(
     // Create a map to track which parameters have supplied arguments.
     const paramMap = new Map<string, boolean>();
 
-    const paramListDetails = getParameterListDetails(origFunctionType);
+    const paramListDetails = getParamListDetails(origFunctionType);
 
     // Verify the types of the provided arguments.
     let argumentErrors = false;
@@ -240,10 +240,10 @@ function applyPartialTransformToFunction(
             // Does this positional argument map to a positional parameter?
             if (
                 argIndex >= paramListDetails.params.length ||
-                paramListDetails.params[argIndex].kind === ParameterKind.Keyword
+                paramListDetails.params[argIndex].kind === ParamKind.Keyword
             ) {
                 if (paramListDetails.argsIndex !== undefined) {
-                    const paramType = FunctionType.getEffectiveParameterType(
+                    const paramType = FunctionType.getEffectiveParamType(
                         origFunctionType,
                         paramListDetails.params[paramListDetails.argsIndex].index
                     );
@@ -291,7 +291,7 @@ function applyPartialTransformToFunction(
                     argumentErrors = true;
                 }
             } else {
-                const paramType = FunctionType.getEffectiveParameterType(origFunctionType, argIndex);
+                const paramType = FunctionType.getEffectiveParamType(origFunctionType, argIndex);
                 const diag = new DiagnosticAddendum();
                 const paramName = paramListDetails.params[argIndex].param.name ?? '';
 
@@ -323,7 +323,7 @@ function applyPartialTransformToFunction(
             }
         } else {
             const matchingParam = paramListDetails.params.find(
-                (paramInfo) => paramInfo.param.name === arg.name?.d.value && paramInfo.kind !== ParameterKind.Positional
+                (paramInfo) => paramInfo.param.name === arg.name?.d.value && paramInfo.kind !== ParamKind.Positional
             );
 
             if (!matchingParam) {
@@ -338,7 +338,7 @@ function applyPartialTransformToFunction(
                     }
                     argumentErrors = true;
                 } else {
-                    const paramType = FunctionType.getEffectiveParameterType(
+                    const paramType = FunctionType.getEffectiveParamType(
                         origFunctionType,
                         paramListDetails.params[paramListDetails.kwargsIndex].index
                     );
@@ -369,7 +369,7 @@ function applyPartialTransformToFunction(
                 }
             } else {
                 const paramName = matchingParam.param.name!;
-                const paramType = FunctionType.getEffectiveParameterType(origFunctionType, matchingParam.index);
+                const paramType = FunctionType.getEffectiveParamType(origFunctionType, matchingParam.index);
 
                 if (paramMap.has(paramName)) {
                     if (errorNode) {
@@ -421,7 +421,7 @@ function applyPartialTransformToFunction(
     // populated already.
     const updatedParamList: FunctionParam[] = specializedFunctionType.shared.parameters.map((param, index) => {
         const specializedParam: FunctionParam = { ...param };
-        specializedParam.type = FunctionType.getEffectiveParameterType(specializedFunctionType, index);
+        specializedParam.type = FunctionType.getEffectiveParamType(specializedFunctionType, index);
 
         // If it's a keyword parameter that has been assigned a value through
         // the "partial" mechanism, mark it has having a default value.
@@ -431,10 +431,10 @@ function applyPartialTransformToFunction(
         return specializedParam;
     });
     const unassignedParamList = updatedParamList.filter((param) => {
-        if (param.category === ParameterCategory.KwargsDict) {
+        if (param.category === ParamCategory.KwargsDict) {
             return false;
         }
-        if (param.category === ParameterCategory.ArgsList) {
+        if (param.category === ParamCategory.ArgsList) {
             return true;
         }
         return !param.name || !paramMap.has(param.name);
@@ -443,7 +443,7 @@ function applyPartialTransformToFunction(
         return param.name && paramMap.get(param.name);
     });
     const kwargsParam = updatedParamList.filter((param) => {
-        return param.category === ParameterCategory.KwargsDict;
+        return param.category === ParamCategory.KwargsDict;
     });
 
     const newParamList: FunctionParam[] = [];
@@ -461,10 +461,10 @@ function applyPartialTransformToFunction(
     );
 
     if (partialCallMemberType.shared.parameters.length > 0) {
-        FunctionType.addParameter(newCallMemberType, partialCallMemberType.shared.parameters[0]);
+        FunctionType.addParam(newCallMemberType, partialCallMemberType.shared.parameters[0]);
     }
     newParamList.forEach((param) => {
-        FunctionType.addParameter(newCallMemberType, param);
+        FunctionType.addParam(newCallMemberType, param);
     });
 
     newCallMemberType.shared.declaredReturnType = specializedFunctionType.shared.declaredReturnType

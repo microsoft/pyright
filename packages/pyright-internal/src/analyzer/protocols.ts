@@ -309,7 +309,7 @@ function assignClassToProtocolInternal(
         return isTypeSame(destType, srcType);
     }
 
-    evaluator.inferTypeParameterVarianceForClass(destType);
+    evaluator.inferVarianceForClass(destType);
 
     const sourceIsClassObject = isClass(srcType) && TypeBase.isInstantiable(srcType);
     const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
@@ -731,7 +731,7 @@ function assignClassToProtocolInternal(
     });
 
     // If the dest protocol has type parameters, make sure the source type arguments match.
-    if (typesAreConsistent && destType.shared.typeParameters.length > 0) {
+    if (typesAreConsistent && destType.shared.typeParams.length > 0) {
         // Create a specialized version of the protocol defined by the dest and
         // make sure the resulting type args can be assigned.
         const genericProtocolType = ClassType.specialize(destType, undefined);
@@ -752,7 +752,7 @@ function assignClassToProtocolInternal(
                 typesAreConsistent = false;
             }
         } else if (destTypeVarContext && !destTypeVarContext.isLocked()) {
-            for (const typeParam of destType.shared.typeParameters) {
+            for (const typeParam of destType.shared.typeParams) {
                 const typeArgEntry = protocolTypeVarContext.getPrimarySignature().getTypeVar(typeParam);
 
                 if (typeArgEntry) {
@@ -780,7 +780,7 @@ function createProtocolTypeVarContext(
 ): TypeVarContext {
     const protocolTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
 
-    destType.shared.typeParameters.forEach((typeParam, index) => {
+    destType.shared.typeParams.forEach((typeParam, index) => {
         const entry = destTypeVarContext?.getPrimarySignature().getTypeVar(typeParam);
 
         if (entry) {

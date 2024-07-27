@@ -31,7 +31,7 @@ import {
     MemberAccessNode,
     ModuleNode,
     NameNode,
-    ParameterCategory,
+    ParamCategory,
     ParameterNode,
     ParseNode,
     ParseNodeType,
@@ -495,15 +495,15 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                     .map((param) => {
                         let paramStr = '';
 
-                        if (param.d.category === ParameterCategory.ArgsList) {
+                        if (param.d.category === ParamCategory.ArgsList) {
                             paramStr += '*';
-                        } else if (param.d.category === ParameterCategory.KwargsDict) {
+                        } else if (param.d.category === ParamCategory.KwargsDict) {
                             paramStr += '**';
                         }
 
                         if (param.d.name) {
                             paramStr += param.d.name.d.value;
-                        } else if (param.d.category === ParameterCategory.Simple) {
+                        } else if (param.d.category === ParamCategory.Simple) {
                             paramStr += '/';
                         }
 
@@ -1729,7 +1729,7 @@ export class CallNodeWalker extends ParseTreeWalker {
     }
 }
 
-export function getEnclosingParameter(node: ParseNode): ParameterNode | undefined {
+export function getEnclosingParam(node: ParseNode): ParameterNode | undefined {
     let curNode: ParseNode | undefined = node;
 
     while (curNode) {
@@ -1747,7 +1747,7 @@ export function getEnclosingParameter(node: ParseNode): ParameterNode | undefine
     return undefined;
 }
 
-export function getCallNodeAndActiveParameterIndex(
+export function getCallNodeAndActiveParamIndex(
     node: ParseNode,
     insertionOffset: number,
     tokens: TextRangeCollection<Token>
@@ -2338,7 +2338,7 @@ export function isFunctionSuiteEmpty(node: FunctionNode) {
     return isEmpty;
 }
 
-export function getTypeAnnotationForParameter(node: FunctionNode, paramIndex: number): ExpressionNode | undefined {
+export function getTypeAnnotationForParam(node: FunctionNode, paramIndex: number): ExpressionNode | undefined {
     if (paramIndex >= node.d.params.length) {
         return undefined;
     }

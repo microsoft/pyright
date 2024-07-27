@@ -1006,7 +1006,7 @@ export function addConstraintsForExpectedType(
     usageOffset: number | undefined = undefined
 ): boolean {
     if (isAny(expectedType)) {
-        type.shared.typeParameters.forEach((typeParam) => {
+        type.shared.typeParams.forEach((typeParam) => {
             updateTypeVarType(evaluator, typeVarContext, typeParam, expectedType, expectedType);
         });
         return true;
@@ -1033,7 +1033,7 @@ export function addConstraintsForExpectedType(
         );
     }
 
-    evaluator.inferTypeParameterVarianceForClass(type);
+    evaluator.inferVarianceForClass(type);
 
     // If the expected type is the same as the target type (commonly the case),
     // we can use a faster method.
@@ -1066,7 +1066,7 @@ export function addConstraintsForExpectedType(
 
     // Create a generic version of the expected type.
     const expectedTypeScopeId = getTypeVarScopeId(expectedType);
-    const synthExpectedTypeArgs = ClassType.getTypeParameters(expectedType).map((typeParam, index) => {
+    const synthExpectedTypeArgs = ClassType.getTypeParams(expectedType).map((typeParam, index) => {
         const typeVar = TypeVarType.createInstance(`__dest${index}`);
         typeVar.shared.isSynthesized = true;
         if (typeParam.shared.isParamSpec) {
@@ -1081,7 +1081,7 @@ export function addConstraintsForExpectedType(
     const genericExpectedType = ClassType.specialize(expectedType, synthExpectedTypeArgs);
 
     // For each type param in the target type, create a placeholder type variable.
-    const typeArgs = ClassType.getTypeParameters(type).map((typeParam, index) => {
+    const typeArgs = ClassType.getTypeParams(type).map((typeParam, index) => {
         const typeVar = TypeVarType.createInstance(`__source${index}`);
         typeVar.shared.isSynthesized = true;
         typeVar.shared.synthesizedIndex = index;
@@ -1147,8 +1147,7 @@ export function addConstraintsForExpectedType(
                 synthTypeVar.shared.isSynthesized &&
                 synthTypeVar.shared.synthesizedIndex !== undefined
             ) {
-                const targetTypeVar =
-                    ClassType.getTypeParameters(specializedType)[synthTypeVar.shared.synthesizedIndex];
+                const targetTypeVar = ClassType.getTypeParams(specializedType)[synthTypeVar.shared.synthesizedIndex];
                 if (index < expectedTypeArgs.length) {
                     let typeArgValue: Type | undefined = transformPossibleRecursiveTypeAlias(expectedTypeArgs[index]);
 
