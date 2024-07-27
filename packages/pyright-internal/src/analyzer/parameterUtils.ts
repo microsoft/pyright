@@ -19,8 +19,8 @@ import {
     isPositionOnlySeparator,
     isTypeSame,
     isTypeVar,
+    isTypeVarTuple,
     isUnpackedClass,
-    isVariadicTypeVar,
     Type,
     TypeVarType,
 } from './types';
@@ -166,7 +166,7 @@ export function getParamListDetails(type: FunctionType): ParamListDetails {
 
                 paramType.priv.tupleTypeArgs.forEach((tupleArg, tupleIndex) => {
                     const category =
-                        isVariadicTypeVar(tupleArg.type) || tupleArg.isUnbounded
+                        isTypeVarTuple(tupleArg.type) || tupleArg.isUnbounded
                             ? ParamCategory.ArgsList
                             : ParamCategory.Simple;
 
@@ -174,7 +174,7 @@ export function getParamListDetails(type: FunctionType): ParamListDetails {
                         result.argsIndex = result.params.length;
                     }
 
-                    if (isVariadicTypeVar(param.type)) {
+                    if (isTypeVarTuple(param.type)) {
                         result.hasUnpackedVariadicTypeVar = true;
                     }
 
@@ -212,7 +212,7 @@ export function getParamListDetails(type: FunctionType): ParamListDetails {
                 if (param.name && result.argsIndex === undefined) {
                     result.argsIndex = result.params.length;
 
-                    if (isVariadicTypeVar(param.type)) {
+                    if (isTypeVarTuple(param.type)) {
                         result.hasUnpackedVariadicTypeVar = true;
                     }
                 }

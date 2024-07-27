@@ -25,9 +25,9 @@ import {
     isParamSpec,
     isTypeSame,
     isTypeVar,
+    isTypeVarTuple,
     isUnknown,
     isUnpacked,
-    isVariadicTypeVar,
     maxTypeRecursionCount,
     OverloadedFunctionType,
     TupleTypeArg,
@@ -274,7 +274,7 @@ function printTypeInternal(
 
                                 // If this type argument maps to a variadic type parameter, unpack it.
                                 if (
-                                    isVariadicTypeVar(typeParam) &&
+                                    isTypeVarTuple(typeParam) &&
                                     isClassInstance(typeArg) &&
                                     isTupleClass(typeArg) &&
                                     typeArg.priv.tupleTypeArgs &&
@@ -747,7 +747,7 @@ function printTypeInternal(
                         : 'Unknown';
                 }
 
-                if (type.shared.isParamSpec) {
+                if (isParamSpec(type)) {
                     const paramSpecText = _getReadableTypeVarName(
                         type,
                         (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0
@@ -760,19 +760,22 @@ function printTypeInternal(
                 }
 
                 let typeVarName = _getReadableTypeVarName(type, (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0);
-                if (type.priv.isVariadicUnpacked) {
-                    typeVarName = _printUnpack(typeVarName, printTypeFlags);
-                }
 
-                if (type.priv.isVariadicInUnion) {
-                    typeVarName = `Union[${typeVarName}]`;
+                if (isTypeVarTuple(type)) {
+                    if (type.priv.isVariadicUnpacked) {
+                        typeVarName = _printUnpack(typeVarName, printTypeFlags);
+                    }
+
+                    if (type.priv.isVariadicInUnion) {
+                        typeVarName = `Union[${typeVarName}]`;
+                    }
                 }
 
                 if (TypeBase.isInstantiable(type)) {
                     typeVarName = `${_printNestedInstantiable(type, typeVarName)}`;
                 }
 
-                if (!type.shared.isVariadic && (printTypeFlags & PrintTypeFlags.PrintTypeVarVariance) !== 0) {
+                if (!isTypeVarTuple(type) && (printTypeFlags & PrintTypeFlags.PrintTypeVarVariance) !== 0) {
                     const varianceText = _getTypeVarVarianceText(type);
                     if (varianceText) {
                         typeVarName = `${typeVarName} (${varianceText})`;
@@ -934,7 +937,7 @@ function printObjectTypeForClassInternal(
     if (!ClassType.isPseudoGenericClass(type)) {
         const typeParams = ClassType.getTypeParams(type);
         const lastTypeParam = typeParams.length > 0 ? typeParams[typeParams.length - 1] : undefined;
-        const isVariadic = lastTypeParam ? lastTypeParam.shared.isVariadic : false;
+        const isVariadic = lastTypeParam ? isTypeVarTuple(lastTypeParam) : false;
 
         // If there is a type arguments array, it's a specialized class.
         const typeArgs: TupleTypeArg[] | undefined =
@@ -952,7 +955,7 @@ function printObjectTypeForClassInternal(
                     const typeParam = index < typeParams.length ? typeParams[index] : undefined;
                     if (
                         typeParam &&
-                        typeParam.shared.isVariadic &&
+                        isTypeVarTuple(typeParam) &&
                         isClassInstance(typeArg.type) &&
                         ClassType.isBuiltIn(typeArg.type, 'tuple') &&
                         typeArg.type.priv.tupleTypeArgs
@@ -1096,7 +1099,7 @@ function printFunctionPartsInternal(
         if (
             index === type.shared.parameters.length - 1 &&
             param.category === ParamCategory.ArgsList &&
-            isVariadicTypeVar(param.type)
+            isTypeVarTuple(param.type)
         ) {
             const specializedParamType = FunctionType.getEffectiveParamType(type, index);
             if (

@@ -19,8 +19,8 @@ import {
     isClassInstance,
     isInstantiableClass,
     isTypeVar,
-    isUnpackedVariadicTypeVar,
-    isVariadicTypeVar,
+    isTypeVarTuple,
+    isUnpackedTypeVarTuple,
     TupleTypeArg,
     Type,
     TypeVarType,
@@ -53,7 +53,7 @@ export function assignTupleTypeArgs(
             // Handle the special case where the dest is a TypeVarTuple
             // and the source is a `*tuple[Any, ...]`. This is allowed.
             if (
-                isVariadicTypeVar(destArgType) &&
+                isTypeVarTuple(destArgType) &&
                 destArgType.priv.isVariadicUnpacked &&
                 !destArgType.priv.isVariadicInUnion &&
                 isTupleGradualForm(srcArgType)
@@ -83,9 +83,9 @@ export function assignTupleTypeArgs(
             }
         }
     } else {
-        const isDestIndeterminate = destTypeArgs.some((t) => t.isUnbounded || isVariadicTypeVar(t.type));
+        const isDestIndeterminate = destTypeArgs.some((t) => t.isUnbounded || isTypeVarTuple(t.type));
 
-        if (srcTypeArgs.some((t) => t.isUnbounded || isVariadicTypeVar(t.type))) {
+        if (srcTypeArgs.some((t) => t.isUnbounded || isTypeVarTuple(t.type))) {
             if (isDestIndeterminate) {
                 diag?.addMessage(
                     LocAddendum.tupleSizeIndeterminateSrcDest().format({
@@ -133,9 +133,9 @@ export function adjustTupleTypeArgs(
     srcTypeArgs: TupleTypeArg[],
     flags: AssignTypeFlags
 ): boolean {
-    const destUnboundedOrVariadicIndex = destTypeArgs.findIndex((t) => t.isUnbounded || isVariadicTypeVar(t.type));
+    const destUnboundedOrVariadicIndex = destTypeArgs.findIndex((t) => t.isUnbounded || isTypeVarTuple(t.type));
     const srcUnboundedIndex = srcTypeArgs.findIndex((t) => t.isUnbounded);
-    const srcVariadicIndex = srcTypeArgs.findIndex((t) => isVariadicTypeVar(t.type));
+    const srcVariadicIndex = srcTypeArgs.findIndex((t) => isTypeVarTuple(t.type));
 
     if (srcUnboundedIndex >= 0) {
         if (isAnyOrUnknown(srcTypeArgs[srcUnboundedIndex].type)) {
@@ -187,7 +187,7 @@ export function adjustTupleTypeArgs(
         if (srcVariadicIndex >= 0 && destArgsToCapture >= 0) {
             // If the only removed arg from the dest type args is itself a variadic,
             // don't bother adjusting it.
-            const skipAdjustment = destArgsToCapture === 1 && isVariadicTypeVar(destTypeArgs[srcVariadicIndex].type);
+            const skipAdjustment = destArgsToCapture === 1 && isTypeVarTuple(destTypeArgs[srcVariadicIndex].type);
             const tupleClass = evaluator.getTupleClassType();
 
             if (!skipAdjustment && tupleClass && isInstantiableClass(tupleClass)) {
@@ -221,7 +221,7 @@ export function adjustTupleTypeArgs(
         if (destUnboundedOrVariadicIndex >= 0 && srcArgsToCapture >= 0) {
             // If the dest contains a variadic element, determine which source
             // args map to this element and package them up into an unpacked tuple.
-            if (isVariadicTypeVar(destTypeArgs[destUnboundedOrVariadicIndex].type)) {
+            if (isTypeVarTuple(destTypeArgs[destUnboundedOrVariadicIndex].type)) {
                 const tupleClass = evaluator.getTupleClassType();
 
                 if (tupleClass && isInstantiableClass(tupleClass)) {
@@ -231,7 +231,7 @@ export function adjustTupleTypeArgs(
 
                     // If we're left with a single unpacked variadic type var, there's no
                     // need to wrap it in a nested tuple.
-                    if (removedArgs.length === 1 && isUnpackedVariadicTypeVar(removedArgs[0].type)) {
+                    if (removedArgs.length === 1 && isUnpackedTypeVarTuple(removedArgs[0].type)) {
                         variadicTuple = removedArgs[0].type;
                     } else {
                         // Package up the remaining type arguments into a tuple object.
@@ -272,7 +272,7 @@ export function adjustTupleTypeArgs(
                 srcUnboundedIndex < destUnboundedOrVariadicIndex + srcArgsToCapture)
         ) {
             const removedArgTypes = srcTypeArgs.splice(destUnboundedOrVariadicIndex, srcArgsToCapture).map((t) => {
-                if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type) && !t.type.priv.isVariadicInUnion) {
+                if (isTypeVar(t.type) && isUnpackedTypeVarTuple(t.type) && !t.type.priv.isVariadicInUnion) {
                     return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
                 }
                 return t.type;
@@ -328,7 +328,7 @@ function getTupleSliceParam(
 
         value = valType.priv.literalValue as number;
         const unboundedIndex = tupleTypeArgs.findIndex(
-            (typeArg) => typeArg.isUnbounded || isVariadicTypeVar(typeArg.type)
+            (typeArg) => typeArg.isUnbounded || isTypeVarTuple(typeArg.type)
         );
 
         if (value < 0) {
