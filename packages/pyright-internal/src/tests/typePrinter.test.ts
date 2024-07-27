@@ -100,11 +100,7 @@ test('ClassTypes', () => {
     );
     const instanceInt = ClassType.cloneAsInstance(classTypeInt);
 
-    const specializedA = ClassType.cloneForSpecialization(
-        instanceA,
-        [instanceInt, instanceInt],
-        /* isTypeArgumentExplicit */ true
-    );
+    const specializedA = ClassType.specialize(instanceA, [instanceInt, instanceInt]);
 
     assert.strictEqual(printType(specializedA, PrintTypeFlags.None, returnTypeCallback), 'A[int, int]');
 

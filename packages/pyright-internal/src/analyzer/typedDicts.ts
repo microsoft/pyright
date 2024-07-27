@@ -580,11 +580,7 @@ export function synthesizeTypedDictClassMethods(
                     updateMethod2,
                     FunctionParam.create(
                         ParameterCategory.Simple,
-                        ClassType.cloneForSpecialization(
-                            iterableType,
-                            [combineTypes(tuplesToCombine)],
-                            /* isTypeArgExplicit */ true
-                        ),
+                        ClassType.specialize(iterableType, [combineTypes(tuplesToCombine)]),
                         FunctionParamFlags.TypeDeclared,
                         '__m'
                     )
@@ -726,10 +722,9 @@ export function synthesizeTypedDictClassMethods(
                     isInstantiableClass(returnTypeClass) &&
                     returnTypeClass.shared.typeParameters.length === 2
                 ) {
-                    method.shared.declaredReturnType = ClassType.cloneForSpecialization(
+                    method.shared.declaredReturnType = ClassType.specialize(
                         ClassType.cloneAsInstance(returnTypeClass),
-                        [strType, mappingValueType],
-                        /* isTypeArgExplicit */ true
+                        [strType, mappingValueType]
                     );
 
                     symbolTable.set(methodName, Symbol.createWithType(SymbolFlags.ClassMember, method));
@@ -1280,11 +1275,7 @@ export function assignToTypedDict(
 
         // Create a generic (nonspecialized version) of the class.
         if (classType.priv.typeArgs) {
-            genericClassType = ClassType.cloneForSpecialization(
-                classType,
-                /* typeArgs */ undefined,
-                /* isTypeArgExplicit */ false
-            );
+            genericClassType = ClassType.specialize(classType, /* typeArgs */ undefined);
         }
     }
 

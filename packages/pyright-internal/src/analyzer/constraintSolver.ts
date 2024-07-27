@@ -1078,11 +1078,7 @@ export function addConstraintsForExpectedType(
         typeVar.priv.scopeId = expectedTypeScopeId;
         return typeVar;
     });
-    const genericExpectedType = ClassType.cloneForSpecialization(
-        expectedType,
-        synthExpectedTypeArgs,
-        /* isTypeArgExplicit */ true
-    );
+    const genericExpectedType = ClassType.specialize(expectedType, synthExpectedTypeArgs);
 
     // For each type param in the target type, create a placeholder type variable.
     const typeArgs = ClassType.getTypeParameters(type).map((typeParam, index) => {
@@ -1096,7 +1092,7 @@ export function addConstraintsForExpectedType(
         return TypeVarType.cloneAsInScopePlaceholder(typeVar);
     });
 
-    const specializedType = ClassType.cloneForSpecialization(type, typeArgs, /* isTypeArgExplicit */ true);
+    const specializedType = ClassType.specialize(type, typeArgs);
     const syntheticTypeVarContext = new TypeVarContext(expectedTypeScopeId);
     if (
         evaluator.assignType(

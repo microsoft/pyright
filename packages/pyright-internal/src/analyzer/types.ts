@@ -890,10 +890,10 @@ export namespace ClassType {
         return newInstance;
     }
 
-    export function cloneForSpecialization(
+    export function specialize(
         classType: ClassType,
         typeArgs: Type[] | undefined,
-        isTypeArgExplicit: boolean,
+        isTypeArgExplicit?: boolean,
         includeSubclasses = false,
         tupleTypeArgs?: TupleTypeArg[],
         isEmptyContainer?: boolean
@@ -901,6 +901,13 @@ export namespace ClassType {
         const newClassType = TypeBase.cloneType(classType);
 
         newClassType.priv.typeArgs = typeArgs?.length === 0 ? undefined : typeArgs;
+
+        // If the user passed undefined for this argument, infer it
+        // based on whether typeArgs was provided.
+        if (isTypeArgExplicit === undefined) {
+            isTypeArgExplicit = !!typeArgs;
+        }
+
         newClassType.priv.isTypeArgExplicit = isTypeArgExplicit;
 
         if (includeSubclasses) {
@@ -1788,7 +1795,7 @@ export namespace FunctionType {
     // Creates a shallow copy of the function type with new
     // specialized types. The clone shares the _functionDetails
     // with the object being cloned.
-    export function cloneForSpecialization(
+    export function specialize(
         type: FunctionType,
         specializedTypes: SpecializedFunctionTypes,
         specializedInferredReturnType: Type | undefined
@@ -3735,10 +3742,9 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, elideR
         // parameterized with its own class) ad infinitum.
         if (isPseudoGeneric) {
             if (isTypeSame(type, typeToAdd, { ignorePseudoGeneric: true })) {
-                unionType.priv.subtypes[i] = ClassType.cloneForSpecialization(
+                unionType.priv.subtypes[i] = ClassType.specialize(
                     typeToAdd,
-                    typeToAdd.shared.typeParameters.map(() => UnknownType.create()),
-                    /* isTypeArgExplicit */ true
+                    typeToAdd.shared.typeParameters.map(() => UnknownType.create())
                 );
                 return;
             }

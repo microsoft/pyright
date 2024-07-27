@@ -393,9 +393,7 @@ function narrowTypeBasedOnSequencePattern(
                     // before wrapping it in a Sequence.
                     typeArgType = containsAnyOrUnknown(typeArgType, /* recurse */ false) ?? typeArgType;
 
-                    entry.subtype = ClassType.cloneAsInstance(
-                        ClassType.cloneForSpecialization(sequenceType, [typeArgType], /* isTypeArgExplicit */ true)
-                    );
+                    entry.subtype = ClassType.cloneAsInstance(ClassType.specialize(sequenceType, [typeArgType]));
                 }
             }
         }
@@ -746,11 +744,7 @@ function narrowTypeBasedOnClassPattern(
         let classType = exprType;
 
         if (classType.shared.typeParameters.length > 0) {
-            classType = ClassType.cloneForSpecialization(
-                classType,
-                /* typeArgs */ undefined,
-                /* isTypeArgExplicit */ false
-            );
+            classType = ClassType.specialize(classType, /* typeArgs */ undefined);
         }
 
         const classInstance = convertToInstance(classType);
@@ -955,10 +949,9 @@ function narrowTypeBasedOnClassPattern(
                                     unexpandedSubtype.shared.typeParameters.length > 0
                                 ) {
                                     const typeVarContext = new TypeVarContext(getTypeVarScopeId(unexpandedSubtype));
-                                    const unspecializedMatchType = ClassType.cloneForSpecialization(
+                                    const unspecializedMatchType = ClassType.specialize(
                                         unexpandedSubtype,
-                                        /* typeArgs */ undefined,
-                                        /* isTypeArgExplicit */ false
+                                        /* typeArgs */ undefined
                                     );
 
                                     const matchTypeInstance = ClassType.cloneAsInstance(unspecializedMatchType);
@@ -1568,11 +1561,7 @@ function getSequencePatternInfo(
                 if (
                     evaluator.assignType(
                         subtype,
-                        ClassType.cloneForSpecialization(
-                            ClassType.cloneAsInstance(sequenceType),
-                            [UnknownType.create()],
-                            /* isTypeArgExplicit */ true
-                        )
+                        ClassType.specialize(ClassType.cloneAsInstance(sequenceType), [UnknownType.create()])
                     )
                 ) {
                     sequenceInfo.push({
@@ -1825,13 +1814,7 @@ export function assignTypeToPatternTargets(
                     const strType = evaluator.getBuiltInObject(pattern, 'str');
                     const dictType =
                         dictClass && isInstantiableClass(dictClass) && isClassInstance(strType)
-                            ? ClassType.cloneAsInstance(
-                                  ClassType.cloneForSpecialization(
-                                      dictClass,
-                                      [keyType, valueType],
-                                      /* isTypeArgExplicit */ true
-                                  )
-                              )
+                            ? ClassType.cloneAsInstance(ClassType.specialize(dictClass, [keyType, valueType]))
                             : UnknownType.create();
                     evaluator.assignTypeToExpression(
                         mappingEntry.d.target,
@@ -1916,7 +1899,7 @@ function wrapTypeInList(evaluator: TypeEvaluator, node: ParseNode, type: Type): 
         // types before wrapping it in a list.
         type = containsAnyOrUnknown(type, /* recurse */ false) ?? type;
 
-        return ClassType.cloneForSpecialization(listObjectType, [type], /* isTypeArgExplicit */ true);
+        return ClassType.specialize(listObjectType, [type]);
     }
 
     return UnknownType.create();

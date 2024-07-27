@@ -2221,16 +2221,8 @@ export class Checker extends ParseTreeWalker {
                 isInstantiableClass(rightType) ||
                 (isClassInstance(rightType) && ClassType.isBuiltIn(rightType, 'type'))
             ) {
-                const genericLeftType = ClassType.cloneForSpecialization(
-                    leftType,
-                    /* typeArgs */ undefined,
-                    /* isTypeArgExplicit */ false
-                );
-                const genericRightType = ClassType.cloneForSpecialization(
-                    rightType,
-                    /* typeArgs */ undefined,
-                    /* isTypeArgExplicit */ false
-                );
+                const genericLeftType = ClassType.specialize(leftType, /* typeArgs */ undefined);
+                const genericRightType = ClassType.specialize(rightType, /* typeArgs */ undefined);
 
                 if (
                     this._evaluator.assignType(genericLeftType, genericRightType) ||
@@ -2253,16 +2245,8 @@ export class Checker extends ParseTreeWalker {
 
         if (isClassInstance(leftType)) {
             if (isClassInstance(rightType)) {
-                const genericLeftType = ClassType.cloneForSpecialization(
-                    leftType,
-                    /* typeArgs */ undefined,
-                    /* isTypeArgExplicit */ false
-                );
-                const genericRightType = ClassType.cloneForSpecialization(
-                    rightType,
-                    /* typeArgs */ undefined,
-                    /* isTypeArgsExplicit */ false
-                );
+                const genericLeftType = ClassType.specialize(leftType, /* typeArgs */ undefined);
+                const genericRightType = ClassType.specialize(rightType, /* typeArgs */ undefined);
 
                 if (
                     this._evaluator.assignType(genericLeftType, genericRightType) ||
@@ -2340,11 +2324,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         const specializedGenerator = ClassType.cloneAsInstance(
-            ClassType.cloneForSpecialization(
-                generatorType,
-                [AnyType.create(), AnyType.create(), AnyType.create()],
-                /* isTypeExplicit */ true
-            )
+            ClassType.specialize(generatorType, [AnyType.create(), AnyType.create(), AnyType.create()])
         );
 
         const diagAddendum = new DiagnosticAddendum();
@@ -5518,8 +5498,8 @@ export class Checker extends ParseTreeWalker {
                 return i === paramIndex || p.shared.isVariadic ? p : dummyTypeObject;
             });
 
-            const srcType = ClassType.cloneForSpecialization(classType, srcTypeArgs, /* isTypeArgExplicit */ true);
-            const destType = ClassType.cloneForSpecialization(classType, destTypeArgs, /* isTypeArgExplicit */ true);
+            const srcType = ClassType.specialize(classType, srcTypeArgs);
+            const destType = ClassType.specialize(classType, destTypeArgs);
 
             const isDestSubtypeOfSrc = this._evaluator.assignClassToSelf(srcType, destType, Variance.Covariant);
 
@@ -7454,9 +7434,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         const generatorTypeArgs = [yieldType, sendType ?? UnknownType.create(), UnknownType.create()];
-        const specializedGenerator = ClassType.cloneAsInstance(
-            ClassType.cloneForSpecialization(generatorType, generatorTypeArgs, /* isTypeArgExplicit */ true)
-        );
+        const specializedGenerator = ClassType.cloneAsInstance(ClassType.specialize(generatorType, generatorTypeArgs));
 
         const diagAddendum = new DiagnosticAddendum();
         if (!this._evaluator.assignType(declaredReturnType, specializedGenerator, diagAddendum)) {

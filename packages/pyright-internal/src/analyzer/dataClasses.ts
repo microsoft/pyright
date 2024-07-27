@@ -660,11 +660,7 @@ export function synthesizeDataClassMethods(
     let dictType = evaluator.getBuiltInType(node, 'dict');
     if (isInstantiableClass(dictType)) {
         dictType = ClassType.cloneAsInstance(
-            ClassType.cloneForSpecialization(
-                dictType,
-                [evaluator.getBuiltInObject(node, 'str'), AnyType.create()],
-                /* isTypeArgExplicit */ true
-            )
+            ClassType.specialize(dictType, [evaluator.getBuiltInObject(node, 'str'), AnyType.create()])
         );
     }
 
@@ -685,11 +681,7 @@ export function synthesizeDataClassMethods(
 
         if (isInstantiableClass(iterableType)) {
             iterableType = ClassType.cloneAsInstance(
-                ClassType.cloneForSpecialization(
-                    iterableType,
-                    [evaluator.getBuiltInObject(node, 'str')],
-                    /* isTypeArgExplicit */ true
-                )
+                ClassType.specialize(iterableType, [evaluator.getBuiltInObject(node, 'str')])
             );
         }
 

@@ -609,7 +609,7 @@ export function cleanIncompleteUnknown(type: Type, recursionCount = 0): Type {
                 });
 
                 if (typeChanged) {
-                    return ClassType.cloneForSpecialization(subtype, updatedTypeArgs, !!subtype.priv.isTypeArgExplicit);
+                    return ClassType.specialize(subtype, updatedTypeArgs, !!subtype.priv.isTypeArgExplicit);
                 }
             }
         }
@@ -1119,7 +1119,7 @@ export function specializeWithDefaultTypeArgs(type: ClassType): ClassType {
         return type;
     }
 
-    return ClassType.cloneForSpecialization(
+    return ClassType.specialize(
         type,
         type.shared.typeParameters.map((param) => param.shared.defaultType),
         /* isTypeArgExplicit */ false,
@@ -1145,7 +1145,7 @@ export function specializeWithUnknownTypeArgs(type: ClassType, tupleClassType?: 
         );
     }
 
-    return ClassType.cloneForSpecialization(
+    return ClassType.specialize(
         type,
         type.shared.typeParameters.map((param) => getUnknownTypeForTypeVar(param, tupleClassType)),
         /* isTypeArgExplicit */ false,
@@ -1214,7 +1214,7 @@ export function selfSpecializeClass(type: ClassType, options?: SelfSpecializeOpt
     const typeParams = type.shared.typeParameters.map((typeParam) => {
         return options?.useInternalTypeVars ? TypeVarType.cloneWithInternalScopeId(typeParam) : typeParam;
     });
-    return ClassType.cloneForSpecialization(type, typeParams, /* isTypeArgExplicit */ true);
+    return ClassType.specialize(type, typeParams);
 }
 
 // Determines whether the type derives from tuple. If so, it returns
@@ -2329,7 +2329,7 @@ export function synthesizeTypeVarForSelfCls(classType: ClassType, isClsParam: bo
     selfType.priv.nameWithScope = TypeVarType.makeNameWithScope(selfType.shared.name, scopeId);
     selfType.priv.scopeId = scopeId;
 
-    const boundType = ClassType.cloneForSpecialization(
+    const boundType = ClassType.specialize(
         classType,
         /* typeArgs */ undefined,
         /* isTypeArgExplicit */ false,
@@ -2802,7 +2802,7 @@ export function explodeGenericClass(classType: ClassType) {
 
     return combineTypes(
         classType.priv.typeArgs[0].priv.subtypes.map((subtype) => {
-            return ClassType.cloneForSpecialization(classType, [subtype], /* isTypeArgExplicit */ true);
+            return ClassType.specialize(classType, [subtype]);
         })
     );
 }
@@ -2888,7 +2888,7 @@ export function specializeTupleClass(
     isTypeArgExplicit = true,
     isUnpackedTuple = false
 ): ClassType {
-    const clonedClassType = ClassType.cloneForSpecialization(
+    const clonedClassType = ClassType.specialize(
         classType,
         [combineTupleTypeArgs(typeArgs)],
         isTypeArgExplicit,
@@ -3880,7 +3880,7 @@ class TypeVarTransformer {
             return classType;
         }
 
-        return ClassType.cloneForSpecialization(
+        return ClassType.specialize(
             classType,
             newTypeArgs,
             /* isTypeArgExplicit */ true,
@@ -4006,11 +4006,7 @@ class TypeVarTransformer {
 
             // If there was no unpacked variadic type variable, we're done.
             if (!variadicTypesToUnpack) {
-                return FunctionType.cloneForSpecialization(
-                    functionType,
-                    specializedParameters,
-                    specializedInferredReturnType
-                );
+                return FunctionType.specialize(functionType, specializedParameters, specializedInferredReturnType);
             }
 
             // Unpack the tuple and synthesize a new function in the process.
@@ -4295,11 +4291,9 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                         this._options.typeClassType &&
                         isInstantiableClass(this._options.typeClassType)
                     ) {
-                        replacement = ClassType.cloneForSpecialization(
-                            ClassType.cloneAsInstance(this._options.typeClassType),
-                            [replacement],
-                            /* isTypeArgExplicit */ true
-                        );
+                        replacement = ClassType.specialize(ClassType.cloneAsInstance(this._options.typeClassType), [
+                            replacement,
+                        ]);
                     } else {
                         replacement = convertToInstantiable(replacement, /* includeSubclasses */ false);
                     }

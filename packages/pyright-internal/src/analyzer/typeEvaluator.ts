@@ -1482,11 +1482,7 @@ export function createTypeEvaluator(
             const iterableType = getBuiltInType(node, 'Iterable');
             if (iterableType && isInstantiableClass(iterableType)) {
                 iterExpectedType = ClassType.cloneAsInstance(
-                    ClassType.cloneForSpecialization(
-                        iterableType,
-                        [inferenceContext.expectedType],
-                        /* isTypeArgExplicit */ true
-                    )
+                    ClassType.specialize(iterableType, [inferenceContext.expectedType])
                 );
             }
         }
@@ -3815,11 +3811,7 @@ export function createTypeEvaluator(
                 } else if (subtype.priv.paramSpecAccess === 'kwargs') {
                     if (dictClass && isInstantiableClass(dictClass) && strClass && isInstantiableClass(strClass)) {
                         return ClassType.cloneAsInstance(
-                            ClassType.cloneForSpecialization(
-                                dictClass,
-                                [convertToInstance(strClass), getObjectType()],
-                                /* isTypeArgExplicit */ true
-                            )
+                            ClassType.specialize(dictClass, [convertToInstance(strClass), getObjectType()])
                         );
                     }
 
@@ -4063,7 +4055,7 @@ export function createTypeEvaluator(
             });
 
             if (typeWasTransformed) {
-                return ClassType.cloneForSpecialization(type, filteredTypeArgs, /* isTypeArgExplicit */ true);
+                return ClassType.specialize(type, filteredTypeArgs);
             }
         }
 
@@ -9798,11 +9790,9 @@ export function createTypeEvaluator(
                             }
                         }
 
-                        return ClassType.cloneForSpecialization(
-                            ClassType.cloneAsInstance(expandedCallType),
-                            [UnknownType.create()],
-                            /* isTypeArgExplicit */ true
-                        );
+                        return ClassType.specialize(ClassType.cloneAsInstance(expandedCallType), [
+                            UnknownType.create(),
+                        ]);
                     });
 
                     return { returnType };
@@ -13510,7 +13500,7 @@ export function createTypeEvaluator(
         const dictClass = getBuiltInType(node, 'dict');
         const type = isInstantiableClass(dictClass)
             ? ClassType.cloneAsInstance(
-                  ClassType.cloneForSpecialization(
+                  ClassType.specialize(
                       dictClass,
                       [keyType, valueType],
                       /* isTypeArgExplicit */ true,
@@ -13657,11 +13647,7 @@ export function createTypeEvaluator(
                 if (expectedKeyType && expectedValueType) {
                     if (supportsKeysAndGetItemClass && isInstantiableClass(supportsKeysAndGetItemClass)) {
                         expectedType = ClassType.cloneAsInstance(
-                            ClassType.cloneForSpecialization(
-                                supportsKeysAndGetItemClass,
-                                [expectedKeyType, expectedValueType],
-                                /* isTypeArgExplicit */ true
-                            )
+                            ClassType.specialize(supportsKeysAndGetItemClass, [expectedKeyType, expectedValueType])
                         );
                     }
                 }
@@ -14067,7 +14053,7 @@ export function createTypeEvaluator(
         const listOrSetClass = getBuiltInType(node, builtInClassName);
         const type = isInstantiableClass(listOrSetClass)
             ? ClassType.cloneAsInstance(
-                  ClassType.cloneForSpecialization(
+                  ClassType.specialize(
                       listOrSetClass,
                       [inferredEntryType],
                       /* isTypeArgExplicit */ true,
@@ -14503,10 +14489,9 @@ export function createTypeEvaluator(
 
         if (builtInIteratorType && isInstantiableClass(builtInIteratorType)) {
             type = ClassType.cloneAsInstance(
-                ClassType.cloneForSpecialization(
+                ClassType.specialize(
                     builtInIteratorType,
-                    isAsync ? [elementType, getNoneType()] : [elementType, getNoneType(), getNoneType()],
-                    /* isTypeArgExplicit */ true
+                    isAsync ? [elementType, getNoneType()] : [elementType, getNoneType(), getNoneType()]
                 )
             );
         }
@@ -15133,7 +15118,7 @@ export function createTypeEvaluator(
             return convertToInstance(validateTypeArg(typeArg) ? typeArg.type : UnknownType.create());
         });
 
-        return ClassType.cloneForSpecialization(classType, convertedTypeArgs, /* isTypeArgExplicit */ true);
+        return ClassType.specialize(classType, convertedTypeArgs);
     }
 
     function createSelfType(
@@ -15311,7 +15296,7 @@ export function createTypeEvaluator(
                     : LocMessage.notRequiredNotInTypedDict(),
                 errorNode
             );
-            return { type: ClassType.cloneForSpecialization(classType, [convertToInstance(typeArgType)], !!typeArgs) };
+            return { type: ClassType.specialize(classType, [convertToInstance(typeArgType)], !!typeArgs) };
         }
 
         return { type: typeArgType, isReadOnly, isRequired, isNotRequired };
@@ -15667,7 +15652,7 @@ export function createTypeEvaluator(
 
             returnType = specializeTupleClass(classType, tupleTypeArgTypes, typeArgs !== undefined);
         } else {
-            returnType = ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
+            returnType = ClassType.specialize(classType, typeArgTypes, typeArgs !== undefined);
         }
 
         if (isSpecialForm) {
@@ -17393,8 +17378,8 @@ export function createTypeEvaluator(
                 return i === paramIndex || p.shared.isVariadic ? p : dummyTypeObject;
             });
 
-            const srcType = ClassType.cloneForSpecialization(classType, srcTypeArgs, /* isTypeArgExplicit */ true);
-            const destType = ClassType.cloneForSpecialization(classType, destTypeArgs, /* isTypeArgExplicit */ true);
+            const srcType = ClassType.specialize(classType, srcTypeArgs);
+            const destType = ClassType.specialize(classType, destTypeArgs);
 
             const isDestSubtypeOfSrc = assignClassToSelf(
                 srcType,
@@ -18526,9 +18511,7 @@ export function createTypeEvaluator(
                 const strType = getBuiltInObject(node, 'str');
 
                 if (isInstantiableClass(dictType) && isClassInstance(strType)) {
-                    return ClassType.cloneAsInstance(
-                        ClassType.cloneForSpecialization(dictType, [strType, type], /* isTypeArgExplicit */ true)
-                    );
+                    return ClassType.cloneAsInstance(ClassType.specialize(dictType, [strType, type]));
                 }
 
                 return UnknownType.create();
@@ -18586,7 +18569,7 @@ export function createTypeEvaluator(
                             typeArgs.push(generatorTypeArgs[1]);
                         }
                         awaitableReturnType = ClassType.cloneAsInstance(
-                            ClassType.cloneForSpecialization(asyncGeneratorType, typeArgs, /* isTypeArgExplicit */ true)
+                            ClassType.specialize(asyncGeneratorType, typeArgs)
                         );
                     }
                 } else if (
@@ -18604,10 +18587,9 @@ export function createTypeEvaluator(
             const awaitableType = getTypingType(node, useCoroutine ? 'Coroutine' : 'Awaitable');
             if (awaitableType && isInstantiableClass(awaitableType)) {
                 awaitableReturnType = ClassType.cloneAsInstance(
-                    ClassType.cloneForSpecialization(
+                    ClassType.specialize(
                         awaitableType,
-                        useCoroutine ? [AnyType.create(), AnyType.create(), returnType] : [returnType],
-                        /* isTypeArgExplicit */ true
+                        useCoroutine ? [AnyType.create(), AnyType.create(), returnType] : [returnType]
                     )
                 );
             } else {
@@ -18692,7 +18674,7 @@ export function createTypeEvaluator(
                                         // inferred return type.
                                         returnType = mapSubtypes(returnType, (subtype) => {
                                             if (isClassInstance(subtype) && subtype.priv.isEmptyContainer) {
-                                                return ClassType.cloneForSpecialization(
+                                                return ClassType.specialize(
                                                     subtype,
                                                     subtype.priv.typeArgs,
                                                     !!subtype.priv.isTypeArgExplicit,
@@ -18801,7 +18783,7 @@ export function createTypeEvaluator(
                             }
 
                             inferredReturnType = ClassType.cloneAsInstance(
-                                ClassType.cloneForSpecialization(generatorType, typeArgs, /* isTypeArgExplicit */ true)
+                                ClassType.specialize(generatorType, typeArgs)
                             );
                         } else {
                             inferredReturnType = UnknownType.create();
@@ -20535,7 +20517,7 @@ export function createTypeEvaluator(
             typeArgTypes = typeArgs.map((t) => convertToInstance(t.type));
         }
 
-        const specializedClass = ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
+        const specializedClass = ClassType.specialize(classType, typeArgTypes, typeArgs !== undefined);
 
         return { type: specializedClass };
     }
@@ -20660,11 +20642,7 @@ export function createTypeEvaluator(
         if (isInstantiableClass(nameType)) {
             let classType = nameType;
             if (typeArgs) {
-                classType = ClassType.cloneForSpecialization(
-                    classType,
-                    typeArgs,
-                    /* isTypeArgExplicit */ typeArgs !== undefined
-                );
+                classType = ClassType.specialize(classType, typeArgs);
             }
 
             return ClassType.cloneAsInstance(classType);
@@ -21215,13 +21193,7 @@ export function createTypeEvaluator(
                         const iterableType = getBuiltInType(declaration.node, 'Iterable');
                         if (isInstantiableClass(iterableType)) {
                             return {
-                                type: ClassType.cloneAsInstance(
-                                    ClassType.cloneForSpecialization(
-                                        iterableType,
-                                        [strType],
-                                        /* isTypeArgExplicit */ true
-                                    )
-                                ),
+                                type: ClassType.cloneAsInstance(ClassType.specialize(iterableType, [strType])),
                             };
                         }
                     }
@@ -21231,11 +21203,7 @@ export function createTypeEvaluator(
                         if (isInstantiableClass(dictType)) {
                             return {
                                 type: ClassType.cloneAsInstance(
-                                    ClassType.cloneForSpecialization(
-                                        dictType,
-                                        [strType, AnyType.create()],
-                                        /* isTypeArgExplicit */ true
-                                    )
+                                    ClassType.specialize(dictType, [strType, AnyType.create()])
                                 ),
                             };
                         }
@@ -22726,11 +22694,10 @@ export function createTypeEvaluator(
                     strClass &&
                     isInstantiableClass(strClass)
                 ) {
-                    srcType = ClassType.cloneForSpecialization(
-                        mappingClass,
-                        [ClassType.cloneAsInstance(strClass), mappingValueType],
-                        /* isTypeArgExplicit */ true
-                    );
+                    srcType = ClassType.specialize(mappingClass, [
+                        ClassType.cloneAsInstance(strClass),
+                        mappingValueType,
+                    ]);
                 }
             } else if (ClassType.isBuiltIn(destType, ['dict', 'MutableMapping'])) {
                 const dictValueType = getTypedDictDictEquivalent(evaluatorInterface, srcType, recursionCount);
@@ -22742,11 +22709,7 @@ export function createTypeEvaluator(
                     strClass &&
                     isInstantiableClass(strClass)
                 ) {
-                    srcType = ClassType.cloneForSpecialization(
-                        dictClass,
-                        [ClassType.cloneAsInstance(strClass), dictValueType],
-                        /* isTypeArgExplicit */ true
-                    );
+                    srcType = ClassType.specialize(dictClass, [ClassType.cloneAsInstance(strClass), dictValueType]);
                 }
             }
         }
@@ -25941,7 +25904,7 @@ export function createTypeEvaluator(
             const typeVarContext = new TypeVarContext(getTypeVarScopeId(assignedType));
             addConstraintsForExpectedType(
                 evaluatorInterface,
-                ClassType.cloneForSpecialization(assignedType, /* typeArgs */ undefined, /* isTypeArgExplicit */ false),
+                ClassType.specialize(assignedType, /* typeArgs */ undefined),
                 declaredType,
                 typeVarContext,
                 ParseTreeUtils.getTypeVarScopesForNode(node),
@@ -25994,7 +25957,7 @@ export function createTypeEvaluator(
             });
 
             if (replacedTypeArg) {
-                return ClassType.cloneForSpecialization(assignedType, newTypeArgs, /* isTypeArgExplicit */ true);
+                return ClassType.specialize(assignedType, newTypeArgs);
             }
         }
 

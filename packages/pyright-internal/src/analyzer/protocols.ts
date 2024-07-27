@@ -734,11 +734,7 @@ function assignClassToProtocolInternal(
     if (typesAreConsistent && destType.shared.typeParameters.length > 0) {
         // Create a specialized version of the protocol defined by the dest and
         // make sure the resulting type args can be assigned.
-        const genericProtocolType = ClassType.cloneForSpecialization(
-            destType,
-            undefined,
-            /* isTypeArgExplicit */ false
-        );
+        const genericProtocolType = ClassType.specialize(destType, undefined);
         const specializedProtocolType = applySolvedTypeVars(genericProtocolType, protocolTypeVarContext) as ClassType;
 
         if (destType.priv.typeArgs) {

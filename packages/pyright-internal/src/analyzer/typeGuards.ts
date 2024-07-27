@@ -1375,11 +1375,7 @@ function narrowTypeForIsInstanceInternal(
                     // with Unknown.
                     if (concreteFilterType.priv.typeArgs && !concreteFilterType.priv.isTypeArgExplicit) {
                         concreteFilterType = specializeWithUnknownTypeArgs(
-                            ClassType.cloneForSpecialization(
-                                concreteFilterType,
-                                /* typeArgs */ undefined,
-                                /* isTypeArgExplicit */ false
-                            ),
+                            ClassType.specialize(concreteFilterType, /* typeArgs */ undefined),
                             evaluator.getTupleClassType()
                         );
                     }
@@ -1462,10 +1458,9 @@ function narrowTypeForIsInstanceInternal(
                                         !ClassType.isSameGenericClass(concreteVarType, filterType)
                                     ) {
                                         const typeVarContext = new TypeVarContext(getTypeVarScopeId(filterType));
-                                        const unspecializedFilterType = ClassType.cloneForSpecialization(
+                                        const unspecializedFilterType = ClassType.specialize(
                                             filterType,
-                                            /* typeArg */ undefined,
-                                            /* isTypeArgExplicit */ false
+                                            /* typeArg */ undefined
                                         );
 
                                         if (
