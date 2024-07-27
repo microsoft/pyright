@@ -23790,26 +23790,6 @@ export function createTypeEvaluator(
             );
         }
 
-        if (isNoneInstance(destType)) {
-            if (isNoneInstance(srcType)) {
-                return true;
-            }
-
-            if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'NoneType')) {
-                return true;
-            }
-        }
-
-        if (isNoneTypeClass(destType)) {
-            if (isNoneTypeClass(srcType)) {
-                return true;
-            }
-
-            if (isInstantiableClass(srcType) && ClassType.isBuiltIn(srcType, 'NoneType')) {
-                return true;
-            }
-        }
-
         // Is the src a specialized "type" object?
         if (isClassInstance(expandedSrcType) && ClassType.isBuiltIn(expandedSrcType, 'type')) {
             const srcTypeArgs = expandedSrcType.priv.typeArguments;
