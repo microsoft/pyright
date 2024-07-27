@@ -16492,7 +16492,7 @@ export function createTypeEvaluator(
             effectiveMetaclass,
             type1.shared.docString
         );
-        newClassType.shared.baseClasses = [ClassType.cloneAsInstantiable(type1), type2];
+        newClassType.shared.baseClasses = [type1, type2];
         computeMroLinearization(newClassType);
 
         newClassType = addConditionToType(newClassType, type1.props?.condition);
