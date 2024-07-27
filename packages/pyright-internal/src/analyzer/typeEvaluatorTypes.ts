@@ -466,7 +466,7 @@ export interface ResolveAliasOptions {
 
 export interface ValidateTypeArgsOptions {
     allowEmptyTuple?: boolean;
-    allowVariadicTypeVar?: boolean;
+    allowTypeVarTuple?: boolean;
     allowParamSpec?: boolean;
     allowTypeArgList?: boolean;
     allowUnpackedTuples?: boolean;

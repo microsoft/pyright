@@ -302,13 +302,16 @@ import {
     ModuleType,
     NeverType,
     OverloadedFunctionType,
+    ParamSpecType,
     TupleTypeArg,
     Type,
     TypeBase,
     TypeCategory,
     TypeCondition,
+    TypeVarKind,
     TypeVarScopeId,
     TypeVarScopeType,
+    TypeVarTupleType,
     TypeVarType,
     TypedDictEntries,
     UnboundType,
@@ -330,13 +333,13 @@ import {
     isPositionOnlySeparator,
     isTypeSame,
     isTypeVar,
+    isTypeVarTuple,
     isUnbound,
     isUnion,
     isUnknown,
     isUnpacked,
     isUnpackedClass,
-    isUnpackedVariadicTypeVar,
-    isVariadicTypeVar,
+    isUnpackedTypeVarTuple,
     maxTypeRecursionCount,
     removeFromUnion,
     removeUnbound,
@@ -1386,7 +1389,7 @@ export function createTypeEvaluator(
         }
 
         if ((flags & EvalFlags.NoTypeVarTuple) !== 0) {
-            if (isVariadicTypeVar(typeResult.type) && !typeResult.type.priv.isVariadicInUnion) {
+            if (isTypeVarTuple(typeResult.type) && !typeResult.type.priv.isVariadicInUnion) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeVarTupleContext(), node);
                 typeResult.type = UnknownType.create();
             }
@@ -1489,11 +1492,7 @@ export function createTypeEvaluator(
 
         const iterTypeResult = getTypeOfExpression(node.d.expr, flags, makeInferenceContext(iterExpectedType));
         const iterType = iterTypeResult.type;
-        if (
-            (flags & EvalFlags.NoTypeVarTuple) === 0 &&
-            isVariadicTypeVar(iterType) &&
-            !iterType.priv.isVariadicUnpacked
-        ) {
+        if ((flags & EvalFlags.NoTypeVarTuple) === 0 && isTypeVarTuple(iterType) && !iterType.priv.isVariadicUnpacked) {
             typeResult = { type: TypeVarType.cloneForUnpacked(iterType) };
         } else if (
             (flags & EvalFlags.AllowUnpackedTuple) !== 0 &&
@@ -2797,7 +2796,7 @@ export function createTypeEvaluator(
                             // Convert any unpacked TypeVarTuples into object instances. We don't
                             // know anything more about them.
                             nextReturnType = mapSubtypes(nextReturnType, (returnSubtype) => {
-                                if (isTypeVar(returnSubtype) && isUnpackedVariadicTypeVar(returnSubtype)) {
+                                if (isTypeVar(returnSubtype) && isUnpackedTypeVarTuple(returnSubtype)) {
                                     return getObjectType();
                                 }
 
@@ -3824,7 +3823,7 @@ export function createTypeEvaluator(
                 }
             }
 
-            if (isTypeVar(subtype) && subtype.shared.isVariadic) {
+            if (isTypeVarTuple(subtype)) {
                 // If it's in a union, convert to type or object.
                 if (subtype.priv.isVariadicInUnion) {
                     if (TypeBase.isInstantiable(subtype)) {
@@ -4096,15 +4095,12 @@ export function createTypeEvaluator(
                         typeVarTarget.nodeType !== ParseNodeType.Name ||
                         typeVarTarget.d.value !== typeResult.type.shared.name
                     ) {
+                        const name = TypeVarType.getReadableName(typeResult.type);
                         addDiagnostic(
                             DiagnosticRule.reportGeneralTypeIssues,
-                            typeResult.type.shared.isParamSpec
-                                ? LocMessage.paramSpecAssignedName().format({
-                                      name: TypeVarType.getReadableName(typeResult.type),
-                                  })
-                                : LocMessage.typeVarAssignedName().format({
-                                      name: TypeVarType.getReadableName(typeResult.type),
-                                  }),
+                            isParamSpec(typeResult.type)
+                                ? LocMessage.paramSpecAssignedName().format({ name })
+                                : LocMessage.typeVarAssignedName().format({ name }),
                             typeVarTarget
                         );
                     }
@@ -4757,7 +4753,7 @@ export function createTypeEvaluator(
 
         // If this type var is variadic, the name refers to the packed form. It
         // must be unpacked in most contexts.
-        if (isUnpackedVariadicTypeVar(type)) {
+        if (isUnpackedTypeVarTuple(type)) {
             type = TypeVarType.cloneForPacked(type);
         }
 
@@ -4773,7 +4769,7 @@ export function createTypeEvaluator(
         type = scopedTypeVarInfo.type;
 
         if ((flags & EvalFlags.NoTypeVarWithScopeId) !== 0 && !!type.priv.scopeId) {
-            if (type.shared.isSynthesized || type.shared.isParamSpec) {
+            if (type.shared.isSynthesized || isParamSpec(type)) {
                 return type;
             }
 
@@ -4965,12 +4961,12 @@ export function createTypeEvaluator(
                 }
 
                 let defaultType: Type;
-                if (param.shared.isDefaultExplicit || param.shared.isParamSpec) {
+                if (param.shared.isDefaultExplicit || isParamSpec(param)) {
                     defaultType = applySolvedTypeVars(param, typeVarContext, {
                         unknownIfNotFound: true,
                         tupleClassType: getTupleClassType(),
                     });
-                } else if (param.shared.isVariadic && tupleClass && isInstantiableClass(tupleClass)) {
+                } else if (isTypeVarTuple(param) && tupleClass && isInstantiableClass(tupleClass)) {
                     defaultType = makeTupleObject(
                         [{ type: UnknownType.create(), isUnbounded: true }],
                         /* isUnpackedTuple */ true
@@ -5311,7 +5307,7 @@ export function createTypeEvaluator(
             }
 
             case TypeCategory.TypeVar: {
-                if (baseType.shared.isParamSpec) {
+                if (isParamSpec(baseType)) {
                     // Handle special cases for "P.args" and "P.kwargs".
                     if (memberName === 'args' || memberName === 'kwargs') {
                         const isArgs = memberName === 'args';
@@ -5366,7 +5362,7 @@ export function createTypeEvaluator(
                     break;
                 }
 
-                if (baseType.shared.isVariadic) {
+                if (isTypeVarTuple(baseType)) {
                     break;
                 }
 
@@ -6605,12 +6601,12 @@ export function createTypeEvaluator(
 
     // If the list of type parameters includes a TypeVarTuple, we may need to adjust
     // the supplied type arguments to map to the type parameter list.
-    function adjustTypeArgsForVariadicTypeVar(
+    function adjustTypeArgsForTypeVarTuple(
         typeArgs: TypeResultWithNode[],
         typeParams: TypeVarType[],
         errorNode: ExpressionNode
     ): TypeResultWithNode[] {
-        const variadicIndex = typeParams.findIndex((param) => isVariadicTypeVar(param));
+        const variadicIndex = typeParams.findIndex((param) => isTypeVarTuple(param));
 
         // Is there a *tuple[T, ...] somewhere in the type arguments that we can expand if needed?
         let srcUnboundedTupleType: Type | undefined;
@@ -6665,7 +6661,7 @@ export function createTypeEvaluator(
             let typeParamCount = typeParams.length;
             while (typeParamCount > 0) {
                 const lastTypeParam = typeParams[typeParamCount - 1];
-                if (!lastTypeParam.shared.isParamSpec || !lastTypeParam.shared.isDefaultExplicit) {
+                if (!isParamSpec(lastTypeParam) || !lastTypeParam.shared.isDefaultExplicit) {
                     break;
                 }
 
@@ -6684,14 +6680,14 @@ export function createTypeEvaluator(
                 }
                 const variadicTypeResults = typeArgs.slice(variadicIndex, variadicEndIndex);
 
-                // If the type args consist of a lone variadic type variable, don't wrap it in a tuple.
-                if (variadicTypeResults.length === 1 && isVariadicTypeVar(variadicTypeResults[0].type)) {
-                    validateVariadicTypeVarIsUnpacked(variadicTypeResults[0].type, variadicTypeResults[0].node);
+                // If the type args consist of a lone TypeVarTuple, don't wrap it in a tuple.
+                if (variadicTypeResults.length === 1 && isTypeVarTuple(variadicTypeResults[0].type)) {
+                    validateTypeVarTupleIsUnpacked(variadicTypeResults[0].type, variadicTypeResults[0].node);
                 } else {
                     variadicTypeResults.forEach((arg, index) => {
                         validateTypeArg(arg, {
                             allowEmptyTuple: index === 0,
-                            allowVariadicTypeVar: true,
+                            allowTypeVarTuple: true,
                             allowUnpackedTuples: true,
                         });
                     });
@@ -6731,7 +6727,7 @@ export function createTypeEvaluator(
     }
 
     // If the variadic type variable is not unpacked, report an error.
-    function validateVariadicTypeVarIsUnpacked(type: TypeVarType, node: ParseNode) {
+    function validateTypeVarTupleIsUnpacked(type: TypeVarTupleType, node: ParseNode) {
         if (!type.priv.isVariadicUnpacked) {
             addDiagnostic(
                 DiagnosticRule.reportInvalidTypeForm,
@@ -6770,13 +6766,13 @@ export function createTypeEvaluator(
         }
 
         const typeParams = aliasInfo.typeParams;
-        let typeArgs = adjustTypeArgsForVariadicTypeVar(getTypeArgs(node, flags), typeParams, node);
+        let typeArgs = adjustTypeArgsForTypeVarTuple(getTypeArgs(node, flags), typeParams, node);
 
         // PEP 612 says that if the class has only one type parameter consisting
         // of a ParamSpec, the list of arguments does not need to be enclosed in
         // a list. We'll handle that case specially here. Presumably this applies to
         // type aliases as well.
-        if (typeParams.length === 1 && typeParams[0].shared.isParamSpec && typeArgs) {
+        if (typeParams.length === 1 && isParamSpec(typeParams[0]) && typeArgs) {
             if (
                 typeArgs.every(
                     (typeArg) => !isEllipsisType(typeArg.type) && !typeArg.typeList && !isParamSpec(typeArg.type)
@@ -6833,7 +6829,7 @@ export function createTypeEvaluator(
         const diag = new DiagnosticAddendum();
 
         typeParams.forEach((param, index) => {
-            if (param.shared.isParamSpec && index < typeArgs.length) {
+            if (isParamSpec(param) && index < typeArgs.length) {
                 const typeArgType = typeArgs[index].type;
                 const typeList = typeArgs[index].typeList;
 
@@ -6962,7 +6958,7 @@ export function createTypeEvaluator(
                     }
                 }
 
-                if (isUnpacked(typeArgType) && !isVariadicTypeVar(param)) {
+                if (isUnpacked(typeArgType) && !isTypeVarTuple(param)) {
                     const messageDiag = diag.createAddendum();
                     messageDiag.addMessage(LocMessage.unpackedArgInTypeArgument());
                     messageDiag.addTextRange(typeArgs[index].node);
@@ -7205,7 +7201,7 @@ export function createTypeEvaluator(
                     });
 
                     if (!isAnnotatedClass) {
-                        typeArgs = adjustTypeArgsForVariadicTypeVar(typeArgs, concreteSubtype.shared.typeParams, node);
+                        typeArgs = adjustTypeArgsForTypeVarTuple(typeArgs, concreteSubtype.shared.typeParams, node);
                     }
 
                     // If this is a custom __class_getitem__, there's no need to specialize the class.
@@ -7689,7 +7685,7 @@ export function createTypeEvaluator(
                 if (arg.d.argCategory !== ArgCategory.Simple) {
                     if (arg.d.argCategory === ArgCategory.UnpackedList) {
                         if (!options?.isAnnotatedClass || index === 0) {
-                            if (isVariadicTypeVar(typeResult.type) && !typeResult.type.priv.isVariadicUnpacked) {
+                            if (isTypeVarTuple(typeResult.type) && !typeResult.type.priv.isVariadicUnpacked) {
                                 typeResult.type = TypeVarType.cloneForUnpacked(typeResult.type);
                             } else if (
                                 isInstantiableClass(typeResult.type) &&
@@ -10184,7 +10180,7 @@ export function createTypeEvaluator(
         let matchedUnpackedListOfUnknownLength = false;
         let reportedArgError = false;
         let isTypeIncomplete = !!typeResult.isIncomplete;
-        let isVariadicTypeVarFullyMatched = false;
+        let isTypeVarTupleFullyMatched = false;
 
         // Expand any unpacked tuples in the arg list.
         argList = expandArgList(argList);
@@ -10376,7 +10372,7 @@ export function createTypeEvaluator(
             const paramType = paramInfo.type;
             const paramName = paramInfo.param.name;
 
-            const isParamVariadic = paramInfo.param.category === ParamCategory.ArgsList && isVariadicTypeVar(paramType);
+            const isParamVariadic = paramInfo.param.category === ParamCategory.ArgsList && isTypeVarTuple(paramType);
 
             if (argList[argIndex].argCategory === ArgCategory.UnpackedList) {
                 let isArgCompatibleWithVariadic = false;
@@ -10392,7 +10388,7 @@ export function createTypeEvaluator(
                 // filled explicitly.
                 if (paramIndex < positionParamLimitIndex) {
                     if (
-                        isTypeVar(argTypeResult.type) &&
+                        isParamSpec(argTypeResult.type) &&
                         argTypeResult.type.priv.paramSpecAccess === 'args' &&
                         paramInfo.param.category !== ParamCategory.ArgsList
                     ) {
@@ -10413,26 +10409,26 @@ export function createTypeEvaluator(
 
                 const argType = argTypeResult.type;
 
-                if (isParamVariadic && isUnpackedVariadicTypeVar(argType)) {
+                if (isParamVariadic && isUnpackedTypeVarTuple(argType)) {
                     // Allow an unpacked variadic type variable to satisfy an
                     // unpacked variadic type variable.
                     listElementType = argType;
                     isArgCompatibleWithVariadic = true;
                     advanceToNextArg = true;
-                    isVariadicTypeVarFullyMatched = true;
+                    isTypeVarTupleFullyMatched = true;
                 } else if (
                     isClassInstance(argType) &&
                     isTupleClass(argType) &&
                     argType.priv.tupleTypeArgs &&
                     argType.priv.tupleTypeArgs.length === 1 &&
-                    isUnpackedVariadicTypeVar(argType.priv.tupleTypeArgs[0].type)
+                    isUnpackedTypeVarTuple(argType.priv.tupleTypeArgs[0].type)
                 ) {
                     // Handle the case where an unpacked variadic type var has
                     // been packaged into a tuple.
                     listElementType = argType.priv.tupleTypeArgs[0].type;
                     isArgCompatibleWithVariadic = true;
                     advanceToNextArg = true;
-                    isVariadicTypeVarFullyMatched = true;
+                    isTypeVarTupleFullyMatched = true;
                 } else if (isParamVariadic && isClassInstance(argType) && isTupleClass(argType)) {
                     // Handle the case where an unpacked tuple argument is
                     // matched to a TypeVarTuple parameter.
@@ -10442,7 +10438,7 @@ export function createTypeEvaluator(
                     // Determine whether we should treat the variadic type as fully matched.
                     // This depends on how many args and unmatched parameters exist.
                     if (remainingArgCount < remainingParamCount) {
-                        isVariadicTypeVarFullyMatched = true;
+                        isTypeVarTupleFullyMatched = true;
                     }
 
                     listElementType = ClassType.cloneForUnpacked(argType);
@@ -10518,7 +10514,7 @@ export function createTypeEvaluator(
                 }
 
                 if (
-                    isVariadicTypeVarFullyMatched ||
+                    isTypeVarTupleFullyMatched ||
                     paramDetails.params[paramIndex].param.category !== ParamCategory.ArgsList
                 ) {
                     paramIndex++;
@@ -10542,9 +10538,7 @@ export function createTypeEvaluator(
                         effectiveParamType = paramType.priv.tupleTypeArgs[0].type;
                     }
 
-                    paramCategory = isVariadicTypeVar(effectiveParamType)
-                        ? ParamCategory.ArgsList
-                        : ParamCategory.Simple;
+                    paramCategory = isTypeVarTuple(effectiveParamType) ? ParamCategory.ArgsList : ParamCategory.Simple;
 
                     if (remainingArgCount <= remainingParamCount) {
                         if (remainingArgCount < remainingParamCount) {
@@ -11086,25 +11080,25 @@ export function createTypeEvaluator(
                 paramDetails.argsIndex !== undefined &&
                 paramDetails.argsIndex >= 0 &&
                 FunctionParam.isTypeDeclared(paramDetails.params[paramDetails.argsIndex].param) &&
-                !isVariadicTypeVarFullyMatched
+                !isTypeVarTupleFullyMatched
             ) {
                 const paramType = paramDetails.params[paramDetails.argsIndex].type;
                 const variadicArgs = validateArgTypeParams.filter((argParam) => argParam.mapsToVarArgList);
 
-                if (isVariadicTypeVar(paramType) && !paramType.priv.isVariadicInUnion) {
+                if (isTypeVarTuple(paramType) && !paramType.priv.isVariadicInUnion) {
                     const tupleTypeArgs: TupleTypeArg[] = variadicArgs.map((argParam) => {
                         const argType = getTypeOfArg(argParam.argument, /* inferenceContext */ undefined).type;
 
-                        const containsVariadicTypeVar =
-                            isUnpackedVariadicTypeVar(argType) ||
+                        const containsTypeVarTuple =
+                            isUnpackedTypeVarTuple(argType) ||
                             (isClassInstance(argType) &&
                                 isTupleClass(argType) &&
                                 argType.priv.tupleTypeArgs &&
                                 argType.priv.tupleTypeArgs.length === 1 &&
-                                isUnpackedVariadicTypeVar(argType.priv.tupleTypeArgs[0].type));
+                                isUnpackedTypeVarTuple(argType.priv.tupleTypeArgs[0].type));
 
                         if (
-                            containsVariadicTypeVar &&
+                            containsTypeVarTuple &&
                             argParam.argument.argCategory !== ArgCategory.UnpackedList &&
                             !argParam.mapsToVarArgList
                         ) {
@@ -11128,7 +11122,7 @@ export function createTypeEvaluator(
                     if (
                         tupleTypeArgs.length === 1 &&
                         !tupleTypeArgs[0].isUnbounded &&
-                        (isUnpackedClass(tupleTypeArgs[0].type) || isVariadicTypeVar(tupleTypeArgs[0].type))
+                        (isUnpackedClass(tupleTypeArgs[0].type) || isTypeVarTuple(tupleTypeArgs[0].type))
                     ) {
                         // If there is a single unpacked tuple or unpacked variadic type variable
                         // (including an unpacked TypeVarTuple union) within this tuple,
@@ -12286,7 +12280,7 @@ export function createTypeEvaluator(
         }
 
         const typeVar = TypeBase.cloneAsSpecialForm(
-            TypeVarType.createInstantiable(typeVarName, /* isParamSpec */ false),
+            TypeVarType.createInstantiable(typeVarName),
             ClassType.cloneAsInstance(classType)
         );
 
@@ -12523,10 +12517,9 @@ export function createTypeEvaluator(
         }
 
         const typeVar = TypeBase.cloneAsSpecialForm(
-            TypeVarType.createInstantiable(typeVarName, /* isParamSpec */ false),
+            TypeVarType.createInstantiable(typeVarName, TypeVarKind.TypeVarTuple),
             ClassType.cloneAsInstance(classType)
         );
-        typeVar.shared.isVariadic = true;
         typeVar.shared.defaultType = makeTupleObject([{ type: UnknownType.create(), isUnbounded: true }]);
 
         // Parse the remaining parameters.
@@ -12584,9 +12577,9 @@ export function createTypeEvaluator(
             typeExpression: true,
         }).type;
         const isUnpackedTuple = isClass(argType) && isTupleClass(argType) && argType.priv.isUnpacked;
-        const isUnpackedTypeVarTuple = isUnpackedVariadicTypeVar(argType);
+        const isUnpackedTypeVar = isUnpackedTypeVarTuple(argType);
 
-        if (!isUnpackedTuple && !isUnpackedTypeVarTuple) {
+        if (!isUnpackedTuple && !isUnpackedTypeVar) {
             addDiagnostic(DiagnosticRule.reportGeneralTypeIssues, LocMessage.typeVarTupleDefaultNotUnpacked(), node);
             return undefined;
         }
@@ -12613,7 +12606,7 @@ export function createTypeEvaluator(
         }
 
         const paramSpec = TypeBase.cloneAsSpecialForm(
-            TypeVarType.createInstantiable(paramSpecName, /* isParamSpec */ true),
+            TypeVarType.createInstantiable(paramSpecName, TypeVarKind.ParamSpec),
             ClassType.cloneAsInstance(classType)
         );
 
@@ -12820,7 +12813,7 @@ export function createTypeEvaluator(
                 ).type;
 
                 if (isTypeVar(entryType)) {
-                    if (entryType.priv.scopeId || entryType.priv.isVariadicUnpacked) {
+                    if (entryType.priv.scopeId || (isTypeVarTuple(entryType) && entryType.priv.isVariadicUnpacked)) {
                         isTypeParamListValid = false;
                     } else {
                         entryType = TypeVarType.cloneForScopeId(
@@ -14692,12 +14685,12 @@ export function createTypeEvaluator(
             }
         }
 
-        if (isVariadicTypeVar(argResult.type) && !argResult.type.priv.isVariadicInUnion) {
-            if (!options?.allowVariadicTypeVar) {
+        if (isTypeVarTuple(argResult.type) && !argResult.type.priv.isVariadicInUnion) {
+            if (!options?.allowTypeVarTuple) {
                 addDiagnostic(DiagnosticRule.reportInvalidTypeForm, LocMessage.typeVarTupleContext(), argResult.node);
                 return false;
             } else {
-                validateVariadicTypeVarIsUnpacked(argResult.type, argResult.node);
+                validateTypeVarTupleIsUnpacked(argResult.type, argResult.node);
             }
         }
 
@@ -14730,7 +14723,7 @@ export function createTypeEvaluator(
         errorNode: ParseNode
     ): FunctionType {
         const functionType = FunctionType.createInstantiable(FunctionTypeFlags.None);
-        let paramSpec: TypeVarType | undefined;
+        let paramSpec: ParamSpecType | undefined;
 
         TypeBase.setSpecialForm(functionType, classType);
         functionType.shared.declaredReturnType = UnknownType.create();
@@ -14763,8 +14756,8 @@ export function createTypeEvaluator(
                     let paramCategory: ParamCategory = ParamCategory.Simple;
                     const paramName = `__p${index.toString()}`;
 
-                    if (isVariadicTypeVar(entryType)) {
-                        validateVariadicTypeVarIsUnpacked(entryType, entry.node);
+                    if (isTypeVarTuple(entryType)) {
+                        validateTypeVarTupleIsUnpacked(entryType, entry.node);
                         paramCategory = ParamCategory.ArgsList;
                         noteSawUnpacked(entry);
                     } else if (validateTypeArg(entry, { allowUnpackedTuples: true })) {
@@ -14773,7 +14766,7 @@ export function createTypeEvaluator(
 
                             if (
                                 entryType.priv.tupleTypeArgs?.some(
-                                    (typeArg) => isVariadicTypeVar(typeArg.type) || typeArg.isUnbounded
+                                    (typeArg) => isTypeVarTuple(typeArg.type) || typeArg.isUnbounded
                                 )
                             ) {
                                 noteSawUnpacked(entry);
@@ -15320,7 +15313,7 @@ export function createTypeEvaluator(
                 return ClassType.cloneForUnpacked(typeArgType);
             }
 
-            if (isVariadicTypeVar(typeArgType) && !typeArgType.priv.isVariadicUnpacked) {
+            if (isTypeVarTuple(typeArgType) && !typeArgType.priv.isVariadicUnpacked) {
                 return TypeVarType.cloneForUnpacked(typeArgType);
             }
 
@@ -15394,7 +15387,7 @@ export function createTypeEvaluator(
                             LocMessage.paramSpecContext(),
                             typeArg.node
                         );
-                    } else if (isUnpackedVariadicTypeVar(typeArg.type)) {
+                    } else if (isUnpackedTypeVarTuple(typeArg.type)) {
                         addDiagnostic(
                             DiagnosticRule.reportInvalidTypeForm,
                             LocMessage.typeVarTupleContext(),
@@ -15558,7 +15551,7 @@ export function createTypeEvaluator(
                                 typeArg.node
                             );
                         } else {
-                            if (isVariadicTypeVar(typeArgs[0].type) && !typeArgs[0].type.priv.isVariadicInUnion) {
+                            if (isTypeVarTuple(typeArgs[0].type) && !typeArgs[0].type.priv.isVariadicInUnion) {
                                 addDiagnostic(
                                     DiagnosticRule.reportInvalidTypeForm,
                                     LocMessage.typeVarTupleContext(),
@@ -15574,15 +15567,15 @@ export function createTypeEvaluator(
                         }
                     } else if (isParamSpec(typeArg.type) && allowParamSpec) {
                         // Nothing to do - this is allowed.
-                    } else if (paramLimit === undefined && isVariadicTypeVar(typeArg.type)) {
+                    } else if (paramLimit === undefined && isTypeVarTuple(typeArg.type)) {
                         if (!typeArg.type.priv.isVariadicInUnion) {
                             noteSawUnpacked(typeArg);
                         }
-                        validateVariadicTypeVarIsUnpacked(typeArg.type, typeArg.node);
+                        validateTypeVarTupleIsUnpacked(typeArg.type, typeArg.node);
                     } else if (paramLimit === undefined && isUnpackedClass(typeArg.type)) {
                         if (
                             typeArg.type.priv.tupleTypeArgs?.some(
-                                (typeArg) => isVariadicTypeVar(typeArg.type) || typeArg.isUnbounded
+                                (typeArg) => isTypeVarTuple(typeArg.type) || typeArg.isUnbounded
                             )
                         ) {
                             noteSawUnpacked(typeArg);
@@ -15681,7 +15674,7 @@ export function createTypeEvaluator(
             // This is an experimental feature because Unions of unpacked TypeVarTuples are not officially supported.
             if (
                 !validateTypeArg(typeArg, {
-                    allowVariadicTypeVar: fileInfo.diagnosticRuleSet.enableExperimentalFeatures,
+                    allowTypeVarTuple: fileInfo.diagnosticRuleSet.enableExperimentalFeatures,
                 })
             ) {
                 typeArgType = UnknownType.create();
@@ -15702,7 +15695,7 @@ export function createTypeEvaluator(
                     types.push(UnknownType.create());
                 }
             } else {
-                if (isTypeVar(typeArgType) && isUnpackedVariadicTypeVar(typeArgType)) {
+                if (isTypeVar(typeArgType) && isUnpackedTypeVarTuple(typeArgType)) {
                     // This is an experimental feature because Unions of unpacked TypeVarTuples are not officially supported.
                     if (fileInfo.diagnosticRuleSet.enableExperimentalFeatures) {
                         // If this is an unpacked TypeVar, note that it is in a union so we can
@@ -15830,11 +15823,11 @@ export function createTypeEvaluator(
 
         // See if the type alias includes a TypeVarTuple followed by a TypeVar
         // with a default value. This isn't allowed.
-        const firstTypeVarTupleIndex = typeParams.findIndex((typeVar) => isVariadicTypeVar(typeVar));
+        const firstTypeVarTupleIndex = typeParams.findIndex((typeVar) => isTypeVarTuple(typeVar));
         if (firstTypeVarTupleIndex >= 0) {
             const typeVarWithDefaultIndex = typeParams.findIndex(
                 (typeVar, index) =>
-                    index > firstTypeVarTupleIndex && !typeVar.shared.isParamSpec && typeVar.shared.isDefaultExplicit
+                    index > firstTypeVarTupleIndex && !isParamSpec(typeVar) && typeVar.shared.isDefaultExplicit
             );
 
             if (typeVarWithDefaultIndex >= 0) {
@@ -15862,7 +15855,7 @@ export function createTypeEvaluator(
         });
 
         // Verify that we have at most one variadic type variable.
-        const variadics = typeParams.filter((param) => isVariadicTypeVar(param));
+        const variadics = typeParams.filter((param) => isTypeVarTuple(param));
         if (variadics.length > 1) {
             addDiagnostic(
                 DiagnosticRule.reportInvalidTypeForm,
@@ -16900,7 +16893,7 @@ export function createTypeEvaluator(
             }
 
             // Make sure there's at most one variadic type parameter.
-            const variadics = typeParams.filter((param) => isVariadicTypeVar(param));
+            const variadics = typeParams.filter((param) => isTypeVarTuple(param));
             if (variadics.length > 1) {
                 addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -16912,10 +16905,10 @@ export function createTypeEvaluator(
                 );
             } else if (variadics.length > 0) {
                 // Make sure a TypeVar with a default doesn't come after a variadic type parameter.
-                const firstVariadicIndex = classType.shared.typeParams.findIndex((param) => isVariadicTypeVar(param));
+                const firstVariadicIndex = classType.shared.typeParams.findIndex((param) => isTypeVarTuple(param));
                 const typeVarWithDefaultIndex = classType.shared.typeParams.findIndex(
                     (param, index) =>
-                        index > firstVariadicIndex && !param.shared.isParamSpec && param.shared.isDefaultExplicit
+                        index > firstVariadicIndex && !isParamSpec(param) && param.shared.isDefaultExplicit
                 );
 
                 if (typeVarWithDefaultIndex >= 0) {
@@ -17339,7 +17332,7 @@ export function createTypeEvaluator(
 
         classType.shared.typeParams.forEach((param, paramIndex) => {
             // Skip variadics and ParamSpecs.
-            if (param.shared.isVariadic || param.shared.isParamSpec) {
+            if (isTypeVarTuple(param) || isParamSpec(param)) {
                 return;
             }
 
@@ -17351,7 +17344,7 @@ export function createTypeEvaluator(
             // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with an object instance.
             const srcTypeArgs = classType.shared.typeParams.map((p, i) => {
-                if (p.shared.isVariadic) {
+                if (isTypeVarTuple(p)) {
                     return p;
                 }
                 return i === paramIndex ? getObjectType() : dummyTypeObject;
@@ -17360,7 +17353,7 @@ export function createTypeEvaluator(
             // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with itself.
             const destTypeArgs = classType.shared.typeParams.map((p, i) => {
-                return i === paramIndex || p.shared.isVariadic ? p : dummyTypeObject;
+                return i === paramIndex || isTypeVarTuple(p) ? p : dummyTypeObject;
             });
 
             const srcType = ClassType.specialize(classType, srcTypeArgs);
@@ -18002,7 +17995,7 @@ export function createTypeEvaluator(
                         );
                     }
 
-                    if (isVariadicTypeVar(annotatedType) && !annotatedType.priv.isVariadicUnpacked) {
+                    if (isTypeVarTuple(annotatedType) && !annotatedType.priv.isVariadicUnpacked) {
                         addDiagnostic(
                             DiagnosticRule.reportInvalidTypeForm,
                             LocMessage.unpackedTypeVarTupleExpected().format({
@@ -18464,7 +18457,7 @@ export function createTypeEvaluator(
             }
 
             case ParamCategory.ArgsList: {
-                if (isTypeVar(type) && type.priv.paramSpecAccess) {
+                if (isParamSpec(type) && type.priv.paramSpecAccess) {
                     return type;
                 }
 
@@ -18472,12 +18465,12 @@ export function createTypeEvaluator(
                     return ClassType.cloneForUnpacked(type, /* isUnpackedTuple */ false);
                 }
 
-                return makeTupleObject([{ type, isUnbounded: !isVariadicTypeVar(type) }]);
+                return makeTupleObject([{ type, isUnbounded: !isTypeVarTuple(type) }]);
             }
 
             case ParamCategory.KwargsDict: {
                 // Leave a ParamSpec alone.
-                if (isTypeVar(type) && type.priv.paramSpecAccess) {
+                if (isParamSpec(type) && type.priv.paramSpecAccess) {
                     return type;
                 }
 
@@ -20240,7 +20233,7 @@ export function createTypeEvaluator(
             return { type: classType };
         }
 
-        const variadicTypeParamIndex = typeParams.findIndex((param) => isVariadicTypeVar(param));
+        const variadicTypeParamIndex = typeParams.findIndex((param) => isTypeVarTuple(param));
 
         if (typeArgs) {
             let minTypeArgCount = typeParams.length;
@@ -20290,19 +20283,19 @@ export function createTypeEvaluator(
                 if (index === variadicTypeParamIndex) {
                     // The types that make up the tuple that maps to the variadic
                     // type variable have already been validated when the tuple
-                    // object was created in adjustTypeArgsForVariadicTypeVar.
+                    // object was created in adjustTypeArgsForTypeVarTuple.
                     if (isClassInstance(typeArg.type) && isTupleClass(typeArg.type)) {
                         return;
                     }
 
-                    if (isVariadicTypeVar(typeArg.type)) {
-                        validateVariadicTypeVarIsUnpacked(typeArg.type, typeArg.node);
+                    if (isTypeVarTuple(typeArg.type)) {
+                        validateTypeVarTupleIsUnpacked(typeArg.type, typeArg.node);
                         return;
                     }
                 }
 
                 const typeParam = index < typeParams.length ? typeParams[index] : undefined;
-                const isParamSpecTarget = typeParam?.shared.isParamSpec;
+                const isParamSpecTarget = typeParam && isParamSpec(typeParam);
 
                 validateTypeArg(typeArg, {
                     allowParamSpec: true,
@@ -20318,7 +20311,7 @@ export function createTypeEvaluator(
         // PEP 612 says that if the class has only one type parameter consisting
         // of a ParamSpec, the list of arguments does not need to be enclosed in
         // a list. We'll handle that case specially here.
-        if (fullTypeParams.length === 1 && fullTypeParams[0].shared.isParamSpec && typeArgs) {
+        if (fullTypeParams.length === 1 && isParamSpec(fullTypeParams[0]) && typeArgs) {
             if (
                 typeArgs.every(
                     (typeArg) => !isEllipsisType(typeArg.type) && !typeArg.typeList && !isParamSpec(typeArg.type)
@@ -20366,7 +20359,7 @@ export function createTypeEvaluator(
 
         fullTypeParams.forEach((typeParam, index) => {
             if (typeArgs && index < typeArgs.length) {
-                if (typeParam.shared.isParamSpec) {
+                if (isParamSpec(typeParam)) {
                     const typeArg = typeArgs[index];
                     const functionType = FunctionType.createSynthesizedInstance('', FunctionTypeFlags.ParamSpecValue);
 
@@ -21318,26 +21311,22 @@ export function createTypeEvaluator(
         }
 
         let runtimeClassName = 'TypeVar';
+        let kind: TypeVarKind = TypeVarKind.TypeVar;
         if (node.d.typeParamKind === TypeParamKind.TypeVarTuple) {
             runtimeClassName = 'TypeVarTuple';
+            kind = TypeVarKind.TypeVarTuple;
         } else if (node.d.typeParamKind === TypeParamKind.ParamSpec) {
             runtimeClassName = 'ParamSpec';
+            kind = TypeVarKind.ParamSpec;
         }
         const runtimeType = getTypingType(node, runtimeClassName);
         const runtimeClass = runtimeType && isInstantiableClass(runtimeType) ? runtimeType : undefined;
 
-        let typeVar = TypeVarType.createInstantiable(
-            node.d.name.d.value,
-            node.d.typeParamKind === TypeParamKind.ParamSpec
-        );
+        let typeVar = TypeVarType.createInstantiable(node.d.name.d.value, kind);
         if (runtimeClass) {
             typeVar = TypeBase.cloneAsSpecialForm(typeVar, ClassType.cloneAsInstance(runtimeClass));
         }
         typeVar.shared.isTypeParamSyntax = true;
-
-        if (node.d.typeParamKind === TypeParamKind.TypeVarTuple) {
-            typeVar.shared.isVariadic = true;
-        }
 
         // Cache the value before we evaluate the bound or the default type in
         // case it refers to itself in a circular manner.
@@ -22925,8 +22914,8 @@ export function createTypeEvaluator(
                     if (!ignoreBaseClassVariance) {
                         specializedDestBaseClass.shared.typeParams.forEach((param, index) => {
                             if (
-                                !param.shared.isParamSpec &&
-                                !param.shared.isVariadic &&
+                                !isParamSpec(param) &&
+                                !isTypeVarTuple(param) &&
                                 !param.shared.isSynthesized &&
                                 specializedSrcBaseClass.priv.typeArgs &&
                                 index < specializedSrcBaseClass.priv.typeArgs.length &&
@@ -23463,7 +23452,7 @@ export function createTypeEvaluator(
             // If the dest is a variadic type variable, and the source is a tuple
             // with a single entry that is the same variadic type variable, it's a match.
             if (
-                isVariadicTypeVar(destType) &&
+                isTypeVarTuple(destType) &&
                 isClassInstance(srcType) &&
                 isTupleClass(srcType) &&
                 srcType.priv.tupleTypeArgs &&
@@ -23576,7 +23565,7 @@ export function createTypeEvaluator(
                 // If the source is an unpacked TypeVarTuple and the dest is a
                 // *tuple[Any, ...], we'll treat it as compatible.
                 if (
-                    isUnpackedVariadicTypeVar(srcType) &&
+                    isUnpackedTypeVarTuple(srcType) &&
                     isClassInstance(destType) &&
                     isUnpackedClass(destType) &&
                     destType.priv.tupleTypeArgs &&
@@ -24915,7 +24904,7 @@ export function createTypeEvaluator(
             return true;
         }
 
-        if (isVariadicTypeVar(destType) && !isUnpacked(srcType)) {
+        if (isTypeVarTuple(destType) && !isUnpacked(srcType)) {
             return false;
         }
 
@@ -25021,7 +25010,7 @@ export function createTypeEvaluator(
         const srcTupleTypes: TupleTypeArg[] = [];
         srcPositionalsToPack.forEach((entry) => {
             if (entry.param.category === ParamCategory.ArgsList) {
-                if (isUnpackedVariadicTypeVar(entry.type)) {
+                if (isUnpackedTypeVarTuple(entry.type)) {
                     srcTupleTypes.push({ type: entry.type, isUnbounded: false });
                 } else if (isUnpackedClass(entry.type) && entry.type.priv.tupleTypeArgs) {
                     appendArray(srcTupleTypes, entry.type.priv.tupleTypeArgs);
@@ -25033,7 +25022,7 @@ export function createTypeEvaluator(
             }
         });
 
-        if (srcTupleTypes.length !== 1 || !isVariadicTypeVar(srcTupleTypes[0].type)) {
+        if (srcTupleTypes.length !== 1 || !isTypeVarTuple(srcTupleTypes[0].type)) {
             const srcPositionalsType = makeTupleObject(srcTupleTypes, /* isUnpackedTuple */ true);
 
             // Snip out the portion of the source positionals that map to the variadic
@@ -25345,7 +25334,7 @@ export function createTypeEvaluator(
                     }
 
                     const destParamType = destParamDetails.params[paramIndex].type;
-                    if (isVariadicTypeVar(destParamType) && !isVariadicTypeVar(srcArgsType)) {
+                    if (isTypeVarTuple(destParamType) && !isTypeVarTuple(srcArgsType)) {
                         diag?.addMessage(LocAddendum.typeVarTupleRequiresKnownLength());
                         canAssign = false;
                     } else {
@@ -25438,7 +25427,7 @@ export function createTypeEvaluator(
             srcParamDetails.argsIndex === undefined &&
             srcParamSpec === undefined &&
             destParamDetails.argsIndex !== undefined &&
-            !destParamDetails.hasUnpackedVariadicTypeVar
+            !destParamDetails.hasUnpackedTypeVarTuple
         ) {
             diag?.createAddendum().addMessage(
                 LocAddendum.argsParamMissing().format({
@@ -26657,7 +26646,7 @@ export function createTypeEvaluator(
             }
         }
 
-        if (destType.shared.isParamSpec) {
+        if (isParamSpec(destType)) {
             if (isParamSpec(srcType)) {
                 return srcType;
             }
@@ -26680,7 +26669,7 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        if (isTypeVar(srcType) && srcType.shared.isParamSpec) {
+        if (isParamSpec(srcType)) {
             diag.addMessage(LocMessage.paramSpecContext());
             return undefined;
         }

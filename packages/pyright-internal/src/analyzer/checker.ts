@@ -194,6 +194,7 @@ import {
     isPossiblyUnbound,
     isTypeSame,
     isTypeVar,
+    isTypeVarTuple,
     isUnbound,
     isUnion,
     isUnknown,
@@ -434,7 +435,7 @@ export class Checker extends ParseTreeWalker {
                             annotationExpr.d.member.d.value === 'args'
                         ) {
                             const baseType = this._evaluator.getType(annotationExpr.d.leftExpr);
-                            if (baseType && isTypeVar(baseType) && baseType.shared.isParamSpec) {
+                            if (baseType && isParamSpec(baseType)) {
                                 sawParamSpecArgs = true;
                             }
                         }
@@ -2497,7 +2498,7 @@ export class Checker extends ParseTreeWalker {
             if (usage.nodes.length === 1 && !usage.isExempt) {
                 let altTypeText: string;
 
-                if (usage.typeVar.shared.isVariadic) {
+                if (isTypeVarTuple(usage.typeVar)) {
                     altTypeText = '"tuple[object, ...]"';
                 } else if (usage.typeVar.shared.boundType) {
                     altTypeText = `"${this._evaluator.printType(convertToInstance(usage.typeVar.shared.boundType))}"`;
@@ -5474,7 +5475,7 @@ export class Checker extends ParseTreeWalker {
 
         classType.shared.typeParams.forEach((param, paramIndex) => {
             // Skip variadics and ParamSpecs.
-            if (param.shared.isVariadic || param.shared.isParamSpec) {
+            if (isTypeVarTuple(param) || isParamSpec(param)) {
                 return;
             }
 
@@ -5486,7 +5487,7 @@ export class Checker extends ParseTreeWalker {
             // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with an object instance.
             const srcTypeArgs = classType.shared.typeParams.map((p, i) => {
-                if (p.shared.isVariadic) {
+                if (isTypeVarTuple(p)) {
                     return p;
                 }
                 return i === paramIndex ? objectObject : dummyTypeObject;
@@ -5495,7 +5496,7 @@ export class Checker extends ParseTreeWalker {
             // Replace all type arguments with a dummy type except for the
             // TypeVar of interest, which is replaced with itself.
             const destTypeArgs = classType.shared.typeParams.map((p, i) => {
-                return i === paramIndex || p.shared.isVariadic ? p : dummyTypeObject;
+                return i === paramIndex || isTypeVarTuple(p) ? p : dummyTypeObject;
             });
 
             const srcType = ClassType.specialize(classType, srcTypeArgs);

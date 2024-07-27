@@ -82,9 +82,9 @@ import {
     isNever,
     isSameWithoutLiteralValue,
     isTypeSame,
+    isTypeVarTuple,
     isUnknown,
-    isUnpackedVariadicTypeVar,
-    isVariadicTypeVar,
+    isUnpackedTypeVarTuple,
 } from './types';
 
 // PEP 634 indicates that several built-in classes are handled differently
@@ -1361,7 +1361,7 @@ function getSequencePatternInfo(
                     ];
 
                     const tupleIndeterminateIndex = typeArgs.findIndex(
-                        (t) => t.isUnbounded || isUnpackedVariadicTypeVar(t.type)
+                        (t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type)
                     );
 
                     let tupleDeterminateEntryCount = typeArgs.length;
@@ -1391,9 +1391,7 @@ function getSequencePatternInfo(
                         const removedEntries = typeArgs.splice(patternStarEntryIndex, entriesToCombine);
                         typeArgs.splice(patternStarEntryIndex, 0, {
                             type: combineTypes(removedEntries.map((t) => t.type)),
-                            isUnbounded: removedEntries.every(
-                                (t) => t.isUnbounded || isUnpackedVariadicTypeVar(t.type)
-                            ),
+                            isUnbounded: removedEntries.every((t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type)),
                         });
                     }
 
@@ -1621,7 +1619,7 @@ function getTypeOfPatternSequenceEntry(
                 // its type other than it's "Unknown". We could evaluate it as an
                 // "object", but that will cause problems given that this type will
                 // be wrapped in a "list" below, and lists are invariant.
-                if (isVariadicTypeVar(type) && !type.priv.isVariadicInUnion) {
+                if (isTypeVarTuple(type) && !type.priv.isVariadicInUnion) {
                     return UnknownType.create();
                 }
 

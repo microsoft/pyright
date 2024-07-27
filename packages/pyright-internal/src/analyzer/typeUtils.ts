@@ -37,16 +37,17 @@ import {
     isPositionOnlySeparator,
     isTypeSame,
     isTypeVar,
+    isTypeVarTuple,
     isUnbound,
     isUnion,
     isUnknown,
     isUnpackedClass,
-    isUnpackedVariadicTypeVar,
-    isVariadicTypeVar,
+    isUnpackedTypeVarTuple,
     maxTypeRecursionCount,
     ModuleType,
     NeverType,
     OverloadedFunctionType,
+    ParamSpecType,
     PropertyMethodInfo,
     removeFromUnion,
     SignatureWithOffsets,
@@ -60,6 +61,7 @@ import {
     TypeSameOptions,
     TypeVarScopeId,
     TypeVarScopeType,
+    TypeVarTupleType,
     TypeVarType,
     UnboundType,
     UnionType,
@@ -373,7 +375,7 @@ export function isTypeVarSame(type1: TypeVarType, type2: Type) {
     }
 
     // If this isn't a bound TypeVar, return false.
-    if (type1.shared.isParamSpec || type1.shared.isVariadic || !type1.shared.boundType) {
+    if (isParamSpec(type1) || isTypeVarTuple(type1) || !type1.shared.boundType) {
         return false;
     }
 
@@ -1155,12 +1157,12 @@ export function specializeWithUnknownTypeArgs(type: ClassType, tupleClassType?: 
 
 // Returns "Unknown" for simple TypeVars or the equivalent for a ParamSpec.
 export function getUnknownTypeForTypeVar(typeVar: TypeVarType, tupleClassType?: ClassType): Type {
-    if (typeVar.shared.isParamSpec) {
+    if (isParamSpec(typeVar)) {
         return getUnknownTypeForParamSpec();
     }
 
-    if (typeVar.shared.isVariadic && tupleClassType) {
-        return getUnknownTypeForVariadicTypeVar(tupleClassType);
+    if (isTypeVarTuple(typeVar) && tupleClassType) {
+        return getUnknownTypeForTypeVarTuple(tupleClassType);
     }
 
     return UnknownType.create();
@@ -1178,7 +1180,7 @@ export function getUnknownTypeForParamSpec(): FunctionType {
     return newFunction;
 }
 
-export function getUnknownTypeForVariadicTypeVar(tupleClassType: ClassType): Type {
+export function getUnknownTypeForTypeVarTuple(tupleClassType: ClassType): Type {
     assert(isInstantiableClass(tupleClassType) && ClassType.isBuiltIn(tupleClassType, 'tuple'));
 
     return ClassType.cloneAsInstance(
@@ -1423,10 +1425,7 @@ export function isTupleClass(type: ClassType) {
 // the form tuple[x, ...] where the number of elements
 // in the tuple is unknown.
 export function isUnboundedTupleClass(type: ClassType) {
-    return (
-        type.priv.tupleTypeArgs &&
-        type.priv.tupleTypeArgs.some((t) => t.isUnbounded || isUnpackedVariadicTypeVar(t.type))
-    );
+    return type.priv.tupleTypeArgs?.some((t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type));
 }
 
 // Indicates whether the specified index is within range and its type is unambiguous
@@ -1436,7 +1435,7 @@ export function isTupleIndexUnambiguous(type: ClassType, index: number) {
         return false;
     }
 
-    const unboundedIndex = type.priv.tupleTypeArgs.findIndex((t) => t.isUnbounded || isUnpackedVariadicTypeVar(t.type));
+    const unboundedIndex = type.priv.tupleTypeArgs.findIndex((t) => t.isUnbounded || isUnpackedTypeVarTuple(t.type));
 
     if (index < 0) {
         const lowerIndexLimit = unboundedIndex < 0 ? 0 : unboundedIndex;
@@ -2237,7 +2236,7 @@ export function buildTypeVarContext(
         let typeArgType: Type;
 
         if (typeArgs) {
-            if (typeParam.shared.isParamSpec) {
+            if (isParamSpec(typeParam)) {
                 if (index < typeArgs.length) {
                     typeArgType = typeArgs[index];
                     if (isFunction(typeArgType) && FunctionType.isParamSpecValue(typeArgType)) {
@@ -2435,6 +2434,8 @@ export function isEffectivelyInstantiable(type: Type, options?: IsInstantiableOp
 }
 
 export function convertToInstance(type: ClassType, includeSubclasses?: boolean): ClassType;
+export function convertToInstance(type: ParamSpecType, includeSubclasses?: boolean): ParamSpecType;
+export function convertToInstance(type: TypeVarTupleType, includeSubclasses?: boolean): TypeVarTupleType;
 export function convertToInstance(type: TypeVarType, includeSubclasses?: boolean): TypeVarType;
 export function convertToInstance(type: Type, includeSubclasses?: boolean): Type;
 export function convertToInstance(type: Type, includeSubclasses = true): Type {
@@ -2869,7 +2870,7 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined):
 export function combineTupleTypeArgs(typeArgs: TupleTypeArg[]): Type {
     return combineTypes(
         typeArgs.map((t) => {
-            if (isTypeVar(t.type) && isUnpackedVariadicTypeVar(t.type)) {
+            if (isTypeVar(t.type) && isUnpackedTypeVarTuple(t.type)) {
                 // Treat the unpacked TypeVarTuple as a union.
                 return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
             }
@@ -3100,7 +3101,7 @@ export function isVarianceOfTypeArgCompatible(type: Type, typeParamVariance: Var
         return true;
     }
 
-    if (isTypeVar(type) && !type.shared.isParamSpec && !type.shared.isVariadic) {
+    if (isTypeVar(type) && !isParamSpec(type) && !isTypeVarTuple(type)) {
         const typeArgVariance = type.shared.declaredVariance;
 
         if (typeArgVariance === Variance.Contravariant || typeArgVariance === Variance.Covariant) {
@@ -3111,7 +3112,7 @@ export function isVarianceOfTypeArgCompatible(type: Type, typeParamVariance: Var
             return type.shared.typeParams.every((typeParam, index) => {
                 let typeArgType: Type | undefined;
 
-                if (typeParam.shared.isParamSpec || typeParam.shared.isVariadic) {
+                if (isParamSpec(typeParam) || isTypeVarTuple(typeParam)) {
                     return true;
                 }
 
@@ -3550,10 +3551,10 @@ class TypeVarTransformer {
             // type variables in the same scope recursively by setting it the scope in the
             // _pendingTypeVarTransformations set.
             if (!this._isTypeVarScopePending(type.priv.scopeId)) {
-                if (type.shared.isParamSpec) {
+                if (isParamSpec(type)) {
                     let paramSpecWithoutAccess = type;
 
-                    if (type.priv.paramSpecAccess) {
+                    if (isParamSpec(type) && type.priv.paramSpecAccess) {
                         paramSpecWithoutAccess = TypeVarType.cloneForParamSpecAccess(type, /* access */ undefined);
                     }
 
@@ -3589,7 +3590,7 @@ class TypeVarTransformer {
 
                     // If we're transforming a variadic type variable that was in a union,
                     // expand the union types.
-                    if (isVariadicTypeVar(type) && type.priv.isVariadicInUnion) {
+                    if (isTypeVarTuple(type) && type.priv.isVariadicInUnion) {
                         replacementType = _expandVariadicUnpackedUnion(replacementType);
                     }
                 }
@@ -3606,7 +3607,7 @@ class TypeVarTransformer {
 
                     // If we're transforming a variadic type variable within a union,
                     // combine the individual types within the variadic type variable.
-                    if (isVariadicTypeVar(subtype) && !isVariadicTypeVar(transformedType)) {
+                    if (isTypeVarTuple(subtype) && !isTypeVarTuple(transformedType)) {
                         const subtypesToCombine: Type[] = [];
                         doForEachSubtype(transformedType, (transformedSubtype) => {
                             subtypesToCombine.push(_expandVariadicUnpackedUnion(transformedSubtype));
@@ -3779,7 +3780,7 @@ class TypeVarTransformer {
                     }
 
                     if (
-                        isUnpackedVariadicTypeVar(oldTypeArgType.type) &&
+                        isUnpackedTypeVarTuple(oldTypeArgType.type) &&
                         isClassInstance(newTypeArgType) &&
                         isTupleClass(newTypeArgType) &&
                         newTypeArgType.priv.tupleTypeArgs
@@ -3824,7 +3825,7 @@ class TypeVarTransformer {
         if (!newTypeArgs) {
             if (classType.priv.typeArgs) {
                 newTypeArgs = classType.priv.typeArgs.map((oldTypeArgType) => {
-                    if (isTypeVar(oldTypeArgType) && oldTypeArgType.shared.isParamSpec) {
+                    if (isParamSpec(oldTypeArgType)) {
                         return transformParamSpec(oldTypeArgType);
                     }
 
@@ -3836,7 +3837,7 @@ class TypeVarTransformer {
                         // (e.g. Union[Unpack[Vs]]), expand the subtypes into a union here.
                         if (
                             isTypeVar(oldTypeArgType) &&
-                            isVariadicTypeVar(oldTypeArgType) &&
+                            isTypeVarTuple(oldTypeArgType) &&
                             oldTypeArgType.priv.isVariadicInUnion
                         ) {
                             newTypeArgType = _expandVariadicUnpackedUnion(newTypeArgType);
@@ -3850,7 +3851,7 @@ class TypeVarTransformer {
                 typeParams.forEach((typeParam) => {
                     let replacementType: Type = typeParam;
 
-                    if (typeParam.shared.isParamSpec) {
+                    if (isParamSpec(typeParam)) {
                         replacementType = transformParamSpec(typeParam);
                         if (replacementType !== typeParam) {
                             specializationNeeded = true;
@@ -3950,7 +3951,7 @@ class TypeVarTransformer {
 
                 if (
                     variadicParamIndex === undefined &&
-                    isVariadicTypeVar(paramType) &&
+                    isTypeVarTuple(paramType) &&
                     functionType.shared.parameters[i].category === ParamCategory.ArgsList
                 ) {
                     variadicParamIndex = i;
@@ -4025,7 +4026,7 @@ class TypeVarTransformer {
                         FunctionType.addParam(
                             newFunctionType,
                             FunctionParam.create(
-                                unpackedType.isUnbounded || isVariadicTypeVar(unpackedType.type)
+                                unpackedType.isUnbounded || isTypeVarTuple(unpackedType.type)
                                     ? ParamCategory.ArgsList
                                     : ParamCategory.Simple,
                                 unpackedType.type,
@@ -4169,7 +4170,7 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
                             `${typeParam.shared.name}(${offsetIndex})`
                         );
 
-                        if (replacement.shared.isParamSpec) {
+                        if (isParamSpec(replacement)) {
                             replacement = convertTypeToParamSpecValue(replacement);
                         }
 
@@ -4323,14 +4324,14 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                     });
                 }
 
-                if (isTypeVar(replacement) && typeVar.priv.isVariadicUnpacked && replacement.shared.isVariadic) {
+                if (isTypeVarTuple(replacement) && isTypeVarTuple(typeVar) && typeVar.priv.isVariadicUnpacked) {
                     return TypeVarType.cloneForUnpacked(replacement, typeVar.priv.isVariadicInUnion);
                 }
 
                 // If this isn't a variadic typeVar, combine all of the tuple
                 // type args into a common type.
                 if (
-                    !isVariadicTypeVar(typeVar) &&
+                    !isTypeVarTuple(typeVar) &&
                     isClassInstance(replacement) &&
                     replacement.priv.tupleTypeArgs &&
                     replacement.priv.isUnpacked

@@ -53,8 +53,10 @@ import {
     isInstantiableClass,
     isNever,
     isOverloadedFunction,
+    isParamSpec,
     isTypeSame,
     isTypeVar,
+    isTypeVarTuple,
     maxTypeRecursionCount,
     NeverType,
     OverloadedFunctionType,
@@ -1458,8 +1460,8 @@ export function getCodeFlowEngine(
     // can be narrowed to one of its constrained types based on isinstance type
     // guard checks.
     function narrowConstrainedTypeVar(flowNode: FlowNode, typeVar: TypeVarType): ClassType | undefined {
-        assert(!typeVar.shared.isParamSpec);
-        assert(!typeVar.shared.isVariadic);
+        assert(!isParamSpec(typeVar));
+        assert(!isTypeVarTuple(typeVar));
         assert(!typeVar.shared.boundType);
         assert(typeVar.shared.constraints.length > 0);
 

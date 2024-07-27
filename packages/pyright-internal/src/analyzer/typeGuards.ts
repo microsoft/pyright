@@ -51,7 +51,7 @@ import {
     isSameWithoutLiteralValue,
     isTypeSame,
     isTypeVar,
-    isUnpackedVariadicTypeVar,
+    isUnpackedTypeVarTuple,
     maxTypeRecursionCount,
     OverloadedFunctionType,
     TupleTypeArg,
@@ -976,7 +976,7 @@ function narrowTypeForUserDefinedTypeGuard(
 
             // If the type guard is a non-constrained TypeVar, add a
             // condition to the resulting type.
-            if (isTypeVar(type) && !type.shared.isParamSpec && type.shared.constraints.length === 0) {
+            if (isTypeVar(type) && !isParamSpec(type) && type.shared.constraints.length === 0) {
                 result = addConditionToType(result, [{ typeVar: type, constraintIndex: 0 }]);
             }
             return result;
@@ -1509,11 +1509,7 @@ function narrowTypeForIsInstanceInternal(
                         // synthesize a new class type that represents an intersection of
                         // the two types.
                         let newClassType = evaluator.createSubclass(errorNode, concreteVarType, concreteFilterType);
-                        if (
-                            isTypeVar(varType) &&
-                            !varType.shared.isParamSpec &&
-                            varType.shared.constraints.length === 0
-                        ) {
+                        if (isTypeVar(varType) && !isParamSpec(varType) && varType.shared.constraints.length === 0) {
                             newClassType = addConditionToType(newClassType, [{ typeVar: varType, constraintIndex: 0 }]);
                         }
 
@@ -1945,7 +1941,7 @@ function narrowTypeForTupleLength(
         }
 
         // If the tuple contains a variadic TypeVar, we can't narrow it.
-        if (concreteSubtype.priv.tupleTypeArgs.some((typeArg) => isUnpackedVariadicTypeVar(typeArg.type))) {
+        if (concreteSubtype.priv.tupleTypeArgs.some((typeArg) => isUnpackedTypeVarTuple(typeArg.type))) {
             return subtype;
         }
 

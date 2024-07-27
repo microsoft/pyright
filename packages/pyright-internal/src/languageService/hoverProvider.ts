@@ -32,6 +32,7 @@ import {
     isFunction,
     isModule,
     isOverloadedFunction,
+    isParamSpec,
     isTypeVar,
 } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -141,7 +142,7 @@ export function getVariableTypeText(
         const typeAliasInfo = getTypeAliasInfo(type);
         if (typeAliasInfo?.name === typeNode.d.value) {
             if (isTypeVar(type)) {
-                label = type.shared.isParamSpec ? 'param spec' : 'type variable';
+                label = isParamSpec(type) ? 'param spec' : 'type variable';
                 typeVarName = type.shared.name;
             } else {
                 // Handle type aliases specially.

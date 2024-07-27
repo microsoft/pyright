@@ -19,8 +19,8 @@ import {
     isPositionOnlySeparator,
     isTypeSame,
     isTypeVar,
+    isTypeVarTuple,
     isUnpackedClass,
-    isVariadicTypeVar,
     Type,
     TypeVarType,
 } from './types';
@@ -65,7 +65,7 @@ export interface ParamListDetails {
     firstPositionOrKeywordIndex: number;
 
     // Other information
-    hasUnpackedVariadicTypeVar: boolean;
+    hasUnpackedTypeVarTuple: boolean;
     hasUnpackedTypedDict: boolean;
     unpackedKwargsTypedDictType?: ClassType;
     paramSpec?: TypeVarType;
@@ -84,7 +84,7 @@ export function getParamListDetails(type: FunctionType): ParamListDetails {
         positionParamCount: 0,
         positionOnlyParamCount: 0,
         params: [],
-        hasUnpackedVariadicTypeVar: false,
+        hasUnpackedTypeVarTuple: false,
         hasUnpackedTypedDict: false,
     };
 
@@ -166,7 +166,7 @@ export function getParamListDetails(type: FunctionType): ParamListDetails {
 
                 paramType.priv.tupleTypeArgs.forEach((tupleArg, tupleIndex) => {
                     const category =
-                        isVariadicTypeVar(tupleArg.type) || tupleArg.isUnbounded
+                        isTypeVarTuple(tupleArg.type) || tupleArg.isUnbounded
                             ? ParamCategory.ArgsList
                             : ParamCategory.Simple;
 
@@ -174,8 +174,8 @@ export function getParamListDetails(type: FunctionType): ParamListDetails {
                         result.argsIndex = result.params.length;
                     }
 
-                    if (isVariadicTypeVar(param.type)) {
-                        result.hasUnpackedVariadicTypeVar = true;
+                    if (isTypeVarTuple(param.type)) {
+                        result.hasUnpackedTypeVarTuple = true;
                     }
 
                     addVirtualParam(
@@ -212,8 +212,8 @@ export function getParamListDetails(type: FunctionType): ParamListDetails {
                 if (param.name && result.argsIndex === undefined) {
                     result.argsIndex = result.params.length;
 
-                    if (isVariadicTypeVar(param.type)) {
-                        result.hasUnpackedVariadicTypeVar = true;
+                    if (isTypeVarTuple(param.type)) {
+                        result.hasUnpackedTypeVarTuple = true;
                     }
                 }
 

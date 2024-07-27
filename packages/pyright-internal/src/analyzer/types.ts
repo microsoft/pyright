@@ -385,7 +385,7 @@ export namespace UnboundType {
     }
 }
 
-export interface UnknownTypeDetailsPriv {
+export interface UnknownDetailsPriv {
     // Flag that indicates whether the type is a placeholder for an incomplete
     // type during code flow analysis.
     isIncomplete: boolean;
@@ -398,7 +398,7 @@ export interface UnknownTypeDetailsPriv {
 }
 
 export interface UnknownType extends TypeBase<TypeCategory.Unknown> {
-    priv: UnknownTypeDetailsPriv;
+    priv: UnknownDetailsPriv;
 }
 
 export namespace UnknownType {
@@ -451,7 +451,7 @@ export namespace UnknownType {
     }
 }
 
-export interface ModuleTypeDetailsPriv {
+export interface ModuleDetailsPriv {
     fields: SymbolTable;
     docString: string | undefined;
 
@@ -471,7 +471,7 @@ export interface ModuleTypeDetailsPriv {
 }
 
 export interface ModuleType extends TypeBase<TypeCategory.Module> {
-    priv: ModuleTypeDetailsPriv;
+    priv: ModuleDetailsPriv;
 }
 
 export namespace ModuleType {
@@ -2017,7 +2017,7 @@ export namespace FunctionType {
 
     // If the function ends with "*args: P.args, **kwargs: P.kwargs", this function
     // returns P. Otherwise, it returns undefined.
-    export function getParamSpecFromArgsKwargs(type: FunctionType): TypeVarType | undefined {
+    export function getParamSpecFromArgsKwargs(type: FunctionType): ParamSpecType | undefined {
         const params = type.shared.parameters;
         if (params.length < 2) {
             return undefined;
@@ -2028,10 +2028,10 @@ export namespace FunctionType {
 
         if (
             secondLastParam.category === ParamCategory.ArgsList &&
-            isTypeVar(secondLastParam.type) &&
+            isParamSpec(secondLastParam.type) &&
             secondLastParam.type.priv.paramSpecAccess === 'args' &&
             lastParam.category === ParamCategory.KwargsDict &&
-            isTypeVar(lastParam.type) &&
+            isParamSpec(lastParam.type) &&
             lastParam.type.priv.paramSpecAccess === 'kwargs'
         ) {
             return TypeVarType.cloneForParamSpecAccess(secondLastParam.type, /* access */ undefined);
@@ -2040,7 +2040,7 @@ export namespace FunctionType {
         return undefined;
     }
 
-    export function addParamSpecVariadics(type: FunctionType, paramSpec: TypeVarType) {
+    export function addParamSpecVariadics(type: FunctionType, paramSpec: ParamSpecType) {
         FunctionType.addParam(
             type,
             FunctionParam.create(
@@ -2296,12 +2296,12 @@ export namespace FunctionType {
     }
 }
 
-export interface OverloadedFunctionTypeDetailsPriv {
+export interface OverloadedFunctionDetailsPriv {
     overloads: FunctionType[];
 }
 
 export interface OverloadedFunctionType extends TypeBase<TypeCategory.OverloadedFunction> {
-    priv: OverloadedFunctionTypeDetailsPriv;
+    priv: OverloadedFunctionDetailsPriv;
 }
 
 export namespace OverloadedFunctionType {
@@ -2339,12 +2339,12 @@ export namespace OverloadedFunctionType {
     }
 }
 
-export interface NeverTypeDetailsPriv {
+export interface NeverDetailsPriv {
     isNoReturn: boolean;
 }
 
 export interface NeverType extends TypeBase<TypeCategory.Never> {
-    priv: NeverTypeDetailsPriv;
+    priv: NeverDetailsPriv;
 }
 
 export namespace NeverType {
@@ -2384,12 +2384,12 @@ export namespace NeverType {
     }
 }
 
-export interface AnyTypeDetailsPriv {
+export interface AnyDetailsPriv {
     isEllipsis: boolean;
 }
 
 export interface AnyType extends TypeBase<TypeCategory.Any> {
-    priv: AnyTypeDetailsPriv;
+    priv: AnyDetailsPriv;
 }
 
 export namespace AnyType {
@@ -2539,7 +2539,7 @@ export interface LiteralTypes {
     literalEnumMap: Map<string, UnionableType> | undefined;
 }
 
-export interface UnionTypeDetailsPriv {
+export interface UnionDetailsPriv {
     subtypes: UnionableType[];
     literalInstances: LiteralTypes;
     literalClasses: LiteralTypes;
@@ -2548,7 +2548,7 @@ export interface UnionTypeDetailsPriv {
 }
 
 export interface UnionType extends TypeBase<TypeCategory.Union> {
-    priv: UnionTypeDetailsPriv;
+    priv: UnionDetailsPriv;
 }
 
 export namespace UnionType {
@@ -2696,15 +2696,19 @@ export interface RecursiveAliasInfo {
     typeParams: TypeVarType[] | undefined;
 }
 
+export enum TypeVarKind {
+    TypeVar,
+    TypeVarTuple,
+    ParamSpec,
+}
+
 export interface TypeVarDetailsShared {
+    kind: TypeVarKind;
     name: string;
     constraints: Type[];
     boundType: Type | undefined;
     isDefaultExplicit: boolean;
     defaultType: Type;
-
-    isParamSpec: boolean;
-    isVariadic: boolean;
 
     declaredVariance: Variance;
 
@@ -2729,7 +2733,7 @@ export const enum TypeVarScopeType {
     TypeAlias,
 }
 
-export interface TypeVarTypeDetailsPriv {
+export interface TypeVarDetailsPriv {
     // An ID that uniquely identifies the scope to which this TypeVar is bound
     scopeId?: TypeVarScopeId | undefined;
 
@@ -2744,16 +2748,6 @@ export interface TypeVarTypeDetailsPriv {
 
     // String formatted as <name>.<scopeId>
     nameWithScope?: string | undefined;
-
-    // Is this variadic TypeVar unpacked (i.e. Unpack or * operator applied)?
-    isVariadicUnpacked?: boolean | undefined;
-
-    // Is this variadic TypeVar included in a Union[]? This allows us to
-    // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
-    isVariadicInUnion?: boolean | undefined;
-
-    // Represents access to "args" or "kwargs" of a ParamSpec
-    paramSpecAccess?: ParamSpecAccess;
 
     // May be different from declaredVariance if declared as Auto
     computedVariance?: Variance;
@@ -2771,16 +2765,44 @@ export interface TypeVarTypeDetailsPriv {
 
 export interface TypeVarType extends TypeBase<TypeCategory.TypeVar> {
     shared: TypeVarDetailsShared;
-    priv: TypeVarTypeDetailsPriv;
+    priv: TypeVarDetailsPriv;
+}
+
+export interface ParamSpecDetailsPriv extends TypeVarDetailsPriv {
+    // Represents access to "args" or "kwargs" of a ParamSpec
+    paramSpecAccess?: ParamSpecAccess;
+
+    externalTypeVar?: ParamSpecType | undefined;
+}
+
+export interface ParamSpecType extends TypeVarType {
+    shared: TypeVarDetailsShared & { kind: TypeVarKind.ParamSpec };
+    priv: ParamSpecDetailsPriv;
+}
+
+export interface TypeVarTupleDetailsPriv extends TypeVarDetailsPriv {
+    // Is this variadic TypeVar unpacked (i.e. Unpack or * operator applied)?
+    isVariadicUnpacked?: boolean | undefined;
+
+    // Is this variadic TypeVar included in a Union[]? This allows us to
+    // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
+    isVariadicInUnion?: boolean | undefined;
+
+    externalTypeVar?: TypeVarTupleType | undefined;
+}
+
+export interface TypeVarTupleType extends TypeVarType {
+    shared: TypeVarDetailsShared & { kind: TypeVarKind.TypeVarTuple };
+    priv: TypeVarTupleDetailsPriv;
 }
 
 export namespace TypeVarType {
-    export function createInstance(name: string) {
-        return create(name, /* isParamSpec */ false, TypeFlags.Instance);
+    export function createInstance(name: string, kind: TypeVarKind = TypeVarKind.TypeVar) {
+        return create(name, kind, TypeFlags.Instance);
     }
 
-    export function createInstantiable(name: string, isParamSpec = false) {
-        return create(name, isParamSpec, TypeFlags.Instantiable);
+    export function createInstantiable(name: string, kind: TypeVarKind = TypeVarKind.TypeVar) {
+        return create(name, kind, TypeFlags.Instantiable);
     }
 
     export function cloneAsInstance(type: TypeVarType): TypeVarType {
@@ -2842,8 +2864,7 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function cloneForUnpacked(type: TypeVarType, isInUnion = false) {
-        assert(type.shared.isVariadic);
+    export function cloneForUnpacked(type: TypeVarTupleType, isInUnion = false) {
         const newInstance = TypeBase.cloneType(type);
         newInstance.priv.isVariadicUnpacked = true;
         newInstance.priv.isVariadicInUnion = isInUnion;
@@ -2857,8 +2878,7 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function cloneForPacked(type: TypeVarType) {
-        assert(type.shared.isVariadic);
+    export function cloneForPacked(type: TypeVarTupleType) {
         const newInstance = TypeBase.cloneType(type);
         newInstance.priv.isVariadicUnpacked = false;
         newInstance.priv.isVariadicInUnion = false;
@@ -2873,7 +2893,7 @@ export namespace TypeVarType {
     // and no bound or constraints. ParamSpecs and variadics are left
     // unmodified. So are auto-variant type variables.
     export function cloneAsInvariant(type: TypeVarType): TypeVarType {
-        if (type.shared.isParamSpec || type.shared.isVariadic) {
+        if (isParamSpec(type) || isTypeVarTuple(type)) {
             return type;
         }
 
@@ -2895,7 +2915,7 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function cloneForParamSpecAccess(type: TypeVarType, access: ParamSpecAccess | undefined): TypeVarType {
+    export function cloneForParamSpecAccess(type: ParamSpecType, access: ParamSpecAccess | undefined): ParamSpecType {
         const newInstance = TypeBase.cloneType(type);
         newInstance.priv.paramSpecAccess = access;
         return newInstance;
@@ -2968,20 +2988,19 @@ export namespace TypeVarType {
         return !!type.priv.externalTypeVar;
     }
 
-    function create(name: string, isParamSpec: boolean, typeFlags: TypeFlags): TypeVarType {
+    function create(name: string, kind: TypeVarKind, typeFlags: TypeFlags): TypeVarType {
         const newTypeVarType: TypeVarType = {
             category: TypeCategory.TypeVar,
             flags: typeFlags,
             props: undefined,
             cached: undefined,
             shared: {
+                kind,
                 name,
                 constraints: [],
                 boundType: undefined,
                 isDefaultExplicit: false,
                 defaultType: UnknownType.create(),
-                isParamSpec,
-                isVariadic: false,
                 declaredVariance: Variance.Invariant,
                 isSynthesized: false,
                 isSynthesizedSelf: false,
@@ -3098,17 +3117,16 @@ export function isTypeVar(type: Type): type is TypeVarType {
     return type.category === TypeCategory.TypeVar;
 }
 
-export function isVariadicTypeVar(type: Type): type is TypeVarType {
-    return type.category === TypeCategory.TypeVar && type.shared.isVariadic;
+export function isParamSpec(type: Type): type is ParamSpecType {
+    return type.category === TypeCategory.TypeVar && type.shared.kind === TypeVarKind.ParamSpec;
 }
 
-export function isUnpackedVariadicTypeVar(type: Type): boolean {
-    return (
-        type.category === TypeCategory.TypeVar &&
-        type.shared.isVariadic &&
-        !!type.priv.isVariadicUnpacked &&
-        !type.priv.isVariadicInUnion
-    );
+export function isTypeVarTuple(type: Type): type is TypeVarTupleType {
+    return type.category === TypeCategory.TypeVar && type.shared.kind === TypeVarKind.TypeVarTuple;
+}
+
+export function isUnpackedTypeVarTuple(type: Type): type is TypeVarTupleType {
+    return isTypeVarTuple(type) && !!type.priv.isVariadicUnpacked && !type.priv.isVariadicInUnion;
 }
 
 export function isUnpackedClass(type: Type): type is ClassType {
@@ -3120,11 +3138,7 @@ export function isUnpackedClass(type: Type): type is ClassType {
 }
 
 export function isUnpacked(type: Type): boolean {
-    return isUnpackedVariadicTypeVar(type) || isUnpackedClass(type);
-}
-
-export function isParamSpec(type: Type): type is TypeVarType {
-    return type.category === TypeCategory.TypeVar && type.shared.isParamSpec;
+    return isUnpackedTypeVarTuple(type) || isUnpackedClass(type);
 }
 
 export function isFunction(type: Type): type is FunctionType {
@@ -3398,18 +3412,26 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                 }
             }
 
-            if (!type1.priv.isVariadicInUnion !== !type2TypeVar.priv.isVariadicInUnion) {
-                return false;
+            if (isTypeVarTuple(type1) && isTypeVarTuple(type2TypeVar)) {
+                if (!type1.priv.isVariadicInUnion !== !type2TypeVar.priv.isVariadicInUnion) {
+                    return false;
+                }
             }
 
             if (type1.shared === type2TypeVar.shared) {
                 return true;
             }
 
+            if (isParamSpec(type1) !== isParamSpec(type2TypeVar)) {
+                return false;
+            }
+
+            if (isTypeVarTuple(type1) !== isTypeVarTuple(type2TypeVar)) {
+                return false;
+            }
+
             if (
                 type1.shared.name !== type2TypeVar.shared.name ||
-                type1.shared.isParamSpec !== type2TypeVar.shared.isParamSpec ||
-                type1.shared.isVariadic !== type2TypeVar.shared.isVariadic ||
                 type1.shared.isSynthesized !== type2TypeVar.shared.isSynthesized ||
                 type1.shared.declaredVariance !== type2TypeVar.shared.declaredVariance ||
                 type1.priv.scopeId !== type2TypeVar.priv.scopeId

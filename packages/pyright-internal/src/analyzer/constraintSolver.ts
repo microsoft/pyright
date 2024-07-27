@@ -23,16 +23,18 @@ import {
     isFunction,
     isInstantiableClass,
     isNever,
+    isParamSpec,
     isTypeSame,
     isTypeVar,
+    isTypeVarTuple,
     isUnion,
     isUnknown,
     isUnpacked,
     isUnpackedClass,
-    isVariadicTypeVar,
     TupleTypeArg,
     Type,
     TypeBase,
+    TypeVarKind,
     TypeVarScopeId,
     TypeVarType,
     UnknownType,
@@ -139,7 +141,7 @@ export function assignTypeToTypeVar(
 
         // Is this the equivalent of an "Unknown" for a ParamSpec?
         if (
-            destType.shared.isParamSpec &&
+            isParamSpec(destType) &&
             isFunction(srcType) &&
             FunctionType.isParamSpecValue(srcType) &&
             FunctionType.isGradualCallableForm(srcType)
@@ -189,11 +191,11 @@ export function assignTypeToTypeVar(
         );
     }
 
-    if (destType.shared.isParamSpec) {
+    if (isParamSpec(destType)) {
         return assignTypeToParamSpec(evaluator, destType, srcType, diag, typeVarContext, recursionCount);
     }
 
-    if (destType.shared.isVariadic && !destType.priv.isVariadicInUnion) {
+    if (isTypeVarTuple(destType) && !destType.priv.isVariadicInUnion) {
         if (!isUnpacked(srcType)) {
             const tupleClassType = evaluator.getTupleClassType();
             if (tupleClassType && isInstantiableClass(tupleClassType)) {
@@ -215,11 +217,10 @@ export function assignTypeToTypeVar(
     // If we're assigning an unpacked TypeVarTuple to a regular TypeVar,
     // we need to treat it as a union of the unpacked TypeVarTuple.
     if (
-        isTypeVar(srcType) &&
-        srcType.shared.isVariadic &&
+        isTypeVarTuple(srcType) &&
         srcType.priv.isVariadicUnpacked &&
         !srcType.priv.isVariadicInUnion &&
-        !destType.shared.isVariadic
+        !isTypeVarTuple(destType)
     ) {
         srcType = TypeVarType.cloneForUnpacked(srcType, /* isInUnion */ true);
     }
@@ -456,8 +457,8 @@ export function assignTypeToTypeVar(
                     )
                 ) {
                     newNarrowTypeBound = adjSrcType;
-                } else if (isVariadicTypeVar(destType)) {
-                    const widenedType = widenTypeForVariadicTypeVar(evaluator, curNarrowTypeBound, adjSrcType);
+                } else if (isTypeVarTuple(destType)) {
+                    const widenedType = widenTypeForTypeVarTuple(evaluator, curNarrowTypeBound, adjSrcType);
                     if (!widenedType) {
                         diag?.addMessage(
                             LocAddendum.typeAssignmentMismatch().format(
@@ -652,7 +653,7 @@ export function updateTypeVarType(
     let narrowTypeBoundNoLiterals: Type | undefined;
 
     if (narrowTypeBound && !forceRetainLiterals) {
-        const strippedLiteral = isVariadicTypeVar(destType)
+        const strippedLiteral = isTypeVarTuple(destType)
             ? stripLiteralValueForUnpackedTuple(evaluator, narrowTypeBound)
             : evaluator.stripLiteralValue(narrowTypeBound);
 
@@ -890,7 +891,7 @@ function assignTypeToParamSpec(
     const adjSrcType = isFunction(srcType) ? convertParamSpecValueToType(srcType) : srcType;
 
     typeVarContext.doForEachSignature((signatureContext) => {
-        if (isTypeVar(adjSrcType) && adjSrcType.shared.isParamSpec) {
+        if (isParamSpec(adjSrcType)) {
             const existingType = signatureContext.getParamSpecType(destType);
             if (existingType) {
                 const existingTypeParamSpec = FunctionType.getParamSpecFromArgsKwargs(existingType);
@@ -1067,11 +1068,11 @@ export function addConstraintsForExpectedType(
     // Create a generic version of the expected type.
     const expectedTypeScopeId = getTypeVarScopeId(expectedType);
     const synthExpectedTypeArgs = ClassType.getTypeParams(expectedType).map((typeParam, index) => {
-        const typeVar = TypeVarType.createInstance(`__dest${index}`);
+        const typeVar = TypeVarType.createInstance(
+            `__dest${index}`,
+            isParamSpec(typeParam) ? TypeVarKind.ParamSpec : TypeVarKind.TypeVar
+        );
         typeVar.shared.isSynthesized = true;
-        if (typeParam.shared.isParamSpec) {
-            typeVar.shared.isParamSpec = true;
-        }
 
         // Use invariance here so we set the narrow and wide values on the TypeVar.
         typeVar.shared.declaredVariance = Variance.Invariant;
@@ -1082,13 +1083,13 @@ export function addConstraintsForExpectedType(
 
     // For each type param in the target type, create a placeholder type variable.
     const typeArgs = ClassType.getTypeParams(type).map((typeParam, index) => {
-        const typeVar = TypeVarType.createInstance(`__source${index}`);
+        const typeVar = TypeVarType.createInstance(
+            `__source${index}`,
+            isParamSpec(typeParam) ? TypeVarKind.ParamSpec : TypeVarKind.TypeVar
+        );
         typeVar.shared.isSynthesized = true;
         typeVar.shared.synthesizedIndex = index;
         typeVar.shared.isExemptFromBoundCheck = true;
-        if (typeParam.shared.isParamSpec) {
-            typeVar.shared.isParamSpec = true;
-        }
         return TypeVarType.cloneAsInScopePlaceholder(typeVar);
     });
 
@@ -1113,7 +1114,7 @@ export function addConstraintsForExpectedType(
             // If the resulting type is a union, try to find a matching type var and move
             // the remaining subtypes to the "otherSubtypes" array.
             if (synthTypeVar) {
-                if (typeVar.shared.isParamSpec && isFunction(synthTypeVar)) {
+                if (isParamSpec(typeVar) && isFunction(synthTypeVar)) {
                     synthTypeVar = convertParamSpecValueToType(synthTypeVar);
                 }
 
@@ -1193,7 +1194,7 @@ export function addConstraintsForExpectedType(
 // For normal TypeVars, the constraint solver can widen a type by combining
 // two otherwise incompatible types into a union. For TypeVarTuples, we need
 // to do the equivalent operation for unpacked tuples.
-function widenTypeForVariadicTypeVar(evaluator: TypeEvaluator, type1: Type, type2: Type): Type | undefined {
+function widenTypeForTypeVarTuple(evaluator: TypeEvaluator, type1: Type, type2: Type): Type | undefined {
     // The typing spec indicates that the type should always be "exactly
     // the same type" if a TypeVarTuple is used in multiple locations.
     // This is problematic for a number of reasons, but in the interest
