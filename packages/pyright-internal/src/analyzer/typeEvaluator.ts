@@ -275,7 +275,7 @@ import {
     updateTypeWithInternalTypeVars,
     validateTypeVarDefault,
 } from './typeUtils';
-import { TypeVarContext, TypeVarSignatureContext } from './typeVarContext';
+import { TypeVarContext, TypeVarSolutionSet } from './typeVarContext';
 import {
     assignToTypedDict,
     assignTypedDictToTypedDict,
@@ -359,7 +359,7 @@ interface MatchArgsToParamsResult {
     isTypeIncomplete: boolean;
     argParams: ValidateArgTypeParams[];
     activeParam?: FunctionParam | undefined;
-    paramSpecTarget?: TypeVarType | undefined;
+    paramSpecTarget?: ParamSpecType | undefined;
     paramSpecArgList?: Arg[] | undefined;
 
     // A higher relevance means that it should be considered
@@ -418,7 +418,7 @@ interface ValidateArgTypeOptions {
     skipUnknownArgCheck?: boolean;
     skipOverloadArg?: boolean;
     skipBareTypeVarExpectedType?: boolean;
-    useNarrowBoundOnly?: boolean;
+    useLowerBoundOnly?: boolean;
     conditionFilter?: TypeCondition[];
 }
 
@@ -6984,26 +6984,26 @@ export function createTypeEvaluator(
             );
         }
 
-        const primarySignatureContext = typeVarContext.getPrimarySignature();
+        const mainSolutionSet = typeVarContext.getMainSolutionSet();
         const aliasTypeArgs: Type[] = [];
 
         aliasInfo.typeParams?.forEach((typeParam) => {
             let typeVarType: Type | undefined;
 
             if (isParamSpec(typeParam)) {
-                const paramSpecType = primarySignatureContext.getParamSpecType(typeParam);
+                const paramSpecType = mainSolutionSet.getTypeVarType(typeParam);
                 typeVarType = paramSpecType ? convertParamSpecValueToType(paramSpecType) : UnknownType.create();
 
                 if (!typeVarType) {
                     typeVarType = ParamSpecType.getUnknown();
-                    primarySignatureContext.setTypeVarType(typeParam, typeVarType);
+                    mainSolutionSet.setTypeVarType(typeParam, typeVarType);
                 }
             } else {
-                typeVarType = primarySignatureContext.getTypeVarType(typeParam);
+                typeVarType = mainSolutionSet.getTypeVarType(typeParam);
 
                 if (!typeVarType) {
                     typeVarType = UnknownType.create();
-                    primarySignatureContext.setTypeVarType(typeParam, typeVarType);
+                    mainSolutionSet.setTypeVarType(typeParam, typeVarType);
                 }
             }
 
@@ -10208,7 +10208,7 @@ export function createTypeEvaluator(
         // from a param spec? If so, we need to treat all positional parameters
         // prior to the *args as positional-only according to PEP 612.
         let paramSpecArgList: Arg[] | undefined;
-        let paramSpecTarget: TypeVarType | undefined;
+        let paramSpecTarget: ParamSpecType | undefined;
         let hasParamSpecArgsKwargs = false;
 
         // Determine how many positional args are being passed before
@@ -11443,9 +11443,9 @@ export function createTypeEvaluator(
                         // because the selection of the proper overload may depend
                         // on type arguments supplied by other function arguments.
 
-                        // We set useNarrowBoundOnly to true if this is the first
+                        // We set useLowerBoundOnly to true if this is the first
                         // (but not only) pass through the parameter list because a wide
-                        // bound on a TypeVar (if a narrow bound has not yet been
+                        // bound on a TypeVar (if a lower bound has not yet been
                         // established) will unnecessarily constrain the expected type.
 
                         // If the param type is a "bare" TypeVar, don't use it as an
@@ -11460,7 +11460,7 @@ export function createTypeEvaluator(
                                 skipUnknownArgCheck,
                                 skipOverloadArg: i === 0,
                                 skipBareTypeVarExpectedType: i === 0,
-                                useNarrowBoundOnly: passCount > 1 && i === 0,
+                                useLowerBoundOnly: passCount > 1 && i === 0,
                                 conditionFilter: typeCondition,
                             }
                         );
@@ -11780,21 +11780,21 @@ export function createTypeEvaluator(
     function validateArgTypesForParamSpec(
         errorNode: ExpressionNode,
         argList: Arg[],
-        paramSpec: TypeVarType,
+        paramSpec: ParamSpecType,
         destTypeVarContext: TypeVarContext
     ): ParamSpecArgResult {
-        const signatureContexts = destTypeVarContext.getSignatureContexts();
+        const solutionSets = destTypeVarContext.getSolutionSets();
 
         // Handle the common case where there is only one signature context.
-        if (signatureContexts.length === 1) {
-            return validateArgTypesForParamSpecSignature(errorNode, argList, paramSpec, signatureContexts[0]);
+        if (solutionSets.length === 1) {
+            return validateArgTypesForParamSpecSignature(errorNode, argList, paramSpec, solutionSets[0]);
         }
 
-        const filteredSignatureContexts: TypeVarSignatureContext[] = [];
+        const filteredSolutionSets: TypeVarSolutionSet[] = [];
         const typeVarContexts: (TypeVarContext | undefined)[] = [];
         const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
-        signatureContexts.forEach((context) => {
+        solutionSets.forEach((context) => {
             // Use speculative mode to avoid emitting errors or caching types.
             useSpeculativeMode(speculativeNode, () => {
                 const paramSpecArgResult = validateArgTypesForParamSpecSignature(
@@ -11805,7 +11805,7 @@ export function createTypeEvaluator(
                 );
 
                 if (!paramSpecArgResult.argumentErrors) {
-                    filteredSignatureContexts.push(context);
+                    filteredSolutionSets.push(context);
                 }
 
                 appendArray(typeVarContexts, paramSpecArgResult.typeVarContexts);
@@ -11813,8 +11813,8 @@ export function createTypeEvaluator(
         });
 
         // Copy back any compatible signature contexts if any were compatible.
-        if (filteredSignatureContexts.length > 0) {
-            destTypeVarContext.copySignatureContexts(filteredSignatureContexts);
+        if (filteredSolutionSets.length > 0) {
+            destTypeVarContext.addSolutionSets(filteredSolutionSets);
         }
 
         // Evaluate non-speculatively to produce a final result and cache types.
@@ -11822,7 +11822,7 @@ export function createTypeEvaluator(
             errorNode,
             argList,
             paramSpec,
-            filteredSignatureContexts.length > 0 ? filteredSignatureContexts[0] : signatureContexts[0]
+            filteredSolutionSets.length > 0 ? filteredSolutionSets[0] : solutionSets[0]
         );
 
         return { argumentErrors: paramSpecArgResult.argumentErrors, typeVarContexts };
@@ -11831,10 +11831,10 @@ export function createTypeEvaluator(
     function validateArgTypesForParamSpecSignature(
         errorNode: ExpressionNode,
         argList: Arg[],
-        paramSpec: TypeVarType,
-        typeVarContext: TypeVarSignatureContext
+        paramSpec: ParamSpecType,
+        typeVarContext: TypeVarSolutionSet
     ): ParamSpecArgResult {
-        let paramSpecType = typeVarContext.getParamSpecType(paramSpec);
+        let paramSpecType = typeVarContext.getTypeVarType(paramSpec);
         if (!paramSpecType) {
             paramSpecType = convertTypeToParamSpecValue(paramSpec);
         }
@@ -11949,11 +11949,11 @@ export function createTypeEvaluator(
                 const skipApplySolvedTypeVars =
                     isFunction(argParam.paramType) &&
                     FunctionType.getParamSpecFromArgsKwargs(argParam.paramType) &&
-                    typeVarContext.getSignatureContexts().length > 1;
+                    typeVarContext.getSolutionSets().length > 1;
 
                 if (!skipApplySolvedTypeVars) {
                     expectedType = applySolvedTypeVars(expectedType, typeVarContext, {
-                        useNarrowBoundOnly: !!options.useNarrowBoundOnly,
+                        useLowerBoundOnly: !!options.useLowerBoundOnly,
                     });
                 }
             } else {
@@ -23377,7 +23377,7 @@ export function createTypeEvaluator(
             if (isTypeVarSame(destType, srcType)) {
                 if (destType.priv.scopeId && destTypeVarContext?.hasSolveForScope(destType.priv.scopeId)) {
                     // If the dest TypeVar has no current value bound to it, bind itself.
-                    if (!destTypeVarContext.getPrimarySignature().getTypeVar(destType)) {
+                    if (!destTypeVarContext.getMainSolutionSet().getTypeVar(destType)) {
                         return assignTypeToTypeVar(
                             evaluatorInterface,
                             destType,
@@ -24045,13 +24045,13 @@ export function createTypeEvaluator(
                 // Find all of the overloaded functions that match the parameters.
                 const overloads = OverloadedFunctionType.getOverloads(concreteSrcType);
                 const filteredOverloads: FunctionType[] = [];
-                const destTypeVarSignatures: TypeVarSignatureContext[] = [];
-                const srcTypeVarSignatures: TypeVarSignatureContext[] = [];
+                const destTypeVarSignatures: TypeVarSolutionSet[] = [];
+                const srcTypeVarSignatures: TypeVarSolutionSet[] = [];
 
                 overloads.forEach((overload) => {
                     const overloadScopeId = getTypeVarScopeId(overload) ?? '';
-                    const destTypeVarContextClone = destTypeVarContext?.cloneWithSignatureSource(overloadScopeId);
-                    const srcTypeVarContextClone = srcTypeVarContext?.cloneWithSignatureSource(overloadScopeId);
+                    const destTypeVarContextClone = destTypeVarContext?.cloneWithSignature(overloadScopeId);
+                    const srcTypeVarContextClone = srcTypeVarContext?.cloneWithSignature(overloadScopeId);
 
                     if (
                         assignType(
@@ -24067,11 +24067,11 @@ export function createTypeEvaluator(
                         filteredOverloads.push(overload);
 
                         if (destTypeVarContextClone) {
-                            appendArray(destTypeVarSignatures, destTypeVarContextClone.getSignatureContexts());
+                            appendArray(destTypeVarSignatures, destTypeVarContextClone.getSolutionSets());
                         }
 
                         if (srcTypeVarContextClone) {
-                            appendArray(srcTypeVarSignatures, srcTypeVarContextClone.getSignatureContexts());
+                            appendArray(srcTypeVarSignatures, srcTypeVarContextClone.getSolutionSets());
                         }
                     }
                 });
@@ -24082,11 +24082,11 @@ export function createTypeEvaluator(
                 }
 
                 if (destTypeVarContext) {
-                    destTypeVarContext.copySignatureContexts(destTypeVarSignatures);
+                    destTypeVarContext.addSolutionSets(destTypeVarSignatures);
                 }
 
                 if (srcTypeVarContext) {
-                    srcTypeVarContext.copySignatureContexts(srcTypeVarSignatures);
+                    srcTypeVarContext.addSolutionSets(srcTypeVarSignatures);
                 }
 
                 return true;
@@ -24913,10 +24913,10 @@ export function createTypeEvaluator(
 
         if ((flags & AssignTypeFlags.OverloadOverlap) === 0) {
             if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
-                specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, { useNarrowBoundOnly: true });
+                specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, { useLowerBoundOnly: true });
                 doSpecializationStep = requiresSpecialization(specializedDestType);
             } else {
-                specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext, { useNarrowBoundOnly: true });
+                specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext, { useLowerBoundOnly: true });
                 doSpecializationStep = requiresSpecialization(specializedSrcType);
             }
         }
@@ -25640,11 +25640,11 @@ export function createTypeEvaluator(
 
         // If the target function was generic and we solved some of the type variables
         // in that generic type, assign them back to the destination typeVar.
-        const typeVarSignatureContext = effectiveSrcTypeVarContext.getPrimarySignature();
-        typeVarSignatureContext.getTypeVars().forEach((typeVarEntry) => {
+        const solutionSet = effectiveSrcTypeVarContext.getMainSolutionSet();
+        solutionSet.getTypeVars().forEach((typeVarEntry) => {
             assignType(
                 typeVarEntry.typeVar,
-                typeVarSignatureContext.getTypeVarType(typeVarEntry.typeVar)!,
+                solutionSet.getTypeVarType(typeVarEntry.typeVar)!,
                 /* diag */ undefined,
                 destTypeVarContext,
                 srcTypeVarContext,
@@ -25875,7 +25875,7 @@ export function createTypeEvaluator(
             let replacedTypeArg = false;
             const newTypeArgs = assignedType.priv.typeArgs.map((typeArg, index) => {
                 const typeParam = assignedType.shared.typeParams[index];
-                const expectedTypeArgType = typeVarContext.getPrimarySignature().getTypeVarType(typeParam);
+                const expectedTypeArgType = typeVarContext.getMainSolutionSet().getTypeVarType(typeParam);
 
                 if (expectedTypeArgType) {
                     if (isAnyOrUnknown(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
@@ -27223,10 +27223,10 @@ export function createTypeEvaluator(
     }
 
     function printTypeVarContext(typeVarContext: TypeVarContext): void {
-        const contexts = typeVarContext.getSignatureContexts();
-        contexts.forEach((context, index) => {
-            if (contexts.length > 1) {
-                console.log(`Signature context ${index + 1}:`);
+        const solutionSets = typeVarContext.getSolutionSets();
+        solutionSets.forEach((context, index) => {
+            if (solutionSets.length > 1) {
+                console.log(`Solution set ${index + 1}:`);
             }
 
             context.getTypeVars().forEach((typeVarEntry) => {

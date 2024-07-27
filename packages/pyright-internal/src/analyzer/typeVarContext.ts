@@ -5,7 +5,7 @@
  * Author: Eric Traut
  *
  * Module that records the relationship between type variables and their
- * types. It is used by the type evaluator to "solve" for the type of
+ * types. It is used by the constraint solver to solve for the type of
  * each type variable.
  */
 
@@ -20,10 +20,11 @@ import {
     TypeVarType,
     isAnyOrUnknown,
     isFunction,
+    isParamSpec,
     isTypeSame,
 } from './types';
 
-// The maximum number of signature contexts that can be associated
+// The maximum number of solution sets that can be associated
 // with a TypeVarContext. This equates to the number of overloads
 // that can be captured by a ParamSpec (or multiple ParamSpecs).
 // We should never hit this limit in practice, but there are certain
@@ -31,43 +32,57 @@ import {
 // this so it doesn't completely exhaust memory. This was previously
 // set to 64, but we have seen cases where a library uses in excess
 // of 300 overloads on a single function.
-const maxSignatureContextCount = 1024;
+const maxSolutionSetCount = 1024;
 
-export interface TypeVarMapEntry {
+// Records information that is used to solve for the type of a type variable.
+export interface TypeVarSolution {
+    // The type variable being solved.
     typeVar: TypeVarType;
 
-    // The final type must "fit" between the narrow and wide type bound.
-    // If there are literal subtypes in the narrowBound, these are stripped,
-    // and the resulting widened type is placed in narrowBoundNoLiterals as
-    // long as they fit within the wideBound.
-    narrowBound?: Type | undefined;
-    narrowBoundNoLiterals?: Type | undefined;
-    wideBound?: Type | undefined;
+    // Running bounds for the solved type variable as constraints are added.
+
+    // The final type must "fit" between the lower and upper bound.
+    // If there are literal subtypes in the lower bound, these are stripped,
+    // and the resulting type is placed in lowerBoundNoLiterals as
+    // long as it does not exceed the upper bound.
+    lowerBound?: Type | undefined;
+    lowerBoundNoLiterals?: Type | undefined;
+    upperBound?: Type | undefined;
 }
 
-export class TypeVarSignatureContext {
-    private _typeVarMap: Map<string, TypeVarMapEntry>;
-    private _sourceTypeVarScopeId: Set<string> | undefined;
+// Records the solution information for a set of type variables associated
+// with a callee's signature.
+export class TypeVarSolutionSet {
+    private _typeVarMap: Map<string, TypeVarSolution>;
+
+    // A set of one or more TypeVar scope IDs that identify this solution set.
+    // This corresponds to the scope ID of the overload signature. Normally
+    // there will be only one scope ID associated with each signature, but
+    // we can have multiple if we are solving for multiple ParamSpecs. If
+    // there are two ParamSpecs P1 and P2 and both are bound to 3 overloads,
+    // we'll have 9 sets of TypeVars that we're solving, for all combinations
+    // of P1 and P2).
+    private _scopeIds: Set<string> | undefined;
 
     constructor() {
-        this._typeVarMap = new Map<string, TypeVarMapEntry>();
+        this._typeVarMap = new Map<string, TypeVarSolution>();
     }
 
     clone() {
-        const newContext = new TypeVarSignatureContext();
+        const solutionSet = new TypeVarSolutionSet();
 
         this._typeVarMap.forEach((value) => {
-            newContext.setTypeVarType(value.typeVar, value.narrowBound, value.narrowBoundNoLiterals, value.wideBound);
+            solutionSet.setTypeVarType(value.typeVar, value.lowerBound, value.lowerBoundNoLiterals, value.upperBound);
         });
 
-        if (this._sourceTypeVarScopeId) {
-            this._sourceTypeVarScopeId.forEach((scopeId) => newContext.addSourceTypeVarScopeId(scopeId));
+        if (this._scopeIds) {
+            this._scopeIds.forEach((scopeId) => solutionSet.addScopeId(scopeId));
         }
 
-        return newContext;
+        return solutionSet;
     }
 
-    isSame(other: TypeVarSignatureContext) {
+    isSame(other: TypeVarSolutionSet) {
         if (this._typeVarMap.size !== other._typeVarMap.size) {
             return false;
         }
@@ -85,8 +100,8 @@ export class TypeVarSignatureContext {
             const otherValue = other._typeVarMap.get(key);
             if (
                 !otherValue ||
-                !typesMatch(value.narrowBound, otherValue.narrowBound) ||
-                !typesMatch(value.wideBound, otherValue.wideBound)
+                !typesMatch(value.lowerBound, otherValue.lowerBound) ||
+                !typesMatch(value.upperBound, otherValue.upperBound)
             ) {
                 isSame = false;
             }
@@ -119,61 +134,60 @@ export class TypeVarSignatureContext {
         return score;
     }
 
-    getTypeVarType(reference: TypeVarType, useNarrowBoundOnly = false): Type | undefined {
+    getTypeVarType(reference: ParamSpecType): FunctionType | undefined;
+    getTypeVarType(reference: TypeVarType, useLowerBoundOnly?: boolean): Type | undefined;
+    getTypeVarType(reference: TypeVarType, useLowerBoundOnly = false): Type | undefined {
         const entry = this.getTypeVar(reference);
         if (!entry) {
             return undefined;
         }
 
-        if (useNarrowBoundOnly) {
-            return entry.narrowBound;
+        if (isParamSpec(reference)) {
+            if (!entry.lowerBound) {
+                return undefined;
+            }
+
+            if (isFunction(entry.lowerBound)) {
+                return entry.lowerBound;
+            }
+
+            if (isAnyOrUnknown(entry.lowerBound)) {
+                return ParamSpecType.getUnknown();
+            }
         }
 
-        // Prefer the narrow version with no literals. It will be undefined
+        if (useLowerBoundOnly) {
+            return entry.lowerBound;
+        }
+
+        // Prefer the lower bound with no literals. It will be undefined
         // if the literal type couldn't be widened due to constraints imposed
-        // by the wide bound.
-        return entry.narrowBoundNoLiterals ?? entry.narrowBound ?? entry.wideBound;
-    }
-
-    getParamSpecType(reference: TypeVarType): FunctionType | undefined {
-        const entry = this.getTypeVar(reference);
-        if (!entry?.narrowBound) {
-            return undefined;
-        }
-
-        if (isFunction(entry.narrowBound)) {
-            return entry.narrowBound;
-        }
-
-        if (isAnyOrUnknown(entry.narrowBound)) {
-            return ParamSpecType.getUnknown();
-        }
-
-        return undefined;
+        // by the upper bound.
+        return entry.lowerBoundNoLiterals ?? entry.lowerBound ?? entry.upperBound;
     }
 
     setTypeVarType(
         reference: TypeVarType,
-        narrowBound: Type | undefined,
-        narrowBoundNoLiterals?: Type,
-        wideBound?: Type
+        lowerBound: Type | undefined,
+        lowerBoundNoLiterals?: Type,
+        upperBound?: Type
     ) {
         const key = TypeVarType.getNameWithScope(reference);
         this._typeVarMap.set(key, {
             typeVar: reference,
-            narrowBound,
-            narrowBoundNoLiterals,
-            wideBound,
+            lowerBound,
+            lowerBoundNoLiterals,
+            upperBound,
         });
     }
 
-    getTypeVar(reference: TypeVarType): TypeVarMapEntry | undefined {
+    getTypeVar(reference: TypeVarType): TypeVarSolution | undefined {
         const key = TypeVarType.getNameWithScope(reference);
         return this._typeVarMap.get(key);
     }
 
-    getTypeVars(): TypeVarMapEntry[] {
-        const entries: TypeVarMapEntry[] = [];
+    getTypeVars(): TypeVarSolution[] {
+        const entries: TypeVarSolution[] = [];
 
         this._typeVarMap.forEach((entry) => {
             entries.push(entry);
@@ -182,27 +196,27 @@ export class TypeVarSignatureContext {
         return entries;
     }
 
-    addSourceTypeVarScopeId(scopeId: TypeVarScopeId) {
-        if (!this._sourceTypeVarScopeId) {
-            this._sourceTypeVarScopeId = new Set<string>();
+    addScopeId(scopeId: TypeVarScopeId) {
+        if (!this._scopeIds) {
+            this._scopeIds = new Set<string>();
         }
 
-        this._sourceTypeVarScopeId.add(scopeId);
+        this._scopeIds.add(scopeId);
     }
 
-    hasSourceTypeVarScopeId(scopeId: TypeVarScopeId) {
-        if (!this._sourceTypeVarScopeId) {
+    hasScopeId(scopeId: TypeVarScopeId) {
+        if (!this._scopeIds) {
             return false;
         }
 
-        return this._sourceTypeVarScopeId.has(scopeId);
+        return this._scopeIds.has(scopeId);
     }
 }
 
 export class TypeVarContext {
     private _solveForScopes: TypeVarScopeId[] | undefined;
     private _isLocked = false;
-    private _signatureContexts: TypeVarSignatureContext[];
+    private _solutionSets: TypeVarSolutionSet[];
 
     constructor(solveForScopes?: TypeVarScopeId[] | TypeVarScopeId) {
         if (Array.isArray(solveForScopes)) {
@@ -213,7 +227,7 @@ export class TypeVarContext {
             this._solveForScopes = undefined;
         }
 
-        this._signatureContexts = [new TypeVarSignatureContext()];
+        this._solutionSets = [new TypeVarSolutionSet()];
     }
 
     clone() {
@@ -222,55 +236,53 @@ export class TypeVarContext {
             newTypeVarMap._solveForScopes = Array.from(this._solveForScopes);
         }
 
-        newTypeVarMap._signatureContexts = this._signatureContexts.map((context) => context.clone());
+        newTypeVarMap._solutionSets = this._solutionSets.map((solutionSet) => solutionSet.clone());
         newTypeVarMap._isLocked = this._isLocked;
 
         return newTypeVarMap;
     }
 
-    cloneWithSignatureSource(typeVarScopeId: TypeVarScopeId): TypeVarContext {
-        const clonedContext = this.clone();
+    cloneWithSignature(scopeId: TypeVarScopeId): TypeVarContext {
+        const cloned = this.clone();
 
-        if (typeVarScopeId) {
-            const filteredSignatures = this._signatureContexts.filter((context) =>
-                context.hasSourceTypeVarScopeId(typeVarScopeId)
-            );
+        if (scopeId) {
+            const filteredSolutionSets = this._solutionSets.filter((context) => context.hasScopeId(scopeId));
 
-            if (filteredSignatures.length > 0) {
-                clonedContext._signatureContexts = filteredSignatures;
+            if (filteredSolutionSets.length > 0) {
+                cloned._solutionSets = filteredSolutionSets;
             } else {
-                clonedContext._signatureContexts.forEach((context) => {
-                    context.addSourceTypeVarScopeId(typeVarScopeId);
+                cloned._solutionSets.forEach((context) => {
+                    context.addScopeId(scopeId);
                 });
             }
         }
 
-        return clonedContext;
+        return cloned;
     }
 
     // Copies a cloned type var context back into this object.
     copyFromClone(clone: TypeVarContext) {
-        this._signatureContexts = clone._signatureContexts.map((context) => context.clone());
+        this._solutionSets = clone._solutionSets.map((context) => context.clone());
         this._isLocked = clone._isLocked;
     }
 
-    // Copy the specified signature contexts into this type var context.
-    copySignatureContexts(contexts: TypeVarSignatureContext[]) {
+    // Copy the specified solution sets into this type var context.
+    addSolutionSets(contexts: TypeVarSolutionSet[]) {
         assert(contexts.length > 0);
 
-        // Limit the number of signature contexts. There are rare circumstances
+        // Limit the number of solution sets. There are rare circumstances
         // where this can grow to unbounded numbers and exhaust memory.
-        if (contexts.length < maxSignatureContextCount) {
-            this._signatureContexts = Array.from(contexts);
+        if (contexts.length < maxSolutionSetCount) {
+            this._solutionSets = Array.from(contexts);
         }
     }
 
     isSame(other: TypeVarContext) {
-        if (other._signatureContexts.length !== this._signatureContexts.length) {
+        if (other._solutionSets.length !== this._solutionSets.length) {
             return false;
         }
 
-        return this._signatureContexts.every((context, index) => context.isSame(other._signatureContexts[index]));
+        return this._solutionSets.every((solutionSet, index) => solutionSet.isSame(other._solutionSets[index]));
     }
 
     // Returns the list of scopes this type var map is "solving".
@@ -330,47 +342,47 @@ export class TypeVarContext {
     }
 
     isEmpty() {
-        return this._signatureContexts.every((context) => context.isEmpty());
+        return this._solutionSets.every((solutionSet) => solutionSet.isEmpty());
     }
 
     setTypeVarType(
         reference: TypeVarType,
-        narrowBound: Type | undefined,
-        narrowBoundNoLiterals?: Type,
-        wideBound?: Type
+        lowerBound: Type | undefined,
+        lowerBoundNoLiterals?: Type,
+        upperBound?: Type
     ) {
         assert(!this._isLocked);
 
-        return this._signatureContexts.forEach((context) => {
-            context.setTypeVarType(reference, narrowBound, narrowBoundNoLiterals, wideBound);
+        return this._solutionSets.forEach((solutionSet) => {
+            solutionSet.setTypeVarType(reference, lowerBound, lowerBoundNoLiterals, upperBound);
         });
     }
 
     getScore() {
         let total = 0;
 
-        this._signatureContexts.forEach((context) => {
-            total += context.getScore();
+        this._solutionSets.forEach((solutionSet) => {
+            total += solutionSet.getScore();
         });
 
-        // Return the average score among all signature contexts.
-        return total / this._signatureContexts.length;
+        // Return the average score among all solution sets.
+        return total / this._solutionSets.length;
     }
 
-    getPrimarySignature() {
-        return this._signatureContexts[0];
+    getMainSolutionSet() {
+        return this._solutionSets[0];
     }
 
-    getSignatureContexts() {
-        return this._signatureContexts;
+    getSolutionSets() {
+        return this._solutionSets;
     }
 
-    doForEachSignatureContext(callback: (signature: TypeVarSignatureContext, signatureIndex: number) => void) {
+    doForEachSolutionSet(callback: (solutionSet: TypeVarSolutionSet, index: number) => void) {
         const wasLocked = this.isLocked();
         this.unlock();
 
-        this.getSignatureContexts().forEach((signature, signatureIndex) => {
-            callback(signature, signatureIndex);
+        this.getSolutionSets().forEach((solutionSet, index) => {
+            callback(solutionSet, index);
         });
 
         if (wasLocked) {
@@ -378,14 +390,8 @@ export class TypeVarContext {
         }
     }
 
-    getSignatureContext(index: number) {
-        assert(index >= 0 && index < this._signatureContexts.length);
-        return this._signatureContexts[index];
-    }
-
-    doForEachSignature(callback: (context: TypeVarSignatureContext) => void) {
-        this._signatureContexts.forEach((context) => {
-            callback(context);
-        });
+    getSolutionSet(index: number) {
+        assert(index >= 0 && index < this._solutionSets.length);
+        return this._solutionSets[index];
     }
 }

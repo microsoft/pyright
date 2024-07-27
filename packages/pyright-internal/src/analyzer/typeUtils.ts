@@ -68,7 +68,7 @@ import {
     UnknownType,
     Variance,
 } from './types';
-import { TypeVarContext, TypeVarSignatureContext } from './typeVarContext';
+import { TypeVarContext, TypeVarSolutionSet } from './typeVarContext';
 import { TypeWalker } from './typeWalker';
 
 export interface ClassMember {
@@ -252,7 +252,7 @@ export interface ApplyTypeVarOptions {
     unknownIfNotFound?: boolean;
     useUnknownOverDefault?: boolean;
     unknownExemptTypeVars?: TypeVarType[];
-    useNarrowBoundOnly?: boolean;
+    useLowerBoundOnly?: boolean;
     eliminateUnsolvedInUnions?: boolean;
     applyInScopePlaceholders?: boolean;
 }
@@ -1568,23 +1568,20 @@ export function applySourceContextTypeVars(destContext: TypeVarContext, srcConte
         return;
     }
 
-    destContext.doForEachSignatureContext((destSignature) => {
-        applySourceContextTypeVarsToSignature(destSignature, srcContext);
+    destContext.doForEachSolutionSet((solutionSet) => {
+        applySourceContextTypeVarsToSignature(solutionSet, srcContext);
     });
 }
 
-export function applySourceContextTypeVarsToSignature(
-    destSignature: TypeVarSignatureContext,
-    srcContext: TypeVarContext
-) {
+export function applySourceContextTypeVarsToSignature(destSignature: TypeVarSolutionSet, srcContext: TypeVarContext) {
     destSignature.getTypeVars().forEach((entry) => {
-        const newNarrowTypeBound = entry.narrowBound ? applySolvedTypeVars(entry.narrowBound, srcContext) : undefined;
-        const newNarrowTypeBoundNoLiterals = entry.narrowBoundNoLiterals
-            ? applySolvedTypeVars(entry.narrowBoundNoLiterals, srcContext)
+        const newLowerBound = entry.lowerBound ? applySolvedTypeVars(entry.lowerBound, srcContext) : undefined;
+        const newLowerBoundNoLiterals = entry.lowerBoundNoLiterals
+            ? applySolvedTypeVars(entry.lowerBoundNoLiterals, srcContext)
             : undefined;
-        const newWideTypeBound = entry.wideBound ? applySolvedTypeVars(entry.wideBound, srcContext) : undefined;
+        const newUpperBound = entry.upperBound ? applySolvedTypeVars(entry.upperBound, srcContext) : undefined;
 
-        destSignature.setTypeVarType(entry.typeVar, newNarrowTypeBound, newNarrowTypeBoundNoLiterals, newWideTypeBound);
+        destSignature.setTypeVarType(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
     });
 }
 
@@ -1592,26 +1589,21 @@ export function applySourceContextTypeVarsToSignature(
 // in-scope placeholders used for bidirectional type inference, replace those
 // with the solved type associated with those in-scope placeholders.
 export function applyInScopePlaceholders(typeVarContext: TypeVarContext) {
-    typeVarContext.doForEachSignatureContext((signature) => {
-        signature.getTypeVars().forEach((entry) => {
+    typeVarContext.doForEachSolutionSet((solutionSet) => {
+        solutionSet.getTypeVars().forEach((entry) => {
             const typeVar = entry.typeVar;
             if (!typeVar.priv.isInScopePlaceholder) {
-                const newNarrowTypeBound = entry.narrowBound
-                    ? applyInScopePlaceholdersToType(entry.narrowBound, signature)
+                const newLowerBound = entry.lowerBound
+                    ? applyInScopePlaceholdersToType(entry.lowerBound, solutionSet)
                     : undefined;
-                const newNarrowTypeBoundNoLiterals = entry.narrowBoundNoLiterals
-                    ? applyInScopePlaceholdersToType(entry.narrowBoundNoLiterals, signature)
+                const newLowerBoundNoLiterals = entry.lowerBoundNoLiterals
+                    ? applyInScopePlaceholdersToType(entry.lowerBoundNoLiterals, solutionSet)
                     : undefined;
-                const newWideTypeBound = entry.wideBound
-                    ? applyInScopePlaceholdersToType(entry.wideBound, signature)
+                const newUpperBound = entry.upperBound
+                    ? applyInScopePlaceholdersToType(entry.upperBound, solutionSet)
                     : undefined;
 
-                signature.setTypeVarType(
-                    entry.typeVar,
-                    newNarrowTypeBound,
-                    newNarrowTypeBoundNoLiterals,
-                    newWideTypeBound
-                );
+                solutionSet.setTypeVarType(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
             }
         });
     });
@@ -2180,7 +2172,7 @@ export function setTypeArgsRecursive(
             break;
 
         case TypeCategory.TypeVar:
-            if (!typeVarContext.getPrimarySignature().getTypeVar(destType)) {
+            if (!typeVarContext.getMainSolutionSet().getTypeVar(destType)) {
                 typeVarContext.setTypeVarType(destType, srcType);
             }
             break;
@@ -2256,7 +2248,7 @@ export function buildTypeVarContext(
                 typeVarContext.setTypeVarType(
                     typeParam,
                     typeArgType,
-                    /* narrowBoundNoLiterals */ undefined,
+                    /* lowerBoundNoLiterals */ undefined,
                     typeArgType
                 );
             }
@@ -3676,7 +3668,7 @@ class TypeVarTransformer {
         return undefined;
     }
 
-    transformParamSpec(paramSpec: TypeVarType, recursionCount: number): FunctionType | undefined {
+    transformParamSpec(paramSpec: ParamSpecType, recursionCount: number): FunctionType | undefined {
         return undefined;
     }
 
@@ -3684,7 +3676,7 @@ class TypeVarTransformer {
         return postTransform;
     }
 
-    doForEachSignatureContext(callback: () => FunctionType): FunctionType | OverloadedFunctionType {
+    doForEachSolutionSet(callback: () => FunctionType): FunctionType | OverloadedFunctionType {
         // By default, simply return the result of the callback. Subclasses
         // can override this method as they see fit.
         return callback();
@@ -3741,7 +3733,7 @@ class TypeVarTransformer {
         let newTupleTypeArgs: TupleTypeArg[] | undefined;
         let specializationNeeded = false;
 
-        const transformParamSpec = (paramSpec: TypeVarType) => {
+        const transformParamSpec = (paramSpec: ParamSpecType) => {
             const paramSpecValue = this.transformParamSpec(paramSpec, recursionCount);
             if (paramSpecValue) {
                 specializationNeeded = true;
@@ -3882,7 +3874,7 @@ class TypeVarTransformer {
         sourceType: FunctionType,
         recursionCount: number
     ): FunctionType | OverloadedFunctionType {
-        return this.doForEachSignatureContext(() => {
+        return this.doForEachSolutionSet(() => {
             let functionType = sourceType;
 
             const declaredReturnType = FunctionType.getEffectiveReturnType(functionType);
@@ -4245,27 +4237,25 @@ class ExternalScopeUpdateTransform extends TypeVarTransformer {
 // type variables from a type var map.
 class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     private _isSolvingDefaultType = false;
-    private _activeTypeVarSignatureContextIndex: number | undefined;
+    private _activeSolutionSetIndex: number | undefined;
 
     constructor(private _typeVarContext: TypeVarContext, private _options: ApplyTypeVarOptions) {
         super();
     }
 
     override transformTypeVar(typeVar: TypeVarType, recursionCount: number) {
-        const signatureContext = this._typeVarContext.getSignatureContext(
-            this._activeTypeVarSignatureContextIndex ?? 0
-        );
+        const solutionSet = this._typeVarContext.getSolutionSet(this._activeSolutionSetIndex ?? 0);
 
         // If the type variable is unrelated to the scopes we're solving,
         // don't transform that type variable.
         if (typeVar.priv.scopeId && this._typeVarContext.hasSolveForScope(typeVar.priv.scopeId)) {
-            let replacement = signatureContext.getTypeVarType(typeVar, !!this._options.useNarrowBoundOnly);
+            let replacement = solutionSet.getTypeVarType(typeVar, !!this._options.useLowerBoundOnly);
 
-            // If there was no narrow bound but there is a wide bound that
-            // contains literals or a TypeVar, we'll use the wide bound even if
-            // "useNarrowBoundOnly" is specified.
-            if (!replacement && this._options.useNarrowBoundOnly) {
-                const wideType = signatureContext.getTypeVarType(typeVar);
+            // If there was no lower bound but there is an upper bound that
+            // contains literals or a TypeVar, we'll use the upper bound even if
+            // "useLowerBoundOnly" is specified.
+            if (!replacement && this._options.useLowerBoundOnly) {
+                const wideType = solutionSet.getTypeVarType(typeVar);
                 if (wideType) {
                     if (isTypeVar(wideType) || containsLiteralType(wideType, /* includeTypeArgs */ true)) {
                         replacement = wideType;
@@ -4362,12 +4352,12 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
         // If we're solving a default type, handle type variables with no scope ID.
         if (this._isSolvingDefaultType && !typeVar.priv.scopeId) {
-            const replacementEntry = signatureContext
+            const replacementEntry = solutionSet
                 .getTypeVars()
                 .find((entry) => entry.typeVar.shared.name === typeVar.shared.name);
 
             if (replacementEntry) {
-                return signatureContext.getTypeVarType(replacementEntry.typeVar);
+                return solutionSet.getTypeVarType(replacementEntry.typeVar);
             }
 
             if (typeVar.shared.isDefaultExplicit) {
@@ -4392,11 +4382,9 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 preTransform.priv.scopeId !== undefined &&
                 this._typeVarContext.hasSolveForScope(preTransform.priv.scopeId)
             ) {
-                const signatureContext = this._typeVarContext.getSignatureContext(
-                    this._activeTypeVarSignatureContextIndex ?? 0
-                );
+                const solutionSet = this._typeVarContext.getSolutionSet(this._activeSolutionSetIndex ?? 0);
 
-                const typeVarType = signatureContext.getTypeVarType(preTransform);
+                const typeVarType = solutionSet.getTypeVarType(preTransform);
 
                 // Did the TypeVar remain unsolved?
                 if (!typeVarType || (isTypeVar(typeVarType) && typeVarType.priv.isInScopePlaceholder)) {
@@ -4429,29 +4417,25 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return undefined;
         }
 
-        const signatureContext = this._typeVarContext.getSignatureContext(
-            this._activeTypeVarSignatureContextIndex ?? 0
-        );
-        const value = signatureContext.getTypeVarType(typeVar);
+        const solutionSet = this._typeVarContext.getSolutionSet(this._activeSolutionSetIndex ?? 0);
+        const value = solutionSet.getTypeVarType(typeVar);
         if (value && isClassInstance(value) && value.priv.tupleTypeArgs && isUnpackedClass(value)) {
             return value.priv.tupleTypeArgs;
         }
         return undefined;
     }
 
-    override transformParamSpec(paramSpec: TypeVarType, recursionCount: number): FunctionType | undefined {
-        const signatureContext = this._typeVarContext.getSignatureContext(
-            this._activeTypeVarSignatureContextIndex ?? 0
-        );
+    override transformParamSpec(paramSpec: ParamSpecType, recursionCount: number): FunctionType | undefined {
+        const solutionSet = this._typeVarContext.getSolutionSet(this._activeSolutionSetIndex ?? 0);
 
         // If we're solving a default type, handle param specs with no scope ID.
         if (this._isSolvingDefaultType && !paramSpec.priv.scopeId) {
-            const replacementEntry = signatureContext
+            const replacementEntry = solutionSet
                 .getTypeVars()
                 .find((entry) => entry.typeVar.shared.name === paramSpec.shared.name);
 
-            if (replacementEntry) {
-                return signatureContext.getParamSpecType(replacementEntry.typeVar);
+            if (replacementEntry && isParamSpec(replacementEntry.typeVar)) {
+                return solutionSet.getTypeVarType(replacementEntry.typeVar);
             }
 
             if (paramSpec.shared.isDefaultExplicit) {
@@ -4465,7 +4449,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return undefined;
         }
 
-        const transformedParamSpec = signatureContext.getParamSpecType(paramSpec);
+        const transformedParamSpec = solutionSet.getTypeVarType(paramSpec);
         if (transformedParamSpec) {
             return transformedParamSpec;
         }
@@ -4498,9 +4482,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return type;
         }
 
-        const signatureContext = this._typeVarContext.getSignatureContext(
-            this._activeTypeVarSignatureContextIndex ?? 0
-        );
+        const solutionSet = this._typeVarContext.getSolutionSet(this._activeSolutionSetIndex ?? 0);
 
         for (const condition of type.props.condition) {
             // This doesn't apply to bound type variables.
@@ -4509,12 +4491,12 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             }
 
             const conditionTypeVar = condition.typeVar.priv?.externalTypeVar ?? condition.typeVar;
-            const typeVarEntry = signatureContext.getTypeVar(conditionTypeVar);
+            const typeVarEntry = solutionSet.getTypeVar(conditionTypeVar);
             if (!typeVarEntry || condition.constraintIndex >= typeVarEntry.typeVar.shared.constraints.length) {
                 continue;
             }
 
-            const value = signatureContext.getTypeVarType(typeVarEntry.typeVar);
+            const value = solutionSet.getTypeVarType(typeVarEntry.typeVar);
             if (!value) {
                 continue;
             }
@@ -4529,21 +4511,21 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         return type;
     }
 
-    override doForEachSignatureContext(callback: () => FunctionType): FunctionType | OverloadedFunctionType {
-        const signatureContexts = this._typeVarContext.getSignatureContexts();
+    override doForEachSolutionSet(callback: () => FunctionType): FunctionType | OverloadedFunctionType {
+        const solutionSet = this._typeVarContext.getSolutionSets();
 
         // Handle the common case where there are not multiple signature contexts.
-        if (signatureContexts.length <= 1) {
+        if (solutionSet.length <= 1) {
             return callback();
         }
 
         // Loop through all of the signature contexts in the type var context
         // to create an overload type.
-        const overloadTypes = signatureContexts.map((_, index) => {
-            this._activeTypeVarSignatureContextIndex = index;
+        const overloadTypes = solutionSet.map((_, index) => {
+            this._activeSolutionSetIndex = index;
             return callback();
         });
-        this._activeTypeVarSignatureContextIndex = undefined;
+        this._activeSolutionSetIndex = undefined;
 
         const filteredOverloads: FunctionType[] = [];
         doForEachSubtype(combineTypes(overloadTypes), (subtype) => {
@@ -4582,7 +4564,7 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
         return undefined;
     }
 
-    override transformParamSpec(paramSpec: TypeVarType): FunctionType | undefined {
+    override transformParamSpec(paramSpec: ParamSpecType): FunctionType | undefined {
         if (!this._isTypeVarLive(paramSpec)) {
             return convertTypeToParamSpecValue(TypeVarType.cloneAsInScopePlaceholder(paramSpec, this._usageOffset));
         }
@@ -4598,34 +4580,34 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
 }
 
 class InScopePlaceholderTransformer extends TypeVarTransformer {
-    constructor(private _signatureContext: TypeVarSignatureContext) {
+    constructor(private _solutionSet: TypeVarSolutionSet) {
         super();
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
         if (typeVar.priv.isInScopePlaceholder) {
-            return this._signatureContext.getTypeVarType(typeVar) ?? typeVar;
+            return this._solutionSet.getTypeVarType(typeVar) ?? typeVar;
         }
 
         return undefined;
     }
 
-    override transformParamSpec(paramSpec: TypeVarType): FunctionType | undefined {
+    override transformParamSpec(paramSpec: ParamSpecType): FunctionType | undefined {
         if (paramSpec.priv.isInScopePlaceholder) {
-            return this._signatureContext.getParamSpecType(paramSpec);
+            return this._solutionSet.getTypeVarType(paramSpec);
         }
 
         return undefined;
     }
 }
 
-function applyInScopePlaceholdersToType(type: Type, signatureContext: TypeVarSignatureContext): Type {
+function applyInScopePlaceholdersToType(type: Type, solutionSet: TypeVarSolutionSet): Type {
     // Handle the common case where there are no in-scope placeholders.
     // No more work is required in this case.
-    if (!signatureContext.getTypeVars().some((entry) => entry.typeVar.priv.isInScopePlaceholder)) {
+    if (!solutionSet.getTypeVars().some((entry) => entry.typeVar.priv.isInScopePlaceholder)) {
         return type;
     }
 
-    const transformer = new InScopePlaceholderTransformer(signatureContext);
+    const transformer = new InScopePlaceholderTransformer(solutionSet);
     return transformer.apply(type, 0);
 }

@@ -31,6 +31,7 @@ import {
     isUnknown,
     isUnpacked,
     isUnpackedClass,
+    ParamSpecType,
     TupleTypeArg,
     Type,
     TypeBase,
@@ -61,12 +62,12 @@ import {
     transformExpectedType,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
-import { TypeVarContext, TypeVarSignatureContext } from './typeVarContext';
+import { TypeVarContext, TypeVarSolutionSet } from './typeVarContext';
 
-// As we widen the narrow bound of a type variable, we may end up with
+// As we widen the lower bound of a type variable, we may end up with
 // many subtypes. For performance reasons, we need to cap this at some
 // point. This constant determines the cap.
-const maxSubtypeCountForTypeVarNarrowBound = 64;
+const maxSubtypeCountForTypeVarLowerBound = 64;
 
 // This debugging switch enables logging of the TypeVarContext before and
 // after it is updated by the constraint solver.
@@ -243,15 +244,15 @@ export function assignTypeToTypeVar(
     }
 
     // Handle the unconstrained (but possibly bound) case.
-    const curEntry = typeVarContext.getPrimarySignature().getTypeVar(destType);
+    const curEntry = typeVarContext.getMainSolutionSet().getTypeVar(destType);
 
-    let curWideTypeBound = curEntry?.wideBound;
-    if (!curWideTypeBound && !destType.shared.isSynthesizedSelf) {
-        curWideTypeBound = destType.shared.boundType;
+    let curUpperBound = curEntry?.upperBound;
+    if (!curUpperBound && !destType.shared.isSynthesizedSelf) {
+        curUpperBound = destType.shared.boundType;
     }
-    let curNarrowTypeBound = curEntry?.narrowBound;
-    let newNarrowTypeBound = curNarrowTypeBound;
-    let newWideTypeBound = curWideTypeBound;
+    let curLowerBound = curEntry?.lowerBound;
+    let newLowerBound = curLowerBound;
+    let newUpperTypeBound = curUpperBound;
     const diagAddendum = diag ? new DiagnosticAddendum() : undefined;
 
     let adjSrcType = srcType;
@@ -297,26 +298,26 @@ export function assignTypeToTypeVar(
         }
 
         // If we're populating the expected type, constrain either the
-        // narrow type bound, wide type bound or both. Don't overwrite
+        // lower type bound, upper type bound or both. Don't overwrite
         // an existing entry.
         if (!curEntry) {
             if (isInvariant) {
-                newNarrowTypeBound = adjSrcType;
-                newWideTypeBound = adjSrcType;
+                newLowerBound = adjSrcType;
+                newUpperTypeBound = adjSrcType;
             } else if (isContravariant) {
-                newNarrowTypeBound = adjSrcType;
+                newLowerBound = adjSrcType;
             } else {
-                newWideTypeBound = adjSrcType;
+                newUpperTypeBound = adjSrcType;
             }
         }
     } else if (isContravariant) {
-        // Update the wide type bound.
-        if (!curWideTypeBound || isTypeSame(destType, curWideTypeBound)) {
-            newWideTypeBound = adjSrcType;
-        } else if (!isTypeSame(curWideTypeBound, adjSrcType, {}, recursionCount)) {
+        // Update the upper bound.
+        if (!curUpperBound || isTypeSame(destType, curUpperBound)) {
+            newUpperTypeBound = adjSrcType;
+        } else if (!isTypeSame(curUpperBound, adjSrcType, {}, recursionCount)) {
             if (
                 evaluator.assignType(
-                    curWideTypeBound,
+                    curUpperBound,
                     evaluator.makeTopLevelTypeVarsConcrete(adjSrcType),
                     diagAddendum,
                     /* destTypeVarContext */ undefined,
@@ -325,12 +326,12 @@ export function assignTypeToTypeVar(
                     recursionCount
                 )
             ) {
-                // The srcType is narrower than the current wideTypeBound, so replace it.
-                newWideTypeBound = adjSrcType;
+                // The srcType is narrower than the current upper bound, so replace it.
+                newUpperTypeBound = adjSrcType;
             } else if (
                 !evaluator.assignType(
                     adjSrcType,
-                    curWideTypeBound,
+                    curUpperBound,
                     diagAddendum,
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
@@ -341,7 +342,7 @@ export function assignTypeToTypeVar(
                 if (diag && diagAddendum) {
                     diag.addMessage(
                         LocAddendum.typeAssignmentMismatch().format(
-                            evaluator.printSrcDestTypes(curWideTypeBound, adjSrcType)
+                            evaluator.printSrcDestTypes(curUpperBound, adjSrcType)
                         )
                     );
                     diag.addAddendum(diagAddendum);
@@ -350,12 +351,12 @@ export function assignTypeToTypeVar(
             }
         }
 
-        // Make sure we haven't narrowed it beyond the current narrow bound.
-        if (curNarrowTypeBound) {
+        // Make sure we haven't narrowed it beyond the current lower bound.
+        if (curLowerBound) {
             if (
                 !evaluator.assignType(
-                    newWideTypeBound!,
-                    curNarrowTypeBound,
+                    newUpperTypeBound!,
+                    curLowerBound,
                     /* diag */ undefined,
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
@@ -366,7 +367,7 @@ export function assignTypeToTypeVar(
                 if (diag && diagAddendum) {
                     diag.addMessage(
                         LocAddendum.typeAssignmentMismatch().format(
-                            evaluator.printSrcDestTypes(curNarrowTypeBound, newWideTypeBound!)
+                            evaluator.printSrcDestTypes(curLowerBound, newUpperTypeBound!)
                         )
                     );
                     diag.addAddendum(diagAddendum);
@@ -375,20 +376,20 @@ export function assignTypeToTypeVar(
             }
         }
     } else {
-        if (!curNarrowTypeBound || isTypeSame(destType, curNarrowTypeBound)) {
-            // There was previously no narrow bound. We've now established one.
-            newNarrowTypeBound = adjSrcType;
-        } else if (isTypeSame(curNarrowTypeBound, adjSrcType, {}, recursionCount)) {
-            // If this is an invariant context and there is currently no wide type bound
-            // established, use the "no literals" version of the narrow type bounds rather
+        if (!curLowerBound || isTypeSame(destType, curLowerBound)) {
+            // There was previously no lower bound. We've now established one.
+            newLowerBound = adjSrcType;
+        } else if (isTypeSame(curLowerBound, adjSrcType, {}, recursionCount)) {
+            // If this is an invariant context and there is currently no upper bound
+            // established, use the "no literals" version of the lower bound rather
             // than a version that has literals.
-            if (!newWideTypeBound && isInvariant && curEntry?.narrowBoundNoLiterals) {
-                newNarrowTypeBound = curEntry.narrowBoundNoLiterals;
+            if (!newUpperTypeBound && isInvariant && curEntry?.lowerBoundNoLiterals) {
+                newLowerBound = curEntry.lowerBoundNoLiterals;
             }
         } else {
             if (
                 evaluator.assignType(
-                    curNarrowTypeBound,
+                    curLowerBound,
                     adjSrcType,
                     diagAddendum,
                     typeVarContext,
@@ -399,13 +400,13 @@ export function assignTypeToTypeVar(
             ) {
                 // No need to widen. Stick with the existing type unless it's unknown
                 // or partly unknown, in which case we'll replace it with a known type
-                // as long as it doesn't violate the current narrow bound.
+                // as long as it doesn't violate the current lower bound.
                 if (
-                    isPartlyUnknown(curNarrowTypeBound) &&
+                    isPartlyUnknown(curLowerBound) &&
                     !isUnknown(adjSrcType) &&
                     evaluator.assignType(
                         adjSrcType,
-                        curNarrowTypeBound,
+                        curLowerBound,
                         /* diag */ undefined,
                         typeVarContext,
                         /* srcTypeVarContext */ undefined,
@@ -413,15 +414,15 @@ export function assignTypeToTypeVar(
                         recursionCount
                     )
                 ) {
-                    newNarrowTypeBound = adjSrcType;
+                    newLowerBound = adjSrcType;
                 } else {
-                    newNarrowTypeBound = applySolvedTypeVars(curNarrowTypeBound, typeVarContext);
+                    newLowerBound = applySolvedTypeVars(curLowerBound, typeVarContext);
                 }
             } else if (
-                isTypeVar(curNarrowTypeBound) &&
+                isTypeVar(curLowerBound) &&
                 !isTypeVar(adjSrcType) &&
                 evaluator.assignType(
-                    evaluator.makeTopLevelTypeVarsConcrete(curNarrowTypeBound),
+                    evaluator.makeTopLevelTypeVarsConcrete(curLowerBound),
                     adjSrcType,
                     diagAddendum,
                     typeVarContext,
@@ -430,16 +431,16 @@ export function assignTypeToTypeVar(
                     recursionCount
                 )
             ) {
-                // If the existing narrow type bound was a TypeVar that is not
+                // If the existing lower bound was a TypeVar that is not
                 // part of the current context we can replace it with the new
                 // source type.
-                newNarrowTypeBound = adjSrcType;
+                newLowerBound = adjSrcType;
             } else {
                 // We need to widen the type.
                 if (typeVarContext.isLocked()) {
                     diag?.addMessage(
                         LocAddendum.typeAssignmentMismatch().format(
-                            evaluator.printSrcDestTypes(adjSrcType, curNarrowTypeBound)
+                            evaluator.printSrcDestTypes(adjSrcType, curLowerBound)
                         )
                     );
                     return false;
@@ -448,7 +449,7 @@ export function assignTypeToTypeVar(
                 if (
                     evaluator.assignType(
                         adjSrcType,
-                        curNarrowTypeBound,
+                        curLowerBound,
                         /* diag */ undefined,
                         typeVarContext,
                         /* srcTypeVarContext */ undefined,
@@ -456,61 +457,61 @@ export function assignTypeToTypeVar(
                         recursionCount
                     )
                 ) {
-                    newNarrowTypeBound = adjSrcType;
+                    newLowerBound = adjSrcType;
                 } else if (isTypeVarTuple(destType)) {
-                    const widenedType = widenTypeForTypeVarTuple(evaluator, curNarrowTypeBound, adjSrcType);
+                    const widenedType = widenTypeForTypeVarTuple(evaluator, curLowerBound, adjSrcType);
                     if (!widenedType) {
                         diag?.addMessage(
                             LocAddendum.typeAssignmentMismatch().format(
-                                evaluator.printSrcDestTypes(curNarrowTypeBound, adjSrcType)
+                                evaluator.printSrcDestTypes(curLowerBound, adjSrcType)
                             )
                         );
                         return false;
                     }
 
-                    newNarrowTypeBound = widenedType;
+                    newLowerBound = widenedType;
                 } else {
                     const objectType = evaluator.getObjectType();
 
-                    // If this is an invariant context and there is currently no wide type bound
-                    // established, use the "no literals" version of the narrow type bounds rather
+                    // If this is an invariant context and there is currently no upper bound
+                    // established, use the "no literals" version of the lower bound rather
                     // than a version that has literals.
-                    if (!newWideTypeBound && isInvariant && curEntry?.narrowBoundNoLiterals) {
-                        curNarrowTypeBound = curEntry.narrowBoundNoLiterals;
+                    if (!newUpperTypeBound && isInvariant && curEntry?.lowerBoundNoLiterals) {
+                        curLowerBound = curEntry.lowerBoundNoLiterals;
                     }
 
-                    const curSolvedNarrowTypeBound = applySolvedTypeVars(curNarrowTypeBound, typeVarContext);
+                    const curSolvedLowerBound = applySolvedTypeVars(curLowerBound, typeVarContext);
 
-                    // In some extreme edge cases, the narrow type bound can become
+                    // In some extreme edge cases, the lower bound can become
                     // a union with so many subtypes that performance grinds to a
                     // halt. We'll detect this case and widen the resulting type
                     // to an 'object' instead of making the union even bigger. This
                     // is still a valid solution to the TypeVar.
                     if (
-                        isUnion(curSolvedNarrowTypeBound) &&
-                        curSolvedNarrowTypeBound.priv.subtypes.length > maxSubtypesForInferredType &&
+                        isUnion(curSolvedLowerBound) &&
+                        curSolvedLowerBound.priv.subtypes.length > maxSubtypesForInferredType &&
                         (destType as TypeVarType).shared.boundType !== undefined &&
                         isClassInstance(objectType)
                     ) {
-                        newNarrowTypeBound = combineTypes([curSolvedNarrowTypeBound, objectType], {
-                            maxSubtypeCount: maxSubtypeCountForTypeVarNarrowBound,
+                        newLowerBound = combineTypes([curSolvedLowerBound, objectType], {
+                            maxSubtypeCount: maxSubtypeCountForTypeVarLowerBound,
                         });
                     } else {
-                        newNarrowTypeBound = combineTypes([curSolvedNarrowTypeBound, adjSrcType], {
-                            maxSubtypeCount: maxSubtypeCountForTypeVarNarrowBound,
+                        newLowerBound = combineTypes([curSolvedLowerBound, adjSrcType], {
+                            maxSubtypeCount: maxSubtypeCountForTypeVarLowerBound,
                         });
                     }
                 }
             }
         }
 
-        // If this is an invariant context, make sure the narrow type bound
+        // If this is an invariant context, make sure the lower bound
         // isn't too wide.
-        if (isInvariant && newNarrowTypeBound) {
+        if (isInvariant && newLowerBound) {
             if (
                 !evaluator.assignType(
                     adjSrcType,
-                    newNarrowTypeBound,
+                    newLowerBound,
                     diag?.createAddendum(),
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
@@ -521,7 +522,7 @@ export function assignTypeToTypeVar(
                 if (diag && diagAddendum) {
                     diag.addMessage(
                         LocAddendum.typeAssignmentMismatch().format(
-                            evaluator.printSrcDestTypes(newNarrowTypeBound, adjSrcType)
+                            evaluator.printSrcDestTypes(newLowerBound, adjSrcType)
                         )
                     );
                 }
@@ -529,26 +530,26 @@ export function assignTypeToTypeVar(
             }
         }
 
-        // Make sure we don't exceed the wide type bound.
-        if (curWideTypeBound && newNarrowTypeBound) {
-            if (!isTypeSame(curWideTypeBound, newNarrowTypeBound, {}, recursionCount)) {
-                let adjWideTypeBound = evaluator.makeTopLevelTypeVarsConcrete(
-                    curWideTypeBound,
+        // Make sure we don't exceed the upper bound.
+        if (curUpperBound && newLowerBound) {
+            if (!isTypeSame(curUpperBound, newLowerBound, {}, recursionCount)) {
+                let adjUpperBound = evaluator.makeTopLevelTypeVarsConcrete(
+                    curUpperBound,
                     /* makeParamSpecsConcrete */ true
                 );
 
-                // Convert any remaining (non-top-level) TypeVars in the wide type
+                // Convert any remaining (non-top-level) TypeVars in the upper
                 // bound to in-scope placeholders.
-                adjWideTypeBound = transformExpectedType(
-                    adjWideTypeBound,
+                adjUpperBound = transformExpectedType(
+                    adjUpperBound,
                     /* liveTypeVarScopes */ [],
                     /* usageOffset */ undefined
                 );
 
                 if (
                     !evaluator.assignType(
-                        adjWideTypeBound,
-                        newNarrowTypeBound,
+                        adjUpperBound,
+                        newLowerBound,
                         diag?.createAddendum(),
                         /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
@@ -559,7 +560,7 @@ export function assignTypeToTypeVar(
                     if (diag && diagAddendum) {
                         diag.addMessage(
                             LocAddendum.typeAssignmentMismatch().format(
-                                evaluator.printSrcDestTypes(newNarrowTypeBound, adjWideTypeBound)
+                                evaluator.printSrcDestTypes(newLowerBound, adjUpperBound)
                             )
                         );
                     }
@@ -569,13 +570,13 @@ export function assignTypeToTypeVar(
         }
     }
 
-    if (!newWideTypeBound && isInvariant) {
-        newWideTypeBound = newNarrowTypeBound;
+    if (!newUpperTypeBound && isInvariant) {
+        newUpperTypeBound = newLowerBound;
     }
 
     // If there's a bound type, make sure the source is assignable to it.
     if (destType.shared.boundType) {
-        const updatedType = (newNarrowTypeBound || newWideTypeBound)!;
+        const updatedType = (newLowerBound || newUpperTypeBound)!;
 
         // If the dest is a Type[T] but the source is not a valid Type,
         // skip the assignType check and the diagnostic addendum, which will
@@ -622,8 +623,8 @@ export function assignTypeToTypeVar(
             evaluator,
             typeVarContext,
             destType,
-            newNarrowTypeBound,
-            newWideTypeBound,
+            newLowerBound,
+            newUpperTypeBound,
             (flags & (AssignTypeFlags.PopulatingExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) !== 0
         );
     }
@@ -637,36 +638,36 @@ export function assignTypeToTypeVar(
     return true;
 }
 
-// Updates the narrow and wide type bounds for a type variable. It also calculates the
-// narrowTypeBoundNoLiterals, which is a variant of the narrow type bound that has
+// Updates the lower and upper bounds for a type variable. It also calculates the
+// lowerBoundNoLiterals, which is a variant of the lower bound that has
 // literals stripped. By default, the constraint solver always uses the "no literals"
 // type in its solutions unless the version with literals is required to satisfy
-// the wide type bound.
+// the upper bound.
 export function updateTypeVarType(
     evaluator: TypeEvaluator,
     typeVarContext: TypeVarContext,
     destType: TypeVarType,
-    narrowTypeBound: Type | undefined,
-    wideTypeBound: Type | undefined,
+    lowerBound: Type | undefined,
+    upperBound: Type | undefined,
     forceRetainLiterals = false
 ) {
-    let narrowTypeBoundNoLiterals: Type | undefined;
+    let lowerBoundNoLiterals: Type | undefined;
 
-    if (narrowTypeBound && !forceRetainLiterals) {
+    if (lowerBound && !forceRetainLiterals) {
         const strippedLiteral = isTypeVarTuple(destType)
-            ? stripLiteralValueForUnpackedTuple(evaluator, narrowTypeBound)
-            : evaluator.stripLiteralValue(narrowTypeBound);
+            ? stripLiteralValueForUnpackedTuple(evaluator, lowerBound)
+            : evaluator.stripLiteralValue(lowerBound);
 
-        // Strip the literals from the narrow type bound and see if it is still
-        // narrower than the wide bound.
-        if (strippedLiteral !== narrowTypeBound) {
-            if (!wideTypeBound || evaluator.assignType(wideTypeBound, strippedLiteral)) {
-                narrowTypeBoundNoLiterals = strippedLiteral;
+        // Strip the literals from the lower bound and see if it is still
+        // narrower than the upper bound.
+        if (strippedLiteral !== lowerBound) {
+            if (!upperBound || evaluator.assignType(upperBound, strippedLiteral)) {
+                lowerBoundNoLiterals = strippedLiteral;
             }
         }
     }
 
-    typeVarContext.setTypeVarType(destType, narrowTypeBound, narrowTypeBoundNoLiterals, wideTypeBound); //, tupleTypes);
+    typeVarContext.setTypeVarType(destType, lowerBound, lowerBoundNoLiterals, upperBound); //, tupleTypes);
 }
 
 function assignTypeToConstrainedTypeVar(
@@ -681,10 +682,10 @@ function assignTypeToConstrainedTypeVar(
 ) {
     let constrainedType: Type | undefined;
     const concreteSrcType = evaluator.makeTopLevelTypeVarsConcrete(srcType);
-    const curEntry = typeVarContext.getPrimarySignature().getTypeVar(destType);
+    const curEntry = typeVarContext.getMainSolutionSet().getTypeVar(destType);
 
-    const curWideTypeBound = curEntry?.wideBound;
-    const curNarrowTypeBound = curEntry?.narrowBound;
+    const curUpperBound = curEntry?.upperBound;
+    const curLowerBound = curEntry?.lowerBound;
     let forceRetainLiterals = false;
 
     if (isTypeVar(srcType)) {
@@ -823,10 +824,10 @@ function assignTypeToConstrainedTypeVar(
         forceRetainLiterals = true;
     }
 
-    if (curNarrowTypeBound && !isAnyOrUnknown(curNarrowTypeBound)) {
+    if (curLowerBound && !isAnyOrUnknown(curLowerBound)) {
         if (
             !evaluator.assignType(
-                curNarrowTypeBound,
+                curLowerBound,
                 constrainedType,
                 /* diag */ undefined,
                 /* destTypeVarContext */ undefined,
@@ -841,7 +842,7 @@ function assignTypeToConstrainedTypeVar(
             if (
                 evaluator.assignType(
                     constrainedType,
-                    curNarrowTypeBound,
+                    curLowerBound,
                     /* diag */ undefined,
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
@@ -850,13 +851,13 @@ function assignTypeToConstrainedTypeVar(
                 )
             ) {
                 if (!typeVarContext.isLocked() && isTypeVarInScope) {
-                    updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curWideTypeBound);
+                    updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curUpperBound);
                 }
             } else {
                 diag?.addMessage(
                     LocAddendum.typeConstrainedTypeVar().format({
                         type: evaluator.printType(constrainedType),
-                        name: evaluator.printType(curNarrowTypeBound),
+                        name: evaluator.printType(curLowerBound),
                     })
                 );
                 return false;
@@ -865,14 +866,7 @@ function assignTypeToConstrainedTypeVar(
     } else {
         // Assign the type to the type var.
         if (!typeVarContext.isLocked() && isTypeVarInScope) {
-            updateTypeVarType(
-                evaluator,
-                typeVarContext,
-                destType,
-                constrainedType,
-                curWideTypeBound,
-                forceRetainLiterals
-            );
+            updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curUpperBound, forceRetainLiterals);
         }
     }
 
@@ -881,7 +875,7 @@ function assignTypeToConstrainedTypeVar(
 
 function assignTypeToParamSpec(
     evaluator: TypeEvaluator,
-    destType: TypeVarType,
+    destType: ParamSpecType,
     srcType: Type,
     diag: DiagnosticAddendum | undefined,
     typeVarContext: TypeVarContext,
@@ -890,9 +884,9 @@ function assignTypeToParamSpec(
     let isAssignable = true;
     const adjSrcType = isFunction(srcType) ? convertParamSpecValueToType(srcType) : srcType;
 
-    typeVarContext.doForEachSignature((signatureContext) => {
+    typeVarContext.doForEachSolutionSet((solutionSet) => {
         if (isParamSpec(adjSrcType)) {
-            const existingType = signatureContext.getParamSpecType(destType);
+            const existingType = solutionSet.getTypeVarType(destType);
             if (existingType) {
                 const existingTypeParamSpec = FunctionType.getParamSpecFromArgsKwargs(existingType);
                 const existingTypeWithoutArgsKwargs = FunctionType.cloneRemoveParamSpecArgsKwargs(existingType);
@@ -905,7 +899,7 @@ function assignTypeToParamSpec(
                 }
             } else {
                 if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.priv.scopeId)) {
-                    signatureContext.setTypeVarType(destType, convertTypeToParamSpecValue(adjSrcType));
+                    solutionSet.setTypeVarType(destType, convertTypeToParamSpecValue(adjSrcType));
                 }
                 return;
             }
@@ -913,7 +907,7 @@ function assignTypeToParamSpec(
             const newFunction = adjSrcType;
             let updateContextWithNewFunction = false;
 
-            const existingType = signatureContext.getParamSpecType(destType);
+            const existingType = solutionSet.getTypeVarType(destType);
             if (existingType) {
                 // Convert the remaining portion of the signature to a function
                 // for comparison purposes.
@@ -964,7 +958,7 @@ function assignTypeToParamSpec(
 
             if (updateContextWithNewFunction) {
                 if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.priv.scopeId)) {
-                    signatureContext.setTypeVarType(destType, newFunction);
+                    solutionSet.setTypeVarType(destType, newFunction);
                 }
                 return;
             }
@@ -1041,10 +1035,10 @@ export function addConstraintsForExpectedType(
     if (ClassType.isSameGenericClass(expectedType, type)) {
         const sameClassTypeVarContext = buildTypeVarContextFromSpecializedClass(expectedType);
         sameClassTypeVarContext
-            .getPrimarySignature()
+            .getMainSolutionSet()
             .getTypeVars()
             .forEach((entry) => {
-                let typeArgValue = sameClassTypeVarContext.getPrimarySignature().getTypeVarType(entry.typeVar);
+                let typeArgValue = sameClassTypeVarContext.getMainSolutionSet().getTypeVarType(entry.typeVar);
 
                 if (typeArgValue && liveTypeVarScopes) {
                     typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes, usageOffset);
@@ -1074,7 +1068,7 @@ export function addConstraintsForExpectedType(
         );
         typeVar.shared.isSynthesized = true;
 
-        // Use invariance here so we set the narrow and wide values on the TypeVar.
+        // Use invariance here so we set the lower and upper bound on the TypeVar.
         typeVar.shared.declaredVariance = Variance.Invariant;
         typeVar.priv.scopeId = expectedTypeScopeId;
         return typeVar;
@@ -1108,7 +1102,7 @@ export function addConstraintsForExpectedType(
         let isResultValid = true;
 
         synthExpectedTypeArgs.forEach((typeVar, index) => {
-            let synthTypeVar = syntheticTypeVarContext.getPrimarySignature().getTypeVarType(typeVar);
+            let synthTypeVar = syntheticTypeVarContext.getMainSolutionSet().getTypeVarType(typeVar);
             const otherSubtypes: Type[] = [];
 
             // If the resulting type is a union, try to find a matching type var and move
@@ -1166,7 +1160,7 @@ export function addConstraintsForExpectedType(
                         // If this type variable already has a type, don't overwrite it. This can
                         // happen if a single type variable in the derived class is used multiple times
                         // in the specialized base class type (e.g. Mapping[T, T]).
-                        if (typeVarContext.getPrimarySignature().getTypeVarType(targetTypeVar)) {
+                        if (typeVarContext.getMainSolutionSet().getTypeVarType(targetTypeVar)) {
                             isResultValid = false;
                             typeArgValue = UnknownType.create();
                         }
@@ -1256,38 +1250,38 @@ function stripLiteralValueForUnpackedTuple(evaluator: TypeEvaluator, type: Type)
 // This function is used for debugging only. It dumps the current contents of
 // the TypeVarContext to the console.
 function logTypeVarContext(evaluator: TypeEvaluator, typeVarContext: TypeVarContext, indent: string) {
-    const signatureContextCount = typeVarContext.getSignatureContexts().length;
-    if (signatureContextCount === 0) {
+    const solutionSetCount = typeVarContext.getSolutionSets().length;
+    if (solutionSetCount === 0) {
         console.log(`${indent}  no signatures`);
-    } else if (signatureContextCount === 1) {
-        logTypeVarSignatureContext(evaluator, typeVarContext.getSignatureContexts()[0], `${indent}  `);
+    } else if (solutionSetCount === 1) {
+        logTypeVarSolutionSet(evaluator, typeVarContext.getSolutionSets()[0], `${indent}  `);
     } else {
-        typeVarContext.doForEachSignatureContext((context, signatureIndex) => {
-            console.log(`${indent}  signature ${signatureIndex}`);
-            logTypeVarSignatureContext(evaluator, context, `${indent}    `);
+        typeVarContext.doForEachSolutionSet((solutionSet, index) => {
+            console.log(`${indent}  signature ${index}`);
+            logTypeVarSolutionSet(evaluator, solutionSet, `${indent}    `);
         });
     }
 }
 
-function logTypeVarSignatureContext(evaluator: TypeEvaluator, context: TypeVarSignatureContext, indent: string) {
+function logTypeVarSolutionSet(evaluator: TypeEvaluator, context: TypeVarSolutionSet, indent: string) {
     let loggedConstraint = false;
 
     context.getTypeVars().forEach((entry) => {
         const typeVarName = `${indent}${entry.typeVar.shared.name}`;
-        const narrowBound = entry.narrowBoundNoLiterals ?? entry.narrowBound;
-        const wideBound = entry.wideBound;
+        const lowerBound = entry.lowerBoundNoLiterals ?? entry.lowerBound;
+        const upperBound = entry.upperBound;
 
-        // Log the narrow and wide bounds.
-        if (narrowBound && wideBound && isTypeSame(narrowBound, wideBound)) {
-            console.log(`${typeVarName} = ${evaluator.printType(narrowBound)}`);
+        // Log the lower and upper bounds.
+        if (lowerBound && upperBound && isTypeSame(lowerBound, upperBound)) {
+            console.log(`${typeVarName} = ${evaluator.printType(lowerBound)}`);
             loggedConstraint = true;
         } else {
-            if (narrowBound) {
-                console.log(`${typeVarName} ≤ ${evaluator.printType(narrowBound)}`);
+            if (lowerBound) {
+                console.log(`${typeVarName} ≤ ${evaluator.printType(lowerBound)}`);
                 loggedConstraint = true;
             }
-            if (wideBound) {
-                console.log(`${typeVarName} ≥ ${evaluator.printType(wideBound)}`);
+            if (upperBound) {
+                console.log(`${typeVarName} ≥ ${evaluator.printType(upperBound)}`);
                 loggedConstraint = true;
             }
         }

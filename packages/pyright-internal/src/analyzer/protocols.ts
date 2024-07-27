@@ -753,14 +753,14 @@ function assignClassToProtocolInternal(
             }
         } else if (destTypeVarContext && !destTypeVarContext.isLocked()) {
             for (const typeParam of destType.shared.typeParams) {
-                const typeArgEntry = protocolTypeVarContext.getPrimarySignature().getTypeVar(typeParam);
+                const typeArgEntry = protocolTypeVarContext.getMainSolutionSet().getTypeVar(typeParam);
 
                 if (typeArgEntry) {
                     destTypeVarContext.setTypeVarType(
                         typeParam,
-                        typeArgEntry?.narrowBound,
-                        typeArgEntry?.narrowBoundNoLiterals,
-                        typeArgEntry?.wideBound
+                        typeArgEntry?.lowerBound,
+                        typeArgEntry?.lowerBoundNoLiterals,
+                        typeArgEntry?.upperBound
                     );
                 }
             }
@@ -781,14 +781,14 @@ function createProtocolTypeVarContext(
     const protocolTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
 
     destType.shared.typeParams.forEach((typeParam, index) => {
-        const entry = destTypeVarContext?.getPrimarySignature().getTypeVar(typeParam);
+        const entry = destTypeVarContext?.getMainSolutionSet().getTypeVar(typeParam);
 
         if (entry) {
             protocolTypeVarContext.setTypeVarType(
                 typeParam,
-                entry.narrowBound,
-                entry.narrowBoundNoLiterals,
-                entry.wideBound
+                entry.lowerBound,
+                entry.lowerBoundNoLiterals,
+                entry.upperBound
             );
         } else if (destType.priv.typeArgs && index < destType.priv.typeArgs.length) {
             let typeArg = destType.priv.typeArgs[index];
@@ -798,7 +798,7 @@ function createProtocolTypeVarContext(
             // If the type argument has unsolved TypeVars, see if they have
             // solved values in the destTypeVarContext.
             if (hasUnsolvedTypeVars && destTypeVarContext) {
-                typeArg = applySolvedTypeVars(typeArg, destTypeVarContext, { useNarrowBoundOnly: true });
+                typeArg = applySolvedTypeVars(typeArg, destTypeVarContext, { useLowerBoundOnly: true });
                 flags = AssignTypeFlags.Default;
                 hasUnsolvedTypeVars = requiresSpecialization(typeArg);
             } else {
