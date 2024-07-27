@@ -2780,6 +2780,20 @@ export interface ParamSpecType extends TypeVarType {
     priv: ParamSpecDetailsPriv;
 }
 
+export namespace ParamSpecType {
+    // Returns the "Unknown" equivalent for a ParamSpec.
+    export function getUnknown(): FunctionType {
+        const newFunction = FunctionType.createInstance(
+            '',
+            '',
+            '',
+            FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.GradualCallableForm
+        );
+        FunctionType.addDefaultParams(newFunction);
+        return newFunction;
+    }
+}
+
 export interface TypeVarTupleDetailsPriv extends TypeVarDetailsPriv {
     // Is this variadic TypeVar unpacked (i.e. Unpack or * operator applied)?
     isVariadicUnpacked?: boolean | undefined;

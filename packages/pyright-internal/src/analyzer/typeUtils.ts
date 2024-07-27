@@ -1149,38 +1149,26 @@ export function specializeWithUnknownTypeArgs(type: ClassType, tupleClassType?: 
 
     return ClassType.specialize(
         type,
-        type.shared.typeParams.map((param) => getUnknownTypeForTypeVar(param, tupleClassType)),
+        type.shared.typeParams.map((param) => getUnknownForTypeVar(param, tupleClassType)),
         /* isTypeArgExplicit */ false,
         /* includeSubclasses */ type.priv.includeSubclasses
     );
 }
 
 // Returns "Unknown" for simple TypeVars or the equivalent for a ParamSpec.
-export function getUnknownTypeForTypeVar(typeVar: TypeVarType, tupleClassType?: ClassType): Type {
+export function getUnknownForTypeVar(typeVar: TypeVarType, tupleClassType?: ClassType): Type {
     if (isParamSpec(typeVar)) {
-        return getUnknownTypeForParamSpec();
+        return ParamSpecType.getUnknown();
     }
 
     if (isTypeVarTuple(typeVar) && tupleClassType) {
-        return getUnknownTypeForTypeVarTuple(tupleClassType);
+        return getUnknownForTypeVarTuple(tupleClassType);
     }
 
     return UnknownType.create();
 }
 
-// Returns the "Unknown" equivalent for a ParamSpec.
-export function getUnknownTypeForParamSpec(): FunctionType {
-    const newFunction = FunctionType.createInstance(
-        '',
-        '',
-        '',
-        FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.GradualCallableForm
-    );
-    FunctionType.addDefaultParams(newFunction);
-    return newFunction;
-}
-
-export function getUnknownTypeForTypeVarTuple(tupleClassType: ClassType): Type {
+export function getUnknownForTypeVarTuple(tupleClassType: ClassType): Type {
     assert(isInstantiableClass(tupleClassType) && ClassType.isBuiltIn(tupleClassType, 'tuple'));
 
     return ClassType.cloneAsInstance(
@@ -3414,7 +3402,7 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
         return newFunction;
     }
 
-    return getUnknownTypeForParamSpec();
+    return ParamSpecType.getUnknown();
 }
 
 // Converts a FunctionType into a ParamSpec if it consists only of
@@ -4094,7 +4082,7 @@ class TypeVarAnyReplacer extends TypeVarTransformer {
     }
 
     override transformParamSpec(paramSpec: TypeVarType) {
-        return getUnknownTypeForParamSpec();
+        return ParamSpecType.getUnknown();
     }
 }
 
@@ -4368,7 +4356,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                     return this._solveDefaultType(typeVar, recursionCount);
                 }
 
-                return getUnknownTypeForTypeVar(typeVar, this._options.tupleClassType);
+                return getUnknownForTypeVar(typeVar, this._options.tupleClassType);
             }
         }
 
@@ -4470,7 +4458,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 return convertTypeToParamSpecValue(this.apply(paramSpec.shared.defaultType, recursionCount));
             }
 
-            return getUnknownTypeForParamSpec();
+            return ParamSpecType.getUnknown();
         }
 
         if (!paramSpec.priv.scopeId || !this._typeVarContext.hasSolveForScope(paramSpec.priv.scopeId)) {
@@ -4499,7 +4487,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             }
 
             // Convert to the ParamSpec equivalent of "Unknown".
-            return getUnknownTypeForParamSpec();
+            return ParamSpecType.getUnknown();
         }
 
         return undefined;

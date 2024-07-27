@@ -231,7 +231,6 @@ import {
     getTypeVarScopeId,
     getTypeVarScopeIds,
     getUnknownTypeForCallable,
-    getUnknownTypeForParamSpec,
     isDescriptorInstance,
     isEffectivelyInstantiable,
     isEllipsisType,
@@ -6996,7 +6995,7 @@ export function createTypeEvaluator(
                 typeVarType = paramSpecType ? convertParamSpecValueToType(paramSpecType) : UnknownType.create();
 
                 if (!typeVarType) {
-                    typeVarType = getUnknownTypeForParamSpec();
+                    typeVarType = ParamSpecType.getUnknown();
                     primarySignatureContext.setTypeVarType(typeParam, typeVarType);
                 }
             } else {
@@ -12610,7 +12609,7 @@ export function createTypeEvaluator(
             ClassType.cloneAsInstance(classType)
         );
 
-        paramSpec.shared.defaultType = getUnknownTypeForParamSpec();
+        paramSpec.shared.defaultType = ParamSpecType.getUnknown();
 
         // Parse the remaining parameters.
         for (let i = 1; i < argList.length; i++) {
@@ -21396,7 +21395,7 @@ export function createTypeEvaluator(
                 typeVar.shared.defaultType = defaultType;
                 typeVar.shared.isDefaultExplicit = true;
             } else {
-                typeVar.shared.defaultType = getUnknownTypeForParamSpec();
+                typeVar.shared.defaultType = ParamSpecType.getUnknown();
             }
         } else if (node.d.typeParamKind === TypeParamKind.TypeVarTuple) {
             const defaultType = node.d.defaultExpr

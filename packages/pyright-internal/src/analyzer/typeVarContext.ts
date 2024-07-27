@@ -11,10 +11,10 @@
 
 import { assert } from '../common/debug';
 import { getComplexityScoreForType } from './typeComplexity';
-import { getUnknownTypeForParamSpec } from './typeUtils';
 import {
     FunctionType,
     InScopePlaceholderScopeId,
+    ParamSpecType,
     Type,
     TypeVarScopeId,
     TypeVarType,
@@ -146,7 +146,7 @@ export class TypeVarSignatureContext {
         }
 
         if (isAnyOrUnknown(entry.narrowBound)) {
-            return getUnknownTypeForParamSpec();
+            return ParamSpecType.getUnknown();
         }
 
         return undefined;
