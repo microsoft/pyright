@@ -172,6 +172,13 @@ export class TypeVarSolutionSet {
         lowerBoundNoLiterals?: Type,
         upperBound?: Type
     ) {
+        // For param specs, callers should always convert values to function types.
+        if (isParamSpec(reference)) {
+            assert(!lowerBound || isFunction(lowerBound));
+            assert(!lowerBoundNoLiterals || isFunction(lowerBoundNoLiterals));
+            assert(!upperBound || isFunction(upperBound));
+        }
+
         const key = TypeVarType.getNameWithScope(reference);
         this._typeVarMap.set(key, {
             typeVar: reference,

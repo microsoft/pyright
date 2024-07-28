@@ -25,7 +25,6 @@ import {
     applySolvedTypeVars,
     buildTypeVarContextFromSpecializedClass,
     convertToInstance,
-    convertTypeToParamSpecValue,
     doForEachSignature,
     doForEachSubtype,
     getTypeVarArgsRecursive,
@@ -35,6 +34,7 @@ import {
     lookUpClassMember,
     mapSubtypes,
     selfSpecializeClass,
+    setTypeVarType,
     specializeTupleClass,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -57,7 +57,6 @@ import {
     isInstantiableClass,
     isNever,
     isOverloadedFunction,
-    isParamSpec,
     isTypeVar,
     isUnknown,
 } from './types';
@@ -936,11 +935,7 @@ function createFunctionFromInitMethod(
                 });
 
                 typeVarsInParams.forEach((typeVar) => {
-                    if (isParamSpec(typeVar)) {
-                        typeVarContext.setTypeVarType(typeVar, convertTypeToParamSpecValue(typeVar));
-                    } else {
-                        typeVarContext.setTypeVarType(typeVar, typeVar);
-                    }
+                    setTypeVarType(typeVarContext, typeVar, typeVar);
                 });
 
                 returnType = applySolvedTypeVars(objectType, typeVarContext, {
