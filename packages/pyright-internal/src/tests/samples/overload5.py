@@ -475,3 +475,35 @@ def func24(f: Callable[[_T1], str]) -> float:
 
 def func24(f: Any) -> Any:
     return f
+
+
+_TInt = TypeVar("_TInt", bound=int)
+
+
+@overload
+def func25(val: _TInt) -> list[_TInt]:
+    ...
+
+
+@overload
+def func25(val: str) -> int:
+    ...
+
+
+def func25(val: Any) -> Any:
+    ...
+
+
+@overload
+def func26(val: _T1) -> list[_T1]:
+    ...
+
+
+# This should generate an error because it will never be used.
+@overload
+def func26(val: str) -> int:
+    ...
+
+
+def func26(val: Any) -> Any:
+    ...
