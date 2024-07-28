@@ -899,6 +899,7 @@ export function getTypeOfUnaryOperation(
         [OperatorType.Add]: '__pos__',
         [OperatorType.Subtract]: '__neg__',
         [OperatorType.BitwiseInvert]: '__invert__',
+        [OperatorType.Not]: '__bool__',
     };
 
     let type: Type | undefined;
@@ -956,70 +957,70 @@ export function getTypeOfUnaryOperation(
     }
 
     if (!type) {
+        if (isAnyOrUnknown(exprType)) {
+            type = exprType;
+        } else {
+            const magicMethodName = unaryOperatorMap[node.d.operator];
+            let isResultValid = true;
+
+            type = evaluator.mapSubtypesExpandTypeVars(exprType, /* options */ undefined, (subtypeExpanded) => {
+                const typeResult = evaluator.getTypeOfMagicMethodCall(
+                    subtypeExpanded,
+                    magicMethodName,
+                    [],
+                    node,
+                    inferenceContext
+                );
+
+                if (!typeResult) {
+                    isResultValid = false;
+                }
+
+                if (typeResult?.magicMethodDeprecationInfo) {
+                    deprecatedInfo = typeResult.magicMethodDeprecationInfo;
+                }
+
+                return typeResult?.type;
+            });
+
+            if (!isResultValid) {
+                type = undefined;
+            }
+        }
+
         // __not__ always returns a boolean.
         if (node.d.operator === OperatorType.Not) {
             type = evaluator.getBuiltInObject(node, 'bool');
             if (!type) {
                 type = UnknownType.create();
             }
-        } else {
-            if (isAnyOrUnknown(exprType)) {
-                type = exprType;
-            } else {
-                const magicMethodName = unaryOperatorMap[node.d.operator];
-                let isResultValid = true;
+        }
 
-                type = evaluator.mapSubtypesExpandTypeVars(exprType, /* options */ undefined, (subtypeExpanded) => {
-                    const typeResult = evaluator.getTypeOfMagicMethodCall(
-                        subtypeExpanded,
-                        magicMethodName,
-                        [],
-                        node,
-                        inferenceContext
+        if (!type) {
+            if (!isIncomplete) {
+                if (inferenceContext) {
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportOperatorIssue,
+                        LocMessage.typeNotSupportUnaryOperatorBidirectional().format({
+                            operator: printOperator(node.d.operator),
+                            type: evaluator.printType(exprType),
+                            expectedType: evaluator.printType(inferenceContext.expectedType),
+                        }),
+                        node
                     );
-
-                    if (!typeResult) {
-                        isResultValid = false;
-                    }
-
-                    if (typeResult?.magicMethodDeprecationInfo) {
-                        deprecatedInfo = typeResult.magicMethodDeprecationInfo;
-                    }
-
-                    return typeResult?.type;
-                });
-
-                if (!isResultValid) {
-                    type = undefined;
+                } else {
+                    evaluator.addDiagnostic(
+                        DiagnosticRule.reportOperatorIssue,
+                        LocMessage.typeNotSupportUnaryOperator().format({
+                            operator: printOperator(node.d.operator),
+                            type: evaluator.printType(exprType),
+                        }),
+                        node
+                    );
                 }
             }
 
-            if (!type) {
-                if (!isIncomplete) {
-                    if (inferenceContext) {
-                        evaluator.addDiagnostic(
-                            DiagnosticRule.reportOperatorIssue,
-                            LocMessage.typeNotSupportUnaryOperatorBidirectional().format({
-                                operator: printOperator(node.d.operator),
-                                type: evaluator.printType(exprType),
-                                expectedType: evaluator.printType(inferenceContext.expectedType),
-                            }),
-                            node
-                        );
-                    } else {
-                        evaluator.addDiagnostic(
-                            DiagnosticRule.reportOperatorIssue,
-                            LocMessage.typeNotSupportUnaryOperator().format({
-                                operator: printOperator(node.d.operator),
-                                type: evaluator.printType(exprType),
-                            }),
-                            node
-                        );
-                    }
-                }
-
-                type = UnknownType.create(isIncomplete);
-            }
+            type = UnknownType.create(isIncomplete);
         }
     }
 
