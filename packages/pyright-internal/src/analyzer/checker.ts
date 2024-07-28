@@ -159,6 +159,7 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     selfSpecializeClass,
+    setTypeVarType,
     transformPossibleRecursiveTypeAlias,
     updateTypeWithInternalTypeVars,
 } from './typeUtils';
@@ -986,7 +987,7 @@ export class Checker extends ParseTreeWalker {
                                 if (typeVar.shared.constraints.length > 0) {
                                     const narrowedType = this._evaluator.narrowConstrainedTypeVar(node, typeVar);
                                     if (narrowedType) {
-                                        typeVarContext.setTypeVarType(typeVar, narrowedType);
+                                        setTypeVarType(typeVarContext, typeVar, narrowedType);
                                         typeVarContext.addSolveForScope(getTypeVarScopeId(typeVar));
                                     }
                                 }

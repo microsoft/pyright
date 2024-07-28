@@ -45,6 +45,7 @@ import {
     partiallySpecializeType,
     populateTypeVarContextForSelfType,
     requiresSpecialization,
+    setTypeVarType,
     synthesizeTypeVarForSelfCls,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
@@ -756,7 +757,8 @@ function assignClassToProtocolInternal(
                 const typeArgEntry = protocolTypeVarContext.getMainSolutionSet().getTypeVar(typeParam);
 
                 if (typeArgEntry) {
-                    destTypeVarContext.setTypeVarType(
+                    setTypeVarType(
+                        destTypeVarContext,
                         typeParam,
                         typeArgEntry?.lowerBound,
                         typeArgEntry?.lowerBoundNoLiterals,
@@ -784,7 +786,8 @@ function createProtocolTypeVarContext(
         const entry = destTypeVarContext?.getMainSolutionSet().getTypeVar(typeParam);
 
         if (entry) {
-            protocolTypeVarContext.setTypeVarType(
+            setTypeVarType(
+                protocolTypeVarContext,
                 typeParam,
                 entry.lowerBound,
                 entry.lowerBoundNoLiterals,

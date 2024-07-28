@@ -1510,7 +1510,7 @@ export function populateTypeVarContextForSelfType(
     });
 
     if (!isTypeSame(synthesizedSelfTypeVar, selfWithoutLiteral)) {
-        typeVarContext.setTypeVarType(synthesizedSelfTypeVar, selfInstance, selfWithoutLiteral);
+        setTypeVarType(typeVarContext, synthesizedSelfTypeVar, selfInstance, selfWithoutLiteral);
     }
 }
 
@@ -1573,15 +1573,15 @@ export function applySourceContextTypeVars(destContext: TypeVarContext, srcConte
     });
 }
 
-export function applySourceContextTypeVarsToSignature(destSignature: TypeVarSolutionSet, srcContext: TypeVarContext) {
-    destSignature.getTypeVars().forEach((entry) => {
+export function applySourceContextTypeVarsToSignature(solutionSet: TypeVarSolutionSet, srcContext: TypeVarContext) {
+    solutionSet.getTypeVars().forEach((entry) => {
         const newLowerBound = entry.lowerBound ? applySolvedTypeVars(entry.lowerBound, srcContext) : undefined;
         const newLowerBoundNoLiterals = entry.lowerBoundNoLiterals
             ? applySolvedTypeVars(entry.lowerBoundNoLiterals, srcContext)
             : undefined;
         const newUpperBound = entry.upperBound ? applySolvedTypeVars(entry.upperBound, srcContext) : undefined;
 
-        destSignature.setTypeVarType(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
+        solutionSet.setTypeVarType(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
     });
 }
 
@@ -2099,7 +2099,7 @@ export function specializeClassType(type: ClassType): ClassType {
     const typeParams = ClassType.getTypeParams(type);
 
     typeParams.forEach((typeParam) => {
-        typeVarContext.setTypeVarType(typeParam, applySolvedTypeVars(typeParam.shared.defaultType, typeVarContext));
+        setTypeVarType(typeVarContext, typeParam, applySolvedTypeVars(typeParam.shared.defaultType, typeVarContext));
     });
 
     return applySolvedTypeVars(type, typeVarContext) as ClassType;
@@ -2173,7 +2173,7 @@ export function setTypeArgsRecursive(
 
         case TypeCategory.TypeVar:
             if (!typeVarContext.getMainSolutionSet().getTypeVar(destType)) {
-                typeVarContext.setTypeVarType(destType, srcType);
+                setTypeVarType(typeVarContext, destType, srcType);
             }
             break;
     }
@@ -2233,9 +2233,9 @@ export function buildTypeVarContext(
                                 )
                             );
                         });
-                        typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(typeArgType));
+                        setTypeVarType(typeVarContext, typeParam, typeArgType);
                     } else if (isParamSpec(typeArgType) || isAnyOrUnknown(typeArgType)) {
-                        typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(typeArgType));
+                        setTypeVarType(typeVarContext, typeParam, typeArgType);
                     }
                 }
             } else {
@@ -2245,7 +2245,8 @@ export function buildTypeVarContext(
                     typeArgType = typeArgs[index];
                 }
 
-                typeVarContext.setTypeVarType(
+                setTypeVarType(
+                    typeVarContext,
                     typeParam,
                     typeArgType,
                     /* lowerBoundNoLiterals */ undefined,
@@ -3397,6 +3398,30 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
     return ParamSpecType.getUnknown();
 }
 
+// This function calls the setTypeVarType method on the TypeVarContext after
+// converting the parameters for use with a ParamSpec.
+export function setTypeVarType(
+    typeVarContext: TypeVarContext,
+    typeVar: TypeVarType,
+    lowerBound: Type | undefined,
+    lowerBoundNoLiterals?: Type,
+    upperBound?: Type
+) {
+    if (isParamSpec(typeVar)) {
+        if (lowerBound) {
+            lowerBound = convertTypeToParamSpecValue(lowerBound);
+        }
+        if (lowerBoundNoLiterals) {
+            lowerBoundNoLiterals = convertTypeToParamSpecValue(lowerBoundNoLiterals);
+        }
+        if (upperBound) {
+            lowerBound = convertTypeToParamSpecValue(upperBound);
+        }
+    }
+
+    typeVarContext.setTypeVarType(typeVar, lowerBound, lowerBoundNoLiterals, upperBound);
+}
+
 // Converts a FunctionType into a ParamSpec if it consists only of
 // (* args: P.args, ** kwargs: P.kwargs). Otherwise returns the original type.
 export function convertParamSpecValueToType(type: FunctionType): Type {
@@ -4069,11 +4094,11 @@ class TypeVarAnyReplacer extends TypeVarTransformer {
         super();
     }
 
-    override transformTypeVar(typeVar: TypeVarType) {
+    override transformTypeVar(typeVar: TypeVarType): Type | undefined {
         return AnyType.create();
     }
 
-    override transformParamSpec(paramSpec: TypeVarType) {
+    override transformParamSpec(paramSpec: ParamSpecType): FunctionType | undefined {
         return ParamSpecType.getUnknown();
     }
 }
@@ -4094,7 +4119,7 @@ class TypeVarDefaultValidator extends TypeVarTransformer {
         return UnknownType.create();
     }
 
-    override transformParamSpec(paramSpec: TypeVarType) {
+    override transformParamSpec(paramSpec: ParamSpecType): FunctionType | undefined {
         const replacementType = this._liveTypeParams.find((param) => param.shared.name === paramSpec.shared.name);
         if (!replacementType || !isParamSpec(replacementType)) {
             this._invalidTypeVars.add(paramSpec.shared.name);
@@ -4145,16 +4170,12 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
                 // different (unique) names.
                 sourceType.shared.typeParams.forEach((typeParam) => {
                     if (typeParam.priv.scopeType === TypeVarScopeType.Function) {
-                        let replacement: Type = TypeVarType.cloneForNewName(
+                        const replacement: Type = TypeVarType.cloneForNewName(
                             typeParam,
                             `${typeParam.shared.name}(${offsetIndex})`
                         );
 
-                        if (isParamSpec(replacement)) {
-                            replacement = convertTypeToParamSpecValue(replacement);
-                        }
-
-                        typeVarContext.setTypeVarType(typeParam, replacement);
+                        setTypeVarType(typeVarContext, typeParam, replacement);
                     }
                 });
 
@@ -4176,7 +4197,7 @@ class InternalScopeUpdateTransform extends TypeVarTransformer {
         super();
     }
 
-    override transformTypeVar(typeVar: TypeVarType) {
+    override transformTypeVar(typeVar: TypeVarType): Type | undefined {
         if (this._isTypeVarInScope(typeVar)) {
             return this._replaceTypeVar(typeVar);
         }
@@ -4184,7 +4205,7 @@ class InternalScopeUpdateTransform extends TypeVarTransformer {
         return undefined;
     }
 
-    override transformParamSpec(paramSpec: TypeVarType) {
+    override transformParamSpec(paramSpec: ParamSpecType): FunctionType | undefined {
         if (this._isTypeVarInScope(paramSpec)) {
             return convertTypeToParamSpecValue(this._replaceTypeVar(paramSpec));
         }
@@ -4208,7 +4229,7 @@ class ExternalScopeUpdateTransform extends TypeVarTransformer {
         super();
     }
 
-    override transformTypeVar(typeVar: TypeVarType) {
+    override transformTypeVar(typeVar: TypeVarType): Type | undefined {
         if (typeVar.priv.externalTypeVar && this._isTypeVarInScope(typeVar.priv.externalTypeVar)) {
             return typeVar.priv.externalTypeVar;
         }
@@ -4216,7 +4237,7 @@ class ExternalScopeUpdateTransform extends TypeVarTransformer {
         return undefined;
     }
 
-    override transformParamSpec(paramSpec: TypeVarType) {
+    override transformParamSpec(paramSpec: ParamSpecType): FunctionType | undefined {
         if (paramSpec.priv.externalTypeVar && this._isTypeVarInScope(paramSpec.priv.externalTypeVar)) {
             return convertTypeToParamSpecValue(paramSpec.priv.externalTypeVar);
         }
