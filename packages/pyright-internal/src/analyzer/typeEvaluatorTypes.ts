@@ -251,7 +251,7 @@ export interface TypeResultWithNode extends TypeResult {
 export interface MemberAccessDeprecationInfo {
     accessType: 'property' | 'descriptor';
     accessMethod: 'get' | 'set' | 'del';
-    deprecationMessage: string;
+    deprecatedMessage: string;
 }
 
 export interface EvaluatorUsage {

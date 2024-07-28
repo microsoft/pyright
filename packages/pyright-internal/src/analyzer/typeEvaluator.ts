@@ -3486,6 +3486,7 @@ export function createTypeEvaluator(
             memberResultToCache = {
                 ...resultToCache,
                 type: updateTypeWithExternalTypeVars(resultToCache.type, [enclosingClass.shared.typeVarScopeId]),
+                memberAccessDeprecationInfo: setTypeResult.memberAccessDeprecationInfo,
             };
         }
         writeTypeCache(target.d.member, memberResultToCache, EvalFlags.None);
@@ -6255,7 +6256,7 @@ export function createTypeEvaluator(
             const overloadUsed = callResult.overloadsUsedForCall[0];
             if (overloadUsed.shared.deprecatedMessage) {
                 deprecationInfo = {
-                    deprecationMessage: overloadUsed.shared.deprecatedMessage,
+                    deprecatedMessage: overloadUsed.shared.deprecatedMessage,
                     accessType: ClassType.isPropertyClass(concreteMemberType) ? 'property' : 'descriptor',
                     accessMethod: usage.method,
                 };
