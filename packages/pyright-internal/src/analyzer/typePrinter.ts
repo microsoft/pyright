@@ -717,7 +717,7 @@ function printTypeInternal(
                     // If it's a synthesized type var used to implement `self` or `cls` types,
                     // print the type with a special character that indicates that the type
                     // is internally represented as a TypeVar.
-                    if (type.shared.isSynthesizedSelf && type.shared.boundType) {
+                    if (TypeVarType.isSelf(type) && type.shared.boundType) {
                         let boundTypeString = printTypeInternal(
                             type.shared.boundType,
                             printTypeFlags & ~PrintTypeFlags.ExpandTypeAlias,

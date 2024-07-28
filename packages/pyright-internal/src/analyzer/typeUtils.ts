@@ -375,7 +375,7 @@ export function isTypeVarSame(type1: TypeVarType, type2: Type) {
     }
 
     // If this isn't a bound TypeVar, return false.
-    if (isParamSpec(type1) || isTypeVarTuple(type1) || !type1.shared.boundType) {
+    if (isParamSpec(type1) || isTypeVarTuple(type1) || !TypeVarType.hasBound(type1)) {
         return false;
     }
 
@@ -949,7 +949,7 @@ export function addConditionToType<T extends Type>(
     }
 
     if (skipSelfCondition) {
-        condition = condition.filter((c) => !c.typeVar.shared.isSynthesizedSelf);
+        condition = condition.filter((c) => !TypeVarType.isSelf(c.typeVar));
         if (condition.length === 0) {
             return type;
         }
@@ -3039,7 +3039,7 @@ function _requiresSpecialization(type: Type, options?: RequiresSpecializationOpt
         case TypeCategory.TypeVar: {
             // Most TypeVar types need to be specialized.
             if (!type.shared.recursiveAlias) {
-                if (type.shared.isSynthesizedSelf && options?.ignoreSelf) {
+                if (TypeVarType.isSelf(type) && options?.ignoreSelf) {
                     return false;
                 }
 
@@ -4507,7 +4507,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
         for (const condition of type.props.condition) {
             // This doesn't apply to bound type variables.
-            if (condition.typeVar.shared.constraints.length === 0) {
+            if (!TypeVarType.hasConstraints(condition.typeVar)) {
                 continue;
             }
 

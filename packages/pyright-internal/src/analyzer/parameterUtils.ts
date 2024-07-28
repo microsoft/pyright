@@ -72,7 +72,7 @@ export interface ParamListDetails {
 }
 
 export function firstParamsExcludingSelf(type: FunctionType): FunctionParam | undefined {
-    return type.shared.parameters.find((p) => !(isTypeVar(p.type) && p.type.shared.isSynthesizedSelf));
+    return type.shared.parameters.find((p) => !(isTypeVar(p.type) && TypeVarType.isSelf(p.type)));
 }
 
 // Examines the input parameters within a function signature and creates a

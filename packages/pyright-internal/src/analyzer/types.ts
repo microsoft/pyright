@@ -2916,7 +2916,7 @@ export namespace TypeVarType {
         }
 
         if (type.shared.declaredVariance === Variance.Invariant) {
-            if (type.shared.boundType === undefined && type.shared.constraints.length === 0) {
+            if (!TypeVarType.hasBound(type) && !TypeVarType.hasConstraints(type)) {
                 return type;
             }
         }
@@ -2936,7 +2936,7 @@ export namespace TypeVarType {
     }
 
     export function cloneAsSpecializedSelf(type: TypeVarType, specializedBoundType: Type): TypeVarType {
-        assert(type.shared.isSynthesizedSelf);
+        assert(TypeVarType.isSelf(type));
         const newInstance = TypeBase.cloneType(type);
         newInstance.shared = { ...newInstance.shared };
         newInstance.shared.boundType = specializedBoundType;
@@ -3064,6 +3064,18 @@ export namespace TypeVarType {
     // placeholder that has not yet been resolved.
     export function isTypeAliasPlaceholder(type: TypeVarType) {
         return !!type.shared.recursiveAlias && !type.shared.boundType;
+    }
+
+    export function isSelf(type: TypeVarType) {
+        return !!type.shared.isSynthesizedSelf;
+    }
+
+    export function hasConstraints(type: TypeVarType) {
+        return type.shared.constraints.length > 0;
+    }
+
+    export function hasBound(type: TypeVarType) {
+        return !!type.shared.boundType;
     }
 }
 

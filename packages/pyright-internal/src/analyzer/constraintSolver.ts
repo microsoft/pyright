@@ -166,7 +166,7 @@ export function assignTypeToTypeVar(
 
         // Emit an error unless this is a synthesized type variable used
         // for pseudo-generic classes.
-        if (!destType.shared.isSynthesized || destType.shared.isSynthesizedSelf) {
+        if (!destType.shared.isSynthesized || TypeVarType.isSelf(destType)) {
             diag?.addMessage(
                 LocAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(srcType, destType))
             );
@@ -230,7 +230,7 @@ export function assignTypeToTypeVar(
     // because type narrowing isn't used in this case. For example, if the
     // source type is "Literal[1]" and the constraint list includes the type
     // "float", the resulting type is float.
-    if (destType.shared.constraints.length > 0) {
+    if (TypeVarType.hasConstraints(destType)) {
         return assignTypeToConstrainedTypeVar(
             evaluator,
             destType,
@@ -247,7 +247,7 @@ export function assignTypeToTypeVar(
     const curEntry = typeVarContext.getMainSolutionSet().getTypeVar(destType);
 
     let curUpperBound = curEntry?.upperBound;
-    if (!curUpperBound && !destType.shared.isSynthesizedSelf) {
+    if (!curUpperBound && !TypeVarType.isSelf(destType)) {
         curUpperBound = destType.shared.boundType;
     }
     let curLowerBound = curEntry?.lowerBound;
@@ -490,7 +490,7 @@ export function assignTypeToTypeVar(
                     if (
                         isUnion(curSolvedLowerBound) &&
                         curSolvedLowerBound.priv.subtypes.length > maxSubtypesForInferredType &&
-                        (destType as TypeVarType).shared.boundType !== undefined &&
+                        TypeVarType.hasBound(destType) &&
                         isClassInstance(objectType)
                     ) {
                         newLowerBound = combineTypes([curSolvedLowerBound, objectType], {
@@ -588,7 +588,7 @@ export function assignTypeToTypeVar(
         // In general, bound types cannot be generic, but the "Self" type is an
         // exception. In this case, we need to use the original TypeVarContext
         // to solve for the generic type variable(s) in the bound type.
-        const effectiveTypeVarContext = destType.shared.isSynthesizedSelf
+        const effectiveTypeVarContext = TypeVarType.isSelf(destType)
             ? typeVarContext
             : new TypeVarContext(destType.priv.scopeId);
 
@@ -1007,7 +1007,7 @@ export function addConstraintsForExpectedType(
         return true;
     }
 
-    if (isTypeVar(expectedType) && expectedType.shared.isSynthesizedSelf && expectedType.shared.boundType) {
+    if (isTypeVar(expectedType) && TypeVarType.isSelf(expectedType) && expectedType.shared.boundType) {
         expectedType = expectedType.shared.boundType;
     }
 

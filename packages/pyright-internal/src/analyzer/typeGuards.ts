@@ -976,7 +976,7 @@ function narrowTypeForUserDefinedTypeGuard(
 
             // If the type guard is a non-constrained TypeVar, add a
             // condition to the resulting type.
-            if (isTypeVar(type) && !isParamSpec(type) && type.shared.constraints.length === 0) {
+            if (isTypeVar(type) && !isParamSpec(type) && !TypeVarType.hasConstraints(type)) {
                 result = addConditionToType(result, [{ typeVar: type, constraintIndex: 0 }]);
             }
             return result;
@@ -1069,7 +1069,8 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
             // TypeVar. For all other cases (including constrained TypeVars),
             // use the expanded subtype.
             const adjustedSubtype =
-                isTypeVar(unexpandedSubtype) && unexpandedSubtype.shared.constraints.length === 0
+                isTypeVar(unexpandedSubtype) &&
+                !TypeVarType.hasConstraints(unexpandedSubtype)
                     ? unexpandedSubtype
                     : subtype;
 
@@ -1125,7 +1126,7 @@ function narrowTypeForIsEllipsis(evaluator: TypeEvaluator, type: Type, isPositiv
         // TypeVar. For all other cases (including constrained TypeVars),
         // use the expanded subtype.
         const adjustedSubtype =
-            isTypeVar(unexpandedSubtype) && unexpandedSubtype.shared.constraints.length === 0
+            isTypeVar(unexpandedSubtype) && !TypeVarType.hasConstraints(unexpandedSubtype)
                 ? unexpandedSubtype
                 : subtype;
 
@@ -1425,7 +1426,7 @@ function narrowTypeForIsInstanceInternal(
                         // we haven't learned anything new about the variable type.
 
                         // If the varType is a Self or type[Self], retain the unnarrowedType.
-                        if (isTypeVar(varType) && varType.shared.isSynthesizedSelf) {
+                        if (isTypeVar(varType) && TypeVarType.isSelf(varType)) {
                             filteredTypes.push(addConditionToType(varType, conditions));
                         } else {
                             filteredTypes.push(addConditionToType(concreteVarType, conditions));
@@ -1509,7 +1510,7 @@ function narrowTypeForIsInstanceInternal(
                         // synthesize a new class type that represents an intersection of
                         // the two types.
                         let newClassType = evaluator.createSubclass(errorNode, concreteVarType, concreteFilterType);
-                        if (isTypeVar(varType) && !isParamSpec(varType) && varType.shared.constraints.length === 0) {
+                        if (isTypeVar(varType) && !isParamSpec(varType) && !TypeVarType.hasConstraints(varType)) {
                             newClassType = addConditionToType(newClassType, [{ typeVar: varType, constraintIndex: 0 }]);
                         }
 
