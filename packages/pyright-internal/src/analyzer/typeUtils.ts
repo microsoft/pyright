@@ -187,10 +187,10 @@ export const enum AssignTypeFlags {
     // to detect the recursion after the first level of checking.
     SkipRecursiveTypeCheck = 1 << 2,
 
-    // Normally type vars are treated as variables that need to
-    // be "solved". If this flag is set, they are treated as types
-    // that must match. It is used for overload consistency checking.
-    SkipSolveTypeVars = 1 << 3,
+    // During TypeVar solving for a function call, this flag is set if
+    // this is the first of multiple passes. It adjusts certain heuristics
+    // for constraint solving.
+    ArgAssignmentFirstPass = 1 << 3,
 
     // If the dest is not Any but the src is Any, treat it
     // as incompatible. Also, treat all source TypeVars as their
@@ -216,11 +216,6 @@ export const enum AssignTypeFlags {
     // or cls.
     SkipSelfClsTypeCheck = 1 << 9,
 
-    // If an assignment is made to a TypeVar that is out of scope,
-    // do not generate an error. This is used for populating the
-    // typeVarContext when handling contravariant parameters in a callable.
-    IgnoreTypeVarScope = 1 << 10,
-
     // We're initially populating the typeVarContext with an expected type,
     // so TypeVars should match the specified type exactly rather than
     // employing narrowing or widening, and don't strip literals.
@@ -244,11 +239,6 @@ export const enum AssignTypeFlags {
     // When comparing two methods, skip the type check for the "self" or "cls"
     // parameters. This is used for variance inference and validation.
     SkipSelfClsParamCheck = 1 << 15,
-
-    // During TypeVar solving for a function call, this flag is set if
-    // this is the first of multiple passes. It adjusts certain heuristics
-    // for constraint solving.
-    ArgAssignmentFirstPass = 1 << 16,
 }
 
 export interface ApplyTypeVarOptions {
@@ -4286,7 +4276,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
         // If the type variable is unrelated to the scopes we're solving,
         // don't transform that type variable.
-        if (typeVar.priv.scopeId && this._typeVarContext.hasSolveForScope(typeVar.priv.scopeId)) {
+        if (this._shouldReplaceTypeVar(typeVar)) {
             let replacement = solutionSet.getTypeVarType(typeVar, !!this._options.useLowerBoundOnly);
 
             // If there was no lower bound but there is an upper bound that
@@ -4364,6 +4354,10 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 }
             }
 
+            if (!this._shouldReplaceUnsolvedTypeVar(typeVar)) {
+                return undefined;
+            }
+
             // If this typeVar is in scope for what we're solving but the type
             // var map doesn't contain any entry for it, replace with the
             // default or Unknown.
@@ -4417,8 +4411,8 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         if (this._options.eliminateUnsolvedInUnions) {
             if (
                 isTypeVar(preTransform) &&
-                preTransform.priv.scopeId !== undefined &&
-                this._typeVarContext.hasSolveForScope(preTransform.priv.scopeId)
+                this._shouldReplaceTypeVar(preTransform) &&
+                this._shouldReplaceUnsolvedTypeVar(preTransform)
             ) {
                 const solutionSet = this._typeVarContext.getSolutionSet(this._activeSolutionSetIndex ?? 0);
 
@@ -4445,7 +4439,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     }
 
     override transformTupleTypeVar(typeVar: TypeVarType): TupleTypeArg[] | undefined {
-        if (!typeVar.priv.scopeId || !this._typeVarContext.hasSolveForScope(typeVar.priv.scopeId)) {
+        if (!this._shouldReplaceTypeVar(typeVar)) {
             const defaultType = typeVar.shared.defaultType;
 
             if (typeVar.shared.isDefaultExplicit && isClassInstance(defaultType) && defaultType.priv.tupleTypeArgs) {
@@ -4483,13 +4477,17 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return ParamSpecType.getUnknown();
         }
 
-        if (!paramSpec.priv.scopeId || !this._typeVarContext.hasSolveForScope(paramSpec.priv.scopeId)) {
+        if (!this._shouldReplaceTypeVar(paramSpec)) {
             return undefined;
         }
 
         const transformedParamSpec = solutionSet.getTypeVarType(paramSpec);
         if (transformedParamSpec) {
             return transformedParamSpec;
+        }
+
+        if (!this._shouldReplaceUnsolvedTypeVar(paramSpec)) {
+            return undefined;
         }
 
         let useDefaultOrUnknown = false;
@@ -4577,6 +4575,26 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         }
 
         return OverloadedFunctionType.create(filteredOverloads);
+    }
+
+    private _shouldReplaceTypeVar(typeVar: TypeVarType): boolean {
+        if (!typeVar.priv.scopeId) {
+            return false;
+        }
+
+        if (TypeVarType.hasInternalScopeId(typeVar)) {
+            return false;
+        }
+
+        if (this._options.unknownIfNotFound) {
+            return true;
+        }
+
+        return this._typeVarContext.hasSolveForScope(typeVar.priv.scopeId);
+    }
+
+    private _shouldReplaceUnsolvedTypeVar(typeVar: TypeVarType): boolean {
+        return this._typeVarContext.hasSolveForScope(typeVar.priv.scopeId);
     }
 
     private _solveDefaultType(typeVar: TypeVarType, recursionCount: number) {
