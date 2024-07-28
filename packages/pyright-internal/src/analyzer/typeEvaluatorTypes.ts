@@ -239,6 +239,9 @@ export interface TypeResult<T extends Type = Type> {
     // For member access expressions, deprecation messages related to
     // magic methods invoked via the member access
     memberAccessDeprecationInfo?: MemberAccessDeprecationInfo;
+
+    // Deprecation messages related to magic methods.
+    magicMethodDeprecationInfo?: MagicMethodDeprecationInfo;
 }
 
 export interface TypeResultWithNode extends TypeResult {
@@ -251,6 +254,12 @@ export interface TypeResultWithNode extends TypeResult {
 export interface MemberAccessDeprecationInfo {
     accessType: 'property' | 'descriptor';
     accessMethod: 'get' | 'set' | 'del';
+    deprecatedMessage: string;
+}
+
+export interface MagicMethodDeprecationInfo {
+    className: string;
+    methodName: string;
     deprecatedMessage: string;
 }
 
@@ -608,7 +617,7 @@ export interface TypeEvaluator {
         argList: TypeResult[],
         errorNode: ExpressionNode,
         inferenceContext: InferenceContext | undefined
-    ) => Type | undefined;
+    ) => TypeResult | undefined;
     bindFunctionToClassOrObject: (
         baseType: ClassType | undefined,
         memberType: FunctionType | OverloadedFunctionType,
