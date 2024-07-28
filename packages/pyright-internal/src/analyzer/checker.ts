@@ -4308,7 +4308,10 @@ export class Checker extends ParseTreeWalker {
                         if (node.d.value === overload.shared.name) {
                             deprecatedMessage = overload.shared.deprecatedMessage;
                             errorMessage = getDeprecatedMessageForFunction(overload);
-                        } else if (isInstantiableClass(type) && overload.shared.name === '__init__') {
+                        } else if (
+                            isInstantiableClass(type) &&
+                            ['__init__', '__new__'].includes(overload.shared.name)
+                        ) {
                             deprecatedMessage = overload.shared.deprecatedMessage;
                             errorMessage = LocMessage.deprecatedConstructor().format({
                                 name: type.shared.name,
