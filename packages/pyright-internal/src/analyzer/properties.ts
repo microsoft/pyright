@@ -33,6 +33,7 @@ import {
     ModuleType,
     OverloadedFunctionType,
     Type,
+    TypeVarType,
     UnknownType,
 } from './types';
 import {
@@ -357,7 +358,7 @@ function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     );
 
     let objType = fset.shared.parameters.length > 0 ? FunctionType.getEffectiveParamType(fset, 0) : AnyType.create();
-    if (isTypeVar(objType) && objType.shared.isSynthesizedSelf) {
+    if (isTypeVar(objType) && TypeVarType.isSelf(objType)) {
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
     }
 
@@ -413,7 +414,7 @@ function addDelMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
 
     let objType = fdel.shared.parameters.length > 0 ? FunctionType.getEffectiveParamType(fdel, 0) : AnyType.create();
 
-    if (isTypeVar(objType) && objType.shared.isSynthesizedSelf) {
+    if (isTypeVar(objType) && TypeVarType.isSelf(objType)) {
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
     }
 

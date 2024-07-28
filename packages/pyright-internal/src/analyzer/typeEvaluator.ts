@@ -3850,7 +3850,7 @@ export function createTypeEvaluator(
                     return subtype;
                 }
 
-                if (subtype.shared.constraints.length > 0) {
+                if (TypeVarType.hasConstraints(subtype)) {
                     const typesToCombine: Type[] = [];
 
                     // Expand the list of constrained subtypes, filtering out any that are
@@ -3889,7 +3889,7 @@ export function createTypeEvaluator(
                 let boundType = subtype.shared.boundType ?? getObjectType();
 
                 // If this is a synthesized self/cls type var, self-specialize its type arguments.
-                if (subtype.shared.isSynthesizedSelf && isClass(boundType)) {
+                if (TypeVarType.isSelf(subtype) && isClass(boundType)) {
                     boundType = selfSpecializeClass(boundType, {
                         useInternalTypeVars: TypeVarType.hasInternalScopeId(subtype),
                     });
@@ -3955,8 +3955,8 @@ export function createTypeEvaluator(
 
                     if (transformedType) {
                         // Apply the type condition if it's associated with a constrained TypeVar.
-                        const typeCondition = getTypeCondition(subtype)?.filter(
-                            (condition) => condition.typeVar.shared.constraints.length > 0
+                        const typeCondition = getTypeCondition(subtype)?.filter((condition) =>
+                            TypeVarType.hasConstraints(condition.typeVar)
                         );
 
                         if (typeCondition && typeCondition.length > 0) {
@@ -7544,7 +7544,7 @@ export function createTypeEvaluator(
             let setType = usage.setType?.type ?? AnyType.create();
 
             // Expand constrained type variables.
-            if (isTypeVar(setType) && setType.shared.constraints.length > 0) {
+            if (isTypeVar(setType) && TypeVarType.hasConstraints(setType)) {
                 const conditionFilter = isClassInstance(baseType) ? baseType.props?.condition : undefined;
                 setType = makeTopLevelTypeVarsConcrete(
                     setType,
@@ -9249,7 +9249,7 @@ export function createTypeEvaluator(
             if (isUnion(argType)) {
                 unionToExpand = makeTopLevelTypeVarsConcrete(argType);
                 break;
-            } else if (isTypeVar(argType) && argType.shared.constraints.length > 1) {
+            } else if (isTypeVar(argType) && TypeVarType.hasConstraints(argType)) {
                 unionToExpand = makeTopLevelTypeVarsConcrete(argType);
                 break;
             }
@@ -12302,7 +12302,7 @@ export function createTypeEvaluator(
                 }
 
                 if (paramName === 'bound') {
-                    if (typeVar.shared.constraints.length > 0) {
+                    if (TypeVarType.hasConstraints(typeVar)) {
                         addDiagnostic(
                             DiagnosticRule.reportGeneralTypeIssues,
                             LocMessage.typeVarBoundAndConstrained(),
@@ -12405,7 +12405,7 @@ export function createTypeEvaluator(
 
                 paramNameMap.set(paramName, paramName);
             } else {
-                if (typeVar.shared.boundType) {
+                if (TypeVarType.hasBound(typeVar)) {
                     addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.typeVarBoundAndConstrained(),
@@ -12469,13 +12469,13 @@ export function createTypeEvaluator(
                     defaultValueNode
                 );
             }
-        } else if (typeVar.shared.constraints.length > 0) {
+        } else if (TypeVarType.hasConstraints(typeVar)) {
             let isConstraintCompatible = true;
 
             // If the default type is a constrained TypeVar, make sure all of its constraints
             // are also constraints in typeVar. If the default type is not a constrained TypeVar,
             // use its concrete type to compare against the constraints.
-            if (isTypeVar(typeVar.shared.defaultType) && typeVar.shared.defaultType.shared.constraints.length > 0) {
+            if (isTypeVar(typeVar.shared.defaultType) && TypeVarType.hasConstraints(typeVar.shared.defaultType)) {
                 for (const constraint of typeVar.shared.defaultType.shared.constraints) {
                     if (!typeVar.shared.constraints.some((c) => isTypeSame(c, constraint))) {
                         isConstraintCompatible = false;
@@ -15192,7 +15192,7 @@ export function createTypeEvaluator(
                         const annotationType = getTypeOfAnnotation(firstParamTypeAnnotation, {
                             typeVarGetsCurScope: true,
                         });
-                        if (!isTypeVar(annotationType) || !annotationType.shared.isSynthesizedSelf) {
+                        if (!isTypeVar(annotationType) || !TypeVarType.isSelf(annotationType)) {
                             addDiagnostic(
                                 DiagnosticRule.reportGeneralTypeIssues,
                                 LocMessage.selfTypeWithTypedSelfOrCls(),
@@ -17282,11 +17282,7 @@ export function createTypeEvaluator(
         otherLiveTypeParams: TypeVarType[],
         scopeId: TypeVarScopeId
     ) {
-        if (
-            !typeParam.shared.isDefaultExplicit &&
-            !typeParam.shared.isSynthesized &&
-            !typeParam.shared.isSynthesizedSelf
-        ) {
+        if (!typeParam.shared.isDefaultExplicit && !typeParam.shared.isSynthesized && !TypeVarType.isSelf(typeParam)) {
             const typeVarWithDefault = otherLiveTypeParams.find(
                 (param) => param.shared.isDefaultExplicit && param.priv.scopeId === scopeId
             );
@@ -23431,7 +23427,7 @@ export function createTypeEvaluator(
                 srcType.props?.condition &&
                 srcType.props.condition.some((cond) => {
                     return (
-                        cond.typeVar.shared.constraints.length === 0 &&
+                        !TypeVarType.hasConstraints(cond.typeVar) &&
                         cond.typeVar.priv.nameWithScope === destTypeVar.priv.nameWithScope
                     );
                 })
@@ -23450,10 +23446,10 @@ export function createTypeEvaluator(
             // them to be treated as equivalent to handle certain common idioms.
             if (
                 isTypeVar(srcType) &&
-                srcType.shared.isSynthesizedSelf &&
-                srcType.shared.boundType &&
-                destType.shared.isSynthesizedSelf &&
-                destType.shared.boundType &&
+                TypeVarType.isSelf(srcType) &&
+                TypeVarType.hasBound(srcType) &&
+                TypeVarType.isSelf(destType) &&
+                TypeVarType.hasBound(destType) &&
                 TypeVarType.hasInternalScopeId(destType) === TypeVarType.hasInternalScopeId(srcType) &&
                 TypeBase.isInstance(srcType) === TypeBase.isInstance(destType)
             ) {
@@ -24774,7 +24770,7 @@ export function createTypeEvaluator(
         // If the source is a constrained TypeVar, see if we can assign all of the
         // constraints to the union.
         if (!foundMatch) {
-            if (isTypeVar(srcType) && srcType.shared.constraints.length > 0) {
+            if (isTypeVar(srcType) && TypeVarType.hasConstraints(srcType)) {
                 foundMatch = assignType(
                     destType,
                     makeTopLevelTypeVarsConcrete(srcType),
@@ -24841,7 +24837,7 @@ export function createTypeEvaluator(
                         );
                     }
 
-                    if (destType.shared.constraints.length > 0) {
+                    if (TypeVarType.hasConstraints(destType)) {
                         assert(
                             condition.constraintIndex < destType.shared.constraints.length,
                             'Constraint for constrained TypeVar is out of bounds'
@@ -26706,7 +26702,7 @@ export function createTypeEvaluator(
             return srcType;
         }
 
-        if (isTypeVar(srcType) && srcType.shared.constraints.length > 0) {
+        if (isTypeVar(srcType) && TypeVarType.hasConstraints(srcType)) {
             // Make sure all the source constraint types map to constraint types in the dest.
             if (
                 srcType.shared.constraints.every((sourceConstraint) => {

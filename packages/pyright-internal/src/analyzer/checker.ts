@@ -467,7 +467,7 @@ export class Checker extends ParseTreeWalker {
                                 isUnknown(paramType) ||
                                 (isTypeVar(paramType) &&
                                     paramType.shared.isSynthesized &&
-                                    !paramType.shared.isSynthesizedSelf)
+                                    !TypeVarType.isSelf(paramType))
                             ) {
                                 this._evaluator.addDiagnostic(
                                     DiagnosticRule.reportUnknownParameterType,
@@ -497,7 +497,7 @@ export class Checker extends ParseTreeWalker {
                             hasAnnotation = true;
                         } else {
                             // See if this is a "self" and "cls" parameter. They are exempt from this rule.
-                            if (isTypeVar(paramType) && paramType.shared.isSynthesizedSelf) {
+                            if (isTypeVar(paramType) && TypeVarType.isSelf(paramType)) {
                                 hasAnnotation = true;
                             }
                         }
@@ -980,11 +980,11 @@ export class Checker extends ParseTreeWalker {
                         // try to narrow these TypeVars to a single type.
                         const uniqueTypeVars = getTypeVarArgsRecursive(declaredReturnType);
 
-                        if (uniqueTypeVars && uniqueTypeVars.some((typeVar) => typeVar.shared.constraints.length > 0)) {
+                        if (uniqueTypeVars && uniqueTypeVars.some((typeVar) => TypeVarType.hasConstraints(typeVar))) {
                             const typeVarContext = new TypeVarContext();
 
                             for (const typeVar of uniqueTypeVars) {
-                                if (typeVar.shared.constraints.length > 0) {
+                                if (TypeVarType.hasConstraints(typeVar)) {
                                     const narrowedType = this._evaluator.narrowConstrainedTypeVar(node, typeVar);
                                     if (narrowedType) {
                                         setTypeVarType(typeVarContext, typeVar, narrowedType);
@@ -2384,14 +2384,14 @@ export class Checker extends ParseTreeWalker {
         const nameWalker = new ParseTreeUtils.NameNodeWalker((nameNode, subscriptIndex, baseExpression) => {
             const nameType = this._evaluator.getType(nameNode);
             ``;
-            if (nameType && isTypeVar(nameType) && !nameType.shared.isSynthesizedSelf) {
+            if (nameType && isTypeVar(nameType) && !TypeVarType.isSelf(nameType)) {
                 // Does this name refer to a TypeVar that is scoped to this function?
                 if (nameType.priv.scopeId === ParseTreeUtils.getScopeIdForNode(node)) {
                     // We exempt constrained TypeVars, TypeVars that are type arguments of
                     // other types, and ParamSpecs. There are legitimate uses for singleton
                     // instances in these particular cases.
                     let isExempt =
-                        nameType.shared.constraints.length > 0 ||
+                        TypeVarType.hasConstraints(nameType) ||
                         nameType.shared.isDefaultExplicit ||
                         (exemptBoundTypeVar && subscriptIndex !== undefined) ||
                         isParamSpec(nameType);
@@ -7318,7 +7318,7 @@ export class Checker extends ParseTreeWalker {
                 typeVars.some(
                     (typeVar) =>
                         typeVar.priv.scopeId === functionType.shared.methodClass?.shared.typeVarScopeId &&
-                        !typeVar.shared.isSynthesizedSelf
+                        !TypeVarType.isSelf(typeVar)
                 )
             ) {
                 this._evaluator.addDiagnostic(

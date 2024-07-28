@@ -1462,8 +1462,8 @@ export function getCodeFlowEngine(
     function narrowConstrainedTypeVar(flowNode: FlowNode, typeVar: TypeVarType): ClassType | undefined {
         assert(!isParamSpec(typeVar));
         assert(!isTypeVarTuple(typeVar));
-        assert(!typeVar.shared.boundType);
-        assert(typeVar.shared.constraints.length > 0);
+        assert(!TypeVarType.hasBound(typeVar));
+        assert(TypeVarType.hasConstraints(typeVar));
 
         const visitedFlowNodeMap = new Set<number>();
         const startingConstraints: ClassType[] = [];
@@ -1653,7 +1653,7 @@ export function getCodeFlowEngine(
                 if (
                     !subtype.props.condition.some(
                         (condition) =>
-                            condition.typeVar.shared.constraints.length > 0 &&
+                            TypeVarType.hasConstraints(condition.typeVar) &&
                             condition.typeVar.priv.nameWithScope === typeVar.priv.nameWithScope
                     )
                 ) {
