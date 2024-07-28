@@ -1069,8 +1069,7 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
             // TypeVar. For all other cases (including constrained TypeVars),
             // use the expanded subtype.
             const adjustedSubtype =
-                isTypeVar(unexpandedSubtype) &&
-                !TypeVarType.hasConstraints(unexpandedSubtype)
+                isTypeVar(unexpandedSubtype) && !TypeVarType.hasConstraints(unexpandedSubtype)
                     ? unexpandedSubtype
                     : subtype;
 
