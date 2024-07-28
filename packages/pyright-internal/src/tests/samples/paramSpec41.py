@@ -10,7 +10,7 @@ class A:
     def __init__(self, x: int, y: int, z: str) -> None:
         self.a = x
 
-    # This should generate two errors.
+    # This should generate an error.
     @classmethod
     def f(cls: Callable[P, Self], *args: P.args, **kwargs: P.kwargs) -> int:
         return cls(*args, **kwargs).a
