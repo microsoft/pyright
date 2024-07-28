@@ -263,6 +263,7 @@ import {
     requiresTypeArgs,
     selfSpecializeClass,
     setTypeArgsRecursive,
+    setTypeVarType,
     sortTypes,
     specializeClassType,
     specializeForBaseClass,
@@ -4975,7 +4976,7 @@ export function createTypeEvaluator(
                 }
 
                 defaultTypeArgs.push(defaultType);
-                typeVarContext.setTypeVarType(param, defaultType);
+                setTypeVarType(typeVarContext, param, defaultType);
             });
 
             if (reportMissingTypeArgs) {
@@ -6996,7 +6997,7 @@ export function createTypeEvaluator(
 
                 if (!typeVarType) {
                     typeVarType = ParamSpecType.getUnknown();
-                    mainSolutionSet.setTypeVarType(typeParam, typeVarType);
+                    mainSolutionSet.setTypeVarType(typeParam, convertTypeToParamSpecValue(typeVarType));
                 }
             } else {
                 typeVarType = mainSolutionSet.getTypeVarType(typeParam);
@@ -11404,7 +11405,7 @@ export function createTypeEvaluator(
                 if (index < typeParams.length) {
                     const typeParam = typeParams[index];
                     if (!isTypeSame(typeParam, typeArg, { ignorePseudoGeneric: true })) {
-                        typeVarContext.setTypeVarType(typeParams[index], typeArg);
+                        setTypeVarType(typeVarContext, typeParams[index], typeArg);
                     }
                 }
             });
@@ -20366,7 +20367,7 @@ export function createTypeEvaluator(
                         FunctionType.addDefaultParams(functionType);
                         functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
                         typeArgTypes.push(functionType);
-                        typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(functionType));
+                        setTypeVarType(typeVarContext, typeParam, functionType);
                         return;
                     }
 
@@ -20388,7 +20389,7 @@ export function createTypeEvaluator(
                         }
 
                         typeArgTypes.push(functionType);
-                        typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(functionType));
+                        setTypeVarType(typeVarContext, typeParam, functionType);
                         return;
                     }
 
@@ -20424,7 +20425,7 @@ export function createTypeEvaluator(
 
                 const typeArgType = convertToInstance(typeArgs[index].type);
                 typeArgTypes.push(typeArgType);
-                typeVarContext.setTypeVarType(typeParam, typeArgType);
+                setTypeVarType(typeVarContext, typeParam, typeArgType);
                 return;
             }
 
@@ -20433,11 +20434,7 @@ export function createTypeEvaluator(
                 tupleClassType: getTupleClassType(),
             });
             typeArgTypes.push(solvedDefaultType);
-            if (isParamSpec(typeParam)) {
-                typeVarContext.setTypeVarType(typeParam, convertTypeToParamSpecValue(solvedDefaultType));
-            } else {
-                typeVarContext.setTypeVarType(typeParam, solvedDefaultType);
-            }
+            setTypeVarType(typeVarContext, typeParam, solvedDefaultType);
         });
 
         typeArgTypes = typeArgTypes.map((typeArgType, index) => {
@@ -26874,7 +26871,8 @@ export function createTypeEvaluator(
                 // we attempt to call assignType, we'll risk infinite recursion.
                 // Instead, we'll assume it's assignable.
                 if (!typeVarContext.isLocked()) {
-                    typeVarContext.setTypeVarType(
+                    setTypeVarType(
+                        typeVarContext,
                         memberTypeFirstParamType,
                         TypeBase.isInstantiable(memberTypeFirstParamType)
                             ? convertToInstance(firstParamType)
