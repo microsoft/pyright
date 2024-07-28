@@ -148,6 +148,7 @@ import {
     getSpecializedTupleType,
     getTypeVarArgsRecursive,
     getTypeVarScopeId,
+    getTypeVarScopeIds,
     isLiteralType,
     isLiteralTypeOrUnion,
     isNoneInstance,
@@ -960,20 +961,13 @@ export class Checker extends ParseTreeWalker {
                     );
                 } else {
                     const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
-                    declaredReturnType = updateTypeWithInternalTypeVars(declaredReturnType, liveScopes);
                     declaredReturnType = this._evaluator.stripTypeGuard(declaredReturnType);
+                    let adjReturnType = updateTypeWithInternalTypeVars(declaredReturnType, liveScopes);
 
                     let diagAddendum = new DiagnosticAddendum();
                     let returnTypeMatches = false;
 
-                    if (
-                        this._evaluator.assignType(
-                            declaredReturnType,
-                            returnType,
-                            diagAddendum,
-                            /* destTypeVarContext */ new TypeVarContext()
-                        )
-                    ) {
+                    if (this._evaluator.assignType(adjReturnType, returnType, diagAddendum)) {
                         returnTypeMatches = true;
                     } else {
                         // See if the declared return type includes one or more constrained TypeVars. If so,
@@ -985,7 +979,10 @@ export class Checker extends ParseTreeWalker {
 
                             for (const typeVar of uniqueTypeVars) {
                                 if (TypeVarType.hasConstraints(typeVar)) {
-                                    const narrowedType = this._evaluator.narrowConstrainedTypeVar(node, typeVar);
+                                    const narrowedType = this._evaluator.narrowConstrainedTypeVar(
+                                        node,
+                                        TypeVarType.cloneWithInternalScopeId(typeVar)
+                                    );
                                     if (narrowedType) {
                                         setTypeVarType(typeVarContext, typeVar, narrowedType);
                                         typeVarContext.addSolveForScope(getTypeVarScopeId(typeVar));
@@ -994,10 +991,10 @@ export class Checker extends ParseTreeWalker {
                             }
 
                             if (!typeVarContext.isEmpty()) {
-                                let adjustedReturnType = applySolvedTypeVars(declaredReturnType, typeVarContext);
-                                adjustedReturnType = this._evaluator.stripTypeGuard(adjustedReturnType);
+                                adjReturnType = applySolvedTypeVars(declaredReturnType, typeVarContext);
+                                adjReturnType = updateTypeWithInternalTypeVars(adjReturnType, liveScopes);
 
-                                if (this._evaluator.assignType(adjustedReturnType, returnType, diagAddendum)) {
+                                if (this._evaluator.assignType(adjReturnType, returnType, diagAddendum)) {
                                     returnTypeMatches = true;
                                 }
                             }
@@ -2669,9 +2666,9 @@ export class Checker extends ParseTreeWalker {
                         returnType,
                         prevReturnType,
                         /* diag */ undefined,
-                        new TypeVarContext(),
+                        /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.SkipSolveTypeVars | AssignTypeFlags.IgnoreTypeVarScope
+                        AssignTypeFlags.Default
                     )
                 ) {
                     const altNode = this._findNodeForOverload(node, prevOverload);
@@ -2726,17 +2723,35 @@ export class Checker extends ParseTreeWalker {
             flags |= AssignTypeFlags.PartialOverloadOverlap;
         }
 
+        const functionNode = functionType.shared.declaration?.node;
+        if (functionNode) {
+            const liveTypeVars = ParseTreeUtils.getTypeVarScopesForNode(functionNode);
+            functionType = updateTypeWithInternalTypeVars(functionType, liveTypeVars);
+        }
+
+        // Use the parent node of the declaration in this case so we don't transform
+        // function-local type variables into internal type variables.
+        const prevOverloadNode = prevOverload.shared.declaration?.node?.parent;
+        if (prevOverloadNode) {
+            const liveTypeVars = ParseTreeUtils.getTypeVarScopesForNode(prevOverloadNode);
+            prevOverload = updateTypeWithInternalTypeVars(prevOverload, liveTypeVars);
+        }
+
         return this._evaluator.assignType(
             functionType,
             prevOverload,
             /* diag */ undefined,
-            new TypeVarContext(),
+            /* destTypeVarContext */ undefined,
             /* srcTypeVarContext */ undefined,
             flags
         );
     }
 
-    private _isLegalOverloadImplementation(
+    // Determines whether the implementation of an overload is compatible with an
+    // overload signature. To be compatible, the implementation must accept all
+    // of the same arguments as the overload and return a type that is consistent
+    // with the overload's return type.
+    private _validateOverloadImplementation(
         overload: FunctionType,
         implementation: FunctionType,
         diag: DiagnosticAddendum | undefined
@@ -2757,12 +2772,21 @@ export class Checker extends ParseTreeWalker {
         );
 
         // Now check the return types.
-        const overloadReturnType =
+        let overloadReturnType =
             overload.shared.declaredReturnType ?? this._evaluator.getFunctionInferredReturnType(overload);
-        const implementationReturnType = applySolvedTypeVars(
+        let implementationReturnType = applySolvedTypeVars(
             implementation.shared.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation),
             implTypeVarContext
         );
+
+        if (implementation.shared.declaration?.node?.parent) {
+            // Use the parent node of the implementation to determine which type variables
+            // are live. This will include any class-scoped type variables if this is an
+            // overloaded method.
+            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(implementation.shared.declaration.node.parent);
+            implementationReturnType = updateTypeWithInternalTypeVars(implementationReturnType, liveScopeIds);
+            overloadReturnType = updateTypeWithInternalTypeVars(overloadReturnType, liveScopeIds);
+        }
 
         const returnDiag = new DiagnosticAddendum();
         if (
@@ -2773,7 +2797,7 @@ export class Checker extends ParseTreeWalker {
                 returnDiag.createAddendum(),
                 implTypeVarContext,
                 overloadTypeVarContext,
-                AssignTypeFlags.SkipSolveTypeVars
+                AssignTypeFlags.Default
             )
         ) {
             returnDiag.addMessage(
@@ -3171,7 +3195,7 @@ export class Checker extends ParseTreeWalker {
         // Verify that all overload signatures are assignable to implementation signature.
         OverloadedFunctionType.getOverloads(type).forEach((overload, index) => {
             const diag = new DiagnosticAddendum();
-            if (!this._isLegalOverloadImplementation(overload, implementationFunction!, diag)) {
+            if (!this._validateOverloadImplementation(overload, implementationFunction!, diag)) {
                 if (implementationFunction!.shared.declaration) {
                     const diagnostic = this._evaluator.addDiagnostic(
                         DiagnosticRule.reportInconsistentOverload,
@@ -4763,7 +4787,8 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (isTypeIs) {
-            const typeGuardType = returnType.priv.typeArgs[0];
+            const scopeIds = getTypeVarScopeIds(functionType) ?? [];
+            const typeGuardType = updateTypeWithInternalTypeVars(returnType.priv.typeArgs[0], scopeIds);
 
             // Determine the type of the first parameter.
             const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
@@ -4771,7 +4796,10 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
-            const paramType = FunctionType.getEffectiveParamType(functionType, paramIndex);
+            const paramType = updateTypeWithInternalTypeVars(
+                FunctionType.getEffectiveParamType(functionType, paramIndex),
+                scopeIds
+            );
 
             // Verify that the typeGuardType is a narrower type than the paramType.
             if (!this._evaluator.assignType(paramType, typeGuardType)) {
@@ -5782,8 +5810,15 @@ export class Checker extends ParseTreeWalker {
                     );
 
                     if (matchingMroClass && isInstantiableClass(matchingMroClass)) {
-                        const matchingMroObject = ClassType.cloneAsInstance(matchingMroClass);
-                        const baseClassMroObject = ClassType.cloneAsInstance(specializedBaseClassMroClass);
+                        const scopeIds = getTypeVarScopeIds(classType) ?? [];
+                        const matchingMroObject = updateTypeWithInternalTypeVars(
+                            ClassType.cloneAsInstance(matchingMroClass),
+                            scopeIds
+                        );
+                        const baseClassMroObject = updateTypeWithInternalTypeVars(
+                            ClassType.cloneAsInstance(specializedBaseClassMroClass),
+                            scopeIds
+                        );
 
                         if (!this._evaluator.assignType(matchingMroObject, baseClassMroObject)) {
                             const diag = new DiagnosticAddendum();
@@ -7377,8 +7412,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const typeVarContext = new TypeVarContext(getTypeVarScopeId(functionType));
-        if (!this._evaluator.assignType(paramType, expectedType, /* diag */ undefined, typeVarContext)) {
+        if (!this._evaluator.assignType(paramType, expectedType)) {
             // We exempt Never from this check because it has a legitimate use in this case.
             if (!isNever(paramType)) {
                 this._evaluator.addDiagnostic(
