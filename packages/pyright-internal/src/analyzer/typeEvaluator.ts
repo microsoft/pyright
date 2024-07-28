@@ -179,6 +179,7 @@ import {
     ExpectedTypeOptions,
     ExpectedTypeResult,
     FunctionTypeResult,
+    MagicMethodDeprecationInfo,
     MapSubtypesOptions,
     MemberAccessDeprecationInfo,
     PrintTypeOptions,
@@ -2750,7 +2751,7 @@ export function createTypeEvaluator(
                     return NeverType.createNever();
                 }
 
-                const iterReturnType = getTypeOfMagicMethodCall(subtype, iterMethodName, [], errorNode);
+                const iterReturnType = getTypeOfMagicMethodCall(subtype, iterMethodName, [], errorNode)?.type;
 
                 if (!iterReturnType) {
                     // There was no __iter__. See if we can fall back to
@@ -2768,7 +2769,7 @@ export function createTypeEvaluator(
                                 },
                             ],
                             errorNode
-                        );
+                        )?.type;
                         if (getItemReturnType) {
                             return getItemReturnType;
                         }
@@ -2783,7 +2784,7 @@ export function createTypeEvaluator(
                             return subtype;
                         }
 
-                        let nextReturnType = getTypeOfMagicMethodCall(subtype, nextMethodName, [], errorNode);
+                        let nextReturnType = getTypeOfMagicMethodCall(subtype, nextMethodName, [], errorNode)?.type;
 
                         if (!nextReturnType) {
                             iterReturnTypeDiag.addMessage(
@@ -2863,7 +2864,7 @@ export function createTypeEvaluator(
             }
 
             if (isClass(subtype)) {
-                const iterReturnType = getTypeOfMagicMethodCall(subtype, iterMethodName, [], errorNode);
+                const iterReturnType = getTypeOfMagicMethodCall(subtype, iterMethodName, [], errorNode)?.type;
 
                 if (iterReturnType) {
                     return makeTopLevelTypeVarsConcrete(iterReturnType);
@@ -13110,8 +13111,11 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         inferenceContext?: InferenceContext,
         diag?: DiagnosticAddendum
-    ): Type | undefined {
+    ): TypeResult | undefined {
         let magicMethodSupported = true;
+        let isIncomplete = false;
+        let deprecationInfo: MagicMethodDeprecationInfo | undefined;
+        const overloadsUsedForCall: FunctionType[] = [];
 
         // Create a helper lambda for object subtypes.
         const handleSubtype = (subtype: ClassType | TypeVarType) => {
@@ -13162,6 +13166,23 @@ export function createTypeEvaluator(
 
                 if (callResult.argumentErrors) {
                     magicMethodSupported = false;
+                } else if (callResult.overloadsUsedForCall) {
+                    callResult.overloadsUsedForCall.forEach((overload) => {
+                        overloadsUsedForCall.push(overload);
+
+                        // If one of the overloads is deprecated, note the message.
+                        if (overload.shared.deprecatedMessage && isClass(concreteSubtype)) {
+                            deprecationInfo = {
+                                deprecatedMessage: overload.shared.deprecatedMessage,
+                                className: concreteSubtype.shared.name,
+                                methodName,
+                            };
+                        }
+                    });
+                }
+
+                if (callResult.isTypeIncomplete) {
+                    isIncomplete = true;
                 }
 
                 return callResult.returnType;
@@ -13202,7 +13223,7 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        return returnType;
+        return { type: returnType, isIncomplete, magicMethodDeprecationInfo: deprecationInfo, overloadsUsedForCall };
     }
 
     function getTypeOfDictionary(
@@ -18930,7 +18951,7 @@ export function createTypeEvaluator(
                     node.d.expr,
                     /* inferenceContext */ undefined,
                     additionalHelp.createAddendum()
-                );
+                )?.type;
 
                 if (enterType) {
                     // For "async while", an implicit "await" is performed.
@@ -18949,7 +18970,7 @@ export function createTypeEvaluator(
                             [],
                             node.d.expr,
                             /* inferenceContext */ undefined
-                        )
+                        )?.type
                     ) {
                         additionalHelp.addMessage(LocAddendum.asyncHelp());
                     }
@@ -18982,7 +19003,7 @@ export function createTypeEvaluator(
                     [anyArg, anyArg, anyArg],
                     node.d.expr,
                     /* inferenceContext */ undefined
-                );
+                )?.type;
 
                 if (exitType) {
                     return;

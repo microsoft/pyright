@@ -1225,7 +1225,9 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitAugmentedAssignment(node: AugmentedAssignmentNode): boolean {
-        this._evaluator.evaluateTypesForStatement(node);
+        const typeResult = this._evaluator.getTypeResult(node);
+        this._reportDeprecatedUseForOperation(node.d.destExpr, typeResult);
+
         return true;
     }
 
@@ -1315,7 +1317,9 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        this._evaluator.getType(node);
+        const typeResult = this._evaluator.getTypeResult(node);
+        this._reportDeprecatedUseForOperation(node.d.leftExpr, typeResult);
+
         return true;
     }
 
@@ -1339,7 +1343,9 @@ export class Checker extends ParseTreeWalker {
             this._validateConditionalIsBool(node.d.expr);
         }
 
-        this._evaluator.getType(node);
+        const typeResult = this._evaluator.getTypeResult(node);
+        this._reportDeprecatedUseForOperation(node.d.expr, typeResult);
+
         return true;
     }
 
@@ -1807,7 +1813,7 @@ export class Checker extends ParseTreeWalker {
                 [],
                 node,
                 /* inferenceContext */ undefined
-            );
+            )?.type;
 
             if (!boolReturnType || isAnyOrUnknown(boolReturnType)) {
                 return undefined;
@@ -4226,6 +4232,22 @@ export class Checker extends ParseTreeWalker {
         if (errorMessage) {
             this._reportDeprecatedDiagnostic(node, errorMessage, info.deprecatedMessage);
         }
+    }
+
+    private _reportDeprecatedUseForOperation(node: ExpressionNode, typeResult: TypeResult | undefined) {
+        const deprecationInfo = typeResult?.magicMethodDeprecationInfo;
+        if (!deprecationInfo) {
+            return;
+        }
+
+        this._reportDeprecatedDiagnostic(
+            node,
+            LocMessage.deprecatedMethod().format({
+                className: deprecationInfo.className,
+                name: deprecationInfo.methodName,
+            }),
+            deprecationInfo.deprecatedMessage
+        );
     }
 
     private _reportDeprecatedUseForType(node: NameNode, type: Type | undefined, isImportFromTyping = false) {
