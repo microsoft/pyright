@@ -1053,57 +1053,53 @@ function narrowTypeForIsNone(evaluator: TypeEvaluator, type: Type, isPositiveTes
         return transformPossibleRecursiveTypeAlias(subtype);
     });
 
-    let resultIncludesNoneSubtype = false;
-
     const result = evaluator.mapSubtypesExpandTypeVars(
         expandedType,
         /* options */ undefined,
         (subtype, unexpandedSubtype) => {
             if (isAnyOrUnknown(subtype)) {
-                // We need to assume that "Any" is always both None and not None,
-                // so it matches regardless of whether the test is positive or negative.
-                return subtype;
+                return isPositiveTest ? evaluator.getNoneType() : subtype;
             }
 
-            // If this is a TypeVar that isn't constrained, use the unexpanded
-            // TypeVar. For all other cases (including constrained TypeVars),
-            // use the expanded subtype.
-            const adjustedSubtype =
-                isTypeVar(unexpandedSubtype) && !TypeVarType.hasConstraints(unexpandedSubtype)
-                    ? unexpandedSubtype
-                    : subtype;
+            let useExpandedSubtype = false;
+            if (isTypeVar(unexpandedSubtype) && !TypeVarType.isSelf(unexpandedSubtype)) {
+                // If the TypeVar has value constraints and one or more of them
+                // are possibly compatible with None, use the expanded subtypes.
+                if (
+                    unexpandedSubtype.shared.constraints.some((constraint) => {
+                        return evaluator.assignType(constraint, evaluator.getNoneType());
+                    })
+                ) {
+                    useExpandedSubtype = true;
+                }
 
-            // See if it's a match for object.
-            if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'object')) {
-                resultIncludesNoneSubtype = true;
+                // If the TypeVar han an explicit bound that is possibly compatible
+                // with None (e.g. "T: int | None"), use the expanded subtypes.
+                if (
+                    unexpandedSubtype.shared.boundType &&
+                    evaluator.assignType(unexpandedSubtype.shared.boundType, evaluator.getNoneType())
+                ) {
+                    useExpandedSubtype = true;
+                }
+            }
+
+            const adjustedSubtype = useExpandedSubtype ? subtype : unexpandedSubtype;
+
+            // Is it an exact match for None?
+            if (isNoneInstance(subtype)) {
+                return isPositiveTest ? adjustedSubtype : undefined;
+            }
+
+            // Is it potentially None?
+            if (evaluator.assignType(subtype, evaluator.getNoneType())) {
                 return isPositiveTest
                     ? addConditionToType(evaluator.getNoneType(), subtype.props?.condition)
                     : adjustedSubtype;
             }
 
-            // See if it's a match for None.
-            if (isNoneInstance(subtype) === isPositiveTest) {
-                resultIncludesNoneSubtype = true;
-
-                if (isTypeVar(adjustedSubtype) && adjustedSubtype.shared.isSynthesizedSelf) {
-                    return adjustedSubtype;
-                }
-
-                return subtype;
-            }
-
-            return undefined;
+            return isPositiveTest ? undefined : adjustedSubtype;
         }
     );
-
-    // If this is a positive test and the result is a union that includes None,
-    // we can eliminate all the non-None subtypes include Any or Unknown. If some
-    // of the subtypes are None types with conditions, retain those.
-    if (isPositiveTest && resultIncludesNoneSubtype) {
-        return mapSubtypes(result, (subtype) => {
-            return isNoneInstance(subtype) ? subtype : undefined;
-        });
-    }
 
     return result;
 }
