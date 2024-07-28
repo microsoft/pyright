@@ -93,6 +93,16 @@ def func8(x: _T3) -> _T3:
     return x
 
 
+_T4 = TypeVar("_T4")
+
+
+def func9(value: type[_T4] | None):
+    if value is None:
+        reveal_type(value, expected_text="None")
+    else:
+        reveal_type(value, expected_text="type[_T4@func9]")
+
+
 class A:
     def __init__(self, parent: Self | None) -> None:
         self.parent = parent
