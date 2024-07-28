@@ -187,10 +187,10 @@ export const enum AssignTypeFlags {
     // to detect the recursion after the first level of checking.
     SkipRecursiveTypeCheck = 1 << 2,
 
-    // Normally type vars are treated as variables that need to
-    // be "solved". If this flag is set, they are treated as types
-    // that must match. It is used for overload consistency checking.
-    SkipSolveTypeVars = 1 << 3,
+    // During TypeVar solving for a function call, this flag is set if
+    // this is the first of multiple passes. It adjusts certain heuristics
+    // for constraint solving.
+    ArgAssignmentFirstPass = 1 << 3,
 
     // If the dest is not Any but the src is Any, treat it
     // as incompatible. Also, treat all source TypeVars as their
@@ -215,11 +215,6 @@ export const enum AssignTypeFlags {
     // because overloads can provide explicit type annotations for self
     // or cls.
     SkipSelfClsTypeCheck = 1 << 9,
-
-    // If an assignment is made to a TypeVar that is out of scope,
-    // do not generate an error. This is used for populating the
-    // typeVarContext when handling contravariant parameters in a callable.
-    IgnoreTypeVarScope = 1 << 10,
 
     // We're initially populating the typeVarContext with an expected type,
     // so TypeVars should match the specified type exactly rather than

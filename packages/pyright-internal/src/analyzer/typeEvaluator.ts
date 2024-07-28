@@ -419,8 +419,7 @@ interface MatchedOverloadInfo {
 interface ValidateArgTypeOptions {
     skipUnknownArgCheck?: boolean;
     skipOverloadArg?: boolean;
-    skipBareTypeVarExpectedType?: boolean;
-    useLowerBoundOnly?: boolean;
+    isArgFirstPass?: boolean;
     conditionFilter?: TypeCondition[];
 }
 
@@ -1118,7 +1117,7 @@ export function createTypeEvaluator(
                         diag,
                         /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.IgnoreTypeVarScope
+                        AssignTypeFlags.Default
                     )
                 ) {
                     typeResult.typeErrors = true;
@@ -6480,12 +6479,11 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        const typeVarContext = new TypeVarContext(getTypeVarScopeId(accessMemberType));
         const callResult = validateCallArgs(
             errorNode,
             argList,
             { type: accessMemberType },
-            typeVarContext,
+            /* typeVarContext */ undefined,
             /* skipUnknownArgCheck */ true,
             /* inferenceContext */ undefined
         );
@@ -11232,7 +11230,7 @@ export function createTypeEvaluator(
                         /* diag */ undefined,
                         /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.IgnoreTypeVarScope
+                        AssignTypeFlags.Default
                     )
                 ) {
                     const anyOrUnknown = containsAnyOrUnknown(callResult.returnType, /* recurse */ true);
@@ -11446,11 +11444,6 @@ export function createTypeEvaluator(
                         // because the selection of the proper overload may depend
                         // on type arguments supplied by other function arguments.
 
-                        // We set useLowerBoundOnly to true if this is the first
-                        // (but not only) pass through the parameter list because a wide
-                        // bound on a TypeVar (if a lower bound has not yet been
-                        // established) will unnecessarily constrain the expected type.
-
                         // If the param type is a "bare" TypeVar, don't use it as an
                         // expected type during the first pass. This causes problems for
                         // cases where the the call expression result can influence the
@@ -11462,8 +11455,7 @@ export function createTypeEvaluator(
                             {
                                 skipUnknownArgCheck,
                                 skipOverloadArg: i === 0,
-                                skipBareTypeVarExpectedType: i === 0,
-                                useLowerBoundOnly: passCount > 1 && i === 0,
+                                isArgFirstPass: passCount > 1 && i === 0,
                                 conditionFilter: typeCondition,
                             }
                         );
@@ -11581,27 +11573,7 @@ export function createTypeEvaluator(
             returnType = TypeBase.cloneForCondition(returnType, condition);
         }
 
-        // Determine whether the expression being evaluated is within the current TypeVar
-        // scope. If not, then the expression is invoking a function in another scope,
-        // and we should eliminate unsolved type variables from union types that appear
-        // in the return type. If we're within the same scope, we should retain these
-        // extra type variables because they are still potentially relevant within this
-        // scope.
         let eliminateUnsolvedInUnions = true;
-        let curNode: ParseNode | undefined = errorNode;
-        while (curNode) {
-            const typeVarScopeNode = ParseTreeUtils.getTypeVarScopeNode(curNode);
-            if (!typeVarScopeNode) {
-                break;
-            }
-
-            const typeVarScopeId = ParseTreeUtils.getScopeIdForNode(typeVarScopeNode);
-            if (typeVarContext.hasSolveForScope(typeVarScopeId)) {
-                eliminateUnsolvedInUnions = false;
-            }
-
-            curNode = typeVarScopeNode.parent;
-        }
 
         // If the function is returning a callable, don't eliminate unsolved
         // type vars within a union. There are legit uses for unsolved type vars
@@ -11610,19 +11582,8 @@ export function createTypeEvaluator(
             eliminateUnsolvedInUnions = false;
         }
 
-        // We'll leave TypeVars unsolved if the call is a recursive
-        // call to a generic function or if this isn't a callable
-        // return with type parameters that are rescoped from the original
-        // function to the returned callable.
-        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
-        const unknownIfNotFound = !liveTypeVarScopes.some(
-            (typeVarScope) =>
-                typeVarContext.hasSolveForScope(typeVarScope) ||
-                typeVarContext.hasSolveForScope(TypeVarType.makeInternalScopeId(typeVarScope))
-        );
-
         let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
-            unknownIfNotFound,
+            unknownIfNotFound: true,
             tupleClassType: getTupleClassType(),
             unknownExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
             eliminateUnsolvedInUnions,
@@ -11650,6 +11611,7 @@ export function createTypeEvaluator(
             specializedReturnType = ClassType.cloneForUnpacked(specializedReturnType, /* isUnpackedTuple */ false);
         }
 
+        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(errorNode);
         specializedReturnType = adjustCallableReturnType(type, specializedReturnType, liveTypeVarScopes);
 
         if (specializedInitSelfType) {
@@ -11930,7 +11892,6 @@ export function createTypeEvaluator(
         let isCompatible = true;
         const functionName = typeResult?.type.shared.name;
         let skippedBareTypeVarExpectedType = false;
-        let skipSolveTypeVars = false;
 
         if (argParam.argument.valueExpression) {
             let expectedType: Type | undefined;
@@ -11943,7 +11904,7 @@ export function createTypeEvaluator(
                 }
             });
 
-            if (!options.skipBareTypeVarExpectedType || !isExpectedTypeBareTypeVar) {
+            if (!options.isArgFirstPass || !isExpectedTypeBareTypeVar) {
                 expectedType = argParam.paramType;
 
                 // If the parameter type is a function with a ParamSpec, don't apply
@@ -11956,19 +11917,11 @@ export function createTypeEvaluator(
 
                 if (!skipApplySolvedTypeVars) {
                     expectedType = applySolvedTypeVars(expectedType, typeVarContext, {
-                        useLowerBoundOnly: !!options.useLowerBoundOnly,
+                        useLowerBoundOnly: !!options.isArgFirstPass,
                     });
                 }
             } else {
                 skippedBareTypeVarExpectedType = true;
-
-                // If the expected type is a union of bare TypeVars, it's not clear which of the two
-                // (or both) should be constrained. We'll skip any attempt to solve the TypeVars during
-                // this pass and hope that subsequent arg assignments will help us establish the correct
-                // constraints.
-                if (isUnion(argParam.paramType)) {
-                    skipSolveTypeVars = true;
-                }
             }
 
             // If the expected type is unknown, don't use an expected type. Instead,
@@ -12126,10 +12079,14 @@ export function createTypeEvaluator(
             }
         }
 
-        let assignTypeFlags = skipSolveTypeVars ? AssignTypeFlags.SkipSolveTypeVars : AssignTypeFlags.Default;
+        let assignTypeFlags = AssignTypeFlags.Default;
 
         if (argParam.isinstanceParam) {
             assignTypeFlags |= AssignTypeFlags.AllowIsinstanceSpecialForms;
+        }
+
+        if (options?.isArgFirstPass) {
+            assignTypeFlags |= AssignTypeFlags.ArgAssignmentFirstPass;
         }
 
         if (
@@ -13586,9 +13543,13 @@ export function createTypeEvaluator(
                     (expectedTypedDictEntries.knownItems.has(keyType.priv.literalValue as string) ||
                         expectedTypedDictEntries.extraItems)
                 ) {
-                    const effectiveValueType =
+                    let effectiveValueType =
                         expectedTypedDictEntries.knownItems.get(keyType.priv.literalValue as string)?.valueType ??
                         expectedTypedDictEntries.extraItems?.valueType;
+                    if (effectiveValueType) {
+                        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+                        effectiveValueType = transformExpectedType(effectiveValueType, liveTypeVarScopes, node.start);
+                    }
                     entryInferenceContext = makeInferenceContext(effectiveValueType);
                     valueTypeResult = getTypeOfExpression(
                         entryNode.d.valueExpr,
@@ -13596,8 +13557,12 @@ export function createTypeEvaluator(
                         entryInferenceContext
                     );
                 } else {
-                    const effectiveValueType =
+                    let effectiveValueType =
                         expectedValueType ?? (forceStrictInference ? NeverType.createNever() : undefined);
+                    if (effectiveValueType) {
+                        const liveTypeVarScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+                        effectiveValueType = transformExpectedType(effectiveValueType, liveTypeVarScopes, node.start);
+                    }
                     entryInferenceContext = makeInferenceContext(effectiveValueType);
                     valueTypeResult = getTypeOfExpression(
                         entryNode.d.valueExpr,
@@ -18072,14 +18037,8 @@ export function createTypeEvaluator(
                     // that the default value matches the annotation.
                     if (param.d.defaultValue && defaultValueType) {
                         const diagAddendum = new DiagnosticAddendum();
-                        const typeVarContext = new TypeVarContext(functionType.shared.typeVarScopeId);
-                        if (containingClassType && containingClassType.shared.typeVarScopeId !== undefined) {
-                            if (node.d.name.d.value === '__init__' || node.d.name.d.value === '__new__') {
-                                typeVarContext.addSolveForScope(containingClassType.shared.typeVarScopeId);
-                            }
-                        }
 
-                        if (!assignType(annotatedType, defaultValueType, diagAddendum, typeVarContext)) {
+                        if (!assignType(annotatedType, defaultValueType, diagAddendum)) {
                             addDiagnostic(
                                 DiagnosticRule.reportArgumentType,
                                 LocMessage.paramAssignmentMismatch().format({
@@ -22826,7 +22785,9 @@ export function createTypeEvaluator(
         assert(ClassType.isSameGenericClass(destType, srcType));
         assert(destType.shared.typeParams.length > 0);
 
-        const typeVarContext = new TypeVarContext();
+        srcType = updateTypeWithInternalTypeVars(srcType, getTypeVarScopeIds(srcType) ?? []);
+        destType = updateTypeWithInternalTypeVars(destType, getTypeVarScopeIds(destType) ?? []);
+
         let isAssignable = true;
 
         // Use a try/catch block here to make sure that we reset
@@ -22868,7 +22829,7 @@ export function createTypeEvaluator(
                             destType,
                             srcType,
                             /* diag */ undefined,
-                            typeVarContext,
+                            /* typeVarContext */ undefined,
                             /* selfTypeVarContext */ undefined,
                             recursionCount
                         )
@@ -22898,7 +22859,7 @@ export function createTypeEvaluator(
                             destMemberType,
                             srcMemberType,
                             /* diag */ undefined,
-                            typeVarContext,
+                            /* destTypeVarContext */ undefined,
                             /* srcTypeVarContext */ undefined,
                             flags | AssignTypeFlags.SkipSelfClsParamCheck,
                             recursionCount
@@ -23394,21 +23355,6 @@ export function createTypeEvaluator(
         // TypeVar that we are attempting to match.
         if (isTypeVar(destType)) {
             if (isTypeVarSame(destType, srcType)) {
-                if (destType.priv.scopeId && destTypeVarContext?.hasSolveForScope(destType.priv.scopeId)) {
-                    // If the dest TypeVar has no current value bound to it, bind itself.
-                    if (!destTypeVarContext.getMainSolutionSet().getTypeVar(destType)) {
-                        return assignTypeToTypeVar(
-                            evaluatorInterface,
-                            destType,
-                            srcType,
-                            diag,
-                            destTypeVarContext,
-                            flags,
-                            recursionCount
-                        );
-                    }
-                }
-
                 return true;
             }
 
@@ -23509,13 +23455,8 @@ export function createTypeEvaluator(
         if (isTypeVar(srcType)) {
             if ((flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0) {
                 // The caller has requested that we solve for source type variables
-                // rather than dest. If the type variable is not in the scope of the
-                // provided TypeVarContext, simply verify that the concrete types are
-                // compatible.
-                if (
-                    (flags & AssignTypeFlags.IgnoreTypeVarScope) === 0 &&
-                    (!srcTypeVarContext || !srcTypeVarContext.hasSolveForScope(getTypeVarScopeId(srcType)))
-                ) {
+                // rather than dest.
+                if (TypeVarType.hasInternalScopeId(srcType)) {
                     return assignType(
                         makeTopLevelTypeVarsConcrete(destType),
                         makeTopLevelTypeVarsConcrete(srcType),
@@ -24147,7 +24088,7 @@ export function createTypeEvaluator(
                                 destOverload,
                                 srcOverload,
                                 /* diag */ undefined,
-                                destTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(destOverload)),
+                                destTypeVarContext,
                                 srcTypeVarContext,
                                 flags,
                                 recursionCount
@@ -24160,15 +24101,13 @@ export function createTypeEvaluator(
             }
 
             const isAssignable = destOverloads.every((destOverload) => {
-                if (destTypeVarContext) {
-                    destTypeVarContext.addSolveForScope(getTypeVarScopeId(destOverload));
-                }
+                destTypeVarContext?.addSolveForScope(getTypeVarScopeId(destOverload));
 
                 const result = assignType(
                     destOverload,
                     srcType,
                     overloadDiag?.createAddendum(),
-                    destTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(destOverload)),
+                    destTypeVarContext,
                     srcTypeVarContext,
                     flags,
                     recursionCount
@@ -24706,6 +24645,7 @@ export function createTypeEvaluator(
                 let bestDestTypeVarContext: TypeVarContext | undefined;
                 let bestSrcTypeVarContext: TypeVarContext | undefined;
                 let bestTypeVarContextScore: number | undefined;
+                let nakedTypeVarMatches = 0;
 
                 // If the srcType is a literal, try to use the fast-path lookup
                 // in case the destType is a union with hundreds of literals.
@@ -24717,45 +24657,69 @@ export function createTypeEvaluator(
                     return true;
                 }
 
-                doForEachSubtype(destType, (subtype) => {
-                    // Make a temporary clone of the typeVarContext. We don't want to modify
-                    // the original typeVarContext until we find the "optimal" typeVar mapping.
-                    const destTypeVarContextClone = destTypeVarContext?.clone();
-                    const srcTypeVarContextClone = srcTypeVarContext?.clone();
-                    if (
-                        assignType(
-                            subtype,
-                            srcType,
-                            diagAddendum?.createAddendum(),
-                            destTypeVarContextClone,
-                            srcTypeVarContextClone,
-                            flags,
-                            recursionCount
-                        )
-                    ) {
-                        foundMatch = true;
-                        if (destTypeVarContextClone) {
-                            // Ask the typeVarContext to compute a "score" for the current
-                            // contents of the table.
-                            let typeVarContextScore = destTypeVarContextClone.getScore();
+                doForEachSubtype(
+                    destType,
+                    (subtype) => {
+                        // Make a temporary clone of the typeVarContext. We don't want to modify
+                        // the original typeVarContext until we find the "optimal" typeVar mapping.
+                        const destTypeVarContextClone = destTypeVarContext?.clone();
+                        const srcTypeVarContextClone = srcTypeVarContext?.clone();
+                        if (
+                            assignType(
+                                subtype,
+                                srcType,
+                                diagAddendum?.createAddendum(),
+                                destTypeVarContextClone,
+                                srcTypeVarContextClone,
+                                flags,
+                                recursionCount
+                            )
+                        ) {
+                            foundMatch = true;
+                            if (destTypeVarContextClone) {
+                                // Ask the typeVarContext to compute a "score" for the current
+                                // contents of the table.
+                                let typeVarContextScore = destTypeVarContextClone.getScore();
 
-                            // If the type matches exactly, prefer it over other types.
-                            if (isTypeSame(subtype, stripLiteralValue(srcType))) {
-                                typeVarContextScore = Number.POSITIVE_INFINITY;
-                            }
+                                if (isTypeVar(subtype)) {
+                                    if (!destTypeVarContext?.getMainSolutionSet().getTypeVar(subtype)) {
+                                        nakedTypeVarMatches++;
 
-                            if (
-                                bestTypeVarContextScore === undefined ||
-                                bestTypeVarContextScore <= typeVarContextScore
-                            ) {
-                                // We found a typeVar mapping with a higher score than before.
-                                bestTypeVarContextScore = typeVarContextScore;
-                                bestDestTypeVarContext = destTypeVarContextClone;
-                                bestSrcTypeVarContext = srcTypeVarContextClone;
+                                        // Handicap the solution slightly so another type var with
+                                        // existing constraints will be preferred.
+                                        typeVarContextScore += 0.001;
+                                    }
+                                }
+
+                                // If the type matches exactly, prefer it over other types.
+                                if (isTypeSame(subtype, stripLiteralValue(srcType))) {
+                                    typeVarContextScore = Number.POSITIVE_INFINITY;
+                                }
+
+                                if (
+                                    bestTypeVarContextScore === undefined ||
+                                    bestTypeVarContextScore <= typeVarContextScore
+                                ) {
+                                    // We found a typeVar mapping with a higher score than before.
+                                    bestTypeVarContextScore = typeVarContextScore;
+                                    bestDestTypeVarContext = destTypeVarContextClone;
+                                    bestSrcTypeVarContext = srcTypeVarContextClone;
+                                }
                             }
                         }
-                    }
-                });
+                    },
+                    /* sortSubtypes */ true
+                );
+
+                // If we saw more than one "naked" type vars that have no
+                // previous constraints recorded, it's dangerous for us to
+                // assign a value to any of these type vars at this time.
+                // Typically, they will receive some constraints via some
+                // later argument assignment.
+                if (nakedTypeVarMatches > 1 && (flags & AssignTypeFlags.ArgAssignmentFirstPass) !== 0) {
+                    bestDestTypeVarContext = undefined;
+                    bestSrcTypeVarContext = undefined;
+                }
 
                 // If we found a winning type var mapping, copy it back to typeVarContext.
                 if (destTypeVarContext && bestDestTypeVarContext) {
@@ -26217,7 +26181,7 @@ export function createTypeEvaluator(
             /* diag */ undefined,
             /* destTypeVarContext */ undefined,
             /* srcTypeVarContext */ undefined,
-            AssignTypeFlags.SkipSolveTypeVars
+            AssignTypeFlags.Default
         );
     }
 
@@ -26278,9 +26242,9 @@ export function createTypeEvaluator(
                                 overrideArgsType,
                                 baseParamDetails.params[i].type,
                                 diag?.createAddendum(),
-                                new TypeVarContext(getTypeVarScopeId(overrideMethod)),
-                                new TypeVarContext(getTypeVarScopeId(baseMethod)),
-                                AssignTypeFlags.SkipSolveTypeVars
+                                /* destTypeVarContext */ undefined,
+                                /* srcTypeVarContext */ undefined,
+                                AssignTypeFlags.Default
                             )
                         ) {
                             LocAddendum.overrideParamType().format({
@@ -26401,9 +26365,9 @@ export function createTypeEvaluator(
                                 overrideParamType,
                                 baseParamType,
                                 diag?.createAddendum(),
-                                new TypeVarContext(getTypeVarScopeId(overrideMethod)),
-                                new TypeVarContext(getTypeVarScopeId(baseMethod)),
-                                AssignTypeFlags.SkipSolveTypeVars
+                                /* destTypeVarContext */ undefined,
+                                /* srcTypeVarContext */ undefined,
+                                AssignTypeFlags.Default
                             )
                         ) {
                             diag?.addMessage(
@@ -26467,9 +26431,9 @@ export function createTypeEvaluator(
                             overrideParamType,
                             baseParamType,
                             diag?.createAddendum(),
-                            new TypeVarContext(getTypeVarScopeId(overrideMethod)),
+                            /* destTypeVarContext */ undefined,
                             /* srcTypeVarContext */ undefined,
-                            AssignTypeFlags.SkipSolveTypeVars
+                            AssignTypeFlags.Default
                         )
                     ) {
                         diag?.addMessage(
@@ -26513,9 +26477,9 @@ export function createTypeEvaluator(
                             targetParamType,
                             paramInfo.type,
                             diag?.createAddendum(),
-                            new TypeVarContext(getTypeVarScopeId(overrideMethod)),
-                            new TypeVarContext(getTypeVarScopeId(baseMethod)),
-                            AssignTypeFlags.SkipSolveTypeVars
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            AssignTypeFlags.Default
                         )
                     ) {
                         diag?.addMessage(
@@ -26595,9 +26559,9 @@ export function createTypeEvaluator(
                 baseReturnType,
                 overrideReturnType,
                 diag?.createAddendum(),
-                new TypeVarContext(getTypeVarScopeId(baseMethod)),
-                new TypeVarContext(getTypeVarScopeId(overrideMethod)),
-                AssignTypeFlags.SkipSolveTypeVars
+                /* destTypeVarContext */ undefined,
+                /* srcTypeVarContext */ undefined,
+                AssignTypeFlags.Default
             )
         ) {
             diag?.addMessage(
