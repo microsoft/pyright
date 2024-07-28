@@ -187,10 +187,10 @@ export const enum AssignTypeFlags {
     // to detect the recursion after the first level of checking.
     SkipRecursiveTypeCheck = 1 << 2,
 
-    // Normally type vars are treated as variables that need to
-    // be "solved". If this flag is set, they are treated as types
-    // that must match. It is used for overload consistency checking.
-    SkipSolveTypeVars = 1 << 3,
+    // During TypeVar solving for a function call, this flag is set if
+    // this is the first of multiple passes. It adjusts certain heuristics
+    // for constraint solving.
+    ArgAssignmentFirstPass = 1 << 3,
 
     // If the dest is not Any but the src is Any, treat it
     // as incompatible. Also, treat all source TypeVars as their
@@ -216,11 +216,6 @@ export const enum AssignTypeFlags {
     // or cls.
     SkipSelfClsTypeCheck = 1 << 9,
 
-    // If an assignment is made to a TypeVar that is out of scope,
-    // do not generate an error. This is used for populating the
-    // typeVarContext when handling contravariant parameters in a callable.
-    IgnoreTypeVarScope = 1 << 10,
-
     // We're initially populating the typeVarContext with an expected type,
     // so TypeVars should match the specified type exactly rather than
     // employing narrowing or widening, and don't strip literals.
@@ -244,11 +239,6 @@ export const enum AssignTypeFlags {
     // When comparing two methods, skip the type check for the "self" or "cls"
     // parameters. This is used for variance inference and validation.
     SkipSelfClsParamCheck = 1 << 15,
-
-    // During TypeVar solving for a function call, this flag is set if
-    // this is the first of multiple passes. It adjusts certain heuristics
-    // for constraint solving.
-    ArgAssignmentFirstPass = 1 << 16,
 }
 
 export interface ApplyTypeVarOptions {
@@ -3491,9 +3481,12 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
 // Recursively walks a type and calls a callback for each TypeVar, allowing
 // it to be replaced with something else.
 class TypeVarTransformer {
-    private _isTransformingTypeArg = false;
     private _pendingTypeVarTransformations = new Set<TypeVarScopeId>();
     private _pendingFunctionTransformations: (FunctionType | OverloadedFunctionType)[] = [];
+
+    get pendingTypeVarTransformations() {
+        return this._pendingTypeVarTransformations;
+    }
 
     apply(type: Type, recursionCount: number): Type {
         if (recursionCount > maxTypeRecursionCount) {
@@ -3591,14 +3584,10 @@ class TypeVarTransformer {
                 } else {
                     replacementType = this.transformTypeVar(type, recursionCount) ?? type;
 
-                    if (!this._isTransformingTypeArg) {
-                        if (type.priv.scopeId) {
-                            this._pendingTypeVarTransformations.add(type.priv.scopeId);
-                        }
+                    if (type.priv.scopeId) {
+                        this._pendingTypeVarTransformations.add(type.priv.scopeId);
                         replacementType = this.apply(replacementType, recursionCount);
-                        if (type.priv.scopeId) {
-                            this._pendingTypeVarTransformations.delete(type.priv.scopeId);
-                        }
+                        this._pendingTypeVarTransformations.delete(type.priv.scopeId);
                     }
 
                     // If we're transforming a variadic type variable that was in a union,
@@ -3776,9 +3765,6 @@ class TypeVarTransformer {
             }
         };
 
-        const wasTransformingTypeArg = this._isTransformingTypeArg;
-        this._isTransformingTypeArg = true;
-
         // If type args were previously provided, specialize them.
 
         // Handle tuples specially.
@@ -3836,58 +3822,25 @@ class TypeVarTransformer {
         }
 
         if (!newTypeArgs) {
-            if (classType.priv.typeArgs) {
-                newTypeArgs = classType.priv.typeArgs.map((oldTypeArgType) => {
-                    if (isParamSpec(oldTypeArgType)) {
-                        return transformParamSpec(oldTypeArgType);
+            const typeArgs = classType.priv.typeArgs ?? typeParams;
+            newTypeArgs = typeArgs.map((oldTypeArgType) => {
+                let newTypeArgType = this.apply(oldTypeArgType, recursionCount);
+                if (newTypeArgType !== oldTypeArgType) {
+                    specializationNeeded = true;
+
+                    // If this was a variadic type variable that was part of a union
+                    // (e.g. Union[Unpack[Vs]]), expand the subtypes into a union here.
+                    if (
+                        isTypeVar(oldTypeArgType) &&
+                        isTypeVarTuple(oldTypeArgType) &&
+                        oldTypeArgType.priv.isVariadicInUnion
+                    ) {
+                        newTypeArgType = _expandVariadicUnpackedUnion(newTypeArgType);
                     }
-
-                    let newTypeArgType = this.apply(oldTypeArgType, recursionCount);
-                    if (newTypeArgType !== oldTypeArgType) {
-                        specializationNeeded = true;
-
-                        // If this was a variadic type variable that was part of a union
-                        // (e.g. Union[Unpack[Vs]]), expand the subtypes into a union here.
-                        if (
-                            isTypeVar(oldTypeArgType) &&
-                            isTypeVarTuple(oldTypeArgType) &&
-                            oldTypeArgType.priv.isVariadicInUnion
-                        ) {
-                            newTypeArgType = _expandVariadicUnpackedUnion(newTypeArgType);
-                        }
-                    }
-                    return newTypeArgType;
-                });
-            } else {
-                newTypeArgs = [];
-
-                typeParams.forEach((typeParam) => {
-                    let replacementType: Type = typeParam;
-
-                    if (isParamSpec(typeParam)) {
-                        replacementType = transformParamSpec(typeParam);
-                        if (replacementType !== typeParam) {
-                            specializationNeeded = true;
-                        }
-                    } else {
-                        if (!this._isTypeVarScopePending(typeParam.priv.scopeId)) {
-                            const transformedType = this.transformTypeVar(typeParam, recursionCount);
-                            replacementType = transformedType ?? typeParam;
-
-                            if (replacementType !== typeParam) {
-                                specializationNeeded = true;
-                            } else if (transformedType !== undefined && !classType.priv.typeArgs) {
-                                specializationNeeded = true;
-                            }
-                        }
-                    }
-
-                    newTypeArgs!.push(replacementType);
-                });
-            }
+                }
+                return newTypeArgType;
+            });
         }
-
-        this._isTransformingTypeArg = wasTransformingTypeArg;
 
         // If specialization wasn't needed, don't allocate a new class.
         if (!specializationNeeded) {
@@ -3942,9 +3895,6 @@ class TypeVarTransformer {
             let variadicParamIndex: number | undefined;
             let variadicTypesToUnpack: TupleTypeArg[] | undefined;
             const specializedDefaultArgs: (Type | undefined)[] = [];
-
-            const wasTransformingTypeArg = this._isTransformingTypeArg;
-            this._isTransformingTypeArg = true;
 
             for (let i = 0; i < functionType.shared.parameters.length; i++) {
                 const paramType = FunctionType.getEffectiveParamType(functionType, i);
@@ -4007,8 +3957,6 @@ class TypeVarTransformer {
                     functionType.priv.strippedFirstParamType = newStrippedType;
                 }
             }
-
-            this._isTransformingTypeArg = wasTransformingTypeArg;
 
             if (!typesRequiredSpecialization) {
                 return functionType;
@@ -4286,7 +4234,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
         // If the type variable is unrelated to the scopes we're solving,
         // don't transform that type variable.
-        if (typeVar.priv.scopeId && this._typeVarContext.hasSolveForScope(typeVar.priv.scopeId)) {
+        if (this._shouldReplaceTypeVar(typeVar)) {
             let replacement = solutionSet.getTypeVarType(typeVar, !!this._options.useLowerBoundOnly);
 
             // If there was no lower bound but there is an upper bound that
@@ -4364,6 +4312,10 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 }
             }
 
+            if (!this._shouldReplaceUnsolvedTypeVar(typeVar)) {
+                return undefined;
+            }
+
             // If this typeVar is in scope for what we're solving but the type
             // var map doesn't contain any entry for it, replace with the
             // default or Unknown.
@@ -4417,8 +4369,8 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         if (this._options.eliminateUnsolvedInUnions) {
             if (
                 isTypeVar(preTransform) &&
-                preTransform.priv.scopeId !== undefined &&
-                this._typeVarContext.hasSolveForScope(preTransform.priv.scopeId)
+                this._shouldReplaceTypeVar(preTransform) &&
+                this._shouldReplaceUnsolvedTypeVar(preTransform)
             ) {
                 const solutionSet = this._typeVarContext.getSolutionSet(this._activeSolutionSetIndex ?? 0);
 
@@ -4445,7 +4397,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     }
 
     override transformTupleTypeVar(typeVar: TypeVarType): TupleTypeArg[] | undefined {
-        if (!typeVar.priv.scopeId || !this._typeVarContext.hasSolveForScope(typeVar.priv.scopeId)) {
+        if (!this._shouldReplaceTypeVar(typeVar)) {
             const defaultType = typeVar.shared.defaultType;
 
             if (typeVar.shared.isDefaultExplicit && isClassInstance(defaultType) && defaultType.priv.tupleTypeArgs) {
@@ -4483,13 +4435,17 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return ParamSpecType.getUnknown();
         }
 
-        if (!paramSpec.priv.scopeId || !this._typeVarContext.hasSolveForScope(paramSpec.priv.scopeId)) {
+        if (!this._shouldReplaceTypeVar(paramSpec)) {
             return undefined;
         }
 
         const transformedParamSpec = solutionSet.getTypeVarType(paramSpec);
         if (transformedParamSpec) {
             return transformedParamSpec;
+        }
+
+        if (!this._shouldReplaceUnsolvedTypeVar(paramSpec)) {
+            return undefined;
         }
 
         let useDefaultOrUnknown = false;
@@ -4577,6 +4533,30 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         }
 
         return OverloadedFunctionType.create(filteredOverloads);
+    }
+
+    private _shouldReplaceTypeVar(typeVar: TypeVarType): boolean {
+        if (!typeVar.priv.scopeId) {
+            return false;
+        }
+
+        if (TypeVarType.hasInternalScopeId(typeVar)) {
+            return false;
+        }
+
+        if (this._options.unknownIfNotFound) {
+            return true;
+        }
+
+        return this._typeVarContext.hasSolveForScope(typeVar.priv.scopeId);
+    }
+
+    private _shouldReplaceUnsolvedTypeVar(typeVar: TypeVarType): boolean {
+        if (this.pendingTypeVarTransformations.size > 0) {
+            return false;
+        }
+
+        return this._typeVarContext.hasSolveForScope(typeVar.priv.scopeId);
     }
 
     private _solveDefaultType(typeVar: TypeVarType, recursionCount: number) {
