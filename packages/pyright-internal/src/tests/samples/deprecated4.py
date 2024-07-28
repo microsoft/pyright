@@ -1,6 +1,7 @@
 # This sample tests the handling of deprecated properties and decorators.
 
 from typing import overload
+
 from typing_extensions import deprecated  # pyright: ignore[reportMissingModuleSource]
 
 
@@ -46,6 +47,9 @@ v2 = a.v2
 
 # This should generate an error if reportDeprecated is enabled.
 a.v2 = ""
+
+# This should generate an error if reportDeprecated is enabled.
+a.v2 += ""
 
 # This should generate an error if reportDeprecated is enabled.
 del a.v2

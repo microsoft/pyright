@@ -1501,7 +1501,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitMemberAccess(node: MemberAccessNode) {
-        const typeResult = this._evaluator.getTypeResult(node);
+        const typeResult = this._evaluator.getTypeResult(node.d.member);
         const type = typeResult?.type ?? UnknownType.create();
 
         const leftExprType = this._evaluator.getType(node.d.leftExpr);
@@ -4224,7 +4224,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (errorMessage) {
-            this._reportDeprecatedDiagnostic(node, errorMessage, info.deprecationMessage);
+            this._reportDeprecatedDiagnostic(node, errorMessage, info.deprecatedMessage);
         }
     }
 
@@ -4362,24 +4362,13 @@ export class Checker extends ParseTreeWalker {
                 ) {
                     if (this._fileInfo.executionEnvironment.pythonVersion.isGreaterOrEqualTo(deprecatedForm.version)) {
                         if (!deprecatedForm.typingImportOnly || isImportFromTyping) {
-                            if (this._fileInfo.diagnosticRuleSet.reportDeprecated === 'none') {
-                                this._evaluator.addDeprecated(
-                                    LocMessage.deprecatedType().format({
-                                        version: deprecatedForm.version.toString(),
-                                        replacement: deprecatedForm.replacementText,
-                                    }),
-                                    node
-                                );
-                            } else {
-                                this._evaluator.addDiagnostic(
-                                    DiagnosticRule.reportDeprecated,
-                                    LocMessage.deprecatedType().format({
-                                        version: deprecatedForm.version.toString(),
-                                        replacement: deprecatedForm.replacementText,
-                                    }),
-                                    node
-                                );
-                            }
+                            this._reportDeprecatedDiagnostic(
+                                node,
+                                LocMessage.deprecatedType().format({
+                                    version: deprecatedForm.version.toString(),
+                                    replacement: deprecatedForm.replacementText,
+                                })
+                            );
                         }
                     }
                 }
