@@ -3889,7 +3889,7 @@ export function createTypeEvaluator(
                 let boundType = subtype.shared.boundType ?? getObjectType();
 
                 // If this is a synthesized self/cls type var, self-specialize its type arguments.
-                if (TypeVarType.isSelf(subtype) && isClass(boundType)) {
+                if (TypeVarType.isSelf(subtype) && isClass(boundType) && !ClassType.isPseudoGenericClass(boundType)) {
                     boundType = selfSpecializeClass(boundType, {
                         useInternalTypeVars: TypeVarType.hasInternalScopeId(subtype),
                     });
