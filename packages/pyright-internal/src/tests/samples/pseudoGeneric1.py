@@ -8,6 +8,10 @@ class ClassA:
     def __init__(self, name, description=_DEFAULT_VALUE):
         ...
 
+    @classmethod
+    def create_new(cls):
+        return cls("", None)
+
 
 a1: list[ClassA] = [ClassA("a", description="b")]
 a2: list[ClassA] = [ClassA("c")]
