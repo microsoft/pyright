@@ -4840,6 +4840,9 @@ export class Checker extends ParseTreeWalker {
             if (declaredReturnType) {
                 this._reportUnknownReturnResult(node, declaredReturnType);
                 this._validateReturnTypeIsNotContravariant(declaredReturnType, returnAnnotation);
+
+                const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
+                declaredReturnType = updateTypeWithInternalTypeVars(declaredReturnType, liveScopes);
             }
 
             // Wrap the declared type in a generator type if the function is a generator.

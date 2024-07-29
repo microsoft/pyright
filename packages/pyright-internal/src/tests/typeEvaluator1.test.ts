@@ -555,7 +555,7 @@ test('TypeNarrowingLocalConst1', () => {
 test('ReturnTypes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['returnTypes1.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('ReturnTypes2', () => {

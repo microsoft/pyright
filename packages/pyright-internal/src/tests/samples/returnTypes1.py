@@ -1,5 +1,10 @@
 # This sample tests basic return type analysis and error reporting.
 
+from typing import TypeVar
+
+
+T = TypeVar("T")
+
 
 def func1(a: int, b: int) -> int:
     c = float(a + b)
@@ -25,3 +30,13 @@ func2(3, 5)
 def func3() -> bool:
     "Doc strings are allowed"
     ...
+
+
+# This should not produce any error because not all paths return an int.
+def func4() -> int:
+    pass
+
+
+# This should not produce any error because not all paths return a T.
+def func5(x: T) -> T:
+    pass
