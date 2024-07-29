@@ -9,7 +9,7 @@
  * meet the constraints.
  */
 
-import { AnyType, ClassType, maxTypeRecursionCount, Type, TypeCategory } from './types';
+import { AnyType, ClassType, isInstantiableClass, maxTypeRecursionCount, Type, TypeBase, TypeCategory } from './types';
 
 // Returns a "score" for a type that captures the relative complexity
 // of the type. Scores should all be between 0 and 1 where 0 means
@@ -23,16 +23,20 @@ export function getComplexityScoreForType(type: Type, recursionCount = 0): numbe
 
     switch (type.category) {
         case TypeCategory.Unknown:
-        case TypeCategory.Any:
-        case TypeCategory.TypeVar: {
+        case TypeCategory.Any: {
             return 0.5;
+        }
+
+        case TypeCategory.TypeVar: {
+            // Assume type[T] is more complex than T.
+            return TypeBase.isInstantiable(type) ? 0.55 : 0.5;
         }
 
         case TypeCategory.Function:
         case TypeCategory.OverloadedFunction: {
             // Classes and unions should be preferred over functions,
             // so make this relatively high (more than 0.75).
-            return 0.8;
+            return TypeBase.isInstantiable(type) ? 0.85 : 0.8;
         }
 
         case TypeCategory.Unbound:
@@ -87,5 +91,12 @@ function getComplexityScoreForClass(classType: ClassType, recursionCount: number
     }
 
     const averageTypeArgComplexity = typeArgCount > 0 ? typeArgScoreSum / typeArgCount : 0;
-    return 0.5 + averageTypeArgComplexity * 0.25;
+    let result = 0.5 + averageTypeArgComplexity * 0.25;
+
+    // Assume type[T] is more complex than T.
+    if (isInstantiableClass(classType)) {
+        result += 0.05;
+    }
+
+    return result;
 }

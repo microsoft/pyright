@@ -17,26 +17,25 @@ from typing import (
 )
 
 
-# This should generate an error because its input parameter
-# type is incompatible.
 @overload
 def func1(a: int) -> str:
     ...
 
 
-# This should generate an error because its return parameter
-# type is incompatible.
 @overload
 def func1(a: str) -> int:
     ...
 
 
+# This should generate two errors:
+# The first is because of an incompatibility with overload 1
+# because the input parameter type is incompatible.
+# This second is because of an incompatibility with overload 2
+# because the return type is incompatible.
 def func1(a: str) -> str:
     return a
 
 
-# This should generate an error because the parameter "b" is missing
-# from the implementation.
 @overload
 def func2(a: int, b: str = ...) -> str:
     ...
@@ -47,6 +46,8 @@ def func2(a: None) -> str:
     ...
 
 
+# This should generate an error because the parameter "b" is missing
+# from the implementation but is required by overload 1.
 def func2(a: int | None) -> str:
     ...
 
@@ -105,7 +106,7 @@ def func5(a: None) -> None:
     ...
 
 
-# This should generate an error because List is not compatible with Dict.
+# This should generate an error because list is not compatible with dict.
 def func5(a: dict[Any, Any] | None) -> Any | None:
     ...
 
