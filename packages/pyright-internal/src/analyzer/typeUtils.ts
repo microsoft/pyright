@@ -244,6 +244,11 @@ export const enum AssignTypeFlags {
     // When comparing two methods, skip the type check for the "self" or "cls"
     // parameters. This is used for variance inference and validation.
     SkipSelfClsParamCheck = 1 << 15,
+
+    // During TypeVar solving for a function call, this flag is set if
+    // this is the first of multiple passes. It adjusts certain heuristics
+    // for constraint solving.
+    ArgAssignmentFirstPass = 1 << 16,
 }
 
 export interface ApplyTypeVarOptions {
@@ -1525,8 +1530,11 @@ export function ensureFunctionSignaturesAreUnique<T extends Type>(
     return transformer.apply(type, 0) as T;
 }
 
-export function updateTypeWithInternalTypeVars<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[]): T;
-export function updateTypeWithInternalTypeVars(type: Type, scopeIds: TypeVarScopeId[]): Type {
+export function updateTypeWithInternalTypeVars<T extends TypeBase<any>>(
+    type: T,
+    scopeIds: TypeVarScopeId[] | undefined
+): T;
+export function updateTypeWithInternalTypeVars(type: Type, scopeIds: TypeVarScopeId[] | undefined): Type {
     const transformer = new InternalScopeUpdateTransform(scopeIds);
     return transformer.apply(type, 0);
 }
@@ -4193,7 +4201,7 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
 // Replaces the TypeVars within a type with their corresponding "internal"
 // types if they are in one of the specified scopes.
 class InternalScopeUpdateTransform extends TypeVarTransformer {
-    constructor(private _scopeIds: TypeVarScopeId[]) {
+    constructor(private _scopeIds: TypeVarScopeId[] | undefined) {
         super();
     }
 
@@ -4214,7 +4222,16 @@ class InternalScopeUpdateTransform extends TypeVarTransformer {
     }
 
     private _isTypeVarInScope(typeVar: TypeVarType) {
-        return typeVar.priv.scopeId !== undefined && this._scopeIds.includes(typeVar.priv.scopeId);
+        if (!typeVar.priv.scopeId) {
+            return false;
+        }
+
+        // If no scopeIds were specified, transform all Type Vars.
+        if (!this._scopeIds) {
+            return true;
+        }
+
+        return this._scopeIds.includes(typeVar.priv.scopeId);
     }
 
     private _replaceTypeVar(typeVar: TypeVarType): TypeVarType {
