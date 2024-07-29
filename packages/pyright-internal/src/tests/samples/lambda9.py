@@ -5,7 +5,7 @@ from typing import Callable, Generic, TypeVar, cast, overload
 
 
 _OutT = TypeVar("_OutT")
-_Out2T = TypeVar("_Out2T")
+_Out2T = TypeVar("_Out2T", bound=str)
 
 
 class Flow(Generic[_OutT]):
