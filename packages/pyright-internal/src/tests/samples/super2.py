@@ -3,11 +3,13 @@
 
 from typing import TypeVar
 
-
 T = TypeVar("T", bound="A")
 
 
 class A:
+    def __init__(self, **kw: object) -> None:
+        pass
+
     @classmethod
     def factory(cls: type[T]) -> T:
         return cls()
@@ -26,7 +28,11 @@ b1 = B.factory()
 reveal_type(b1, expected_text="B")
 
 b2 = B.factoryB()
-reveal_type(b2, expected_text="B")
+reveal_type(b2, expected_text="B*")
+
+
+def test_a(cls: type[T]) -> T:
+    return super(A, cls).__new__(cls)
 
 
 class C:

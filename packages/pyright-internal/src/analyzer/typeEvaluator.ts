@@ -8587,15 +8587,23 @@ export function createTypeEvaluator(
 
             let bindToSelfType: ClassType | TypeVarType | undefined;
             if (bindToType) {
-                bindToSelfType = TypeBase.cloneForCondition(
-                    TypeVarType.cloneAsBound(
-                        synthesizeTypeVarForSelfCls(
-                            ClassType.cloneIncludeSubclasses(bindToType, /* includeSubclasses */ false),
-                            /* isClsParam */ false
-                        )
-                    ),
-                    bindToType.props?.condition
-                );
+                if (node.d.args.length > 1) {
+                    // If this is a two-argument form of super(), use the
+                    // bindToType evaluated from the arguments.
+                    bindToSelfType = convertToInstance(bindToType);
+                } else {
+                    // If this is a zero-argument form of super(), synthesize
+                    // a Self type to bind to.
+                    bindToSelfType = TypeBase.cloneForCondition(
+                        TypeVarType.cloneAsBound(
+                            synthesizeTypeVarForSelfCls(
+                                ClassType.cloneIncludeSubclasses(bindToType, /* includeSubclasses */ false),
+                                /* isClsParam */ false
+                            )
+                        ),
+                        bindToType.props?.condition
+                    );
+                }
             }
 
             const type = resultIsInstance ? convertToInstance(resultType, /* includeSubclasses */ false) : resultType;
