@@ -11672,19 +11672,21 @@ export function createTypeEvaluator(
     ): Type {
         if (isFunction(returnType) && !returnType.shared.name && callableType.shared.typeVarScopeId) {
             // What type variables are referenced in the callable return type? Do not include any live type variables.
-            const typeVarsInReturnType = getTypeVarArgsRecursive(returnType).filter(
+            const newTypeParams = getTypeVarArgsRecursive(returnType).filter(
                 (t) => !liveTypeVarScopes.some((scopeId) => t.priv.scopeId === scopeId)
             );
 
             // If there are no unsolved type variables, we're done. If there are
             // unsolved type variables, treat them as though they are rescoped
             // to the callable.
-            if (typeVarsInReturnType.length > 0) {
+            if (newTypeParams.length > 0) {
+                const newScopeId = newTypeParams[0].priv.freeTypeVar?.priv.scopeId ?? newTypeParams[0].priv.scopeId;
+
                 return FunctionType.cloneWithNewTypeVarScopeId(
                     returnType,
-                    callableType.shared.typeVarScopeId,
+                    newScopeId,
                     callableType.priv.constructorTypeVarScopeId,
-                    typeVarsInReturnType
+                    newTypeParams
                 );
             }
         }
@@ -25686,10 +25688,6 @@ export function createTypeEvaluator(
                     if (effectiveSrcParamSpec) {
                         FunctionType.addParamSpecVariadics(remainingFunction, convertToInstance(effectiveSrcParamSpec));
                     }
-                    FunctionType.addHigherOrderTypeVarScopeIds(
-                        remainingFunction,
-                        effectiveSrcType.priv.higherOrderTypeVarScopeIds
-                    );
 
                     if (
                         !assignType(

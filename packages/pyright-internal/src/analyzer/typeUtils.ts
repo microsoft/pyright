@@ -1097,10 +1097,6 @@ export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] {
         if (type.priv.constructorTypeVarScopeId) {
             scopeIds.push(type.priv.constructorTypeVarScopeId);
         }
-
-        if (type.priv.higherOrderTypeVarScopeIds) {
-            scopeIds.push(...type.priv.higherOrderTypeVarScopeIds);
-        }
     }
 
     return scopeIds;
@@ -3377,11 +3373,7 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
             );
         });
 
-        if (type.priv.higherOrderTypeVarScopeIds) {
-            newFunction.priv.higherOrderTypeVarScopeIds = [...type.priv.higherOrderTypeVarScopeIds];
-            newFunction.shared.typeVarScopeId = newFunction.priv.higherOrderTypeVarScopeIds.pop();
-        }
-
+        newFunction.shared.typeVarScopeId = type.shared.typeVarScopeId;
         newFunction.priv.constructorTypeVarScopeId = type.priv.constructorTypeVarScopeId;
 
         return newFunction;
@@ -3420,8 +3412,7 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
         FunctionTypeFlags.ParamSpecValue | withoutParamSpec.shared.flags
     );
 
-    FunctionType.addHigherOrderTypeVarScopeIds(functionType, withoutParamSpec.shared.typeVarScopeId);
-    FunctionType.addHigherOrderTypeVarScopeIds(functionType, withoutParamSpec.priv.higherOrderTypeVarScopeIds);
+    functionType.shared.typeVarScopeId = withoutParamSpec.shared.typeVarScopeId;
     functionType.priv.constructorTypeVarScopeId = withoutParamSpec.priv.constructorTypeVarScopeId;
 
     withoutParamSpec.shared.parameters.forEach((entry, index) => {
