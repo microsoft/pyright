@@ -118,7 +118,7 @@ export function assignTypeToTypeVar(
         return false;
     }
 
-    if (TypeVarType.hasInternalScopeId(destType) && !destType.priv.isInScopePlaceholder) {
+    if (TypeVarType.hasInternalScopeId(destType) && !destType.priv.isUnificationVar) {
         // Handle Any as a source.
         if (isAnyOrUnknown(srcType) || (isClass(srcType) && ClassType.derivesFromAnyOrUnknown(srcType))) {
             return true;
@@ -514,7 +514,7 @@ export function assignTypeToTypeVar(
                 );
 
                 // Convert any remaining (non-top-level) TypeVars in the upper
-                // bound to in-scope placeholders.
+                // bound to unification vars.
                 adjUpperBound = transformExpectedType(
                     adjUpperBound,
                     /* liveTypeVarScopes */ [],
@@ -1058,7 +1058,7 @@ export function addConstraintsForExpectedType(
         typeVar.shared.isSynthesized = true;
         typeVar.shared.synthesizedIndex = index;
         typeVar.shared.isExemptFromBoundCheck = true;
-        return TypeVarType.cloneAsInScopePlaceholder(typeVar);
+        return TypeVarType.cloneAsUnificationVar(typeVar);
     });
 
     const specializedType = ClassType.specialize(type, typeArgs);

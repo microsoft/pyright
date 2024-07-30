@@ -597,7 +597,7 @@ function applyExpectedSubtypeForConstructor(
     typeVarContext: TypeVarContext
 ): Type | undefined {
     const specializedType = applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarContext, {
-        applyInScopePlaceholders: true,
+        applyUnificationVars: true,
     });
 
     if (!evaluator.assignType(expectedSubtype, specializedType)) {
@@ -625,7 +625,7 @@ function applyExpectedTypeForConstructor(
     // If this isn't a generic type or it's a type that has already been
     // explicitly specialized, the expected type isn't applicable.
     if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
-        return applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarContext, { applyInScopePlaceholders: true });
+        return applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarContext, { applyUnificationVars: true });
     }
 
     if (inferenceContext) {

@@ -249,7 +249,7 @@ export interface ApplyTypeVarOptions {
     unknownExemptTypeVars?: TypeVarType[];
     useLowerBoundOnly?: boolean;
     eliminateUnsolvedInUnions?: boolean;
-    applyInScopePlaceholders?: boolean;
+    applyUnificationVars?: boolean;
 }
 
 export interface InferenceContext {
@@ -1547,13 +1547,13 @@ export function applySolvedTypeVars(
         typeVarContext.isEmpty() &&
         !options.unknownIfNotFound &&
         !options.eliminateUnsolvedInUnions &&
-        !options.applyInScopePlaceholders
+        !options.applyUnificationVars
     ) {
         return type;
     }
 
-    if (options.applyInScopePlaceholders) {
-        applyInScopePlaceholders(typeVarContext);
+    if (options.applyUnificationVars) {
+        applyUnificationVars(typeVarContext);
     }
 
     const transformer = new ApplySolvedTypeVarsTransformer(typeVarContext, options);
@@ -1584,21 +1584,21 @@ export function applySourceContextTypeVarsToSignature(solutionSet: TypeVarSoluti
 }
 
 // If the TypeVarContext contains any type variables whose types depend on
-// in-scope placeholders used for bidirectional type inference, replace those
-// with the solved type associated with those in-scope placeholders.
-export function applyInScopePlaceholders(typeVarContext: TypeVarContext) {
+// unification vars used for bidirectional type inference, replace those
+// with the solved type associated with those unification vars.
+export function applyUnificationVars(typeVarContext: TypeVarContext) {
     typeVarContext.doForEachSolutionSet((solutionSet) => {
         solutionSet.getTypeVars().forEach((entry) => {
             const typeVar = entry.typeVar;
-            if (!typeVar.priv.isInScopePlaceholder) {
+            if (!typeVar.priv.isUnificationVar) {
                 const newLowerBound = entry.lowerBound
-                    ? applyInScopePlaceholdersToType(entry.lowerBound, solutionSet)
+                    ? applyUnificationVarsToType(entry.lowerBound, solutionSet)
                     : undefined;
                 const newLowerBoundNoLiterals = entry.lowerBoundNoLiterals
-                    ? applyInScopePlaceholdersToType(entry.lowerBoundNoLiterals, solutionSet)
+                    ? applyUnificationVarsToType(entry.lowerBoundNoLiterals, solutionSet)
                     : undefined;
                 const newUpperBound = entry.upperBound
-                    ? applyInScopePlaceholdersToType(entry.upperBound, solutionSet)
+                    ? applyUnificationVarsToType(entry.upperBound, solutionSet)
                     : undefined;
 
                 solutionSet.setTypeVarType(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
@@ -4293,11 +4293,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                     replacement = combineTupleTypeArgs(replacement.priv.tupleTypeArgs);
                 }
 
-                if (
-                    !isTypeVar(replacement) ||
-                    !replacement.priv.isInScopePlaceholder ||
-                    !this._options.unknownIfNotFound
-                ) {
+                if (!isTypeVar(replacement) || !replacement.priv.isUnificationVar || !this._options.unknownIfNotFound) {
                     return replacement;
                 }
             }
@@ -4316,7 +4312,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 if (!exemptTypeVars.some((t) => isTypeSame(t, typeVarInstance))) {
                     useDefaultOrUnknown = true;
                 }
-            } else if (this._options.applyInScopePlaceholders && typeVar.priv.isInScopePlaceholder) {
+            } else if (this._options.applyUnificationVars && typeVar.priv.isUnificationVar) {
                 useDefaultOrUnknown = true;
             }
 
@@ -4367,7 +4363,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 const typeVarType = solutionSet.getTypeVarType(preTransform);
 
                 // Did the TypeVar remain unsolved?
-                if (!typeVarType || (isTypeVar(typeVarType) && typeVarType.priv.isInScopePlaceholder)) {
+                if (!typeVarType || (isTypeVar(typeVarType) && typeVarType.priv.isUnificationVar)) {
                     // If the TypeVar was not transformed, then it was unsolved,
                     // and we'll eliminate it.
                     if (preTransform === postTransform) {
@@ -4444,7 +4440,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             if (!exemptTypeVars.some((t) => isTypeSame(t, paramSpec, { ignoreTypeFlags: true }))) {
                 useDefaultOrUnknown = true;
             }
-        } else if (this._options.applyInScopePlaceholders && paramSpec.priv.isInScopePlaceholder) {
+        } else if (this._options.applyUnificationVars && paramSpec.priv.isUnificationVar) {
             useDefaultOrUnknown = true;
         }
 
@@ -4566,7 +4562,7 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
 
     override transformTypeVar(typeVar: TypeVarType) {
         if (!this._isTypeVarLive(typeVar)) {
-            return TypeVarType.cloneAsInScopePlaceholder(typeVar, this._usageOffset);
+            return TypeVarType.cloneAsUnificationVar(typeVar, this._usageOffset);
         }
 
         return undefined;
@@ -4574,7 +4570,7 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
 
     override transformParamSpec(paramSpec: ParamSpecType): FunctionType | undefined {
         if (!this._isTypeVarLive(paramSpec)) {
-            return convertTypeToParamSpecValue(TypeVarType.cloneAsInScopePlaceholder(paramSpec, this._usageOffset));
+            return convertTypeToParamSpecValue(TypeVarType.cloneAsUnificationVar(paramSpec, this._usageOffset));
         }
 
         return undefined;
@@ -4587,13 +4583,13 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
     }
 }
 
-class InScopePlaceholderTransformer extends TypeVarTransformer {
+class UnificationVarTransformer extends TypeVarTransformer {
     constructor(private _solutionSet: TypeVarSolutionSet) {
         super();
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
-        if (typeVar.priv.isInScopePlaceholder) {
+        if (typeVar.priv.isUnificationVar) {
             return this._solutionSet.getTypeVarType(typeVar) ?? typeVar;
         }
 
@@ -4601,7 +4597,7 @@ class InScopePlaceholderTransformer extends TypeVarTransformer {
     }
 
     override transformParamSpec(paramSpec: ParamSpecType): FunctionType | undefined {
-        if (paramSpec.priv.isInScopePlaceholder) {
+        if (paramSpec.priv.isUnificationVar) {
             return this._solutionSet.getTypeVarType(paramSpec);
         }
 
@@ -4609,13 +4605,13 @@ class InScopePlaceholderTransformer extends TypeVarTransformer {
     }
 }
 
-function applyInScopePlaceholdersToType(type: Type, solutionSet: TypeVarSolutionSet): Type {
-    // Handle the common case where there are no in-scope placeholders.
+function applyUnificationVarsToType(type: Type, solutionSet: TypeVarSolutionSet): Type {
+    // Handle the common case where there are no unification vars.
     // No more work is required in this case.
-    if (!solutionSet.getTypeVars().some((entry) => entry.typeVar.priv.isInScopePlaceholder)) {
+    if (!solutionSet.getTypeVars().some((entry) => entry.typeVar.priv.isUnificationVar)) {
         return type;
     }
 
-    const transformer = new InScopePlaceholderTransformer(solutionSet);
+    const transformer = new UnificationVarTransformer(solutionSet);
     return transformer.apply(type, 0);
 }

@@ -82,7 +82,7 @@ export type UnionableType =
 export type Type = UnionableType | NeverType | UnionType;
 
 export type TypeVarScopeId = string;
-export const InScopePlaceholderScopeId = '-';
+export const UnificationScopeId = '-';
 
 export class EnumLiteral {
     constructor(
@@ -2752,11 +2752,11 @@ export interface TypeVarDetailsPriv {
     // May be different from declaredVariance if declared as Auto
     computedVariance?: Variance;
 
-    // When an out-of-scope TypeVar appears within an expected type during
-    // bidirectional type inference, it needs to be solved along with the
-    // in-scope TypeVars. This is done by cloning the out-of-scope TypeVar
-    // and effectively making it in-scope.
-    isInScopePlaceholder?: boolean;
+    // When a TypeVar appears within an expected type during bidirectional
+    // type inference, it needs to be solved along with the in-scope TypeVars.
+    // This is done by cloning the TypeVar and making it a "unification"
+    // variable.
+    isUnificationVar?: boolean;
 
     // If the TypeVar is an "internal" form of a TypeVar, this refers to
     // the corresponding "external" form.
@@ -2943,8 +2943,8 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function cloneAsInScopePlaceholder(type: TypeVarType, usageOffset?: number): TypeVarType {
-        if (type.priv.isInScopePlaceholder) {
+    export function cloneAsUnificationVar(type: TypeVarType, usageOffset?: number): TypeVarType {
+        if (type.priv.isUnificationVar) {
             return type;
         }
 
@@ -2958,8 +2958,8 @@ export namespace TypeVarType {
         }
 
         const newInstance = TypeBase.cloneType(type);
-        newInstance.priv.isInScopePlaceholder = true;
-        newInstance.priv.scopeId = InScopePlaceholderScopeId;
+        newInstance.priv.isUnificationVar = true;
+        newInstance.priv.scopeId = UnificationScopeId;
         newInstance.priv.nameWithScope = newNameWithScope;
         return newInstance;
     }

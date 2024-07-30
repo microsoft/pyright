@@ -13,11 +13,11 @@ import { assert } from '../common/debug';
 import { getComplexityScoreForType } from './typeComplexity';
 import {
     FunctionType,
-    InScopePlaceholderScopeId,
     ParamSpecType,
     Type,
     TypeVarScopeId,
     TypeVarType,
+    UnificationScopeId,
     isAnyOrUnknown,
     isFunction,
     isParamSpec,
@@ -302,7 +302,7 @@ export class TypeVarContext {
             return scopeId.some((s) => this.hasSolveForScope(s));
         }
 
-        if (scopeId === InScopePlaceholderScopeId) {
+        if (scopeId === UnificationScopeId) {
             return true;
         }
 

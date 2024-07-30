@@ -11587,7 +11587,7 @@ export function createTypeEvaluator(
             tupleClassType: getTupleClassType(),
             unknownExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
             eliminateUnsolvedInUnions,
-            applyInScopePlaceholders: true,
+            applyUnificationVars: true,
         });
         specializedReturnType = addConditionToType(specializedReturnType, typeCondition);
 
@@ -11953,7 +11953,7 @@ export function createTypeEvaluator(
                     isCompatible = false;
                 } else if (expectedType && requiresSpecialization(expectedType)) {
                     // Assign the argument type back to the expected type to assign
-                    // values to any in-scope placeholder type variables.
+                    // values to any unification variables.
                     const typeVarContextClone = typeVarContext.clone();
                     if (assignType(expectedType, argType, /* diag */ undefined, typeVarContextClone)) {
                         typeVarContext.copyFromClone(typeVarContextClone);
@@ -14087,7 +14087,7 @@ export function createTypeEvaluator(
         }
 
         return mapSubtypes(
-            applySolvedTypeVars(inferenceContext.expectedType, typeVarContext, { applyInScopePlaceholders: true }),
+            applySolvedTypeVars(inferenceContext.expectedType, typeVarContext, { applyUnificationVars: true }),
             (subtype) => {
                 if (entryTypes.length !== 1) {
                     return subtype;
@@ -14387,7 +14387,7 @@ export function createTypeEvaluator(
                                 )
                             ) {
                                 functionType = applySolvedTypeVars(functionType, typeVarContext, {
-                                    applyInScopePlaceholders: true,
+                                    applyUnificationVars: true,
                                 }) as FunctionType;
                             }
                         }
