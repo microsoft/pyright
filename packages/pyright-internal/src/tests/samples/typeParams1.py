@@ -41,7 +41,7 @@ class ClassD:
         class B(A[int_alias]):
             pass
 
-        # This should genreate an error because ClassE is out of scope.
+        # This should generate an error because ClassE is out of scope.
         class C(A[ClassE]):
             pass
 

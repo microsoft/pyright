@@ -21293,6 +21293,7 @@ export function createTypeEvaluator(
                     const constraintType = getTypeOfExpressionExpectingType(constraint, {
                         noNonTypeSpecialForms: true,
                         forwardRefs: true,
+                        typeExpression: true,
                     }).type;
 
                     if (
