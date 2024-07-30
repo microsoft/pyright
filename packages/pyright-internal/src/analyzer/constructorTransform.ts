@@ -37,7 +37,6 @@ import {
 import {
     applySolvedTypeVars,
     convertToInstance,
-    getTypeVarScopeId,
     lookUpObjectMember,
     makeInferenceContext,
     MemberAccessFlags,
@@ -227,7 +226,7 @@ function applyPartialTransformToFunction(
     // Verify the types of the provided arguments.
     let argumentErrors = false;
     let reportedPositionalError = false;
-    const typeVarContext = new TypeVarContext(getTypeVarScopeId(origFunctionType));
+    const typeVarContext = new TypeVarContext();
 
     const remainingArgsList = argList.slice(1);
     remainingArgsList.forEach((arg, argIndex) => {

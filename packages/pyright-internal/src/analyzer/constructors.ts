@@ -121,8 +121,7 @@ export function validateConstructorArgs(
     // using default type argument values.
     const aliasInfo = type.props?.typeAliasInfo;
     if (aliasInfo?.typeParams && !aliasInfo.typeArgs) {
-        const typeAliasTypeVarContext = new TypeVarContext(aliasInfo.typeVarScopeId);
-        type = applySolvedTypeVars(type, typeAliasTypeVarContext, {
+        type = applySolvedTypeVars(type, new TypeVarContext(), {
             replaceUnsolved: { scopeIds: [aliasInfo.typeVarScopeId], tupleClassType: evaluator.getTupleClassType() },
         }) as ClassType;
     }
@@ -276,16 +275,12 @@ function validateNewAndInitMethods(
     } else if (isAnyOrUnknown(newMethodReturnType)) {
         // If the __new__ method returns Any or Unknown, we'll ignore its return
         // type and assume that it returns Self.
-        newMethodReturnType = applySolvedTypeVars(
-            ClassType.cloneAsInstance(type),
-            new TypeVarContext(getTypeVarScopeId(type)),
-            {
-                replaceUnsolved: {
-                    scopeIds: getTypeVarScopeIds(type) ?? [],
-                    tupleClassType: evaluator.getTupleClassType(),
-                },
-            }
-        ) as ClassType;
+        newMethodReturnType = applySolvedTypeVars(ClassType.cloneAsInstance(type), new TypeVarContext(), {
+            replaceUnsolved: {
+                scopeIds: getTypeVarScopeIds(type),
+                tupleClassType: evaluator.getTupleClassType(),
+            },
+        }) as ClassType;
     }
 
     let initMethodTypeResult: TypeResult | undefined;
@@ -410,8 +405,7 @@ function validateNewMethod(
     let argumentErrors = false;
     const overloadsUsedForCall: FunctionType[] = [];
 
-    const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
-    typeVarContext.addSolveForScope(getTypeVarScopeId(newMethodTypeResult.type));
+    const typeVarContext = new TypeVarContext();
 
     const callResult = evaluator.useSpeculativeMode(useSpeculativeModeForArgs ? errorNode : undefined, () => {
         return evaluator.validateCallArgs(
@@ -481,10 +475,7 @@ function validateInitMethod(
     let argumentErrors = false;
     const overloadsUsedForCall: FunctionType[] = [];
 
-    const typeVarContext = type.priv.typeArgs
-        ? buildTypeVarContextFromSpecializedClass(type)
-        : new TypeVarContext(getTypeVarScopeId(type));
-    typeVarContext.addSolveForScope(getTypeVarScopeId(initMethodType));
+    const typeVarContext = type.priv.typeArgs ? buildTypeVarContextFromSpecializedClass(type) : new TypeVarContext();
 
     const returnTypeOverride = selfSpecializeClass(type);
     const callResult = evaluator.validateCallArgs(
@@ -665,7 +656,7 @@ function applyExpectedTypeForConstructor(
     const specializedType = applySolvedTypeVars(type, typeVarContext, {
         replaceUnsolved: defaultIfNotFound
             ? {
-                  scopeIds: getTypeVarScopeIds(type) ?? [],
+                  scopeIds: getTypeVarScopeIds(type),
                   tupleClassType: evaluator.getTupleClassType(),
               }
             : undefined,
@@ -944,7 +935,7 @@ function createFunctionFromInitMethod(
             // If this is a generic type, self-specialize the class (i.e. fill in
             // its own type parameters as type arguments).
             if (objectType.shared.typeParams.length > 0 && !objectType.priv.typeArgs) {
-                const typeVarContext = new TypeVarContext(getTypeVarScopeIds(objectType));
+                const typeVarContext = new TypeVarContext();
 
                 // If a TypeVar is not used in any of the parameter types, it should take
                 // on its default value (typically Unknown) in the resulting specialized type.
@@ -961,7 +952,7 @@ function createFunctionFromInitMethod(
 
                 returnType = applySolvedTypeVars(objectType, typeVarContext, {
                     replaceUnsolved: {
-                        scopeIds: getTypeVarScopeIds(objectType) ?? [],
+                        scopeIds: getTypeVarScopeIds(objectType),
                         tupleClassType: evaluator.getTupleClassType(),
                     },
                 }) as ClassType;

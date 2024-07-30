@@ -74,7 +74,6 @@ import {
     doForEachSubtype,
     getSpecializedTupleType,
     getTypeCondition,
-    getTypeVarScopeId,
     getTypeVarScopeIds,
     getUnknownTypeForCallable,
     isInstantiableMetaclass,
@@ -1466,7 +1465,7 @@ function narrowTypeForIsInstanceInternal(
                                         !filterType.priv.isTypeArgExplicit &&
                                         !ClassType.isSameGenericClass(concreteVarType, filterType)
                                     ) {
-                                        const typeVarContext = new TypeVarContext(getTypeVarScopeId(filterType));
+                                        const typeVarContext = new TypeVarContext();
                                         const unspecializedFilterType = ClassType.specialize(
                                             filterType,
                                             /* typeArg */ undefined
@@ -1487,7 +1486,7 @@ function narrowTypeForIsInstanceInternal(
                                                 typeVarContext,
                                                 {
                                                     replaceUnsolved: {
-                                                        scopeIds: getTypeVarScopeIds(filterType) ?? [],
+                                                        scopeIds: getTypeVarScopeIds(filterType),
                                                         useUnknown: true,
                                                         tupleClassType: evaluator.getTupleClassType(),
                                                     },

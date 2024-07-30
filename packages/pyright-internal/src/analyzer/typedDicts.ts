@@ -1266,7 +1266,7 @@ export function assignToTypedDict(
     let genericClassType = classType;
 
     if (classType.shared.typeParams.length > 0) {
-        typeVarContext = new TypeVarContext(getTypeVarScopeId(classType));
+        typeVarContext = new TypeVarContext();
 
         // Create a generic (nonspecialized version) of the class.
         if (classType.priv.typeArgs) {

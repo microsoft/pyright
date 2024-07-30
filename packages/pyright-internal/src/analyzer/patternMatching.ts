@@ -45,7 +45,6 @@ import {
     convertToInstance,
     doForEachSubtype,
     getTypeCondition,
-    getTypeVarScopeId,
     getTypeVarScopeIds,
     getUnknownTypeForCallable,
     isLiteralType,
@@ -949,7 +948,7 @@ function narrowTypeBasedOnClassPattern(
                                     ClassType.isSpecialBuiltIn(unexpandedSubtype) ||
                                     unexpandedSubtype.shared.typeParams.length > 0
                                 ) {
-                                    const typeVarContext = new TypeVarContext(getTypeVarScopeId(unexpandedSubtype));
+                                    const typeVarContext = new TypeVarContext();
                                     const unspecializedMatchType = ClassType.specialize(
                                         unexpandedSubtype,
                                         /* typeArgs */ undefined
@@ -968,7 +967,7 @@ function narrowTypeBasedOnClassPattern(
                                     ) {
                                         resultType = applySolvedTypeVars(matchTypeInstance, typeVarContext, {
                                             replaceUnsolved: {
-                                                scopeIds: getTypeVarScopeIds(unexpandedSubtype) ?? [],
+                                                scopeIds: getTypeVarScopeIds(unexpandedSubtype),
                                                 tupleClassType: evaluator.getTupleClassType(),
                                             },
                                         }) as ClassType;
@@ -1258,7 +1257,7 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
             const mappingObject = ClassType.cloneAsInstance(mappingType);
 
             // Is it a subtype of Mapping?
-            const typeVarContext = new TypeVarContext(getTypeVarScopeId(mappingObject));
+            const typeVarContext = new TypeVarContext();
             if (evaluator.assignType(mappingObject, subtype, /* diag */ undefined, typeVarContext)) {
                 const specializedMapping = applySolvedTypeVars(mappingObject, typeVarContext) as ClassType;
 
@@ -1514,7 +1513,7 @@ function getSequencePatternInfo(
                 const sequenceObject = ClassType.cloneAsInstance(sequenceType);
 
                 // Is it a subtype of Sequence?
-                const typeVarContext = new TypeVarContext(getTypeVarScopeId(sequenceType));
+                const typeVarContext = new TypeVarContext();
                 if (evaluator.assignType(sequenceObject, subtype, /* diag */ undefined, typeVarContext)) {
                     const specializedSequence = applySolvedTypeVars(sequenceObject, typeVarContext) as ClassType;
 
@@ -1531,7 +1530,7 @@ function getSequencePatternInfo(
                 }
 
                 // If it wasn't a subtype of Sequence, see if it's a supertype.
-                const sequenceTypeVarContext = new TypeVarContext(getTypeVarScopeId(sequenceType));
+                const sequenceTypeVarContext = new TypeVarContext();
                 if (
                     addConstraintsForExpectedType(
                         evaluator,

@@ -500,7 +500,7 @@ export function synthesizeDataClassMethods(
                     // transform it to refer to the Self of this subclass.
                     let effectiveType = entry.type;
                     if (entry.classType !== classType && requiresSpecialization(effectiveType)) {
-                        const typeVarContext = new TypeVarContext(getTypeVarScopeId(entry.classType));
+                        const typeVarContext = new TypeVarContext();
                         populateTypeVarContextForSelfType(typeVarContext, entry.classType, classType);
                         effectiveType = applySolvedTypeVars(effectiveType, typeVarContext);
                     }
@@ -807,7 +807,7 @@ function getConverterInputType(
         const diagAddendum = new DiagnosticAddendum();
 
         doForEachSignature(converterType, (signature) => {
-            const returnTypeVarContext = new TypeVarContext(getTypeVarScopeIds(signature));
+            const returnTypeVarContext = new TypeVarContext();
 
             if (
                 evaluator.assignType(
@@ -820,12 +820,12 @@ function getConverterInputType(
                 signature = applySolvedTypeVars(signature, returnTypeVarContext) as FunctionType;
             }
 
-            const inputTypeVarContext = new TypeVarContext(typeVar.priv.scopeId);
+            const inputTypeVarContext = new TypeVarContext();
 
             if (evaluator.assignType(targetFunction, signature, diagAddendum, inputTypeVarContext)) {
                 const overloadSolution = applySolvedTypeVars(typeVar, inputTypeVarContext, {
                     replaceUnsolved: {
-                        scopeIds: getTypeVarScopeIds(typeVar) ?? [],
+                        scopeIds: getTypeVarScopeIds(typeVar),
                         tupleClassType: evaluator.getTupleClassType(),
                     },
                 });

@@ -1038,11 +1038,7 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
                 return unspecializedType;
             }
 
-            const typeVarContext = buildTypeVarContext(
-                type.shared.recursiveAlias.typeParams,
-                aliasInfo.typeArgs,
-                getTypeVarScopeId(type)
-            );
+            const typeVarContext = buildTypeVarContext(type.shared.recursiveAlias.typeParams, aliasInfo.typeArgs);
             return applySolvedTypeVars(unspecializedType, typeVarContext);
         }
 
@@ -1089,7 +1085,7 @@ export function getTypeVarScopeId(type: Type): TypeVarScopeId | undefined {
 
 // This is similar to getTypeVarScopeId except that it includes
 // the secondary scope IDs for functions.
-export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] | undefined {
+export function getTypeVarScopeIds(type: Type): TypeVarScopeId[] {
     const scopeIds: TypeVarScopeId[] = [];
 
     const scopeId = getTypeVarScopeId(type);
@@ -2090,7 +2086,7 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
 // Creates a specialized version of the class, filling in any unspecified
 // type arguments with Unknown.
 export function specializeClassType(type: ClassType): ClassType {
-    const typeVarContext = new TypeVarContext(getTypeVarScopeId(type));
+    const typeVarContext = new TypeVarContext();
     const typeParams = ClassType.getTypeParams(type);
 
     typeParams.forEach((typeParam) => {
@@ -2197,15 +2193,11 @@ export function buildTypeVarContextFromSpecializedClass(classType: ClassType): T
         typeArgs = classType.priv.typeArgs;
     }
 
-    return buildTypeVarContext(typeParams, typeArgs, getTypeVarScopeId(classType));
+    return buildTypeVarContext(typeParams, typeArgs);
 }
 
-export function buildTypeVarContext(
-    typeParams: TypeVarType[],
-    typeArgs: Type[] | undefined,
-    typeVarScopeId: TypeVarScopeId | undefined
-): TypeVarContext {
-    const typeVarContext = new TypeVarContext(typeVarScopeId);
+export function buildTypeVarContext(typeParams: TypeVarType[], typeArgs: Type[] | undefined): TypeVarContext {
+    const typeVarContext = new TypeVarContext();
 
     typeParams.forEach((typeParam, index) => {
         let typeArgType: Type;
@@ -4107,7 +4099,7 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
             }
 
             if (offsetIndex > 0) {
-                const typeVarContext = new TypeVarContext(getTypeVarScopeIds(sourceType));
+                const typeVarContext = new TypeVarContext();
 
                 // Create new type variables with the same scope but with
                 // different (unique) names.

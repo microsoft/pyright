@@ -147,7 +147,6 @@ import {
     getProtocolSymbolsRecursive,
     getSpecializedTupleType,
     getTypeVarArgsRecursive,
-    getTypeVarScopeId,
     getTypeVarScopeIds,
     isLiteralType,
     isLiteralTypeOrUnion,
@@ -985,7 +984,6 @@ export class Checker extends ParseTreeWalker {
                                     );
                                     if (narrowedType) {
                                         setTypeVarType(typeVarContext, typeVar, narrowedType);
-                                        typeVarContext.addSolveForScope(getTypeVarScopeId(typeVar));
                                     }
                                 }
                             }
@@ -2756,8 +2754,8 @@ export class Checker extends ParseTreeWalker {
         implementation: FunctionType,
         diag: DiagnosticAddendum | undefined
     ): boolean {
-        const implTypeVarContext = new TypeVarContext(getTypeVarScopeId(implementation));
-        const overloadTypeVarContext = new TypeVarContext(getTypeVarScopeId(overload));
+        const implTypeVarContext = new TypeVarContext();
+        const overloadTypeVarContext = new TypeVarContext();
 
         // First check the parameters to see if they are assignable.
         let isLegal = this._evaluator.assignType(
@@ -4787,7 +4785,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (isTypeIs) {
-            const scopeIds = getTypeVarScopeIds(functionType) ?? [];
+            const scopeIds = getTypeVarScopeIds(functionType);
             const typeGuardType = makeTypeVarsBound(returnType.priv.typeArgs[0], scopeIds);
 
             // Determine the type of the first parameter.
@@ -5807,7 +5805,7 @@ export class Checker extends ParseTreeWalker {
                     );
 
                     if (matchingMroClass && isInstantiableClass(matchingMroClass)) {
-                        const scopeIds = getTypeVarScopeIds(classType) ?? [];
+                        const scopeIds = getTypeVarScopeIds(classType);
                         const matchingMroObject = makeTypeVarsBound(
                             ClassType.cloneAsInstance(matchingMroClass),
                             scopeIds
