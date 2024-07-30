@@ -12,6 +12,7 @@ import { assert } from '../common/debug';
 import { defaultMaxDiagnosticDepth, DiagnosticAddendum } from '../common/diagnostic';
 import { LocAddendum } from '../localization/localize';
 import { assignTypeToTypeVar } from './constraintSolver';
+import { ConstraintTracker } from './constraintTracker';
 import { DeclarationType } from './declaration';
 import { assignProperty } from './properties';
 import { Symbol } from './symbol';
@@ -35,6 +36,7 @@ import {
     Variance,
 } from './types';
 import {
+    addConstraintForSelfType,
     applySolvedTypeVars,
     AssignTypeFlags,
     ClassMember,
@@ -42,12 +44,10 @@ import {
     lookUpClassMember,
     MemberAccessFlags,
     partiallySpecializeType,
-    populateTypeVarContextForSelfType,
     requiresSpecialization,
     setTypeVarType,
     synthesizeTypeVarForSelfCls,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 
 interface ProtocolAssignmentStackEntry {
     srcType: ClassType;
@@ -58,7 +58,7 @@ interface ProtocolCompatibility {
     srcType: Type;
     destType: Type;
     flags: AssignTypeFlags;
-    typeVarContext: TypeVarContext | undefined;
+    constraints: ConstraintTracker | undefined;
     isCompatible: boolean;
 }
 
@@ -72,8 +72,8 @@ export function assignClassToProtocol(
     destType: ClassType,
     srcType: ClassType,
     diag: DiagnosticAddendum | undefined,
-    destTypeVarContext: TypeVarContext | undefined,
-    srcTypeVarContext: TypeVarContext | undefined,
+    destConstraints: ConstraintTracker | undefined,
+    srcConstraints: ConstraintTracker | undefined,
     flags: AssignTypeFlags,
     recursionCount: number
 ): boolean {
@@ -95,14 +95,14 @@ export function assignClassToProtocol(
 
     // See if we've already determined that this class is compatible with this protocol.
     if (!enforceInvariance) {
-        const compatibility = getProtocolCompatibility(destType, srcType, flags, destTypeVarContext);
+        const compatibility = getProtocolCompatibility(destType, srcType, flags, destConstraints);
 
         if (compatibility !== undefined) {
             if (compatibility) {
                 // If the caller has provided a destination type var context,
                 // we can't use the cached value unless the dest has no type
                 // parameters to solve.
-                if (!destTypeVarContext || !requiresSpecialization(destType)) {
+                if (!destConstraints || !requiresSpecialization(destType)) {
                     return true;
                 }
             }
@@ -121,7 +121,7 @@ export function assignClassToProtocol(
 
     protocolAssignmentStack.push({ srcType, destType });
     let isCompatible = true;
-    const clonedTypeVarContext = destTypeVarContext?.clone();
+    const clonedConstraints = destConstraints?.clone();
 
     try {
         isCompatible = assignClassToProtocolInternal(
@@ -129,8 +129,8 @@ export function assignClassToProtocol(
             destType,
             srcType,
             diag,
-            destTypeVarContext,
-            srcTypeVarContext,
+            destConstraints,
+            srcConstraints,
             flags,
             recursionCount
         );
@@ -144,7 +144,7 @@ export function assignClassToProtocol(
     protocolAssignmentStack.pop();
 
     // Cache the results for next time.
-    setProtocolCompatibility(destType, srcType, flags, clonedTypeVarContext, isCompatible);
+    setProtocolCompatibility(destType, srcType, flags, clonedConstraints, isCompatible);
 
     return isCompatible;
 }
@@ -154,7 +154,7 @@ export function assignModuleToProtocol(
     destType: ClassType,
     srcType: ModuleType,
     diag: DiagnosticAddendum | undefined,
-    destTypeVarContext: TypeVarContext | undefined,
+    destConstraints: ConstraintTracker | undefined,
     flags: AssignTypeFlags,
     recursionCount: number
 ): boolean {
@@ -163,8 +163,8 @@ export function assignModuleToProtocol(
         destType,
         srcType,
         diag,
-        destTypeVarContext,
-        /* srcTypeVarContext */ undefined,
+        destConstraints,
+        /* srcConstraints */ undefined,
         flags,
         recursionCount
     );
@@ -235,7 +235,7 @@ function getProtocolCompatibility(
     destType: ClassType,
     srcType: ClassType,
     flags: AssignTypeFlags,
-    typeVarContext: TypeVarContext | undefined
+    constraints: ConstraintTracker | undefined
 ): boolean | undefined {
     const map = srcType.shared.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
     const entries = map?.get(destType.shared.fullName);
@@ -248,7 +248,7 @@ function getProtocolCompatibility(
             isTypeSame(entry.destType, destType) &&
             isTypeSame(entry.srcType, srcType) &&
             entry.flags === flags &&
-            isTypeVarContextSame(typeVarContext, entry.typeVarContext)
+            isConstraintTrackerSame(constraints, entry.constraints)
         );
     });
 
@@ -259,7 +259,7 @@ function setProtocolCompatibility(
     destType: ClassType,
     srcType: ClassType,
     flags: AssignTypeFlags,
-    typeVarContext: TypeVarContext | undefined,
+    constraints: ConstraintTracker | undefined,
     isCompatible: boolean
 ) {
     let map = srcType.shared.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
@@ -278,7 +278,7 @@ function setProtocolCompatibility(
         destType,
         srcType,
         flags,
-        typeVarContext,
+        constraints: constraints,
         isCompatible,
     });
 
@@ -287,7 +287,7 @@ function setProtocolCompatibility(
     }
 }
 
-function isTypeVarContextSame(context1: TypeVarContext | undefined, context2: TypeVarContext | undefined) {
+function isConstraintTrackerSame(context1: ConstraintTracker | undefined, context2: ConstraintTracker | undefined) {
     if (!context1 || !context2) {
         return context1 === context2;
     }
@@ -300,8 +300,8 @@ function assignClassToProtocolInternal(
     destType: ClassType,
     srcType: ClassType | ModuleType,
     diag: DiagnosticAddendum | undefined,
-    destTypeVarContext: TypeVarContext | undefined,
-    srcTypeVarContext: TypeVarContext | undefined,
+    destConstraints: ConstraintTracker | undefined,
+    srcConstraints: ConstraintTracker | undefined,
     flags: AssignTypeFlags,
     recursionCount: number
 ): boolean {
@@ -312,8 +312,8 @@ function assignClassToProtocolInternal(
     evaluator.inferVarianceForClass(destType);
 
     const sourceIsClassObject = isClass(srcType) && TypeBase.isInstantiable(srcType);
-    const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
-    const selfTypeVarContext = new TypeVarContext();
+    const protocolConstraints = createProtocolConstraints(evaluator, destType, destConstraints);
+    const selfConstraints = new ConstraintTracker();
 
     let selfType: ClassType | TypeVarType | undefined;
     if (isClass(srcType)) {
@@ -333,7 +333,7 @@ function assignClassToProtocolInternal(
             selfType = srcType;
         }
 
-        populateTypeVarContextForSelfType(selfTypeVarContext, destType, selfType);
+        addConstraintForSelfType(selfConstraints, destType, selfType);
     }
 
     // If the source is a TypedDict, use the _TypedDict placeholder class
@@ -517,7 +517,7 @@ function assignClassToProtocolInternal(
             }
 
             // Replace any "Self" TypeVar within the dest with the source type.
-            destMemberType = applySolvedTypeVars(destMemberType, selfTypeVarContext);
+            destMemberType = applySolvedTypeVars(destMemberType, selfConstraints);
 
             // If the dest is a method, bind it.
             if (isFunction(destMemberType) || isOverloadedFunction(destMemberType)) {
@@ -574,8 +574,8 @@ function assignClassToProtocolInternal(
                             mroClass,
                             srcType,
                             subDiag?.createAddendum(),
-                            protocolTypeVarContext,
-                            selfTypeVarContext,
+                            protocolConstraints,
+                            selfConstraints,
                             recursionCount
                         )
                     ) {
@@ -598,8 +598,8 @@ function assignClassToProtocolInternal(
                             getterType,
                             srcMemberType,
                             subDiag?.createAddendum(),
-                            protocolTypeVarContext,
-                            /* srcTypeVarContext */ undefined,
+                            protocolConstraints,
+                            /* srcConstraints */ undefined,
                             assignTypeFlags,
                             recursionCount
                         )
@@ -627,15 +627,15 @@ function assignClassToProtocolInternal(
                 const isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
 
                 // Temporarily add the TypeVar scope ID for this method to handle method-scoped TypeVars.
-                const protocolTypeVarContextClone = protocolTypeVarContext.clone();
+                const protocolConstraintsClone = protocolConstraints.clone();
 
                 if (
                     !evaluator.assignType(
                         destMemberType,
                         srcMemberType,
                         subDiag?.createAddendum(),
-                        protocolTypeVarContextClone,
-                        /* srcTypeVarContext */ undefined,
+                        protocolConstraintsClone,
+                        /* srcConstraints */ undefined,
                         isInvariant ? assignTypeFlags | AssignTypeFlags.EnforceInvariance : assignTypeFlags,
                         recursionCount
                     )
@@ -648,7 +648,7 @@ function assignClassToProtocolInternal(
                     }
                     typesAreConsistent = false;
                 } else {
-                    protocolTypeVarContext.copyFromClone(protocolTypeVarContextClone);
+                    protocolConstraints.copyFromClone(protocolConstraintsClone);
                 }
             }
 
@@ -734,7 +734,7 @@ function assignClassToProtocolInternal(
         // Create a specialized version of the protocol defined by the dest and
         // make sure the resulting type args can be assigned.
         const genericProtocolType = ClassType.specialize(destType, undefined);
-        const specializedProtocolType = applySolvedTypeVars(genericProtocolType, protocolTypeVarContext) as ClassType;
+        const specializedProtocolType = applySolvedTypeVars(genericProtocolType, protocolConstraints) as ClassType;
 
         if (destType.priv.typeArgs) {
             if (
@@ -742,21 +742,21 @@ function assignClassToProtocolInternal(
                     destType,
                     specializedProtocolType,
                     diag,
-                    destTypeVarContext,
-                    srcTypeVarContext,
+                    destConstraints,
+                    srcConstraints,
                     flags,
                     recursionCount
                 )
             ) {
                 typesAreConsistent = false;
             }
-        } else if (destTypeVarContext && !destTypeVarContext.isLocked()) {
+        } else if (destConstraints && !destConstraints.isLocked()) {
             for (const typeParam of destType.shared.typeParams) {
-                const typeArgEntry = protocolTypeVarContext.getMainSolutionSet().getTypeVar(typeParam);
+                const typeArgEntry = protocolConstraints.getMainConstraintSet().getTypeVar(typeParam);
 
                 if (typeArgEntry) {
                     setTypeVarType(
-                        destTypeVarContext,
+                        destConstraints,
                         typeParam,
                         typeArgEntry?.lowerBound,
                         typeArgEntry?.lowerBoundNoLiterals,
@@ -770,22 +770,22 @@ function assignClassToProtocolInternal(
     return typesAreConsistent;
 }
 
-// Given a (possibly-specialized) destType and an optional typeVarContext, creates
-// a new typeVarContext that combines the constraints from both the destType and
-// the destTypeVarContext.
-function createProtocolTypeVarContext(
+// Given a (possibly-specialized) destType and an optional constraint tracker,
+// creates a new constraint tracker that combines the constraints from both the
+// destType and the destConstraints.
+function createProtocolConstraints(
     evaluator: TypeEvaluator,
     destType: ClassType,
-    destTypeVarContext: TypeVarContext | undefined
-): TypeVarContext {
-    const protocolTypeVarContext = new TypeVarContext();
+    destConstraints: ConstraintTracker | undefined
+): ConstraintTracker {
+    const protocolConstraints = new ConstraintTracker();
 
     destType.shared.typeParams.forEach((typeParam, index) => {
-        const entry = destTypeVarContext?.getMainSolutionSet().getTypeVar(typeParam);
+        const entry = destConstraints?.getMainConstraintSet().getTypeVar(typeParam);
 
         if (entry) {
             setTypeVarType(
-                protocolTypeVarContext,
+                protocolConstraints,
                 typeParam,
                 entry.lowerBound,
                 entry.lowerBoundNoLiterals,
@@ -797,9 +797,9 @@ function createProtocolTypeVarContext(
             let hasUnsolvedTypeVars = requiresSpecialization(typeArg);
 
             // If the type argument has unsolved TypeVars, see if they have
-            // solved values in the destTypeVarContext.
-            if (hasUnsolvedTypeVars && destTypeVarContext) {
-                typeArg = applySolvedTypeVars(typeArg, destTypeVarContext, { useLowerBoundOnly: true });
+            // solved values in the destConstraints.
+            if (hasUnsolvedTypeVars && destConstraints) {
+                typeArg = applySolvedTypeVars(typeArg, destConstraints, { useLowerBoundOnly: true });
                 flags = AssignTypeFlags.Default;
                 hasUnsolvedTypeVars = requiresSpecialization(typeArg);
             } else {
@@ -814,10 +814,10 @@ function createProtocolTypeVarContext(
             }
 
             if (!hasUnsolvedTypeVars) {
-                assignTypeToTypeVar(evaluator, typeParam, typeArg, /* diag */ undefined, protocolTypeVarContext, flags);
+                assignTypeToTypeVar(evaluator, typeParam, typeArg, /* diag */ undefined, protocolConstraints, flags);
             }
         }
     });
 
-    return protocolTypeVarContext;
+    return protocolConstraints;
 }

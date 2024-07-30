@@ -94,6 +94,7 @@ import { UnescapeError, UnescapeErrorType, getUnescapedString } from '../parser/
 import { OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { ConstraintTracker } from './constraintTracker';
 import { getBoundCallMethod, getBoundInitMethod, getBoundNewMethod } from './constructors';
 import { addInheritedDataClassEntries } from './dataClasses';
 import { Declaration, DeclarationType, isAliasDeclaration } from './declaration';
@@ -116,6 +117,7 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclarationForSymbol } from './symbolUtils';
+import { getEffectiveExtraItemsEntryType, getTypedDictMembersForClass } from './typedDicts';
 import { maxCodeComplexity } from './typeEvaluator';
 import {
     Arg,
@@ -131,40 +133,6 @@ import {
     isIsinstanceFilterSuperclass,
     narrowTypeForContainerElementType,
 } from './typeGuards';
-import {
-    AssignTypeFlags,
-    ClassMember,
-    MemberAccessFlags,
-    applySolvedTypeVars,
-    buildTypeVarContextFromSpecializedClass,
-    convertToInstance,
-    derivesFromAnyOrUnknown,
-    derivesFromClassRecursive,
-    doForEachSubtype,
-    getClassFieldsRecursive,
-    getDeclaredGeneratorReturnType,
-    getGeneratorTypeArgs,
-    getProtocolSymbolsRecursive,
-    getSpecializedTupleType,
-    getTypeVarArgsRecursive,
-    getTypeVarScopeIds,
-    isLiteralType,
-    isLiteralTypeOrUnion,
-    isNoneInstance,
-    isPartlyUnknown,
-    isProperty,
-    isTupleClass,
-    isUnboundedTupleClass,
-    lookUpClassMember,
-    makeTypeVarsBound,
-    mapSubtypes,
-    partiallySpecializeType,
-    selfSpecializeClass,
-    setTypeVarType,
-    transformPossibleRecursiveTypeAlias,
-} from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
-import { getEffectiveExtraItemsEntryType, getTypedDictMembersForClass } from './typedDicts';
 import {
     AnyType,
     ClassType,
@@ -200,6 +168,38 @@ import {
     isUnion,
     isUnknown,
 } from './types';
+import {
+    AssignTypeFlags,
+    ClassMember,
+    MemberAccessFlags,
+    applySolvedTypeVars,
+    buildConstraintsFromSpecializedClass,
+    convertToInstance,
+    derivesFromAnyOrUnknown,
+    derivesFromClassRecursive,
+    doForEachSubtype,
+    getClassFieldsRecursive,
+    getDeclaredGeneratorReturnType,
+    getGeneratorTypeArgs,
+    getProtocolSymbolsRecursive,
+    getSpecializedTupleType,
+    getTypeVarArgsRecursive,
+    getTypeVarScopeIds,
+    isLiteralType,
+    isLiteralTypeOrUnion,
+    isNoneInstance,
+    isPartlyUnknown,
+    isProperty,
+    isTupleClass,
+    isUnboundedTupleClass,
+    lookUpClassMember,
+    makeTypeVarsBound,
+    mapSubtypes,
+    partiallySpecializeType,
+    selfSpecializeClass,
+    setTypeVarType,
+    transformPossibleRecursiveTypeAlias,
+} from './typeUtils';
 
 interface TypeVarUsageInfo {
     typeVar: TypeVarType;
@@ -974,7 +974,7 @@ export class Checker extends ParseTreeWalker {
                         const uniqueTypeVars = getTypeVarArgsRecursive(declaredReturnType);
 
                         if (uniqueTypeVars && uniqueTypeVars.some((typeVar) => TypeVarType.hasConstraints(typeVar))) {
-                            const typeVarContext = new TypeVarContext();
+                            const constraints = new ConstraintTracker();
 
                             for (const typeVar of uniqueTypeVars) {
                                 if (TypeVarType.hasConstraints(typeVar)) {
@@ -983,13 +983,13 @@ export class Checker extends ParseTreeWalker {
                                         TypeVarType.cloneAsBound(typeVar)
                                     );
                                     if (narrowedType) {
-                                        setTypeVarType(typeVarContext, typeVar, narrowedType);
+                                        setTypeVarType(constraints, typeVar, narrowedType);
                                     }
                                 }
                             }
 
-                            if (!typeVarContext.isEmpty()) {
-                                adjReturnType = applySolvedTypeVars(declaredReturnType, typeVarContext);
+                            if (!constraints.isEmpty()) {
+                                adjReturnType = applySolvedTypeVars(declaredReturnType, constraints);
                                 adjReturnType = makeTypeVarsBound(adjReturnType, liveScopes);
 
                                 if (this._evaluator.assignType(adjReturnType, returnType, diagAddendum)) {
@@ -2664,8 +2664,8 @@ export class Checker extends ParseTreeWalker {
                         returnType,
                         prevReturnType,
                         /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
+                        /* destConstraints */ undefined,
+                        /* srcConstraints */ undefined,
                         AssignTypeFlags.Default
                     )
                 ) {
@@ -2739,8 +2739,8 @@ export class Checker extends ParseTreeWalker {
             functionType,
             prevOverload,
             /* diag */ undefined,
-            /* destTypeVarContext */ undefined,
-            /* srcTypeVarContext */ undefined,
+            /* destConstraints */ undefined,
+            /* srcConstraints */ undefined,
             flags
         );
     }
@@ -2754,16 +2754,16 @@ export class Checker extends ParseTreeWalker {
         implementation: FunctionType,
         diag: DiagnosticAddendum | undefined
     ): boolean {
-        const implTypeVarContext = new TypeVarContext();
-        const overloadTypeVarContext = new TypeVarContext();
+        const implConstraints = new ConstraintTracker();
+        const overloadConstraints = new ConstraintTracker();
 
         // First check the parameters to see if they are assignable.
         let isLegal = this._evaluator.assignType(
             overload,
             implementation,
             diag,
-            overloadTypeVarContext,
-            implTypeVarContext,
+            overloadConstraints,
+            implConstraints,
             AssignTypeFlags.SkipReturnTypeCheck |
                 AssignTypeFlags.ReverseTypeVarMatching |
                 AssignTypeFlags.SkipSelfClsTypeCheck
@@ -2774,7 +2774,7 @@ export class Checker extends ParseTreeWalker {
             overload.shared.declaredReturnType ?? this._evaluator.getFunctionInferredReturnType(overload);
         let implementationReturnType = applySolvedTypeVars(
             implementation.shared.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation),
-            implTypeVarContext
+            implConstraints
         );
 
         if (implementation.shared.declaration?.node?.parent) {
@@ -2793,8 +2793,8 @@ export class Checker extends ParseTreeWalker {
                 implementationReturnType,
                 overloadReturnType,
                 returnDiag.createAddendum(),
-                implTypeVarContext,
-                overloadTypeVarContext,
+                implConstraints,
+                overloadConstraints,
                 AssignTypeFlags.Default
             )
         ) {
@@ -5132,7 +5132,7 @@ export class Checker extends ParseTreeWalker {
                             errorNode,
                             argList,
                             newMemberTypeResult,
-                            /* typeVarContext */ undefined,
+                            /* constraints */ undefined,
                             /* skipUnknownArgCheck */ undefined,
                             /* inferenceContext */ undefined
                         );
@@ -5143,7 +5143,7 @@ export class Checker extends ParseTreeWalker {
                             errorNode,
                             argList,
                             initMemberTypeResult,
-                            /* typeVarContext */ undefined,
+                            /* constraints */ undefined,
                             /* skipUnknownArgCheck */ undefined,
                             /* inferenceContext */ undefined
                         );
@@ -5697,16 +5697,16 @@ export class Checker extends ParseTreeWalker {
                 newMemberType,
                 initMemberType,
                 /* diag */ undefined,
-                /* destTypeVarContext */ undefined,
-                /* srcTypeVarContext */ undefined,
+                /* destConstraints */ undefined,
+                /* srcConstraints */ undefined,
                 AssignTypeFlags.SkipReturnTypeCheck
             ) ||
             !this._evaluator.assignType(
                 initMemberType,
                 newMemberType,
                 /* diag */ undefined,
-                /* destTypeVarContext */ undefined,
-                /* srcTypeVarContext */ undefined,
+                /* destConstraints */ undefined,
+                /* srcConstraints */ undefined,
                 AssignTypeFlags.SkipReturnTypeCheck
             )
         ) {
@@ -5788,14 +5788,14 @@ export class Checker extends ParseTreeWalker {
         const diagAddendum = new DiagnosticAddendum();
 
         for (const baseClass of filteredBaseClasses) {
-            const typeVarContext = buildTypeVarContextFromSpecializedClass(baseClass);
+            const constraints = buildConstraintsFromSpecializedClass(baseClass);
 
             for (const baseClassMroClass of baseClass.shared.mro) {
                 // There's no need to check for conflicts if this class isn't generic.
                 if (isClass(baseClassMroClass) && baseClassMroClass.shared.typeParams.length > 0) {
                     const specializedBaseClassMroClass = applySolvedTypeVars(
                         baseClassMroClass,
-                        typeVarContext
+                        constraints
                     ) as ClassType;
 
                     // Find the corresponding class in the derived class's MRO list.
@@ -6095,8 +6095,8 @@ export class Checker extends ParseTreeWalker {
                         overriddenType,
                         childOverrideType ?? overrideType,
                         /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
+                        /* destConstraints */ undefined,
+                        /* srcConstraints */ undefined,
                         isInvariant ? AssignTypeFlags.EnforceInvariance : AssignTypeFlags.Default
                     )
                 ) {
@@ -6388,10 +6388,10 @@ export class Checker extends ParseTreeWalker {
                 /* allowNarrowed */ false
             );
 
-            const typeVarContext = buildTypeVarContextFromSpecializedClass(baseClass);
+            const constraints = buildConstraintsFromSpecializedClass(baseClass);
 
             const baseExtraItemsType = baseTypedDictEntries.extraItems
-                ? applySolvedTypeVars(baseTypedDictEntries.extraItems.valueType, typeVarContext)
+                ? applySolvedTypeVars(baseTypedDictEntries.extraItems.valueType, constraints)
                 : UnknownType.create();
 
             for (const [name, entry] of typedDictEntries.knownItems) {
@@ -6409,8 +6409,8 @@ export class Checker extends ParseTreeWalker {
                             baseExtraItemsType,
                             entry.valueType,
                             /* diag */ undefined,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
+                            /* destConstraints */ undefined,
+                            /* srcConstraints */ undefined,
                             !baseTypedDictEntries.extraItems.isReadOnly
                                 ? AssignTypeFlags.EnforceInvariance
                                 : AssignTypeFlags.Default
@@ -6438,8 +6438,8 @@ export class Checker extends ParseTreeWalker {
                         baseExtraItemsType,
                         typedDictEntries.extraItems.valueType,
                         /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
+                        /* destConstraints */ undefined,
+                        /* srcConstraints */ undefined,
                         !baseTypedDictEntries.extraItems.isReadOnly
                             ? AssignTypeFlags.EnforceInvariance
                             : AssignTypeFlags.Default
@@ -6880,8 +6880,8 @@ export class Checker extends ParseTreeWalker {
                             baseType,
                             overrideType,
                             diagAddendum,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
+                            /* destConstraints */ undefined,
+                            /* srcConstraints */ undefined,
                             isInvariant ? AssignTypeFlags.EnforceInvariance : AssignTypeFlags.Default
                         )
                     ) {

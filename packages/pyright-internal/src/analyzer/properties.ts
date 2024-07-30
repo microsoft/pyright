@@ -12,6 +12,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocAddendum, LocMessage } from '../localization/localize';
 import { DecoratorNode, FunctionNode, ParamCategory, ParseNode } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
+import { ConstraintTracker } from './constraintTracker';
 import { getClassFullName, getTypeAnnotationForParam, getTypeSourceId } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
 import { TypeEvaluator } from './typeEvaluatorTypes';
@@ -43,7 +44,6 @@ import {
     getTypeVarScopeId,
     isProperty,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 
 export function validatePropertyMethod(evaluator: TypeEvaluator, method: FunctionType, errorNode: ParseNode) {
     if (FunctionType.isStaticMethod(method)) {
@@ -476,8 +476,8 @@ export function assignProperty(
     destClass: ClassType,
     srcClass: ClassType | ModuleType,
     diag: DiagnosticAddendum | undefined,
-    typeVarContext?: TypeVarContext,
-    selfTypeVarContext?: TypeVarContext,
+    constraints?: ConstraintTracker,
+    selfConstraints?: ConstraintTracker,
     recursionCount = 0
 ): boolean {
     const srcObjectToBind = isClass(srcClass) ? ClassType.cloneAsInstance(srcClass) : undefined;
@@ -522,8 +522,8 @@ export function assignProperty(
 
             // If the caller provided a "self" TypeVar context, replace any Self types.
             // This is needed during protocol matching.
-            if (selfTypeVarContext) {
-                destAccessType = applySolvedTypeVars(destAccessType, selfTypeVarContext) as FunctionType;
+            if (selfConstraints) {
+                destAccessType = applySolvedTypeVars(destAccessType, selfConstraints) as FunctionType;
             }
 
             // The access methods of fget, fset and fdel are modeled as static
@@ -567,8 +567,8 @@ export function assignProperty(
                     boundDestAccessType,
                     boundSrcAccessType,
                     diag,
-                    typeVarContext,
-                    /* srcTypeVarContext */ undefined,
+                    constraints,
+                    /* srcConstraints */ undefined,
                     AssignTypeFlags.Default,
                     recursionCount
                 )

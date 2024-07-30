@@ -30,7 +30,9 @@ import {
 } from '../parser/parseNodes';
 import { CodeFlowReferenceExpressionNode } from './codeFlowTypes';
 import { addConstraintsForExpectedType } from './constraintSolver';
+import { ConstraintTracker } from './constraintTracker';
 import { getTypeVarScopesForNode, isMatchingExpression } from './parseTreeUtils';
+import { getTypedDictMembersForClass } from './typedDicts';
 import { EvalFlags, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
 import {
     enumerateLiteralsForType,
@@ -38,6 +40,28 @@ import {
     narrowTypeForDiscriminatedLiteralFieldComparison,
     narrowTypeForDiscriminatedTupleComparison,
 } from './typeGuards';
+import {
+    AnyType,
+    ClassType,
+    FunctionType,
+    FunctionTypeFlags,
+    NeverType,
+    Type,
+    TypeBase,
+    TypedDictEntry,
+    UnknownType,
+    combineTypes,
+    isAnyOrUnknown,
+    isClass,
+    isClassInstance,
+    isInstantiableClass,
+    isNever,
+    isSameWithoutLiteralValue,
+    isTypeSame,
+    isTypeVarTuple,
+    isUnknown,
+    isUnpackedTypeVarTuple,
+} from './types';
 import {
     addConditionToType,
     applySolvedTypeVars,
@@ -62,30 +86,6 @@ import {
     specializeWithUnknownTypeArgs,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
-import { getTypedDictMembersForClass } from './typedDicts';
-import {
-    AnyType,
-    ClassType,
-    FunctionType,
-    FunctionTypeFlags,
-    NeverType,
-    Type,
-    TypeBase,
-    TypedDictEntry,
-    UnknownType,
-    combineTypes,
-    isAnyOrUnknown,
-    isClass,
-    isClassInstance,
-    isInstantiableClass,
-    isNever,
-    isSameWithoutLiteralValue,
-    isTypeSame,
-    isTypeVarTuple,
-    isUnknown,
-    isUnpackedTypeVarTuple,
-} from './types';
 
 // PEP 634 indicates that several built-in classes are handled differently
 // when used with class pattern matching.
@@ -948,7 +948,7 @@ function narrowTypeBasedOnClassPattern(
                                     ClassType.isSpecialBuiltIn(unexpandedSubtype) ||
                                     unexpandedSubtype.shared.typeParams.length > 0
                                 ) {
-                                    const typeVarContext = new TypeVarContext();
+                                    const constraints = new ConstraintTracker();
                                     const unspecializedMatchType = ClassType.specialize(
                                         unexpandedSubtype,
                                         /* typeArgs */ undefined
@@ -960,12 +960,12 @@ function narrowTypeBasedOnClassPattern(
                                             evaluator,
                                             matchTypeInstance,
                                             subjectSubtypeExpanded,
-                                            typeVarContext,
+                                            constraints,
                                             /* liveTypeVarScopes */ undefined,
                                             /* usageOffset */ undefined
                                         )
                                     ) {
-                                        resultType = applySolvedTypeVars(matchTypeInstance, typeVarContext, {
+                                        resultType = applySolvedTypeVars(matchTypeInstance, constraints, {
                                             replaceUnsolved: {
                                                 scopeIds: getTypeVarScopeIds(unexpandedSubtype),
                                                 tupleClassType: evaluator.getTupleClassType(),
@@ -1257,9 +1257,9 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
             const mappingObject = ClassType.cloneAsInstance(mappingType);
 
             // Is it a subtype of Mapping?
-            const typeVarContext = new TypeVarContext();
-            if (evaluator.assignType(mappingObject, subtype, /* diag */ undefined, typeVarContext)) {
-                const specializedMapping = applySolvedTypeVars(mappingObject, typeVarContext) as ClassType;
+            const constraints = new ConstraintTracker();
+            if (evaluator.assignType(mappingObject, subtype, /* diag */ undefined, constraints)) {
+                const specializedMapping = applySolvedTypeVars(mappingObject, constraints) as ClassType;
 
                 if (specializedMapping.priv.typeArgs && specializedMapping.priv.typeArgs.length >= 2) {
                     mappingInfo.push({
@@ -1513,9 +1513,9 @@ function getSequencePatternInfo(
                 const sequenceObject = ClassType.cloneAsInstance(sequenceType);
 
                 // Is it a subtype of Sequence?
-                const typeVarContext = new TypeVarContext();
-                if (evaluator.assignType(sequenceObject, subtype, /* diag */ undefined, typeVarContext)) {
-                    const specializedSequence = applySolvedTypeVars(sequenceObject, typeVarContext) as ClassType;
+                const constraints = new ConstraintTracker();
+                if (evaluator.assignType(sequenceObject, subtype, /* diag */ undefined, constraints)) {
+                    const specializedSequence = applySolvedTypeVars(sequenceObject, constraints) as ClassType;
 
                     if (specializedSequence.priv.typeArgs && specializedSequence.priv.typeArgs.length > 0) {
                         sequenceInfo.push({
@@ -1530,20 +1530,20 @@ function getSequencePatternInfo(
                 }
 
                 // If it wasn't a subtype of Sequence, see if it's a supertype.
-                const sequenceTypeVarContext = new TypeVarContext();
+                const sequenceConstraints = new ConstraintTracker();
                 if (
                     addConstraintsForExpectedType(
                         evaluator,
                         ClassType.cloneAsInstance(sequenceType),
                         subtype,
-                        sequenceTypeVarContext,
+                        sequenceConstraints,
                         getTypeVarScopesForNode(pattern),
                         pattern.start
                     )
                 ) {
                     const specializedSequence = applySolvedTypeVars(
                         ClassType.cloneAsInstantiable(sequenceType),
-                        sequenceTypeVarContext
+                        sequenceConstraints
                     ) as ClassType;
 
                     if (specializedSequence.priv.typeArgs && specializedSequence.priv.typeArgs.length > 0) {

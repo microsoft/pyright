@@ -16,28 +16,9 @@ import { appendArray } from '../common/collectionUtils';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { ExpressionNode, ParamCategory } from '../parser/parseNodes';
+import { ConstraintTracker } from './constraintTracker';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
 import { Arg, CallResult, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
-import {
-    InferenceContext,
-    MemberAccessFlags,
-    addTypeVarsToListIfUnique,
-    applySolvedTypeVars,
-    buildTypeVarContextFromSpecializedClass,
-    convertToInstance,
-    doForEachSignature,
-    doForEachSubtype,
-    getTypeVarArgsRecursive,
-    getTypeVarScopeId,
-    getTypeVarScopeIds,
-    isTupleClass,
-    lookUpClassMember,
-    mapSubtypes,
-    selfSpecializeClass,
-    setTypeVarType,
-    specializeTupleClass,
-} from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 import {
     ClassType,
     FunctionType,
@@ -60,6 +41,25 @@ import {
     isTypeVar,
     isUnknown,
 } from './types';
+import {
+    InferenceContext,
+    MemberAccessFlags,
+    addTypeVarsToListIfUnique,
+    applySolvedTypeVars,
+    buildConstraintsFromSpecializedClass,
+    convertToInstance,
+    doForEachSignature,
+    doForEachSubtype,
+    getTypeVarArgsRecursive,
+    getTypeVarScopeId,
+    getTypeVarScopeIds,
+    isTupleClass,
+    lookUpClassMember,
+    mapSubtypes,
+    selfSpecializeClass,
+    setTypeVarType,
+    specializeTupleClass,
+} from './typeUtils';
 
 // Fetches and binds the __new__ method from a class.
 export function getBoundNewMethod(
@@ -121,7 +121,7 @@ export function validateConstructorArgs(
     // using default type argument values.
     const aliasInfo = type.props?.typeAliasInfo;
     if (aliasInfo?.typeParams && !aliasInfo.typeArgs) {
-        type = applySolvedTypeVars(type, new TypeVarContext(), {
+        type = applySolvedTypeVars(type, new ConstraintTracker(), {
             replaceUnsolved: { scopeIds: [aliasInfo.typeVarScopeId], tupleClassType: evaluator.getTupleClassType() },
         }) as ClassType;
     }
@@ -275,7 +275,7 @@ function validateNewAndInitMethods(
     } else if (isAnyOrUnknown(newMethodReturnType)) {
         // If the __new__ method returns Any or Unknown, we'll ignore its return
         // type and assume that it returns Self.
-        newMethodReturnType = applySolvedTypeVars(ClassType.cloneAsInstance(type), new TypeVarContext(), {
+        newMethodReturnType = applySolvedTypeVars(ClassType.cloneAsInstance(type), new ConstraintTracker(), {
             replaceUnsolved: {
                 scopeIds: getTypeVarScopeIds(type),
                 tupleClassType: evaluator.getTupleClassType(),
@@ -405,14 +405,14 @@ function validateNewMethod(
     let argumentErrors = false;
     const overloadsUsedForCall: FunctionType[] = [];
 
-    const typeVarContext = new TypeVarContext();
+    const constraints = new ConstraintTracker();
 
     const callResult = evaluator.useSpeculativeMode(useSpeculativeModeForArgs ? errorNode : undefined, () => {
         return evaluator.validateCallArgs(
             errorNode,
             argList,
             newMethodTypeResult,
-            typeVarContext,
+            constraints,
             skipUnknownArgCheck,
             inferenceContext
         );
@@ -426,12 +426,12 @@ function validateNewMethod(
         argumentErrors = true;
 
         // Evaluate the arguments in a non-speculative manner to generate any diagnostics.
-        typeVarContext.unlock();
+        constraints.unlock();
         evaluator.validateCallArgs(
             errorNode,
             argList,
             newMethodTypeResult,
-            typeVarContext,
+            constraints,
             skipUnknownArgCheck,
             inferenceContext
         );
@@ -456,7 +456,7 @@ function validateNewMethod(
             newReturnType = applyExpectedTypeForTupleConstructor(newReturnType, inferenceContext);
         }
     } else {
-        newReturnType = applyExpectedTypeForConstructor(evaluator, type, inferenceContext, typeVarContext);
+        newReturnType = applyExpectedTypeForConstructor(evaluator, type, inferenceContext, constraints);
     }
 
     return { argumentErrors, returnType: newReturnType, isTypeIncomplete, overloadsUsedForCall };
@@ -475,14 +475,14 @@ function validateInitMethod(
     let argumentErrors = false;
     const overloadsUsedForCall: FunctionType[] = [];
 
-    const typeVarContext = type.priv.typeArgs ? buildTypeVarContextFromSpecializedClass(type) : new TypeVarContext();
+    const constraints = type.priv.typeArgs ? buildConstraintsFromSpecializedClass(type) : new ConstraintTracker();
 
     const returnTypeOverride = selfSpecializeClass(type);
     const callResult = evaluator.validateCallArgs(
         errorNode,
         argList,
         { type: initMethodType },
-        typeVarContext,
+        constraints,
         skipUnknownArgCheck,
         inferenceContext ? { ...inferenceContext, returnTypeOverride } : undefined
     );
@@ -500,7 +500,7 @@ function validateInitMethod(
         evaluator,
         adjustedClassType,
         /* inferenceContext */ undefined,
-        typeVarContext
+        constraints
     );
 
     if (callResult.isTypeIncomplete) {
@@ -569,7 +569,7 @@ function validateMetaclassCall(
         errorNode,
         argList,
         metaclassCallMethodInfo,
-        /* typeVarContext */ undefined,
+        /* constraints */ undefined,
         skipUnknownArgCheck,
         inferenceContext
     );
@@ -592,9 +592,9 @@ function applyExpectedSubtypeForConstructor(
     evaluator: TypeEvaluator,
     type: ClassType,
     expectedSubtype: Type,
-    typeVarContext: TypeVarContext
+    constraints: ConstraintTracker
 ): Type | undefined {
-    const specializedType = applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarContext, {
+    const specializedType = applySolvedTypeVars(ClassType.cloneAsInstance(type), constraints, {
         replaceUnsolved: {
             scopeIds: [],
             tupleClassType: evaluator.getTupleClassType(),
@@ -620,14 +620,14 @@ function applyExpectedTypeForConstructor(
     evaluator: TypeEvaluator,
     type: ClassType,
     inferenceContext: InferenceContext | undefined,
-    typeVarContext: TypeVarContext
+    constraints: ConstraintTracker
 ): Type {
     let defaultIfNotFound = true;
 
     // If this isn't a generic type or it's a type that has already been
     // explicitly specialized, the expected type isn't applicable.
     if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
-        return applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarContext, {
+        return applySolvedTypeVars(ClassType.cloneAsInstance(type), constraints, {
             replaceUnsolved: {
                 scopeIds: [],
                 tupleClassType: evaluator.getTupleClassType(),
@@ -638,7 +638,7 @@ function applyExpectedTypeForConstructor(
 
     if (inferenceContext) {
         const specializedExpectedType = mapSubtypes(inferenceContext.expectedType, (expectedSubtype) => {
-            return applyExpectedSubtypeForConstructor(evaluator, type, expectedSubtype, typeVarContext);
+            return applyExpectedSubtypeForConstructor(evaluator, type, expectedSubtype, constraints);
         });
 
         if (!isNever(specializedExpectedType)) {
@@ -653,7 +653,7 @@ function applyExpectedTypeForConstructor(
         }
     }
 
-    const specializedType = applySolvedTypeVars(type, typeVarContext, {
+    const specializedType = applySolvedTypeVars(type, constraints, {
         replaceUnsolved: defaultIfNotFound
             ? {
                   scopeIds: getTypeVarScopeIds(type),
@@ -935,7 +935,7 @@ function createFunctionFromInitMethod(
             // If this is a generic type, self-specialize the class (i.e. fill in
             // its own type parameters as type arguments).
             if (objectType.shared.typeParams.length > 0 && !objectType.priv.typeArgs) {
-                const typeVarContext = new TypeVarContext();
+                const constraints = new ConstraintTracker();
 
                 // If a TypeVar is not used in any of the parameter types, it should take
                 // on its default value (typically Unknown) in the resulting specialized type.
@@ -947,10 +947,10 @@ function createFunctionFromInitMethod(
                 });
 
                 typeVarsInParams.forEach((typeVar) => {
-                    setTypeVarType(typeVarContext, typeVar, typeVar);
+                    setTypeVarType(constraints, typeVar, typeVar);
                 });
 
-                returnType = applySolvedTypeVars(objectType, typeVarContext, {
+                returnType = applySolvedTypeVars(objectType, constraints, {
                     replaceUnsolved: {
                         scopeIds: getTypeVarScopeIds(objectType),
                         tupleClassType: evaluator.getTupleClassType(),

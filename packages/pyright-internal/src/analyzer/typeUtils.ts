@@ -10,6 +10,7 @@
 import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { ArgumentNode, ParamCategory } from '../parser/parseNodes';
+import { ConstraintSet, ConstraintTracker } from './constraintTracker';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isEffectivelyClassVar, isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
@@ -68,7 +69,6 @@ import {
     UnknownType,
     Variance,
 } from './types';
-import { TypeVarContext, TypeVarSolutionSet } from './typeVarContext';
 import { TypeWalker } from './typeWalker';
 
 export interface ClassMember {
@@ -216,7 +216,7 @@ export const enum AssignTypeFlags {
     // or cls.
     SkipSelfClsTypeCheck = 1 << 9,
 
-    // We're initially populating the typeVarContext with an expected type,
+    // We're initially populating the constraints with an expected type,
     // so TypeVars should match the specified type exactly rather than
     // employing narrowing or widening, and don't strip literals.
     PopulatingExpectedType = 1 << 11,
@@ -1038,8 +1038,8 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
                 return unspecializedType;
             }
 
-            const typeVarContext = buildTypeVarContext(type.shared.recursiveAlias.typeParams, aliasInfo.typeArgs);
-            return applySolvedTypeVars(unspecializedType, typeVarContext);
+            const constraints = buildConstraints(type.shared.recursiveAlias.typeParams, aliasInfo.typeArgs);
+            return applySolvedTypeVars(unspecializedType, constraints);
         }
 
         if (isUnion(type) && type.priv.includesRecursiveTypeAlias) {
@@ -1222,8 +1222,8 @@ export function getSpecializedTupleType(type: Type): ClassType | undefined {
         return classType;
     }
 
-    const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
-    return applySolvedTypeVars(tupleClass, typeVarContext) as ClassType;
+    const constraints = buildConstraintsFromSpecializedClass(classType);
+    return applySolvedTypeVars(tupleClass, constraints) as ClassType;
 }
 
 export function isLiteralType(type: ClassType): boolean {
@@ -1440,13 +1440,13 @@ export function partiallySpecializeType(
     }
 
     // Partially specialize the type using the specialized class type vars.
-    const typeVarContext = buildTypeVarContextFromSpecializedClass(contextClassType);
+    const constraints = buildConstraintsFromSpecializedClass(contextClassType);
 
     if (selfClass) {
-        populateTypeVarContextForSelfType(typeVarContext, contextClassType, selfClass);
+        addConstraintForSelfType(constraints, contextClassType, selfClass);
     }
 
-    let result = applySolvedTypeVars(type, typeVarContext, { typeClassType });
+    let result = applySolvedTypeVars(type, constraints, { typeClassType });
 
     // If this is a property, we may need to partially specialize the
     // access methods associated with it.
@@ -1478,8 +1478,8 @@ export function partiallySpecializeType(
     return result;
 }
 
-export function populateTypeVarContextForSelfType(
-    typeVarContext: TypeVarContext,
+export function addConstraintForSelfType(
+    constraints: ConstraintTracker,
     contextClassType: ClassType,
     selfClass: ClassType | TypeVarType
 ) {
@@ -1499,7 +1499,7 @@ export function populateTypeVarContextForSelfType(
     });
 
     if (!isTypeSame(synthesizedSelfTypeVar, selfWithoutLiteral)) {
-        setTypeVarType(typeVarContext, synthesizedSelfTypeVar, selfInstance, selfWithoutLiteral);
+        setTypeVarType(constraints, synthesizedSelfTypeVar, selfInstance, selfWithoutLiteral);
     }
 }
 
@@ -1530,67 +1530,63 @@ export function makeTypeVarsFree(type: Type, scopeIds: TypeVarScopeId[]): Type {
 // type variables from a type var map.
 export function applySolvedTypeVars(
     type: Type,
-    typeVarContext: TypeVarContext,
+    constraints: ConstraintTracker,
     options: ApplyTypeVarOptions = {}
 ): Type {
-    // Use a shortcut if the typeVarContext is empty and no transform is necessary.
-    if (typeVarContext.isEmpty() && !options.replaceUnsolved) {
+    // Use a shortcut if the constraints is empty and no transform is necessary.
+    if (constraints.isEmpty() && !options.replaceUnsolved) {
         return type;
     }
 
     if (options.replaceUnsolved?.applyUnificationVars) {
-        applyUnificationVars(typeVarContext);
+        applyUnificationVars(constraints);
     }
 
-    const transformer = new ApplySolvedTypeVarsTransformer(typeVarContext, options);
+    const transformer = new ApplySolvedTypeVarsTransformer(constraints, options);
     return transformer.apply(type, 0);
 }
 
 // Applies solved TypeVars from one context to this context.
-export function applySourceContextTypeVars(destContext: TypeVarContext, srcContext: TypeVarContext) {
+export function applySourceContextTypeVars(destContext: ConstraintTracker, srcContext: ConstraintTracker) {
     if (srcContext.isEmpty()) {
         return;
     }
 
-    destContext.doForEachSolutionSet((solutionSet) => {
-        applySourceContextTypeVarsToSignature(solutionSet, srcContext);
+    destContext.doForEachConstraintSet((set) => {
+        applySourceContextTypeVarsToSignature(set, srcContext);
     });
 }
 
-export function applySourceContextTypeVarsToSignature(solutionSet: TypeVarSolutionSet, srcContext: TypeVarContext) {
-    solutionSet.getTypeVars().forEach((entry) => {
+export function applySourceContextTypeVarsToSignature(set: ConstraintSet, srcContext: ConstraintTracker) {
+    set.getTypeVars().forEach((entry) => {
         const newLowerBound = entry.lowerBound ? applySolvedTypeVars(entry.lowerBound, srcContext) : undefined;
         const newLowerBoundNoLiterals = entry.lowerBoundNoLiterals
             ? applySolvedTypeVars(entry.lowerBoundNoLiterals, srcContext)
             : undefined;
         const newUpperBound = entry.upperBound ? applySolvedTypeVars(entry.upperBound, srcContext) : undefined;
 
-        solutionSet.setTypeVarType(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
+        set.setTypeVarType(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
     });
 }
 
-// If the TypeVarContext contains any type variables whose types depend on
+// If the constraint tracker contains any type variables whose types depend on
 // unification vars used for bidirectional type inference, replace those
 // with the solved type associated with those unification vars.
-export function applyUnificationVars(typeVarContext: TypeVarContext) {
-    typeVarContext.doForEachSolutionSet((solutionSet) => {
-        if (!solutionSet.hasUnificationVars()) {
+export function applyUnificationVars(constraints: ConstraintTracker) {
+    constraints.doForEachConstraintSet((set) => {
+        if (!set.hasUnificationVars()) {
             return;
         }
 
-        solutionSet.getTypeVars().forEach((entry) => {
+        set.getTypeVars().forEach((entry) => {
             if (!TypeVarType.isUnification(entry.typeVar)) {
-                const newLowerBound = entry.lowerBound
-                    ? applyUnificationVarsToType(entry.lowerBound, solutionSet)
-                    : undefined;
+                const newLowerBound = entry.lowerBound ? applyUnificationVarsToType(entry.lowerBound, set) : undefined;
                 const newLowerBoundNoLiterals = entry.lowerBoundNoLiterals
-                    ? applyUnificationVarsToType(entry.lowerBoundNoLiterals, solutionSet)
+                    ? applyUnificationVarsToType(entry.lowerBoundNoLiterals, set)
                     : undefined;
-                const newUpperBound = entry.upperBound
-                    ? applyUnificationVarsToType(entry.upperBound, solutionSet)
-                    : undefined;
+                const newUpperBound = entry.upperBound ? applyUnificationVarsToType(entry.upperBound, set) : undefined;
 
-                solutionSet.setTypeVarType(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
+                set.setTypeVarType(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
             }
         });
     });
@@ -2082,14 +2078,14 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
 // Creates a specialized version of the class, filling in any unspecified
 // type arguments with Unknown.
 export function specializeClassType(type: ClassType): ClassType {
-    const typeVarContext = new TypeVarContext();
+    const constraints = new ConstraintTracker();
     const typeParams = ClassType.getTypeParams(type);
 
     typeParams.forEach((typeParam) => {
-        setTypeVarType(typeVarContext, typeParam, applySolvedTypeVars(typeParam.shared.defaultType, typeVarContext));
+        setTypeVarType(constraints, typeParam, applySolvedTypeVars(typeParam.shared.defaultType, constraints));
     });
 
-    return applySolvedTypeVars(type, typeVarContext) as ClassType;
+    return applySolvedTypeVars(type, constraints) as ClassType;
 }
 
 // Recursively finds all of the type arguments and sets them
@@ -2097,7 +2093,7 @@ export function specializeClassType(type: ClassType): ClassType {
 export function setTypeArgsRecursive(
     destType: Type,
     srcType: UnknownType | AnyType,
-    typeVarContext: TypeVarContext,
+    constraints: ConstraintTracker,
     recursionCount = 0
 ) {
     if (recursionCount > maxTypeRecursionCount) {
@@ -2105,26 +2101,26 @@ export function setTypeArgsRecursive(
     }
     recursionCount++;
 
-    if (typeVarContext.isLocked()) {
+    if (constraints.isLocked()) {
         return;
     }
 
     switch (destType.category) {
         case TypeCategory.Union:
             doForEachSubtype(destType, (subtype) => {
-                setTypeArgsRecursive(subtype, srcType, typeVarContext, recursionCount);
+                setTypeArgsRecursive(subtype, srcType, constraints, recursionCount);
             });
             break;
 
         case TypeCategory.Class:
             if (destType.priv.typeArgs) {
                 destType.priv.typeArgs.forEach((typeArg) => {
-                    setTypeArgsRecursive(typeArg, srcType, typeVarContext, recursionCount);
+                    setTypeArgsRecursive(typeArg, srcType, constraints, recursionCount);
                 });
             }
             if (destType.priv.tupleTypeArgs) {
                 destType.priv.tupleTypeArgs.forEach((typeArg) => {
-                    setTypeArgsRecursive(typeArg.type, srcType, typeVarContext, recursionCount);
+                    setTypeArgsRecursive(typeArg.type, srcType, constraints, recursionCount);
                 });
             }
             break;
@@ -2132,35 +2128,35 @@ export function setTypeArgsRecursive(
         case TypeCategory.Function:
             if (destType.priv.specializedTypes) {
                 destType.priv.specializedTypes.parameterTypes.forEach((paramType) => {
-                    setTypeArgsRecursive(paramType, srcType, typeVarContext, recursionCount);
+                    setTypeArgsRecursive(paramType, srcType, constraints, recursionCount);
                 });
                 if (destType.priv.specializedTypes.returnType) {
                     setTypeArgsRecursive(
                         destType.priv.specializedTypes.returnType,
                         srcType,
-                        typeVarContext,
+                        constraints,
                         recursionCount
                     );
                 }
             } else {
                 destType.shared.parameters.forEach((param) => {
-                    setTypeArgsRecursive(param.type, srcType, typeVarContext, recursionCount);
+                    setTypeArgsRecursive(param.type, srcType, constraints, recursionCount);
                 });
                 if (destType.shared.declaredReturnType) {
-                    setTypeArgsRecursive(destType.shared.declaredReturnType, srcType, typeVarContext, recursionCount);
+                    setTypeArgsRecursive(destType.shared.declaredReturnType, srcType, constraints, recursionCount);
                 }
             }
             break;
 
         case TypeCategory.OverloadedFunction:
             destType.priv.overloads.forEach((subtype) => {
-                setTypeArgsRecursive(subtype, srcType, typeVarContext, recursionCount);
+                setTypeArgsRecursive(subtype, srcType, constraints, recursionCount);
             });
             break;
 
         case TypeCategory.TypeVar:
-            if (!typeVarContext.getMainSolutionSet().getTypeVar(destType)) {
-                setTypeVarType(typeVarContext, destType, srcType);
+            if (!constraints.getMainConstraintSet().getTypeVar(destType)) {
+                setTypeVarType(constraints, destType, srcType);
             }
             break;
     }
@@ -2170,7 +2166,7 @@ export function setTypeArgsRecursive(
 // types. For example, if the generic type is Dict[_T1, _T2] and the
 // specialized type is Dict[str, int], it returns a map that associates
 // _T1 with str and _T2 with int.
-export function buildTypeVarContextFromSpecializedClass(classType: ClassType): TypeVarContext {
+export function buildConstraintsFromSpecializedClass(classType: ClassType): ConstraintTracker {
     const typeParams = ClassType.getTypeParams(classType);
     let typeArgs: Type[] | undefined;
 
@@ -2189,11 +2185,11 @@ export function buildTypeVarContextFromSpecializedClass(classType: ClassType): T
         typeArgs = classType.priv.typeArgs;
     }
 
-    return buildTypeVarContext(typeParams, typeArgs);
+    return buildConstraints(typeParams, typeArgs);
 }
 
-export function buildTypeVarContext(typeParams: TypeVarType[], typeArgs: Type[] | undefined): TypeVarContext {
-    const typeVarContext = new TypeVarContext();
+export function buildConstraints(typeParams: TypeVarType[], typeArgs: Type[] | undefined): ConstraintTracker {
+    const constraints = new ConstraintTracker();
 
     typeParams.forEach((typeParam, index) => {
         let typeArgType: Type;
@@ -2216,9 +2212,9 @@ export function buildTypeVarContext(typeParams: TypeVarType[], typeArgs: Type[] 
                                 )
                             );
                         });
-                        setTypeVarType(typeVarContext, typeParam, typeArgType);
+                        setTypeVarType(constraints, typeParam, typeArgType);
                     } else if (isParamSpec(typeArgType) || isAnyOrUnknown(typeArgType)) {
-                        setTypeVarType(typeVarContext, typeParam, typeArgType);
+                        setTypeVarType(constraints, typeParam, typeArgType);
                     }
                 }
             } else {
@@ -2228,18 +2224,12 @@ export function buildTypeVarContext(typeParams: TypeVarType[], typeArgs: Type[] 
                     typeArgType = typeArgs[index];
                 }
 
-                setTypeVarType(
-                    typeVarContext,
-                    typeParam,
-                    typeArgType,
-                    /* lowerBoundNoLiterals */ undefined,
-                    typeArgType
-                );
+                setTypeVarType(constraints, typeParam, typeArgType, /* lowerBoundNoLiterals */ undefined, typeArgType);
             }
         }
     });
 
-    return typeVarContext;
+    return constraints;
 }
 
 // Determines the specialized base class type that srcType derives from.
@@ -2252,8 +2242,8 @@ export function specializeForBaseClass(srcType: ClassType, baseClass: ClassType)
         return baseClass;
     }
 
-    const typeVarContext = buildTypeVarContextFromSpecializedClass(srcType);
-    const specializedType = applySolvedTypeVars(baseClass, typeVarContext);
+    const constraints = buildConstraintsFromSpecializedClass(srcType);
+    const specializedType = applySolvedTypeVars(baseClass, constraints);
     assert(isInstantiableClass(specializedType));
     return specializedType as ClassType;
 }
@@ -3159,10 +3149,10 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
     filteredBaseClasses.forEach((baseClass) => {
         if (isInstantiableClass(baseClass)) {
-            const typeVarContext = buildTypeVarContextFromSpecializedClass(baseClass);
+            const constraints = buildConstraintsFromSpecializedClass(baseClass);
             classListsToMerge.push(
                 baseClass.shared.mro.map((mroClass) => {
-                    return applySolvedTypeVars(mroClass, typeVarContext);
+                    return applySolvedTypeVars(mroClass, constraints);
                 })
             );
         } else {
@@ -3172,14 +3162,14 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
     classListsToMerge.push(
         filteredBaseClasses.map((baseClass) => {
-            const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
-            return applySolvedTypeVars(baseClass, typeVarContext);
+            const constraints = buildConstraintsFromSpecializedClass(classType);
+            return applySolvedTypeVars(baseClass, constraints);
         })
     );
 
     // The first class in the MRO is the class itself.
-    const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
-    let specializedClassType = applySolvedTypeVars(classType, typeVarContext);
+    const constraints = buildConstraintsFromSpecializedClass(classType);
+    let specializedClassType = applySolvedTypeVars(classType, constraints);
     if (!isClass(specializedClassType) && !isAnyOrUnknown(specializedClassType)) {
         specializedClassType = UnknownType.create();
     }
@@ -3439,10 +3429,10 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
     return functionType;
 }
 
-// This function calls the setTypeVarType method on the TypeVarContext after
-// converting the parameters for use with a ParamSpec.
+// This function calls the setTypeVarType method on the constraint
+// tracker after converting the parameters for use with a ParamSpec.
 export function setTypeVarType(
-    typeVarContext: TypeVarContext,
+    constraints: ConstraintTracker,
     typeVar: TypeVarType,
     lowerBound: Type | undefined,
     lowerBoundNoLiterals?: Type,
@@ -3460,7 +3450,7 @@ export function setTypeVarType(
         }
     }
 
-    typeVarContext.setTypeVarType(typeVar, lowerBound, lowerBoundNoLiterals, upperBound);
+    constraints.setTypeVarType(typeVar, lowerBound, lowerBoundNoLiterals, upperBound);
 }
 
 // Recursively walks a type and calls a callback for each TypeVar, allowing
@@ -3683,7 +3673,7 @@ class TypeVarTransformer {
         return postTransform;
     }
 
-    doForEachSolutionSet(callback: () => FunctionType): FunctionType | OverloadedFunctionType {
+    doForEachConstraintSet(callback: () => FunctionType): FunctionType | OverloadedFunctionType {
         // By default, simply return the result of the callback. Subclasses
         // can override this method as they see fit.
         return callback();
@@ -3835,7 +3825,7 @@ class TypeVarTransformer {
         sourceType: FunctionType,
         recursionCount: number
     ): FunctionType | OverloadedFunctionType {
-        return this.doForEachSolutionSet(() => {
+        return this.doForEachConstraintSet(() => {
             let functionType = sourceType;
 
             const declaredReturnType = FunctionType.getEffectiveReturnType(functionType);
@@ -4095,7 +4085,7 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
             }
 
             if (offsetIndex > 0) {
-                const typeVarContext = new TypeVarContext();
+                const constraints = new ConstraintTracker();
 
                 // Create new type variables with the same scope but with
                 // different (unique) names.
@@ -4106,11 +4096,11 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
                             `${typeParam.shared.name}(${offsetIndex})`
                         );
 
-                        setTypeVarType(typeVarContext, typeParam, replacement);
+                        setTypeVarType(constraints, typeParam, replacement);
                     }
                 });
 
-                updatedSourceType = applySolvedTypeVars(sourceType, typeVarContext);
+                updatedSourceType = applySolvedTypeVars(sourceType, constraints);
                 assert(isFunction(updatedSourceType) || isOverloadedFunction(updatedSourceType));
             }
         }
@@ -4199,25 +4189,25 @@ class FreeTypeVarTransform extends TypeVarTransformer {
 // type variables from a type var map.
 class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     private _isSolvingDefaultType = false;
-    private _activeSolutionSetIndex: number | undefined;
+    private _activeConstraintSetIndex: number | undefined;
 
-    constructor(private _typeVarContext: TypeVarContext, private _options: ApplyTypeVarOptions) {
+    constructor(private _constraints: ConstraintTracker, private _options: ApplyTypeVarOptions) {
         super();
     }
 
     override transformTypeVar(typeVar: TypeVarType, recursionCount: number) {
-        const solutionSet = this._typeVarContext.getSolutionSet(this._activeSolutionSetIndex ?? 0);
+        const set = this._constraints.getConstraintSet(this._activeConstraintSetIndex ?? 0);
 
         // If the type variable is unrelated to the scopes we're solving,
         // don't transform that type variable.
         if (this._shouldReplaceTypeVar(typeVar)) {
-            let replacement = solutionSet.getTypeVarType(typeVar, !!this._options.useLowerBoundOnly);
+            let replacement = set.getTypeVarType(typeVar, !!this._options.useLowerBoundOnly);
 
             // If there was no lower bound but there is an upper bound that
             // contains literals or a TypeVar, we'll use the upper bound even if
             // "useLowerBoundOnly" is specified.
             if (!replacement && this._options.useLowerBoundOnly) {
-                const wideType = solutionSet.getTypeVarType(typeVar);
+                const wideType = set.getTypeVarType(typeVar);
                 if (wideType) {
                     if (isTypeVar(wideType) || containsLiteralType(wideType, /* includeTypeArgs */ true)) {
                         replacement = wideType;
@@ -4305,12 +4295,12 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
         // If we're solving a default type, handle type variables with no scope ID.
         if (this._isSolvingDefaultType && !typeVar.priv.scopeId) {
-            const replacementEntry = solutionSet
+            const replacementEntry = set
                 .getTypeVars()
                 .find((entry) => entry.typeVar.shared.name === typeVar.shared.name);
 
             if (replacementEntry) {
-                return solutionSet.getTypeVarType(replacementEntry.typeVar);
+                return set.getTypeVarType(replacementEntry.typeVar);
             }
 
             if (typeVar.shared.isDefaultExplicit) {
@@ -4335,9 +4325,9 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 this._shouldReplaceTypeVar(preTransform) &&
                 this._shouldReplaceUnsolvedTypeVar(preTransform)
             ) {
-                const solutionSet = this._typeVarContext.getSolutionSet(this._activeSolutionSetIndex ?? 0);
+                const set = this._constraints.getConstraintSet(this._activeConstraintSetIndex ?? 0);
 
-                const typeVarType = solutionSet.getTypeVarType(preTransform);
+                const typeVarType = set.getTypeVarType(preTransform);
 
                 // Did the TypeVar remain unsolved?
                 if (!typeVarType || (isTypeVar(typeVarType) && TypeVarType.isUnification(typeVarType))) {
@@ -4372,8 +4362,8 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return undefined;
         }
 
-        const solutionSet = this._typeVarContext.getSolutionSet(this._activeSolutionSetIndex ?? 0);
-        const value = solutionSet.getTypeVarType(typeVar);
+        const set = this._constraints.getConstraintSet(this._activeConstraintSetIndex ?? 0);
+        const value = set.getTypeVarType(typeVar);
         if (value && isClassInstance(value) && value.priv.tupleTypeArgs && isUnpackedClass(value)) {
             return value.priv.tupleTypeArgs;
         }
@@ -4381,16 +4371,16 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     }
 
     override transformParamSpec(paramSpec: ParamSpecType, recursionCount: number): FunctionType | undefined {
-        const solutionSet = this._typeVarContext.getSolutionSet(this._activeSolutionSetIndex ?? 0);
+        const set = this._constraints.getConstraintSet(this._activeConstraintSetIndex ?? 0);
 
         // If we're solving a default type, handle param specs with no scope ID.
         if (this._isSolvingDefaultType && !paramSpec.priv.scopeId) {
-            const replacementEntry = solutionSet
+            const replacementEntry = set
                 .getTypeVars()
                 .find((entry) => entry.typeVar.shared.name === paramSpec.shared.name);
 
             if (replacementEntry && isParamSpec(replacementEntry.typeVar)) {
-                return solutionSet.getTypeVarType(replacementEntry.typeVar);
+                return set.getTypeVarType(replacementEntry.typeVar);
             }
 
             if (paramSpec.shared.isDefaultExplicit) {
@@ -4404,7 +4394,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return undefined;
         }
 
-        const transformedParamSpec = solutionSet.getTypeVarType(paramSpec);
+        const transformedParamSpec = set.getTypeVarType(paramSpec);
         if (transformedParamSpec) {
             return transformedParamSpec;
         }
@@ -4427,7 +4417,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return type;
         }
 
-        const solutionSet = this._typeVarContext.getSolutionSet(this._activeSolutionSetIndex ?? 0);
+        const set = this._constraints.getConstraintSet(this._activeConstraintSetIndex ?? 0);
 
         for (const condition of type.props.condition) {
             // This doesn't apply to bound type variables.
@@ -4436,12 +4426,12 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             }
 
             const conditionTypeVar = condition.typeVar.priv?.freeTypeVar ?? condition.typeVar;
-            const typeVarEntry = solutionSet.getTypeVar(conditionTypeVar);
+            const typeVarEntry = set.getTypeVar(conditionTypeVar);
             if (!typeVarEntry || condition.constraintIndex >= typeVarEntry.typeVar.shared.constraints.length) {
                 continue;
             }
 
-            const value = solutionSet.getTypeVarType(typeVarEntry.typeVar);
+            const value = set.getTypeVarType(typeVarEntry.typeVar);
             if (!value) {
                 continue;
             }
@@ -4456,21 +4446,21 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         return type;
     }
 
-    override doForEachSolutionSet(callback: () => FunctionType): FunctionType | OverloadedFunctionType {
-        const solutionSet = this._typeVarContext.getSolutionSets();
+    override doForEachConstraintSet(callback: () => FunctionType): FunctionType | OverloadedFunctionType {
+        const set = this._constraints.getConstraintSets();
 
         // Handle the common case where there are not multiple signature contexts.
-        if (solutionSet.length <= 1) {
+        if (set.length <= 1) {
             return callback();
         }
 
         // Loop through all of the signature contexts in the type var context
         // to create an overload type.
-        const overloadTypes = solutionSet.map((_, index) => {
-            this._activeSolutionSetIndex = index;
+        const overloadTypes = set.map((_, index) => {
+            this._activeConstraintSetIndex = index;
             return callback();
         });
-        this._activeSolutionSetIndex = undefined;
+        this._activeConstraintSetIndex = undefined;
 
         const filteredOverloads: FunctionType[] = [];
         doForEachSubtype(combineTypes(overloadTypes), (subtype) => {
@@ -4565,13 +4555,13 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
 }
 
 class UnificationVarTransformer extends TypeVarTransformer {
-    constructor(private _solutionSet: TypeVarSolutionSet) {
+    constructor(private _constraintSet: ConstraintSet) {
         super();
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
         if (TypeVarType.isUnification(typeVar)) {
-            return this._solutionSet.getTypeVarType(typeVar) ?? typeVar;
+            return this._constraintSet.getTypeVarType(typeVar) ?? typeVar;
         }
 
         return undefined;
@@ -4579,20 +4569,20 @@ class UnificationVarTransformer extends TypeVarTransformer {
 
     override transformParamSpec(paramSpec: ParamSpecType): FunctionType | undefined {
         if (TypeVarType.isUnification(paramSpec)) {
-            return this._solutionSet.getTypeVarType(paramSpec);
+            return this._constraintSet.getTypeVarType(paramSpec);
         }
 
         return undefined;
     }
 }
 
-function applyUnificationVarsToType(type: Type, solutionSet: TypeVarSolutionSet): Type {
+function applyUnificationVarsToType(type: Type, constraintSet: ConstraintSet): Type {
     // Handle the common case where there are no unification vars.
     // No more work is required in this case.
-    if (!solutionSet.getTypeVars().some((entry) => TypeVarType.isUnification(entry.typeVar))) {
+    if (!constraintSet.getTypeVars().some((entry) => TypeVarType.isUnification(entry.typeVar))) {
         return type;
     }
 
-    const transformer = new UnificationVarTransformer(solutionSet);
+    const transformer = new UnificationVarTransformer(constraintSet);
     return transformer.apply(type, 0);
 }

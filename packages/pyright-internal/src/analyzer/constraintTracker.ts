@@ -1,11 +1,11 @@
 /*
- * typeVarContext.ts
+ * constraintTracker.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * Module that records the relationship between type variables and their
- * types. It is used by the constraint solver to solve for the type of
+ * Module that tracks the constraints for a set of type variables.
+ * It is used by the constraint solver to solve for the type of
  * each type variable.
  */
 
@@ -23,38 +23,32 @@ import {
     isTypeSame,
 } from './types';
 
-// The maximum number of solution sets that can be associated
-// with a TypeVarContext. This equates to the number of overloads
+// The maximum number of constraint sets that can be associated
+// with a constraint tracker. This equates to the number of overloads
 // that can be captured by a ParamSpec (or multiple ParamSpecs).
 // We should never hit this limit in practice, but there are certain
 // pathological cases where we could, and we need to protect against
 // this so it doesn't completely exhaust memory. This was previously
 // set to 64, but we have seen cases where a library uses in excess
 // of 300 overloads on a single function.
-const maxSolutionSetCount = 1024;
+const maxConstraintSetCount = 1024;
 
-// Records information that is used to solve for the type of a type variable.
-export interface TypeVarSolution {
-    // The type variable being solved.
+// Records constraint information about a single type variable.
+export interface TypeVarConstraints {
     typeVar: TypeVarType;
 
-    // Running bounds for the solved type variable as constraints are added.
-
-    // The final type must "fit" between the lower and upper bound.
-    // If there are literal subtypes in the lower bound, these are stripped,
-    // and the resulting type is placed in lowerBoundNoLiterals as
-    // long as it does not exceed the upper bound.
+    // Running constraints for the solved type variable as constraints are added.
     lowerBound?: Type | undefined;
     lowerBoundNoLiterals?: Type | undefined;
     upperBound?: Type | undefined;
 }
 
-// Records the solution information for a set of type variables associated
-// with a callee's signature.
-export class TypeVarSolutionSet {
-    private _typeVarMap: Map<string, TypeVarSolution>;
+// Records the constraints information for a set of type variables
+// associated with a callee's signature.
+export class ConstraintSet {
+    private _typeVarMap: Map<string, TypeVarConstraints>;
 
-    // A set of one or more TypeVar scope IDs that identify this solution set.
+    // A set of one or more TypeVar scope IDs that identify this constraint set.
     // This corresponds to the scope ID of the overload signature. Normally
     // there will be only one scope ID associated with each signature, but
     // we can have multiple if we are solving for multiple ParamSpecs. If
@@ -64,24 +58,24 @@ export class TypeVarSolutionSet {
     private _scopeIds: Set<string> | undefined;
 
     constructor() {
-        this._typeVarMap = new Map<string, TypeVarSolution>();
+        this._typeVarMap = new Map<string, TypeVarConstraints>();
     }
 
     clone() {
-        const solutionSet = new TypeVarSolutionSet();
+        const constraintSet = new ConstraintSet();
 
         this._typeVarMap.forEach((value) => {
-            solutionSet.setTypeVarType(value.typeVar, value.lowerBound, value.lowerBoundNoLiterals, value.upperBound);
+            constraintSet.setTypeVarType(value.typeVar, value.lowerBound, value.lowerBoundNoLiterals, value.upperBound);
         });
 
         if (this._scopeIds) {
-            this._scopeIds.forEach((scopeId) => solutionSet.addScopeId(scopeId));
+            this._scopeIds.forEach((scopeId) => constraintSet.addScopeId(scopeId));
         }
 
-        return solutionSet;
+        return constraintSet;
     }
 
-    isSame(other: TypeVarSolutionSet) {
+    isSame(other: ConstraintSet) {
         if (this._typeVarMap.size !== other._typeVarMap.size) {
             return false;
         }
@@ -187,13 +181,13 @@ export class TypeVarSolutionSet {
         });
     }
 
-    getTypeVar(reference: TypeVarType): TypeVarSolution | undefined {
+    getTypeVar(reference: TypeVarType): TypeVarConstraints | undefined {
         const key = TypeVarType.getNameWithScope(reference);
         return this._typeVarMap.get(key);
     }
 
-    getTypeVars(): TypeVarSolution[] {
-        const entries: TypeVarSolution[] = [];
+    getTypeVars(): TypeVarConstraints[] {
+        const entries: TypeVarConstraints[] = [];
 
         this._typeVarMap.forEach((entry) => {
             entries.push(entry);
@@ -229,33 +223,33 @@ export class TypeVarSolutionSet {
     }
 }
 
-export class TypeVarContext {
+export class ConstraintTracker {
     private _isLocked = false;
-    private _solutionSets: TypeVarSolutionSet[];
+    private _constraintSets: ConstraintSet[];
 
     constructor() {
-        this._solutionSets = [new TypeVarSolutionSet()];
+        this._constraintSets = [new ConstraintSet()];
     }
 
     clone() {
-        const newTypeVarMap = new TypeVarContext();
+        const newTypeVarMap = new ConstraintTracker();
 
-        newTypeVarMap._solutionSets = this._solutionSets.map((solutionSet) => solutionSet.clone());
+        newTypeVarMap._constraintSets = this._constraintSets.map((set) => set.clone());
         newTypeVarMap._isLocked = this._isLocked;
 
         return newTypeVarMap;
     }
 
-    cloneWithSignature(scopeId: TypeVarScopeId): TypeVarContext {
+    cloneWithSignature(scopeId: TypeVarScopeId): ConstraintTracker {
         const cloned = this.clone();
 
         if (scopeId) {
-            const filteredSolutionSets = this._solutionSets.filter((context) => context.hasScopeId(scopeId));
+            const filteredSets = this._constraintSets.filter((context) => context.hasScopeId(scopeId));
 
-            if (filteredSolutionSets.length > 0) {
-                cloned._solutionSets = filteredSolutionSets;
+            if (filteredSets.length > 0) {
+                cloned._constraintSets = filteredSets;
             } else {
-                cloned._solutionSets.forEach((context) => {
+                cloned._constraintSets.forEach((context) => {
                     context.addScopeId(scopeId);
                 });
             }
@@ -265,28 +259,28 @@ export class TypeVarContext {
     }
 
     // Copies a cloned type var context back into this object.
-    copyFromClone(clone: TypeVarContext) {
-        this._solutionSets = clone._solutionSets.map((context) => context.clone());
+    copyFromClone(clone: ConstraintTracker) {
+        this._constraintSets = clone._constraintSets.map((context) => context.clone());
         this._isLocked = clone._isLocked;
     }
 
-    // Copy the specified solution sets into this type var context.
-    addSolutionSets(contexts: TypeVarSolutionSet[]) {
+    // Copy the specified constraint sets into this type var context.
+    addConstraintSets(contexts: ConstraintSet[]) {
         assert(contexts.length > 0);
 
-        // Limit the number of solution sets. There are rare circumstances
+        // Limit the number of constraint sets. There are rare circumstances
         // where this can grow to unbounded numbers and exhaust memory.
-        if (contexts.length < maxSolutionSetCount) {
-            this._solutionSets = Array.from(contexts);
+        if (contexts.length < maxConstraintSetCount) {
+            this._constraintSets = Array.from(contexts);
         }
     }
 
-    isSame(other: TypeVarContext) {
-        if (other._solutionSets.length !== this._solutionSets.length) {
+    isSame(other: ConstraintTracker) {
+        if (other._constraintSets.length !== this._constraintSets.length) {
             return false;
         }
 
-        return this._solutionSets.every((solutionSet, index) => solutionSet.isSame(other._solutionSets[index]));
+        return this._constraintSets.every((set, index) => set.isSame(other._constraintSets[index]));
     }
 
     lock() {
@@ -305,7 +299,7 @@ export class TypeVarContext {
     }
 
     isEmpty() {
-        return this._solutionSets.every((solutionSet) => solutionSet.isEmpty());
+        return this._constraintSets.every((set) => set.isEmpty());
     }
 
     setTypeVarType(
@@ -316,36 +310,36 @@ export class TypeVarContext {
     ) {
         assert(!this._isLocked);
 
-        return this._solutionSets.forEach((solutionSet) => {
-            solutionSet.setTypeVarType(reference, lowerBound, lowerBoundNoLiterals, upperBound);
+        return this._constraintSets.forEach((set) => {
+            set.setTypeVarType(reference, lowerBound, lowerBoundNoLiterals, upperBound);
         });
     }
 
     getScore() {
         let total = 0;
 
-        this._solutionSets.forEach((solutionSet) => {
-            total += solutionSet.getScore();
+        this._constraintSets.forEach((set) => {
+            total += set.getScore();
         });
 
-        // Return the average score among all solution sets.
-        return total / this._solutionSets.length;
+        // Return the average score among all constraint sets.
+        return total / this._constraintSets.length;
     }
 
-    getMainSolutionSet() {
-        return this._solutionSets[0];
+    getMainConstraintSet() {
+        return this._constraintSets[0];
     }
 
-    getSolutionSets() {
-        return this._solutionSets;
+    getConstraintSets() {
+        return this._constraintSets;
     }
 
-    doForEachSolutionSet(callback: (solutionSet: TypeVarSolutionSet, index: number) => void) {
+    doForEachConstraintSet(callback: (constraintSet: ConstraintSet, index: number) => void) {
         const wasLocked = this.isLocked();
         this.unlock();
 
-        this.getSolutionSets().forEach((solutionSet, index) => {
-            callback(solutionSet, index);
+        this.getConstraintSets().forEach((set, index) => {
+            callback(set, index);
         });
 
         if (wasLocked) {
@@ -353,8 +347,8 @@ export class TypeVarContext {
         }
     }
 
-    getSolutionSet(index: number) {
-        assert(index >= 0 && index < this._solutionSets.length);
-        return this._solutionSets[index];
+    getConstraintSet(index: number) {
+        assert(index >= 0 && index < this._constraintSets.length);
+        return this._constraintSets[index];
     }
 }
