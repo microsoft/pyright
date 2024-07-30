@@ -26876,14 +26876,7 @@ export function createTypeEvaluator(
 
         const specializedFunction = applySolvedTypeVars(memberType, typeVarContext) as FunctionType;
 
-        // If this is a constructor method, provide the base type's TypeVar scope ID
-        // so any TypeVars in this type can be solved.
-        let baseTypeTypeVarScopeId: TypeVarScopeId | undefined;
-        if (FunctionType.isConstructorMethod(specializedFunction) || specializedFunction.shared.name === '__init__') {
-            baseTypeTypeVarScopeId = getTypeVarScopeId(baseType);
-        }
-
-        return FunctionType.clone(specializedFunction, stripFirstParam, baseType, baseTypeTypeVarScopeId);
+        return FunctionType.clone(specializedFunction, stripFirstParam, baseType);
     }
 
     function isFinalVariable(symbol: Symbol): boolean {

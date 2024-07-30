@@ -12,6 +12,7 @@ import { Uri } from '../common/uri/uri';
 import { ArgumentNode, NameNode, ParamCategory } from '../parser/parseNodes';
 import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
+import { getTypeVarScopeId } from './typeUtils';
 
 export const enum TypeCategory {
     // Name is not bound to a value of any type.
@@ -1715,19 +1716,17 @@ export namespace FunctionType {
 
     // Creates a deep copy of the function type, including a fresh
     // version of _functionDetails.
-    export function clone(
-        type: FunctionType,
-        stripFirstParam = false,
-        boundToType?: ClassType,
-        boundTypeVarScopeId?: TypeVarScopeId
-    ): FunctionType {
+    export function clone(type: FunctionType, stripFirstParam = false, boundToType?: ClassType): FunctionType {
         const newFunction = TypeBase.cloneType(type);
 
         newFunction.shared = { ...type.shared };
         newFunction.priv.preBoundFlags = newFunction.shared.flags;
         newFunction.priv.boundToType = boundToType;
-        if (boundTypeVarScopeId) {
-            newFunction.priv.constructorTypeVarScopeId = boundTypeVarScopeId;
+
+        if (boundToType) {
+            if (type.shared.name === '__new__' || type.shared.name === '__init__') {
+                newFunction.priv.constructorTypeVarScopeId = getTypeVarScopeId(boundToType);
+            }
         }
 
         if (stripFirstParam) {
