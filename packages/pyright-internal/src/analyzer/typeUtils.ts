@@ -279,8 +279,8 @@ export interface SelfSpecializeOptions {
     // existing type arguments are left as is.
     overrideTypeArgs?: boolean;
 
-    // Specialize with "internal" versions of the type parameters?
-    useInternalTypeVars?: boolean;
+    // Specialize with "bound" versions of the type parameters?
+    useBoundTypeVars?: boolean;
 }
 
 // Tracks whether a function signature has been seen before within
@@ -1197,7 +1197,7 @@ export function selfSpecializeClass(type: ClassType, options?: SelfSpecializeOpt
     }
 
     const typeParams = type.shared.typeParams.map((typeParam) => {
-        return options?.useInternalTypeVars ? TypeVarType.cloneWithInternalScopeId(typeParam) : typeParam;
+        return options?.useBoundTypeVars ? TypeVarType.cloneAsBound(typeParam) : typeParam;
     });
     return ClassType.specialize(type, typeParams);
 }
@@ -1511,7 +1511,7 @@ export function populateTypeVarContextForSelfType(
 
 // Looks for duplicate function types within the type and ensures that
 // if they are generic, they have unique type variables.
-export function ensureFunctionSignaturesAreUnique<T extends Type>(
+export function ensureSignaturesAreUnique<T extends Type>(
     type: T,
     signatureTracker: UniqueSignatureTracker,
     expressionOffset: number
@@ -1520,18 +1520,15 @@ export function ensureFunctionSignaturesAreUnique<T extends Type>(
     return transformer.apply(type, 0) as T;
 }
 
-export function updateTypeWithInternalTypeVars<T extends TypeBase<any>>(
-    type: T,
-    scopeIds: TypeVarScopeId[] | undefined
-): T;
-export function updateTypeWithInternalTypeVars(type: Type, scopeIds: TypeVarScopeId[] | undefined): Type {
-    const transformer = new InternalScopeUpdateTransform(scopeIds);
+export function makeTypeVarsBound<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[] | undefined): T;
+export function makeTypeVarsBound(type: Type, scopeIds: TypeVarScopeId[] | undefined): Type {
+    const transformer = new BoundTypeVarTransform(scopeIds);
     return transformer.apply(type, 0);
 }
 
-export function updateTypeWithExternalTypeVars<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[]): T;
-export function updateTypeWithExternalTypeVars(type: Type, scopeIds: TypeVarScopeId[]): Type {
-    const transformer = new ExternalScopeUpdateTransform(scopeIds);
+export function makeTypeVarsFree<T extends TypeBase<any>>(type: T, scopeIds: TypeVarScopeId[]): T;
+export function makeTypeVarsFree(type: Type, scopeIds: TypeVarScopeId[]): Type {
+    const transformer = new FreeTypeVarTransform(scopeIds);
     return transformer.apply(type, 0);
 }
 
@@ -4136,9 +4133,10 @@ class UniqueFunctionSignatureTransformer extends TypeVarTransformer {
     }
 }
 
-// Replaces the TypeVars within a type with their corresponding "internal"
-// types if they are in one of the specified scopes.
-class InternalScopeUpdateTransform extends TypeVarTransformer {
+// Replaces the free type vars within a type with their corresponding bound
+// type vars if they are in one of the specified scopes. If undefined is
+// passed for the scopeIds list, all free type vars are replaced.
+class BoundTypeVarTransform extends TypeVarTransformer {
     constructor(private _scopeIds: TypeVarScopeId[] | undefined) {
         super();
     }
@@ -4173,28 +4171,28 @@ class InternalScopeUpdateTransform extends TypeVarTransformer {
     }
 
     private _replaceTypeVar(typeVar: TypeVarType): TypeVarType {
-        return TypeVarType.cloneWithInternalScopeId(typeVar);
+        return TypeVarType.cloneAsBound(typeVar);
     }
 }
 
-// Replaces the internal TypeVars within a type with their corresponding
-// "external" types.
-class ExternalScopeUpdateTransform extends TypeVarTransformer {
+// Replaces the bound type vars within a type with their corresponding
+// free type vars.
+class FreeTypeVarTransform extends TypeVarTransformer {
     constructor(private _scopeIds: TypeVarScopeId[]) {
         super();
     }
 
     override transformTypeVar(typeVar: TypeVarType): Type | undefined {
-        if (typeVar.priv.externalTypeVar && this._isTypeVarInScope(typeVar.priv.externalTypeVar)) {
-            return typeVar.priv.externalTypeVar;
+        if (typeVar.priv.freeTypeVar && this._isTypeVarInScope(typeVar.priv.freeTypeVar)) {
+            return typeVar.priv.freeTypeVar;
         }
 
         return undefined;
     }
 
     override transformParamSpec(paramSpec: ParamSpecType): FunctionType | undefined {
-        if (paramSpec.priv.externalTypeVar && this._isTypeVarInScope(paramSpec.priv.externalTypeVar)) {
-            return convertTypeToParamSpecValue(paramSpec.priv.externalTypeVar);
+        if (paramSpec.priv.freeTypeVar && this._isTypeVarInScope(paramSpec.priv.freeTypeVar)) {
+            return convertTypeToParamSpecValue(paramSpec.priv.freeTypeVar);
         }
 
         return undefined;
@@ -4470,7 +4468,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 continue;
             }
 
-            const conditionTypeVar = condition.typeVar.priv?.externalTypeVar ?? condition.typeVar;
+            const conditionTypeVar = condition.typeVar.priv?.freeTypeVar ?? condition.typeVar;
             const typeVarEntry = solutionSet.getTypeVar(conditionTypeVar);
             if (!typeVarEntry || condition.constraintIndex >= typeVarEntry.typeVar.shared.constraints.length) {
                 continue;
@@ -4526,7 +4524,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return false;
         }
 
-        if (TypeVarType.hasInternalScopeId(typeVar)) {
+        if (TypeVarType.isBound(typeVar)) {
             return false;
         }
 
@@ -4578,7 +4576,7 @@ class ExpectedTypeTransformer extends TypeVarTransformer {
 
     private _isTypeVarLive(typeVar: TypeVarType) {
         return this._liveTypeVarScopes.some(
-            (scopeId) => typeVar.priv.scopeId === scopeId || typeVar.priv.externalTypeVar?.priv.scopeId === scopeId
+            (scopeId) => typeVar.priv.scopeId === scopeId || typeVar.priv.freeTypeVar?.priv.scopeId === scopeId
         );
     }
 }

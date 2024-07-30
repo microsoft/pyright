@@ -327,8 +327,8 @@ function assignClassToProtocolInternal(
                 /* isClsType */ false
             );
 
-            if (TypeVarType.hasInternalScopeId(synthCond.typeVar)) {
-                selfType = TypeVarType.cloneWithInternalScopeId(selfType);
+            if (TypeVarType.isBound(synthCond.typeVar)) {
+                selfType = TypeVarType.cloneAsBound(selfType);
             }
         } else {
             selfType = srcType;
