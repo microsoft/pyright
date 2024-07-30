@@ -24859,11 +24859,21 @@ export function createTypeEvaluator(
         let doSpecializationStep = false;
 
         if ((flags & AssignTypeFlags.OverloadOverlap) === 0) {
+            const isFirstPass = (flags & AssignTypeFlags.ArgAssignmentFirstPass) !== 0;
+
             if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
-                specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, { useLowerBoundOnly: true });
+                if (!isFirstPass) {
+                    specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, {
+                        useLowerBoundOnly: true,
+                    });
+                }
                 doSpecializationStep = requiresSpecialization(specializedDestType);
             } else {
-                specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext, { useLowerBoundOnly: true });
+                if (!isFirstPass) {
+                    specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext, {
+                        useLowerBoundOnly: true,
+                    });
+                }
                 doSpecializationStep = requiresSpecialization(specializedSrcType);
             }
         }
