@@ -4313,11 +4313,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             // default or Unknown.
             let useDefaultOrUnknown = false;
             if (this._options.useDefaultForUnsolved || this._options.useUnknownForUnsolved) {
-                const exemptTypeVars = this._options.unsolvedExemptTypeVars ?? [];
-                const typeVarInstance = TypeBase.isInstance(typeVar) ? typeVar : TypeVarType.cloneAsInstance(typeVar);
-                if (!exemptTypeVars.some((t) => isTypeSame(t, typeVarInstance))) {
-                    useDefaultOrUnknown = true;
-                }
+                useDefaultOrUnknown = true;
             } else if (this._options.applyUnificationVars && typeVar.priv.isUnificationVar) {
                 useDefaultOrUnknown = true;
             }
@@ -4444,10 +4440,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
         let useDefaultOrUnknown = false;
         if (this._options.useDefaultForUnsolved || this._options.useUnknownForUnsolved) {
-            const exemptTypeVars = this._options.unsolvedExemptTypeVars ?? [];
-            if (!exemptTypeVars.some((t) => isTypeSame(t, paramSpec, { ignoreTypeFlags: true }))) {
-                useDefaultOrUnknown = true;
-            }
+            useDefaultOrUnknown = true;
         } else if (this._options.applyUnificationVars && paramSpec.priv.isUnificationVar) {
             useDefaultOrUnknown = true;
         }
@@ -4530,11 +4523,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     }
 
     private _shouldReplaceTypeVar(typeVar: TypeVarType): boolean {
-        if (!typeVar.priv.scopeId) {
-            return false;
-        }
-
-        if (TypeVarType.isBound(typeVar)) {
+        if (!typeVar.priv.scopeId || TypeVarType.isBound(typeVar)) {
             return false;
         }
 
@@ -4544,6 +4533,13 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     private _shouldReplaceUnsolvedTypeVar(typeVar: TypeVarType): boolean {
         if (this.pendingTypeVarTransformations.size > 0) {
             return false;
+        }
+
+        const exemptTypeVars = this._options.unsolvedExemptTypeVars;
+        if (exemptTypeVars) {
+            if (exemptTypeVars.some((t) => isTypeSame(t, typeVar, { ignoreTypeFlags: true }))) {
+                return false;
+            }
         }
 
         return this._typeVarContext.hasSolveForScope(typeVar.priv.scopeId);
