@@ -4963,7 +4963,7 @@ export function createTypeEvaluator(
                 let defaultType: Type;
                 if (param.shared.isDefaultExplicit || isParamSpec(param)) {
                     defaultType = applySolvedTypeVars(param, typeVarContext, {
-                        unknownIfNotFound: true,
+                        useDefaultForUnsolved: true,
                         tupleClassType: getTupleClassType(),
                     });
                 } else if (isTypeVarTuple(param) && tupleClass && isInstantiableClass(tupleClass)) {
@@ -4991,7 +4991,7 @@ export function createTypeEvaluator(
 
             type = TypeBase.cloneForTypeAlias(
                 applySolvedTypeVars(type, typeVarContext, {
-                    unknownIfNotFound: true,
+                    useDefaultForUnsolved: true,
                     tupleClassType: getTupleClassType(),
                 }),
                 aliasInfo.name,
@@ -6932,7 +6932,7 @@ export function createTypeEvaluator(
                     typeArgType = convertToInstance(typeArgs[index].type);
                 } else if (param.shared.isDefaultExplicit) {
                     typeArgType = applySolvedTypeVars(param, typeVarContext, {
-                        unknownIfNotFound: true,
+                        useDefaultForUnsolved: true,
                         tupleClassType: getTupleClassType(),
                     });
                 } else {
@@ -11333,8 +11333,7 @@ export function createTypeEvaluator(
                 });
 
                 expectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
-                    unknownIfNotFound: true,
-                    useUnknownOverDefault: true,
+                    useUnknownForUnsolved: true,
                     tupleClassType: getTupleClassType(),
                 });
 
@@ -11582,11 +11581,10 @@ export function createTypeEvaluator(
         }
 
         let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
-            unknownIfNotFound: true,
+            useDefaultForUnsolved: true,
             tupleClassType: getTupleClassType(),
-            unknownExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
+            unsolvedExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
             eliminateUnsolvedInUnions,
-            applyUnificationVars: true,
         });
         specializedReturnType = addConditionToType(specializedReturnType, typeCondition);
 
@@ -12412,7 +12410,7 @@ export function createTypeEvaluator(
         const typeVarContext = new TypeVarContext(typeVar.priv.scopeId);
         const concreteDefaultType = makeTopLevelTypeVarsConcrete(
             applySolvedTypeVars(typeVar.shared.defaultType, typeVarContext, {
-                unknownIfNotFound: true,
+                useDefaultForUnsolved: true,
                 tupleClassType: getTupleClassType(),
             })
         );
@@ -14085,27 +14083,24 @@ export function createTypeEvaluator(
                 : stripLiteralValue(combinedTypes);
         }
 
-        return mapSubtypes(
-            applySolvedTypeVars(inferenceContext.expectedType, typeVarContext, { applyUnificationVars: true }),
-            (subtype) => {
-                if (entryTypes.length !== 1) {
-                    return subtype;
-                }
-                const entryType = entryTypes[0];
-
-                // If the entry type is a TypedDict instance, clone it with additional information.
-                if (
-                    isTypeSame(subtype, entryType, { ignoreTypedDictNarrowEntries: true }) &&
-                    isClass(subtype) &&
-                    isClass(entryType) &&
-                    ClassType.isTypedDictClass(entryType)
-                ) {
-                    return ClassType.cloneForNarrowedTypedDictEntries(subtype, entryType.priv.typedDictNarrowedEntries);
-                }
-
+        return mapSubtypes(applySolvedTypeVars(inferenceContext.expectedType, typeVarContext), (subtype) => {
+            if (entryTypes.length !== 1) {
                 return subtype;
             }
-        );
+            const entryType = entryTypes[0];
+
+            // If the entry type is a TypedDict instance, clone it with additional information.
+            if (
+                isTypeSame(subtype, entryType, { ignoreTypedDictNarrowEntries: true }) &&
+                isClass(subtype) &&
+                isClass(entryType) &&
+                ClassType.isTypedDictClass(entryType)
+            ) {
+                return ClassType.cloneForNarrowedTypedDictEntries(subtype, entryType.priv.typedDictNarrowedEntries);
+            }
+
+            return subtype;
+        });
     }
 
     function getTypeOfYield(node: YieldNode): TypeResult {
@@ -14385,9 +14380,7 @@ export function createTypeEvaluator(
                                     typeVarContext
                                 )
                             ) {
-                                functionType = applySolvedTypeVars(functionType, typeVarContext, {
-                                    applyUnificationVars: true,
-                                }) as FunctionType;
+                                functionType = applySolvedTypeVars(functionType, typeVarContext) as FunctionType;
                             }
                         }
                     }
@@ -18350,7 +18343,7 @@ export function createTypeEvaluator(
 
                                 // Replace any unsolved TypeVars with Unknown (including all function-scoped TypeVars).
                                 inferredParamType = applySolvedTypeVars(inferredParamType, typeVarContext, {
-                                    unknownIfNotFound: true,
+                                    useDefaultForUnsolved: true,
                                     tupleClassType: getTupleClassType(),
                                 });
                             }
@@ -20406,7 +20399,7 @@ export function createTypeEvaluator(
             }
 
             const solvedDefaultType = applySolvedTypeVars(typeParam, typeVarContext, {
-                unknownIfNotFound: true,
+                useDefaultForUnsolved: true,
                 tupleClassType: getTupleClassType(),
             });
             typeArgTypes.push(solvedDefaultType);
