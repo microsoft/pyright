@@ -75,6 +75,7 @@ import {
     getSpecializedTupleType,
     getTypeCondition,
     getTypeVarScopeId,
+    getTypeVarScopeIds,
     getUnknownTypeForCallable,
     isInstantiableMetaclass,
     isLiteralType,
@@ -1485,8 +1486,11 @@ function narrowTypeForIsInstanceInternal(
                                                 unspecializedFilterType,
                                                 typeVarContext,
                                                 {
-                                                    useUnknownForUnsolved: true,
-                                                    tupleClassType: evaluator.getTupleClassType(),
+                                                    replaceUnsolved: {
+                                                        scopeIds: getTypeVarScopeIds(filterType) ?? [],
+                                                        useUnknown: true,
+                                                        tupleClassType: evaluator.getTupleClassType(),
+                                                    },
                                                 }
                                             ) as ClassType;
                                         }

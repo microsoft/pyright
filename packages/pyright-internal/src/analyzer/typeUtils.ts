@@ -243,13 +243,15 @@ export const enum AssignTypeFlags {
 
 export interface ApplyTypeVarOptions {
     typeClassType?: ClassType;
-    tupleClassType?: ClassType;
-    useDefaultForUnsolved?: boolean;
-    useUnknownForUnsolved?: boolean;
-    unsolvedExemptTypeVars?: TypeVarType[];
+    replaceUnsolved?: {
+        scopeIds: TypeVarScopeId[];
+        tupleClassType: ClassType | undefined;
+        unsolvedExemptTypeVars?: TypeVarType[];
+        useUnknown?: boolean;
+        eliminateUnsolvedInUnions?: boolean;
+        applyUnificationVars?: boolean;
+    };
     useLowerBoundOnly?: boolean;
-    eliminateUnsolvedInUnions?: boolean;
-    applyUnificationVars?: boolean;
 }
 
 export interface InferenceContext {
@@ -1540,17 +1542,11 @@ export function applySolvedTypeVars(
     options: ApplyTypeVarOptions = {}
 ): Type {
     // Use a shortcut if the typeVarContext is empty and no transform is necessary.
-    if (
-        typeVarContext.isEmpty() &&
-        !options.useDefaultForUnsolved &&
-        !options.useUnknownForUnsolved &&
-        !options.eliminateUnsolvedInUnions &&
-        !options.applyUnificationVars
-    ) {
+    if (typeVarContext.isEmpty() && !options.replaceUnsolved) {
         return type;
     }
 
-    if (options.applyUnificationVars) {
+    if (options.replaceUnsolved?.applyUnificationVars) {
         applyUnificationVars(typeVarContext);
     }
 
@@ -4268,9 +4264,12 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                             }
 
                             if (subtype.shared.typeParams && !subtype.priv.typeArgs) {
-                                if (this._options.useDefaultForUnsolved || this._options.useUnknownForUnsolved) {
-                                    return this._options.useUnknownForUnsolved
-                                        ? specializeWithUnknownTypeArgs(subtype, this._options.tupleClassType)
+                                if (this._options.replaceUnsolved) {
+                                    return this._options.replaceUnsolved.useUnknown
+                                        ? specializeWithUnknownTypeArgs(
+                                              subtype,
+                                              this._options.replaceUnsolved.tupleClassType
+                                          )
                                         : specializeWithDefaultTypeArgs(subtype);
                                 }
                             }
@@ -4299,7 +4298,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                     return replacement;
                 }
 
-                if (!this._options.useDefaultForUnsolved && !this._options.useUnknownForUnsolved) {
+                if (!this._options.replaceUnsolved) {
                     return replacement;
                 }
             }
@@ -4308,24 +4307,12 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 return undefined;
             }
 
-            // If this typeVar is in scope for what we're solving but the type
-            // var map doesn't contain any entry for it, replace with the
-            // default or Unknown.
-            let useDefaultOrUnknown = false;
-            if (this._options.useDefaultForUnsolved || this._options.useUnknownForUnsolved) {
-                useDefaultOrUnknown = true;
-            } else if (this._options.applyUnificationVars && typeVar.priv.isUnificationVar) {
-                useDefaultOrUnknown = true;
+            // Use the default value if there is one.
+            if (typeVar.shared.isDefaultExplicit && !this._options.replaceUnsolved?.useUnknown) {
+                return this._solveDefaultType(typeVar, recursionCount);
             }
 
-            if (useDefaultOrUnknown) {
-                // Use the default value if there is one.
-                if (typeVar.shared.isDefaultExplicit && !this._options.useUnknownForUnsolved) {
-                    return this._solveDefaultType(typeVar, recursionCount);
-                }
-
-                return getUnknownForTypeVar(typeVar, this._options.tupleClassType);
-            }
+            return getUnknownForTypeVar(typeVar, this._options.replaceUnsolved?.tupleClassType);
         }
 
         // If we're solving a default type, handle type variables with no scope ID.
@@ -4354,7 +4341,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         // in cases where TypeVars can go unsolved due to unions in parameter
         // annotations, like this:
         //   def test(x: Union[str, T]) -> Union[str, T]
-        if (this._options.eliminateUnsolvedInUnions) {
+        if (this._options.replaceUnsolved?.eliminateUnsolvedInUnions) {
             if (
                 isTypeVar(preTransform) &&
                 this._shouldReplaceTypeVar(preTransform) &&
@@ -4374,7 +4361,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
                     // If useDefaultForUnsolved or useUnknownForUnsolved is true, the postTransform type will
                     // be Unknown, which we want to eliminate.
-                    if (this._options.useDefaultForUnsolved || this._options.useUnknownForUnsolved) {
+                    if (this._options.replaceUnsolved) {
                         if (isUnknown(postTransform)) {
                             return undefined;
                         }
@@ -4438,24 +4425,13 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return undefined;
         }
 
-        let useDefaultOrUnknown = false;
-        if (this._options.useDefaultForUnsolved || this._options.useUnknownForUnsolved) {
-            useDefaultOrUnknown = true;
-        } else if (this._options.applyUnificationVars && paramSpec.priv.isUnificationVar) {
-            useDefaultOrUnknown = true;
+        // Use the default value if there is one.
+        if (paramSpec.shared.isDefaultExplicit && !this._options.replaceUnsolved?.useUnknown) {
+            return convertTypeToParamSpecValue(this._solveDefaultType(paramSpec, recursionCount));
         }
 
-        if (useDefaultOrUnknown) {
-            // Use the default value if there is one.
-            if (paramSpec.shared.isDefaultExplicit && !this._options.useUnknownForUnsolved) {
-                return convertTypeToParamSpecValue(this._solveDefaultType(paramSpec, recursionCount));
-            }
-
-            // Convert to the ParamSpec equivalent of "Unknown".
-            return ParamSpecType.getUnknown();
-        }
-
-        return undefined;
+        // Convert to the ParamSpec equivalent of "Unknown".
+        return ParamSpecType.getUnknown();
     }
 
     override transformConditionalType(type: Type, recursionCount: number): Type {
@@ -4531,18 +4507,35 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
     }
 
     private _shouldReplaceUnsolvedTypeVar(typeVar: TypeVarType): boolean {
+        // Never replace nested TypeVars with unknown.
         if (this.pendingTypeVarTransformations.size > 0) {
             return false;
         }
 
-        const exemptTypeVars = this._options.unsolvedExemptTypeVars;
+        if (!typeVar.priv.scopeId) {
+            return false;
+        }
+
+        if (!this._options.replaceUnsolved) {
+            return false;
+        }
+
+        if (TypeVarType.isUnification(typeVar) && this._options.replaceUnsolved.applyUnificationVars) {
+            return true;
+        }
+
+        if (!this._options.replaceUnsolved.scopeIds.includes(typeVar.priv.scopeId)) {
+            return false;
+        }
+
+        const exemptTypeVars = this._options.replaceUnsolved?.unsolvedExemptTypeVars;
         if (exemptTypeVars) {
             if (exemptTypeVars.some((t) => isTypeSame(t, typeVar, { ignoreTypeFlags: true }))) {
                 return false;
             }
         }
 
-        return this._typeVarContext.hasSolveForScope(typeVar.priv.scopeId);
+        return true;
     }
 
     private _solveDefaultType(typeVar: TypeVarType, recursionCount: number) {

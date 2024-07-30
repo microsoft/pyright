@@ -95,7 +95,6 @@ export function assignTypeToTypeVar(
         console.log(`${indent}destType: ${evaluator.printType(destType)}`);
         console.log(`${indent}srcType: ${evaluator.printType(srcType)}`);
         console.log(`${indent}flags: ${flags}`);
-        console.log(`${indent}scopes: ${(typeVarContext.getSolveForScopes() || []).join(', ')}`);
         logTypeVarContext(evaluator, typeVarContext, indent);
     }
 

@@ -46,6 +46,7 @@ import {
     doForEachSubtype,
     getTypeCondition,
     getTypeVarScopeId,
+    getTypeVarScopeIds,
     getUnknownTypeForCallable,
     isLiteralType,
     isLiteralTypeOrUnion,
@@ -966,8 +967,10 @@ function narrowTypeBasedOnClassPattern(
                                         )
                                     ) {
                                         resultType = applySolvedTypeVars(matchTypeInstance, typeVarContext, {
-                                            useDefaultForUnsolved: true,
-                                            tupleClassType: evaluator.getTupleClassType(),
+                                            replaceUnsolved: {
+                                                scopeIds: getTypeVarScopeIds(unexpandedSubtype) ?? [],
+                                                tupleClassType: evaluator.getTupleClassType(),
+                                            },
                                         }) as ClassType;
                                     }
                                 }
