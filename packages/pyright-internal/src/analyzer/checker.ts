@@ -157,12 +157,12 @@ import {
     isTupleClass,
     isUnboundedTupleClass,
     lookUpClassMember,
+    makeTypeVarsBound,
     mapSubtypes,
     partiallySpecializeType,
     selfSpecializeClass,
     setTypeVarType,
     transformPossibleRecursiveTypeAlias,
-    updateTypeWithInternalTypeVars,
 } from './typeUtils';
 import { TypeVarContext } from './typeVarContext';
 import { getEffectiveExtraItemsEntryType, getTypedDictMembersForClass } from './typedDicts';
@@ -962,7 +962,7 @@ export class Checker extends ParseTreeWalker {
                 } else {
                     const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
                     declaredReturnType = this._evaluator.stripTypeGuard(declaredReturnType);
-                    let adjReturnType = updateTypeWithInternalTypeVars(declaredReturnType, liveScopes);
+                    let adjReturnType = makeTypeVarsBound(declaredReturnType, liveScopes);
 
                     let diagAddendum = new DiagnosticAddendum();
                     let returnTypeMatches = false;
@@ -981,7 +981,7 @@ export class Checker extends ParseTreeWalker {
                                 if (TypeVarType.hasConstraints(typeVar)) {
                                     const narrowedType = this._evaluator.narrowConstrainedTypeVar(
                                         node,
-                                        TypeVarType.cloneWithInternalScopeId(typeVar)
+                                        TypeVarType.cloneAsBound(typeVar)
                                     );
                                     if (narrowedType) {
                                         setTypeVarType(typeVarContext, typeVar, narrowedType);
@@ -992,7 +992,7 @@ export class Checker extends ParseTreeWalker {
 
                             if (!typeVarContext.isEmpty()) {
                                 adjReturnType = applySolvedTypeVars(declaredReturnType, typeVarContext);
-                                adjReturnType = updateTypeWithInternalTypeVars(adjReturnType, liveScopes);
+                                adjReturnType = makeTypeVarsBound(adjReturnType, liveScopes);
 
                                 if (this._evaluator.assignType(adjReturnType, returnType, diagAddendum)) {
                                     returnTypeMatches = true;
@@ -2726,15 +2726,15 @@ export class Checker extends ParseTreeWalker {
         const functionNode = functionType.shared.declaration?.node;
         if (functionNode) {
             const liveTypeVars = ParseTreeUtils.getTypeVarScopesForNode(functionNode);
-            functionType = updateTypeWithInternalTypeVars(functionType, liveTypeVars);
+            functionType = makeTypeVarsBound(functionType, liveTypeVars);
         }
 
         // Use the parent node of the declaration in this case so we don't transform
-        // function-local type variables into internal type variables.
+        // function-local type variables into bound type variables.
         const prevOverloadNode = prevOverload.shared.declaration?.node?.parent;
         if (prevOverloadNode) {
             const liveTypeVars = ParseTreeUtils.getTypeVarScopesForNode(prevOverloadNode);
-            prevOverload = updateTypeWithInternalTypeVars(prevOverload, liveTypeVars);
+            prevOverload = makeTypeVarsBound(prevOverload, liveTypeVars);
         }
 
         return this._evaluator.assignType(
@@ -2784,8 +2784,8 @@ export class Checker extends ParseTreeWalker {
             // are live. This will include any class-scoped type variables if this is an
             // overloaded method.
             const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(implementation.shared.declaration.node.parent);
-            implementationReturnType = updateTypeWithInternalTypeVars(implementationReturnType, liveScopeIds);
-            overloadReturnType = updateTypeWithInternalTypeVars(overloadReturnType, liveScopeIds);
+            implementationReturnType = makeTypeVarsBound(implementationReturnType, liveScopeIds);
+            overloadReturnType = makeTypeVarsBound(overloadReturnType, liveScopeIds);
         }
 
         const returnDiag = new DiagnosticAddendum();
@@ -4788,7 +4788,7 @@ export class Checker extends ParseTreeWalker {
 
         if (isTypeIs) {
             const scopeIds = getTypeVarScopeIds(functionType) ?? [];
-            const typeGuardType = updateTypeWithInternalTypeVars(returnType.priv.typeArgs[0], scopeIds);
+            const typeGuardType = makeTypeVarsBound(returnType.priv.typeArgs[0], scopeIds);
 
             // Determine the type of the first parameter.
             const paramIndex = isMethod && !FunctionType.isStaticMethod(functionType) ? 1 : 0;
@@ -4796,10 +4796,7 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
-            const paramType = updateTypeWithInternalTypeVars(
-                FunctionType.getEffectiveParamType(functionType, paramIndex),
-                scopeIds
-            );
+            const paramType = makeTypeVarsBound(FunctionType.getEffectiveParamType(functionType, paramIndex), scopeIds);
 
             // Verify that the typeGuardType is a narrower type than the paramType.
             if (!this._evaluator.assignType(paramType, typeGuardType)) {
@@ -4870,7 +4867,7 @@ export class Checker extends ParseTreeWalker {
                 this._validateReturnTypeIsNotContravariant(declaredReturnType, returnAnnotation);
 
                 const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
-                declaredReturnType = updateTypeWithInternalTypeVars(declaredReturnType, liveScopes);
+                declaredReturnType = makeTypeVarsBound(declaredReturnType, liveScopes);
             }
 
             // Wrap the declared type in a generator type if the function is a generator.
@@ -5811,11 +5808,11 @@ export class Checker extends ParseTreeWalker {
 
                     if (matchingMroClass && isInstantiableClass(matchingMroClass)) {
                         const scopeIds = getTypeVarScopeIds(classType) ?? [];
-                        const matchingMroObject = updateTypeWithInternalTypeVars(
+                        const matchingMroObject = makeTypeVarsBound(
                             ClassType.cloneAsInstance(matchingMroClass),
                             scopeIds
                         );
-                        const baseClassMroObject = updateTypeWithInternalTypeVars(
+                        const baseClassMroObject = makeTypeVarsBound(
                             ClassType.cloneAsInstance(specializedBaseClassMroClass),
                             scopeIds
                         );
@@ -7451,7 +7448,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         const liveScopes = ParseTreeUtils.getTypeVarScopesForNode(node);
-        declaredReturnType = updateTypeWithInternalTypeVars(declaredReturnType, liveScopes);
+        declaredReturnType = makeTypeVarsBound(declaredReturnType, liveScopes);
 
         let generatorType: Type | undefined;
         if (

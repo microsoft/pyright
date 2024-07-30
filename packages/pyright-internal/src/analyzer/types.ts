@@ -1920,7 +1920,7 @@ export namespace FunctionType {
 
         FunctionType.addHigherOrderTypeVarScopeIds(
             newFunction,
-            typeParams.map((t) => t.priv.externalTypeVar?.priv.scopeId ?? t.priv.scopeId)
+            typeParams.map((t) => t.priv.freeTypeVar?.priv.scopeId ?? t.priv.scopeId)
         );
 
         return newFunction;
@@ -2758,9 +2758,9 @@ export interface TypeVarDetailsPriv {
     // variable.
     isUnificationVar?: boolean;
 
-    // If the TypeVar is an "internal" form of a TypeVar, this refers to
-    // the corresponding "external" form.
-    externalTypeVar?: TypeVarType | undefined;
+    // If the TypeVar is bound form of a TypeVar, this refers to
+    // the corresponding free TypeVar.
+    freeTypeVar?: TypeVarType | undefined;
 }
 
 export interface TypeVarType extends TypeBase<TypeCategory.TypeVar> {
@@ -2772,7 +2772,7 @@ export interface ParamSpecDetailsPriv extends TypeVarDetailsPriv {
     // Represents access to "args" or "kwargs" of a ParamSpec
     paramSpecAccess?: ParamSpecAccess;
 
-    externalTypeVar?: ParamSpecType | undefined;
+    freeTypeVar?: ParamSpecType | undefined;
 }
 
 export interface ParamSpecType extends TypeVarType {
@@ -2802,7 +2802,7 @@ export interface TypeVarTupleDetailsPriv extends TypeVarDetailsPriv {
     // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
     isVariadicInUnion?: boolean | undefined;
 
-    externalTypeVar?: TypeVarTupleType | undefined;
+    freeTypeVar?: TypeVarTupleType | undefined;
 }
 
 export interface TypeVarTupleType extends TypeVarType {
@@ -2831,8 +2831,8 @@ export namespace TypeVarType {
             TypeBase.setSpecialForm(newInstance, undefined);
         }
 
-        if (newInstance.priv.externalTypeVar) {
-            newInstance.priv.externalTypeVar = TypeVarType.cloneAsInstance(newInstance.priv.externalTypeVar);
+        if (newInstance.priv.freeTypeVar) {
+            newInstance.priv.freeTypeVar = TypeVarType.cloneAsInstance(newInstance.priv.freeTypeVar);
         }
 
         return newInstance;
@@ -2845,8 +2845,8 @@ export namespace TypeVarType {
 
         const newInstance = TypeBase.cloneTypeAsInstantiable(type, /* cache */ true);
 
-        if (newInstance.priv.externalTypeVar) {
-            newInstance.priv.externalTypeVar = TypeVarType.cloneAsInstantiable(newInstance.priv.externalTypeVar);
+        if (newInstance.priv.freeTypeVar) {
+            newInstance.priv.freeTypeVar = TypeVarType.cloneAsInstantiable(newInstance.priv.freeTypeVar);
         }
 
         return newInstance;
@@ -2883,11 +2883,8 @@ export namespace TypeVarType {
         newInstance.priv.isVariadicUnpacked = true;
         newInstance.priv.isVariadicInUnion = isInUnion;
 
-        if (newInstance.priv.externalTypeVar) {
-            newInstance.priv.externalTypeVar = TypeVarType.cloneForUnpacked(
-                newInstance.priv.externalTypeVar,
-                isInUnion
-            );
+        if (newInstance.priv.freeTypeVar) {
+            newInstance.priv.freeTypeVar = TypeVarType.cloneForUnpacked(newInstance.priv.freeTypeVar, isInUnion);
         }
         return newInstance;
     }
@@ -2897,8 +2894,8 @@ export namespace TypeVarType {
         newInstance.priv.isVariadicUnpacked = false;
         newInstance.priv.isVariadicInUnion = false;
 
-        if (newInstance.priv.externalTypeVar) {
-            newInstance.priv.externalTypeVar = TypeVarType.cloneForPacked(newInstance.priv.externalTypeVar);
+        if (newInstance.priv.freeTypeVar) {
+            newInstance.priv.freeTypeVar = TypeVarType.cloneForPacked(newInstance.priv.freeTypeVar);
         }
         return newInstance;
     }
@@ -2969,37 +2966,45 @@ export namespace TypeVarType {
     }
 
     // When solving the TypeVars for a callable, we need to distinguish between
-    // the externally-visible type parameters and the internal type variables.
+    // the externally-visible "free" type vars and the internal "bound" type vars.
     // The distinction is important for recursive calls (e.g. calling a constructor
     // for a generic class within the class implementation).
-    export function makeInternalScopeId(scopeId: TypeVarScopeId): TypeVarScopeId;
-    export function makeInternalScopeId(scopeId: TypeVarScopeId | undefined): TypeVarScopeId | undefined;
-    export function makeInternalScopeId(scopeId: TypeVarScopeId | undefined): TypeVarScopeId | undefined {
+    export function makeBoundScopeId(scopeId: TypeVarScopeId): TypeVarScopeId;
+    export function makeBoundScopeId(scopeId: TypeVarScopeId | undefined): TypeVarScopeId | undefined;
+    export function makeBoundScopeId(scopeId: TypeVarScopeId | undefined): TypeVarScopeId | undefined {
         if (!scopeId) {
             return undefined;
         }
+
+        // Append an asterisk to denote a bound scope.
         return `${scopeId}*`;
     }
 
-    export function cloneWithInternalScopeId(type: TypeVarType): TypeVarType {
-        if (type.priv.scopeId === undefined || type.priv.externalTypeVar) {
+    export function cloneAsBound(type: TypeVarType): TypeVarType {
+        if (type.priv.scopeId === undefined || type.priv.freeTypeVar) {
             return type;
         }
 
         const clone = TypeVarType.cloneForScopeId(
             type,
-            TypeVarType.makeInternalScopeId(type.priv.scopeId),
+            TypeVarType.makeBoundScopeId(type.priv.scopeId),
             type.priv.scopeName,
             type.priv.scopeType
         );
 
-        clone.priv.externalTypeVar = type;
+        clone.priv.freeTypeVar = type;
 
         return clone;
     }
 
-    export function hasInternalScopeId(type: TypeVarType) {
-        return !!type.priv.externalTypeVar;
+    // Indicates that the type var is a "free" or unbound type var. Free
+    // type variables can be solved whereas bound type vars are already bound
+    // to a value.
+    export function isBound(type: TypeVarType) {
+        // If the type var has an associated free type var, then it's
+        // considered bound. If it has no associated free var, then it's
+        // considered free.
+        return !!type.priv.freeTypeVar;
     }
 
     function create(name: string, kind: TypeVarKind, typeFlags: TypeFlags): TypeVarType {
