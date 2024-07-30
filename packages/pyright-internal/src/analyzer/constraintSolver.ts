@@ -118,7 +118,7 @@ export function assignTypeToTypeVar(
         return false;
     }
 
-    if (TypeVarType.isBound(destType) && !destType.priv.isUnificationVar) {
+    if (TypeVarType.isBound(destType) && !TypeVarType.isUnification(destType)) {
         // Handle Any as a source.
         if (isAnyOrUnknown(srcType) || (isClass(srcType) && ClassType.derivesFromAnyOrUnknown(srcType))) {
             return true;

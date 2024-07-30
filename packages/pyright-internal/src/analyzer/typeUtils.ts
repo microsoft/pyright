@@ -244,9 +244,9 @@ export const enum AssignTypeFlags {
 export interface ApplyTypeVarOptions {
     typeClassType?: ClassType;
     tupleClassType?: ClassType;
-    unknownIfNotFound?: boolean;
-    useUnknownOverDefault?: boolean;
-    unknownExemptTypeVars?: TypeVarType[];
+    useDefaultForUnsolved?: boolean;
+    useUnknownForUnsolved?: boolean;
+    unsolvedExemptTypeVars?: TypeVarType[];
     useLowerBoundOnly?: boolean;
     eliminateUnsolvedInUnions?: boolean;
     applyUnificationVars?: boolean;
@@ -1542,7 +1542,8 @@ export function applySolvedTypeVars(
     // Use a shortcut if the typeVarContext is empty and no transform is necessary.
     if (
         typeVarContext.isEmpty() &&
-        !options.unknownIfNotFound &&
+        !options.useDefaultForUnsolved &&
+        !options.useUnknownForUnsolved &&
         !options.eliminateUnsolvedInUnions &&
         !options.applyUnificationVars
     ) {
@@ -1585,9 +1586,12 @@ export function applySourceContextTypeVarsToSignature(solutionSet: TypeVarSoluti
 // with the solved type associated with those unification vars.
 export function applyUnificationVars(typeVarContext: TypeVarContext) {
     typeVarContext.doForEachSolutionSet((solutionSet) => {
+        if (!solutionSet.hasUnificationVars()) {
+            return;
+        }
+
         solutionSet.getTypeVars().forEach((entry) => {
-            const typeVar = entry.typeVar;
-            if (!typeVar.priv.isUnificationVar) {
+            if (!TypeVarType.isUnification(entry.typeVar)) {
                 const newLowerBound = entry.lowerBound
                     ? applyUnificationVarsToType(entry.lowerBound, solutionSet)
                     : undefined;
@@ -4264,8 +4268,8 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                             }
 
                             if (subtype.shared.typeParams && !subtype.priv.typeArgs) {
-                                if (this._options.unknownIfNotFound) {
-                                    return this._options.useUnknownOverDefault
+                                if (this._options.useDefaultForUnsolved || this._options.useUnknownForUnsolved) {
+                                    return this._options.useUnknownForUnsolved
                                         ? specializeWithUnknownTypeArgs(subtype, this._options.tupleClassType)
                                         : specializeWithDefaultTypeArgs(subtype);
                                 }
@@ -4291,7 +4295,11 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                     replacement = combineTupleTypeArgs(replacement.priv.tupleTypeArgs);
                 }
 
-                if (!isTypeVar(replacement) || !replacement.priv.isUnificationVar || !this._options.unknownIfNotFound) {
+                if (!isTypeVar(replacement) || !TypeVarType.isUnification(replacement)) {
+                    return replacement;
+                }
+
+                if (!this._options.useDefaultForUnsolved && !this._options.useUnknownForUnsolved) {
                     return replacement;
                 }
             }
@@ -4304,8 +4312,8 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             // var map doesn't contain any entry for it, replace with the
             // default or Unknown.
             let useDefaultOrUnknown = false;
-            if (this._options.unknownIfNotFound) {
-                const exemptTypeVars = this._options.unknownExemptTypeVars ?? [];
+            if (this._options.useDefaultForUnsolved || this._options.useUnknownForUnsolved) {
+                const exemptTypeVars = this._options.unsolvedExemptTypeVars ?? [];
                 const typeVarInstance = TypeBase.isInstance(typeVar) ? typeVar : TypeVarType.cloneAsInstance(typeVar);
                 if (!exemptTypeVars.some((t) => isTypeSame(t, typeVarInstance))) {
                     useDefaultOrUnknown = true;
@@ -4316,7 +4324,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
             if (useDefaultOrUnknown) {
                 // Use the default value if there is one.
-                if (typeVar.shared.isDefaultExplicit && !this._options.useUnknownOverDefault) {
+                if (typeVar.shared.isDefaultExplicit && !this._options.useUnknownForUnsolved) {
                     return this._solveDefaultType(typeVar, recursionCount);
                 }
 
@@ -4361,17 +4369,19 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 const typeVarType = solutionSet.getTypeVarType(preTransform);
 
                 // Did the TypeVar remain unsolved?
-                if (!typeVarType || (isTypeVar(typeVarType) && typeVarType.priv.isUnificationVar)) {
+                if (!typeVarType || (isTypeVar(typeVarType) && TypeVarType.isUnification(typeVarType))) {
                     // If the TypeVar was not transformed, then it was unsolved,
                     // and we'll eliminate it.
                     if (preTransform === postTransform) {
                         return undefined;
                     }
 
-                    // If unknownIfNotFound is true, the postTransform type will
+                    // If useDefaultForUnsolved or useUnknownForUnsolved is true, the postTransform type will
                     // be Unknown, which we want to eliminate.
-                    if (isUnknown(postTransform) && this._options.unknownIfNotFound) {
-                        return undefined;
+                    if (this._options.useDefaultForUnsolved || this._options.useUnknownForUnsolved) {
+                        if (isUnknown(postTransform)) {
+                            return undefined;
+                        }
                     }
                 }
             }
@@ -4433,8 +4443,8 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
         }
 
         let useDefaultOrUnknown = false;
-        if (this._options.unknownIfNotFound) {
-            const exemptTypeVars = this._options.unknownExemptTypeVars ?? [];
+        if (this._options.useDefaultForUnsolved || this._options.useUnknownForUnsolved) {
+            const exemptTypeVars = this._options.unsolvedExemptTypeVars ?? [];
             if (!exemptTypeVars.some((t) => isTypeSame(t, paramSpec, { ignoreTypeFlags: true }))) {
                 useDefaultOrUnknown = true;
             }
@@ -4444,7 +4454,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
 
         if (useDefaultOrUnknown) {
             // Use the default value if there is one.
-            if (paramSpec.shared.isDefaultExplicit && !this._options.useUnknownOverDefault) {
+            if (paramSpec.shared.isDefaultExplicit && !this._options.useUnknownForUnsolved) {
                 return convertTypeToParamSpecValue(this._solveDefaultType(paramSpec, recursionCount));
             }
 
@@ -4528,7 +4538,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return false;
         }
 
-        if (this._options.unknownIfNotFound) {
+        if (this._options.useDefaultForUnsolved || this._options.useUnknownForUnsolved) {
             return true;
         }
 
@@ -4587,7 +4597,7 @@ class UnificationVarTransformer extends TypeVarTransformer {
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
-        if (typeVar.priv.isUnificationVar) {
+        if (TypeVarType.isUnification(typeVar)) {
             return this._solutionSet.getTypeVarType(typeVar) ?? typeVar;
         }
 
@@ -4595,7 +4605,7 @@ class UnificationVarTransformer extends TypeVarTransformer {
     }
 
     override transformParamSpec(paramSpec: ParamSpecType): FunctionType | undefined {
-        if (paramSpec.priv.isUnificationVar) {
+        if (TypeVarType.isUnification(paramSpec)) {
             return this._solutionSet.getTypeVarType(paramSpec);
         }
 
@@ -4606,7 +4616,7 @@ class UnificationVarTransformer extends TypeVarTransformer {
 function applyUnificationVarsToType(type: Type, solutionSet: TypeVarSolutionSet): Type {
     // Handle the common case where there are no unification vars.
     // No more work is required in this case.
-    if (!solutionSet.getTypeVars().some((entry) => entry.typeVar.priv.isUnificationVar)) {
+    if (!solutionSet.getTypeVars().some((entry) => TypeVarType.isUnification(entry.typeVar))) {
         return type;
     }
 

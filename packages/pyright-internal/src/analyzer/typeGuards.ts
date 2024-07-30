@@ -1485,8 +1485,7 @@ function narrowTypeForIsInstanceInternal(
                                                 unspecializedFilterType,
                                                 typeVarContext,
                                                 {
-                                                    unknownIfNotFound: true,
-                                                    useUnknownOverDefault: true,
+                                                    useUnknownForUnsolved: true,
                                                     tupleClassType: evaluator.getTupleClassType(),
                                                 }
                                             ) as ClassType;

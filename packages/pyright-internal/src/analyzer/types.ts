@@ -2941,7 +2941,7 @@ export namespace TypeVarType {
     }
 
     export function cloneAsUnificationVar(type: TypeVarType, usageOffset?: number): TypeVarType {
-        if (type.priv.isUnificationVar) {
+        if (TypeVarType.isUnification(type)) {
             return type;
         }
 
@@ -3005,6 +3005,10 @@ export namespace TypeVarType {
         // considered bound. If it has no associated free var, then it's
         // considered free.
         return !!type.priv.freeTypeVar;
+    }
+
+    export function isUnification(type: TypeVarType) {
+        return type.priv.isUnificationVar;
     }
 
     function create(name: string, kind: TypeVarKind, typeFlags: TypeFlags): TypeVarType {
