@@ -966,7 +966,7 @@ function narrowTypeBasedOnClassPattern(
                                         )
                                     ) {
                                         resultType = applySolvedTypeVars(matchTypeInstance, typeVarContext, {
-                                            unknownIfNotFound: true,
+                                            useDefaultForUnsolved: true,
                                             tupleClassType: evaluator.getTupleClassType(),
                                         }) as ClassType;
                                     }

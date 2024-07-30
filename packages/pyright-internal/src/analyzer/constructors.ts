@@ -122,7 +122,7 @@ export function validateConstructorArgs(
     const aliasInfo = type.props?.typeAliasInfo;
     if (aliasInfo?.typeParams && !aliasInfo.typeArgs) {
         const typeAliasTypeVarContext = new TypeVarContext(aliasInfo.typeVarScopeId);
-        type = applySolvedTypeVars(type, typeAliasTypeVarContext, { unknownIfNotFound: true }) as ClassType;
+        type = applySolvedTypeVars(type, typeAliasTypeVarContext, { useDefaultForUnsolved: true }) as ClassType;
     }
 
     const metaclassResult = validateMetaclassCall(
@@ -277,7 +277,7 @@ function validateNewAndInitMethods(
         newMethodReturnType = applySolvedTypeVars(
             ClassType.cloneAsInstance(type),
             new TypeVarContext(getTypeVarScopeId(type)),
-            { unknownIfNotFound: true, tupleClassType: evaluator.getTupleClassType() }
+            { useDefaultForUnsolved: true, tupleClassType: evaluator.getTupleClassType() }
         ) as ClassType;
     }
 
@@ -620,7 +620,7 @@ function applyExpectedTypeForConstructor(
     inferenceContext: InferenceContext | undefined,
     typeVarContext: TypeVarContext
 ): Type {
-    let unsolvedTypeVarsAreUnknown = true;
+    let defaultIfNotFound = true;
 
     // If this isn't a generic type or it's a type that has already been
     // explicitly specialized, the expected type isn't applicable.
@@ -641,12 +641,12 @@ function applyExpectedTypeForConstructor(
         // unsolved TypeVars should be considered Unknown unless they were
         // provided explicitly in the constructor call.
         if (type.priv.typeArgs) {
-            unsolvedTypeVarsAreUnknown = false;
+            defaultIfNotFound = false;
         }
     }
 
     const specializedType = applySolvedTypeVars(type, typeVarContext, {
-        unknownIfNotFound: unsolvedTypeVarsAreUnknown,
+        useDefaultForUnsolved: defaultIfNotFound,
         tupleClassType: evaluator.getTupleClassType(),
     }) as ClassType;
     return ClassType.cloneAsInstance(specializedType);
@@ -939,7 +939,7 @@ function createFunctionFromInitMethod(
                 });
 
                 returnType = applySolvedTypeVars(objectType, typeVarContext, {
-                    unknownIfNotFound: true,
+                    useDefaultForUnsolved: true,
                     tupleClassType: evaluator.getTupleClassType(),
                 }) as ClassType;
             }
