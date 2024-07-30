@@ -17,7 +17,6 @@ import {
     Type,
     TypeVarScopeId,
     TypeVarType,
-    UnificationScopeId,
     isAnyOrUnknown,
     isFunction,
     isParamSpec,
@@ -231,27 +230,15 @@ export class TypeVarSolutionSet {
 }
 
 export class TypeVarContext {
-    private _solveForScopes: TypeVarScopeId[] | undefined;
     private _isLocked = false;
     private _solutionSets: TypeVarSolutionSet[];
 
-    constructor(solveForScopes?: TypeVarScopeId[] | TypeVarScopeId) {
-        if (Array.isArray(solveForScopes)) {
-            this._solveForScopes = solveForScopes;
-        } else if (solveForScopes !== undefined) {
-            this._solveForScopes = [solveForScopes];
-        } else {
-            this._solveForScopes = undefined;
-        }
-
+    constructor() {
         this._solutionSets = [new TypeVarSolutionSet()];
     }
 
     clone() {
         const newTypeVarMap = new TypeVarContext();
-        if (this._solveForScopes) {
-            newTypeVarMap._solveForScopes = Array.from(this._solveForScopes);
-        }
 
         newTypeVarMap._solutionSets = this._solutionSets.map((solutionSet) => solutionSet.clone());
         newTypeVarMap._isLocked = this._isLocked;
@@ -300,47 +287,6 @@ export class TypeVarContext {
         }
 
         return this._solutionSets.every((solutionSet, index) => solutionSet.isSame(other._solutionSets[index]));
-    }
-
-    // Returns the list of scopes this type var map is "solving".
-    getSolveForScopes() {
-        return this._solveForScopes;
-    }
-
-    hasSolveForScope(scopeId: TypeVarScopeId | TypeVarScopeId[] | undefined): boolean {
-        if (Array.isArray(scopeId)) {
-            return scopeId.some((s) => this.hasSolveForScope(s));
-        }
-
-        if (scopeId === UnificationScopeId) {
-            return true;
-        }
-
-        return (
-            scopeId !== undefined &&
-            this._solveForScopes !== undefined &&
-            this._solveForScopes.some((s) => s === scopeId)
-        );
-    }
-
-    setSolveForScopes(scopeIds: TypeVarScopeId[]) {
-        scopeIds.forEach((scopeId) => {
-            this.addSolveForScope(scopeId);
-        });
-    }
-
-    addSolveForScope(scopeId?: TypeVarScopeId | TypeVarScopeId[]) {
-        if (Array.isArray(scopeId)) {
-            scopeId.forEach((s) => this.addSolveForScope(s));
-            return;
-        }
-
-        if (scopeId !== undefined && !this.hasSolveForScope(scopeId)) {
-            if (!this._solveForScopes) {
-                this._solveForScopes = [];
-            }
-            this._solveForScopes.push(scopeId);
-        }
     }
 
     lock() {

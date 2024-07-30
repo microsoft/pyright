@@ -39,7 +39,6 @@ import {
     AssignTypeFlags,
     ClassMember,
     containsLiteralType,
-    getTypeVarScopeId,
     lookUpClassMember,
     MemberAccessFlags,
     partiallySpecializeType,
@@ -314,7 +313,7 @@ function assignClassToProtocolInternal(
 
     const sourceIsClassObject = isClass(srcType) && TypeBase.isInstantiable(srcType);
     const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
-    const selfTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
+    const selfTypeVarContext = new TypeVarContext();
 
     let selfType: ClassType | TypeVarType | undefined;
     if (isClass(srcType)) {
@@ -629,7 +628,6 @@ function assignClassToProtocolInternal(
 
                 // Temporarily add the TypeVar scope ID for this method to handle method-scoped TypeVars.
                 const protocolTypeVarContextClone = protocolTypeVarContext.clone();
-                protocolTypeVarContextClone.addSolveForScope(getTypeVarScopeId(destMemberType));
 
                 if (
                     !evaluator.assignType(
@@ -780,7 +778,7 @@ function createProtocolTypeVarContext(
     destType: ClassType,
     destTypeVarContext: TypeVarContext | undefined
 ): TypeVarContext {
-    const protocolTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
+    const protocolTypeVarContext = new TypeVarContext();
 
     destType.shared.typeParams.forEach((typeParam, index) => {
         const entry = destTypeVarContext?.getMainSolutionSet().getTypeVar(typeParam);

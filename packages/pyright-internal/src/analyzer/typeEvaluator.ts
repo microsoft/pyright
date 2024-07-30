@@ -2369,7 +2369,7 @@ export function createTypeEvaluator(
                     exprNode,
                     argList,
                     { type },
-                    new TypeVarContext(getTypeVarScopeId(type)),
+                    /* typeVarContext */ undefined,
                     /* skipUnknownArgCheck */ true,
                     /* inferenceContext */ undefined
                 );
@@ -2679,7 +2679,7 @@ export function createTypeEvaluator(
             const diag = errorNode ? new DiagnosticAddendum() : undefined;
 
             if (isClassInstance(subtype)) {
-                const typeVarContext = new TypeVarContext(getTypeVarScopeId(awaitableProtocolObj));
+                const typeVarContext = new TypeVarContext();
 
                 if (assignType(awaitableProtocolObj, subtype, diag, typeVarContext)) {
                     const specializedType = applySolvedTypeVars(awaitableProtocolObj, typeVarContext);
@@ -4953,7 +4953,7 @@ export function createTypeEvaluator(
         ) {
             let reportMissingTypeArgs = false;
             const defaultTypeArgs: Type[] = [];
-            const typeVarContext = new TypeVarContext(aliasInfo.typeVarScopeId);
+            const typeVarContext = new TypeVarContext();
 
             aliasInfo.typeParams.forEach((param) => {
                 if (!param.shared.isDefaultExplicit) {
@@ -6139,7 +6139,7 @@ export function createTypeEvaluator(
             }
 
             if (accessMethodClass) {
-                const typeVarContext = new TypeVarContext(getTypeVarScopeId(accessMethodClass));
+                const typeVarContext = new TypeVarContext();
                 accessMethodClass = selfSpecializeClass(accessMethodClass);
                 assignType(
                     ClassType.cloneAsInstance(accessMethodClass),
@@ -6828,7 +6828,7 @@ export function createTypeEvaluator(
             return { node, type: typeArgs[0].type };
         }
 
-        const typeVarContext = new TypeVarContext(aliasInfo.typeVarScopeId);
+        const typeVarContext = new TypeVarContext();
         const diag = new DiagnosticAddendum();
 
         typeParams.forEach((param, index) => {
@@ -7880,7 +7880,7 @@ export function createTypeEvaluator(
                 }
             }
         } else {
-            const tupleTypeVarContext = new TypeVarContext(getTypeVarScopeId(tupleClass));
+            const tupleTypeVarContext = new TypeVarContext();
             if (
                 !addConstraintsForExpectedType(
                     evaluatorInterface,
@@ -8737,9 +8737,7 @@ export function createTypeEvaluator(
                 }
 
                 // Clone the typeVarContext so we don't modify the original.
-                const effectiveTypeVarContext =
-                    typeVarContext?.clone() ?? new TypeVarContext(getTypeVarScopeId(overload));
-                effectiveTypeVarContext.addSolveForScope(getTypeVarScopeIds(overload));
+                const effectiveTypeVarContext = typeVarContext?.clone() ?? new TypeVarContext();
                 effectiveTypeVarContext.unlock();
 
                 // Use speculative mode so we don't output any diagnostics or
@@ -8873,7 +8871,6 @@ export function createTypeEvaluator(
         // populate the type cache.
         const finalTypeVarContext = typeVarContext ?? matchedOverloads[0].typeVarContext;
         finalTypeVarContext.unlock();
-        finalTypeVarContext.addSolveForScope(getTypeVarScopeId(matchedOverloads[0].overload));
         const finalCallResult = validateArgTypesWithContext(
             errorNode,
             matchedOverloads[0].matchResults,
@@ -8996,7 +8993,7 @@ export function createTypeEvaluator(
                     const callResult = validateArgTypes(
                         errorNode,
                         match,
-                        new TypeVarContext(getTypeVarScopeId(match.overload)),
+                        new TypeVarContext(),
                         /* skipUnknownArgCheck */ true
                     );
 
@@ -9130,7 +9127,6 @@ export function createTypeEvaluator(
             }
 
             const effectiveTypeVarContext = typeVarContext ?? new TypeVarContext();
-            effectiveTypeVarContext.addSolveForScope(getTypeVarScopeIds(bestMatch.overload));
             effectiveTypeVarContext.unlock();
 
             return validateArgTypesWithContext(
@@ -9501,8 +9497,6 @@ export function createTypeEvaluator(
             return { returnType: undefined, argumentErrors: true };
         }
 
-        const effectiveTypeVarContext = typeVarContext ?? new TypeVarContext(getTypeVarScopeIds(type));
-
         // The stdlib collections/__init__.pyi stub file defines namedtuple
         // as a function rather than a class, so we need to check for it here.
         if (FunctionType.isBuiltIn(type, 'namedtuple')) {
@@ -9512,14 +9506,7 @@ export function createTypeEvaluator(
                 returnType: createNamedTupleType(evaluatorInterface, errorNode, argList, /* includesTypes */ false),
             };
 
-            validateArgs(
-                errorNode,
-                argList,
-                { type: type },
-                effectiveTypeVarContext,
-                skipUnknownArgCheck,
-                inferenceContext
-            );
+            validateArgs(errorNode, argList, { type: type }, typeVarContext, skipUnknownArgCheck, inferenceContext);
 
             return result;
         }
@@ -9533,7 +9520,7 @@ export function createTypeEvaluator(
             errorNode,
             argList,
             { type, isIncomplete: isCallTypeIncomplete },
-            effectiveTypeVarContext,
+            typeVarContext,
             skipUnknownArgCheck,
             inferenceContext
         );
@@ -10246,7 +10233,7 @@ export function createTypeEvaluator(
                 // spec? We need to handle these two cases differently.
                 const paramSpecScopeId = varArgListParam.type.priv.scopeId;
 
-                if (getTypeVarScopeIds(overload)?.some((id) => id === paramSpecScopeId)) {
+                if (getTypeVarScopeIds(overload).some((id) => id === paramSpecScopeId)) {
                     paramSpecArgList = [];
                     paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParam.type, /* access */ undefined);
                 } else {
@@ -10256,7 +10243,7 @@ export function createTypeEvaluator(
                 }
             }
         } else if (paramSpec) {
-            if (getTypeVarScopeIds(overload)?.some((id) => id === paramSpec.priv.scopeId)) {
+            if (getTypeVarScopeIds(overload).some((id) => id === paramSpec.priv.scopeId)) {
                 hasParamSpecArgsKwargs = true;
                 paramSpecArgList = [];
                 paramSpecTarget = paramSpec;
@@ -10781,9 +10768,7 @@ export function createTypeEvaluator(
                             strObjType &&
                             isClassInstance(strObjType)
                         ) {
-                            const mappingTypeVarContext = new TypeVarContext(
-                                getTypeVarScopeId(supportsKeysAndGetItemClass)
-                            );
+                            const mappingTypeVarContext = new TypeVarContext();
                             let isValidMappingType = false;
 
                             // If this was a TypeVar (e.g. for pseudo-generic classes),
@@ -11323,7 +11308,7 @@ export function createTypeEvaluator(
         // Prepopulate the typeVarContext based on the specialized expected type.
         // This will allow us to more closely match the expected type if possible.
         if (isClassInstance(returnType) && isClassInstance(expectedType) && !isTypeSame(returnType, expectedType)) {
-            const tempTypeVarContext = new TypeVarContext(getTypeVarScopeId(returnType));
+            const tempTypeVarContext = new TypeVarContext();
             if (
                 addConstraintsForExpectedType(
                     evaluatorInterface,
@@ -11340,7 +11325,7 @@ export function createTypeEvaluator(
 
                 expectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
                     replaceUnsolved: {
-                        scopeIds: getTypeVarScopeIds(returnType) ?? [],
+                        scopeIds: getTypeVarScopeIds(returnType),
                         useUnknown: true,
                         tupleClassType: getTupleClassType(),
                     },
@@ -11591,7 +11576,7 @@ export function createTypeEvaluator(
 
         let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
             replaceUnsolved: {
-                scopeIds: getTypeVarScopeIds(type) ?? [],
+                scopeIds: getTypeVarScopeIds(type),
                 unsolvedExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
                 tupleClassType: getTupleClassType(),
                 eliminateUnsolvedInUnions,
@@ -11714,7 +11699,7 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         argList: Arg[],
         typeResult: TypeResult<FunctionType>,
-        typeVarContext: TypeVarContext,
+        typeVarContext: TypeVarContext | undefined,
         skipUnknownArgCheck = false,
         inferenceContext: InferenceContext | undefined
     ): CallResult {
@@ -11739,7 +11724,7 @@ export function createTypeEvaluator(
         return validateArgTypesWithContext(
             errorNode,
             matchResults,
-            typeVarContext,
+            typeVarContext ?? new TypeVarContext(),
             skipUnknownArgCheck,
             makeInferenceContext(
                 inferenceContext?.expectedType,
@@ -11815,7 +11800,7 @@ export function createTypeEvaluator(
 
         const matchResults = matchArgsToParams(errorNode, argList, { type: paramSpecType }, 0);
         const functionType = matchResults.overload;
-        const srcTypeVarContext = new TypeVarContext(getTypeVarScopeIds(paramSpecType));
+        const srcTypeVarContext = new TypeVarContext();
 
         if (matchResults.argumentErrors) {
             // Evaluate types of all args. This will ensure that referenced symbols are
@@ -12380,11 +12365,11 @@ export function createTypeEvaluator(
     function verifyTypeVarDefaultIsCompatible(typeVar: TypeVarType, defaultValueNode: ExpressionNode) {
         assert(typeVar.shared.isDefaultExplicit);
 
-        const typeVarContext = new TypeVarContext(typeVar.priv.scopeId);
+        const typeVarContext = new TypeVarContext();
         const concreteDefaultType = makeTopLevelTypeVarsConcrete(
             applySolvedTypeVars(typeVar.shared.defaultType, typeVarContext, {
                 replaceUnsolved: {
-                    scopeIds: getTypeVarScopeIds(typeVar) ?? [],
+                    scopeIds: getTypeVarScopeIds(typeVar),
                     tupleClassType: getTupleClassType(),
                 },
             })
@@ -13298,7 +13283,7 @@ export function createTypeEvaluator(
                 return undefined;
             }
 
-            const dictTypeVarContext = new TypeVarContext(getTypeVarScopeId(builtInDict));
+            const dictTypeVarContext = new TypeVarContext();
             if (
                 !addConstraintsForExpectedType(
                     evaluatorInterface,
@@ -13655,7 +13640,7 @@ export function createTypeEvaluator(
                         addUnknown = false;
                     }
                 } else if (supportsKeysAndGetItemClass && isInstantiableClass(supportsKeysAndGetItemClass)) {
-                    const mappingTypeVarContext = new TypeVarContext(getTypeVarScopeId(supportsKeysAndGetItemClass));
+                    const mappingTypeVarContext = new TypeVarContext();
 
                     supportsKeysAndGetItemClass = selfSpecializeClass(supportsKeysAndGetItemClass);
 
@@ -13908,7 +13893,7 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        const typeVarContext = new TypeVarContext(getTypeVarScopeId(expectedClassType));
+        const typeVarContext = new TypeVarContext();
         if (
             !addConstraintsForExpectedType(
                 evaluatorInterface,
@@ -14037,7 +14022,7 @@ export function createTypeEvaluator(
             return inferenceContext.expectedType;
         }
 
-        const typeVarContext = new TypeVarContext(getTypeVarScopeId(inferenceContext.expectedType));
+        const typeVarContext = new TypeVarContext();
         const expectedType = inferenceContext.expectedType;
         let isCompatible = true;
 
@@ -14355,7 +14340,7 @@ export function createTypeEvaluator(
                         // If the expectedReturnType is generic, see if the actual return type
                         // provides types for some or all type variables.
                         if (requiresSpecialization(expectedReturnType)) {
-                            const typeVarContext = new TypeVarContext(getTypeVarScopeId(functionType));
+                            const typeVarContext = new TypeVarContext();
                             if (
                                 assignType(
                                     expectedReturnType,
@@ -18324,14 +18309,11 @@ export function createTypeEvaluator(
                             // If the parameter type is generic, specialize it in the context
                             // of the child class.
                             if (requiresSpecialization(inferredParamType) && isClass(baseClassMemberInfo.classType)) {
-                                const scopeIds: TypeVarScopeId[] =
-                                    getTypeVarScopeIds(baseClassMemberInfo.classType) ?? [];
+                                const scopeIds: TypeVarScopeId[] = getTypeVarScopeIds(baseClassMemberInfo.classType);
                                 const typeVarContext = buildTypeVarContextFromSpecializedClass(
                                     baseClassMemberInfo.classType
                                 );
 
-                                // Add the scope of the method to handle any function-scoped TypeVars.
-                                typeVarContext.addSolveForScope(ParseTreeUtils.getScopeIdForNode(baseClassMethodNode));
                                 scopeIds.push(ParseTreeUtils.getScopeIdForNode(baseClassMethodNode));
 
                                 // Replace any unsolved TypeVars with Unknown (including all function-scoped TypeVars).
@@ -20319,7 +20301,7 @@ export function createTypeEvaluator(
             }
         }
 
-        const typeVarContext = new TypeVarContext(classType.shared.typeVarScopeId);
+        const typeVarContext = new TypeVarContext();
 
         fullTypeParams.forEach((typeParam, index) => {
             if (typeArgs && index < typeArgs.length) {
@@ -20395,7 +20377,7 @@ export function createTypeEvaluator(
 
             const solvedDefaultType = applySolvedTypeVars(typeParam, typeVarContext, {
                 replaceUnsolved: {
-                    scopeIds: getTypeVarScopeIds(classType) ?? [],
+                    scopeIds: getTypeVarScopeIds(classType),
                     tupleClassType: getTupleClassType(),
                 },
             });
@@ -22774,8 +22756,8 @@ export function createTypeEvaluator(
         assert(ClassType.isSameGenericClass(destType, srcType));
         assert(destType.shared.typeParams.length > 0);
 
-        srcType = makeTypeVarsBound(srcType, getTypeVarScopeIds(srcType) ?? []);
-        destType = makeTypeVarsBound(destType, getTypeVarScopeIds(destType) ?? []);
+        srcType = makeTypeVarsBound(srcType, getTypeVarScopeIds(srcType));
+        destType = makeTypeVarsBound(destType, getTypeVarScopeIds(destType));
 
         let isAssignable = true;
 
@@ -23425,7 +23407,7 @@ export function createTypeEvaluator(
                         destType,
                         srcType,
                         diag,
-                        targetTypeVarContext ?? new TypeVarContext(),
+                        targetTypeVarContext,
                         flags,
                         recursionCount
                     )
@@ -23462,7 +23444,7 @@ export function createTypeEvaluator(
                             srcType,
                             destType,
                             diag,
-                            srcTypeVarContext ?? new TypeVarContext(),
+                            srcTypeVarContext,
                             flags,
                             recursionCount
                         )
@@ -23480,7 +23462,7 @@ export function createTypeEvaluator(
                                     srcType as TypeVarType,
                                     destSubtype,
                                     diag,
-                                    srcTypeVarContext ?? new TypeVarContext(),
+                                    srcTypeVarContext,
                                     flags,
                                     recursionCount
                                 )
@@ -23835,10 +23817,6 @@ export function createTypeEvaluator(
                 // Is the destination a callback protocol (defined in PEP 544)?
                 const destCallbackType = getCallbackProtocolType(destType, recursionCount);
                 if (destCallbackType) {
-                    if (destTypeVarContext) {
-                        destTypeVarContext.addSolveForScope(getTypeVarScopeId(destCallbackType));
-                    }
-
                     return assignType(
                         destCallbackType,
                         concreteSrcType,
@@ -24049,8 +24027,8 @@ export function createTypeEvaluator(
                         destType,
                         concreteSrcType,
                         diag?.createAddendum(),
-                        destTypeVarContext ?? new TypeVarContext(getTypeVarScopeIds(destType)),
-                        srcTypeVarContext ?? new TypeVarContext(getTypeVarScopeIds(concreteSrcType)),
+                        destTypeVarContext ?? new TypeVarContext(),
+                        srcTypeVarContext ?? new TypeVarContext(),
                         flags,
                         recursionCount
                     )
@@ -24092,8 +24070,6 @@ export function createTypeEvaluator(
             }
 
             const isAssignable = destOverloads.every((destOverload) => {
-                destTypeVarContext?.addSolveForScope(getTypeVarScopeId(destOverload));
-
                 const result = assignType(
                     destOverload,
                     srcType,
@@ -25849,7 +25825,7 @@ export function createTypeEvaluator(
             assignedType.priv.typeArgs.length <= assignedType.shared.typeParams.length &&
             !assignedType.priv.tupleTypeArgs
         ) {
-            const typeVarContext = new TypeVarContext(getTypeVarScopeId(assignedType));
+            const typeVarContext = new TypeVarContext();
             addConstraintsForExpectedType(
                 evaluatorInterface,
                 ClassType.specialize(assignedType, /* typeArgs */ undefined),
@@ -26782,7 +26758,6 @@ export function createTypeEvaluator(
                 return partiallySpecializeBoundMethod(
                     baseType,
                     functionType,
-                    memberClass ?? ClassType.cloneAsInstantiable(baseObj),
                     diag,
                     recursionCount,
                     selfType ?? baseObj,
@@ -26800,7 +26775,6 @@ export function createTypeEvaluator(
                 return partiallySpecializeBoundMethod(
                     baseClass,
                     functionType,
-                    memberClass ?? baseClass,
                     diag,
                     recursionCount,
                     clsType ?? baseClass,
@@ -26814,7 +26788,6 @@ export function createTypeEvaluator(
                 return partiallySpecializeBoundMethod(
                     baseClass,
                     functionType,
-                    memberClass ?? baseClass,
                     diag,
                     recursionCount,
                     /* firstParamType */ undefined,
@@ -26829,26 +26802,20 @@ export function createTypeEvaluator(
     // Specializes the specified function for the specified class,
     // optionally stripping the first first parameter (the "self" or "cls")
     // off of the specialized function in the process. The baseType
-    // is the type used to reference the member, and the memberClass
-    // is the class that provided the member (could be an ancestor of
-    // the baseType's class).
+    // is the type used to reference the member.
     function partiallySpecializeBoundMethod(
         baseType: ClassType,
         memberType: FunctionType,
-        memberClass: ClassType,
         diag: DiagnosticAddendum | undefined,
         recursionCount: number,
         firstParamType: ClassType | TypeVarType | undefined,
         stripFirstParam = true
     ): FunctionType | undefined {
-        const typeVarContext = new TypeVarContext(getTypeVarScopeId(memberClass));
+        const typeVarContext = new TypeVarContext();
 
         if (firstParamType && memberType.shared.parameters.length > 0) {
             const memberTypeFirstParam = memberType.shared.parameters[0];
             const memberTypeFirstParamType = FunctionType.getEffectiveParamType(memberType, 0);
-
-            // Fill out the typeVarContext for the "self" or "cls" parameter.
-            typeVarContext.addSolveForScope(getTypeVarScopeId(memberType));
 
             if (
                 isTypeVar(memberTypeFirstParamType) &&

@@ -84,7 +84,7 @@ export function assignTypeToTypeVar(
     destType: TypeVarType,
     srcType: Type,
     diag: DiagnosticAddendum | undefined,
-    typeVarContext: TypeVarContext,
+    typeVarContext: TypeVarContext | undefined,
     flags = AssignTypeFlags.Default,
     recursionCount = 0
 ): boolean {
@@ -95,7 +95,9 @@ export function assignTypeToTypeVar(
         console.log(`${indent}destType: ${evaluator.printType(destType)}`);
         console.log(`${indent}srcType: ${evaluator.printType(srcType)}`);
         console.log(`${indent}flags: ${flags}`);
-        logTypeVarContext(evaluator, typeVarContext, indent);
+        if (typeVarContext) {
+            logTypeVarContext(evaluator, typeVarContext, indent);
+        }
     }
 
     const isInvariant = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
@@ -168,6 +170,9 @@ export function assignTypeToTypeVar(
     }
 
     if (isParamSpec(destType)) {
+        if (!typeVarContext) {
+            return true;
+        }
         return assignTypeToParamSpec(evaluator, destType, srcType, diag, typeVarContext, recursionCount);
     }
 
@@ -218,7 +223,7 @@ export function assignTypeToTypeVar(
     }
 
     // Handle the unconstrained (but possibly bound) case.
-    const curEntry = typeVarContext.getMainSolutionSet().getTypeVar(destType);
+    const curEntry = typeVarContext?.getMainSolutionSet().getTypeVar(destType);
 
     let curUpperBound = curEntry?.upperBound;
     if (!curUpperBound && !TypeVarType.isSelf(destType)) {
@@ -390,7 +395,11 @@ export function assignTypeToTypeVar(
                 ) {
                     newLowerBound = adjSrcType;
                 } else {
-                    newLowerBound = applySolvedTypeVars(curLowerBound, typeVarContext);
+                    newLowerBound = curLowerBound;
+
+                    if (typeVarContext) {
+                        newLowerBound = applySolvedTypeVars(newLowerBound, typeVarContext);
+                    }
                 }
             } else if (
                 isTypeVar(curLowerBound) &&
@@ -411,7 +420,7 @@ export function assignTypeToTypeVar(
                 newLowerBound = adjSrcType;
             } else {
                 // We need to widen the type.
-                if (typeVarContext.isLocked()) {
+                if (typeVarContext?.isLocked()) {
                     diag?.addMessage(
                         LocAddendum.typeAssignmentMismatch().format(
                             evaluator.printSrcDestTypes(adjSrcType, curLowerBound)
@@ -454,7 +463,11 @@ export function assignTypeToTypeVar(
                         curLowerBound = curEntry.lowerBoundNoLiterals;
                     }
 
-                    const curSolvedLowerBound = applySolvedTypeVars(curLowerBound, typeVarContext);
+                    let curSolvedLowerBound = curLowerBound;
+
+                    if (typeVarContext) {
+                        curSolvedLowerBound = applySolvedTypeVars(curLowerBound, typeVarContext);
+                    }
 
                     // In some extreme edge cases, the lower bound can become
                     // a union with so many subtypes that performance grinds to a
@@ -562,9 +575,7 @@ export function assignTypeToTypeVar(
         // In general, bound types cannot be generic, but the "Self" type is an
         // exception. In this case, we need to use the original TypeVarContext
         // to solve for the generic type variable(s) in the bound type.
-        const effectiveTypeVarContext = TypeVarType.isSelf(destType)
-            ? typeVarContext
-            : new TypeVarContext(destType.priv.scopeId);
+        const effectiveTypeVarContext = TypeVarType.isSelf(destType) ? typeVarContext : undefined;
 
         if (
             !evaluator.assignType(
@@ -592,7 +603,7 @@ export function assignTypeToTypeVar(
         }
     }
 
-    if (!typeVarContext.isLocked()) {
+    if (typeVarContext && !typeVarContext.isLocked()) {
         updateTypeVarType(
             evaluator,
             typeVarContext,
@@ -606,7 +617,9 @@ export function assignTypeToTypeVar(
     if (logTypeVarContextUpdates) {
         const indent = ' '.repeat(recursionCount * 2);
         console.log(`${indent}`);
-        logTypeVarContext(evaluator, typeVarContext, indent);
+        if (typeVarContext) {
+            logTypeVarContext(evaluator, typeVarContext, indent);
+        }
     }
 
     return true;
@@ -649,13 +662,13 @@ function assignTypeToConstrainedTypeVar(
     destType: TypeVarType,
     srcType: Type,
     diag: DiagnosticAddendum | undefined,
-    typeVarContext: TypeVarContext,
+    typeVarContext: TypeVarContext | undefined,
     flags: AssignTypeFlags,
     recursionCount: number
 ) {
     let constrainedType: Type | undefined;
     const concreteSrcType = evaluator.makeTopLevelTypeVarsConcrete(srcType);
-    const curEntry = typeVarContext.getMainSolutionSet().getTypeVar(destType);
+    const curEntry = typeVarContext?.getMainSolutionSet().getTypeVar(destType);
 
     const curUpperBound = curEntry?.upperBound;
     const curLowerBound = curEntry?.lowerBound;
@@ -823,7 +836,7 @@ function assignTypeToConstrainedTypeVar(
                     recursionCount
                 )
             ) {
-                if (!typeVarContext.isLocked()) {
+                if (typeVarContext && !typeVarContext.isLocked()) {
                     updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curUpperBound);
                 }
             } else {
@@ -838,7 +851,7 @@ function assignTypeToConstrainedTypeVar(
         }
     } else {
         // Assign the type to the type var.
-        if (!typeVarContext.isLocked()) {
+        if (typeVarContext && !typeVarContext.isLocked()) {
             updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curUpperBound, forceRetainLiterals);
         }
     }
@@ -1061,7 +1074,7 @@ export function addConstraintsForExpectedType(
     });
 
     const specializedType = ClassType.specialize(type, typeArgs);
-    const syntheticTypeVarContext = new TypeVarContext(expectedTypeScopeId);
+    const syntheticTypeVarContext = new TypeVarContext();
     if (
         evaluator.assignType(
             genericExpectedType,
