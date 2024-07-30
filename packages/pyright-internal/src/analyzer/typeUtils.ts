@@ -3349,6 +3349,11 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
     }
 
     if (isFunction(type)) {
+        // If it's already a ParamSpecValue, return it as is.
+        if (FunctionType.isParamSpecValue(type)) {
+            return type;
+        }
+
         const newFunction = FunctionType.createInstance(
             '',
             '',
@@ -3383,30 +3388,6 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
     }
 
     return ParamSpecType.getUnknown();
-}
-
-// This function calls the setTypeVarType method on the TypeVarContext after
-// converting the parameters for use with a ParamSpec.
-export function setTypeVarType(
-    typeVarContext: TypeVarContext,
-    typeVar: TypeVarType,
-    lowerBound: Type | undefined,
-    lowerBoundNoLiterals?: Type,
-    upperBound?: Type
-) {
-    if (isParamSpec(typeVar)) {
-        if (lowerBound) {
-            lowerBound = convertTypeToParamSpecValue(lowerBound);
-        }
-        if (lowerBoundNoLiterals) {
-            lowerBoundNoLiterals = convertTypeToParamSpecValue(lowerBoundNoLiterals);
-        }
-        if (upperBound) {
-            lowerBound = convertTypeToParamSpecValue(upperBound);
-        }
-    }
-
-    typeVarContext.setTypeVarType(typeVar, lowerBound, lowerBoundNoLiterals, upperBound);
 }
 
 // Converts a FunctionType into a ParamSpec if it consists only of
@@ -3465,6 +3446,30 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
     functionType.shared.methodClass = withoutParamSpec.shared.methodClass;
 
     return functionType;
+}
+
+// This function calls the setTypeVarType method on the TypeVarContext after
+// converting the parameters for use with a ParamSpec.
+export function setTypeVarType(
+    typeVarContext: TypeVarContext,
+    typeVar: TypeVarType,
+    lowerBound: Type | undefined,
+    lowerBoundNoLiterals?: Type,
+    upperBound?: Type
+) {
+    if (isParamSpec(typeVar)) {
+        if (lowerBound) {
+            lowerBound = convertTypeToParamSpecValue(lowerBound);
+        }
+        if (lowerBoundNoLiterals) {
+            lowerBoundNoLiterals = convertTypeToParamSpecValue(lowerBoundNoLiterals);
+        }
+        if (upperBound) {
+            lowerBound = convertTypeToParamSpecValue(upperBound);
+        }
+    }
+
+    typeVarContext.setTypeVarType(typeVar, lowerBound, lowerBoundNoLiterals, upperBound);
 }
 
 // Recursively walks a type and calls a callback for each TypeVar, allowing
