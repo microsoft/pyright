@@ -1619,11 +1619,6 @@ export interface FunctionDetailsPriv {
     // associated class.
     constructorTypeVarScopeId?: TypeVarScopeId | undefined;
 
-    // For functions whose parameter lists derive from a solved
-    // ParamSpec or higher-order generic functions, this is a list of
-    // additional TypeVar IDs that may need to be solved.
-    higherOrderTypeVarScopeIds?: TypeVarScopeId[];
-
     // A function type can be specialized (i.e. generic type
     // variables replaced by a concrete type).
     specializedTypes?: SpecializedFunctionTypes | undefined;
@@ -1882,8 +1877,6 @@ export namespace FunctionType {
             });
         }
 
-        FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.shared.typeVarScopeId);
-        FunctionType.addHigherOrderTypeVarScopeIds(newFunction, paramSpecValue.priv.higherOrderTypeVarScopeIds);
         newFunction.priv.constructorTypeVarScopeId = paramSpecValue.priv.constructorTypeVarScopeId;
 
         if (!newFunction.shared.methodClass && paramSpecValue.shared.methodClass) {
@@ -1916,11 +1909,6 @@ export namespace FunctionType {
         newFunction.shared.typeVarScopeId = newScopeId;
         newFunction.priv.constructorTypeVarScopeId = newConstructorScopeId;
         newFunction.shared.typeParams = typeParams;
-
-        FunctionType.addHigherOrderTypeVarScopeIds(
-            newFunction,
-            typeParams.map((t) => t.priv.freeTypeVar?.priv.scopeId ?? t.priv.scopeId)
-        );
 
         return newFunction;
     }
@@ -2064,34 +2052,6 @@ export namespace FunctionType {
     export function addDefaultParams(type: FunctionType, useUnknown = false) {
         getDefaultParams(useUnknown).forEach((param) => {
             FunctionType.addParam(type, param);
-        });
-    }
-
-    export function addHigherOrderTypeVarScopeIds(
-        functionType: FunctionType,
-        scopeIds: (TypeVarScopeId | undefined)[] | TypeVarScopeId | undefined
-    ) {
-        if (!scopeIds) {
-            return;
-        }
-
-        if (!Array.isArray(scopeIds)) {
-            scopeIds = [scopeIds];
-        }
-
-        if (!functionType.priv.higherOrderTypeVarScopeIds) {
-            functionType.priv.higherOrderTypeVarScopeIds = [];
-        }
-
-        // Add the scope IDs to the function if they're unique.
-        scopeIds.forEach((scopeId) => {
-            if (!scopeId || scopeId === functionType.shared.typeVarScopeId) {
-                return;
-            }
-
-            if (!functionType.priv.higherOrderTypeVarScopeIds!.some((id) => id === scopeId)) {
-                functionType.priv.higherOrderTypeVarScopeIds!.push(scopeId);
-            }
         });
     }
 
