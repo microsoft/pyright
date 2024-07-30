@@ -421,6 +421,7 @@ interface ValidateArgTypeOptions {
     skipOverloadArg?: boolean;
     isArgFirstPass?: boolean;
     conditionFilter?: TypeCondition[];
+    skipReportError?: boolean;
 }
 
 interface SignatureTrackerStackEntry {
@@ -11455,6 +11456,7 @@ export function createTypeEvaluator(
                                 skipOverloadArg: i === 0,
                                 isArgFirstPass: passCount > 1 && i === 0,
                                 conditionFilter: typeCondition,
+                                skipReportError: true,
                             }
                         );
 
@@ -12011,7 +12013,7 @@ export function createTypeEvaluator(
 
         const condition = argType.props?.condition;
 
-        let diag = new DiagnosticAddendum();
+        let diag = options?.skipReportError ? undefined : new DiagnosticAddendum();
 
         if (isParamSpec(argParam.paramType)) {
             // Handle the case where we're assigning a *args or **kwargs argument
@@ -12091,67 +12093,69 @@ export function createTypeEvaluator(
             !assignType(
                 argParam.paramType,
                 argType,
-                diag.createAddendum(),
+                diag?.createAddendum(),
                 typeVarContext,
                 /* srcTypeVarContext */ undefined,
                 assignTypeFlags
             )
         ) {
-            // Mismatching parameter types are common in untyped code; don't bother spending time
-            // printing types if the diagnostic is disabled.
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
-            if (
-                fileInfo.diagnosticRuleSet.reportArgumentType !== 'none' &&
-                !canSkipDiagnosticForNode(argParam.errorNode) &&
-                !isTypeIncomplete
-            ) {
-                const argTypeText = printType(argType);
-                const paramTypeText = printType(argParam.paramType);
+            if (!options?.skipReportError) {
+                // Mismatching parameter types are common in untyped code; don't bother spending time
+                // printing types if the diagnostic is disabled.
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(argParam.errorNode);
+                if (
+                    fileInfo.diagnosticRuleSet.reportArgumentType !== 'none' &&
+                    !canSkipDiagnosticForNode(argParam.errorNode) &&
+                    !isTypeIncomplete
+                ) {
+                    const argTypeText = printType(argType);
+                    const paramTypeText = printType(argParam.paramType);
 
-                let message: string;
-                if (argParam.paramName && !argParam.isParamNameSynthesized) {
-                    if (functionName) {
-                        message = LocMessage.argAssignmentParamFunction().format({
-                            argType: argTypeText,
-                            paramType: paramTypeText,
-                            functionName,
-                            paramName: argParam.paramName,
-                        });
+                    let message: string;
+                    if (argParam.paramName && !argParam.isParamNameSynthesized) {
+                        if (functionName) {
+                            message = LocMessage.argAssignmentParamFunction().format({
+                                argType: argTypeText,
+                                paramType: paramTypeText,
+                                functionName,
+                                paramName: argParam.paramName,
+                            });
+                        } else {
+                            message = LocMessage.argAssignmentParam().format({
+                                argType: argTypeText,
+                                paramType: paramTypeText,
+                                paramName: argParam.paramName,
+                            });
+                        }
                     } else {
-                        message = LocMessage.argAssignmentParam().format({
-                            argType: argTypeText,
-                            paramType: paramTypeText,
-                            paramName: argParam.paramName,
-                        });
+                        if (functionName) {
+                            message = LocMessage.argAssignmentFunction().format({
+                                argType: argTypeText,
+                                paramType: paramTypeText,
+                                functionName,
+                            });
+                        } else {
+                            message = LocMessage.argAssignment().format({
+                                argType: argTypeText,
+                                paramType: paramTypeText,
+                            });
+                        }
                     }
-                } else {
-                    if (functionName) {
-                        message = LocMessage.argAssignmentFunction().format({
-                            argType: argTypeText,
-                            paramType: paramTypeText,
-                            functionName,
-                        });
-                    } else {
-                        message = LocMessage.argAssignment().format({
-                            argType: argTypeText,
-                            paramType: paramTypeText,
-                        });
+
+                    // If we have an expected type diagnostic addendum, use that
+                    // instead of the local diagnostic addendum because it will
+                    // be more informative.
+                    if (expectedTypeDiag) {
+                        diag = expectedTypeDiag;
                     }
-                }
 
-                // If we have an expected type diagnostic addendum, use that
-                // instead of the local diagnostic addendum because it will
-                // be more informative.
-                if (expectedTypeDiag) {
-                    diag = expectedTypeDiag;
+                    addDiagnostic(
+                        DiagnosticRule.reportArgumentType,
+                        message + diag?.getString(),
+                        argParam.errorNode,
+                        diag?.getEffectiveTextRange() ?? argParam.errorNode
+                    );
                 }
-
-                addDiagnostic(
-                    DiagnosticRule.reportArgumentType,
-                    message + diag.getString(),
-                    argParam.errorNode,
-                    diag.getEffectiveTextRange() ?? argParam.errorNode
-                );
             }
 
             return { isCompatible: false, argType, isTypeIncomplete, skippedBareTypeVarExpectedType, condition };
