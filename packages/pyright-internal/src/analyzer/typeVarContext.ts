@@ -218,6 +218,16 @@ export class TypeVarSolutionSet {
 
         return this._scopeIds.has(scopeId);
     }
+
+    hasUnificationVars() {
+        for (const entry of this._typeVarMap.values()) {
+            if (TypeVarType.isUnification(entry.typeVar)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
 
 export class TypeVarContext {
