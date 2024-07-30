@@ -418,7 +418,6 @@ interface MatchedOverloadInfo {
 
 interface ValidateArgTypeOptions {
     skipUnknownArgCheck?: boolean;
-    skipOverloadArg?: boolean;
     isArgFirstPass?: boolean;
     conditionFilter?: TypeCondition[];
     skipReportError?: boolean;
@@ -11453,7 +11452,6 @@ export function createTypeEvaluator(
                             { type, isIncomplete: matchResults.isTypeIncomplete },
                             {
                                 skipUnknownArgCheck,
-                                skipOverloadArg: i === 0,
                                 isArgFirstPass: passCount > 1 && i === 0,
                                 conditionFilter: typeCondition,
                                 skipReportError: true,
@@ -12026,56 +12024,6 @@ export function createTypeEvaluator(
             // to a *P.args or **P.kwargs parameter.
             if (isParamSpec(argType) && argType.priv.paramSpecAccess !== undefined) {
                 return { isCompatible, argType, isTypeIncomplete, condition };
-            }
-        }
-
-        // If we are asked to skip overload arguments, determine whether the argument
-        // is an explicit overload type, an overloaded class constructor, or a
-        // an overloaded callback protocol.
-        if (options.skipOverloadArg) {
-            if (isOverloadedFunction(argType)) {
-                return {
-                    isCompatible,
-                    argType,
-                    isTypeIncomplete,
-                    skippedOverloadArg: true,
-                    skippedBareTypeVarExpectedType,
-                    condition,
-                };
-            }
-
-            const concreteParamType = makeTopLevelTypeVarsConcrete(argParam.paramType);
-            if (isFunction(concreteParamType) || isOverloadedFunction(concreteParamType)) {
-                if (isInstantiableClass(argType)) {
-                    const constructor = createFunctionFromConstructor(evaluatorInterface, argType);
-                    if (constructor) {
-                        return {
-                            isCompatible,
-                            argType,
-                            isTypeIncomplete,
-                            skippedOverloadArg: true,
-                            skippedBareTypeVarExpectedType,
-                            condition,
-                        };
-                    }
-                }
-
-                if (isClassInstance(argType)) {
-                    const callMember = lookUpObjectMember(argType, '__call__', MemberAccessFlags.SkipInstanceMembers);
-                    if (callMember) {
-                        const memberType = getTypeOfMember(callMember);
-                        if (isOverloadedFunction(memberType)) {
-                            return {
-                                isCompatible,
-                                argType,
-                                isTypeIncomplete,
-                                skippedOverloadArg: true,
-                                skippedBareTypeVarExpectedType,
-                                condition,
-                            };
-                        }
-                    }
-                }
             }
         }
 
@@ -17617,7 +17565,7 @@ export function createTypeEvaluator(
                                     argParam,
                                     new TypeVarContext(),
                                     { type: newMethodType },
-                                    { skipUnknownArgCheck: true, skipOverloadArg: true }
+                                    { skipUnknownArgCheck: true }
                                 );
                                 paramMap.delete(arg.name.d.value);
                             } else {
@@ -24043,12 +23991,14 @@ export function createTypeEvaluator(
                     return false;
                 }
 
-                if (destTypeVarContext) {
-                    destTypeVarContext.addSolutionSets(destTypeVarSignatures);
-                }
+                if (filteredOverloads.length === 1 || (flags & AssignTypeFlags.ArgAssignmentFirstPass) === 0) {
+                    if (destTypeVarContext) {
+                        destTypeVarContext.addSolutionSets(destTypeVarSignatures);
+                    }
 
-                if (srcTypeVarContext) {
-                    srcTypeVarContext.addSolutionSets(srcTypeVarSignatures);
+                    if (srcTypeVarContext) {
+                        srcTypeVarContext.addSolutionSets(srcTypeVarSignatures);
+                    }
                 }
 
                 return true;
