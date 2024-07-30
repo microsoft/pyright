@@ -122,7 +122,9 @@ export function validateConstructorArgs(
     const aliasInfo = type.props?.typeAliasInfo;
     if (aliasInfo?.typeParams && !aliasInfo.typeArgs) {
         const typeAliasTypeVarContext = new TypeVarContext(aliasInfo.typeVarScopeId);
-        type = applySolvedTypeVars(type, typeAliasTypeVarContext, { useDefaultForUnsolved: true }) as ClassType;
+        type = applySolvedTypeVars(type, typeAliasTypeVarContext, {
+            replaceUnsolved: { scopeIds: [aliasInfo.typeVarScopeId], tupleClassType: evaluator.getTupleClassType() },
+        }) as ClassType;
     }
 
     const metaclassResult = validateMetaclassCall(
@@ -277,7 +279,12 @@ function validateNewAndInitMethods(
         newMethodReturnType = applySolvedTypeVars(
             ClassType.cloneAsInstance(type),
             new TypeVarContext(getTypeVarScopeId(type)),
-            { useDefaultForUnsolved: true, tupleClassType: evaluator.getTupleClassType() }
+            {
+                replaceUnsolved: {
+                    scopeIds: getTypeVarScopeIds(type) ?? [],
+                    tupleClassType: evaluator.getTupleClassType(),
+                },
+            }
         ) as ClassType;
     }
 
@@ -597,7 +604,11 @@ function applyExpectedSubtypeForConstructor(
     typeVarContext: TypeVarContext
 ): Type | undefined {
     const specializedType = applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarContext, {
-        applyUnificationVars: true,
+        replaceUnsolved: {
+            scopeIds: [],
+            tupleClassType: evaluator.getTupleClassType(),
+            applyUnificationVars: true,
+        },
     });
 
     if (!evaluator.assignType(expectedSubtype, specializedType)) {
@@ -625,7 +636,13 @@ function applyExpectedTypeForConstructor(
     // If this isn't a generic type or it's a type that has already been
     // explicitly specialized, the expected type isn't applicable.
     if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
-        return applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarContext, { applyUnificationVars: true });
+        return applySolvedTypeVars(ClassType.cloneAsInstance(type), typeVarContext, {
+            replaceUnsolved: {
+                scopeIds: [],
+                tupleClassType: evaluator.getTupleClassType(),
+                applyUnificationVars: true,
+            },
+        });
     }
 
     if (inferenceContext) {
@@ -646,8 +663,12 @@ function applyExpectedTypeForConstructor(
     }
 
     const specializedType = applySolvedTypeVars(type, typeVarContext, {
-        useDefaultForUnsolved: defaultIfNotFound,
-        tupleClassType: evaluator.getTupleClassType(),
+        replaceUnsolved: defaultIfNotFound
+            ? {
+                  scopeIds: getTypeVarScopeIds(type) ?? [],
+                  tupleClassType: evaluator.getTupleClassType(),
+              }
+            : undefined,
     }) as ClassType;
     return ClassType.cloneAsInstance(specializedType);
 }
@@ -939,8 +960,10 @@ function createFunctionFromInitMethod(
                 });
 
                 returnType = applySolvedTypeVars(objectType, typeVarContext, {
-                    useDefaultForUnsolved: true,
-                    tupleClassType: evaluator.getTupleClassType(),
+                    replaceUnsolved: {
+                        scopeIds: getTypeVarScopeIds(objectType) ?? [],
+                        tupleClassType: evaluator.getTupleClassType(),
+                    },
                 }) as ClassType;
             }
         }

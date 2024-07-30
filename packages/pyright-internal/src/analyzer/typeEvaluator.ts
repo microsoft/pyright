@@ -4963,8 +4963,10 @@ export function createTypeEvaluator(
                 let defaultType: Type;
                 if (param.shared.isDefaultExplicit || isParamSpec(param)) {
                     defaultType = applySolvedTypeVars(param, typeVarContext, {
-                        useDefaultForUnsolved: true,
-                        tupleClassType: getTupleClassType(),
+                        replaceUnsolved: {
+                            scopeIds: [aliasInfo.typeVarScopeId],
+                            tupleClassType: getTupleClassType(),
+                        },
                     });
                 } else if (isTypeVarTuple(param) && tupleClass && isInstantiableClass(tupleClass)) {
                     defaultType = makeTupleObject(
@@ -4991,8 +4993,10 @@ export function createTypeEvaluator(
 
             type = TypeBase.cloneForTypeAlias(
                 applySolvedTypeVars(type, typeVarContext, {
-                    useDefaultForUnsolved: true,
-                    tupleClassType: getTupleClassType(),
+                    replaceUnsolved: {
+                        scopeIds: [aliasInfo.typeVarScopeId],
+                        tupleClassType: getTupleClassType(),
+                    },
                 }),
                 aliasInfo.name,
                 aliasInfo.fullName,
@@ -6932,8 +6936,10 @@ export function createTypeEvaluator(
                     typeArgType = convertToInstance(typeArgs[index].type);
                 } else if (param.shared.isDefaultExplicit) {
                     typeArgType = applySolvedTypeVars(param, typeVarContext, {
-                        useDefaultForUnsolved: true,
-                        tupleClassType: getTupleClassType(),
+                        replaceUnsolved: {
+                            scopeIds: [aliasInfo.typeVarScopeId],
+                            tupleClassType: getTupleClassType(),
+                        },
                     });
                 } else {
                     typeArgType = UnknownType.create();
@@ -11333,8 +11339,11 @@ export function createTypeEvaluator(
                 });
 
                 expectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
-                    useUnknownForUnsolved: true,
-                    tupleClassType: getTupleClassType(),
+                    replaceUnsolved: {
+                        scopeIds: getTypeVarScopeIds(returnType) ?? [],
+                        useUnknown: true,
+                        tupleClassType: getTupleClassType(),
+                    },
                 });
 
                 assignFlags |= AssignTypeFlags.SkipPopulateUnknownExpectedType;
@@ -11581,11 +11590,13 @@ export function createTypeEvaluator(
         }
 
         let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
-            useDefaultForUnsolved: true,
-            tupleClassType: getTupleClassType(),
-            unsolvedExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
-            eliminateUnsolvedInUnions,
-            applyUnificationVars: true,
+            replaceUnsolved: {
+                scopeIds: getTypeVarScopeIds(type) ?? [],
+                unsolvedExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
+                tupleClassType: getTupleClassType(),
+                eliminateUnsolvedInUnions,
+                applyUnificationVars: true,
+            },
         });
         specializedReturnType = addConditionToType(specializedReturnType, typeCondition);
 
@@ -12372,8 +12383,10 @@ export function createTypeEvaluator(
         const typeVarContext = new TypeVarContext(typeVar.priv.scopeId);
         const concreteDefaultType = makeTopLevelTypeVarsConcrete(
             applySolvedTypeVars(typeVar.shared.defaultType, typeVarContext, {
-                useDefaultForUnsolved: true,
-                tupleClassType: getTupleClassType(),
+                replaceUnsolved: {
+                    scopeIds: getTypeVarScopeIds(typeVar) ?? [],
+                    tupleClassType: getTupleClassType(),
+                },
             })
         );
 
@@ -14046,7 +14059,13 @@ export function createTypeEvaluator(
         }
 
         return mapSubtypes(
-            applySolvedTypeVars(inferenceContext.expectedType, typeVarContext, { applyUnificationVars: true }),
+            applySolvedTypeVars(inferenceContext.expectedType, typeVarContext, {
+                replaceUnsolved: {
+                    scopeIds: [],
+                    tupleClassType: getTupleClassType(),
+                    applyUnificationVars: true,
+                },
+            }),
             (subtype) => {
                 if (entryTypes.length !== 1) {
                     return subtype;
@@ -14346,7 +14365,11 @@ export function createTypeEvaluator(
                                 )
                             ) {
                                 functionType = applySolvedTypeVars(functionType, typeVarContext, {
-                                    applyUnificationVars: true,
+                                    replaceUnsolved: {
+                                        scopeIds: [],
+                                        tupleClassType: getTupleClassType(),
+                                        applyUnificationVars: true,
+                                    },
                                 }) as FunctionType;
                             }
                         }
@@ -18301,17 +18324,22 @@ export function createTypeEvaluator(
                             // If the parameter type is generic, specialize it in the context
                             // of the child class.
                             if (requiresSpecialization(inferredParamType) && isClass(baseClassMemberInfo.classType)) {
+                                const scopeIds: TypeVarScopeId[] =
+                                    getTypeVarScopeIds(baseClassMemberInfo.classType) ?? [];
                                 const typeVarContext = buildTypeVarContextFromSpecializedClass(
                                     baseClassMemberInfo.classType
                                 );
 
                                 // Add the scope of the method to handle any function-scoped TypeVars.
                                 typeVarContext.addSolveForScope(ParseTreeUtils.getScopeIdForNode(baseClassMethodNode));
+                                scopeIds.push(ParseTreeUtils.getScopeIdForNode(baseClassMethodNode));
 
                                 // Replace any unsolved TypeVars with Unknown (including all function-scoped TypeVars).
                                 inferredParamType = applySolvedTypeVars(inferredParamType, typeVarContext, {
-                                    useDefaultForUnsolved: true,
-                                    tupleClassType: getTupleClassType(),
+                                    replaceUnsolved: {
+                                        scopeIds,
+                                        tupleClassType: getTupleClassType(),
+                                    },
                                 });
                             }
 
@@ -20366,8 +20394,10 @@ export function createTypeEvaluator(
             }
 
             const solvedDefaultType = applySolvedTypeVars(typeParam, typeVarContext, {
-                useDefaultForUnsolved: true,
-                tupleClassType: getTupleClassType(),
+                replaceUnsolved: {
+                    scopeIds: getTypeVarScopeIds(classType) ?? [],
+                    tupleClassType: getTupleClassType(),
+                },
             });
             typeArgTypes.push(solvedDefaultType);
             setTypeVarType(typeVarContext, typeParam, solvedDefaultType);
