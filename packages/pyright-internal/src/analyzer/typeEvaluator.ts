@@ -1117,7 +1117,7 @@ export function createTypeEvaluator(
                         diag,
                         /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.IgnoreTypeVarScope
+                        AssignTypeFlags.Default
                     )
                 ) {
                     typeResult.typeErrors = true;
@@ -6479,12 +6479,11 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        const typeVarContext = new TypeVarContext(getTypeVarScopeId(accessMemberType));
         const callResult = validateCallArgs(
             errorNode,
             argList,
             { type: accessMemberType },
-            typeVarContext,
+            /* typeVarContext */ undefined,
             /* skipUnknownArgCheck */ true,
             /* inferenceContext */ undefined
         );
@@ -11231,7 +11230,7 @@ export function createTypeEvaluator(
                         /* diag */ undefined,
                         /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.IgnoreTypeVarScope
+                        AssignTypeFlags.Default
                     )
                 ) {
                     const anyOrUnknown = containsAnyOrUnknown(callResult.returnType, /* recurse */ true);
@@ -18038,14 +18037,8 @@ export function createTypeEvaluator(
                     // that the default value matches the annotation.
                     if (param.d.defaultValue && defaultValueType) {
                         const diagAddendum = new DiagnosticAddendum();
-                        const typeVarContext = new TypeVarContext(functionType.shared.typeVarScopeId);
-                        if (containingClassType && containingClassType.shared.typeVarScopeId !== undefined) {
-                            if (node.d.name.d.value === '__init__' || node.d.name.d.value === '__new__') {
-                                typeVarContext.addSolveForScope(containingClassType.shared.typeVarScopeId);
-                            }
-                        }
 
-                        if (!assignType(annotatedType, defaultValueType, diagAddendum, typeVarContext)) {
+                        if (!assignType(annotatedType, defaultValueType, diagAddendum)) {
                             addDiagnostic(
                                 DiagnosticRule.reportArgumentType,
                                 LocMessage.paramAssignmentMismatch().format({
@@ -22792,7 +22785,6 @@ export function createTypeEvaluator(
         assert(ClassType.isSameGenericClass(destType, srcType));
         assert(destType.shared.typeParams.length > 0);
 
-        const typeVarContext = new TypeVarContext();
         srcType = updateTypeWithInternalTypeVars(srcType, getTypeVarScopeIds(srcType) ?? []);
         destType = updateTypeWithInternalTypeVars(destType, getTypeVarScopeIds(destType) ?? []);
 
@@ -22837,7 +22829,7 @@ export function createTypeEvaluator(
                             destType,
                             srcType,
                             /* diag */ undefined,
-                            typeVarContext,
+                            /* typeVarContext */ undefined,
                             /* selfTypeVarContext */ undefined,
                             recursionCount
                         )
@@ -22867,7 +22859,7 @@ export function createTypeEvaluator(
                             destMemberType,
                             srcMemberType,
                             /* diag */ undefined,
-                            typeVarContext,
+                            /* destTypeVarContext */ undefined,
                             /* srcTypeVarContext */ undefined,
                             flags | AssignTypeFlags.SkipSelfClsParamCheck,
                             recursionCount
@@ -23363,21 +23355,6 @@ export function createTypeEvaluator(
         // TypeVar that we are attempting to match.
         if (isTypeVar(destType)) {
             if (isTypeVarSame(destType, srcType)) {
-                if (destType.priv.scopeId && destTypeVarContext?.hasSolveForScope(destType.priv.scopeId)) {
-                    // If the dest TypeVar has no current value bound to it, bind itself.
-                    if (!destTypeVarContext.getMainSolutionSet().getTypeVar(destType)) {
-                        return assignTypeToTypeVar(
-                            evaluatorInterface,
-                            destType,
-                            srcType,
-                            diag,
-                            destTypeVarContext,
-                            flags,
-                            recursionCount
-                        );
-                    }
-                }
-
                 return true;
             }
 
@@ -23478,13 +23455,8 @@ export function createTypeEvaluator(
         if (isTypeVar(srcType)) {
             if ((flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0) {
                 // The caller has requested that we solve for source type variables
-                // rather than dest. If the type variable is not in the scope of the
-                // provided TypeVarContext, simply verify that the concrete types are
-                // compatible.
-                if (
-                    (flags & AssignTypeFlags.IgnoreTypeVarScope) === 0 &&
-                    (!srcTypeVarContext || !srcTypeVarContext.hasSolveForScope(getTypeVarScopeId(srcType)))
-                ) {
+                // rather than dest.
+                if (TypeVarType.hasInternalScopeId(srcType)) {
                     return assignType(
                         makeTopLevelTypeVarsConcrete(destType),
                         makeTopLevelTypeVarsConcrete(srcType),
@@ -24116,7 +24088,7 @@ export function createTypeEvaluator(
                                 destOverload,
                                 srcOverload,
                                 /* diag */ undefined,
-                                destTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(destOverload)),
+                                destTypeVarContext,
                                 srcTypeVarContext,
                                 flags,
                                 recursionCount
@@ -24135,7 +24107,7 @@ export function createTypeEvaluator(
                     destOverload,
                     srcType,
                     overloadDiag?.createAddendum(),
-                    destTypeVarContext ?? new TypeVarContext(getTypeVarScopeId(destOverload)),
+                    destTypeVarContext,
                     srcTypeVarContext,
                     flags,
                     recursionCount
@@ -26215,7 +26187,7 @@ export function createTypeEvaluator(
             /* diag */ undefined,
             /* destTypeVarContext */ undefined,
             /* srcTypeVarContext */ undefined,
-            AssignTypeFlags.SkipSolveTypeVars
+            AssignTypeFlags.Default
         );
     }
 
@@ -26276,9 +26248,9 @@ export function createTypeEvaluator(
                                 overrideArgsType,
                                 baseParamDetails.params[i].type,
                                 diag?.createAddendum(),
-                                new TypeVarContext(getTypeVarScopeId(overrideMethod)),
-                                new TypeVarContext(getTypeVarScopeId(baseMethod)),
-                                AssignTypeFlags.SkipSolveTypeVars
+                                /* destTypeVarContext */ undefined,
+                                /* srcTypeVarContext */ undefined,
+                                AssignTypeFlags.Default
                             )
                         ) {
                             LocAddendum.overrideParamType().format({
@@ -26399,9 +26371,9 @@ export function createTypeEvaluator(
                                 overrideParamType,
                                 baseParamType,
                                 diag?.createAddendum(),
-                                new TypeVarContext(getTypeVarScopeId(overrideMethod)),
-                                new TypeVarContext(getTypeVarScopeId(baseMethod)),
-                                AssignTypeFlags.SkipSolveTypeVars
+                                /* destTypeVarContext */ undefined,
+                                /* srcTypeVarContext */ undefined,
+                                AssignTypeFlags.Default
                             )
                         ) {
                             diag?.addMessage(
@@ -26465,9 +26437,9 @@ export function createTypeEvaluator(
                             overrideParamType,
                             baseParamType,
                             diag?.createAddendum(),
-                            new TypeVarContext(getTypeVarScopeId(overrideMethod)),
+                            /* destTypeVarContext */ undefined,
                             /* srcTypeVarContext */ undefined,
-                            AssignTypeFlags.SkipSolveTypeVars
+                            AssignTypeFlags.Default
                         )
                     ) {
                         diag?.addMessage(
@@ -26511,9 +26483,9 @@ export function createTypeEvaluator(
                             targetParamType,
                             paramInfo.type,
                             diag?.createAddendum(),
-                            new TypeVarContext(getTypeVarScopeId(overrideMethod)),
-                            new TypeVarContext(getTypeVarScopeId(baseMethod)),
-                            AssignTypeFlags.SkipSolveTypeVars
+                            /* destTypeVarContext */ undefined,
+                            /* srcTypeVarContext */ undefined,
+                            AssignTypeFlags.Default
                         )
                     ) {
                         diag?.addMessage(
@@ -26593,9 +26565,9 @@ export function createTypeEvaluator(
                 baseReturnType,
                 overrideReturnType,
                 diag?.createAddendum(),
-                new TypeVarContext(getTypeVarScopeId(baseMethod)),
-                new TypeVarContext(getTypeVarScopeId(overrideMethod)),
-                AssignTypeFlags.SkipSolveTypeVars
+                /* destTypeVarContext */ undefined,
+                /* srcTypeVarContext */ undefined,
+                AssignTypeFlags.Default
             )
         ) {
             diag?.addMessage(

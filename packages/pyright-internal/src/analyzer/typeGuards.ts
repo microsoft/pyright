@@ -1449,7 +1449,7 @@ function narrowTypeForIsInstanceInternal(
                                 /* diag */ undefined,
                                 /* destTypeVarContext */ undefined,
                                 /* srcTypeVarContext */ undefined,
-                                AssignTypeFlags.IgnoreTypeVarScope | AssignTypeFlags.AllowIsinstanceSpecialForms
+                                AssignTypeFlags.AllowIsinstanceSpecialForms
                             )
                         ) {
                             // If the variable type is a superclass of the isinstance
@@ -1710,16 +1710,7 @@ function narrowTypeForIsInstanceInternal(
             for (const filterType of filterTypes) {
                 const concreteFilterType = evaluator.makeTopLevelTypeVarsConcrete(filterType);
 
-                if (
-                    evaluator.assignType(
-                        varType,
-                        convertToInstance(concreteFilterType),
-                        /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.IgnoreTypeVarScope
-                    )
-                ) {
+                if (evaluator.assignType(varType, convertToInstance(concreteFilterType))) {
                     // If the filter type is a Callable, use the original type. If the
                     // filter type is a callback protocol, use the filter type.
                     if (isFunction(filterType)) {

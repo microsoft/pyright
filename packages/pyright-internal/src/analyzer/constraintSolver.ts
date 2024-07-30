@@ -99,7 +99,6 @@ export function assignTypeToTypeVar(
         logTypeVarContext(evaluator, typeVarContext, indent);
     }
 
-    let isTypeVarInScope = true;
     const isInvariant = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
     const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0 && !isInvariant;
 
@@ -119,11 +118,24 @@ export function assignTypeToTypeVar(
         return false;
     }
 
-    // Verify that we are solving for the scope associated with this
-    // type variable.
-    if (!typeVarContext.hasSolveForScope(destType.priv.scopeId)) {
+    if (TypeVarType.hasInternalScopeId(destType) && !destType.priv.isInScopePlaceholder) {
         // Handle Any as a source.
         if (isAnyOrUnknown(srcType) || (isClass(srcType) && ClassType.derivesFromAnyOrUnknown(srcType))) {
+            return true;
+        }
+
+        // Is this the equivalent of an "Unknown" for a ParamSpec?
+        if (
+            isParamSpec(destType) &&
+            isFunction(srcType) &&
+            FunctionType.isParamSpecValue(srcType) &&
+            FunctionType.isGradualCallableForm(srcType)
+        ) {
+            return true;
+        }
+
+        // Never is always assignable in a covariant context.
+        if (isNever(srcType) && !isInvariant && !isContravariant) {
             return true;
         }
 
@@ -140,56 +152,20 @@ export function assignTypeToTypeVar(
             }
         }
 
-        // Is this the equivalent of an "Unknown" for a ParamSpec?
-        if (
-            isParamSpec(destType) &&
-            isFunction(srcType) &&
-            FunctionType.isParamSpecValue(srcType) &&
-            FunctionType.isGradualCallableForm(srcType)
-        ) {
-            return true;
-        }
-
-        // Never or NoReturn is always assignable to all type variables unless
-        // we're enforcing invariance.
-        if (isNever(srcType) && !isInvariant) {
-            return true;
-        }
-
-        // If we're in "ignore type var scope" mode, don't generate
-        // an error in this path.
-        if ((flags & AssignTypeFlags.IgnoreTypeVarScope) !== 0) {
-            return true;
-        }
-
-        isTypeVarInScope = false;
-
         // Emit an error unless this is a synthesized type variable used
         // for pseudo-generic classes.
         if (!destType.shared.isSynthesized || TypeVarType.isSelf(destType)) {
             diag?.addMessage(
                 LocAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(srcType, destType))
             );
-            return false;
         }
+
+        return false;
     }
 
-    // An in-scope placeholder TypeVar can always be assigned to itself,
-    // but we won't record this in the typeVarContext.
-    if (isTypeSame(destType, srcType) && destType.priv.isInScopePlaceholder) {
+    // An TypeVar can always be assigned to itself, but we won't record this in the typeVarContext.
+    if (isTypeSame(destType, srcType)) {
         return true;
-    }
-
-    if ((flags & AssignTypeFlags.SkipSolveTypeVars) !== 0) {
-        return evaluator.assignType(
-            evaluator.makeTopLevelTypeVarsConcrete(destType),
-            evaluator.makeTopLevelTypeVarsConcrete(srcType),
-            diag,
-            /* destTypeVarContext */ undefined,
-            /* srcTypeVarContext */ undefined,
-            flags,
-            recursionCount
-        );
     }
 
     if (isParamSpec(destType)) {
@@ -238,7 +214,6 @@ export function assignTypeToTypeVar(
             diag,
             typeVarContext,
             flags,
-            isTypeVarInScope,
             recursionCount
         );
     }
@@ -322,7 +297,7 @@ export function assignTypeToTypeVar(
                     diagAddendum,
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
-                    flags & AssignTypeFlags.IgnoreTypeVarScope,
+                    AssignTypeFlags.Default,
                     recursionCount
                 )
             ) {
@@ -335,7 +310,7 @@ export function assignTypeToTypeVar(
                     diagAddendum,
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
-                    flags & AssignTypeFlags.IgnoreTypeVarScope,
+                    AssignTypeFlags.Default,
                     recursionCount
                 )
             ) {
@@ -360,7 +335,7 @@ export function assignTypeToTypeVar(
                     /* diag */ undefined,
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
-                    flags & AssignTypeFlags.IgnoreTypeVarScope,
+                    AssignTypeFlags.Default,
                     recursionCount
                 )
             ) {
@@ -410,7 +385,7 @@ export function assignTypeToTypeVar(
                         /* diag */ undefined,
                         typeVarContext,
                         /* srcTypeVarContext */ undefined,
-                        flags & AssignTypeFlags.IgnoreTypeVarScope,
+                        AssignTypeFlags.Default,
                         recursionCount
                     )
                 ) {
@@ -453,7 +428,7 @@ export function assignTypeToTypeVar(
                         /* diag */ undefined,
                         typeVarContext,
                         /* srcTypeVarContext */ undefined,
-                        flags & AssignTypeFlags.IgnoreTypeVarScope,
+                        AssignTypeFlags.Default,
                         recursionCount
                     )
                 ) {
@@ -515,7 +490,7 @@ export function assignTypeToTypeVar(
                     diag?.createAddendum(),
                     /* destTypeVarContext */ undefined,
                     /* srcTypeVarContext */ undefined,
-                    AssignTypeFlags.IgnoreTypeVarScope,
+                    AssignTypeFlags.Default,
                     recursionCount
                 )
             ) {
@@ -553,7 +528,7 @@ export function assignTypeToTypeVar(
                         diag?.createAddendum(),
                         /* destTypeVarContext */ undefined,
                         /* srcTypeVarContext */ undefined,
-                        AssignTypeFlags.IgnoreTypeVarScope,
+                        AssignTypeFlags.Default,
                         recursionCount
                     )
                 ) {
@@ -581,7 +556,7 @@ export function assignTypeToTypeVar(
         // If the dest is a Type[T] but the source is not a valid Type,
         // skip the assignType check and the diagnostic addendum, which will
         // be confusing and inaccurate.
-        if (TypeBase.isInstantiable(destType) && !TypeBase.isInstantiable(srcType)) {
+        if (TypeBase.isInstantiable(destType) && !isEffectivelyInstantiable(srcType)) {
             return false;
         }
 
@@ -599,7 +574,7 @@ export function assignTypeToTypeVar(
                 diag?.createAddendum(),
                 effectiveTypeVarContext,
                 /* srcTypeVarContext */ undefined,
-                flags & AssignTypeFlags.IgnoreTypeVarScope,
+                AssignTypeFlags.Default,
                 recursionCount
             )
         ) {
@@ -618,7 +593,7 @@ export function assignTypeToTypeVar(
         }
     }
 
-    if (!typeVarContext.isLocked() && isTypeVarInScope) {
+    if (!typeVarContext.isLocked()) {
         updateTypeVarType(
             evaluator,
             typeVarContext,
@@ -677,7 +652,6 @@ function assignTypeToConstrainedTypeVar(
     diag: DiagnosticAddendum | undefined,
     typeVarContext: TypeVarContext,
     flags: AssignTypeFlags,
-    isTypeVarInScope: boolean,
     recursionCount: number
 ) {
     let constrainedType: Type | undefined;
@@ -694,7 +668,7 @@ function assignTypeToConstrainedTypeVar(
                 destType,
                 concreteSrcType,
                 /* diag */ undefined,
-                new TypeVarContext(destType.priv.scopeId),
+                /* destTypeVarContext */ undefined,
                 /* srcTypeVarContext */ undefined,
                 AssignTypeFlags.Default,
                 recursionCount
@@ -850,7 +824,7 @@ function assignTypeToConstrainedTypeVar(
                     recursionCount
                 )
             ) {
-                if (!typeVarContext.isLocked() && isTypeVarInScope) {
+                if (!typeVarContext.isLocked()) {
                     updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curUpperBound);
                 }
             } else {
@@ -865,7 +839,7 @@ function assignTypeToConstrainedTypeVar(
         }
     } else {
         // Assign the type to the type var.
-        if (!typeVarContext.isLocked() && isTypeVarInScope) {
+        if (!typeVarContext.isLocked()) {
             updateTypeVarType(evaluator, typeVarContext, destType, constrainedType, curUpperBound, forceRetainLiterals);
         }
     }
@@ -898,7 +872,7 @@ function assignTypeToParamSpec(
                     }
                 }
             } else {
-                if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.priv.scopeId)) {
+                if (!typeVarContext.isLocked()) {
                     solutionSet.setTypeVarType(destType, convertTypeToParamSpecValue(adjSrcType));
                 }
                 return;
@@ -957,7 +931,7 @@ function assignTypeToParamSpec(
             }
 
             if (updateContextWithNewFunction) {
-                if (!typeVarContext.isLocked() && typeVarContext.hasSolveForScope(destType.priv.scopeId)) {
+                if (!typeVarContext.isLocked()) {
                     solutionSet.setTypeVarType(destType, newFunction);
                 }
                 return;
