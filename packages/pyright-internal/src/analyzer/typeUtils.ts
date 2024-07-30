@@ -4538,11 +4538,7 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
             return false;
         }
 
-        if (this._options.useDefaultForUnsolved || this._options.useUnknownForUnsolved) {
-            return true;
-        }
-
-        return this._typeVarContext.hasSolveForScope(typeVar.priv.scopeId);
+        return true;
     }
 
     private _shouldReplaceUnsolvedTypeVar(typeVar: TypeVarType): boolean {

@@ -642,7 +642,7 @@ export function updateTypeVarType(
         }
     }
 
-    typeVarContext.setTypeVarType(destType, lowerBound, lowerBoundNoLiterals, upperBound); //, tupleTypes);
+    typeVarContext.setTypeVarType(destType, lowerBound, lowerBoundNoLiterals, upperBound);
 }
 
 function assignTypeToConstrainedTypeVar(
