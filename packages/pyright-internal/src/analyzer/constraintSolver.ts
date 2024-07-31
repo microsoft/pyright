@@ -1154,8 +1154,9 @@ function assignParamSpec(
         if (isParamSpec(adjSrcType)) {
             const existingType = constraintSet.getTypeVarType(destType);
             if (existingType) {
-                const existingTypeParamSpec = FunctionType.getParamSpecFromArgsKwargs(existingType);
-                const existingTypeWithoutArgsKwargs = FunctionType.cloneRemoveParamSpecArgsKwargs(existingType);
+                const paramSpecValue = convertTypeToParamSpecValue(existingType);
+                const existingTypeParamSpec = FunctionType.getParamSpecFromArgsKwargs(paramSpecValue);
+                const existingTypeWithoutArgsKwargs = FunctionType.cloneRemoveParamSpecArgsKwargs(paramSpecValue);
 
                 if (existingTypeWithoutArgsKwargs.shared.parameters.length === 0 && existingTypeParamSpec) {
                     // If there's an existing entry that matches, that's fine.
@@ -1165,7 +1166,7 @@ function assignParamSpec(
                 }
             } else {
                 if (!constraints.isLocked()) {
-                    constraintSet.setTypeVarType(destType, convertTypeToParamSpecValue(adjSrcType));
+                    constraintSet.setTypeVarType(destType, adjSrcType);
                 }
                 return;
             }
@@ -1177,7 +1178,8 @@ function assignParamSpec(
             if (existingType) {
                 // Convert the remaining portion of the signature to a function
                 // for comparison purposes.
-                const existingFunction = convertParamSpecValueToType(existingType);
+                const paramSpecValue = convertTypeToParamSpecValue(existingType);
+                const existingFunction = convertParamSpecValueToType(paramSpecValue);
 
                 const isNewNarrower = evaluator.assignType(
                     existingFunction,
@@ -1253,14 +1255,6 @@ class UnificationVarTransformer extends TypeVarTransformer {
     override transformTypeVar(typeVar: TypeVarType) {
         if (TypeVarType.isUnification(typeVar)) {
             return this._constraintSet.getTypeVarType(typeVar) ?? typeVar;
-        }
-
-        return undefined;
-    }
-
-    override transformParamSpec(paramSpec: ParamSpecType): FunctionType | undefined {
-        if (TypeVarType.isUnification(paramSpec)) {
-            return this._constraintSet.getTypeVarType(paramSpec);
         }
 
         return undefined;

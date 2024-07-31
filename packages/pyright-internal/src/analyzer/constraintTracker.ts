@@ -12,7 +12,6 @@
 import { assert } from '../common/debug';
 import { getComplexityScoreForType } from './typeComplexity';
 import {
-    FunctionType,
     ParamSpecType,
     Type,
     TypeVarScopeId,
@@ -127,8 +126,6 @@ export class ConstraintSet {
         return score;
     }
 
-    getTypeVarType(reference: ParamSpecType): FunctionType | undefined;
-    getTypeVarType(reference: TypeVarType, useLowerBoundOnly?: boolean): Type | undefined;
     getTypeVarType(reference: TypeVarType, useLowerBoundOnly = false): Type | undefined {
         const entry = this.getTypeVar(reference);
         if (!entry) {
@@ -165,13 +162,6 @@ export class ConstraintSet {
         lowerBoundNoLiterals?: Type,
         upperBound?: Type
     ) {
-        // For param specs, callers should always convert values to function types.
-        if (isParamSpec(reference)) {
-            assert(!lowerBound || isFunction(lowerBound));
-            assert(!lowerBoundNoLiterals || isFunction(lowerBoundNoLiterals));
-            assert(!upperBound || isFunction(upperBound));
-        }
-
         const key = TypeVarType.getNameWithScope(reference);
         this._typeVarMap.set(key, {
             typeVar: reference,

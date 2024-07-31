@@ -58,7 +58,6 @@ import {
     lookUpClassMember,
     mapSubtypes,
     selfSpecializeClass,
-    setTypeVarType,
     specializeTupleClass,
 } from './typeUtils';
 
@@ -959,7 +958,7 @@ function createFunctionFromInitMethod(
                 });
 
                 typeVarsInParams.forEach((typeVar) => {
-                    setTypeVarType(constraints, typeVar, typeVar);
+                    constraints.setTypeVarType(typeVar, typeVar);
                 });
 
                 returnType = evaluator.solveAndApplyConstraints(objectType, constraints, {
