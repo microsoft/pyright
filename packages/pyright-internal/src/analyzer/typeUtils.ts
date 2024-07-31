@@ -477,17 +477,17 @@ export function mapSubtypes(
                     accumulateSubtype(callback(subtypes[i]));
                 }
 
-                const newType = combineTypes(typesToCombine, {
+                let newType = combineTypes(typesToCombine, {
                     skipElideRedundantLiterals: options?.skipElideRedundantLiterals,
                 });
 
                 if (options?.retainTypeAlias) {
                     if (type.props?.typeAliasInfo) {
-                        TypeBase.setTypeAliasInfo(newType, type.props.typeAliasInfo);
+                        newType = TypeBase.cloneForTypeAlias(newType, type.props.typeAliasInfo);
                     }
                 } else {
                     // Do our best to retain type aliases.
-                    if (newType.category === TypeCategory.Union) {
+                    if (isUnion(newType)) {
                         UnionType.addTypeAliasSource(newType, type);
                     }
                 }
@@ -1047,17 +1047,7 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
 
             if (newType !== type && aliasInfo) {
                 // Copy the type alias information if present.
-                newType = TypeBase.cloneForTypeAlias(
-                    newType,
-                    aliasInfo.name,
-                    aliasInfo.fullName,
-                    aliasInfo.moduleName,
-                    aliasInfo.fileUri,
-                    aliasInfo.typeVarScopeId,
-                    aliasInfo.isPep695Syntax,
-                    aliasInfo.typeParams,
-                    aliasInfo.typeArgs
-                );
+                newType = TypeBase.cloneForTypeAlias(newType, aliasInfo);
             }
 
             return newType;
@@ -2464,17 +2454,7 @@ export function convertToInstance(type: Type, includeSubclasses = true): Type {
     // Copy over any type alias information.
     const aliasInfo = type.props?.typeAliasInfo;
     if (aliasInfo && type !== result) {
-        result = TypeBase.cloneForTypeAlias(
-            result,
-            aliasInfo.name,
-            aliasInfo.fullName,
-            aliasInfo.moduleName,
-            aliasInfo.fileUri,
-            aliasInfo.typeVarScopeId,
-            aliasInfo.isPep695Syntax,
-            aliasInfo.typeParams,
-            aliasInfo.typeArgs
-        );
+        result = TypeBase.cloneForTypeAlias(result, aliasInfo);
     }
 
     if (type !== result && includeSubclasses) {
@@ -3510,17 +3490,7 @@ class TypeVarTransformer {
                 });
 
                 if (requiresUpdate) {
-                    return TypeBase.cloneForTypeAlias(
-                        type,
-                        aliasInfo.name,
-                        aliasInfo.fullName,
-                        aliasInfo.moduleName,
-                        aliasInfo.fileUri,
-                        aliasInfo.typeVarScopeId,
-                        aliasInfo.isPep695Syntax,
-                        aliasInfo.typeParams,
-                        typeArgs
-                    );
+                    return TypeBase.cloneForTypeAlias(type, { ...aliasInfo, typeArgs });
                 }
 
                 return type;
@@ -3694,19 +3664,7 @@ class TypeVarTransformer {
             return updatedType;
         });
 
-        return requiresUpdate
-            ? TypeBase.cloneForTypeAlias(
-                  type,
-                  aliasInfo.name,
-                  aliasInfo.fullName,
-                  aliasInfo.moduleName,
-                  aliasInfo.fileUri,
-                  aliasInfo.typeVarScopeId,
-                  aliasInfo.isPep695Syntax,
-                  aliasInfo.typeParams,
-                  newTypeArgs
-              )
-            : type;
+        return requiresUpdate ? TypeBase.cloneForTypeAlias(type, { ...aliasInfo, typeArgs: newTypeArgs }) : type;
     }
 
     transformConditionalType(type: Type, recursionCount: number): Type {

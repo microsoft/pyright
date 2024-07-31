@@ -312,30 +312,10 @@ export namespace TypeBase {
         return newInstance;
     }
 
-    export function cloneForTypeAlias(
-        type: Type,
-        name: string,
-        fullName: string,
-        moduleName: string,
-        fileUri: Uri,
-        typeVarScopeId: TypeVarScopeId,
-        isPep695Syntax: boolean,
-        typeParams?: TypeVarType[],
-        typeArgs?: Type[]
-    ): Type {
+    export function cloneForTypeAlias(type: Type, aliasInfo: TypeAliasInfo): Type {
         const typeClone = cloneType(type);
 
-        TypeBase.setTypeAliasInfo(typeClone, {
-            name,
-            fullName,
-            moduleName,
-            fileUri,
-            typeVarScopeId,
-            isPep695Syntax,
-            typeParams: typeParams,
-            usageVariance: undefined,
-            typeArgs: typeArgs,
-        });
+        TypeBase.setTypeAliasInfo(typeClone, aliasInfo);
 
         return typeClone;
     }
