@@ -4998,14 +4998,7 @@ export function createTypeEvaluator(
                         tupleClassType: getTupleClassType(),
                     },
                 }),
-                aliasInfo.name,
-                aliasInfo.fullName,
-                aliasInfo.moduleName,
-                aliasInfo.fileUri,
-                aliasInfo.typeVarScopeId,
-                aliasInfo.isPep695Syntax,
-                aliasInfo.typeParams,
-                defaultTypeArgs
+                { ...aliasInfo, typeArgs: defaultTypeArgs }
             );
         }
 
@@ -7016,17 +7009,10 @@ export function createTypeEvaluator(
             aliasTypeArgs.push(typeVarType);
         });
 
-        const type = TypeBase.cloneForTypeAlias(
-            applySolvedTypeVars(baseType, constraints),
-            aliasInfo.name,
-            aliasInfo.fullName,
-            aliasInfo.moduleName,
-            aliasInfo.fileUri,
-            aliasInfo.typeVarScopeId,
-            aliasInfo.isPep695Syntax,
-            aliasInfo.typeParams,
-            aliasTypeArgs
-        );
+        const type = TypeBase.cloneForTypeAlias(applySolvedTypeVars(baseType, constraints), {
+            ...aliasInfo,
+            typeArgs: aliasTypeArgs,
+        });
 
         return { type, node };
     }
@@ -7045,17 +7031,17 @@ export function createTypeEvaluator(
 
         if (isTypeVar(baseTypeResult.type) && isTypeAliasPlaceholder(baseTypeResult.type)) {
             const typeArgTypes = getTypeArgs(node, flags).map((t) => convertToInstance(t.type));
-            const type = TypeBase.cloneForTypeAlias(
-                baseTypeResult.type,
-                baseTypeResult.type.shared.recursiveAlias!.name,
-                '',
-                '',
-                Uri.empty(),
-                baseTypeResult.type.shared.recursiveAlias!.scopeId,
-                !!baseTypeResult.type.shared.recursiveAlias!.isPep695Syntax,
-                baseTypeResult.type.shared.recursiveAlias!.typeParams,
-                typeArgTypes
-            );
+            const type = TypeBase.cloneForTypeAlias(baseTypeResult.type, {
+                name: baseTypeResult.type.shared.recursiveAlias!.name,
+                fullName: '',
+                moduleName: '',
+                fileUri: Uri.empty(),
+                typeVarScopeId: baseTypeResult.type.shared.recursiveAlias!.scopeId,
+                isPep695Syntax: !!baseTypeResult.type.shared.recursiveAlias!.isPep695Syntax,
+                typeParams: baseTypeResult.type.shared.recursiveAlias!.typeParams,
+                usageVariance: undefined,
+                typeArgs: typeArgTypes,
+            });
             return { type };
         }
 
@@ -15838,16 +15824,17 @@ export function createTypeEvaluator(
         }
 
         const fileInfo = AnalyzerNodeInfo.getFileInfo(name);
-        let typeAlias = TypeBase.cloneForTypeAlias(
-            type,
-            name.d.value,
-            ParseTreeUtils.getClassFullName(name, fileInfo.moduleName, name.d.value),
-            fileInfo.moduleName,
-            fileInfo.fileUri,
-            typeAliasScopeId,
+        let typeAlias = TypeBase.cloneForTypeAlias(type, {
+            name: name.d.value,
+            fullName: ParseTreeUtils.getClassFullName(name, fileInfo.moduleName, name.d.value),
+            moduleName: fileInfo.moduleName,
+            fileUri: fileInfo.fileUri,
+            typeVarScopeId: typeAliasScopeId,
             isPep695Syntax,
-            typeParams.length > 0 ? typeParams : undefined
-        );
+            typeParams: typeParams.length > 0 ? typeParams : undefined,
+            usageVariance: undefined,
+            typeArgs: undefined,
+        });
 
         // All PEP 695 type aliases are special forms because they are
         // TypeAliasType objects at runtime.
