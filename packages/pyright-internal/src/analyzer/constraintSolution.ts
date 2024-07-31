@@ -9,7 +9,7 @@
  */
 
 import { assert } from '../common/debug';
-import { FunctionType, isFunction, isParamSpec, ParamSpecType, Type, TypeVarType } from './types';
+import { FunctionType, ParamSpecType, Type, TypeVarType } from './types';
 
 // Records the types associated with a set of type variables.
 export class ConstraintSolutionSet {
@@ -40,10 +40,6 @@ export class ConstraintSolutionSet {
     }
 
     setType(typeVar: TypeVarType, type: Type) {
-        if (isParamSpec(typeVar)) {
-            assert(isFunction(type));
-        }
-
         const key = TypeVarType.getNameWithScope(typeVar);
         return this._typeVarMap.set(key, type);
     }

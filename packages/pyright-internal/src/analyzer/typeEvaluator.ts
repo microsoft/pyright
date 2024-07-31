@@ -307,6 +307,7 @@ import {
     getTypeVarArgsRecursive,
     getTypeVarScopeId,
     getTypeVarScopeIds,
+    getUnknownForTypeVar,
     getUnknownTypeForCallable,
     isDescriptorInstance,
     isEffectivelyInstantiable,
@@ -342,7 +343,6 @@ import {
     requiresTypeArgs,
     selfSpecializeClass,
     setTypeArgsRecursive,
-    setTypeVarType,
     sortTypes,
     specializeClassType,
     specializeForBaseClass,
@@ -5000,7 +5000,7 @@ export function createTypeEvaluator(
                 }
 
                 defaultTypeArgs.push(defaultType);
-                setTypeVarType(constraints, param, defaultType);
+                constraints.setTypeVarType(param, defaultType);
             });
 
             if (reportMissingTypeArgs) {
@@ -7009,23 +7009,11 @@ export function createTypeEvaluator(
         const aliasTypeArgs: Type[] = [];
 
         aliasInfo.typeParams?.forEach((typeParam) => {
-            let typeVarType: Type | undefined;
+            let typeVarType = mainSet.getTypeVarType(typeParam);
 
-            if (isParamSpec(typeParam)) {
-                const paramSpecType = mainSet.getTypeVarType(typeParam);
-                typeVarType = paramSpecType ? convertParamSpecValueToType(paramSpecType) : UnknownType.create();
-
-                if (!typeVarType) {
-                    typeVarType = ParamSpecType.getUnknown();
-                    mainSet.setTypeVarType(typeParam, convertTypeToParamSpecValue(typeVarType));
-                }
-            } else {
-                typeVarType = mainSet.getTypeVarType(typeParam);
-
-                if (!typeVarType) {
-                    typeVarType = UnknownType.create();
-                    mainSet.setTypeVarType(typeParam, typeVarType);
-                }
+            if (!typeVarType) {
+                typeVarType = getUnknownForTypeVar(typeParam, getTupleClassType());
+                mainSet.setTypeVarType(typeParam, typeVarType);
             }
 
             aliasTypeArgs.push(typeVarType);
@@ -11413,7 +11401,7 @@ export function createTypeEvaluator(
                 if (index < typeParams.length) {
                     const typeParam = typeParams[index];
                     if (!isTypeSame(typeParam, typeArg, { ignorePseudoGeneric: true })) {
-                        setTypeVarType(constraints, typeParams[index], typeArg);
+                        constraints.setTypeVarType(typeParams[index], typeArg);
                     }
                 }
             });
@@ -11816,9 +11804,7 @@ export function createTypeEvaluator(
         constraints: ConstraintSet
     ): ParamSpecArgResult {
         let paramSpecType = constraints.getTypeVarType(paramSpec);
-        if (!paramSpecType) {
-            paramSpecType = convertTypeToParamSpecValue(paramSpec);
-        }
+        paramSpecType = convertTypeToParamSpecValue(paramSpecType ?? paramSpec);
 
         const matchResults = matchArgsToParams(errorNode, argList, { type: paramSpecType }, 0);
         const functionType = matchResults.overload;
@@ -20332,7 +20318,7 @@ export function createTypeEvaluator(
                         FunctionType.addDefaultParams(functionType);
                         functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
                         typeArgTypes.push(functionType);
-                        setTypeVarType(constraints, typeParam, functionType);
+                        constraints.setTypeVarType(typeParam, functionType);
                         return;
                     }
 
@@ -20354,7 +20340,7 @@ export function createTypeEvaluator(
                         }
 
                         typeArgTypes.push(functionType);
-                        setTypeVarType(constraints, typeParam, functionType);
+                        constraints.setTypeVarType(typeParam, functionType);
                         return;
                     }
 
@@ -20390,7 +20376,7 @@ export function createTypeEvaluator(
 
                 const typeArgType = convertToInstance(typeArgs[index].type);
                 typeArgTypes.push(typeArgType);
-                setTypeVarType(constraints, typeParam, typeArgType);
+                constraints.setTypeVarType(typeParam, typeArgType);
                 return;
             }
 
@@ -20401,7 +20387,7 @@ export function createTypeEvaluator(
                 },
             });
             typeArgTypes.push(solvedDefaultType);
-            setTypeVarType(constraints, typeParam, solvedDefaultType);
+            constraints.setTypeVarType(typeParam, solvedDefaultType);
         });
 
         typeArgTypes = typeArgTypes.map((typeArgType, index) => {
@@ -23056,10 +23042,6 @@ export function createTypeEvaluator(
                     );
                 } else {
                     typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
-                }
-
-                if (isParamSpec(typeParam)) {
-                    typeArgType = convertTypeToParamSpecValue(typeArgType);
                 }
 
                 updateTypeVarType(
@@ -26825,8 +26807,7 @@ export function createTypeEvaluator(
                 // we attempt to call assignType, we'll risk infinite recursion.
                 // Instead, we'll assume it's assignable.
                 if (!constraints.isLocked()) {
-                    setTypeVarType(
-                        constraints,
+                    constraints.setTypeVarType(
                         memberTypeFirstParamType,
                         TypeBase.isInstantiable(memberTypeFirstParamType)
                             ? convertToInstance(firstParamType)
