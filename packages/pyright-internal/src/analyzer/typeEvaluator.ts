@@ -99,7 +99,13 @@ import {
     isCodeFlowSupportedForReference,
     wildcardImportReferenceKey,
 } from './codeFlowTypes';
-import { addConstraintsForExpectedType, assignTypeVar, updateTypeVarType } from './constraintSolver';
+import {
+    addConstraintsForExpectedType,
+    applyUnificationVars,
+    assignTypeVar,
+    solveConstraints,
+    updateTypeVarType,
+} from './constraintSolver';
 import { ConstraintSet, ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod, validateConstructorArgs } from './constructors';
 import { applyDataClassClassBehaviorOverrides, synthesizeDataClassMethods } from './dataClasses';
@@ -175,6 +181,7 @@ import {
 } from './typedDicts';
 import {
     AbstractSymbol,
+    ApplyTypeVarOptions,
     Arg,
     ArgResult,
     CallResult,
@@ -196,6 +203,7 @@ import {
     PrintTypeOptions,
     Reachability,
     ResolveAliasOptions,
+    SolveConstraintsOptions,
     TypeEvaluator,
     TypeResult,
     TypeResultWithNode,
@@ -272,7 +280,7 @@ import {
     applySolvedTypeVars,
     applySourceContextTypeVars,
     areTypesSame,
-    buildConstraintsFromSpecializedClass,
+    buildSolutionFromSpecializedClass,
     combineSameSizedTuples,
     combineVariances,
     computeMroLinearization,
@@ -2067,6 +2075,20 @@ export function createTypeEvaluator(
         });
     }
 
+    function solveAndApplyConstraints(
+        type: Type,
+        constraints: ConstraintTracker,
+        applyOptions?: ApplyTypeVarOptions,
+        solveOptions?: SolveConstraintsOptions
+    ): Type {
+        if (solveOptions?.applyUnificationVars) {
+            applyUnificationVars(constraints);
+        }
+
+        const solution = solveConstraints(constraints, solveOptions);
+        return applySolvedTypeVars(type, solution, applyOptions);
+    }
+
     // Gets a member type from an object or class. If it's a function, binds
     // it to the object or class. If selfType is undefined, the binding is done
     // using the objectType parameter. Callers can specify these separately
@@ -2682,7 +2704,7 @@ export function createTypeEvaluator(
                 const constraints = new ConstraintTracker();
 
                 if (assignType(awaitableProtocolObj, subtype, diag, constraints)) {
-                    const specializedType = applySolvedTypeVars(awaitableProtocolObj, constraints);
+                    const specializedType = solveAndApplyConstraints(awaitableProtocolObj, constraints);
 
                     if (
                         isClass(specializedType) &&
@@ -4962,7 +4984,7 @@ export function createTypeEvaluator(
 
                 let defaultType: Type;
                 if (param.shared.isDefaultExplicit || isParamSpec(param)) {
-                    defaultType = applySolvedTypeVars(param, constraints, {
+                    defaultType = solveAndApplyConstraints(param, constraints, {
                         replaceUnsolved: {
                             scopeIds: [aliasInfo.typeVarScopeId],
                             tupleClassType: getTupleClassType(),
@@ -4992,7 +5014,7 @@ export function createTypeEvaluator(
             }
 
             type = TypeBase.cloneForTypeAlias(
-                applySolvedTypeVars(type, constraints, {
+                solveAndApplyConstraints(type, constraints, {
                     replaceUnsolved: {
                         scopeIds: [aliasInfo.typeVarScopeId],
                         tupleClassType: getTupleClassType(),
@@ -6140,7 +6162,7 @@ export function createTypeEvaluator(
                     /* diag */ undefined,
                     constraints
                 );
-                accessMethodClass = applySolvedTypeVars(accessMethodClass, constraints) as ClassType;
+                accessMethodClass = solveAndApplyConstraints(accessMethodClass, constraints) as ClassType;
 
                 const specializedType = partiallySpecializeType(
                     methodType,
@@ -6928,7 +6950,7 @@ export function createTypeEvaluator(
                 if (index < typeArgs.length) {
                     typeArgType = convertToInstance(typeArgs[index].type);
                 } else if (param.shared.isDefaultExplicit) {
-                    typeArgType = applySolvedTypeVars(param, constraints, {
+                    typeArgType = solveAndApplyConstraints(param, constraints, {
                         replaceUnsolved: {
                             scopeIds: [aliasInfo.typeVarScopeId],
                             tupleClassType: getTupleClassType(),
@@ -7009,7 +7031,7 @@ export function createTypeEvaluator(
             aliasTypeArgs.push(typeVarType);
         });
 
-        const type = TypeBase.cloneForTypeAlias(applySolvedTypeVars(baseType, constraints), {
+        const type = TypeBase.cloneForTypeAlias(solveAndApplyConstraints(baseType, constraints), {
             ...aliasInfo,
             typeArgs: aliasTypeArgs,
         });
@@ -7880,7 +7902,7 @@ export function createTypeEvaluator(
                 return undefined;
             }
 
-            const specializedTuple = applySolvedTypeVars(tupleClass, tupleConstraints) as ClassType;
+            const specializedTuple = solveAndApplyConstraints(tupleClass, tupleConstraints) as ClassType;
             if (!specializedTuple.priv.typeArgs || specializedTuple.priv.typeArgs.length !== 1) {
                 return undefined;
             }
@@ -10777,7 +10799,7 @@ export function createTypeEvaluator(
                                     mappingConstraints
                                 )
                             ) {
-                                const specializedMapping = applySolvedTypeVars(
+                                const specializedMapping = solveAndApplyConstraints(
                                     supportsKeysAndGetItemClass,
                                     mappingConstraints
                                 ) as ClassType;
@@ -11204,7 +11226,7 @@ export function createTypeEvaluator(
             // no Unknowns in the return type.
             if (!callResult.argumentErrors && callResult.returnType) {
                 const returnType = inferenceContext?.returnTypeOverride
-                    ? applySolvedTypeVars(inferenceContext.returnTypeOverride, clonedConstraints)
+                    ? solveAndApplyConstraints(inferenceContext.returnTypeOverride, clonedConstraints)
                     : callResult.returnType;
 
                 if (
@@ -11317,7 +11339,7 @@ export function createTypeEvaluator(
                     overrideTypeArgs: true,
                 });
 
-                expectedType = applySolvedTypeVars(genericReturnType, tempConstraints, {
+                expectedType = solveAndApplyConstraints(genericReturnType, tempConstraints, {
                     replaceUnsolved: {
                         scopeIds: getTypeVarScopeIds(returnType),
                         useUnknown: true,
@@ -11568,15 +11590,19 @@ export function createTypeEvaluator(
             eliminateUnsolvedInUnions = false;
         }
 
-        let specializedReturnType = applySolvedTypeVars(returnType, constraints, {
-            replaceUnsolved: {
-                scopeIds: getTypeVarScopeIds(type),
-                unsolvedExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
-                tupleClassType: getTupleClassType(),
-                eliminateUnsolvedInUnions,
-                applyUnificationVars: true,
+        let specializedReturnType = solveAndApplyConstraints(
+            returnType,
+            constraints,
+            {
+                replaceUnsolved: {
+                    scopeIds: getTypeVarScopeIds(type),
+                    unsolvedExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
+                    tupleClassType: getTupleClassType(),
+                    eliminateUnsolvedInUnions,
+                },
             },
-        });
+            { applyUnificationVars: true }
+        );
         specializedReturnType = addConditionToType(specializedReturnType, typeCondition);
 
         // If the function includes a ParamSpec and the captured signature(s) includes
@@ -11584,12 +11610,12 @@ export function createTypeEvaluator(
         if (paramSpecConstraints.length > 0) {
             paramSpecConstraints.forEach((paramSpecConstraints) => {
                 if (paramSpecConstraints) {
-                    specializedReturnType = applySolvedTypeVars(specializedReturnType, paramSpecConstraints);
+                    specializedReturnType = solveAndApplyConstraints(specializedReturnType, paramSpecConstraints);
 
                     // It's possible that one or more of the TypeVars or ParamSpecs
                     // in the constraints refer to TypeVars that were solved in
                     // the paramSpecConstraints. Apply these solved TypeVars accordingly.
-                    applySourceContextTypeVars(constraints, paramSpecConstraints);
+                    applySourceContextTypeVars(constraints, solveConstraints(paramSpecConstraints));
                 }
             });
         }
@@ -11603,7 +11629,7 @@ export function createTypeEvaluator(
         specializedReturnType = adjustCallableReturnType(type, specializedReturnType, liveTypeVarScopes);
 
         if (specializedInitSelfType) {
-            specializedInitSelfType = applySolvedTypeVars(specializedInitSelfType, constraints);
+            specializedInitSelfType = solveAndApplyConstraints(specializedInitSelfType, constraints);
         }
 
         matchResults.argumentMatchScore = argumentMatchScore;
@@ -11901,7 +11927,7 @@ export function createTypeEvaluator(
                     constraints.getConstraintSets().length > 1;
 
                 if (!skipApplySolvedTypeVars) {
-                    expectedType = applySolvedTypeVars(expectedType, constraints, {
+                    expectedType = solveAndApplyConstraints(expectedType, constraints, /* applyOptions */ undefined, {
                         useLowerBoundOnly: !!options.isArgFirstPass,
                     });
                 }
@@ -11981,7 +12007,7 @@ export function createTypeEvaluator(
             // If the argument came from a parameter's default argument value,
             // we may need to specialize the type.
             if (argParam.isDefaultArg) {
-                argType = applySolvedTypeVars(argType, constraints);
+                argType = solveAndApplyConstraints(argType, constraints);
             }
         }
 
@@ -12358,7 +12384,7 @@ export function createTypeEvaluator(
 
         const constraints = new ConstraintTracker();
         const concreteDefaultType = makeTopLevelTypeVarsConcrete(
-            applySolvedTypeVars(typeVar.shared.defaultType, constraints, {
+            solveAndApplyConstraints(typeVar.shared.defaultType, constraints, {
                 replaceUnsolved: {
                     scopeIds: getTypeVarScopeIds(typeVar),
                     tupleClassType: getTupleClassType(),
@@ -13288,7 +13314,7 @@ export function createTypeEvaluator(
                 return undefined;
             }
 
-            const specializedDict = applySolvedTypeVars(
+            const specializedDict = solveAndApplyConstraints(
                 ClassType.cloneAsInstantiable(builtInDict),
                 dictConstraints
             ) as ClassType;
@@ -13645,7 +13671,7 @@ export function createTypeEvaluator(
                             AssignTypeFlags.RetainLiteralsForTypeVar
                         )
                     ) {
-                        const specializedMapping = applySolvedTypeVars(
+                        const specializedMapping = solveAndApplyConstraints(
                             supportsKeysAndGetItemClass,
                             mappingConstraints
                         ) as ClassType;
@@ -13898,7 +13924,7 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        const specializedListOrSet = applySolvedTypeVars(expectedClassType, constraints) as ClassType;
+        const specializedListOrSet = solveAndApplyConstraints(expectedClassType, constraints) as ClassType;
         if (!specializedListOrSet.priv.typeArgs) {
             return undefined;
         }
@@ -14035,13 +14061,17 @@ export function createTypeEvaluator(
         }
 
         return mapSubtypes(
-            applySolvedTypeVars(inferenceContext.expectedType, constraints, {
-                replaceUnsolved: {
-                    scopeIds: [],
-                    tupleClassType: getTupleClassType(),
-                    applyUnificationVars: true,
+            solveAndApplyConstraints(
+                inferenceContext.expectedType,
+                constraints,
+                {
+                    replaceUnsolved: {
+                        scopeIds: [],
+                        tupleClassType: getTupleClassType(),
+                    },
                 },
-            }),
+                { applyUnificationVars: true }
+            ),
             (subtype) => {
                 if (entryTypes.length !== 1) {
                     return subtype;
@@ -14335,13 +14365,17 @@ export function createTypeEvaluator(
                             if (
                                 assignType(expectedReturnType, returnTypeResult.type, /* diag */ undefined, constraints)
                             ) {
-                                functionType = applySolvedTypeVars(functionType, constraints, {
-                                    replaceUnsolved: {
-                                        scopeIds: [],
-                                        tupleClassType: getTupleClassType(),
-                                        applyUnificationVars: true,
+                                functionType = solveAndApplyConstraints(
+                                    functionType,
+                                    constraints,
+                                    {
+                                        replaceUnsolved: {
+                                            scopeIds: [],
+                                            tupleClassType: getTupleClassType(),
+                                        },
                                     },
-                                }) as FunctionType;
+                                    { applyUnificationVars: true }
+                                ) as FunctionType;
                             }
                         }
                     }
@@ -18297,12 +18331,12 @@ export function createTypeEvaluator(
                             // of the child class.
                             if (requiresSpecialization(inferredParamType) && isClass(baseClassMemberInfo.classType)) {
                                 const scopeIds: TypeVarScopeId[] = getTypeVarScopeIds(baseClassMemberInfo.classType);
-                                const constraints = buildConstraintsFromSpecializedClass(baseClassMemberInfo.classType);
+                                const solution = buildSolutionFromSpecializedClass(baseClassMemberInfo.classType);
 
                                 scopeIds.push(ParseTreeUtils.getScopeIdForNode(baseClassMethodNode));
 
                                 // Replace any unsolved TypeVars with Unknown (including all function-scoped TypeVars).
-                                inferredParamType = applySolvedTypeVars(inferredParamType, constraints, {
+                                inferredParamType = applySolvedTypeVars(inferredParamType, solution, {
                                     replaceUnsolved: {
                                         scopeIds,
                                         tupleClassType: getTupleClassType(),
@@ -20360,7 +20394,7 @@ export function createTypeEvaluator(
                 return;
             }
 
-            const solvedDefaultType = applySolvedTypeVars(typeParam, constraints, {
+            const solvedDefaultType = solveAndApplyConstraints(typeParam, constraints, {
                 replaceUnsolved: {
                     scopeIds: getTypeVarScopeIds(classType),
                     tupleClassType: getTupleClassType(),
@@ -24826,16 +24860,26 @@ export function createTypeEvaluator(
 
             if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
                 if (!isFirstPass) {
-                    specializedDestType = applySolvedTypeVars(destType, destConstraints, {
-                        useLowerBoundOnly: true,
-                    });
+                    specializedDestType = solveAndApplyConstraints(
+                        destType,
+                        destConstraints,
+                        /* applyOptions */ undefined,
+                        {
+                            useLowerBoundOnly: true,
+                        }
+                    );
                 }
                 doSpecializationStep = requiresSpecialization(specializedDestType);
             } else {
                 if (!isFirstPass) {
-                    specializedSrcType = applySolvedTypeVars(srcType, srcConstraints, {
-                        useLowerBoundOnly: true,
-                    });
+                    specializedSrcType = solveAndApplyConstraints(
+                        srcType,
+                        srcConstraints,
+                        /* applyOptions */ undefined,
+                        {
+                            useLowerBoundOnly: true,
+                        }
+                    );
                 }
                 doSpecializationStep = requiresSpecialization(specializedSrcType);
             }
@@ -24855,9 +24899,9 @@ export function createTypeEvaluator(
                 )
             ) {
                 if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
-                    specializedDestType = applySolvedTypeVars(destType, destConstraints);
+                    specializedDestType = solveAndApplyConstraints(destType, destConstraints);
                 } else {
-                    specializedSrcType = applySolvedTypeVars(srcType, srcConstraints);
+                    specializedSrcType = solveAndApplyConstraints(srcType, srcConstraints);
                 }
             }
         }
@@ -25443,7 +25487,7 @@ export function createTypeEvaluator(
                             } else {
                                 const destParamType = destParamInfo.type;
                                 const specializedDestParamType = destConstraints
-                                    ? applySolvedTypeVars(destParamType, destConstraints)
+                                    ? solveAndApplyConstraints(destParamType, destConstraints)
                                     : destParamType;
 
                                 if (
@@ -25680,7 +25724,7 @@ export function createTypeEvaluator(
         if (checkReturnType) {
             const destReturnType = getFunctionEffectiveReturnType(destType);
             if (!isAnyOrUnknown(destReturnType)) {
-                const srcReturnType = applySolvedTypeVars(getFunctionEffectiveReturnType(srcType), srcConstraints);
+                const srcReturnType = solveAndApplyConstraints(getFunctionEffectiveReturnType(srcType), srcConstraints);
                 const returnDiag = diag?.createAddendum();
 
                 let isReturnTypeCompatible = false;
@@ -25751,7 +25795,7 @@ export function createTypeEvaluator(
 
         // Apply any solved source TypeVars to the dest TypeVar solutions. This
         // allows for higher-order functions to accept generic callbacks.
-        applySourceContextTypeVars(destConstraints, srcConstraints);
+        applySourceContextTypeVars(destConstraints, solveConstraints(srcConstraints));
 
         return canAssign;
     }
@@ -26827,7 +26871,7 @@ export function createTypeEvaluator(
         // evaluating (and caching) the inferred return type if there is no defined return type.
         getFunctionEffectiveReturnType(memberType);
 
-        const specializedFunction = applySolvedTypeVars(memberType, constraints) as FunctionType;
+        const specializedFunction = solveAndApplyConstraints(memberType, constraints) as FunctionType;
 
         return FunctionType.clone(specializedFunction, stripFirstParam, baseType);
     }
@@ -27164,6 +27208,7 @@ export function createTypeEvaluator(
         removeTruthinessFromType,
         removeFalsinessFromType,
         stripTypeGuard,
+        solveAndApplyConstraints,
         verifyRaiseExceptionType,
         verifyDeleteExpression,
         validateOverloadedArgTypes,

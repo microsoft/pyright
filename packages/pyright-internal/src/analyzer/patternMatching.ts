@@ -64,7 +64,6 @@ import {
 } from './types';
 import {
     addConditionToType,
-    applySolvedTypeVars,
     containsAnyOrUnknown,
     convertToInstance,
     doForEachSubtype,
@@ -965,12 +964,16 @@ function narrowTypeBasedOnClassPattern(
                                             /* usageOffset */ undefined
                                         )
                                     ) {
-                                        resultType = applySolvedTypeVars(matchTypeInstance, constraints, {
-                                            replaceUnsolved: {
-                                                scopeIds: getTypeVarScopeIds(unexpandedSubtype),
-                                                tupleClassType: evaluator.getTupleClassType(),
-                                            },
-                                        }) as ClassType;
+                                        resultType = evaluator.solveAndApplyConstraints(
+                                            matchTypeInstance,
+                                            constraints,
+                                            {
+                                                replaceUnsolved: {
+                                                    scopeIds: getTypeVarScopeIds(unexpandedSubtype),
+                                                    tupleClassType: evaluator.getTupleClassType(),
+                                                },
+                                            }
+                                        ) as ClassType;
                                     }
                                 }
                             }
@@ -1259,7 +1262,7 @@ function getMappingPatternInfo(evaluator: TypeEvaluator, type: Type, node: Patte
             // Is it a subtype of Mapping?
             const constraints = new ConstraintTracker();
             if (evaluator.assignType(mappingObject, subtype, /* diag */ undefined, constraints)) {
-                const specializedMapping = applySolvedTypeVars(mappingObject, constraints) as ClassType;
+                const specializedMapping = evaluator.solveAndApplyConstraints(mappingObject, constraints) as ClassType;
 
                 if (specializedMapping.priv.typeArgs && specializedMapping.priv.typeArgs.length >= 2) {
                     mappingInfo.push({
@@ -1515,7 +1518,10 @@ function getSequencePatternInfo(
                 // Is it a subtype of Sequence?
                 const constraints = new ConstraintTracker();
                 if (evaluator.assignType(sequenceObject, subtype, /* diag */ undefined, constraints)) {
-                    const specializedSequence = applySolvedTypeVars(sequenceObject, constraints) as ClassType;
+                    const specializedSequence = evaluator.solveAndApplyConstraints(
+                        sequenceObject,
+                        constraints
+                    ) as ClassType;
 
                     if (specializedSequence.priv.typeArgs && specializedSequence.priv.typeArgs.length > 0) {
                         sequenceInfo.push({
@@ -1541,7 +1547,7 @@ function getSequencePatternInfo(
                         pattern.start
                     )
                 ) {
-                    const specializedSequence = applySolvedTypeVars(
+                    const specializedSequence = evaluator.solveAndApplyConstraints(
                         ClassType.cloneAsInstantiable(sequenceType),
                         sequenceConstraints
                     ) as ClassType;

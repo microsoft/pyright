@@ -46,6 +46,7 @@ import {
     OverloadedFunctionType,
     Type,
     TypeCondition,
+    TypeVarScopeId,
     TypeVarType,
     UnknownType,
     Variance,
@@ -447,6 +448,22 @@ export interface ClassMemberLookup {
     memberAccessDeprecationInfo?: MemberAccessDeprecationInfo;
 }
 
+export interface SolveConstraintsOptions {
+    applyUnificationVars?: boolean;
+    useLowerBoundOnly?: boolean;
+}
+
+export interface ApplyTypeVarOptions {
+    typeClassType?: ClassType;
+    replaceUnsolved?: {
+        scopeIds: TypeVarScopeId[];
+        tupleClassType: ClassType | undefined;
+        unsolvedExemptTypeVars?: TypeVarType[];
+        useUnknown?: boolean;
+        eliminateUnsolvedInUnions?: boolean;
+    };
+}
+
 export enum Reachability {
     Reachable,
     UnreachableAlways,
@@ -517,6 +534,13 @@ export interface TypeEvaluator {
     removeTruthinessFromType: (type: Type) => Type;
     removeFalsinessFromType: (type: Type) => Type;
     stripTypeGuard: (type: Type) => Type;
+
+    solveAndApplyConstraints: (
+        type: Type,
+        constraints: ConstraintTracker,
+        applyOptions?: ApplyTypeVarOptions,
+        solveOptions?: SolveConstraintsOptions
+    ) => Type;
 
     getExpectedType: (node: ExpressionNode) => ExpectedTypeResult | undefined;
     verifyRaiseExceptionType: (node: RaiseNode) => void;

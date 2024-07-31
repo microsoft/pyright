@@ -27,6 +27,7 @@ import {
 } from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { getFileInfo } from './analyzerNodeInfo';
+import { ConstraintSolution } from './constraintSolution';
 import { ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod } from './constructors';
 import { DeclarationType } from './declaration';
@@ -60,9 +61,9 @@ import {
     UnknownType,
 } from './types';
 import {
-    addConstraintForSelfType,
+    addSolutionForSelfType,
     applySolvedTypeVars,
-    buildConstraintsFromSpecializedClass,
+    buildSolutionFromSpecializedClass,
     computeMroLinearization,
     convertNodeToArg,
     convertToInstance,
@@ -500,9 +501,9 @@ export function synthesizeDataClassMethods(
                     // transform it to refer to the Self of this subclass.
                     let effectiveType = entry.type;
                     if (entry.classType !== classType && requiresSpecialization(effectiveType)) {
-                        const constraints = new ConstraintTracker();
-                        addConstraintForSelfType(constraints, entry.classType, classType);
-                        effectiveType = applySolvedTypeVars(effectiveType, constraints);
+                        const solution = new ConstraintSolution();
+                        addSolutionForSelfType(solution, entry.classType, classType);
+                        effectiveType = applySolvedTypeVars(effectiveType, solution);
                     }
 
                     // Is the field type a descriptor object? If so, we need to extract the corresponding
@@ -817,13 +818,13 @@ function getConverterInputType(
                     returnConstraints
                 )
             ) {
-                signature = applySolvedTypeVars(signature, returnConstraints) as FunctionType;
+                signature = evaluator.solveAndApplyConstraints(signature, returnConstraints) as FunctionType;
             }
 
             const inputConstraints = new ConstraintTracker();
 
             if (evaluator.assignType(targetFunction, signature, diagAddendum, inputConstraints)) {
-                const overloadSolution = applySolvedTypeVars(typeVar, inputConstraints, {
+                const overloadSolution = evaluator.solveAndApplyConstraints(typeVar, inputConstraints, {
                     replaceUnsolved: {
                         scopeIds: getTypeVarScopeIds(typeVar),
                         tupleClassType: evaluator.getTupleClassType(),
@@ -995,7 +996,7 @@ export function addInheritedDataClassEntries(classType: ClassType, entries: Data
 
     ClassType.getReverseMro(classType).forEach((mroClass) => {
         if (isInstantiableClass(mroClass)) {
-            const constraints = buildConstraintsFromSpecializedClass(mroClass);
+            const solution = buildSolutionFromSpecializedClass(mroClass);
             const dataClassEntries = ClassType.getDataClassEntries(mroClass);
 
             // Add the entries to the end of the list, replacing same-named
@@ -1006,7 +1007,7 @@ export function addInheritedDataClassEntries(classType: ClassType, entries: Data
                 // If the type from the parent class is generic, we need to convert
                 // to the type parameter namespace of child class.
                 const updatedEntry = { ...entry };
-                updatedEntry.type = applySolvedTypeVars(updatedEntry.type, constraints);
+                updatedEntry.type = applySolvedTypeVars(updatedEntry.type, solution);
 
                 if (entry.isClassVar) {
                     // If this entry is a class variable, it overrides an existing

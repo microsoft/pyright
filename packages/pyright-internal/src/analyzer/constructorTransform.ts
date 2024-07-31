@@ -35,13 +35,7 @@ import {
     OverloadedFunctionType,
     Type,
 } from './types';
-import {
-    applySolvedTypeVars,
-    convertToInstance,
-    lookUpObjectMember,
-    makeInferenceContext,
-    MemberAccessFlags,
-} from './typeUtils';
+import { convertToInstance, lookUpObjectMember, makeInferenceContext, MemberAccessFlags } from './typeUtils';
 
 export function hasConstructorTransform(classType: ClassType): boolean {
     if (classType.shared.fullName === 'functools.partial') {
@@ -411,7 +405,7 @@ function applyPartialTransformToFunction(
         }
     });
 
-    const specializedFunctionType = applySolvedTypeVars(origFunctionType, constraints);
+    const specializedFunctionType = evaluator.solveAndApplyConstraints(origFunctionType, constraints);
     if (!isFunction(specializedFunctionType)) {
         return undefined;
     }

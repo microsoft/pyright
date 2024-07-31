@@ -66,7 +66,6 @@ import {
 } from './types';
 import {
     addConditionToType,
-    applySolvedTypeVars,
     AssignTypeFlags,
     ClassMember,
     computeMroLinearization,
@@ -1481,7 +1480,7 @@ function narrowTypeForIsInstanceInternal(
                                                 errorNode.start
                                             )
                                         ) {
-                                            specializedFilterType = applySolvedTypeVars(
+                                            specializedFilterType = evaluator.solveAndApplyConstraints(
                                                 unspecializedFilterType,
                                                 constraints,
                                                 {
