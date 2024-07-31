@@ -11,7 +11,7 @@
 import { assert } from '../common/debug';
 import { defaultMaxDiagnosticDepth, DiagnosticAddendum } from '../common/diagnostic';
 import { LocAddendum } from '../localization/localize';
-import { assignTypeToTypeVar } from './constraintSolver';
+import { assignTypeVar } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { DeclarationType } from './declaration';
 import { assignProperty } from './properties';
@@ -814,7 +814,7 @@ function createProtocolConstraints(
             }
 
             if (!hasUnsolvedTypeVars) {
-                assignTypeToTypeVar(evaluator, typeParam, typeArg, /* diag */ undefined, protocolConstraints, flags);
+                assignTypeVar(evaluator, typeParam, typeArg, /* diag */ undefined, protocolConstraints, flags);
             }
         }
     });

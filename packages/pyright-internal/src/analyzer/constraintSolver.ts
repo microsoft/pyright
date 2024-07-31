@@ -79,7 +79,7 @@ const logConstraintsUpdates = false;
 // to produce the narrowest type that meets all of the requirements. If the type var context
 // has been "locked", it simply validates that the srcType is compatible (with no attempt
 // to widen or narrow).
-export function assignTypeToTypeVar(
+export function assignTypeVar(
     evaluator: TypeEvaluator,
     destType: TypeVarType,
     srcType: Type,
@@ -88,10 +88,12 @@ export function assignTypeToTypeVar(
     flags = AssignTypeFlags.Default,
     recursionCount = 0
 ): boolean {
+    let isAssignable: boolean;
+
     if (logConstraintsUpdates) {
         const indent = ' '.repeat(recursionCount * 2);
         console.log(`${indent}`);
-        console.log(`${indent}assignTypeToTypeVar called with`);
+        console.log(`${indent}assignTypeVar called with`);
         console.log(`${indent}destType: ${evaluator.printType(destType)}`);
         console.log(`${indent}srcType: ${evaluator.printType(srcType)}`);
         console.log(`${indent}flags: ${flags}`);
@@ -100,14 +102,15 @@ export function assignTypeToTypeVar(
         }
     }
 
-    const isInvariant = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
-    const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0 && !isInvariant;
-
     // If the TypeVar doesn't have a scope ID, then it's being used
     // outside of a valid TypeVar scope. This will be reported as a
     // separate error. Just ignore this case to avoid redundant errors.
     if (!destType.priv.scopeId) {
         return true;
+    }
+
+    if (TypeVarType.isBound(destType) && !TypeVarType.isUnification(destType)) {
+        return assignBoundTypeVar(evaluator, destType, srcType, diag, flags);
     }
 
     // Handle type[T] as a dest and a special form as a source.
@@ -119,67 +122,18 @@ export function assignTypeToTypeVar(
         return false;
     }
 
-    if (TypeVarType.isBound(destType) && !TypeVarType.isUnification(destType)) {
-        // Handle Any as a source.
-        if (isAnyOrUnknown(srcType) || (isClass(srcType) && ClassType.derivesFromAnyOrUnknown(srcType))) {
-            return true;
-        }
-
-        // Is this the equivalent of an "Unknown" for a ParamSpec?
-        if (
-            isParamSpec(destType) &&
-            isFunction(srcType) &&
-            FunctionType.isParamSpecValue(srcType) &&
-            FunctionType.isGradualCallableForm(srcType)
-        ) {
-            return true;
-        }
-
-        // Never is always assignable in a covariant context.
-        if (isNever(srcType) && !isInvariant && !isContravariant) {
-            return true;
-        }
-
-        // Handle a type[Any] as a source.
-        if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'type')) {
-            if (
-                !srcType.priv.typeArgs ||
-                srcType.priv.typeArgs.length < 1 ||
-                isAnyOrUnknown(srcType.priv.typeArgs[0])
-            ) {
-                if (TypeBase.isInstantiable(destType)) {
-                    return true;
-                }
-            }
-        }
-
-        // Emit an error unless this is a synthesized type variable used
-        // for pseudo-generic classes.
-        if (!destType.shared.isSynthesized || TypeVarType.isSelf(destType)) {
-            diag?.addMessage(
-                LocAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(srcType, destType))
-            );
-        }
-
-        return false;
-    }
-
     // An TypeVar can always be assigned to itself, but we won't record this in the constraints.
     if (isTypeSame(destType, srcType)) {
         return true;
     }
 
     if (isParamSpec(destType)) {
-        if (!constraints) {
-            return true;
-        }
-        return assignTypeToParamSpec(evaluator, destType, srcType, diag, constraints, recursionCount);
-    }
-
-    if (isTypeVarTuple(destType) && !destType.priv.isVariadicInUnion) {
-        if (!isUnpacked(srcType)) {
+        // Handle ParamSpecs specially.
+        isAssignable = assignParamSpec(evaluator, destType, srcType, diag, constraints, recursionCount);
+    } else {
+        if (isTypeVarTuple(destType) && !destType.priv.isVariadicInUnion) {
             const tupleClassType = evaluator.getTupleClassType();
-            if (tupleClassType && isInstantiableClass(tupleClassType)) {
+            if (!isUnpacked(srcType) && tupleClassType) {
                 // Package up the type into a tuple.
                 srcType = convertToInstance(
                     specializeTupleClass(
@@ -189,30 +143,115 @@ export function assignTypeToTypeVar(
                         /* isUnpackedTuple */ true
                     )
                 );
-            } else {
-                srcType = UnknownType.create();
+            }
+        }
+
+        // If we're assigning an unpacked TypeVarTuple to a regular TypeVar,
+        // we need to treat it as a union of the unpacked TypeVarTuple.
+        if (
+            isTypeVarTuple(srcType) &&
+            srcType.priv.isVariadicUnpacked &&
+            !srcType.priv.isVariadicInUnion &&
+            !isTypeVarTuple(destType)
+        ) {
+            srcType = TypeVarType.cloneForUnpacked(srcType, /* isInUnion */ true);
+        }
+
+        // Handle the constrained case. This case needs to be handled specially
+        // because type narrowing isn't used in this case. For example, if the
+        // source type is "Literal[1]" and the constraint list includes the type
+        // "float", the resulting type is float.
+        if (TypeVarType.hasConstraints(destType)) {
+            isAssignable = assignConstrainedTypeVar(
+                evaluator,
+                destType,
+                srcType,
+                diag,
+                constraints,
+                flags,
+                recursionCount
+            );
+        } else {
+            isAssignable = assignUnconstrainedTypeVar(
+                evaluator,
+                destType,
+                srcType,
+                diag,
+                constraints,
+                flags,
+                recursionCount
+            );
+        }
+    }
+
+    if (logConstraintsUpdates) {
+        const indent = ' '.repeat(recursionCount * 2);
+        console.log(`${indent}`);
+        if (constraints) {
+            logConstraints(evaluator, constraints, indent);
+        }
+    }
+
+    return isAssignable;
+}
+
+function assignBoundTypeVar(
+    evaluator: TypeEvaluator,
+    destType: TypeVarType,
+    srcType: Type,
+    diag: DiagnosticAddendum | undefined,
+    flags: AssignTypeFlags
+) {
+    // Handle Any as a source.
+    if (isAnyOrUnknown(srcType) || (isClass(srcType) && ClassType.derivesFromAnyOrUnknown(srcType))) {
+        return true;
+    }
+
+    // Is this the equivalent of an "Unknown" for a ParamSpec?
+    if (
+        isParamSpec(destType) &&
+        isFunction(srcType) &&
+        FunctionType.isParamSpecValue(srcType) &&
+        FunctionType.isGradualCallableForm(srcType)
+    ) {
+        return true;
+    }
+
+    // Never is always assignable in a covariant context.
+    const isCovariant = (flags & (AssignTypeFlags.EnforceInvariance | AssignTypeFlags.ReverseTypeVarMatching)) === 0;
+    if (isNever(srcType) && isCovariant) {
+        return true;
+    }
+
+    // Handle a type[Any] as a source.
+    if (isClassInstance(srcType) && ClassType.isBuiltIn(srcType, 'type')) {
+        if (!srcType.priv.typeArgs || srcType.priv.typeArgs.length < 1 || isAnyOrUnknown(srcType.priv.typeArgs[0])) {
+            if (TypeBase.isInstantiable(destType)) {
+                return true;
             }
         }
     }
 
-    // If we're assigning an unpacked TypeVarTuple to a regular TypeVar,
-    // we need to treat it as a union of the unpacked TypeVarTuple.
-    if (
-        isTypeVarTuple(srcType) &&
-        srcType.priv.isVariadicUnpacked &&
-        !srcType.priv.isVariadicInUnion &&
-        !isTypeVarTuple(destType)
-    ) {
-        srcType = TypeVarType.cloneForUnpacked(srcType, /* isInUnion */ true);
+    // Emit an error unless this is a synthesized type variable used
+    // for pseudo-generic classes.
+    if (!destType.shared.isSynthesized || TypeVarType.isSelf(destType)) {
+        diag?.addMessage(LocAddendum.typeAssignmentMismatch().format(evaluator.printSrcDestTypes(srcType, destType)));
     }
 
-    // Handle the constrained case. This case needs to be handled specially
-    // because type narrowing isn't used in this case. For example, if the
-    // source type is "Literal[1]" and the constraint list includes the type
-    // "float", the resulting type is float.
-    if (TypeVarType.hasConstraints(destType)) {
-        return assignTypeToConstrainedTypeVar(evaluator, destType, srcType, diag, constraints, flags, recursionCount);
-    }
+    return false;
+}
+
+function assignUnconstrainedTypeVar(
+    evaluator: TypeEvaluator,
+    destType: TypeVarType,
+    srcType: Type,
+    diag: DiagnosticAddendum | undefined,
+    constraints: ConstraintTracker | undefined,
+    flags: AssignTypeFlags,
+    recursionCount: number
+) {
+    const isInvariant = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
+    const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0 && !isInvariant;
 
     // Handle the unconstrained (but possibly bound) case.
     const curEntry = constraints?.getMainConstraintSet().getTypeVar(destType);
@@ -606,14 +645,6 @@ export function assignTypeToTypeVar(
         );
     }
 
-    if (logConstraintsUpdates) {
-        const indent = ' '.repeat(recursionCount * 2);
-        console.log(`${indent}`);
-        if (constraints) {
-            logConstraints(evaluator, constraints, indent);
-        }
-    }
-
     return true;
 }
 
@@ -649,7 +680,7 @@ export function updateTypeVarType(
     constraints.setTypeVarType(destType, lowerBound, lowerBoundNoLiterals, upperBound);
 }
 
-function assignTypeToConstrainedTypeVar(
+function assignConstrainedTypeVar(
     evaluator: TypeEvaluator,
     destType: TypeVarType,
     srcType: Type,
@@ -851,14 +882,20 @@ function assignTypeToConstrainedTypeVar(
     return true;
 }
 
-function assignTypeToParamSpec(
+function assignParamSpec(
     evaluator: TypeEvaluator,
     destType: ParamSpecType,
     srcType: Type,
     diag: DiagnosticAddendum | undefined,
-    constraints: ConstraintTracker,
+    constraints: ConstraintTracker | undefined,
     recursionCount = 0
 ) {
+    // If there is no constraint tracker, there's nothing to do because
+    // param specs have no upper bounds or constraints.
+    if (!constraints) {
+        return true;
+    }
+
     let isAssignable = true;
     const adjSrcType = isFunction(srcType) ? convertParamSpecValueToType(srcType) : srcType;
 
@@ -953,13 +990,6 @@ function assignTypeToParamSpec(
 
         isAssignable = false;
     });
-
-    if (logConstraintsUpdates) {
-        const indent = ' '.repeat(recursionCount * 2);
-        console.log(`${indent}`);
-        console.log(`${indent}post-call constraints: `);
-        logConstraints(evaluator, constraints, indent);
-    }
 
     return isAssignable;
 }

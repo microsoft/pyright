@@ -99,7 +99,7 @@ import {
     isCodeFlowSupportedForReference,
     wildcardImportReferenceKey,
 } from './codeFlowTypes';
-import { addConstraintsForExpectedType, assignTypeToTypeVar, updateTypeVarType } from './constraintSolver';
+import { addConstraintsForExpectedType, assignTypeVar, updateTypeVarType } from './constraintSolver';
 import { ConstraintSet, ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod, validateConstructorArgs } from './constructors';
 import { applyDataClassClassBehaviorOverrides, synthesizeDataClassMethods } from './dataClasses';
@@ -6854,7 +6854,7 @@ export function createTypeEvaluator(
                         FunctionType.addPositionOnlyParamSeparator(functionType);
                     }
 
-                    assignTypeToTypeVar(
+                    assignTypeVar(
                         evaluatorInterface,
                         param,
                         functionType,
@@ -6863,7 +6863,7 @@ export function createTypeEvaluator(
                         AssignTypeFlags.RetainLiteralsForTypeVar
                     );
                 } else if (isParamSpec(typeArgType)) {
-                    assignTypeToTypeVar(
+                    assignTypeVar(
                         evaluatorInterface,
                         param,
                         convertToInstance(typeArgType),
@@ -6900,7 +6900,7 @@ export function createTypeEvaluator(
                         });
                     }
 
-                    assignTypeToTypeVar(
+                    assignTypeVar(
                         evaluatorInterface,
                         param,
                         functionType,
@@ -6914,7 +6914,7 @@ export function createTypeEvaluator(
                         FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.GradualCallableForm
                     );
                     FunctionType.addDefaultParams(functionType);
-                    assignTypeToTypeVar(evaluatorInterface, param, functionType, diag, constraints);
+                    assignTypeVar(evaluatorInterface, param, functionType, diag, constraints);
                 } else {
                     addDiagnostic(
                         DiagnosticRule.reportInvalidTypeForm,
@@ -6970,7 +6970,7 @@ export function createTypeEvaluator(
                     typeArgType = UnknownType.create();
                 }
 
-                assignTypeToTypeVar(
+                assignTypeVar(
                     evaluatorInterface,
                     param,
                     typeArgType,
@@ -23370,15 +23370,7 @@ export function createTypeEvaluator(
                 TypeBase.isInstance(srcType) === TypeBase.isInstance(destType)
             ) {
                 if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 && destConstraints) {
-                    assignTypeToTypeVar(
-                        evaluatorInterface,
-                        destType,
-                        srcType,
-                        diag,
-                        destConstraints,
-                        flags,
-                        recursionCount
-                    );
+                    assignTypeVar(evaluatorInterface, destType, srcType, diag, destConstraints, flags, recursionCount);
                 }
                 return true;
             }
@@ -23401,7 +23393,7 @@ export function createTypeEvaluator(
                 const targetConstraints =
                     (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destConstraints : srcConstraints;
                 if (
-                    !assignTypeToTypeVar(
+                    !assignTypeVar(
                         evaluatorInterface,
                         destType,
                         srcType,
@@ -23436,42 +23428,32 @@ export function createTypeEvaluator(
                         flags,
                         recursionCount
                     );
-                } else {
-                    if (
-                        assignTypeToTypeVar(
-                            evaluatorInterface,
-                            srcType,
-                            destType,
-                            diag,
-                            srcConstraints,
-                            flags,
-                            recursionCount
-                        )
-                    ) {
-                        return true;
-                    }
-
-                    // If the dest type is a union, only one of the subtypes needs to match.
-                    let isAssignable = false;
-                    if (isUnion(destType)) {
-                        doForEachSubtype(destType, (destSubtype) => {
-                            if (
-                                assignTypeToTypeVar(
-                                    evaluatorInterface,
-                                    srcType as TypeVarType,
-                                    destSubtype,
-                                    diag,
-                                    srcConstraints,
-                                    flags,
-                                    recursionCount
-                                )
-                            ) {
-                                isAssignable = true;
-                            }
-                        });
-                    }
-                    return isAssignable;
                 }
+
+                if (assignTypeVar(evaluatorInterface, srcType, destType, diag, srcConstraints, flags, recursionCount)) {
+                    return true;
+                }
+
+                // If the dest type is a union, only one of the subtypes needs to match.
+                let isAssignable = false;
+                if (isUnion(destType)) {
+                    doForEachSubtype(destType, (destSubtype) => {
+                        if (
+                            assignTypeVar(
+                                evaluatorInterface,
+                                srcType as TypeVarType,
+                                destSubtype,
+                                diag,
+                                srcConstraints,
+                                flags,
+                                recursionCount
+                            )
+                        ) {
+                            isAssignable = true;
+                        }
+                    });
+                }
+                return isAssignable;
             }
 
             if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
