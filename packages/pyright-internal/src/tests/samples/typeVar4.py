@@ -9,7 +9,7 @@ _T_co = TypeVar("_T_co", covariant=True)
 _T_contra = TypeVar("_T_contra", contravariant=True)
 
 
-class Foo(Generic[_T, _T_co, _T_contra]):
+class ClassA(Generic[_T, _T_co, _T_contra]):
     def func1(self, a: _T):
         pass
 
@@ -53,3 +53,11 @@ class Foo(Generic[_T, _T_co, _T_contra]):
 
     def func11(self) -> list[_T_contra]:
         return []
+
+
+class ClassB:
+    def func1(self, a: _T_co) -> _T_co:
+        return a
+
+    def func2(self, a: _T_contra) -> _T_contra:
+        return a
