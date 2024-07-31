@@ -16,6 +16,8 @@ import { appendArray } from '../common/collectionUtils';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { ExpressionNode, ParamCategory } from '../parser/parseNodes';
+import { ConstraintSolution } from './constraintSolution';
+import { addConstraintsForExpectedType } from './constraintSolver';
 import { ConstraintTracker } from './constraintTracker';
 import { applyConstructorTransform, hasConstructorTransform } from './constructorTransform';
 import { Arg, CallResult, TypeEvaluator, TypeResult } from './typeEvaluatorTypes';
@@ -46,7 +48,6 @@ import {
     MemberAccessFlags,
     addTypeVarsToListIfUnique,
     applySolvedTypeVars,
-    buildConstraintsFromSpecializedClass,
     convertToInstance,
     doForEachSignature,
     doForEachSubtype,
@@ -121,7 +122,7 @@ export function validateConstructorArgs(
     // using default type argument values.
     const aliasInfo = type.props?.typeAliasInfo;
     if (aliasInfo?.typeParams && !aliasInfo.typeArgs) {
-        type = applySolvedTypeVars(type, new ConstraintTracker(), {
+        type = applySolvedTypeVars(type, new ConstraintSolution(), {
             replaceUnsolved: { scopeIds: [aliasInfo.typeVarScopeId], tupleClassType: evaluator.getTupleClassType() },
         }) as ClassType;
     }
@@ -275,7 +276,7 @@ function validateNewAndInitMethods(
     } else if (isAnyOrUnknown(newMethodReturnType)) {
         // If the __new__ method returns Any or Unknown, we'll ignore its return
         // type and assume that it returns Self.
-        newMethodReturnType = applySolvedTypeVars(ClassType.cloneAsInstance(type), new ConstraintTracker(), {
+        newMethodReturnType = applySolvedTypeVars(ClassType.cloneAsInstance(type), new ConstraintSolution(), {
             replaceUnsolved: {
                 scopeIds: getTypeVarScopeIds(type),
                 tupleClassType: evaluator.getTupleClassType(),
@@ -475,7 +476,10 @@ function validateInitMethod(
     let argumentErrors = false;
     const overloadsUsedForCall: FunctionType[] = [];
 
-    const constraints = type.priv.typeArgs ? buildConstraintsFromSpecializedClass(type) : new ConstraintTracker();
+    const constraints = new ConstraintTracker();
+    if (type.priv.typeArgs) {
+        addConstraintsForExpectedType(evaluator, type, type, constraints, /* liveTypeVarScopes */ undefined);
+    }
 
     const returnTypeOverride = selfSpecializeClass(type);
     const callResult = evaluator.validateCallArgs(
@@ -594,13 +598,17 @@ function applyExpectedSubtypeForConstructor(
     expectedSubtype: Type,
     constraints: ConstraintTracker
 ): Type | undefined {
-    const specializedType = applySolvedTypeVars(ClassType.cloneAsInstance(type), constraints, {
-        replaceUnsolved: {
-            scopeIds: [],
-            tupleClassType: evaluator.getTupleClassType(),
-            applyUnificationVars: true,
+    const specializedType = evaluator.solveAndApplyConstraints(
+        ClassType.cloneAsInstance(type),
+        constraints,
+        {
+            replaceUnsolved: {
+                scopeIds: [],
+                tupleClassType: evaluator.getTupleClassType(),
+            },
         },
-    });
+        { applyUnificationVars: true }
+    );
 
     if (!evaluator.assignType(expectedSubtype, specializedType)) {
         return undefined;
@@ -627,13 +635,17 @@ function applyExpectedTypeForConstructor(
     // If this isn't a generic type or it's a type that has already been
     // explicitly specialized, the expected type isn't applicable.
     if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
-        return applySolvedTypeVars(ClassType.cloneAsInstance(type), constraints, {
-            replaceUnsolved: {
-                scopeIds: [],
-                tupleClassType: evaluator.getTupleClassType(),
-                applyUnificationVars: true,
+        return evaluator.solveAndApplyConstraints(
+            ClassType.cloneAsInstance(type),
+            constraints,
+            {
+                replaceUnsolved: {
+                    scopeIds: [],
+                    tupleClassType: evaluator.getTupleClassType(),
+                },
             },
-        });
+            { applyUnificationVars: true }
+        );
     }
 
     if (inferenceContext) {
@@ -653,7 +665,7 @@ function applyExpectedTypeForConstructor(
         }
     }
 
-    const specializedType = applySolvedTypeVars(type, constraints, {
+    const specializedType = evaluator.solveAndApplyConstraints(type, constraints, {
         replaceUnsolved: defaultIfNotFound
             ? {
                   scopeIds: getTypeVarScopeIds(type),
@@ -950,7 +962,7 @@ function createFunctionFromInitMethod(
                     setTypeVarType(constraints, typeVar, typeVar);
                 });
 
-                returnType = applySolvedTypeVars(objectType, constraints, {
+                returnType = evaluator.solveAndApplyConstraints(objectType, constraints, {
                     replaceUnsolved: {
                         scopeIds: getTypeVarScopeIds(objectType),
                         tupleClassType: evaluator.getTupleClassType(),

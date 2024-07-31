@@ -181,6 +181,10 @@ export class ConstraintSet {
         });
     }
 
+    doForEachTypeVar(cb: (entry: TypeVarConstraints) => void) {
+        this._typeVarMap.forEach(cb);
+    }
+
     getTypeVar(reference: TypeVarType): TypeVarConstraints | undefined {
         const key = TypeVarType.getNameWithScope(reference);
         return this._typeVarMap.get(key);
@@ -210,6 +214,10 @@ export class ConstraintSet {
         }
 
         return this._scopeIds.has(scopeId);
+    }
+
+    getScopeIds() {
+        return new Set(this._scopeIds);
     }
 
     hasUnificationVars() {

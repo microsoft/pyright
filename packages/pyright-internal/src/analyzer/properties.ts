@@ -12,6 +12,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocAddendum, LocMessage } from '../localization/localize';
 import { DecoratorNode, FunctionNode, ParamCategory, ParseNode } from '../parser/parseNodes';
 import { getFileInfo } from './analyzerNodeInfo';
+import { ConstraintSolution } from './constraintSolution';
 import { ConstraintTracker } from './constraintTracker';
 import { getClassFullName, getTypeAnnotationForParam, getTypeSourceId } from './parseTreeUtils';
 import { Symbol, SymbolFlags } from './symbol';
@@ -477,7 +478,7 @@ export function assignProperty(
     srcClass: ClassType | ModuleType,
     diag: DiagnosticAddendum | undefined,
     constraints?: ConstraintTracker,
-    selfConstraints?: ConstraintTracker,
+    selfSolution?: ConstraintSolution,
     recursionCount = 0
 ): boolean {
     const srcObjectToBind = isClass(srcClass) ? ClassType.cloneAsInstance(srcClass) : undefined;
@@ -522,8 +523,8 @@ export function assignProperty(
 
             // If the caller provided a "self" TypeVar context, replace any Self types.
             // This is needed during protocol matching.
-            if (selfConstraints) {
-                destAccessType = applySolvedTypeVars(destAccessType, selfConstraints) as FunctionType;
+            if (selfSolution) {
+                destAccessType = applySolvedTypeVars(destAccessType, selfSolution) as FunctionType;
             }
 
             // The access methods of fget, fset and fdel are modeled as static

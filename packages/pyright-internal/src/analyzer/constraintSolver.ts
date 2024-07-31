@@ -11,8 +11,9 @@
 
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { LocAddendum } from '../localization/localize';
+import { ConstraintSolution, ConstraintSolutionSet } from './constraintSolution';
 import { ConstraintSet, ConstraintTracker } from './constraintTracker';
-import { maxSubtypesForInferredType, TypeEvaluator } from './typeEvaluatorTypes';
+import { maxSubtypesForInferredType, SolveConstraintsOptions, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
     combineTypes,
@@ -44,9 +45,8 @@ import {
 } from './types';
 import {
     addConditionToType,
-    applySolvedTypeVars,
     AssignTypeFlags,
-    buildConstraintsFromSpecializedClass,
+    buildSolutionFromSpecializedClass,
     convertParamSpecValueToType,
     convertToInstance,
     convertToInstantiable,
@@ -62,6 +62,7 @@ import {
     specializeWithDefaultTypeArgs,
     transformExpectedType,
     transformPossibleRecursiveTypeAlias,
+    TypeVarTransformer,
 } from './typeUtils';
 
 // As we widen the lower bound of a type variable, we may end up with
@@ -195,6 +196,284 @@ export function assignTypeVar(
     return isAssignable;
 }
 
+// Returns a solution for the type variables tracked by the constraint tracker.
+export function solveConstraints(
+    constraints: ConstraintTracker,
+    options?: SolveConstraintsOptions
+): ConstraintSolution {
+    const solutionSets: ConstraintSolutionSet[] = [];
+
+    constraints.doForEachConstraintSet((constraintSet) => {
+        const solutionSet = new ConstraintSolutionSet(constraintSet.getScopeIds());
+
+        constraintSet.doForEachTypeVar((entry) => {
+            const value = constraintSet.getTypeVarType(entry.typeVar, options?.useLowerBoundOnly);
+            if (value) {
+                solutionSet.setType(entry.typeVar, value);
+            }
+        });
+
+        solutionSets.push(solutionSet);
+    });
+
+    return new ConstraintSolution(solutionSets);
+}
+
+// Updates the lower and upper bounds for a type variable. It also calculates the
+// lowerBoundNoLiterals, which is a variant of the lower bound that has
+// literals stripped. By default, the constraint solver always uses the "no literals"
+// type in its solutions unless the version with literals is required to satisfy
+// the upper bound.
+export function updateTypeVarType(
+    evaluator: TypeEvaluator,
+    constraints: ConstraintTracker,
+    destType: TypeVarType,
+    lowerBound: Type | undefined,
+    upperBound: Type | undefined,
+    forceRetainLiterals = false
+) {
+    let lowerBoundNoLiterals: Type | undefined;
+
+    if (lowerBound && !forceRetainLiterals) {
+        const strippedLiteral = isTypeVarTuple(destType)
+            ? stripLiteralValueForUnpackedTuple(evaluator, lowerBound)
+            : evaluator.stripLiteralValue(lowerBound);
+
+        // Strip the literals from the lower bound and see if it is still
+        // narrower than the upper bound.
+        if (strippedLiteral !== lowerBound) {
+            if (!upperBound || evaluator.assignType(upperBound, strippedLiteral)) {
+                lowerBoundNoLiterals = strippedLiteral;
+            }
+        }
+    }
+
+    constraints.setTypeVarType(destType, lowerBound, lowerBoundNoLiterals, upperBound);
+}
+
+// In cases where the expected type is a specialized base class of the
+// source type, we need to determine which type arguments in the derived
+// class will make it compatible with the specialized base class. This method
+// performs this reverse mapping of type arguments and populates the type var
+// map for the target type. If the type is not assignable to the expected type,
+// it returns false.
+export function addConstraintsForExpectedType(
+    evaluator: TypeEvaluator,
+    type: ClassType,
+    expectedType: Type,
+    constraints: ConstraintTracker,
+    liveTypeVarScopes: TypeVarScopeId[] | undefined,
+    usageOffset: number | undefined = undefined
+): boolean {
+    if (isAny(expectedType)) {
+        type.shared.typeParams.forEach((typeParam) => {
+            updateTypeVarType(evaluator, constraints, typeParam, expectedType, expectedType);
+        });
+        return true;
+    }
+
+    if (isTypeVar(expectedType) && TypeVarType.isSelf(expectedType) && expectedType.shared.boundType) {
+        expectedType = expectedType.shared.boundType;
+    }
+
+    if (!isClass(expectedType)) {
+        return false;
+    }
+
+    // If the expected type is generic (but not specialized), we can't proceed.
+    const expectedTypeArgs = expectedType.priv.typeArgs;
+    if (!expectedTypeArgs) {
+        return evaluator.assignType(
+            type,
+            expectedType,
+            /* diag */ undefined,
+            constraints,
+            /* srcConstraints */ undefined,
+            AssignTypeFlags.PopulatingExpectedType
+        );
+    }
+
+    evaluator.inferVarianceForClass(type);
+
+    // If the expected type is the same as the target type (commonly the case),
+    // we can use a faster method.
+    if (ClassType.isSameGenericClass(expectedType, type)) {
+        const solution = buildSolutionFromSpecializedClass(expectedType);
+        const typeParams = ClassType.getTypeParams(expectedType);
+        typeParams.forEach((typeParam) => {
+            let typeArgValue = solution.getMainSolutionSet().getType(typeParam);
+
+            if (typeArgValue && liveTypeVarScopes) {
+                typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes, usageOffset);
+            }
+
+            if (typeArgValue) {
+                const variance = TypeVarType.getVariance(typeParam);
+
+                updateTypeVarType(
+                    evaluator,
+                    constraints,
+                    typeParam,
+                    variance === Variance.Covariant ? undefined : typeArgValue,
+                    variance === Variance.Contravariant ? undefined : typeArgValue
+                );
+            }
+        });
+        return true;
+    }
+
+    // Create a generic version of the expected type.
+    const expectedTypeScopeId = getTypeVarScopeId(expectedType);
+    const synthExpectedTypeArgs = ClassType.getTypeParams(expectedType).map((typeParam, index) => {
+        const typeVar = TypeVarType.createInstance(
+            `__dest${index}`,
+            isParamSpec(typeParam) ? TypeVarKind.ParamSpec : TypeVarKind.TypeVar
+        );
+        typeVar.shared.isSynthesized = true;
+
+        // Use invariance here so we set the lower and upper bound on the TypeVar.
+        typeVar.shared.declaredVariance = Variance.Invariant;
+        typeVar.priv.scopeId = expectedTypeScopeId;
+        return typeVar;
+    });
+    const genericExpectedType = ClassType.specialize(expectedType, synthExpectedTypeArgs);
+
+    // For each type param in the target type, create a placeholder type variable.
+    const typeArgs = ClassType.getTypeParams(type).map((typeParam, index) => {
+        const typeVar = TypeVarType.createInstance(
+            `__source${index}`,
+            isParamSpec(typeParam) ? TypeVarKind.ParamSpec : TypeVarKind.TypeVar
+        );
+        typeVar.shared.isSynthesized = true;
+        typeVar.shared.synthesizedIndex = index;
+        typeVar.shared.isExemptFromBoundCheck = true;
+        return TypeVarType.cloneAsUnificationVar(typeVar);
+    });
+
+    const specializedType = ClassType.specialize(type, typeArgs);
+    const syntheticConstraints = new ConstraintTracker();
+    if (
+        evaluator.assignType(
+            genericExpectedType,
+            specializedType,
+            /* diag */ undefined,
+            syntheticConstraints,
+            /* srcConstraints */ undefined,
+            AssignTypeFlags.PopulatingExpectedType
+        )
+    ) {
+        let isResultValid = true;
+
+        synthExpectedTypeArgs.forEach((typeVar, index) => {
+            let synthTypeVar = syntheticConstraints.getMainConstraintSet().getTypeVarType(typeVar);
+            const otherSubtypes: Type[] = [];
+
+            // If the resulting type is a union, try to find a matching type var and move
+            // the remaining subtypes to the "otherSubtypes" array.
+            if (synthTypeVar) {
+                if (isParamSpec(typeVar) && isFunction(synthTypeVar)) {
+                    synthTypeVar = convertParamSpecValueToType(synthTypeVar);
+                }
+
+                if (isUnion(synthTypeVar)) {
+                    let foundSynthTypeVar: TypeVarType | undefined;
+
+                    sortTypes(synthTypeVar.priv.subtypes).forEach((subtype) => {
+                        if (
+                            isTypeVar(subtype) &&
+                            subtype.shared.isSynthesized &&
+                            subtype.shared.synthesizedIndex !== undefined &&
+                            !foundSynthTypeVar
+                        ) {
+                            foundSynthTypeVar = subtype;
+                        } else {
+                            otherSubtypes.push(subtype);
+                        }
+                    });
+
+                    if (foundSynthTypeVar) {
+                        synthTypeVar = foundSynthTypeVar;
+                    }
+                }
+            }
+
+            // Is this one of the synthesized type vars we allocated above? If so,
+            // the type arg that corresponds to this type var maps back to the target type.
+            if (
+                synthTypeVar &&
+                isTypeVar(synthTypeVar) &&
+                synthTypeVar.shared.isSynthesized &&
+                synthTypeVar.shared.synthesizedIndex !== undefined
+            ) {
+                const targetTypeVar = ClassType.getTypeParams(specializedType)[synthTypeVar.shared.synthesizedIndex];
+                if (index < expectedTypeArgs.length) {
+                    let typeArgValue: Type | undefined = transformPossibleRecursiveTypeAlias(expectedTypeArgs[index]);
+
+                    if (otherSubtypes.length > 0) {
+                        typeArgValue = combineTypes([typeArgValue, ...otherSubtypes]);
+                    }
+
+                    if (liveTypeVarScopes) {
+                        typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes, usageOffset);
+                    }
+
+                    if (typeArgValue) {
+                        const variance = TypeVarType.getVariance(typeVar);
+
+                        // If this type variable already has a type, don't overwrite it. This can
+                        // happen if a single type variable in the derived class is used multiple times
+                        // in the specialized base class type (e.g. Mapping[T, T]).
+                        if (constraints.getMainConstraintSet().getTypeVarType(targetTypeVar)) {
+                            isResultValid = false;
+                            typeArgValue = UnknownType.create();
+                        }
+
+                        updateTypeVarType(
+                            evaluator,
+                            constraints,
+                            targetTypeVar,
+                            variance === Variance.Covariant ? undefined : typeArgValue,
+                            variance === Variance.Contravariant ? undefined : typeArgValue
+                        );
+                    } else {
+                        isResultValid = false;
+                    }
+                }
+            }
+        });
+
+        return isResultValid;
+    }
+
+    return false;
+}
+
+// If the constraint tracker contains any type variables whose types depend on
+// unification vars used for bidirectional type inference, replace those
+// with the solved type associated with those unification vars.
+export function applyUnificationVars(constraints: ConstraintTracker) {
+    constraints.doForEachConstraintSet((set) => {
+        if (!set.hasUnificationVars()) {
+            return;
+        }
+
+        set.getTypeVars().forEach((entry) => {
+            if (!TypeVarType.isUnification(entry.typeVar)) {
+                const newLowerBound = entry.lowerBound ? applyUnificationVarsToType(entry.lowerBound, set) : undefined;
+                const newLowerBoundNoLiterals = entry.lowerBoundNoLiterals
+                    ? applyUnificationVarsToType(entry.lowerBoundNoLiterals, set)
+                    : undefined;
+                const newUpperBound = entry.upperBound ? applyUnificationVarsToType(entry.upperBound, set) : undefined;
+
+                set.setTypeVarType(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
+            }
+        });
+    });
+}
+
+// Handles an assignment to a TypeVar that is "bound" rather than "free".
+// In general, such assignments are not allowed, but there are some special
+// cases to be handled.
 function assignBoundTypeVar(
     evaluator: TypeEvaluator,
     destType: TypeVarType,
@@ -241,6 +520,8 @@ function assignBoundTypeVar(
     return false;
 }
 
+// Handles assignments to a TypeVarTuple or a TypeVar that does not have
+// value constraints (but may have an upper bound).
 function assignUnconstrainedTypeVar(
     evaluator: TypeEvaluator,
     destType: TypeVarType,
@@ -429,7 +710,7 @@ function assignUnconstrainedTypeVar(
                     newLowerBound = curLowerBound;
 
                     if (constraints) {
-                        newLowerBound = applySolvedTypeVars(newLowerBound, constraints);
+                        newLowerBound = evaluator.solveAndApplyConstraints(newLowerBound, constraints);
                     }
                 }
             } else if (
@@ -497,7 +778,7 @@ function assignUnconstrainedTypeVar(
                     let curSolvedLowerBound = curLowerBound;
 
                     if (constraints) {
-                        curSolvedLowerBound = applySolvedTypeVars(curLowerBound, constraints);
+                        curSolvedLowerBound = evaluator.solveAndApplyConstraints(curLowerBound, constraints);
                     }
 
                     // In some extreme edge cases, the lower bound can become
@@ -648,38 +929,7 @@ function assignUnconstrainedTypeVar(
     return true;
 }
 
-// Updates the lower and upper bounds for a type variable. It also calculates the
-// lowerBoundNoLiterals, which is a variant of the lower bound that has
-// literals stripped. By default, the constraint solver always uses the "no literals"
-// type in its solutions unless the version with literals is required to satisfy
-// the upper bound.
-export function updateTypeVarType(
-    evaluator: TypeEvaluator,
-    constraints: ConstraintTracker,
-    destType: TypeVarType,
-    lowerBound: Type | undefined,
-    upperBound: Type | undefined,
-    forceRetainLiterals = false
-) {
-    let lowerBoundNoLiterals: Type | undefined;
-
-    if (lowerBound && !forceRetainLiterals) {
-        const strippedLiteral = isTypeVarTuple(destType)
-            ? stripLiteralValueForUnpackedTuple(evaluator, lowerBound)
-            : evaluator.stripLiteralValue(lowerBound);
-
-        // Strip the literals from the lower bound and see if it is still
-        // narrower than the upper bound.
-        if (strippedLiteral !== lowerBound) {
-            if (!upperBound || evaluator.assignType(upperBound, strippedLiteral)) {
-                lowerBoundNoLiterals = strippedLiteral;
-            }
-        }
-    }
-
-    constraints.setTypeVarType(destType, lowerBound, lowerBoundNoLiterals, upperBound);
-}
-
+// Handles assignments to a TypeVar with value constraints.
 function assignConstrainedTypeVar(
     evaluator: TypeEvaluator,
     destType: TypeVarType,
@@ -882,6 +1132,7 @@ function assignConstrainedTypeVar(
     return true;
 }
 
+// Handles assignments to a ParamSpec.
 function assignParamSpec(
     evaluator: TypeEvaluator,
     destType: ParamSpecType,
@@ -994,203 +1245,37 @@ function assignParamSpec(
     return isAssignable;
 }
 
-// In cases where the expected type is a specialized base class of the
-// source type, we need to determine which type arguments in the derived
-// class will make it compatible with the specialized base class. This method
-// performs this reverse mapping of type arguments and populates the type var
-// map for the target type. If the type is not assignable to the expected type,
-// it returns false.
-export function addConstraintsForExpectedType(
-    evaluator: TypeEvaluator,
-    type: ClassType,
-    expectedType: Type,
-    constraints: ConstraintTracker,
-    liveTypeVarScopes: TypeVarScopeId[] | undefined,
-    usageOffset: number | undefined = undefined
-): boolean {
-    if (isAny(expectedType)) {
-        type.shared.typeParams.forEach((typeParam) => {
-            updateTypeVarType(evaluator, constraints, typeParam, expectedType, expectedType);
-        });
-        return true;
+class UnificationVarTransformer extends TypeVarTransformer {
+    constructor(private _constraintSet: ConstraintSet) {
+        super();
     }
 
-    if (isTypeVar(expectedType) && TypeVarType.isSelf(expectedType) && expectedType.shared.boundType) {
-        expectedType = expectedType.shared.boundType;
+    override transformTypeVar(typeVar: TypeVarType) {
+        if (TypeVarType.isUnification(typeVar)) {
+            return this._constraintSet.getTypeVarType(typeVar) ?? typeVar;
+        }
+
+        return undefined;
     }
 
-    if (!isClass(expectedType)) {
-        return false;
+    override transformParamSpec(paramSpec: ParamSpecType): FunctionType | undefined {
+        if (TypeVarType.isUnification(paramSpec)) {
+            return this._constraintSet.getTypeVarType(paramSpec);
+        }
+
+        return undefined;
+    }
+}
+
+function applyUnificationVarsToType(type: Type, constraintSet: ConstraintSet): Type {
+    // Handle the common case where there are no unification vars.
+    // No more work is required in this case.
+    if (!constraintSet.getTypeVars().some((entry) => TypeVarType.isUnification(entry.typeVar))) {
+        return type;
     }
 
-    // If the expected type is generic (but not specialized), we can't proceed.
-    const expectedTypeArgs = expectedType.priv.typeArgs;
-    if (!expectedTypeArgs) {
-        return evaluator.assignType(
-            type,
-            expectedType,
-            /* diag */ undefined,
-            constraints,
-            /* srcConstraints */ undefined,
-            AssignTypeFlags.PopulatingExpectedType
-        );
-    }
-
-    evaluator.inferVarianceForClass(type);
-
-    // If the expected type is the same as the target type (commonly the case),
-    // we can use a faster method.
-    if (ClassType.isSameGenericClass(expectedType, type)) {
-        const sameClassConstraints = buildConstraintsFromSpecializedClass(expectedType);
-        sameClassConstraints
-            .getMainConstraintSet()
-            .getTypeVars()
-            .forEach((entry) => {
-                let typeArgValue = sameClassConstraints.getMainConstraintSet().getTypeVarType(entry.typeVar);
-
-                if (typeArgValue && liveTypeVarScopes) {
-                    typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes, usageOffset);
-                }
-
-                if (typeArgValue) {
-                    const variance = TypeVarType.getVariance(entry.typeVar);
-
-                    updateTypeVarType(
-                        evaluator,
-                        constraints,
-                        entry.typeVar,
-                        variance === Variance.Covariant ? undefined : typeArgValue,
-                        variance === Variance.Contravariant ? undefined : typeArgValue
-                    );
-                }
-            });
-        return true;
-    }
-
-    // Create a generic version of the expected type.
-    const expectedTypeScopeId = getTypeVarScopeId(expectedType);
-    const synthExpectedTypeArgs = ClassType.getTypeParams(expectedType).map((typeParam, index) => {
-        const typeVar = TypeVarType.createInstance(
-            `__dest${index}`,
-            isParamSpec(typeParam) ? TypeVarKind.ParamSpec : TypeVarKind.TypeVar
-        );
-        typeVar.shared.isSynthesized = true;
-
-        // Use invariance here so we set the lower and upper bound on the TypeVar.
-        typeVar.shared.declaredVariance = Variance.Invariant;
-        typeVar.priv.scopeId = expectedTypeScopeId;
-        return typeVar;
-    });
-    const genericExpectedType = ClassType.specialize(expectedType, synthExpectedTypeArgs);
-
-    // For each type param in the target type, create a placeholder type variable.
-    const typeArgs = ClassType.getTypeParams(type).map((typeParam, index) => {
-        const typeVar = TypeVarType.createInstance(
-            `__source${index}`,
-            isParamSpec(typeParam) ? TypeVarKind.ParamSpec : TypeVarKind.TypeVar
-        );
-        typeVar.shared.isSynthesized = true;
-        typeVar.shared.synthesizedIndex = index;
-        typeVar.shared.isExemptFromBoundCheck = true;
-        return TypeVarType.cloneAsUnificationVar(typeVar);
-    });
-
-    const specializedType = ClassType.specialize(type, typeArgs);
-    const syntheticConstraints = new ConstraintTracker();
-    if (
-        evaluator.assignType(
-            genericExpectedType,
-            specializedType,
-            /* diag */ undefined,
-            syntheticConstraints,
-            /* srcConstraints */ undefined,
-            AssignTypeFlags.PopulatingExpectedType
-        )
-    ) {
-        let isResultValid = true;
-
-        synthExpectedTypeArgs.forEach((typeVar, index) => {
-            let synthTypeVar = syntheticConstraints.getMainConstraintSet().getTypeVarType(typeVar);
-            const otherSubtypes: Type[] = [];
-
-            // If the resulting type is a union, try to find a matching type var and move
-            // the remaining subtypes to the "otherSubtypes" array.
-            if (synthTypeVar) {
-                if (isParamSpec(typeVar) && isFunction(synthTypeVar)) {
-                    synthTypeVar = convertParamSpecValueToType(synthTypeVar);
-                }
-
-                if (isUnion(synthTypeVar)) {
-                    let foundSynthTypeVar: TypeVarType | undefined;
-
-                    sortTypes(synthTypeVar.priv.subtypes).forEach((subtype) => {
-                        if (
-                            isTypeVar(subtype) &&
-                            subtype.shared.isSynthesized &&
-                            subtype.shared.synthesizedIndex !== undefined &&
-                            !foundSynthTypeVar
-                        ) {
-                            foundSynthTypeVar = subtype;
-                        } else {
-                            otherSubtypes.push(subtype);
-                        }
-                    });
-
-                    if (foundSynthTypeVar) {
-                        synthTypeVar = foundSynthTypeVar;
-                    }
-                }
-            }
-
-            // Is this one of the synthesized type vars we allocated above? If so,
-            // the type arg that corresponds to this type var maps back to the target type.
-            if (
-                synthTypeVar &&
-                isTypeVar(synthTypeVar) &&
-                synthTypeVar.shared.isSynthesized &&
-                synthTypeVar.shared.synthesizedIndex !== undefined
-            ) {
-                const targetTypeVar = ClassType.getTypeParams(specializedType)[synthTypeVar.shared.synthesizedIndex];
-                if (index < expectedTypeArgs.length) {
-                    let typeArgValue: Type | undefined = transformPossibleRecursiveTypeAlias(expectedTypeArgs[index]);
-
-                    if (otherSubtypes.length > 0) {
-                        typeArgValue = combineTypes([typeArgValue, ...otherSubtypes]);
-                    }
-
-                    if (liveTypeVarScopes) {
-                        typeArgValue = transformExpectedType(typeArgValue, liveTypeVarScopes, usageOffset);
-                    }
-
-                    if (typeArgValue) {
-                        const variance = TypeVarType.getVariance(typeVar);
-
-                        // If this type variable already has a type, don't overwrite it. This can
-                        // happen if a single type variable in the derived class is used multiple times
-                        // in the specialized base class type (e.g. Mapping[T, T]).
-                        if (constraints.getMainConstraintSet().getTypeVarType(targetTypeVar)) {
-                            isResultValid = false;
-                            typeArgValue = UnknownType.create();
-                        }
-
-                        updateTypeVarType(
-                            evaluator,
-                            constraints,
-                            targetTypeVar,
-                            variance === Variance.Covariant ? undefined : typeArgValue,
-                            variance === Variance.Contravariant ? undefined : typeArgValue
-                        );
-                    } else {
-                        isResultValid = false;
-                    }
-                }
-            }
-        });
-
-        return isResultValid;
-    }
-
-    return false;
+    const transformer = new UnificationVarTransformer(constraintSet);
+    return transformer.apply(type, 0);
 }
 
 // For normal TypeVars, the constraint solver can widen a type by combining

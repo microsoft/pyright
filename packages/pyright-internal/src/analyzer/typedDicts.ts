@@ -59,7 +59,7 @@ import {
 import {
     applySolvedTypeVars,
     AssignTypeFlags,
-    buildConstraintsFromSpecializedClass,
+    buildSolutionFromSpecializedClass,
     computeMroLinearization,
     getTypeVarScopeId,
     isLiteralType,
@@ -755,13 +755,13 @@ export function getTypedDictMembersForClass(
         classType.shared.typedDictEntries = entries;
     }
 
-    const constraints = buildConstraintsFromSpecializedClass(classType);
+    const solution = buildSolutionFromSpecializedClass(classType);
 
     // Create a specialized copy of the entries so the caller can mutate them.
     const entries = new Map<string, TypedDictEntry>();
     classType.shared.typedDictEntries!.knownItems.forEach((value, key) => {
         const tdEntry = { ...value };
-        tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, constraints);
+        tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, solution);
 
         // If the class is "Partial", make all entries optional and convert all
         // read-only entries to Never.
@@ -782,7 +782,7 @@ export function getTypedDictMembersForClass(
     if (allowNarrowed && classType.priv.typedDictNarrowedEntries) {
         classType.priv.typedDictNarrowedEntries.forEach((value, key) => {
             const tdEntry = { ...value };
-            tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, constraints);
+            tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, solution);
             entries.set(key, tdEntry);
         });
     }
@@ -977,7 +977,7 @@ function getTypedDictMembersForClassRecursive(
         }
     });
 
-    const constraints = buildConstraintsFromSpecializedClass(classType);
+    const solution = buildSolutionFromSpecializedClass(classType);
 
     // Add any new typed dict entries from this class.
     ClassType.getSymbolTable(classType).forEach((symbol, name) => {
@@ -987,7 +987,7 @@ function getTypedDictMembersForClassRecursive(
 
             if (lastDecl && lastDecl.type === DeclarationType.Variable) {
                 let valueType = evaluator.getEffectiveTypeOfSymbol(symbol);
-                valueType = applySolvedTypeVars(valueType, constraints);
+                valueType = applySolvedTypeVars(valueType, solution);
 
                 const allowRequired = !ClassType.isTypedDictMarkedClosed(classType) || name !== '__extra_items__';
                 let isRequired = !ClassType.isCanOmitDictValues(classType);
@@ -1388,7 +1388,7 @@ export function assignToTypedDict(
     }
 
     const specializedClassType = constraints
-        ? (applySolvedTypeVars(genericClassType, constraints) as ClassType)
+        ? (evaluator.solveAndApplyConstraints(genericClassType, constraints) as ClassType)
         : classType;
 
     return narrowedEntries.size === 0

@@ -173,7 +173,7 @@ import {
     ClassMember,
     MemberAccessFlags,
     applySolvedTypeVars,
-    buildConstraintsFromSpecializedClass,
+    buildSolutionFromSpecializedClass,
     convertToInstance,
     derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
@@ -990,7 +990,10 @@ export class Checker extends ParseTreeWalker {
                             }
 
                             if (!constraints.isEmpty()) {
-                                adjReturnType = applySolvedTypeVars(declaredReturnType, constraints);
+                                adjReturnType = this._evaluator.solveAndApplyConstraints(
+                                    declaredReturnType,
+                                    constraints
+                                );
                                 adjReturnType = makeTypeVarsBound(adjReturnType, liveScopes);
 
                                 if (this._evaluator.assignType(adjReturnType, returnType, diagAddendum)) {
@@ -2773,7 +2776,7 @@ export class Checker extends ParseTreeWalker {
         // Now check the return types.
         let overloadReturnType =
             overload.shared.declaredReturnType ?? this._evaluator.getFunctionInferredReturnType(overload);
-        let implementationReturnType = applySolvedTypeVars(
+        let implementationReturnType = this._evaluator.solveAndApplyConstraints(
             implementation.shared.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation),
             implConstraints
         );
@@ -5789,15 +5792,12 @@ export class Checker extends ParseTreeWalker {
         const diagAddendum = new DiagnosticAddendum();
 
         for (const baseClass of filteredBaseClasses) {
-            const constraints = buildConstraintsFromSpecializedClass(baseClass);
+            const solution = buildSolutionFromSpecializedClass(baseClass);
 
             for (const baseClassMroClass of baseClass.shared.mro) {
                 // There's no need to check for conflicts if this class isn't generic.
                 if (isClass(baseClassMroClass) && baseClassMroClass.shared.typeParams.length > 0) {
-                    const specializedBaseClassMroClass = applySolvedTypeVars(
-                        baseClassMroClass,
-                        constraints
-                    ) as ClassType;
+                    const specializedBaseClassMroClass = applySolvedTypeVars(baseClassMroClass, solution) as ClassType;
 
                     // Find the corresponding class in the derived class's MRO list.
                     const matchingMroClass = classType.shared.mro.find(
@@ -6389,10 +6389,10 @@ export class Checker extends ParseTreeWalker {
                 /* allowNarrowed */ false
             );
 
-            const constraints = buildConstraintsFromSpecializedClass(baseClass);
+            const solution = buildSolutionFromSpecializedClass(baseClass);
 
             const baseExtraItemsType = baseTypedDictEntries.extraItems
-                ? applySolvedTypeVars(baseTypedDictEntries.extraItems.valueType, constraints)
+                ? applySolvedTypeVars(baseTypedDictEntries.extraItems.valueType, solution)
                 : UnknownType.create();
 
             for (const [name, entry] of typedDictEntries.knownItems) {
