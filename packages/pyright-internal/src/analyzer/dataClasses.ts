@@ -27,6 +27,7 @@ import {
 } from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { getFileInfo } from './analyzerNodeInfo';
+import { ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod } from './constructors';
 import { DeclarationType } from './declaration';
 import { updateNamedTupleBaseClass } from './namedTuples';
@@ -59,8 +60,9 @@ import {
     UnknownType,
 } from './types';
 import {
+    addConstraintForSelfType,
     applySolvedTypeVars,
-    buildTypeVarContextFromSpecializedClass,
+    buildConstraintsFromSpecializedClass,
     computeMroLinearization,
     convertNodeToArg,
     convertToInstance,
@@ -69,12 +71,10 @@ import {
     getTypeVarScopeIds,
     isLiteralType,
     isMetaclassInstance,
-    populateTypeVarContextForSelfType,
     requiresSpecialization,
     specializeTupleClass,
     synthesizeTypeVarForSelfCls,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 
 // Validates fields for compatibility with a dataclass and synthesizes
 // an appropriate __new__ and __init__ methods plus __dataclass_fields__
@@ -500,9 +500,9 @@ export function synthesizeDataClassMethods(
                     // transform it to refer to the Self of this subclass.
                     let effectiveType = entry.type;
                     if (entry.classType !== classType && requiresSpecialization(effectiveType)) {
-                        const typeVarContext = new TypeVarContext();
-                        populateTypeVarContextForSelfType(typeVarContext, entry.classType, classType);
-                        effectiveType = applySolvedTypeVars(effectiveType, typeVarContext);
+                        const constraints = new ConstraintTracker();
+                        addConstraintForSelfType(constraints, entry.classType, classType);
+                        effectiveType = applySolvedTypeVars(effectiveType, constraints);
                     }
 
                     // Is the field type a descriptor object? If so, we need to extract the corresponding
@@ -807,23 +807,23 @@ function getConverterInputType(
         const diagAddendum = new DiagnosticAddendum();
 
         doForEachSignature(converterType, (signature) => {
-            const returnTypeVarContext = new TypeVarContext();
+            const returnConstraints = new ConstraintTracker();
 
             if (
                 evaluator.assignType(
                     FunctionType.getEffectiveReturnType(signature) ?? UnknownType.create(),
                     fieldType,
                     /* diag */ undefined,
-                    returnTypeVarContext
+                    returnConstraints
                 )
             ) {
-                signature = applySolvedTypeVars(signature, returnTypeVarContext) as FunctionType;
+                signature = applySolvedTypeVars(signature, returnConstraints) as FunctionType;
             }
 
-            const inputTypeVarContext = new TypeVarContext();
+            const inputConstraints = new ConstraintTracker();
 
-            if (evaluator.assignType(targetFunction, signature, diagAddendum, inputTypeVarContext)) {
-                const overloadSolution = applySolvedTypeVars(typeVar, inputTypeVarContext, {
+            if (evaluator.assignType(targetFunction, signature, diagAddendum, inputConstraints)) {
+                const overloadSolution = applySolvedTypeVars(typeVar, inputConstraints, {
                     replaceUnsolved: {
                         scopeIds: getTypeVarScopeIds(typeVar),
                         tupleClassType: evaluator.getTupleClassType(),
@@ -995,7 +995,7 @@ export function addInheritedDataClassEntries(classType: ClassType, entries: Data
 
     ClassType.getReverseMro(classType).forEach((mroClass) => {
         if (isInstantiableClass(mroClass)) {
-            const typeVarContext = buildTypeVarContextFromSpecializedClass(mroClass);
+            const constraints = buildConstraintsFromSpecializedClass(mroClass);
             const dataClassEntries = ClassType.getDataClassEntries(mroClass);
 
             // Add the entries to the end of the list, replacing same-named
@@ -1006,7 +1006,7 @@ export function addInheritedDataClassEntries(classType: ClassType, entries: Data
                 // If the type from the parent class is generic, we need to convert
                 // to the type parameter namespace of child class.
                 const updatedEntry = { ...entry };
-                updatedEntry.type = applySolvedTypeVars(updatedEntry.type, typeVarContext);
+                updatedEntry.type = applySolvedTypeVars(updatedEntry.type, constraints);
 
                 if (entry.isClassVar) {
                     // If this entry is a class variable, it overrides an existing

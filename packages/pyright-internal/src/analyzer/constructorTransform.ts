@@ -15,6 +15,7 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
 import { ArgCategory, ExpressionNode, ParamCategory } from '../parser/parseNodes';
+import { ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor } from './constructors';
 import { getParamListDetails, ParamKind } from './parameterUtils';
 import { Symbol, SymbolFlags } from './symbol';
@@ -41,7 +42,6 @@ import {
     makeInferenceContext,
     MemberAccessFlags,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 
 export function hasConstructorTransform(classType: ClassType): boolean {
     if (classType.shared.fullName === 'functools.partial') {
@@ -226,7 +226,7 @@ function applyPartialTransformToFunction(
     // Verify the types of the provided arguments.
     let argumentErrors = false;
     let reportedPositionalError = false;
-    const typeVarContext = new TypeVarContext();
+    const constraints = new ConstraintTracker();
 
     const remainingArgsList = argList.slice(1);
     remainingArgsList.forEach((arg, argIndex) => {
@@ -254,7 +254,7 @@ function applyPartialTransformToFunction(
                         makeInferenceContext(paramType)
                     );
 
-                    if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
+                    if (!evaluator.assignType(paramType, argTypeResult.type, diag, constraints)) {
                         if (errorNode) {
                             evaluator.addDiagnostic(
                                 DiagnosticRule.reportArgumentType,
@@ -300,7 +300,7 @@ function applyPartialTransformToFunction(
                     makeInferenceContext(paramType)
                 );
 
-                if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
+                if (!evaluator.assignType(paramType, argTypeResult.type, diag, constraints)) {
                     if (errorNode) {
                         evaluator.addDiagnostic(
                             DiagnosticRule.reportArgumentType,
@@ -349,7 +349,7 @@ function applyPartialTransformToFunction(
                         makeInferenceContext(paramType)
                     );
 
-                    if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
+                    if (!evaluator.assignType(paramType, argTypeResult.type, diag, constraints)) {
                         if (errorNode) {
                             evaluator.addDiagnostic(
                                 DiagnosticRule.reportArgumentType,
@@ -389,7 +389,7 @@ function applyPartialTransformToFunction(
                         makeInferenceContext(paramType)
                     );
 
-                    if (!evaluator.assignType(paramType, argTypeResult.type, diag, typeVarContext)) {
+                    if (!evaluator.assignType(paramType, argTypeResult.type, diag, constraints)) {
                         if (errorNode) {
                             evaluator.addDiagnostic(
                                 DiagnosticRule.reportArgumentType,
@@ -411,7 +411,7 @@ function applyPartialTransformToFunction(
         }
     });
 
-    const specializedFunctionType = applySolvedTypeVars(origFunctionType, typeVarContext);
+    const specializedFunctionType = applySolvedTypeVars(origFunctionType, constraints);
     if (!isFunction(specializedFunctionType)) {
         return undefined;
     }

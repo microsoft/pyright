@@ -10,6 +10,7 @@
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { LocAddendum } from '../localization/localize';
 import { ExpressionNode, SliceNode } from '../parser/parseNodes';
+import { ConstraintTracker } from './constraintTracker';
 import { TypeEvaluator } from './typeEvaluatorTypes';
 import {
     AnyType,
@@ -26,7 +27,6 @@ import {
     TypeVarType,
 } from './types';
 import { AssignTypeFlags, isLiteralType, isTupleGradualForm, specializeTupleClass } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 
 // Assigns the source type arguments to the dest type arguments. It assumed
 // the the caller has already verified that both the dest and source are
@@ -36,8 +36,8 @@ export function assignTupleTypeArgs(
     destType: ClassType,
     srcType: ClassType,
     diag: DiagnosticAddendum | undefined,
-    destTypeVarContext: TypeVarContext | undefined,
-    srcTypeVarContext: TypeVarContext | undefined,
+    destConstraints: ConstraintTracker | undefined,
+    srcConstraints: ConstraintTracker | undefined,
     flags: AssignTypeFlags,
     recursionCount: number
 ) {
@@ -66,8 +66,8 @@ export function assignTupleTypeArgs(
                     destArgType,
                     srcArgType,
                     entryDiag?.createAddendum(),
-                    destTypeVarContext,
-                    srcTypeVarContext,
+                    destConstraints,
+                    srcConstraints,
                     flags,
                     recursionCount
                 )

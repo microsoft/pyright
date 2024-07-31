@@ -26,6 +26,7 @@ import {
 } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { ConstraintTracker } from './constraintTracker';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
@@ -58,7 +59,7 @@ import {
 import {
     applySolvedTypeVars,
     AssignTypeFlags,
-    buildTypeVarContextFromSpecializedClass,
+    buildConstraintsFromSpecializedClass,
     computeMroLinearization,
     getTypeVarScopeId,
     isLiteralType,
@@ -66,7 +67,6 @@ import {
     partiallySpecializeType,
     specializeTupleClass,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 
 // Creates a new custom TypedDict "alternate syntax" factory class.
 export function createTypedDictType(
@@ -755,13 +755,13 @@ export function getTypedDictMembersForClass(
         classType.shared.typedDictEntries = entries;
     }
 
-    const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
+    const constraints = buildConstraintsFromSpecializedClass(classType);
 
     // Create a specialized copy of the entries so the caller can mutate them.
     const entries = new Map<string, TypedDictEntry>();
     classType.shared.typedDictEntries!.knownItems.forEach((value, key) => {
         const tdEntry = { ...value };
-        tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, typeVarContext);
+        tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, constraints);
 
         // If the class is "Partial", make all entries optional and convert all
         // read-only entries to Never.
@@ -782,7 +782,7 @@ export function getTypedDictMembersForClass(
     if (allowNarrowed && classType.priv.typedDictNarrowedEntries) {
         classType.priv.typedDictNarrowedEntries.forEach((value, key) => {
             const tdEntry = { ...value };
-            tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, typeVarContext);
+            tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, constraints);
             entries.set(key, tdEntry);
         });
     }
@@ -862,8 +862,8 @@ export function getTypedDictDictEquivalent(
                 dictValueType,
                 entry.valueType,
                 /* diag */ undefined,
-                /* destTypeVarContext */ undefined,
-                /* srcTypeVarContext */ undefined,
+                /* destConstraints */ undefined,
+                /* srcConstraints */ undefined,
                 AssignTypeFlags.EnforceInvariance,
                 recursionCount + 1
             )
@@ -977,7 +977,7 @@ function getTypedDictMembersForClassRecursive(
         }
     });
 
-    const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
+    const constraints = buildConstraintsFromSpecializedClass(classType);
 
     // Add any new typed dict entries from this class.
     ClassType.getSymbolTable(classType).forEach((symbol, name) => {
@@ -987,7 +987,7 @@ function getTypedDictMembersForClassRecursive(
 
             if (lastDecl && lastDecl.type === DeclarationType.Variable) {
                 let valueType = evaluator.getEffectiveTypeOfSymbol(symbol);
-                valueType = applySolvedTypeVars(valueType, typeVarContext);
+                valueType = applySolvedTypeVars(valueType, constraints);
 
                 const allowRequired = !ClassType.isTypedDictMarkedClosed(classType) || name !== '__extra_items__';
                 let isRequired = !ClassType.isCanOmitDictValues(classType);
@@ -1052,7 +1052,7 @@ export function assignTypedDictToTypedDict(
     destType: ClassType,
     srcType: ClassType,
     diag: DiagnosticAddendum | undefined,
-    typeVarContext: TypeVarContext | undefined,
+    constraints: ConstraintTracker | undefined,
     flags: AssignTypeFlags,
     recursionCount = 0
 ) {
@@ -1086,8 +1086,8 @@ export function assignTypedDictToTypedDict(
                             destEntry.valueType,
                             extraSrcEntries.valueType,
                             subDiag?.createAddendum(),
-                            typeVarContext,
-                            /* srcTypeVarContext */ undefined,
+                            constraints,
+                            /* srcConstraints */ undefined,
                             flags,
                             recursionCount
                         )
@@ -1128,8 +1128,8 @@ export function assignTypedDictToTypedDict(
                     destEntry.valueType,
                     srcEntry.valueType,
                     subDiag?.createAddendum(),
-                    typeVarContext,
-                    /* srcTypeVarContext */ undefined,
+                    constraints,
+                    /* srcConstraints */ undefined,
                     destEntry.isReadOnly ? flags : flags | AssignTypeFlags.EnforceInvariance,
                     recursionCount
                 )
@@ -1184,8 +1184,8 @@ export function assignTypedDictToTypedDict(
                         destEntries.extraItems.valueType,
                         srcEntry.valueType,
                         subDiag?.createAddendum(),
-                        typeVarContext,
-                        /* srcTypeVarContext */ undefined,
+                        constraints,
+                        /* srcConstraints */ undefined,
                         destEntries.extraItems.isReadOnly ? flags : flags | AssignTypeFlags.EnforceInvariance,
                         recursionCount
                     )
@@ -1215,8 +1215,8 @@ export function assignTypedDictToTypedDict(
                 extraDestEntries.valueType,
                 extraSrcEntries.valueType,
                 subDiag?.createAddendum(),
-                typeVarContext,
-                /* srcTypeVarContext */ undefined,
+                constraints,
+                /* srcConstraints */ undefined,
                 extraDestEntries.isReadOnly ? flags : flags | AssignTypeFlags.EnforceInvariance,
                 recursionCount
             )
@@ -1262,11 +1262,11 @@ export function assignToTypedDict(
     let isMatch = true;
     const narrowedEntries = new Map<string, TypedDictEntry>();
 
-    let typeVarContext: TypeVarContext | undefined;
+    let constraints: ConstraintTracker | undefined;
     let genericClassType = classType;
 
     if (classType.shared.typeParams.length > 0) {
-        typeVarContext = new TypeVarContext();
+        constraints = new ConstraintTracker();
 
         // Create a generic (nonspecialized version) of the class.
         if (classType.priv.typeArgs) {
@@ -1292,8 +1292,8 @@ export function assignToTypedDict(
                             tdEntries.extraItems.valueType,
                             valueTypes[index].type,
                             subDiag?.createAddendum(),
-                            typeVarContext,
-                            /* srcTypeVarContext */ undefined,
+                            constraints,
+                            /* srcConstraints */ undefined,
                             AssignTypeFlags.RetainLiteralsForTypeVar
                         )
                     ) {
@@ -1332,8 +1332,8 @@ export function assignToTypedDict(
                         symbolEntry.valueType,
                         valueTypes[index].type,
                         subDiag?.createAddendum(),
-                        typeVarContext,
-                        /* srcTypeVarContext */ undefined,
+                        constraints,
+                        /* srcConstraints */ undefined,
                         AssignTypeFlags.RetainLiteralsForTypeVar
                     )
                 ) {
@@ -1387,8 +1387,8 @@ export function assignToTypedDict(
         return undefined;
     }
 
-    const specializedClassType = typeVarContext
-        ? (applySolvedTypeVars(genericClassType, typeVarContext) as ClassType)
+    const specializedClassType = constraints
+        ? (applySolvedTypeVars(genericClassType, constraints) as ClassType)
         : classType;
 
     return narrowedEntries.size === 0

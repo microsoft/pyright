@@ -23,6 +23,7 @@ import {
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { getFileInfo } from './analyzerNodeInfo';
 import { addConstraintsForExpectedType } from './constraintSolver';
+import { ConstraintTracker } from './constraintTracker';
 import { Declaration, DeclarationType } from './declaration';
 import { transformTypeForEnumMember } from './enums';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -95,7 +96,6 @@ import {
     specializeWithUnknownTypeArgs,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 
 export interface TypeNarrowingResult {
     type: Type;
@@ -1447,8 +1447,8 @@ function narrowTypeForIsInstanceInternal(
                                 convertToInstance(concreteVarType),
                                 convertToInstance(concreteFilterType),
                                 /* diag */ undefined,
-                                /* destTypeVarContext */ undefined,
-                                /* srcTypeVarContext */ undefined,
+                                /* destConstraints */ undefined,
+                                /* srcConstraints */ undefined,
                                 AssignTypeFlags.AllowIsinstanceSpecialForms
                             )
                         ) {
@@ -1465,7 +1465,7 @@ function narrowTypeForIsInstanceInternal(
                                         !filterType.priv.isTypeArgExplicit &&
                                         !ClassType.isSameGenericClass(concreteVarType, filterType)
                                     ) {
-                                        const typeVarContext = new TypeVarContext();
+                                        const constraints = new ConstraintTracker();
                                         const unspecializedFilterType = ClassType.specialize(
                                             filterType,
                                             /* typeArg */ undefined
@@ -1476,14 +1476,14 @@ function narrowTypeForIsInstanceInternal(
                                                 evaluator,
                                                 convertToInstance(unspecializedFilterType),
                                                 convertToInstance(concreteVarType),
-                                                typeVarContext,
+                                                constraints,
                                                 /* liveTypeVarScopes */ undefined,
                                                 errorNode.start
                                             )
                                         ) {
                                             specializedFilterType = applySolvedTypeVars(
                                                 unspecializedFilterType,
-                                                typeVarContext,
+                                                constraints,
                                                 {
                                                     replaceUnsolved: {
                                                         scopeIds: getTypeVarScopeIds(filterType),
@@ -1601,8 +1601,8 @@ function narrowTypeForIsInstanceInternal(
                             concreteVarType,
                             filterType,
                             /* diag */ undefined,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
+                            /* destConstraints */ undefined,
+                            /* srcConstraints */ undefined,
                             AssignTypeFlags.AllowIsinstanceSpecialForms
                         )
                     ) {

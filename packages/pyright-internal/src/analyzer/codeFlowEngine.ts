@@ -1767,7 +1767,7 @@ export function getCodeFlowEngine(
                                 node,
                                 node.d.args.map((arg) => convertNodeToArg(arg)),
                                 { type: callSubtype, isIncomplete: callTypeResult.isIncomplete },
-                                /* typeVarContext */ undefined,
+                                /* constraints */ undefined,
                                 /* skipUnknownArgCheck */ false,
                                 /* inferenceContext */ undefined
                             );

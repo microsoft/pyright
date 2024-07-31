@@ -99,7 +99,8 @@ import {
     isCodeFlowSupportedForReference,
     wildcardImportReferenceKey,
 } from './codeFlowTypes';
-import { addConstraintsForExpectedType, assignTypeToTypeVar, updateTypeVarType } from './constraintSolver';
+import { addConstraintsForExpectedType, assignTypeVar, updateTypeVarType } from './constraintSolver';
+import { ConstraintSet, ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod, validateConstructorArgs } from './constructors';
 import { applyDataClassClassBehaviorOverrides, synthesizeDataClassMethods } from './dataClasses';
 import {
@@ -163,6 +164,16 @@ import { getLastTypedDeclarationForSymbol, isEffectivelyClassVar } from './symbo
 import { assignTupleTypeArgs, getSlicedTupleType } from './tuples';
 import { SpeculativeModeOptions, SpeculativeTypeTracker } from './typeCacheUtils';
 import {
+    assignToTypedDict,
+    assignTypedDictToTypedDict,
+    createTypedDictType,
+    getTypeOfIndexedTypedDict,
+    getTypedDictDictEquivalent,
+    getTypedDictMappingEquivalent,
+    getTypedDictMembersForClass,
+    synthesizeTypedDictClassMethods,
+} from './typedDicts';
+import {
     AbstractSymbol,
     Arg,
     ArgResult,
@@ -194,6 +205,63 @@ import {
 } from './typeEvaluatorTypes';
 import * as TypePrinter from './typePrinter';
 import {
+    AnyType,
+    ClassType,
+    ClassTypeFlags,
+    DataClassBehaviors,
+    EnumLiteral,
+    FunctionParam,
+    FunctionParamFlags,
+    FunctionType,
+    FunctionTypeFlags,
+    InheritanceChain,
+    LiteralValue,
+    ModuleType,
+    NeverType,
+    OverloadedFunctionType,
+    ParamSpecType,
+    TupleTypeArg,
+    Type,
+    TypeBase,
+    TypeCategory,
+    TypeCondition,
+    TypeVarKind,
+    TypeVarScopeId,
+    TypeVarScopeType,
+    TypeVarTupleType,
+    TypeVarType,
+    TypedDictEntries,
+    UnboundType,
+    UnionType,
+    UnknownType,
+    Variance,
+    combineTypes,
+    findSubtype,
+    isAny,
+    isAnyOrUnknown,
+    isClass,
+    isClassInstance,
+    isFunction,
+    isInstantiableClass,
+    isModule,
+    isNever,
+    isOverloadedFunction,
+    isParamSpec,
+    isPositionOnlySeparator,
+    isTypeSame,
+    isTypeVar,
+    isTypeVarTuple,
+    isUnbound,
+    isUnion,
+    isUnknown,
+    isUnpacked,
+    isUnpackedClass,
+    isUnpackedTypeVarTuple,
+    maxTypeRecursionCount,
+    removeFromUnion,
+    removeUnbound,
+} from './types';
+import {
     AssignTypeFlags,
     ClassMember,
     InferenceContext,
@@ -204,7 +272,7 @@ import {
     applySolvedTypeVars,
     applySourceContextTypeVars,
     areTypesSame,
-    buildTypeVarContextFromSpecializedClass,
+    buildConstraintsFromSpecializedClass,
     combineSameSizedTuples,
     combineVariances,
     computeMroLinearization,
@@ -277,74 +345,6 @@ import {
     transformPossibleRecursiveTypeAlias,
     validateTypeVarDefault,
 } from './typeUtils';
-import { TypeVarContext, TypeVarSolutionSet } from './typeVarContext';
-import {
-    assignToTypedDict,
-    assignTypedDictToTypedDict,
-    createTypedDictType,
-    getTypeOfIndexedTypedDict,
-    getTypedDictDictEquivalent,
-    getTypedDictMappingEquivalent,
-    getTypedDictMembersForClass,
-    synthesizeTypedDictClassMethods,
-} from './typedDicts';
-import {
-    AnyType,
-    ClassType,
-    ClassTypeFlags,
-    DataClassBehaviors,
-    EnumLiteral,
-    FunctionParam,
-    FunctionParamFlags,
-    FunctionType,
-    FunctionTypeFlags,
-    InheritanceChain,
-    LiteralValue,
-    ModuleType,
-    NeverType,
-    OverloadedFunctionType,
-    ParamSpecType,
-    TupleTypeArg,
-    Type,
-    TypeBase,
-    TypeCategory,
-    TypeCondition,
-    TypeVarKind,
-    TypeVarScopeId,
-    TypeVarScopeType,
-    TypeVarTupleType,
-    TypeVarType,
-    TypedDictEntries,
-    UnboundType,
-    UnionType,
-    UnknownType,
-    Variance,
-    combineTypes,
-    findSubtype,
-    isAny,
-    isAnyOrUnknown,
-    isClass,
-    isClassInstance,
-    isFunction,
-    isInstantiableClass,
-    isModule,
-    isNever,
-    isOverloadedFunction,
-    isParamSpec,
-    isPositionOnlySeparator,
-    isTypeSame,
-    isTypeVar,
-    isTypeVarTuple,
-    isUnbound,
-    isUnion,
-    isUnknown,
-    isUnpacked,
-    isUnpackedClass,
-    isUnpackedTypeVarTuple,
-    maxTypeRecursionCount,
-    removeFromUnion,
-    removeUnbound,
-} from './types';
 
 interface GetTypeArgsOptions {
     isAnnotatedClass?: boolean;
@@ -411,7 +411,7 @@ interface ParamAssignmentInfo {
 interface MatchedOverloadInfo {
     overload: FunctionType;
     matchResults: MatchArgsToParamsResult;
-    typeVarContext: TypeVarContext;
+    constraints: ConstraintTracker;
     argResults: ArgResult[];
     returnType: Type;
 }
@@ -480,7 +480,7 @@ interface ReturnTypeInferenceContext {
 
 interface ParamSpecArgResult {
     argumentErrors: boolean;
-    typeVarContexts: (TypeVarContext | undefined)[];
+    constraintTrackers: (ConstraintTracker | undefined)[];
 }
 
 // How many levels deep should we attempt to infer return
@@ -1115,8 +1115,8 @@ export function createTypeEvaluator(
                         inferenceContext.expectedType,
                         typeResult.type,
                         diag,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
+                        /* destConstraints */ undefined,
+                        /* srcConstraints */ undefined,
                         AssignTypeFlags.Default
                     )
                 ) {
@@ -2369,7 +2369,7 @@ export function createTypeEvaluator(
                     exprNode,
                     argList,
                     { type },
-                    /* typeVarContext */ undefined,
+                    /* constraints */ undefined,
                     /* skipUnknownArgCheck */ true,
                     /* inferenceContext */ undefined
                 );
@@ -2679,10 +2679,10 @@ export function createTypeEvaluator(
             const diag = errorNode ? new DiagnosticAddendum() : undefined;
 
             if (isClassInstance(subtype)) {
-                const typeVarContext = new TypeVarContext();
+                const constraints = new ConstraintTracker();
 
-                if (assignType(awaitableProtocolObj, subtype, diag, typeVarContext)) {
-                    const specializedType = applySolvedTypeVars(awaitableProtocolObj, typeVarContext);
+                if (assignType(awaitableProtocolObj, subtype, diag, constraints)) {
+                    const specializedType = applySolvedTypeVars(awaitableProtocolObj, constraints);
 
                     if (
                         isClass(specializedType) &&
@@ -4953,7 +4953,7 @@ export function createTypeEvaluator(
         ) {
             let reportMissingTypeArgs = false;
             const defaultTypeArgs: Type[] = [];
-            const typeVarContext = new TypeVarContext();
+            const constraints = new ConstraintTracker();
 
             aliasInfo.typeParams.forEach((param) => {
                 if (!param.shared.isDefaultExplicit) {
@@ -4962,7 +4962,7 @@ export function createTypeEvaluator(
 
                 let defaultType: Type;
                 if (param.shared.isDefaultExplicit || isParamSpec(param)) {
-                    defaultType = applySolvedTypeVars(param, typeVarContext, {
+                    defaultType = applySolvedTypeVars(param, constraints, {
                         replaceUnsolved: {
                             scopeIds: [aliasInfo.typeVarScopeId],
                             tupleClassType: getTupleClassType(),
@@ -4978,7 +4978,7 @@ export function createTypeEvaluator(
                 }
 
                 defaultTypeArgs.push(defaultType);
-                setTypeVarType(typeVarContext, param, defaultType);
+                setTypeVarType(constraints, param, defaultType);
             });
 
             if (reportMissingTypeArgs) {
@@ -4992,7 +4992,7 @@ export function createTypeEvaluator(
             }
 
             type = TypeBase.cloneForTypeAlias(
-                applySolvedTypeVars(type, typeVarContext, {
+                applySolvedTypeVars(type, constraints, {
                     replaceUnsolved: {
                         scopeIds: [aliasInfo.typeVarScopeId],
                         tupleClassType: getTupleClassType(),
@@ -6139,15 +6139,15 @@ export function createTypeEvaluator(
             }
 
             if (accessMethodClass) {
-                const typeVarContext = new TypeVarContext();
+                const constraints = new ConstraintTracker();
                 accessMethodClass = selfSpecializeClass(accessMethodClass);
                 assignType(
                     ClassType.cloneAsInstance(accessMethodClass),
                     ClassType.cloneAsInstance(memberInfo.classType),
                     /* diag */ undefined,
-                    typeVarContext
+                    constraints
                 );
-                accessMethodClass = applySolvedTypeVars(accessMethodClass, typeVarContext) as ClassType;
+                accessMethodClass = applySolvedTypeVars(accessMethodClass, constraints) as ClassType;
 
                 const specializedType = partiallySpecializeType(
                     methodType,
@@ -6238,7 +6238,7 @@ export function createTypeEvaluator(
                     errorNode,
                     argList,
                     { type: methodType },
-                    /* typeVarContext */ undefined,
+                    /* constraints */ undefined,
                     /* skipUnknownArgCheck */ true,
                     /* inferenceContext */ undefined
                 );
@@ -6486,7 +6486,7 @@ export function createTypeEvaluator(
             errorNode,
             argList,
             { type: accessMemberType },
-            /* typeVarContext */ undefined,
+            /* constraints */ undefined,
             /* skipUnknownArgCheck */ true,
             /* inferenceContext */ undefined
         );
@@ -6828,7 +6828,7 @@ export function createTypeEvaluator(
             return { node, type: typeArgs[0].type };
         }
 
-        const typeVarContext = new TypeVarContext();
+        const constraints = new ConstraintTracker();
         const diag = new DiagnosticAddendum();
 
         typeParams.forEach((param, index) => {
@@ -6854,21 +6854,21 @@ export function createTypeEvaluator(
                         FunctionType.addPositionOnlyParamSeparator(functionType);
                     }
 
-                    assignTypeToTypeVar(
+                    assignTypeVar(
                         evaluatorInterface,
                         param,
                         functionType,
                         diag,
-                        typeVarContext,
+                        constraints,
                         AssignTypeFlags.RetainLiteralsForTypeVar
                     );
                 } else if (isParamSpec(typeArgType)) {
-                    assignTypeToTypeVar(
+                    assignTypeVar(
                         evaluatorInterface,
                         param,
                         convertToInstance(typeArgType),
                         diag,
-                        typeVarContext,
+                        constraints,
                         AssignTypeFlags.RetainLiteralsForTypeVar
                     );
                 } else if (isInstantiableClass(typeArgType) && ClassType.isBuiltIn(typeArgType, 'Concatenate')) {
@@ -6900,12 +6900,12 @@ export function createTypeEvaluator(
                         });
                     }
 
-                    assignTypeToTypeVar(
+                    assignTypeVar(
                         evaluatorInterface,
                         param,
                         functionType,
                         diag,
-                        typeVarContext,
+                        constraints,
                         AssignTypeFlags.RetainLiteralsForTypeVar
                     );
                 } else if (isEllipsisType(typeArgType)) {
@@ -6914,7 +6914,7 @@ export function createTypeEvaluator(
                         FunctionTypeFlags.ParamSpecValue | FunctionTypeFlags.GradualCallableForm
                     );
                     FunctionType.addDefaultParams(functionType);
-                    assignTypeToTypeVar(evaluatorInterface, param, functionType, diag, typeVarContext);
+                    assignTypeVar(evaluatorInterface, param, functionType, diag, constraints);
                 } else {
                     addDiagnostic(
                         DiagnosticRule.reportInvalidTypeForm,
@@ -6935,7 +6935,7 @@ export function createTypeEvaluator(
                 if (index < typeArgs.length) {
                     typeArgType = convertToInstance(typeArgs[index].type);
                 } else if (param.shared.isDefaultExplicit) {
-                    typeArgType = applySolvedTypeVars(param, typeVarContext, {
+                    typeArgType = applySolvedTypeVars(param, constraints, {
                         replaceUnsolved: {
                             scopeIds: [aliasInfo.typeVarScopeId],
                             tupleClassType: getTupleClassType(),
@@ -6970,12 +6970,12 @@ export function createTypeEvaluator(
                     typeArgType = UnknownType.create();
                 }
 
-                assignTypeToTypeVar(
+                assignTypeVar(
                     evaluatorInterface,
                     param,
                     typeArgType,
                     diag,
-                    typeVarContext,
+                    constraints,
                     AssignTypeFlags.RetainLiteralsForTypeVar
                 );
             }
@@ -6990,26 +6990,26 @@ export function createTypeEvaluator(
             );
         }
 
-        const mainSolutionSet = typeVarContext.getMainSolutionSet();
+        const mainSet = constraints.getMainConstraintSet();
         const aliasTypeArgs: Type[] = [];
 
         aliasInfo.typeParams?.forEach((typeParam) => {
             let typeVarType: Type | undefined;
 
             if (isParamSpec(typeParam)) {
-                const paramSpecType = mainSolutionSet.getTypeVarType(typeParam);
+                const paramSpecType = mainSet.getTypeVarType(typeParam);
                 typeVarType = paramSpecType ? convertParamSpecValueToType(paramSpecType) : UnknownType.create();
 
                 if (!typeVarType) {
                     typeVarType = ParamSpecType.getUnknown();
-                    mainSolutionSet.setTypeVarType(typeParam, convertTypeToParamSpecValue(typeVarType));
+                    mainSet.setTypeVarType(typeParam, convertTypeToParamSpecValue(typeVarType));
                 }
             } else {
-                typeVarType = mainSolutionSet.getTypeVarType(typeParam);
+                typeVarType = mainSet.getTypeVarType(typeParam);
 
                 if (!typeVarType) {
                     typeVarType = UnknownType.create();
-                    mainSolutionSet.setTypeVarType(typeParam, typeVarType);
+                    mainSet.setTypeVarType(typeParam, typeVarType);
                 }
             }
 
@@ -7017,7 +7017,7 @@ export function createTypeEvaluator(
         });
 
         const type = TypeBase.cloneForTypeAlias(
-            applySolvedTypeVars(baseType, typeVarContext),
+            applySolvedTypeVars(baseType, constraints),
             aliasInfo.name,
             aliasInfo.fullName,
             aliasInfo.moduleName,
@@ -7586,7 +7586,7 @@ export function createTypeEvaluator(
             node,
             argList,
             { type: itemMethodType },
-            /* typeVarContext */ undefined,
+            /* constraints */ undefined,
             /* skipUnknownArgCheck */ true,
             /* inferenceContext */ undefined
         );
@@ -7880,13 +7880,13 @@ export function createTypeEvaluator(
                 }
             }
         } else {
-            const tupleTypeVarContext = new TypeVarContext();
+            const tupleConstraints = new ConstraintTracker();
             if (
                 !addConstraintsForExpectedType(
                     evaluatorInterface,
                     ClassType.cloneAsInstance(tupleClass),
                     inferenceContext.expectedType,
-                    tupleTypeVarContext,
+                    tupleConstraints,
                     ParseTreeUtils.getTypeVarScopesForNode(node),
                     node.start
                 )
@@ -7894,7 +7894,7 @@ export function createTypeEvaluator(
                 return undefined;
             }
 
-            const specializedTuple = applySolvedTypeVars(tupleClass, tupleTypeVarContext) as ClassType;
+            const specializedTuple = applySolvedTypeVars(tupleClass, tupleConstraints) as ClassType;
             if (!specializedTuple.priv.typeArgs || specializedTuple.priv.typeArgs.length !== 1) {
                 return undefined;
             }
@@ -8079,7 +8079,7 @@ export function createTypeEvaluator(
                     node,
                     argList,
                     baseTypeResult,
-                    /* typeVarContext */ undefined,
+                    /* constraints */ undefined,
                     /* skipUnknownArgCheck */ false,
                     inferenceContext
                 );
@@ -8709,7 +8709,7 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         expandedArgTypes: (Type | undefined)[][],
         argParamMatches: MatchArgsToParamsResult[],
-        typeVarContext: TypeVarContext | undefined,
+        constraints: ConstraintTracker | undefined,
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined
     ): CallResult {
@@ -8744,9 +8744,9 @@ export function createTypeEvaluator(
                     });
                 }
 
-                // Clone the typeVarContext so we don't modify the original.
-                const effectiveTypeVarContext = typeVarContext?.clone() ?? new TypeVarContext();
-                effectiveTypeVarContext.unlock();
+                // Clone the constraints so we don't modify the original.
+                const effectiveConstraints = constraints?.clone() ?? new ConstraintTracker();
+                effectiveConstraints.unlock();
 
                 // Use speculative mode so we don't output any diagnostics or
                 // record any final types in the type cache.
@@ -8754,7 +8754,7 @@ export function createTypeEvaluator(
                     return validateArgTypesWithContext(
                         errorNode,
                         matchResults,
-                        effectiveTypeVarContext,
+                        effectiveConstraints,
                         /* skipUnknownArgCheck */ true,
                         inferenceContext
                     );
@@ -8771,7 +8771,7 @@ export function createTypeEvaluator(
                     const matchedOverloadInfo: MatchedOverloadInfo = {
                         overload: matchedOverload,
                         matchResults,
-                        typeVarContext: effectiveTypeVarContext,
+                        constraints: effectiveConstraints,
                         returnType: callResult.returnType,
                         argResults: callResult.argResults ?? [],
                     };
@@ -8871,18 +8871,18 @@ export function createTypeEvaluator(
         // resulting type var context back into the caller's type var context.
         // Use the type var context from the last matched overload because it
         // includes the type var solutions for all earlier matched overloads.
-        if (typeVarContext && isDefinitiveMatchFound) {
-            typeVarContext.copyFromClone(matchedOverloads[matchedOverloads.length - 1].typeVarContext);
+        if (constraints && isDefinitiveMatchFound) {
+            constraints.copyFromClone(matchedOverloads[matchedOverloads.length - 1].constraints);
         }
 
         // And run through the first expanded argument list one more time to
         // populate the type cache.
-        const finalTypeVarContext = typeVarContext ?? matchedOverloads[0].typeVarContext;
-        finalTypeVarContext.unlock();
+        const finalConstraints = constraints ?? matchedOverloads[0].constraints;
+        finalConstraints.unlock();
         const finalCallResult = validateArgTypesWithContext(
             errorNode,
             matchedOverloads[0].matchResults,
-            finalTypeVarContext,
+            finalConstraints,
             skipUnknownArgCheck,
             inferenceContext
         );
@@ -9001,7 +9001,7 @@ export function createTypeEvaluator(
                     const callResult = validateArgTypes(
                         errorNode,
                         match,
-                        new TypeVarContext(),
+                        new ConstraintTracker(),
                         /* skipUnknownArgCheck */ true
                     );
 
@@ -9030,7 +9030,7 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         argList: Arg[],
         typeResult: TypeResult<OverloadedFunctionType>,
-        typeVarContext: TypeVarContext | undefined,
+        constraints: ConstraintTracker | undefined,
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined
     ): CallResult {
@@ -9134,13 +9134,13 @@ export function createTypeEvaluator(
                 }
             }
 
-            const effectiveTypeVarContext = typeVarContext ?? new TypeVarContext();
-            effectiveTypeVarContext.unlock();
+            const effectiveConstraints = constraints ?? new ConstraintTracker();
+            effectiveConstraints.unlock();
 
             return validateArgTypesWithContext(
                 errorNode,
                 bestMatch,
-                effectiveTypeVarContext,
+                effectiveConstraints,
                 skipUnknownArgCheck,
                 inferenceContext
             );
@@ -9163,7 +9163,7 @@ export function createTypeEvaluator(
                 errorNode,
                 expandedArgTypes,
                 filteredMatchResults,
-                typeVarContext,
+                constraints,
                 skipUnknownArgCheck,
                 inferenceContext
             );
@@ -9290,7 +9290,7 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         argList: Arg[],
         callTypeResult: TypeResult,
-        typeVarContext: TypeVarContext | undefined,
+        constraints: ConstraintTracker | undefined,
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined,
         recursionCount = 0
@@ -9331,7 +9331,7 @@ export function createTypeEvaluator(
                             expandedSubtype,
                             unexpandedSubtype,
                             !!callTypeResult.isIncomplete,
-                            typeVarContext,
+                            constraints,
                             skipUnknownArgCheck,
                             inferenceContext,
                             recursionCount
@@ -9382,7 +9382,7 @@ export function createTypeEvaluator(
         expandedCallType: Type,
         unexpandedCallType: Type,
         isCallTypeIncomplete: boolean,
-        typeVarContext: TypeVarContext | undefined,
+        constraints: ConstraintTracker | undefined,
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined,
         recursionCount: number
@@ -9411,7 +9411,7 @@ export function createTypeEvaluator(
                     argList,
                     expandedCallType,
                     isCallTypeIncomplete,
-                    typeVarContext,
+                    constraints,
                     skipUnknownArgCheck,
                     inferenceContext
                 );
@@ -9423,7 +9423,7 @@ export function createTypeEvaluator(
                     argList,
                     expandedCallType,
                     isCallTypeIncomplete,
-                    typeVarContext,
+                    constraints,
                     skipUnknownArgCheck,
                     inferenceContext
                 );
@@ -9452,7 +9452,7 @@ export function createTypeEvaluator(
                     argList,
                     expandedCallType,
                     unexpandedCallType,
-                    typeVarContext,
+                    constraints,
                     skipUnknownArgCheck,
                     inferenceContext,
                     recursionCount
@@ -9468,7 +9468,7 @@ export function createTypeEvaluator(
                     errorNode,
                     argList,
                     { type: transformPossibleRecursiveTypeAlias(expandedCallType), isIncomplete: isCallTypeIncomplete },
-                    typeVarContext,
+                    constraints,
                     skipUnknownArgCheck,
                     inferenceContext,
                     recursionCount
@@ -9490,7 +9490,7 @@ export function createTypeEvaluator(
         argList: Arg[],
         type: FunctionType,
         isCallTypeIncomplete: boolean,
-        typeVarContext: TypeVarContext | undefined,
+        constraints: ConstraintTracker | undefined,
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined
     ): CallResult {
@@ -9514,7 +9514,7 @@ export function createTypeEvaluator(
                 returnType: createNamedTupleType(evaluatorInterface, errorNode, argList, /* includesTypes */ false),
             };
 
-            validateArgs(errorNode, argList, { type: type }, typeVarContext, skipUnknownArgCheck, inferenceContext);
+            validateArgs(errorNode, argList, { type: type }, constraints, skipUnknownArgCheck, inferenceContext);
 
             return result;
         }
@@ -9528,7 +9528,7 @@ export function createTypeEvaluator(
             errorNode,
             argList,
             { type, isIncomplete: isCallTypeIncomplete },
-            typeVarContext,
+            constraints,
             skipUnknownArgCheck,
             inferenceContext
         );
@@ -9666,7 +9666,7 @@ export function createTypeEvaluator(
         argList: Arg[],
         expandedCallType: OverloadedFunctionType,
         isCallTypeIncomplete: boolean,
-        typeVarContext: TypeVarContext | undefined,
+        constraints: ConstraintTracker | undefined,
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined
     ): CallResult {
@@ -9679,7 +9679,7 @@ export function createTypeEvaluator(
             errorNode,
             argList,
             { type: expandedCallType, isIncomplete: isCallTypeIncomplete },
-            typeVarContext,
+            constraints,
             skipUnknownArgCheck,
             inferenceContext
         );
@@ -9842,7 +9842,7 @@ export function createTypeEvaluator(
                         errorNode,
                         argList,
                         { type: initTypeResult.type },
-                        /* typeVarContext */ undefined,
+                        /* constraints */ undefined,
                         skipUnknownArgCheck,
                         /* inferenceContext */ undefined
                     );
@@ -10025,7 +10025,7 @@ export function createTypeEvaluator(
         argList: Arg[],
         expandedCallType: ClassType,
         unexpandedCallType: Type,
-        typeVarContext: TypeVarContext | undefined,
+        constraints: ConstraintTracker | undefined,
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined,
         recursionCount: number
@@ -10059,7 +10059,7 @@ export function createTypeEvaluator(
             errorNode,
             argList,
             { type: callMethodType },
-            typeVarContext,
+            constraints,
             skipUnknownArgCheck,
             inferenceContext,
             recursionCount
@@ -10776,7 +10776,7 @@ export function createTypeEvaluator(
                             strObjType &&
                             isClassInstance(strObjType)
                         ) {
-                            const mappingTypeVarContext = new TypeVarContext();
+                            const mappingConstraints = new ConstraintTracker();
                             let isValidMappingType = false;
 
                             // If this was a TypeVar (e.g. for pseudo-generic classes),
@@ -10788,12 +10788,12 @@ export function createTypeEvaluator(
                                     ClassType.cloneAsInstance(supportsKeysAndGetItemClass),
                                     argType,
                                     /* diag */ undefined,
-                                    mappingTypeVarContext
+                                    mappingConstraints
                                 )
                             ) {
                                 const specializedMapping = applySolvedTypeVars(
                                     supportsKeysAndGetItemClass,
-                                    mappingTypeVarContext
+                                    mappingConstraints
                                 ) as ClassType;
                                 const typeArgs = specializedMapping.priv.typeArgs;
                                 if (typeArgs && typeArgs.length >= 2) {
@@ -11187,7 +11187,7 @@ export function createTypeEvaluator(
     function validateArgTypesWithContext(
         errorNode: ExpressionNode,
         matchResults: MatchArgsToParamsResult,
-        typeVarContext: TypeVarContext,
+        constraints: ConstraintTracker,
         skipUnknownArgCheck = false,
         inferenceContext: InferenceContext | undefined
     ): CallResult {
@@ -11203,11 +11203,11 @@ export function createTypeEvaluator(
         }
 
         const tryExpectedType = (expectedSubtype: Type): number => {
-            const clonedTypeVarContext = typeVarContext.clone();
+            const clonedConstraints = constraints.clone();
             const callResult = validateArgTypesWithExpectedType(
                 errorNode,
                 matchResults,
-                clonedTypeVarContext,
+                clonedConstraints,
                 /* skipUnknownArgCheck */ true,
                 expectedSubtype,
                 returnType
@@ -11218,7 +11218,7 @@ export function createTypeEvaluator(
             // no Unknowns in the return type.
             if (!callResult.argumentErrors && callResult.returnType) {
                 const returnType = inferenceContext?.returnTypeOverride
-                    ? applySolvedTypeVars(inferenceContext.returnTypeOverride, clonedTypeVarContext)
+                    ? applySolvedTypeVars(inferenceContext.returnTypeOverride, clonedConstraints)
                     : callResult.returnType;
 
                 if (
@@ -11226,8 +11226,8 @@ export function createTypeEvaluator(
                         expectedSubtype,
                         returnType,
                         /* diag */ undefined,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
+                        /* destConstraints */ undefined,
+                        /* srcConstraints */ undefined,
                         AssignTypeFlags.Default
                     )
                 ) {
@@ -11286,13 +11286,13 @@ export function createTypeEvaluator(
         // If there is no expected type, or the expected type is Any or Unknown,
         // there's nothing left to do here.
         if (!expectedType || isAnyOrUnknown(expectedType) || isNever(expectedType)) {
-            return validateArgTypes(errorNode, matchResults, typeVarContext, skipUnknownArgCheck);
+            return validateArgTypes(errorNode, matchResults, constraints, skipUnknownArgCheck);
         }
 
         return validateArgTypesWithExpectedType(
             errorNode,
             matchResults,
-            typeVarContext,
+            constraints,
             skipUnknownArgCheck,
             expectedType,
             returnType
@@ -11302,7 +11302,7 @@ export function createTypeEvaluator(
     function validateArgTypesWithExpectedType(
         errorNode: ExpressionNode,
         matchResults: MatchArgsToParamsResult,
-        typeVarContext: TypeVarContext,
+        constraints: ConstraintTracker,
         skipUnknownArgCheck = false,
         expectedType: Type,
         returnType: Type
@@ -11313,16 +11313,16 @@ export function createTypeEvaluator(
             assignFlags |= AssignTypeFlags.RetainLiteralsForTypeVar;
         }
 
-        // Prepopulate the typeVarContext based on the specialized expected type.
+        // Prepopulate the constraints based on the specialized expected type.
         // This will allow us to more closely match the expected type if possible.
         if (isClassInstance(returnType) && isClassInstance(expectedType) && !isTypeSame(returnType, expectedType)) {
-            const tempTypeVarContext = new TypeVarContext();
+            const tempConstraints = new ConstraintTracker();
             if (
                 addConstraintsForExpectedType(
                     evaluatorInterface,
                     returnType,
                     expectedType,
-                    tempTypeVarContext,
+                    tempConstraints,
                     liveTypeVarScopes,
                     errorNode.start
                 )
@@ -11331,7 +11331,7 @@ export function createTypeEvaluator(
                     overrideTypeArgs: true,
                 });
 
-                expectedType = applySolvedTypeVars(genericReturnType, tempTypeVarContext, {
+                expectedType = applySolvedTypeVars(genericReturnType, tempConstraints, {
                     replaceUnsolved: {
                         scopeIds: getTypeVarScopeIds(returnType),
                         useUnknown: true,
@@ -11349,18 +11349,18 @@ export function createTypeEvaluator(
             returnType,
             expectedType,
             /* diag */ undefined,
-            typeVarContext,
-            /* srcTypeVarContext */ undefined,
+            constraints,
+            /* srcConstraints */ undefined,
             assignFlags
         );
 
-        return validateArgTypes(errorNode, matchResults, typeVarContext, skipUnknownArgCheck);
+        return validateArgTypes(errorNode, matchResults, constraints, skipUnknownArgCheck);
     }
 
     function validateArgTypes(
         errorNode: ExpressionNode,
         matchResults: MatchArgsToParamsResult,
-        typeVarContext: TypeVarContext,
+        constraints: ConstraintTracker,
         skipUnknownArgCheck: boolean | undefined
     ): CallResult {
         const type = matchResults.overload;
@@ -11405,7 +11405,7 @@ export function createTypeEvaluator(
                 if (index < typeParams.length) {
                     const typeParam = typeParams[index];
                     if (!isTypeSame(typeParam, typeArg, { ignorePseudoGeneric: true })) {
-                        setTypeVarType(typeVarContext, typeParams[index], typeArg);
+                        setTypeVarType(constraints, typeParams[index], typeArg);
                     }
                 }
             });
@@ -11439,7 +11439,7 @@ export function createTypeEvaluator(
                             return;
                         }
 
-                        // Populate the typeVarContext for the argument. If the argument
+                        // Populate the constraints for the argument. If the argument
                         // is an overload function, skip it during the first pass
                         // because the selection of the proper overload may depend
                         // on type arguments supplied by other function arguments.
@@ -11450,7 +11450,7 @@ export function createTypeEvaluator(
                         // type of the TypeVar, such as in the expression "min(1, max(2, 0.5))".
                         const argResult = validateArgType(
                             argParam,
-                            typeVarContext,
+                            constraints,
                             { type, isIncomplete: matchResults.isTypeIncomplete },
                             {
                                 skipUnknownArgCheck,
@@ -11475,7 +11475,7 @@ export function createTypeEvaluator(
 
             // Lock the type var map so it cannot be modified when revalidating
             // the arguments in a second pass.
-            typeVarContext.lock();
+            constraints.lock();
         }
 
         let sawParamSpecArgs = false;
@@ -11487,7 +11487,7 @@ export function createTypeEvaluator(
         matchResults.argParams.forEach((argParam, argParamIndex) => {
             const argResult = validateArgType(
                 argParam,
-                typeVarContext,
+                constraints,
                 { type, isIncomplete: matchResults.isTypeIncomplete },
                 {
                     skipUnknownArgCheck,
@@ -11535,7 +11535,7 @@ export function createTypeEvaluator(
             }
         });
 
-        let paramSpecTypeVarContext: (TypeVarContext | undefined)[] = [];
+        let paramSpecConstraints: (ConstraintTracker | undefined)[] = [];
 
         // Handle the assignment of additional arguments that map to a param spec.
         if (matchResults.paramSpecArgList && matchResults.paramSpecTarget) {
@@ -11543,7 +11543,7 @@ export function createTypeEvaluator(
                 errorNode,
                 matchResults.paramSpecArgList,
                 matchResults.paramSpecTarget,
-                typeVarContext
+                constraints
             );
 
             if (paramSpecArgResult.argumentErrors) {
@@ -11551,7 +11551,7 @@ export function createTypeEvaluator(
                 argumentMatchScore += 1;
             }
 
-            paramSpecTypeVarContext = paramSpecArgResult.typeVarContexts;
+            paramSpecConstraints = paramSpecArgResult.constraintTrackers;
         } else if (paramSpec) {
             if (!sawParamSpecArgs || !sawParamSpecKwargs) {
                 if (!isTypeIncomplete) {
@@ -11582,7 +11582,7 @@ export function createTypeEvaluator(
             eliminateUnsolvedInUnions = false;
         }
 
-        let specializedReturnType = applySolvedTypeVars(returnType, typeVarContext, {
+        let specializedReturnType = applySolvedTypeVars(returnType, constraints, {
             replaceUnsolved: {
                 scopeIds: getTypeVarScopeIds(type),
                 unsolvedExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
@@ -11595,15 +11595,15 @@ export function createTypeEvaluator(
 
         // If the function includes a ParamSpec and the captured signature(s) includes
         // generic types, we may need to apply those solved TypeVars.
-        if (paramSpecTypeVarContext.length > 0) {
-            paramSpecTypeVarContext.forEach((paramSpecTypeVarContext) => {
-                if (paramSpecTypeVarContext) {
-                    specializedReturnType = applySolvedTypeVars(specializedReturnType, paramSpecTypeVarContext);
+        if (paramSpecConstraints.length > 0) {
+            paramSpecConstraints.forEach((paramSpecConstraints) => {
+                if (paramSpecConstraints) {
+                    specializedReturnType = applySolvedTypeVars(specializedReturnType, paramSpecConstraints);
 
                     // It's possible that one or more of the TypeVars or ParamSpecs
-                    // in the typeVarContext refer to TypeVars that were solved in
-                    // the paramSpecTypeVarContext. Apply these solved TypeVars accordingly.
-                    applySourceContextTypeVars(typeVarContext, paramSpecTypeVarContext);
+                    // in the constraints refer to TypeVars that were solved in
+                    // the paramSpecConstraints. Apply these solved TypeVars accordingly.
+                    applySourceContextTypeVars(constraints, paramSpecConstraints);
                 }
             });
         }
@@ -11617,7 +11617,7 @@ export function createTypeEvaluator(
         specializedReturnType = adjustCallableReturnType(type, specializedReturnType, liveTypeVarScopes);
 
         if (specializedInitSelfType) {
-            specializedInitSelfType = applySolvedTypeVars(specializedInitSelfType, typeVarContext);
+            specializedInitSelfType = applySolvedTypeVars(specializedInitSelfType, constraints);
         }
 
         matchResults.argumentMatchScore = argumentMatchScore;
@@ -11709,7 +11709,7 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         argList: Arg[],
         typeResult: TypeResult<FunctionType>,
-        typeVarContext: TypeVarContext | undefined,
+        constraints: ConstraintTracker | undefined,
         skipUnknownArgCheck = false,
         inferenceContext: InferenceContext | undefined
     ): CallResult {
@@ -11734,7 +11734,7 @@ export function createTypeEvaluator(
         return validateArgTypesWithContext(
             errorNode,
             matchResults,
-            typeVarContext ?? new TypeVarContext(),
+            constraints ?? new ConstraintTracker(),
             skipUnknownArgCheck,
             makeInferenceContext(
                 inferenceContext?.expectedType,
@@ -11750,20 +11750,20 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         argList: Arg[],
         paramSpec: ParamSpecType,
-        destTypeVarContext: TypeVarContext
+        destConstraints: ConstraintTracker
     ): ParamSpecArgResult {
-        const solutionSets = destTypeVarContext.getSolutionSets();
+        const sets = destConstraints.getConstraintSets();
 
         // Handle the common case where there is only one signature context.
-        if (solutionSets.length === 1) {
-            return validateArgTypesForParamSpecSignature(errorNode, argList, paramSpec, solutionSets[0]);
+        if (sets.length === 1) {
+            return validateArgTypesForParamSpecSignature(errorNode, argList, paramSpec, sets[0]);
         }
 
-        const filteredSolutionSets: TypeVarSolutionSet[] = [];
-        const typeVarContexts: (TypeVarContext | undefined)[] = [];
+        const filteredSets: ConstraintSet[] = [];
+        const constraintTrackers: (ConstraintTracker | undefined)[] = [];
         const speculativeNode = getSpeculativeNodeForCall(errorNode);
 
-        solutionSets.forEach((context) => {
+        sets.forEach((context) => {
             // Use speculative mode to avoid emitting errors or caching types.
             useSpeculativeMode(speculativeNode, () => {
                 const paramSpecArgResult = validateArgTypesForParamSpecSignature(
@@ -11774,16 +11774,16 @@ export function createTypeEvaluator(
                 );
 
                 if (!paramSpecArgResult.argumentErrors) {
-                    filteredSolutionSets.push(context);
+                    filteredSets.push(context);
                 }
 
-                appendArray(typeVarContexts, paramSpecArgResult.typeVarContexts);
+                appendArray(constraintTrackers, paramSpecArgResult.constraintTrackers);
             });
         });
 
         // Copy back any compatible signature contexts if any were compatible.
-        if (filteredSolutionSets.length > 0) {
-            destTypeVarContext.addSolutionSets(filteredSolutionSets);
+        if (filteredSets.length > 0) {
+            destConstraints.addConstraintSets(filteredSets);
         }
 
         // Evaluate non-speculatively to produce a final result and cache types.
@@ -11791,26 +11791,26 @@ export function createTypeEvaluator(
             errorNode,
             argList,
             paramSpec,
-            filteredSolutionSets.length > 0 ? filteredSolutionSets[0] : solutionSets[0]
+            filteredSets.length > 0 ? filteredSets[0] : sets[0]
         );
 
-        return { argumentErrors: paramSpecArgResult.argumentErrors, typeVarContexts };
+        return { argumentErrors: paramSpecArgResult.argumentErrors, constraintTrackers: constraintTrackers };
     }
 
     function validateArgTypesForParamSpecSignature(
         errorNode: ExpressionNode,
         argList: Arg[],
         paramSpec: ParamSpecType,
-        typeVarContext: TypeVarSolutionSet
+        constraints: ConstraintSet
     ): ParamSpecArgResult {
-        let paramSpecType = typeVarContext.getTypeVarType(paramSpec);
+        let paramSpecType = constraints.getTypeVarType(paramSpec);
         if (!paramSpecType) {
             paramSpecType = convertTypeToParamSpecValue(paramSpec);
         }
 
         const matchResults = matchArgsToParams(errorNode, argList, { type: paramSpecType }, 0);
         const functionType = matchResults.overload;
-        const srcTypeVarContext = new TypeVarContext();
+        const srcConstraints = new ConstraintTracker();
 
         if (matchResults.argumentErrors) {
             // Evaluate types of all args. This will ensure that referenced symbols are
@@ -11821,7 +11821,7 @@ export function createTypeEvaluator(
                 }
             });
 
-            return { argumentErrors: true, typeVarContexts: [srcTypeVarContext] };
+            return { argumentErrors: true, constraintTrackers: [srcConstraints] };
         }
 
         const functionParamSpec = FunctionType.getParamSpecFromArgsKwargs(functionType);
@@ -11872,21 +11872,16 @@ export function createTypeEvaluator(
                 );
             }
 
-            return { argumentErrors, typeVarContexts: [srcTypeVarContext] };
+            return { argumentErrors, constraintTrackers: [srcConstraints] };
         }
 
-        const result = validateArgTypes(
-            errorNode,
-            matchResults,
-            srcTypeVarContext,
-            /* skipUnknownArgCheck */ undefined
-        );
-        return { argumentErrors: !!result.argumentErrors, typeVarContexts: [srcTypeVarContext] };
+        const result = validateArgTypes(errorNode, matchResults, srcConstraints, /* skipUnknownArgCheck */ undefined);
+        return { argumentErrors: !!result.argumentErrors, constraintTrackers: [srcConstraints] };
     }
 
     function validateArgType(
         argParam: ValidateArgTypeParams,
-        typeVarContext: TypeVarContext,
+        constraints: ConstraintTracker,
         typeResult: TypeResult<FunctionType> | undefined,
         options: ValidateArgTypeOptions
     ): ArgResult {
@@ -11912,15 +11907,15 @@ export function createTypeEvaluator(
                 expectedType = argParam.paramType;
 
                 // If the parameter type is a function with a ParamSpec, don't apply
-                // the solved TypeVars if the typeVarContext has more than one signature.
+                // the solved TypeVars if the constraint tracker has more than one signature.
                 // This will expand the ParamSpec into an overload, which will cause problems.
                 const skipApplySolvedTypeVars =
                     isFunction(argParam.paramType) &&
                     FunctionType.getParamSpecFromArgsKwargs(argParam.paramType) &&
-                    typeVarContext.getSolutionSets().length > 1;
+                    constraints.getConstraintSets().length > 1;
 
                 if (!skipApplySolvedTypeVars) {
-                    expectedType = applySolvedTypeVars(expectedType, typeVarContext, {
+                    expectedType = applySolvedTypeVars(expectedType, constraints, {
                         useLowerBoundOnly: !!options.isArgFirstPass,
                     });
                 }
@@ -11958,18 +11953,18 @@ export function createTypeEvaluator(
                 } else if (expectedType && requiresSpecialization(expectedType)) {
                     // Assign the argument type back to the expected type to assign
                     // values to any unification variables.
-                    const typeVarContextClone = typeVarContext.clone();
+                    const clonedConstraints = constraints.clone();
                     if (
                         assignType(
                             expectedType,
                             argType,
                             /* diag */ undefined,
-                            typeVarContextClone,
-                            /* srcTypeVarContext */ undefined,
+                            clonedConstraints,
+                            /* srcConstraints */ undefined,
                             options?.isArgFirstPass ? AssignTypeFlags.ArgAssignmentFirstPass : AssignTypeFlags.Default
                         )
                     ) {
-                        typeVarContext.copyFromClone(typeVarContextClone);
+                        constraints.copyFromClone(clonedConstraints);
                     } else {
                         isCompatible = false;
                     }
@@ -12000,7 +11995,7 @@ export function createTypeEvaluator(
             // If the argument came from a parameter's default argument value,
             // we may need to specialize the type.
             if (argParam.isDefaultArg) {
-                argType = applySolvedTypeVars(argType, typeVarContext);
+                argType = applySolvedTypeVars(argType, constraints);
             }
         }
 
@@ -12057,8 +12052,8 @@ export function createTypeEvaluator(
                 argParam.paramType,
                 argType,
                 diag?.createAddendum(),
-                typeVarContext,
-                /* srcTypeVarContext */ undefined,
+                constraints,
+                /* srcConstraints */ undefined,
                 assignTypeFlags
             )
         ) {
@@ -12375,9 +12370,9 @@ export function createTypeEvaluator(
     function verifyTypeVarDefaultIsCompatible(typeVar: TypeVarType, defaultValueNode: ExpressionNode) {
         assert(typeVar.shared.isDefaultExplicit);
 
-        const typeVarContext = new TypeVarContext();
+        const constraints = new ConstraintTracker();
         const concreteDefaultType = makeTopLevelTypeVarsConcrete(
-            applySolvedTypeVars(typeVar.shared.defaultType, typeVarContext, {
+            applySolvedTypeVars(typeVar.shared.defaultType, constraints, {
                 replaceUnsolved: {
                     scopeIds: getTypeVarScopeIds(typeVar),
                     tupleClassType: getTupleClassType(),
@@ -13066,7 +13061,7 @@ export function createTypeEvaluator(
                         errorNode,
                         functionArgs,
                         { type: magicMethodType },
-                        /* typeVarContext */ undefined,
+                        /* constraints */ undefined,
                         /* skipUnknownArgCheck */ true,
                         inferenceContext
                     );
@@ -13081,7 +13076,7 @@ export function createTypeEvaluator(
                             errorNode,
                             functionArgs,
                             { type: magicMethodType },
-                            /* typeVarContext */ undefined,
+                            /* constraints */ undefined,
                             /* skipUnknownArgCheck */ true,
                             /* inferenceContext */ undefined
                         );
@@ -13293,13 +13288,13 @@ export function createTypeEvaluator(
                 return undefined;
             }
 
-            const dictTypeVarContext = new TypeVarContext();
+            const dictConstraints = new ConstraintTracker();
             if (
                 !addConstraintsForExpectedType(
                     evaluatorInterface,
                     builtInDict,
                     inferenceContext.expectedType,
-                    dictTypeVarContext,
+                    dictConstraints,
                     ParseTreeUtils.getTypeVarScopesForNode(node),
                     node.start
                 )
@@ -13309,7 +13304,7 @@ export function createTypeEvaluator(
 
             const specializedDict = applySolvedTypeVars(
                 ClassType.cloneAsInstantiable(builtInDict),
-                dictTypeVarContext
+                dictConstraints
             ) as ClassType;
             if (!specializedDict.priv.typeArgs || specializedDict.priv.typeArgs.length !== 2) {
                 return undefined;
@@ -13650,7 +13645,7 @@ export function createTypeEvaluator(
                         addUnknown = false;
                     }
                 } else if (supportsKeysAndGetItemClass && isInstantiableClass(supportsKeysAndGetItemClass)) {
-                    const mappingTypeVarContext = new TypeVarContext();
+                    const mappingConstraints = new ConstraintTracker();
 
                     supportsKeysAndGetItemClass = selfSpecializeClass(supportsKeysAndGetItemClass);
 
@@ -13659,14 +13654,14 @@ export function createTypeEvaluator(
                             ClassType.cloneAsInstance(supportsKeysAndGetItemClass),
                             unexpandedType,
                             /* diag */ undefined,
-                            mappingTypeVarContext,
-                            /* srcTypeVarContext */ undefined,
+                            mappingConstraints,
+                            /* srcConstraints */ undefined,
                             AssignTypeFlags.RetainLiteralsForTypeVar
                         )
                     ) {
                         const specializedMapping = applySolvedTypeVars(
                             supportsKeysAndGetItemClass,
-                            mappingTypeVarContext
+                            mappingConstraints
                         ) as ClassType;
                         const typeArgs = specializedMapping.priv.typeArgs;
                         if (typeArgs && typeArgs.length >= 2) {
@@ -13903,13 +13898,13 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        const typeVarContext = new TypeVarContext();
+        const constraints = new ConstraintTracker();
         if (
             !addConstraintsForExpectedType(
                 evaluatorInterface,
                 ClassType.cloneAsInstance(expectedClassType),
                 inferenceContext.expectedType,
-                typeVarContext,
+                constraints,
                 ParseTreeUtils.getTypeVarScopesForNode(node),
                 node.start
             )
@@ -13917,7 +13912,7 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        const specializedListOrSet = applySolvedTypeVars(expectedClassType, typeVarContext) as ClassType;
+        const specializedListOrSet = applySolvedTypeVars(expectedClassType, constraints) as ClassType;
         if (!specializedListOrSet.priv.typeArgs) {
             return undefined;
         }
@@ -14032,12 +14027,12 @@ export function createTypeEvaluator(
             return inferenceContext.expectedType;
         }
 
-        const typeVarContext = new TypeVarContext();
+        const constraints = new ConstraintTracker();
         const expectedType = inferenceContext.expectedType;
         let isCompatible = true;
 
         entryTypes.forEach((entryType) => {
-            if (isCompatible && !assignType(expectedType, entryType, /* diag */ undefined, typeVarContext)) {
+            if (isCompatible && !assignType(expectedType, entryType, /* diag */ undefined, constraints)) {
                 isCompatible = false;
             }
         });
@@ -14054,7 +14049,7 @@ export function createTypeEvaluator(
         }
 
         return mapSubtypes(
-            applySolvedTypeVars(inferenceContext.expectedType, typeVarContext, {
+            applySolvedTypeVars(inferenceContext.expectedType, constraints, {
                 replaceUnsolved: {
                     scopeIds: [],
                     tupleClassType: getTupleClassType(),
@@ -14350,16 +14345,11 @@ export function createTypeEvaluator(
                         // If the expectedReturnType is generic, see if the actual return type
                         // provides types for some or all type variables.
                         if (requiresSpecialization(expectedReturnType)) {
-                            const typeVarContext = new TypeVarContext();
+                            const constraints = new ConstraintTracker();
                             if (
-                                assignType(
-                                    expectedReturnType,
-                                    returnTypeResult.type,
-                                    /* diag */ undefined,
-                                    typeVarContext
-                                )
+                                assignType(expectedReturnType, returnTypeResult.type, /* diag */ undefined, constraints)
                             ) {
-                                functionType = applySolvedTypeVars(functionType, typeVarContext, {
+                                functionType = applySolvedTypeVars(functionType, constraints, {
                                     replaceUnsolved: {
                                         scopeIds: [],
                                         tupleClassType: getTupleClassType(),
@@ -15436,7 +15426,7 @@ export function createTypeEvaluator(
                             },
                         ],
                         { type: supportsTypeMethod },
-                        /* typeVarContext */ undefined,
+                        /* constraints */ undefined,
                         /* skipUnknownArgCheck */ true,
                         /* inferenceContext */ undefined
                     )
@@ -17590,7 +17580,7 @@ export function createTypeEvaluator(
 
                                 validateArgType(
                                     argParam,
-                                    new TypeVarContext(),
+                                    new ConstraintTracker(),
                                     { type: newMethodType },
                                     { skipUnknownArgCheck: true }
                                 );
@@ -17649,7 +17639,7 @@ export function createTypeEvaluator(
                         node.d.name,
                         argList,
                         { type: initSubclassMethodType },
-                        /* typeVarContext */ undefined,
+                        /* constraints */ undefined,
                         /* skipUnknownArgCheck */ false,
                         makeInferenceContext(getNoneType())
                     );
@@ -18320,14 +18310,12 @@ export function createTypeEvaluator(
                             // of the child class.
                             if (requiresSpecialization(inferredParamType) && isClass(baseClassMemberInfo.classType)) {
                                 const scopeIds: TypeVarScopeId[] = getTypeVarScopeIds(baseClassMemberInfo.classType);
-                                const typeVarContext = buildTypeVarContextFromSpecializedClass(
-                                    baseClassMemberInfo.classType
-                                );
+                                const constraints = buildConstraintsFromSpecializedClass(baseClassMemberInfo.classType);
 
                                 scopeIds.push(ParseTreeUtils.getScopeIdForNode(baseClassMethodNode));
 
                                 // Replace any unsolved TypeVars with Unknown (including all function-scoped TypeVars).
-                                inferredParamType = applySolvedTypeVars(inferredParamType, typeVarContext, {
+                                inferredParamType = applySolvedTypeVars(inferredParamType, constraints, {
                                     replaceUnsolved: {
                                         scopeIds,
                                         tupleClassType: getTupleClassType(),
@@ -20311,7 +20299,7 @@ export function createTypeEvaluator(
             }
         }
 
-        const typeVarContext = new TypeVarContext();
+        const constraints = new ConstraintTracker();
 
         fullTypeParams.forEach((typeParam, index) => {
             if (typeArgs && index < typeArgs.length) {
@@ -20323,7 +20311,7 @@ export function createTypeEvaluator(
                         FunctionType.addDefaultParams(functionType);
                         functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
                         typeArgTypes.push(functionType);
-                        setTypeVarType(typeVarContext, typeParam, functionType);
+                        setTypeVarType(constraints, typeParam, functionType);
                         return;
                     }
 
@@ -20345,7 +20333,7 @@ export function createTypeEvaluator(
                         }
 
                         typeArgTypes.push(functionType);
-                        setTypeVarType(typeVarContext, typeParam, functionType);
+                        setTypeVarType(constraints, typeParam, functionType);
                         return;
                     }
 
@@ -20381,18 +20369,18 @@ export function createTypeEvaluator(
 
                 const typeArgType = convertToInstance(typeArgs[index].type);
                 typeArgTypes.push(typeArgType);
-                setTypeVarType(typeVarContext, typeParam, typeArgType);
+                setTypeVarType(constraints, typeParam, typeArgType);
                 return;
             }
 
-            const solvedDefaultType = applySolvedTypeVars(typeParam, typeVarContext, {
+            const solvedDefaultType = applySolvedTypeVars(typeParam, constraints, {
                 replaceUnsolved: {
                     scopeIds: getTypeVarScopeIds(classType),
                     tupleClassType: getTupleClassType(),
                 },
             });
             typeArgTypes.push(solvedDefaultType);
-            setTypeVarType(typeVarContext, typeParam, solvedDefaultType);
+            setTypeVarType(constraints, typeParam, solvedDefaultType);
         });
 
         typeArgTypes = typeArgTypes.map((typeArgType, index) => {
@@ -22547,8 +22535,8 @@ export function createTypeEvaluator(
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
-        destTypeVarContext: TypeVarContext | undefined,
-        srcTypeVarContext: TypeVarContext | undefined,
+        destConstraints: ConstraintTracker | undefined,
+        srcConstraints: ConstraintTracker | undefined,
         flags: AssignTypeFlags,
         recursionCount: number,
         reportErrorsUsingObjType: boolean
@@ -22570,7 +22558,7 @@ export function createTypeEvaluator(
                         destType,
                         srcType,
                         diag,
-                        destTypeVarContext,
+                        destConstraints,
                         flags,
                         recursionCount
                     )
@@ -22595,7 +22583,7 @@ export function createTypeEvaluator(
                         srcType,
                         destType,
                         /* diag */ undefined,
-                        /* typeVarContext */ undefined,
+                        /* constraints */ undefined,
                         flags,
                         recursionCount
                     );
@@ -22666,8 +22654,8 @@ export function createTypeEvaluator(
                     destType,
                     ClassType.cloneAsInstance(srcType),
                     diag?.createAddendum(),
-                    destTypeVarContext,
-                    srcTypeVarContext,
+                    destConstraints,
+                    srcConstraints,
                     flags,
                     recursionCount
                 )
@@ -22702,8 +22690,8 @@ export function createTypeEvaluator(
                         srcType,
                         inheritanceChain,
                         diag?.createAddendum(),
-                        destTypeVarContext,
-                        srcTypeVarContext,
+                        destConstraints,
+                        srcConstraints,
                         flags,
                         recursionCount
                     )
@@ -22811,8 +22799,8 @@ export function createTypeEvaluator(
                             destType,
                             srcType,
                             /* diag */ undefined,
-                            /* typeVarContext */ undefined,
-                            /* selfTypeVarContext */ undefined,
+                            /* constraints */ undefined,
+                            /* selfConstraints */ undefined,
                             recursionCount
                         )
                     ) {
@@ -22841,8 +22829,8 @@ export function createTypeEvaluator(
                             destMemberType,
                             srcMemberType,
                             /* diag */ undefined,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
+                            /* destConstraints */ undefined,
+                            /* srcConstraints */ undefined,
                             flags | AssignTypeFlags.SkipSelfClsParamCheck,
                             recursionCount
                         )
@@ -22924,8 +22912,8 @@ export function createTypeEvaluator(
         srcType: ClassType,
         inheritanceChain: InheritanceChain,
         diag: DiagnosticAddendum | undefined,
-        destTypeVarContext: TypeVarContext | undefined,
-        srcTypeVarContext: TypeVarContext | undefined,
+        destConstraints: ConstraintTracker | undefined,
+        srcConstraints: ConstraintTracker | undefined,
         flags: AssignTypeFlags,
         recursionCount: number
     ): boolean {
@@ -23009,8 +22997,8 @@ export function createTypeEvaluator(
                 destType,
                 curSrcType,
                 diag,
-                destTypeVarContext,
-                srcTypeVarContext,
+                destConstraints,
+                srcConstraints,
                 flags,
                 recursionCount
             );
@@ -23026,14 +23014,14 @@ export function createTypeEvaluator(
                 // sufficient to simply indicate that the types are not the same
                 // in this case. Adding more information is unnecessary and confusing.
                 (flags & AssignTypeFlags.EnforceInvariance) === 0 ? diag : undefined,
-                destTypeVarContext,
-                srcTypeVarContext,
+                destConstraints,
+                srcConstraints,
                 flags,
                 recursionCount
             );
         }
 
-        if (destTypeVarContext && curSrcType.priv.typeArgs && !destTypeVarContext.isLocked()) {
+        if (destConstraints && curSrcType.priv.typeArgs && !destConstraints.isLocked()) {
             // Populate the typeVar map with type arguments of the source.
             const srcTypeArgs = curSrcType.priv.typeArgs;
             for (let i = 0; i < destType.shared.typeParams.length; i++) {
@@ -23055,7 +23043,7 @@ export function createTypeEvaluator(
 
                 updateTypeVarType(
                     evaluatorInterface,
-                    destTypeVarContext,
+                    destConstraints,
                     typeParam,
                     variance !== Variance.Contravariant ? typeArgType : undefined,
                     variance !== Variance.Covariant ? typeArgType : undefined,
@@ -23087,8 +23075,8 @@ export function createTypeEvaluator(
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
-        destTypeVarContext: TypeVarContext | undefined,
-        srcTypeVarContext: TypeVarContext | undefined,
+        destConstraints: ConstraintTracker | undefined,
+        srcConstraints: ConstraintTracker | undefined,
         flags: AssignTypeFlags,
         recursionCount: number
     ): boolean {
@@ -23159,8 +23147,8 @@ export function createTypeEvaluator(
                     variance === Variance.Contravariant ? srcTypeArg : destTypeArg,
                     variance === Variance.Contravariant ? destTypeArg : srcTypeArg,
                     assignmentDiag,
-                    variance === Variance.Contravariant ? srcTypeVarContext : destTypeVarContext,
-                    variance === Variance.Contravariant ? destTypeVarContext : srcTypeVarContext,
+                    variance === Variance.Contravariant ? srcConstraints : destConstraints,
+                    variance === Variance.Contravariant ? destConstraints : srcConstraints,
                     effectiveFlags,
                     recursionCount
                 )
@@ -23206,7 +23194,7 @@ export function createTypeEvaluator(
     }
 
     // Determines if the source type can be assigned to the dest type.
-    // If typeVarContext is provided, type variables within the destType are
+    // If constraint are provided, type variables within the destType are
     // matched against existing type variables in the map. If a type variable
     // in the dest type is not in the type map already, it is assigned a type
     // and added to the map.
@@ -23214,8 +23202,8 @@ export function createTypeEvaluator(
         destType: Type,
         srcType: Type,
         diag?: DiagnosticAddendum,
-        destTypeVarContext?: TypeVarContext,
-        srcTypeVarContext?: TypeVarContext,
+        destConstraints?: ConstraintTracker,
+        srcConstraints?: ConstraintTracker,
         flags = AssignTypeFlags.Default,
         recursionCount = 0
     ): boolean {
@@ -23277,8 +23265,8 @@ export function createTypeEvaluator(
                             destTypeArg,
                             srcTypeArg,
                             diag,
-                            destTypeVarContext,
-                            srcTypeVarContext,
+                            destConstraints,
+                            srcConstraints,
                             flags,
                             recursionCount
                         )
@@ -23381,16 +23369,8 @@ export function createTypeEvaluator(
                 TypeVarType.isBound(destType) === TypeVarType.isBound(srcType) &&
                 TypeBase.isInstance(srcType) === TypeBase.isInstance(destType)
             ) {
-                if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 && destTypeVarContext) {
-                    assignTypeToTypeVar(
-                        evaluatorInterface,
-                        destType,
-                        srcType,
-                        diag,
-                        destTypeVarContext,
-                        flags,
-                        recursionCount
-                    );
+                if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 && destConstraints) {
+                    assignTypeVar(evaluatorInterface, destType, srcType, diag, destConstraints, flags, recursionCount);
                 }
                 return true;
             }
@@ -23410,15 +23390,15 @@ export function createTypeEvaluator(
             }
 
             if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 || !isTypeVar(srcType)) {
-                const targetTypeVarContext =
-                    (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
+                const targetConstraints =
+                    (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destConstraints : srcConstraints;
                 if (
-                    !assignTypeToTypeVar(
+                    !assignTypeVar(
                         evaluatorInterface,
                         destType,
                         srcType,
                         diag,
-                        targetTypeVarContext,
+                        targetConstraints,
                         flags,
                         recursionCount
                     )
@@ -23443,47 +23423,37 @@ export function createTypeEvaluator(
                         makeTopLevelTypeVarsConcrete(destType),
                         makeTopLevelTypeVarsConcrete(srcType),
                         diag,
-                        /* destTypeVarContext */ undefined,
-                        /* srcTypeVarContext */ undefined,
+                        /* destConstraints */ undefined,
+                        /* srcConstraints */ undefined,
                         flags,
                         recursionCount
                     );
-                } else {
-                    if (
-                        assignTypeToTypeVar(
-                            evaluatorInterface,
-                            srcType,
-                            destType,
-                            diag,
-                            srcTypeVarContext,
-                            flags,
-                            recursionCount
-                        )
-                    ) {
-                        return true;
-                    }
-
-                    // If the dest type is a union, only one of the subtypes needs to match.
-                    let isAssignable = false;
-                    if (isUnion(destType)) {
-                        doForEachSubtype(destType, (destSubtype) => {
-                            if (
-                                assignTypeToTypeVar(
-                                    evaluatorInterface,
-                                    srcType as TypeVarType,
-                                    destSubtype,
-                                    diag,
-                                    srcTypeVarContext,
-                                    flags,
-                                    recursionCount
-                                )
-                            ) {
-                                isAssignable = true;
-                            }
-                        });
-                    }
-                    return isAssignable;
                 }
+
+                if (assignTypeVar(evaluatorInterface, srcType, destType, diag, srcConstraints, flags, recursionCount)) {
+                    return true;
+                }
+
+                // If the dest type is a union, only one of the subtypes needs to match.
+                let isAssignable = false;
+                if (isUnion(destType)) {
+                    doForEachSubtype(destType, (destSubtype) => {
+                        if (
+                            assignTypeVar(
+                                evaluatorInterface,
+                                srcType as TypeVarType,
+                                destSubtype,
+                                diag,
+                                srcConstraints,
+                                flags,
+                                recursionCount
+                            )
+                        ) {
+                            isAssignable = true;
+                        }
+                    });
+                }
+                return isAssignable;
             }
 
             if ((flags & AssignTypeFlags.EnforceInvariance) !== 0) {
@@ -23529,14 +23499,14 @@ export function createTypeEvaluator(
         }
 
         if (isAnyOrUnknown(srcType) && !srcType.props?.specialForm) {
-            const targetTypeVarContext =
-                (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
-            if (targetTypeVarContext) {
+            const targetConstraints =
+                (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destConstraints : srcConstraints;
+            if (targetConstraints) {
                 // If it's an ellipsis type, convert it to a regular "Any"
                 // type. These are functionally equivalent, but "Any" looks
                 // better in the text representation.
                 const typeVarSubstitution = isEllipsisType(srcType) ? AnyType.create() : srcType;
-                setTypeArgsRecursive(destType, typeVarSubstitution, targetTypeVarContext, recursionCount);
+                setTypeArgsRecursive(destType, typeVarSubstitution, targetConstraints, recursionCount);
             }
             if ((flags & AssignTypeFlags.OverloadOverlap) === 0) {
                 return true;
@@ -23553,11 +23523,11 @@ export function createTypeEvaluator(
                 return false;
             }
 
-            const targetTypeVarContext =
-                (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destTypeVarContext : srcTypeVarContext;
+            const targetConstraints =
+                (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destConstraints : srcConstraints;
 
-            if (targetTypeVarContext) {
-                setTypeArgsRecursive(destType, UnknownType.create(), targetTypeVarContext, recursionCount);
+            if (targetConstraints) {
+                setTypeArgsRecursive(destType, UnknownType.create(), targetConstraints, recursionCount);
             }
             return true;
         }
@@ -23570,31 +23540,31 @@ export function createTypeEvaluator(
                     destType,
                     srcType,
                     /* diag */ undefined,
-                    destTypeVarContext,
-                    srcTypeVarContext,
+                    destConstraints,
+                    srcConstraints,
                     flags,
                     recursionCount
                 );
             }
 
-            const clonedDestTypeVarContext = destTypeVarContext?.clone();
-            const clonedSrcTypeVarContext = srcTypeVarContext?.clone();
+            const clonedDestConstraints = destConstraints?.clone();
+            const clonedSrcConstraints = srcConstraints?.clone();
             if (
                 assignToUnionType(
                     destType,
                     srcType,
                     /* diag */ undefined,
-                    clonedDestTypeVarContext,
-                    clonedSrcTypeVarContext,
+                    clonedDestConstraints,
+                    clonedSrcConstraints,
                     flags,
                     recursionCount
                 )
             ) {
-                if (destTypeVarContext && clonedDestTypeVarContext) {
-                    destTypeVarContext.copyFromClone(clonedDestTypeVarContext);
+                if (destConstraints && clonedDestConstraints) {
+                    destConstraints.copyFromClone(clonedDestConstraints);
                 }
-                if (srcTypeVarContext && clonedSrcTypeVarContext) {
-                    srcTypeVarContext.copyFromClone(clonedSrcTypeVarContext);
+                if (srcConstraints && clonedSrcConstraints) {
+                    srcConstraints.copyFromClone(clonedSrcConstraints);
                 }
                 return true;
             }
@@ -23606,23 +23576,15 @@ export function createTypeEvaluator(
                 destType,
                 expandedSrcType,
                 diag,
-                destTypeVarContext,
-                srcTypeVarContext,
+                destConstraints,
+                srcConstraints,
                 flags,
                 recursionCount
             );
         }
 
         if (isUnion(destType)) {
-            return assignToUnionType(
-                destType,
-                srcType,
-                diag,
-                destTypeVarContext,
-                srcTypeVarContext,
-                flags,
-                recursionCount
-            );
+            return assignToUnionType(destType, srcType, diag, destConstraints, srcConstraints, flags, recursionCount);
         }
 
         // Is the src a specialized "type" object?
@@ -23646,8 +23608,8 @@ export function createTypeEvaluator(
                         destType,
                         convertToInstantiable(typeTypeArg),
                         diag?.createAddendum(),
-                        destTypeVarContext,
-                        srcTypeVarContext,
+                        destConstraints,
+                        srcConstraints,
                         flags,
                         recursionCount
                     )
@@ -23690,8 +23652,8 @@ export function createTypeEvaluator(
                             destType.props.specialForm,
                             expandedSrcType,
                             diag,
-                            destTypeVarContext,
-                            srcTypeVarContext,
+                            destConstraints,
+                            srcConstraints,
                             flags,
                             recursionCount
                         );
@@ -23701,8 +23663,8 @@ export function createTypeEvaluator(
                         destType,
                         expandedSrcType,
                         diag,
-                        destTypeVarContext,
-                        srcTypeVarContext,
+                        destConstraints,
+                        srcConstraints,
                         flags,
                         recursionCount,
                         /* reportErrorsUsingObjType */ false
@@ -23724,8 +23686,8 @@ export function createTypeEvaluator(
                             ClassType.cloneAsInstance(destMetaclass),
                             expandedSrcType,
                             diag,
-                            destTypeVarContext,
-                            srcTypeVarContext,
+                            destConstraints,
+                            srcConstraints,
                             flags,
                             recursionCount,
                             /* reportErrorsUsingObjType */ false
@@ -23757,8 +23719,8 @@ export function createTypeEvaluator(
                             destTypeArgs[0],
                             convertToInstance(srcType),
                             diag,
-                            destTypeVarContext,
-                            srcTypeVarContext,
+                            destConstraints,
+                            srcConstraints,
                             flags,
                             recursionCount
                         );
@@ -23813,8 +23775,8 @@ export function createTypeEvaluator(
                         ClassType.cloneAsInstantiable(destType),
                         ClassType.cloneAsInstantiable(concreteSrcType),
                         diag,
-                        destTypeVarContext,
-                        srcTypeVarContext,
+                        destConstraints,
+                        srcConstraints,
                         flags,
                         recursionCount,
                         /* reportErrorsUsingObjType */ true
@@ -23832,8 +23794,8 @@ export function createTypeEvaluator(
                         destCallbackType,
                         concreteSrcType,
                         diag,
-                        destTypeVarContext,
-                        srcTypeVarContext,
+                        destConstraints,
+                        srcConstraints,
                         flags,
                         recursionCount
                     );
@@ -23845,8 +23807,8 @@ export function createTypeEvaluator(
                         destType,
                         convertToInstance(functionClass),
                         diag,
-                        destTypeVarContext,
-                        srcTypeVarContext,
+                        destConstraints,
+                        srcConstraints,
                         flags,
                         recursionCount
                     );
@@ -23863,7 +23825,7 @@ export function createTypeEvaluator(
                         ClassType.cloneAsInstantiable(destType),
                         concreteSrcType,
                         diag,
-                        destTypeVarContext,
+                        destConstraints,
                         flags,
                         recursionCount
                     );
@@ -23877,8 +23839,8 @@ export function createTypeEvaluator(
                         callbackType,
                         concreteSrcType,
                         diag,
-                        destTypeVarContext,
-                        srcTypeVarContext,
+                        destConstraints,
+                        srcConstraints,
                         flags,
                         recursionCount
                     );
@@ -23892,8 +23854,8 @@ export function createTypeEvaluator(
                         ClassType.cloneAsInstantiable(destType),
                         concreteSrcType,
                         diag,
-                        destTypeVarContext,
-                        srcTypeVarContext,
+                        destConstraints,
+                        srcConstraints,
                         flags,
                         recursionCount
                     );
@@ -23909,8 +23871,8 @@ export function createTypeEvaluator(
                             ClassType.cloneAsInstantiable(destType),
                             metaclass,
                             diag,
-                            destTypeVarContext,
-                            srcTypeVarContext,
+                            destConstraints,
+                            srcConstraints,
                             flags,
                             recursionCount,
                             /* reportErrorsUsingObjType */ false
@@ -23924,8 +23886,8 @@ export function createTypeEvaluator(
                     destType,
                     concreteSrcType,
                     diag,
-                    destTypeVarContext,
-                    srcTypeVarContext,
+                    destConstraints,
+                    srcConstraints,
                     flags,
                     recursionCount
                 );
@@ -23966,8 +23928,8 @@ export function createTypeEvaluator(
                             destType,
                             concreteSrcType,
                             diag,
-                            destTypeVarContext,
-                            srcTypeVarContext,
+                            destConstraints,
+                            srcConstraints,
                             flags,
                             recursionCount
                         );
@@ -23983,33 +23945,33 @@ export function createTypeEvaluator(
                 // Find all of the overloaded functions that match the parameters.
                 const overloads = OverloadedFunctionType.getOverloads(concreteSrcType);
                 const filteredOverloads: FunctionType[] = [];
-                const destTypeVarSignatures: TypeVarSolutionSet[] = [];
-                const srcTypeVarSignatures: TypeVarSolutionSet[] = [];
+                const destTypeVarSignatures: ConstraintSet[] = [];
+                const srcTypeVarSignatures: ConstraintSet[] = [];
 
                 overloads.forEach((overload) => {
                     const overloadScopeId = getTypeVarScopeId(overload) ?? '';
-                    const destTypeVarContextClone = destTypeVarContext?.cloneWithSignature(overloadScopeId);
-                    const srcTypeVarContextClone = srcTypeVarContext?.cloneWithSignature(overloadScopeId);
+                    const destConstraintsClone = destConstraints?.cloneWithSignature(overloadScopeId);
+                    const srcConstraintsClone = srcConstraints?.cloneWithSignature(overloadScopeId);
 
                     if (
                         assignType(
                             destType,
                             overload,
                             /* diag */ undefined,
-                            destTypeVarContextClone,
-                            srcTypeVarContextClone,
+                            destConstraintsClone,
+                            srcConstraintsClone,
                             flags,
                             recursionCount
                         )
                     ) {
                         filteredOverloads.push(overload);
 
-                        if (destTypeVarContextClone) {
-                            appendArray(destTypeVarSignatures, destTypeVarContextClone.getSolutionSets());
+                        if (destConstraintsClone) {
+                            appendArray(destTypeVarSignatures, destConstraintsClone.getConstraintSets());
                         }
 
-                        if (srcTypeVarContextClone) {
-                            appendArray(srcTypeVarSignatures, srcTypeVarContextClone.getSolutionSets());
+                        if (srcConstraintsClone) {
+                            appendArray(srcTypeVarSignatures, srcConstraintsClone.getConstraintSets());
                         }
                     }
                 });
@@ -24020,12 +23982,12 @@ export function createTypeEvaluator(
                 }
 
                 if (filteredOverloads.length === 1 || (flags & AssignTypeFlags.ArgAssignmentFirstPass) === 0) {
-                    if (destTypeVarContext) {
-                        destTypeVarContext.addSolutionSets(destTypeVarSignatures);
+                    if (destConstraints) {
+                        destConstraints.addConstraintSets(destTypeVarSignatures);
                     }
 
-                    if (srcTypeVarContext) {
-                        srcTypeVarContext.addSolutionSets(srcTypeVarSignatures);
+                    if (srcConstraints) {
+                        srcConstraints.addConstraintSets(srcTypeVarSignatures);
                     }
                 }
 
@@ -24038,8 +24000,8 @@ export function createTypeEvaluator(
                         destType,
                         concreteSrcType,
                         diag?.createAddendum(),
-                        destTypeVarContext ?? new TypeVarContext(),
-                        srcTypeVarContext ?? new TypeVarContext(),
+                        destConstraints ?? new ConstraintTracker(),
+                        srcConstraints ?? new ConstraintTracker(),
                         flags,
                         recursionCount
                     )
@@ -24068,8 +24030,8 @@ export function createTypeEvaluator(
                                 destOverload,
                                 srcOverload,
                                 /* diag */ undefined,
-                                destTypeVarContext,
-                                srcTypeVarContext,
+                                destConstraints,
+                                srcConstraints,
                                 flags,
                                 recursionCount
                             );
@@ -24085,8 +24047,8 @@ export function createTypeEvaluator(
                     destOverload,
                     srcType,
                     overloadDiag?.createAddendum(),
-                    destTypeVarContext,
-                    srcTypeVarContext,
+                    destConstraints,
+                    srcConstraints,
                     flags,
                     recursionCount
                 );
@@ -24124,8 +24086,8 @@ export function createTypeEvaluator(
                     ClassType.cloneAsInstantiable(destType),
                     ClassType.cloneAsInstance(noneTypeClass),
                     diag,
-                    destTypeVarContext,
-                    srcTypeVarContext,
+                    destConstraints,
+                    srcConstraints,
                     flags,
                     recursionCount
                 );
@@ -24146,8 +24108,8 @@ export function createTypeEvaluator(
         destType: Type,
         srcType: UnionType,
         diag: DiagnosticAddendum | undefined,
-        destTypeVarContext: TypeVarContext | undefined,
-        srcTypeVarContext: TypeVarContext | undefined,
+        destConstraints: ConstraintTracker | undefined,
+        srcConstraints: ConstraintTracker | undefined,
         flags: AssignTypeFlags,
         recursionCount: number
     ): boolean {
@@ -24173,8 +24135,8 @@ export function createTypeEvaluator(
                     nonAnySubtypes[0],
                     srcType,
                     /* diag */ undefined,
-                    destTypeVarContext,
-                    srcTypeVarContext,
+                    destConstraints,
+                    srcConstraints,
                     flags,
                     recursionCount
                 );
@@ -24230,8 +24192,8 @@ export function createTypeEvaluator(
                                     srcSubtype,
                                     destSubtype,
                                     /* diag */ undefined,
-                                    /* destTypeVarContext */ undefined,
-                                    /* srcTypeVarContext */ undefined,
+                                    /* destConstraints */ undefined,
+                                    /* srcConstraints */ undefined,
                                     flags,
                                     recursionCount
                                 )
@@ -24256,8 +24218,8 @@ export function createTypeEvaluator(
                             remainingDestSubtypes[destTypeIndex],
                             srcSubtype,
                             /* diag */ undefined,
-                            destTypeVarContext,
-                            srcTypeVarContext,
+                            destConstraints,
+                            srcConstraints,
                             flags,
                             recursionCount
                         )
@@ -24314,8 +24276,8 @@ export function createTypeEvaluator(
                                     reorderedDestSubtypes[destIndex],
                                     remainingSrcSubtypes[srcIndex],
                                     diag?.createAddendum(),
-                                    destTypeVarContext,
-                                    srcTypeVarContext,
+                                    destConstraints,
+                                    srcConstraints,
                                     flags,
                                     recursionCount
                                 )
@@ -24346,8 +24308,8 @@ export function createTypeEvaluator(
                                 destSubtype,
                                 srcType,
                                 /* diag */ undefined,
-                                destTypeVarContext,
-                                srcTypeVarContext,
+                                destConstraints,
+                                srcConstraints,
                                 flags,
                                 recursionCount
                             );
@@ -24364,8 +24326,8 @@ export function createTypeEvaluator(
                             isReversed ? combineTypes(remainingDestSubtypes) : remainingDestSubtypes[0],
                             isReversed ? remainingSrcSubtypes[0] : combineTypes(remainingSrcSubtypes),
                             diag?.createAddendum(),
-                            destTypeVarContext,
-                            srcTypeVarContext,
+                            destConstraints,
+                            srcConstraints,
                             flags,
                             recursionCount
                         )
@@ -24398,8 +24360,8 @@ export function createTypeEvaluator(
                     destType,
                     subtype,
                     /* diag */ undefined,
-                    destTypeVarContext,
-                    srcTypeVarContext,
+                    destConstraints,
+                    srcConstraints,
                     flags,
                     recursionCount
                 )
@@ -24420,8 +24382,8 @@ export function createTypeEvaluator(
                         destType,
                         subtype,
                         diag?.createAddendum(),
-                        destTypeVarContext,
-                        srcTypeVarContext,
+                        destConstraints,
+                        srcConstraints,
                         flags,
                         recursionCount
                     )
@@ -24506,8 +24468,8 @@ export function createTypeEvaluator(
                 destType,
                 srcType,
                 /* diag */ undefined,
-                /* destTypeVarContext */ undefined,
-                /* srcTypeVarContext */ undefined,
+                /* destConstraints */ undefined,
+                /* srcConstraints */ undefined,
                 AssignTypeFlags.Default,
                 recursionCount
             ) &&
@@ -24515,8 +24477,8 @@ export function createTypeEvaluator(
                 srcType,
                 destType,
                 /* diag */ undefined,
-                /* destTypeVarContext */ undefined,
-                /* srcTypeVarContext */ undefined,
+                /* destConstraints */ undefined,
+                /* srcConstraints */ undefined,
                 AssignTypeFlags.Default,
                 recursionCount
             )
@@ -24527,8 +24489,8 @@ export function createTypeEvaluator(
         destType: UnionType,
         srcType: Type,
         diag: DiagnosticAddendum | undefined,
-        destTypeVarContext: TypeVarContext | undefined,
-        srcTypeVarContext: TypeVarContext | undefined,
+        destConstraints: ConstraintTracker | undefined,
+        srcConstraints: ConstraintTracker | undefined,
         flags: AssignTypeFlags,
         recursionCount: number
     ): boolean {
@@ -24545,8 +24507,8 @@ export function createTypeEvaluator(
                         subtype,
                         srcType,
                         diag?.createAddendum(),
-                        destTypeVarContext,
-                        srcTypeVarContext,
+                        destConstraints,
+                        srcConstraints,
                         flags,
                         recursionCount
                     )
@@ -24566,8 +24528,8 @@ export function createTypeEvaluator(
                                         adjOtherSubtype,
                                         adjSubtype,
                                         /* diag */ undefined,
-                                        /* destTypeVarContext */ undefined,
-                                        /* srcTypeVarContext */ undefined,
+                                        /* destConstraints */ undefined,
+                                        /* srcConstraints */ undefined,
                                         AssignTypeFlags.Default,
                                         recursionCount
                                     )
@@ -24605,8 +24567,8 @@ export function createTypeEvaluator(
                         subtype,
                         srcType,
                         diagAddendum?.createAddendum(),
-                        destTypeVarContext,
-                        srcTypeVarContext,
+                        destConstraints,
+                        srcConstraints,
                         flags,
                         recursionCount
                     )
@@ -24623,9 +24585,9 @@ export function createTypeEvaluator(
             if (isNoneInstance(srcType) && isOptionalType(destType)) {
                 foundMatch = true;
             } else {
-                let bestDestTypeVarContext: TypeVarContext | undefined;
-                let bestSrcTypeVarContext: TypeVarContext | undefined;
-                let bestTypeVarContextScore: number | undefined;
+                let bestDestConstraints: ConstraintTracker | undefined;
+                let bestSrcConstraints: ConstraintTracker | undefined;
+                let bestConstraintsScore: number | undefined;
                 let nakedTypeVarMatches = 0;
 
                 // If the srcType is a literal, try to use the fast-path lookup
@@ -24641,50 +24603,47 @@ export function createTypeEvaluator(
                 doForEachSubtype(
                     destType,
                     (subtype) => {
-                        // Make a temporary clone of the typeVarContext. We don't want to modify
-                        // the original typeVarContext until we find the "optimal" typeVar mapping.
-                        const destTypeVarContextClone = destTypeVarContext?.clone();
-                        const srcTypeVarContextClone = srcTypeVarContext?.clone();
+                        // Make a temporary clone of the constraints. We don't want to modify
+                        // the original constraints until we find the "optimal" typeVar mapping.
+                        const destConstraintsClone = destConstraints?.clone();
+                        const srcConstraintsClone = srcConstraints?.clone();
                         if (
                             assignType(
                                 subtype,
                                 srcType,
                                 diagAddendum?.createAddendum(),
-                                destTypeVarContextClone,
-                                srcTypeVarContextClone,
+                                destConstraintsClone,
+                                srcConstraintsClone,
                                 flags,
                                 recursionCount
                             )
                         ) {
                             foundMatch = true;
-                            if (destTypeVarContextClone) {
-                                // Ask the typeVarContext to compute a "score" for the current
+                            if (destConstraintsClone) {
+                                // Ask the constraints to compute a "score" for the current
                                 // contents of the table.
-                                let typeVarContextScore = destTypeVarContextClone.getScore();
+                                let constraintsScore = destConstraintsClone.getScore();
 
                                 if (isTypeVar(subtype)) {
-                                    if (!destTypeVarContext?.getMainSolutionSet().getTypeVar(subtype)) {
+                                    if (!destConstraints?.getMainConstraintSet().getTypeVar(subtype)) {
                                         nakedTypeVarMatches++;
 
                                         // Handicap the solution slightly so another type var with
                                         // existing constraints will be preferred.
-                                        typeVarContextScore += 0.001;
+                                        constraintsScore += 0.001;
                                     }
                                 }
 
                                 // If the type matches exactly, prefer it over other types.
                                 if (isTypeSame(subtype, stripLiteralValue(srcType))) {
-                                    typeVarContextScore = Number.POSITIVE_INFINITY;
+                                    constraintsScore = Number.POSITIVE_INFINITY;
                                 }
 
-                                if (
-                                    bestTypeVarContextScore === undefined ||
-                                    bestTypeVarContextScore <= typeVarContextScore
-                                ) {
+                                if (bestConstraintsScore === undefined || bestConstraintsScore <= constraintsScore) {
                                     // We found a typeVar mapping with a higher score than before.
-                                    bestTypeVarContextScore = typeVarContextScore;
-                                    bestDestTypeVarContext = destTypeVarContextClone;
-                                    bestSrcTypeVarContext = srcTypeVarContextClone;
+                                    bestConstraintsScore = constraintsScore;
+                                    bestDestConstraints = destConstraintsClone;
+                                    bestSrcConstraints = srcConstraintsClone;
                                 }
                             }
                         }
@@ -24698,16 +24657,16 @@ export function createTypeEvaluator(
                 // Typically, they will receive some constraints via some
                 // later argument assignment.
                 if (nakedTypeVarMatches > 1 && (flags & AssignTypeFlags.ArgAssignmentFirstPass) !== 0) {
-                    bestDestTypeVarContext = undefined;
-                    bestSrcTypeVarContext = undefined;
+                    bestDestConstraints = undefined;
+                    bestSrcConstraints = undefined;
                 }
 
-                // If we found a winning type var mapping, copy it back to typeVarContext.
-                if (destTypeVarContext && bestDestTypeVarContext) {
-                    destTypeVarContext.copyFromClone(bestDestTypeVarContext);
+                // If we found a winning type var mapping, copy it back to constraints.
+                if (destConstraints && bestDestConstraints) {
+                    destConstraints.copyFromClone(bestDestConstraints);
                 }
-                if (srcTypeVarContext && bestSrcTypeVarContext) {
-                    srcTypeVarContext.copyFromClone(bestSrcTypeVarContext);
+                if (srcConstraints && bestSrcConstraints) {
+                    srcConstraints.copyFromClone(bestSrcConstraints);
                 }
             }
         }
@@ -24720,8 +24679,8 @@ export function createTypeEvaluator(
                     destType,
                     makeTopLevelTypeVarsConcrete(srcType),
                     diagAddendum?.createAddendum(),
-                    destTypeVarContext,
-                    srcTypeVarContext,
+                    destConstraints,
+                    srcConstraints,
                     flags,
                     recursionCount
                 );
@@ -24775,8 +24734,8 @@ export function createTypeEvaluator(
                             destType.shared.boundType,
                             srcSubtype,
                             /* diag */ undefined,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
+                            /* destConstraints */ undefined,
+                            /* srcConstraints */ undefined,
                             AssignTypeFlags.Default,
                             recursionCount
                         );
@@ -24792,8 +24751,8 @@ export function createTypeEvaluator(
                             destType.shared.constraints[condition.constraintIndex],
                             srcSubtype,
                             /* diag */ undefined,
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
+                            /* destConstraints */ undefined,
+                            /* srcConstraints */ undefined,
                             AssignTypeFlags.Default,
                             recursionCount
                         );
@@ -24850,8 +24809,8 @@ export function createTypeEvaluator(
         srcType: Type,
         paramIndex: number | undefined,
         diag: DiagnosticAddendum | undefined,
-        destTypeVarContext: TypeVarContext,
-        srcTypeVarContext: TypeVarContext,
+        destConstraints: ConstraintTracker,
+        srcConstraints: ConstraintTracker,
         flags: AssignTypeFlags,
         recursionCount: number
     ) {
@@ -24880,14 +24839,14 @@ export function createTypeEvaluator(
 
             if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
                 if (!isFirstPass) {
-                    specializedDestType = applySolvedTypeVars(destType, destTypeVarContext, {
+                    specializedDestType = applySolvedTypeVars(destType, destConstraints, {
                         useLowerBoundOnly: true,
                     });
                 }
                 doSpecializationStep = requiresSpecialization(specializedDestType);
             } else {
                 if (!isFirstPass) {
-                    specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext, {
+                    specializedSrcType = applySolvedTypeVars(srcType, srcConstraints, {
                         useLowerBoundOnly: true,
                     });
                 }
@@ -24902,16 +24861,16 @@ export function createTypeEvaluator(
                     specializedSrcType,
                     specializedDestType,
                     /* diag */ undefined,
-                    srcTypeVarContext,
-                    destTypeVarContext,
+                    srcConstraints,
+                    destConstraints,
                     (flags ^ AssignTypeFlags.ReverseTypeVarMatching) | AssignTypeFlags.RetainLiteralsForTypeVar,
                     recursionCount
                 )
             ) {
                 if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
-                    specializedDestType = applySolvedTypeVars(destType, destTypeVarContext);
+                    specializedDestType = applySolvedTypeVars(destType, destConstraints);
                 } else {
-                    specializedSrcType = applySolvedTypeVars(srcType, srcTypeVarContext);
+                    specializedSrcType = applySolvedTypeVars(srcType, srcConstraints);
                 }
             }
         }
@@ -24921,8 +24880,8 @@ export function createTypeEvaluator(
                 specializedSrcType,
                 specializedDestType,
                 diag?.createAddendum(),
-                srcTypeVarContext,
-                destTypeVarContext,
+                srcConstraints,
+                destConstraints,
                 flags,
                 recursionCount
             )
@@ -25047,8 +25006,8 @@ export function createTypeEvaluator(
         destType: FunctionType,
         srcType: FunctionType,
         diag: DiagnosticAddendum | undefined,
-        destTypeVarContext: TypeVarContext,
-        srcTypeVarContext: TypeVarContext,
+        destConstraints: ConstraintTracker,
+        srcConstraints: ConstraintTracker,
         flags: AssignTypeFlags,
         recursionCount: number
     ): boolean {
@@ -25169,8 +25128,8 @@ export function createTypeEvaluator(
                     srcParamType,
                     paramIndex,
                     diag?.createAddendum(),
-                    destTypeVarContext,
-                    srcTypeVarContext,
+                    destConstraints,
+                    srcConstraints,
                     flags,
                     recursionCount
                 )
@@ -25231,8 +25190,8 @@ export function createTypeEvaluator(
                             srcParamType,
                             i,
                             diag?.createAddendum(),
-                            destTypeVarContext,
-                            srcTypeVarContext,
+                            destConstraints,
+                            srcConstraints,
                             flags,
                             recursionCount
                         )
@@ -25259,8 +25218,8 @@ export function createTypeEvaluator(
                             paramInfo.type,
                             defaultArgType,
                             diag?.createAddendum(),
-                            srcTypeVarContext,
-                            /* destTypeVarContext */ undefined,
+                            srcConstraints,
+                            /* destConstraints */ undefined,
                             flags,
                             recursionCount
                         )
@@ -25317,8 +25276,8 @@ export function createTypeEvaluator(
                                 srcArgsType,
                                 paramIndex,
                                 diag?.createAddendum(),
-                                destTypeVarContext,
-                                srcTypeVarContext,
+                                destConstraints,
+                                srcConstraints,
                                 flags,
                                 recursionCount
                             )
@@ -25383,8 +25342,8 @@ export function createTypeEvaluator(
                     srcArgsType,
                     destParamDetails.params[destParamDetails.argsIndex].index,
                     diag?.createAddendum(),
-                    destTypeVarContext,
-                    srcTypeVarContext,
+                    destConstraints,
+                    srcConstraints,
                     flags,
                     recursionCount
                 )
@@ -25465,8 +25424,8 @@ export function createTypeEvaluator(
                                             srcParamType,
                                             destParamDetails.params[destParamDetails.kwargsIndex].index,
                                             diag?.createAddendum(),
-                                            destTypeVarContext,
-                                            srcTypeVarContext,
+                                            destConstraints,
+                                            srcConstraints,
                                             flags,
                                             recursionCount
                                         )
@@ -25485,8 +25444,8 @@ export function createTypeEvaluator(
                                             srcParamInfo.type,
                                             defaultArgType,
                                             diag?.createAddendum(),
-                                            srcTypeVarContext,
-                                            /* destTypeVarContext */ undefined,
+                                            srcConstraints,
+                                            /* destConstraints */ undefined,
                                             flags,
                                             recursionCount
                                         )
@@ -25496,8 +25455,8 @@ export function createTypeEvaluator(
                                 }
                             } else {
                                 const destParamType = destParamInfo.type;
-                                const specializedDestParamType = destTypeVarContext
-                                    ? applySolvedTypeVars(destParamType, destTypeVarContext)
+                                const specializedDestParamType = destConstraints
+                                    ? applySolvedTypeVars(destParamType, destConstraints)
                                     : destParamType;
 
                                 if (
@@ -25506,8 +25465,8 @@ export function createTypeEvaluator(
                                         srcParamType,
                                         /* paramIndex */ undefined,
                                         paramDiag?.createAddendum(),
-                                        destTypeVarContext,
-                                        srcTypeVarContext,
+                                        destConstraints,
+                                        srcConstraints,
                                         flags,
                                         recursionCount
                                     )
@@ -25550,8 +25509,8 @@ export function createTypeEvaluator(
                             srcParamDetails.params[srcParamDetails.kwargsIndex].type,
                             destParamInfo.index,
                             diag?.createAddendum(),
-                            destTypeVarContext,
-                            srcTypeVarContext,
+                            destConstraints,
+                            srcConstraints,
                             flags,
                             recursionCount
                         )
@@ -25575,8 +25534,8 @@ export function createTypeEvaluator(
                         srcParamDetails.params[srcParamDetails.kwargsIndex].type,
                         destParamDetails.params[destParamDetails.kwargsIndex].index,
                         diag?.createAddendum(),
-                        destTypeVarContext,
-                        srcTypeVarContext,
+                        destConstraints,
+                        srcConstraints,
                         flags,
                         recursionCount
                     )
@@ -25610,18 +25569,18 @@ export function createTypeEvaluator(
             }
         }
 
-        const effectiveSrcTypeVarContext = reverseMatching ? destTypeVarContext : srcTypeVarContext;
+        const effectiveSrcConstraints = reverseMatching ? destConstraints : srcConstraints;
 
         // If the target function was generic and we solved some of the type variables
         // in that generic type, assign them back to the destination typeVar.
-        const solutionSet = effectiveSrcTypeVarContext.getMainSolutionSet();
-        solutionSet.getTypeVars().forEach((typeVarEntry) => {
+        const set = effectiveSrcConstraints.getMainConstraintSet();
+        set.getTypeVars().forEach((typeVarEntry) => {
             assignType(
                 typeVarEntry.typeVar,
-                solutionSet.getTypeVarType(typeVarEntry.typeVar)!,
+                set.getTypeVarType(typeVarEntry.typeVar)!,
                 /* diag */ undefined,
-                destTypeVarContext,
-                srcTypeVarContext,
+                destConstraints,
+                srcConstraints,
                 AssignTypeFlags.Default,
                 recursionCount
             );
@@ -25703,8 +25662,8 @@ export function createTypeEvaluator(
                             effectiveDestParamSpec,
                             remainingFunction,
                             /* diag */ undefined,
-                            destTypeVarContext,
-                            srcTypeVarContext,
+                            destConstraints,
+                            srcConstraints,
                             flags
                         )
                     ) {
@@ -25718,8 +25677,8 @@ export function createTypeEvaluator(
                                 convertToInstance(effectiveDestParamSpec),
                                 convertToInstance(effectiveSrcParamSpec),
                                 /* diag */ undefined,
-                                destTypeVarContext,
-                                srcTypeVarContext,
+                                destConstraints,
+                                srcConstraints,
                                 flags
                             )
                         ) {
@@ -25734,7 +25693,7 @@ export function createTypeEvaluator(
         if (checkReturnType) {
             const destReturnType = getFunctionEffectiveReturnType(destType);
             if (!isAnyOrUnknown(destReturnType)) {
-                const srcReturnType = applySolvedTypeVars(getFunctionEffectiveReturnType(srcType), srcTypeVarContext);
+                const srcReturnType = applySolvedTypeVars(getFunctionEffectiveReturnType(srcType), srcConstraints);
                 const returnDiag = diag?.createAddendum();
 
                 let isReturnTypeCompatible = false;
@@ -25756,8 +25715,8 @@ export function createTypeEvaluator(
                         destReturnType,
                         srcReturnType,
                         returnDiag?.createAddendum(),
-                        destTypeVarContext,
-                        srcTypeVarContext,
+                        destConstraints,
+                        srcConstraints,
                         effectiveFlags,
                         recursionCount
                     )
@@ -25778,8 +25737,8 @@ export function createTypeEvaluator(
                                 destReturnType,
                                 ClassType.cloneAsInstance(boolClass),
                                 returnDiag?.createAddendum(),
-                                destTypeVarContext,
-                                srcTypeVarContext,
+                                destConstraints,
+                                srcConstraints,
                                 flags,
                                 recursionCount
                             )
@@ -25805,7 +25764,7 @@ export function createTypeEvaluator(
 
         // Apply any solved source TypeVars to the dest TypeVar solutions. This
         // allows for higher-order functions to accept generic callbacks.
-        applySourceContextTypeVars(destTypeVarContext, srcTypeVarContext);
+        applySourceContextTypeVars(destConstraints, srcConstraints);
 
         return canAssign;
     }
@@ -25832,12 +25791,12 @@ export function createTypeEvaluator(
             assignedType.priv.typeArgs.length <= assignedType.shared.typeParams.length &&
             !assignedType.priv.tupleTypeArgs
         ) {
-            const typeVarContext = new TypeVarContext();
+            const constraints = new ConstraintTracker();
             addConstraintsForExpectedType(
                 evaluatorInterface,
                 ClassType.specialize(assignedType, /* typeArgs */ undefined),
                 declaredType,
-                typeVarContext,
+                constraints,
                 ParseTreeUtils.getTypeVarScopesForNode(node),
                 node.start
             );
@@ -25845,7 +25804,7 @@ export function createTypeEvaluator(
             let replacedTypeArg = false;
             const newTypeArgs = assignedType.priv.typeArgs.map((typeArg, index) => {
                 const typeParam = assignedType.shared.typeParams[index];
-                const expectedTypeArgType = typeVarContext.getMainSolutionSet().getTypeVarType(typeParam);
+                const expectedTypeArgType = constraints.getMainConstraintSet().getTypeVarType(typeParam);
 
                 if (expectedTypeArgType) {
                     if (isAnyOrUnknown(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
@@ -26166,8 +26125,8 @@ export function createTypeEvaluator(
             baseParamType.type,
             childSelfOrClsType,
             /* diag */ undefined,
-            /* destTypeVarContext */ undefined,
-            /* srcTypeVarContext */ undefined,
+            /* destConstraints */ undefined,
+            /* srcConstraints */ undefined,
             AssignTypeFlags.Default
         );
     }
@@ -26229,8 +26188,8 @@ export function createTypeEvaluator(
                                 overrideArgsType,
                                 baseParamDetails.params[i].type,
                                 diag?.createAddendum(),
-                                /* destTypeVarContext */ undefined,
-                                /* srcTypeVarContext */ undefined,
+                                /* destConstraints */ undefined,
+                                /* srcConstraints */ undefined,
                                 AssignTypeFlags.Default
                             )
                         ) {
@@ -26352,8 +26311,8 @@ export function createTypeEvaluator(
                                 overrideParamType,
                                 baseParamType,
                                 diag?.createAddendum(),
-                                /* destTypeVarContext */ undefined,
-                                /* srcTypeVarContext */ undefined,
+                                /* destConstraints */ undefined,
+                                /* srcConstraints */ undefined,
                                 AssignTypeFlags.Default
                             )
                         ) {
@@ -26418,8 +26377,8 @@ export function createTypeEvaluator(
                             overrideParamType,
                             baseParamType,
                             diag?.createAddendum(),
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
+                            /* destConstraints */ undefined,
+                            /* srcConstraints */ undefined,
                             AssignTypeFlags.Default
                         )
                     ) {
@@ -26464,8 +26423,8 @@ export function createTypeEvaluator(
                             targetParamType,
                             paramInfo.type,
                             diag?.createAddendum(),
-                            /* destTypeVarContext */ undefined,
-                            /* srcTypeVarContext */ undefined,
+                            /* destConstraints */ undefined,
+                            /* srcConstraints */ undefined,
                             AssignTypeFlags.Default
                         )
                     ) {
@@ -26546,8 +26505,8 @@ export function createTypeEvaluator(
                 baseReturnType,
                 overrideReturnType,
                 diag?.createAddendum(),
-                /* destTypeVarContext */ undefined,
-                /* srcTypeVarContext */ undefined,
+                /* destConstraints */ undefined,
+                /* srcConstraints */ undefined,
                 AssignTypeFlags.Default
             )
         ) {
@@ -26596,8 +26555,8 @@ export function createTypeEvaluator(
                     destType.shared.boundType,
                     effectiveSrcType,
                     diag.createAddendum(),
-                    /* destTypeVarContext */ undefined,
-                    /* srcTypeVarContext */ undefined
+                    /* destConstraints */ undefined,
+                    /* srcConstraints */ undefined
                 )
             ) {
                 // Avoid adding a message that will confuse users if the TypeVar was
@@ -26818,7 +26777,7 @@ export function createTypeEvaluator(
         firstParamType: ClassType | TypeVarType | undefined,
         stripFirstParam = true
     ): FunctionType | undefined {
-        const typeVarContext = new TypeVarContext();
+        const constraints = new ConstraintTracker();
 
         if (firstParamType && memberType.shared.parameters.length > 0) {
             const memberTypeFirstParam = memberType.shared.parameters[0];
@@ -26834,9 +26793,9 @@ export function createTypeEvaluator(
                 // contain references to themselves or their subclasses, so if
                 // we attempt to call assignType, we'll risk infinite recursion.
                 // Instead, we'll assume it's assignable.
-                if (!typeVarContext.isLocked()) {
+                if (!constraints.isLocked()) {
                     setTypeVarType(
-                        typeVarContext,
+                        constraints,
                         memberTypeFirstParamType,
                         TypeBase.isInstantiable(memberTypeFirstParamType)
                             ? convertToInstance(firstParamType)
@@ -26851,8 +26810,8 @@ export function createTypeEvaluator(
                         memberTypeFirstParamType,
                         firstParamType,
                         subDiag?.createAddendum(),
-                        typeVarContext,
-                        /* srcTypeVarContext */ undefined,
+                        constraints,
+                        /* srcConstraints */ undefined,
                         AssignTypeFlags.AllowUnspecifiedTypeArgs,
                         recursionCount
                     )
@@ -26881,7 +26840,7 @@ export function createTypeEvaluator(
         // evaluating (and caching) the inferred return type if there is no defined return type.
         getFunctionEffectiveReturnType(memberType);
 
-        const specializedFunction = applySolvedTypeVars(memberType, typeVarContext) as FunctionType;
+        const specializedFunction = applySolvedTypeVars(memberType, constraints) as FunctionType;
 
         return FunctionType.clone(specializedFunction, stripFirstParam, baseType);
     }
@@ -27177,10 +27136,10 @@ export function createTypeEvaluator(
         return codeFlowEngine.printControlFlowGraph(flowNode, reference, callName, logger);
     }
 
-    function printTypeVarContext(typeVarContext: TypeVarContext): void {
-        const solutionSets = typeVarContext.getSolutionSets();
-        solutionSets.forEach((context, index) => {
-            if (solutionSets.length > 1) {
+    function printConstraintTracker(constraints: ConstraintTracker): void {
+        const sets = constraints.getConstraintSets();
+        sets.forEach((context, index) => {
+            if (sets.length > 1) {
                 console.log(`Solution set ${index + 1}:`);
             }
 
@@ -27298,7 +27257,7 @@ export function createTypeEvaluator(
         setTypeResultForNode,
         checkForCancellation,
         printControlFlowGraph,
-        printTypeVarContext,
+        printConstraintTracker,
     };
 
     const codeFlowEngine = getCodeFlowEngine(evaluatorInterface, speculativeTypeTracker);

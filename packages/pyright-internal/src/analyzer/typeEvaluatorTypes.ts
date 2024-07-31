@@ -32,13 +32,12 @@ import {
 } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { CodeFlowReferenceExpressionNode, FlowNode } from './codeFlowTypes';
+import { ConstraintTracker } from './constraintTracker';
 import { Declaration } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { SymbolWithScope } from './scope';
 import { Symbol } from './symbol';
 import { PrintTypeFlags } from './typePrinter';
-import { AssignTypeFlags, ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 import {
     AnyType,
     ClassType,
@@ -51,6 +50,7 @@ import {
     UnknownType,
     Variance,
 } from './types';
+import { AssignTypeFlags, ClassMember, InferenceContext, MemberAccessFlags } from './typeUtils';
 
 // Maximum number of unioned subtypes for an inferred type (e.g.
 // a list) before the type is considered an "Any".
@@ -525,7 +525,7 @@ export interface TypeEvaluator {
         errorNode: ExpressionNode,
         argList: Arg[],
         typeResult: TypeResult<OverloadedFunctionType>,
-        typeVarContext: TypeVarContext | undefined,
+        constraints: ConstraintTracker | undefined,
         skipUnknownArgCheck: boolean,
         inferenceContext: InferenceContext | undefined
     ) => CallResult;
@@ -635,8 +635,8 @@ export interface TypeEvaluator {
         destType: Type,
         srcType: Type,
         diag?: DiagnosticAddendum,
-        destTypeVarContext?: TypeVarContext,
-        srcTypeVarContext?: TypeVarContext,
+        destConstraints?: ConstraintTracker,
+        srcConstraints?: ConstraintTracker,
         flags?: AssignTypeFlags,
         recursionCount?: number
     ) => boolean;
@@ -651,7 +651,7 @@ export interface TypeEvaluator {
         errorNode: ExpressionNode,
         argList: Arg[],
         callTypeResult: TypeResult,
-        typeVarContext: TypeVarContext | undefined,
+        constraints: ConstraintTracker | undefined,
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined
     ) => CallResult;
@@ -672,8 +672,8 @@ export interface TypeEvaluator {
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum | undefined,
-        destTypeVarContext: TypeVarContext | undefined,
-        srcTypeVarContext: TypeVarContext | undefined,
+        destConstraints: ConstraintTracker | undefined,
+        srcConstraints: ConstraintTracker | undefined,
         flags: AssignTypeFlags,
         recursionCount: number
     ) => boolean;
@@ -718,5 +718,5 @@ export interface TypeEvaluator {
         callName: string,
         logger: ConsoleInterface
     ) => void;
-    printTypeVarContext: (typeVarContext: TypeVarContext) => void;
+    printConstraintTracker: (constraints: ConstraintTracker) => void;
 }
