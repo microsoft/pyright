@@ -197,7 +197,6 @@ import {
     mapSubtypes,
     partiallySpecializeType,
     selfSpecializeClass,
-    setTypeVarType,
     transformPossibleRecursiveTypeAlias,
 } from './typeUtils';
 
@@ -984,7 +983,7 @@ export class Checker extends ParseTreeWalker {
                                         TypeVarType.cloneAsBound(typeVar)
                                     );
                                     if (narrowedType) {
-                                        setTypeVarType(constraints, typeVar, narrowedType);
+                                        constraints.setTypeVarType(typeVar, narrowedType);
                                     }
                                 }
                             }

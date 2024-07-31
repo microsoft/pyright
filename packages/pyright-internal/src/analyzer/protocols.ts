@@ -46,7 +46,6 @@ import {
     MemberAccessFlags,
     partiallySpecializeType,
     requiresSpecialization,
-    setTypeVarType,
     synthesizeTypeVarForSelfCls,
 } from './typeUtils';
 
@@ -759,8 +758,7 @@ function assignClassToProtocolInternal(
                 const typeArgEntry = protocolConstraints.getMainConstraintSet().getTypeVar(typeParam);
 
                 if (typeArgEntry) {
-                    setTypeVarType(
-                        destConstraints,
+                    destConstraints.setTypeVarType(
                         typeParam,
                         typeArgEntry?.lowerBound,
                         typeArgEntry?.lowerBoundNoLiterals,
@@ -788,8 +786,7 @@ function createProtocolConstraints(
         const entry = constraints?.getMainConstraintSet().getTypeVar(typeParam);
 
         if (entry) {
-            setTypeVarType(
-                protocolConstraints,
+            protocolConstraints.setTypeVarType(
                 typeParam,
                 entry.lowerBound,
                 entry.lowerBoundNoLiterals,
