@@ -602,6 +602,7 @@ export class Checker extends ParseTreeWalker {
                     if (
                         containingClassNode &&
                         isTypeVar(paramType) &&
+                        paramType.priv.scopeType === TypeVarScopeType.Class &&
                         paramType.shared.declaredVariance === Variance.Covariant &&
                         !paramType.shared.isSynthesized &&
                         !exemptMethods.some((name) => name === functionTypeResult.functionType.shared.name)
