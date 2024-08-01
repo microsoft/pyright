@@ -758,7 +758,7 @@ function assignClassToProtocolInternal(
                 const typeArgEntry = protocolConstraints.getMainConstraintSet().getTypeVar(typeParam);
 
                 if (typeArgEntry) {
-                    destConstraints.setTypeVarType(
+                    destConstraints.setConstraints(
                         typeParam,
                         typeArgEntry?.lowerBound,
                         typeArgEntry?.lowerBoundNoLiterals,
@@ -786,7 +786,7 @@ function createProtocolConstraints(
         const entry = constraints?.getMainConstraintSet().getTypeVar(typeParam);
 
         if (entry) {
-            protocolConstraints.setTypeVarType(
+            protocolConstraints.setConstraints(
                 typeParam,
                 entry.lowerBound,
                 entry.lowerBoundNoLiterals,

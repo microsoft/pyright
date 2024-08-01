@@ -11,16 +11,7 @@
 
 import { assert } from '../common/debug';
 import { getComplexityScoreForType } from './typeComplexity';
-import {
-    ParamSpecType,
-    Type,
-    TypeVarScopeId,
-    TypeVarType,
-    isAnyOrUnknown,
-    isFunction,
-    isParamSpec,
-    isTypeSame,
-} from './types';
+import { Type, TypeVarScopeId, TypeVarType, isTypeSame } from './types';
 
 // The maximum number of constraint sets that can be associated
 // with a constraint tracker. This equates to the number of overloads
@@ -64,7 +55,7 @@ export class ConstraintSet {
         const constraintSet = new ConstraintSet();
 
         this._typeVarMap.forEach((value) => {
-            constraintSet.setTypeVarType(value.typeVar, value.lowerBound, value.lowerBoundNoLiterals, value.upperBound);
+            constraintSet.setConstraints(value.typeVar, value.lowerBound, value.lowerBoundNoLiterals, value.upperBound);
         });
 
         if (this._scopeIds) {
@@ -112,51 +103,23 @@ export class ConstraintSet {
         let score = 0;
 
         // Sum the scores for the defined type vars.
-        this._typeVarMap.forEach((value) => {
+        this._typeVarMap.forEach((entry) => {
             // Add 1 to the score for each type variable defined.
             score += 1;
 
             // Add a fractional amount based on the simplicity of the definition.
             // The more complex, the lower the score. In the spirit of Occam's
             // Razor, we always want to favor simple answers.
-            const typeVarType = this.getTypeVarType(value.typeVar)!;
-            score += 1.0 - getComplexityScoreForType(typeVarType);
+            const typeVarType = entry.lowerBound ?? entry.upperBound;
+            if (typeVarType) {
+                score += 1.0 - getComplexityScoreForType(typeVarType);
+            }
         });
 
         return score;
     }
 
-    getTypeVarType(reference: TypeVarType, useLowerBoundOnly = false): Type | undefined {
-        const entry = this.getTypeVar(reference);
-        if (!entry) {
-            return undefined;
-        }
-
-        if (isParamSpec(reference)) {
-            if (!entry.lowerBound) {
-                return undefined;
-            }
-
-            if (isFunction(entry.lowerBound)) {
-                return entry.lowerBound;
-            }
-
-            if (isAnyOrUnknown(entry.lowerBound)) {
-                return ParamSpecType.getUnknown();
-            }
-        }
-
-        if (useLowerBoundOnly) {
-            return entry.lowerBound;
-        }
-
-        // Prefer the lower bound with no literals. It will be undefined
-        // if the literal type couldn't be widened due to constraints imposed
-        // by the upper bound.
-        return entry.lowerBoundNoLiterals ?? entry.lowerBound ?? entry.upperBound;
-    }
-
-    setTypeVarType(
+    setConstraints(
         reference: TypeVarType,
         lowerBound: Type | undefined,
         lowerBoundNoLiterals?: Type,
@@ -300,7 +263,7 @@ export class ConstraintTracker {
         return this._constraintSets.every((set) => set.isEmpty());
     }
 
-    setTypeVarType(
+    setConstraints(
         reference: TypeVarType,
         lowerBound: Type | undefined,
         lowerBoundNoLiterals?: Type,
@@ -309,7 +272,7 @@ export class ConstraintTracker {
         assert(!this._isLocked);
 
         return this._constraintSets.forEach((set) => {
-            set.setTypeVarType(reference, lowerBound, lowerBoundNoLiterals, upperBound);
+            set.setConstraints(reference, lowerBound, lowerBoundNoLiterals, upperBound);
         });
     }
 
