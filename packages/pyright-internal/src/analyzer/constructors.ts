@@ -958,7 +958,7 @@ function createFunctionFromInitMethod(
                 });
 
                 typeVarsInParams.forEach((typeVar) => {
-                    constraints.setTypeVarType(typeVar, typeVar);
+                    constraints.setConstraints(typeVar, typeVar);
                 });
 
                 returnType = evaluator.solveAndApplyConstraints(objectType, constraints, {

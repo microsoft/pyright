@@ -103,6 +103,7 @@ import {
     addConstraintsForExpectedType,
     applyUnificationVars,
     assignTypeVar,
+    solveConstraintSet,
     solveConstraints,
     updateTypeVarType,
 } from './constraintSolver';
@@ -2082,10 +2083,10 @@ export function createTypeEvaluator(
         solveOptions?: SolveConstraintsOptions
     ): Type {
         if (solveOptions?.applyUnificationVars) {
-            applyUnificationVars(constraints);
+            applyUnificationVars(evaluatorInterface, constraints);
         }
 
-        const solution = solveConstraints(constraints, solveOptions);
+        const solution = solveConstraints(evaluatorInterface, constraints, solveOptions);
         return applySolvedTypeVars(type, solution, applyOptions);
     }
 
@@ -5000,7 +5001,7 @@ export function createTypeEvaluator(
                 }
 
                 defaultTypeArgs.push(defaultType);
-                constraints.setTypeVarType(param, defaultType);
+                constraints.setConstraints(param, defaultType);
             });
 
             if (reportMissingTypeArgs) {
@@ -7005,15 +7006,16 @@ export function createTypeEvaluator(
             );
         }
 
-        const mainSet = constraints.getMainConstraintSet();
+        const solutionSet = solveConstraints(evaluatorInterface, constraints).getMainSolutionSet();
         const aliasTypeArgs: Type[] = [];
 
         aliasInfo.typeParams?.forEach((typeParam) => {
-            let typeVarType = mainSet.getTypeVarType(typeParam);
+            let typeVarType = solutionSet.getType(typeParam);
 
+            // Fill in any unsolved type arguments with unknown.
             if (!typeVarType) {
                 typeVarType = getUnknownForTypeVar(typeParam, getTupleClassType());
-                mainSet.setTypeVarType(typeParam, typeVarType);
+                constraints.setConstraints(typeParam, typeVarType);
             }
 
             aliasTypeArgs.push(typeVarType);
@@ -11401,7 +11403,7 @@ export function createTypeEvaluator(
                 if (index < typeParams.length) {
                     const typeParam = typeParams[index];
                     if (!isTypeSame(typeParam, typeArg, { ignorePseudoGeneric: true })) {
-                        constraints.setTypeVarType(typeParams[index], typeArg);
+                        constraints.setConstraints(typeParams[index], typeArg);
                     }
                 }
             });
@@ -11603,7 +11605,7 @@ export function createTypeEvaluator(
                     // It's possible that one or more of the TypeVars or ParamSpecs
                     // in the constraints refer to TypeVars that were solved in
                     // the paramSpecConstraints. Apply these solved TypeVars accordingly.
-                    applySourceContextTypeVars(constraints, solveConstraints(paramSpecConstraints));
+                    applySourceContextTypeVars(constraints, solveConstraints(evaluatorInterface, paramSpecConstraints));
                 }
             });
         }
@@ -11801,9 +11803,10 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         argList: Arg[],
         paramSpec: ParamSpecType,
-        constraints: ConstraintSet
+        constraintSet: ConstraintSet
     ): ParamSpecArgResult {
-        let paramSpecType = constraints.getTypeVarType(paramSpec);
+        const solutionSet = solveConstraintSet(evaluatorInterface, constraintSet);
+        let paramSpecType = solutionSet.getType(paramSpec);
         paramSpecType = convertTypeToParamSpecValue(paramSpecType ?? paramSpec);
 
         const matchResults = matchArgsToParams(errorNode, argList, { type: paramSpecType }, 0);
@@ -20318,7 +20321,7 @@ export function createTypeEvaluator(
                         FunctionType.addDefaultParams(functionType);
                         functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
                         typeArgTypes.push(functionType);
-                        constraints.setTypeVarType(typeParam, functionType);
+                        constraints.setConstraints(typeParam, functionType);
                         return;
                     }
 
@@ -20340,7 +20343,7 @@ export function createTypeEvaluator(
                         }
 
                         typeArgTypes.push(functionType);
-                        constraints.setTypeVarType(typeParam, functionType);
+                        constraints.setConstraints(typeParam, functionType);
                         return;
                     }
 
@@ -20376,7 +20379,7 @@ export function createTypeEvaluator(
 
                 const typeArgType = convertToInstance(typeArgs[index].type);
                 typeArgTypes.push(typeArgType);
-                constraints.setTypeVarType(typeParam, typeArgType);
+                constraints.setConstraints(typeParam, typeArgType);
                 return;
             }
 
@@ -20387,7 +20390,7 @@ export function createTypeEvaluator(
                 },
             });
             typeArgTypes.push(solvedDefaultType);
-            constraints.setTypeVarType(typeParam, solvedDefaultType);
+            constraints.setConstraints(typeParam, solvedDefaultType);
         });
 
         typeArgTypes = typeArgTypes.map((typeArgType, index) => {
@@ -25582,22 +25585,28 @@ export function createTypeEvaluator(
             }
         }
 
-        const effectiveSrcConstraints = reverseMatching ? destConstraints : srcConstraints;
-
         // If the target function was generic and we solved some of the type variables
         // in that generic type, assign them back to the destination typeVar.
-        const set = effectiveSrcConstraints.getMainConstraintSet();
-        set.getTypeVars().forEach((typeVarEntry) => {
-            assignType(
-                typeVarEntry.typeVar,
-                set.getTypeVarType(typeVarEntry.typeVar)!,
-                /* diag */ undefined,
-                destConstraints,
-                srcConstraints,
-                AssignTypeFlags.Default,
-                recursionCount
-            );
-        });
+        const effectiveSrcConstraints = reverseMatching ? destConstraints : srcConstraints;
+        if (!effectiveSrcConstraints.isEmpty()) {
+            const srcConstraintSet = effectiveSrcConstraints.getMainConstraintSet();
+            const solutionSet = solveConstraints(evaluatorInterface, effectiveSrcConstraints).getMainSolutionSet();
+
+            srcConstraintSet.doForEachTypeVar((entry) => {
+                const solvedValue = solutionSet.getType(entry.typeVar);
+                if (solvedValue) {
+                    assignType(
+                        entry.typeVar,
+                        solvedValue,
+                        /* diag */ undefined,
+                        destConstraints,
+                        srcConstraints,
+                        AssignTypeFlags.Default,
+                        recursionCount
+                    );
+                }
+            });
+        }
 
         // Are we assigning to a function with a ParamSpec?
         if (targetIncludesParamSpec) {
@@ -25777,7 +25786,7 @@ export function createTypeEvaluator(
 
         // Apply any solved source TypeVars to the dest TypeVar solutions. This
         // allows for higher-order functions to accept generic callbacks.
-        applySourceContextTypeVars(destConstraints, solveConstraints(srcConstraints));
+        applySourceContextTypeVars(destConstraints, solveConstraints(evaluatorInterface, srcConstraints));
 
         return canAssign;
     }
@@ -25815,9 +25824,11 @@ export function createTypeEvaluator(
             );
 
             let replacedTypeArg = false;
+            const solution = solveConstraints(evaluatorInterface, constraints).getMainSolutionSet();
+
             const newTypeArgs = assignedType.priv.typeArgs.map((typeArg, index) => {
                 const typeParam = assignedType.shared.typeParams[index];
-                const expectedTypeArgType = constraints.getMainConstraintSet().getTypeVarType(typeParam);
+                const expectedTypeArgType = solution.getType(typeParam);
 
                 if (expectedTypeArgType) {
                     if (isAnyOrUnknown(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
@@ -26807,7 +26818,7 @@ export function createTypeEvaluator(
                 // we attempt to call assignType, we'll risk infinite recursion.
                 // Instead, we'll assume it's assignable.
                 if (!constraints.isLocked()) {
-                    constraints.setTypeVarType(
+                    constraints.setConstraints(
                         memberTypeFirstParamType,
                         TypeBase.isInstantiable(memberTypeFirstParamType)
                             ? convertToInstance(firstParamType)
@@ -27148,20 +27159,6 @@ export function createTypeEvaluator(
         return codeFlowEngine.printControlFlowGraph(flowNode, reference, callName, logger);
     }
 
-    function printConstraintTracker(constraints: ConstraintTracker): void {
-        const sets = constraints.getConstraintSets();
-        sets.forEach((context, index) => {
-            if (sets.length > 1) {
-                console.log(`Solution set ${index + 1}:`);
-            }
-
-            context.getTypeVars().forEach((typeVarEntry) => {
-                const type = context.getTypeVarType(typeVarEntry.typeVar);
-                console.log(`  ${typeVarEntry.typeVar.shared.name}: ${type ? printType(type) : '<none>'}`);
-            });
-        });
-    }
-
     // Track these apis internal usages when logging is on. otherwise, it should be noop.
     const getFunctionInferredReturnType = wrapWithLogger(_getFunctionInferredReturnType);
 
@@ -27270,7 +27267,6 @@ export function createTypeEvaluator(
         setTypeResultForNode,
         checkForCancellation,
         printControlFlowGraph,
-        printConstraintTracker,
     };
 
     const codeFlowEngine = getCodeFlowEngine(evaluatorInterface, speculativeTypeTracker);

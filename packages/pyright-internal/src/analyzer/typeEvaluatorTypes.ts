@@ -742,5 +742,4 @@ export interface TypeEvaluator {
         callName: string,
         logger: ConsoleInterface
     ) => void;
-    printConstraintTracker: (constraints: ConstraintTracker) => void;
 }

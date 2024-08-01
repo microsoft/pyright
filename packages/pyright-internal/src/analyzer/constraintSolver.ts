@@ -198,25 +198,35 @@ export function assignTypeVar(
 
 // Returns a solution for the type variables tracked by the constraint tracker.
 export function solveConstraints(
+    evaluator: TypeEvaluator,
     constraints: ConstraintTracker,
     options?: SolveConstraintsOptions
 ): ConstraintSolution {
     const solutionSets: ConstraintSolutionSet[] = [];
 
     constraints.doForEachConstraintSet((constraintSet) => {
-        const solutionSet = new ConstraintSolutionSet(constraintSet.getScopeIds());
-
-        constraintSet.doForEachTypeVar((entry) => {
-            const value = constraintSet.getTypeVarType(entry.typeVar, options?.useLowerBoundOnly);
-            if (value) {
-                solutionSet.setType(entry.typeVar, value);
-            }
-        });
-
+        const solutionSet = solveConstraintSet(evaluator, constraintSet, options);
         solutionSets.push(solutionSet);
     });
 
     return new ConstraintSolution(solutionSets);
+}
+
+export function solveConstraintSet(
+    evaluator: TypeEvaluator,
+    constraintSet: ConstraintSet,
+    options?: SolveConstraintsOptions
+): ConstraintSolutionSet {
+    const solutionSet = new ConstraintSolutionSet(constraintSet.getScopeIds());
+
+    constraintSet.doForEachTypeVar((entry) => {
+        const value = getTypeVarType(evaluator, constraintSet, entry.typeVar, options?.useLowerBoundOnly);
+        if (value) {
+            solutionSet.setType(entry.typeVar, value);
+        }
+    });
+
+    return solutionSet;
 }
 
 // Updates the lower and upper bounds for a type variable. It also calculates the
@@ -248,7 +258,7 @@ export function updateTypeVarType(
         }
     }
 
-    constraints.setTypeVarType(destType, lowerBound, lowerBoundNoLiterals, upperBound);
+    constraints.setConstraints(destType, lowerBound, lowerBoundNoLiterals, upperBound);
 }
 
 // In cases where the expected type is a specialized base class of the
@@ -365,7 +375,7 @@ export function addConstraintsForExpectedType(
         let isResultValid = true;
 
         synthExpectedTypeArgs.forEach((typeVar, index) => {
-            let synthTypeVar = syntheticConstraints.getMainConstraintSet().getTypeVarType(typeVar);
+            let synthTypeVar = getTypeVarType(evaluator, syntheticConstraints.getMainConstraintSet(), typeVar);
             const otherSubtypes: Type[] = [];
 
             // If the resulting type is a union, try to find a matching type var and move
@@ -423,7 +433,7 @@ export function addConstraintsForExpectedType(
                         // If this type variable already has a type, don't overwrite it. This can
                         // happen if a single type variable in the derived class is used multiple times
                         // in the specialized base class type (e.g. Mapping[T, T]).
-                        if (constraints.getMainConstraintSet().getTypeVarType(targetTypeVar)) {
+                        if (constraints.getMainConstraintSet().getTypeVar(targetTypeVar)) {
                             isResultValid = false;
                             typeArgValue = UnknownType.create();
                         }
@@ -451,24 +461,63 @@ export function addConstraintsForExpectedType(
 // If the constraint tracker contains any type variables whose types depend on
 // unification vars used for bidirectional type inference, replace those
 // with the solved type associated with those unification vars.
-export function applyUnificationVars(constraints: ConstraintTracker) {
-    constraints.doForEachConstraintSet((set) => {
-        if (!set.hasUnificationVars()) {
+export function applyUnificationVars(evaluator: TypeEvaluator, constraints: ConstraintTracker) {
+    constraints.doForEachConstraintSet((constraintSet) => {
+        if (!constraintSet.hasUnificationVars()) {
             return;
         }
 
-        set.getTypeVars().forEach((entry) => {
+        constraintSet.getTypeVars().forEach((entry) => {
             if (!TypeVarType.isUnification(entry.typeVar)) {
-                const newLowerBound = entry.lowerBound ? applyUnificationVarsToType(entry.lowerBound, set) : undefined;
-                const newLowerBoundNoLiterals = entry.lowerBoundNoLiterals
-                    ? applyUnificationVarsToType(entry.lowerBoundNoLiterals, set)
+                const newLowerBound = entry.lowerBound
+                    ? applyUnificationVarsToType(evaluator, entry.lowerBound, constraintSet)
                     : undefined;
-                const newUpperBound = entry.upperBound ? applyUnificationVarsToType(entry.upperBound, set) : undefined;
+                const newLowerBoundNoLiterals = entry.lowerBoundNoLiterals
+                    ? applyUnificationVarsToType(evaluator, entry.lowerBoundNoLiterals, constraintSet)
+                    : undefined;
+                const newUpperBound = entry.upperBound
+                    ? applyUnificationVarsToType(evaluator, entry.upperBound, constraintSet)
+                    : undefined;
 
-                set.setTypeVarType(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
+                constraintSet.setConstraints(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
             }
         });
     });
+}
+
+function getTypeVarType(
+    evaluator: TypeEvaluator,
+    constraintSet: ConstraintSet,
+    typeVar: TypeVarType,
+    useLowerBoundOnly?: boolean
+): Type | undefined {
+    const entry = constraintSet.getTypeVar(typeVar);
+    if (!entry) {
+        return undefined;
+    }
+
+    if (isParamSpec(typeVar)) {
+        if (!entry.lowerBound) {
+            return undefined;
+        }
+
+        if (isFunction(entry.lowerBound)) {
+            return entry.lowerBound;
+        }
+
+        if (isAnyOrUnknown(entry.lowerBound)) {
+            return ParamSpecType.getUnknown();
+        }
+    }
+
+    if (useLowerBoundOnly) {
+        return entry.lowerBound;
+    }
+
+    // Prefer the lower bound with no literals. It will be undefined
+    // if the literal type couldn't be widened due to constraints imposed
+    // by the upper bound.
+    return entry.lowerBoundNoLiterals ?? entry.lowerBound ?? entry.upperBound;
 }
 
 // Handles an assignment to a TypeVar that is "bound" rather than "free".
@@ -1152,7 +1201,7 @@ function assignParamSpec(
 
     constraints.doForEachConstraintSet((constraintSet) => {
         if (isParamSpec(adjSrcType)) {
-            const existingType = constraintSet.getTypeVarType(destType);
+            const existingType = constraintSet.getTypeVar(destType)?.lowerBound;
             if (existingType) {
                 const paramSpecValue = convertTypeToParamSpecValue(existingType);
                 const existingTypeParamSpec = FunctionType.getParamSpecFromArgsKwargs(paramSpecValue);
@@ -1166,7 +1215,7 @@ function assignParamSpec(
                 }
             } else {
                 if (!constraints.isLocked()) {
-                    constraintSet.setTypeVarType(destType, adjSrcType);
+                    constraintSet.setConstraints(destType, adjSrcType);
                 }
                 return;
             }
@@ -1174,7 +1223,7 @@ function assignParamSpec(
             const newFunction = adjSrcType;
             let updateContextWithNewFunction = false;
 
-            const existingType = constraintSet.getTypeVarType(destType);
+            const existingType = constraintSet.getTypeVar(destType)?.lowerBound;
             if (existingType) {
                 // Convert the remaining portion of the signature to a function
                 // for comparison purposes.
@@ -1226,7 +1275,7 @@ function assignParamSpec(
 
             if (updateContextWithNewFunction) {
                 if (!constraints.isLocked()) {
-                    constraintSet.setTypeVarType(destType, newFunction);
+                    constraintSet.setConstraints(destType, newFunction);
                 }
                 return;
             }
@@ -1248,27 +1297,21 @@ function assignParamSpec(
 }
 
 class UnificationVarTransformer extends TypeVarTransformer {
-    constructor(private _constraintSet: ConstraintSet) {
+    constructor(private _evaluator: TypeEvaluator, private _constraintSet: ConstraintSet) {
         super();
     }
 
     override transformTypeVar(typeVar: TypeVarType) {
         if (TypeVarType.isUnification(typeVar)) {
-            return this._constraintSet.getTypeVarType(typeVar) ?? typeVar;
+            return getTypeVarType(this._evaluator, this._constraintSet, typeVar) ?? typeVar;
         }
 
         return undefined;
     }
 }
 
-function applyUnificationVarsToType(type: Type, constraintSet: ConstraintSet): Type {
-    // Handle the common case where there are no unification vars.
-    // No more work is required in this case.
-    if (!constraintSet.getTypeVars().some((entry) => TypeVarType.isUnification(entry.typeVar))) {
-        return type;
-    }
-
-    const transformer = new UnificationVarTransformer(constraintSet);
+function applyUnificationVarsToType(evaluator: TypeEvaluator, type: Type, constraintSet: ConstraintSet): Type {
+    const transformer = new UnificationVarTransformer(evaluator, constraintSet);
     return transformer.apply(type, 0);
 }
 
