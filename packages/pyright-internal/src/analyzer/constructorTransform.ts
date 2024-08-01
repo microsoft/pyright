@@ -362,7 +362,7 @@ function applyPartialTransformToFunction(
                 }
             } else {
                 const paramName = matchingParam.param.name!;
-                const paramType = FunctionType.getEffectiveParamType(origFunctionType, matchingParam.index);
+                const paramType = matchingParam.type;
 
                 if (paramMap.has(paramName)) {
                     if (errorNode) {
