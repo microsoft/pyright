@@ -688,17 +688,23 @@ export class Binder extends ParseTreeWalker {
 
                 // Is this a call to "__all__.extend([<list>])"?
                 if (argExpr.nodeType === ParseNodeType.List) {
-                    argExpr.d.items.forEach((listEntryNode) => {
-                        if (
-                            listEntryNode.nodeType === ParseNodeType.StringList &&
-                            listEntryNode.d.strings.length === 1 &&
-                            listEntryNode.d.strings[0].nodeType === ParseNodeType.String
-                        ) {
-                            this._dunderAllNames?.push(listEntryNode.d.strings[0].d.value);
-                            this._dunderAllStringNodes?.push(listEntryNode.d.strings[0]);
-                            emitDunderAllWarning = false;
-                        }
-                    });
+                    if (
+                        argExpr.d.items.every((listEntryNode) => {
+                            if (
+                                listEntryNode.nodeType === ParseNodeType.StringList &&
+                                listEntryNode.d.strings.length === 1 &&
+                                listEntryNode.d.strings[0].nodeType === ParseNodeType.String
+                            ) {
+                                this._dunderAllNames?.push(listEntryNode.d.strings[0].d.value);
+                                this._dunderAllStringNodes?.push(listEntryNode.d.strings[0]);
+                                return true;
+                            }
+
+                            return false;
+                        })
+                    ) {
+                        emitDunderAllWarning = false;
+                    }
                 } else if (
                     argExpr.nodeType === ParseNodeType.MemberAccess &&
                     argExpr.d.leftExpr.nodeType === ParseNodeType.Name &&
@@ -710,8 +716,8 @@ export class Binder extends ParseTreeWalker {
                         namesToAdd.forEach((name) => {
                             this._dunderAllNames?.push(name);
                         });
-                        emitDunderAllWarning = false;
                     }
+                    emitDunderAllWarning = false;
                 }
             } else if (node.d.leftExpr.d.member.d.value === 'remove' && node.d.args.length === 1) {
                 // Is this a call to "__all__.remove()"?
