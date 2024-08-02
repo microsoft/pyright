@@ -140,7 +140,7 @@ export class TypeWalker {
         for (let i = 0; i < type.shared.parameters.length; i++) {
             // Ignore parameters such as "*" that have no name.
             if (type.shared.parameters[i].name) {
-                const paramType = FunctionType.getEffectiveParamType(type, i);
+                const paramType = FunctionType.getParamType(type, i);
                 this.walk(paramType);
                 if (this._isWalkCanceled) {
                     break;

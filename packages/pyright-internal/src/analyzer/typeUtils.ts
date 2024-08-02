@@ -654,8 +654,8 @@ function compareTypes(a: Type, b: Type, recursionCount = 0): number {
                 }
 
                 const typeComparison = compareTypes(
-                    FunctionType.getEffectiveParamType(a, i),
-                    FunctionType.getEffectiveParamType(bFunc, i)
+                    FunctionType.getParamType(a, i),
+                    FunctionType.getParamType(bFunc, i)
                 );
 
                 if (typeComparison !== 0) {
@@ -2001,7 +2001,7 @@ export function getTypeVarArgsRecursive(type: Type, recursionCount = 0): TypeVar
         for (let i = 0; i < type.shared.parameters.length; i++) {
             addTypeVarsToListIfUnique(
                 combinedList,
-                getTypeVarArgsRecursive(FunctionType.getEffectiveParamType(type, i), recursionCount)
+                getTypeVarArgsRecursive(FunctionType.getParamType(type, i), recursionCount)
             );
         }
 
@@ -2080,8 +2080,13 @@ export function setTypeArgsRecursive(
                     );
                 }
             } else {
-                destType.shared.parameters.forEach((param) => {
-                    setTypeArgsRecursive(param.type, srcType, constraints, recursionCount);
+                destType.shared.parameters.forEach((_, index) => {
+                    setTypeArgsRecursive(
+                        FunctionType.getParamType(destType, index),
+                        srcType,
+                        constraints,
+                        recursionCount
+                    );
                 });
                 if (destType.shared.declaredReturnType) {
                     setTypeArgsRecursive(destType.shared.declaredReturnType, srcType, constraints, recursionCount);
@@ -2629,7 +2634,7 @@ export function isPartlyUnknown(type: Type, recursionCount = 0): boolean {
         for (let i = 0; i < type.shared.parameters.length; i++) {
             // Ignore parameters such as "*" that have no name.
             if (type.shared.parameters[i].name) {
-                const paramType = FunctionType.getEffectiveParamType(type, i);
+                const paramType = FunctionType.getParamType(type, i);
                 if (isPartlyUnknown(paramType, recursionCount)) {
                     return true;
                 }
@@ -2882,7 +2887,7 @@ function _requiresSpecialization(type: Type, options?: RequiresSpecializationOpt
 
         case TypeCategory.Function: {
             for (let i = 0; i < type.shared.parameters.length; i++) {
-                if (requiresSpecialization(FunctionType.getEffectiveParamType(type, i), options, recursionCount)) {
+                if (requiresSpecialization(FunctionType.getParamType(type, i), options, recursionCount)) {
                     return true;
                 }
             }
@@ -3258,10 +3263,10 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
                 newFunction,
                 FunctionParam.create(
                     param.category,
-                    FunctionType.getEffectiveParamType(type, index),
+                    FunctionType.getParamType(type, index),
                     param.flags & FunctionParamFlags.NameSynthesized,
                     param.name,
-                    param.defaultType
+                    FunctionType.getParamDefaultType(type, index)
                 )
             );
         });
@@ -3313,10 +3318,10 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
             functionType,
             FunctionParam.create(
                 entry.category,
-                FunctionType.getEffectiveParamType(withoutParamSpec, index),
+                FunctionType.getParamType(withoutParamSpec, index),
                 (entry.flags & FunctionParamFlags.NameSynthesized) | FunctionParamFlags.TypeDeclared,
                 entry.name,
-                entry.defaultType
+                FunctionType.getParamDefaultType(withoutParamSpec, index)
             )
         );
     });
@@ -3417,7 +3422,7 @@ export class TypeVarTransformer {
                 }
 
                 // If the original type was a ParamSpec with a ".args" or ".kwargs" access,
-                // preserver that information in the transformed type.
+                // preserve that information in the transformed type.
                 if (paramSpecAccess) {
                     if (isParamSpec(replacementType)) {
                         replacementType = TypeVarType.cloneForParamSpecAccess(replacementType, paramSpecAccess);
@@ -3686,7 +3691,7 @@ export class TypeVarTransformer {
 
             const specializedParams: SpecializedFunctionTypes = {
                 parameterTypes: [],
-                parameterDefaultArgs: undefined,
+                parameterDefaultTypes: undefined,
                 returnType: specializedReturnType,
             };
 
@@ -3713,12 +3718,12 @@ export class TypeVarTransformer {
             const specializedDefaultArgs: (Type | undefined)[] = [];
 
             for (let i = 0; i < functionType.shared.parameters.length; i++) {
-                const paramType = FunctionType.getEffectiveParamType(functionType, i);
+                const paramType = FunctionType.getParamType(functionType, i);
                 const specializedType = this.apply(paramType, recursionCount);
                 specializedParams.parameterTypes.push(specializedType);
 
                 // Do we need to specialize the default argument type for this parameter?
-                let defaultArgType = FunctionType.getEffectiveParamDefaultArgType(functionType, i);
+                let defaultArgType = FunctionType.getParamDefaultType(functionType, i);
                 if (defaultArgType) {
                     const specializedArgType = this.apply(defaultArgType, recursionCount);
                     if (specializedArgType !== defaultArgType) {
@@ -3779,7 +3784,7 @@ export class TypeVarTransformer {
             }
 
             if (specializedDefaultArgs.some((t) => t !== undefined)) {
-                specializedParams.parameterDefaultArgs = specializedDefaultArgs;
+                specializedParams.parameterDefaultTypes = specializedDefaultArgs;
             }
 
             // If there was no unpacked variadic type variable, we're done.
@@ -3823,7 +3828,7 @@ export class TypeVarTransformer {
                         insertKeywordOnlySeparator = true;
                     }
                 } else {
-                    const param = { ...functionType.shared.parameters[index] };
+                    const param = functionType.shared.parameters[index];
 
                     if (isKeywordOnlySeparator(param)) {
                         insertKeywordOnlySeparator = false;
@@ -3838,13 +3843,19 @@ export class TypeVarTransformer {
                         insertKeywordOnlySeparator = false;
                     }
 
-                    param.type = paramType;
-                    if (param.name && FunctionParam.isNameSynthesized(param)) {
-                        param.name = `__p${newFunctionType.shared.parameters.length}`;
-                    }
-
                     if (param.category !== ParamCategory.Simple || param.name || !swallowPositionOnlySeparator) {
-                        FunctionType.addParam(newFunctionType, param);
+                        FunctionType.addParam(
+                            newFunctionType,
+                            FunctionParam.create(
+                                param.category,
+                                paramType,
+                                param.flags,
+                                param.name && FunctionParam.isNameSynthesized(param)
+                                    ? `__p${newFunctionType.shared.parameters.length}`
+                                    : param.name,
+                                FunctionType.getParamDefaultType(functionType, index)
+                            )
+                        );
                     }
                 }
             });

@@ -701,7 +701,12 @@ export class PackageTypeVerifier {
         declFileUri: Uri | undefined,
         report: PackageTypeReport
     ) {
-        if (type.shared.parameters.find((param) => param.defaultType && isEllipsisType(param.defaultType))) {
+        if (
+            type.shared.parameters.find((_, index) => {
+                const defaultType = FunctionType.getParamDefaultType(type, index);
+                return defaultType && isEllipsisType(defaultType);
+            })
+        ) {
             if (symbolInfo) {
                 this._addSymbolWarning(
                     symbolInfo,
@@ -987,6 +992,8 @@ export class PackageTypeVerifier {
         }
 
         type.shared.parameters.forEach((param, index) => {
+            const paramType = FunctionType.getParamType(type, index);
+
             // Skip nameless parameters like "*" and "/".
             if (param.name) {
                 if (!FunctionParam.isTypeDeclared(param)) {
@@ -1011,7 +1018,7 @@ export class PackageTypeVerifier {
                         diag?.createAddendum().addMessage(`Type annotation for parameter "${param.name}" is missing`);
                         knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                     }
-                } else if (isUnknown(param.type)) {
+                } else if (isUnknown(paramType)) {
                     if (symbolInfo) {
                         this._addSymbolError(
                             symbolInfo,
@@ -1026,13 +1033,13 @@ export class PackageTypeVerifier {
                     const extraInfo = new DiagnosticAddendum();
                     const paramKnownStatus = this._getTypeKnownStatus(
                         report,
-                        param.type,
+                        paramType,
                         publicSymbols,
                         extraInfo.createAddendum()
                     );
 
                     if (paramKnownStatus !== TypeKnownStatus.Known) {
-                        extraInfo.addMessage(`Parameter type is "${this._program.printType(param.type)}"`);
+                        extraInfo.addMessage(`Parameter type is "${this._program.printType(paramType)}"`);
 
                         if (symbolInfo) {
                             this._addSymbolError(

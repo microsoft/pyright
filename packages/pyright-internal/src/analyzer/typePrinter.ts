@@ -845,7 +845,7 @@ function printFunctionType(
 
             typeWithoutParamSpec.shared.parameters.forEach((param, index) => {
                 if (param.name) {
-                    const paramType = FunctionType.getEffectiveParamType(typeWithoutParamSpec, index);
+                    const paramType = FunctionType.getParamType(typeWithoutParamSpec, index);
                     if (recursionTypes.length < maxTypeRecursionCount) {
                         paramTypes.push(
                             printTypeInternal(
@@ -1095,13 +1095,16 @@ function printFunctionPartsInternal(
     }
 
     type.shared.parameters.forEach((param, index) => {
+        const paramType = FunctionType.getParamType(type, index);
+        const defaultType = FunctionType.getParamDefaultType(type, index);
+
         // Handle specialized variadic type parameters specially.
         if (
             index === type.shared.parameters.length - 1 &&
             param.category === ParamCategory.ArgsList &&
-            isTypeVarTuple(param.type)
+            isTypeVarTuple(paramType)
         ) {
-            const specializedParamType = FunctionType.getEffectiveParamType(type, index);
+            const specializedParamType = FunctionType.getParamType(type, index);
             if (
                 isClassInstance(specializedParamType) &&
                 ClassType.isBuiltIn(specializedParamType, 'tuple') &&
@@ -1124,11 +1127,11 @@ function printFunctionPartsInternal(
 
         // Handle expanding TypedDict kwargs specially.
         if (
-            isTypedKwargs(param) &&
+            isTypedKwargs(param, paramType) &&
             printTypeFlags & PrintTypeFlags.ExpandTypedDictArgs &&
-            param.type.category === TypeCategory.Class
+            paramType.category === TypeCategory.Class
         ) {
-            param.type.shared.typedDictEntries!.knownItems.forEach((v, k) => {
+            paramType.shared.typedDictEntries!.knownItems.forEach((v, k) => {
                 const valueTypeString = printTypeInternal(
                     v.valueType,
                     printTypeFlags,
@@ -1168,7 +1171,7 @@ function printFunctionPartsInternal(
         if (param.name) {
             // Avoid printing type types if parameter have unknown type.
             if (FunctionParam.isTypeDeclared(param) || FunctionParam.isTypeInferred(param)) {
-                const paramType = FunctionType.getEffectiveParamType(type, index);
+                const paramType = FunctionType.getParamType(type, index);
                 let paramTypeString =
                     recursionTypes.length < maxTypeRecursionCount
                         ? printTypeInternal(
@@ -1227,7 +1230,7 @@ function printFunctionPartsInternal(
             }
         }
 
-        if (param.defaultType) {
+        if (defaultType) {
             const paramNode = functionNode?.d.params.find((p) => p.d.name?.d.value === param.name);
             if (paramNode?.d.defaultValue) {
                 paramString += defaultValueAssignment + ParseTreeUtils.printExpression(paramNode.d.defaultValue);
@@ -1381,7 +1384,7 @@ class UniqueNameMap {
             switch (type.category) {
                 case TypeCategory.Function: {
                     type.shared.parameters.forEach((_, index) => {
-                        const paramType = FunctionType.getEffectiveParamType(type, index);
+                        const paramType = FunctionType.getParamType(type, index);
                         this.build(paramType, recursionTypes, recursionCount);
                     });
 

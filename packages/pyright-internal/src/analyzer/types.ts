@@ -1432,10 +1432,16 @@ export enum FunctionParamFlags {
 
 export interface FunctionParam {
     category: ParamCategory;
-    type: Type;
     flags: FunctionParamFlags;
     name: string | undefined;
-    defaultType: Type | undefined;
+
+    // Use getEffectiveParamType to access this field.
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    _type: Type;
+
+    // Use getEffectiveParamDefaultArgType to access this field.
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    _defaultType: Type | undefined;
 }
 
 export namespace FunctionParam {
@@ -1446,7 +1452,7 @@ export namespace FunctionParam {
         name?: string,
         defaultType?: Type
     ): FunctionParam {
-        return { category, type, flags, name, defaultType };
+        return { category, flags, name, _type: type, _defaultType: defaultType };
     }
 
     export function isNameSynthesized(param: FunctionParam) {
@@ -1577,7 +1583,7 @@ export interface SpecializedFunctionTypes {
     // the "parameters" array. If an entry is undefined or the entire array
     // is missing, there is no specialized type, and the original "defaultType"
     // should be used.
-    parameterDefaultArgs: (Type | undefined)[] | undefined;
+    parameterDefaultTypes: (Type | undefined)[] | undefined;
 
     // Specialized type of the declared return type. Undefined if there is
     // no declared return type.
@@ -1710,7 +1716,7 @@ export namespace FunctionType {
                     if (type.shared.parameters.length > 0 && !FunctionParam.isTypeInferred(type.shared.parameters[0])) {
                         // Stash away the effective type of the first parameter if it
                         // wasn't synthesized.
-                        newFunction.priv.strippedFirstParamType = getEffectiveParamType(type, 0);
+                        newFunction.priv.strippedFirstParamType = getParamType(type, 0);
                     }
                     newFunction.shared.parameters = type.shared.parameters.slice(1);
                 }
@@ -1733,9 +1739,9 @@ export namespace FunctionType {
                 parameterTypes: stripFirstParam
                     ? type.priv.specializedTypes.parameterTypes.slice(1)
                     : type.priv.specializedTypes.parameterTypes,
-                parameterDefaultArgs: stripFirstParam
-                    ? type.priv.specializedTypes.parameterDefaultArgs?.slice(1)
-                    : type.priv.specializedTypes.parameterDefaultArgs,
+                parameterDefaultTypes: stripFirstParam
+                    ? type.priv.specializedTypes.parameterDefaultTypes?.slice(1)
+                    : type.priv.specializedTypes.parameterDefaultTypes,
                 returnType: type.priv.specializedTypes.returnType,
             };
         }
@@ -1777,8 +1783,8 @@ export namespace FunctionType {
         const newFunction = TypeBase.cloneType(type);
 
         assert(specializedTypes.parameterTypes.length === type.shared.parameters.length);
-        if (specializedTypes.parameterDefaultArgs) {
-            assert(specializedTypes.parameterDefaultArgs.length === type.shared.parameters.length);
+        if (specializedTypes.parameterDefaultTypes) {
+            assert(specializedTypes.parameterDefaultTypes.length === type.shared.parameters.length);
         }
 
         newFunction.priv.specializedTypes = specializedTypes;
@@ -1803,13 +1809,13 @@ export namespace FunctionType {
 
         newFunction.shared.parameters = [
             ...prevParams,
-            ...paramSpecValue.shared.parameters.map((param) => {
+            ...paramSpecValue.shared.parameters.map((param, index) => {
                 return FunctionParam.create(
                     param.category,
-                    param.type,
+                    FunctionType.getParamType(paramSpecValue, index),
                     (param.flags & FunctionParamFlags.NameSynthesized) | FunctionParamFlags.TypeDeclared,
                     param.name,
-                    param.defaultType
+                    FunctionType.getParamDefaultType(paramSpecValue, index)
                 );
             }),
         ];
@@ -1848,12 +1854,14 @@ export namespace FunctionType {
         // Update the specialized parameter types as well.
         const specializedTypes = newFunction.priv.specializedTypes;
         if (specializedTypes) {
-            paramSpecValue.shared.parameters.forEach((paramInfo) => {
-                specializedTypes.parameterTypes.push(paramInfo.type);
+            paramSpecValue.shared.parameters.forEach((_, index) => {
+                specializedTypes.parameterTypes.push(FunctionType.getParamType(paramSpecValue, index));
 
-                // Assume that the parameters introduced via paramSpec have no specialized
-                // default arg types. Fall back on the original default arg type in this case.
-                specializedTypes.parameterDefaultArgs?.push(undefined);
+                if (specializedTypes.parameterDefaultTypes) {
+                    specializedTypes.parameterDefaultTypes?.push(
+                        FunctionType.getParamDefaultType(paramSpecValue, index)
+                    );
+                }
             });
         }
 
@@ -1935,8 +1943,8 @@ export namespace FunctionType {
             return type;
         }
 
-        const argsType = FunctionType.getEffectiveParamType(type, paramCount - 2);
-        const kwargsType = FunctionType.getEffectiveParamType(type, paramCount - 1);
+        const argsType = FunctionType.getParamType(type, paramCount - 2);
+        const kwargsType = FunctionType.getParamType(type, paramCount - 1);
         if (!isParamSpec(argsType) || !isParamSpec(kwargsType) || !isTypeSame(argsType, kwargsType)) {
             return type;
         }
@@ -1966,11 +1974,11 @@ export namespace FunctionType {
                 0,
                 newFunction.priv.specializedTypes.parameterTypes.length - paramsToDrop
             );
-            if (newFunction.priv.specializedTypes.parameterDefaultArgs) {
-                newFunction.priv.specializedTypes.parameterDefaultArgs =
-                    newFunction.priv.specializedTypes.parameterDefaultArgs.slice(
+            if (newFunction.priv.specializedTypes.parameterDefaultTypes) {
+                newFunction.priv.specializedTypes.parameterDefaultTypes =
+                    newFunction.priv.specializedTypes.parameterDefaultTypes.slice(
                         0,
-                        newFunction.priv.specializedTypes.parameterDefaultArgs.length - paramsToDrop
+                        newFunction.priv.specializedTypes.parameterDefaultTypes.length - paramsToDrop
                     );
             }
         }
@@ -1991,17 +1999,19 @@ export namespace FunctionType {
         }
 
         const secondLastParam = params[params.length - 2];
+        const secondLastParamType = FunctionType.getParamType(type, params.length - 2);
         const lastParam = params[params.length - 1];
+        const lastParamType = FunctionType.getParamType(type, params.length - 1);
 
         if (
             secondLastParam.category === ParamCategory.ArgsList &&
-            isParamSpec(secondLastParam.type) &&
-            secondLastParam.type.priv.paramSpecAccess === 'args' &&
+            isParamSpec(secondLastParamType) &&
+            secondLastParamType.priv.paramSpecAccess === 'args' &&
             lastParam.category === ParamCategory.KwargsDict &&
-            isParamSpec(lastParam.type) &&
-            lastParam.type.priv.paramSpecAccess === 'kwargs'
+            isParamSpec(lastParamType) &&
+            lastParamType.priv.paramSpecAccess === 'kwargs'
         ) {
-            return TypeVarType.cloneForParamSpecAccess(secondLastParam.type, /* access */ undefined);
+            return TypeVarType.cloneForParamSpecAccess(secondLastParamType, /* access */ undefined);
         }
 
         return undefined;
@@ -2073,7 +2083,7 @@ export namespace FunctionType {
                 sawKwargs = true;
             }
 
-            if (!isAnyOrUnknown(FunctionType.getEffectiveParamType(functionType, i))) {
+            if (!isAnyOrUnknown(FunctionType.getParamType(functionType, i))) {
                 return false;
             }
         }
@@ -2176,37 +2186,41 @@ export namespace FunctionType {
         return true;
     }
 
-    export function getEffectiveParamType(type: FunctionType, index: number): Type {
+    export function getDeclaredParamType(type: FunctionType, index: number): Type {
+        return type.shared.parameters[index]._type;
+    }
+
+    export function getParamType(type: FunctionType, index: number): Type {
         assert(index < type.shared.parameters.length, 'Parameter types array overflow');
 
         if (type.priv.specializedTypes && index < type.priv.specializedTypes.parameterTypes.length) {
             return type.priv.specializedTypes.parameterTypes[index];
         }
 
-        return type.shared.parameters[index].type;
+        return type.shared.parameters[index]._type;
     }
 
-    export function getEffectiveParamDefaultArgType(type: FunctionType, index: number): Type | undefined {
+    export function getParamDefaultType(type: FunctionType, index: number): Type | undefined {
         assert(index < type.shared.parameters.length, 'Parameter types array overflow');
 
         if (
-            type.priv.specializedTypes?.parameterDefaultArgs &&
-            index < type.priv.specializedTypes.parameterDefaultArgs.length
+            type.priv.specializedTypes?.parameterDefaultTypes &&
+            index < type.priv.specializedTypes.parameterDefaultTypes.length
         ) {
-            const defaultArgType = type.priv.specializedTypes.parameterDefaultArgs[index];
+            const defaultArgType = type.priv.specializedTypes.parameterDefaultTypes[index];
             if (defaultArgType) {
                 return defaultArgType;
             }
         }
 
-        return type.shared.parameters[index].defaultType;
+        return type.shared.parameters[index]._defaultType;
     }
 
     export function addParam(type: FunctionType, param: FunctionParam) {
         type.shared.parameters.push(param);
 
         if (type.priv.specializedTypes) {
-            type.priv.specializedTypes.parameterTypes.push(param.type);
+            type.priv.specializedTypes.parameterTypes.push(param._type);
         }
     }
 
@@ -3286,8 +3300,8 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
                     continue;
                 }
 
-                const param1Type = FunctionType.getEffectiveParamType(type1, i);
-                const param2Type = FunctionType.getEffectiveParamType(functionType2, i);
+                const param1Type = FunctionType.getParamType(type1, i);
+                const param2Type = FunctionType.getParamType(functionType2, i);
                 if (!isTypeSame(param1Type, param2Type, { ...options, ignoreTypeFlags: false }, recursionCount)) {
                     return false;
                 }

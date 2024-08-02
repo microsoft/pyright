@@ -91,7 +91,7 @@ function applyTotalOrderingTransform(
         firstMemberType.shared.parameters.length >= 2 &&
         FunctionParam.isTypeDeclared(firstMemberType.shared.parameters[1])
     ) {
-        operandType = firstMemberType.shared.parameters[1].type;
+        operandType = FunctionType.getParamType(firstMemberType, 1);
     }
 
     // If there was no provided operand type, fall back to object.

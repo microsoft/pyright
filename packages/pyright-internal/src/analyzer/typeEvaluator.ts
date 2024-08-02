@@ -2477,7 +2477,7 @@ export function createTypeEvaluator(
         }
         assert(kwargsIndex === functionType.shared.parameters.length - 1);
 
-        const kwargsType = FunctionType.getEffectiveParamType(functionType, kwargsIndex);
+        const kwargsType = FunctionType.getParamType(functionType, kwargsIndex);
         if (!isClassInstance(kwargsType) || !ClassType.isTypedDictClass(kwargsType) || !kwargsType.priv.isUnpacked) {
             return functionType;
         }
@@ -2627,7 +2627,7 @@ export function createTypeEvaluator(
                 if (baseType && isClassInstance(baseType)) {
                     const setItemType = getBoundMagicMethod(baseType, '__setitem__');
                     if (setItemType && isFunction(setItemType) && setItemType.shared.parameters.length >= 2) {
-                        const paramType = FunctionType.getEffectiveParamType(setItemType, 1);
+                        const paramType = FunctionType.getParamType(setItemType, 1);
                         if (!isAnyOrUnknown(paramType)) {
                             return paramType;
                         }
@@ -2654,7 +2654,7 @@ export function createTypeEvaluator(
                 if (useDescriptorSetterType && isClassInstance(declaredType)) {
                     const setter = getBoundMagicMethod(declaredType, '__set__');
                     if (setter && isFunction(setter) && setter.shared.parameters.length >= 2) {
-                        declaredType = setter.shared.parameters[1].type;
+                        declaredType = FunctionType.getParamType(setter, 1);
 
                         if (isAnyOrUnknown(declaredType)) {
                             return undefined;
@@ -6375,7 +6375,7 @@ export function createTypeEvaluator(
             if (isFunction(getterType) && isFunction(setterType)) {
                 // If there's no declared return type on the getter, assume it's symmetric.
                 if (setterType.shared.parameters.length >= 3 && getterType.shared.declaredReturnType) {
-                    const setterValueType = FunctionType.getEffectiveParamType(setterType, 2);
+                    const setterValueType = FunctionType.getParamType(setterType, 2);
                     const getterReturnType = FunctionType.getEffectiveReturnType(getterType) ?? UnknownType.create();
 
                     if (!isTypeSame(setterValueType, getterReturnType)) {
@@ -6412,7 +6412,7 @@ export function createTypeEvaluator(
             if (isFunction(getterType) && isFunction(setterType)) {
                 // If there's no declared return type on the getter, assume it's symmetric.
                 if (setterType.shared.parameters.length >= 3 && getterType.shared.declaredReturnType) {
-                    const setterValueType = FunctionType.getEffectiveParamType(setterType, 2);
+                    const setterValueType = FunctionType.getParamType(setterType, 2);
                     const getterReturnType = FunctionType.getEffectiveReturnType(getterType) ?? UnknownType.create();
 
                     if (!isTypeSame(setterValueType, getterReturnType)) {
@@ -8496,7 +8496,7 @@ export function createTypeEvaluator(
                             methodType.shared.parameters.length > 0 &&
                             FunctionParam.isTypeDeclared(methodType.shared.parameters[0])
                         ) {
-                            let paramType = methodType.shared.parameters[0].type;
+                            let paramType = FunctionType.getParamType(methodType, 0);
                             const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(node);
                             paramType = makeTypeVarsBound(paramType, liveScopeIds);
                             implicitBindToType = makeTopLevelTypeVarsConcrete(paramType);
@@ -10190,7 +10190,7 @@ export function createTypeEvaluator(
             const param = paramInfo.param;
             if (param.name && param.category === ParamCategory.Simple) {
                 paramMap.set(param.name, {
-                    argsNeeded: param.category === ParamCategory.Simple && !param.defaultType ? 1 : 0,
+                    argsNeeded: param.category === ParamCategory.Simple && !paramInfo.defaultType ? 1 : 0,
                     argsReceived: 0,
                     isPositionalOnly: paramInfo.kind === ParamKind.Positional,
                 });
@@ -10221,27 +10221,27 @@ export function createTypeEvaluator(
 
         if (varArgListParamIndex !== undefined && varArgDictParamIndex !== undefined) {
             assert(paramDetails.params[varArgListParamIndex], 'varArgListParamIndex params entry is undefined');
-            const varArgListParam = paramDetails.params[varArgListParamIndex].param;
+            const varArgListParamType = paramDetails.params[varArgListParamIndex].type;
             assert(paramDetails.params[varArgDictParamIndex], 'varArgDictParamIndex params entry is undefined');
-            const varArgDictParam = paramDetails.params[varArgDictParamIndex].param;
+            const varArgDictParamType = paramDetails.params[varArgDictParamIndex].type;
 
             if (
-                isParamSpec(varArgListParam.type) &&
-                varArgListParam.type.priv.paramSpecAccess === 'args' &&
-                isParamSpec(varArgDictParam.type) &&
-                varArgDictParam.type.priv.paramSpecAccess === 'kwargs' &&
-                varArgListParam.type.shared.name === varArgDictParam.type.shared.name
+                isParamSpec(varArgListParamType) &&
+                varArgListParamType.priv.paramSpecAccess === 'args' &&
+                isParamSpec(varArgDictParamType) &&
+                varArgDictParamType.priv.paramSpecAccess === 'kwargs' &&
+                varArgListParamType.shared.name === varArgDictParamType.shared.name
             ) {
                 hasParamSpecArgsKwargs = true;
 
                 // Does this function define the param spec, or is it an inner
                 // function nested within another function that defines the param
                 // spec? We need to handle these two cases differently.
-                const paramSpecScopeId = varArgListParam.type.priv.scopeId;
+                const paramSpecScopeId = varArgListParamType.priv.scopeId;
 
                 if (getTypeVarScopeIds(overload).some((id) => id === paramSpecScopeId)) {
                     paramSpecArgList = [];
-                    paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParam.type, /* access */ undefined);
+                    paramSpecTarget = TypeVarType.cloneForParamSpecAccess(varArgListParamType, /* access */ undefined);
                 } else {
                     positionalOnlyLimitIndex = varArgListParamIndex;
                     positionalArgCount = varArgListParamIndex;
@@ -10605,7 +10605,7 @@ export function createTypeEvaluator(
             paramIndex < positionalOnlyLimitIndex &&
             paramIndex < paramDetails.params.length &&
             paramDetails.params[paramIndex].param.category === ParamCategory.ArgsList &&
-            !isParamSpec(paramDetails.params[paramIndex].param.type)
+            !isParamSpec(paramDetails.params[paramIndex].type)
         ) {
             paramIndex++;
             skippedArgsParam = true;
@@ -10618,7 +10618,7 @@ export function createTypeEvaluator(
             paramIndex < positionalOnlyLimitIndex &&
             (!foundUnpackedListArg || hasParamSpecArgsKwargs)
         ) {
-            const firstParamWithDefault = paramDetails.params.findIndex((paramInfo) => !!paramInfo.param.defaultType);
+            const firstParamWithDefault = paramDetails.params.findIndex((paramInfo) => !!paramInfo.defaultType);
             const positionOnlyWithoutDefaultsCount =
                 firstParamWithDefault >= 0 && firstParamWithDefault < positionalOnlyLimitIndex
                     ? firstParamWithDefault
@@ -10633,7 +10633,7 @@ export function createTypeEvaluator(
             }
 
             const firstArgsParam = paramDetails.params.findIndex(
-                (paramInfo) => paramInfo.param.category === ParamCategory.ArgsList && !isParamSpec(paramInfo.param.type)
+                (paramInfo) => paramInfo.param.category === ParamCategory.ArgsList && !isParamSpec(paramInfo.type)
             );
             if (firstArgsParam >= paramIndex && firstArgsParam < positionalOnlyLimitIndex) {
                 // If there is another args parameter beyond the current param index,
@@ -11033,12 +11033,12 @@ export function createTypeEvaluator(
                     if (param.category === ParamCategory.Simple && param.name) {
                         const entry = paramMap.get(param.name)!;
                         if (entry.argsNeeded === 0 && entry.argsReceived === 0) {
-                            const defaultArgType = paramInfo.defaultArgType ?? param.defaultType;
+                            const defaultArgType = paramInfo.defaultType;
 
                             if (
                                 defaultArgType &&
                                 !isEllipsisType(defaultArgType) &&
-                                requiresSpecialization(param.type)
+                                requiresSpecialization(paramInfo.declaredType)
                             ) {
                                 validateArgTypeParams.push({
                                     paramCategory: param.category,
@@ -11653,9 +11653,11 @@ export function createTypeEvaluator(
                 let typeVarsInReturnType = getTypeVarArgsRecursive(returnType);
 
                 // Remove any type variables that appear in the function's input parameters.
-                functionType.shared.parameters.forEach((param) => {
+                functionType.shared.parameters.forEach((param, index) => {
                     if (FunctionParam.isTypeDeclared(param)) {
-                        const typeVarsInInputParam = getTypeVarArgsRecursive(param.type);
+                        const typeVarsInInputParam = getTypeVarArgsRecursive(
+                            FunctionType.getParamType(functionType, index)
+                        );
                         typeVarsInReturnType = typeVarsInReturnType.filter(
                             (returnTypeVar) =>
                                 !typeVarsInInputParam.some((inputTypeVar) => isTypeSame(returnTypeVar, inputTypeVar))
@@ -17610,7 +17612,7 @@ export function createTypeEvaluator(
                     const unassignedParams: string[] = [];
                     paramMap.forEach((index, paramName) => {
                         const paramInfo = paramListDetails.params[index];
-                        if (!paramInfo.param.defaultType) {
+                        if (!paramInfo.defaultType) {
                             unassignedParams.push(paramName);
                         }
                     });
@@ -18083,9 +18085,11 @@ export function createTypeEvaluator(
                     }
                 }
 
+                paramType = paramType ?? UnknownType.create();
+
                 const functionParam = FunctionParam.create(
                     param.d.category,
-                    paramType ?? UnknownType.create(),
+                    paramType,
                     (isTypeInferred ? FunctionParamFlags.TypeInferred : FunctionParamFlags.None) |
                         (paramTypeNode ? FunctionParamFlags.TypeDeclared : FunctionParamFlags.None),
                     param.d.name ? param.d.name.d.value : undefined,
@@ -18097,16 +18101,16 @@ export function createTypeEvaluator(
                 if (FunctionParam.isTypeDeclared(functionParam)) {
                     addTypeVarsToListIfUnique(
                         typeParamsSeen,
-                        getTypeVarArgsRecursive(functionParam.type),
+                        getTypeVarArgsRecursive(paramType),
                         functionType.shared.typeVarScopeId
                     );
                 }
 
                 if (param.d.name) {
-                    const variadicParamType = transformVariadicParamType(node, param.d.category, functionParam.type);
+                    const variadicParamType = transformVariadicParamType(node, param.d.category, paramType);
                     paramTypes.push(variadicParamType);
                 } else {
-                    paramTypes.push(functionParam.type);
+                    paramTypes.push(paramType);
                 }
             });
 
@@ -18148,7 +18152,10 @@ export function createTypeEvaluator(
             // are annotated as Any or are unannotated, make it exempt from
             // args/kwargs compatibility checks.
             const variadicsWithAnyType = functionType.shared.parameters.filter(
-                (param) => param.category !== ParamCategory.Simple && param.name && isAnyOrUnknown(param.type)
+                (param, index) =>
+                    param.category !== ParamCategory.Simple &&
+                    param.name &&
+                    isAnyOrUnknown(FunctionType.getParamType(functionType, index))
             );
             if (variadicsWithAnyType.length >= 2) {
                 functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
@@ -22300,8 +22307,8 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        const functionType = getTypeOfFunction(functionNode);
-        if (!functionType) {
+        const functionTypeResult = getTypeOfFunction(functionNode);
+        if (!functionTypeResult) {
             return undefined;
         }
 
@@ -22358,12 +22365,12 @@ export function createTypeEvaluator(
                             // If this is an instance or class method, use the implied
                             // parameter type for the "self" or "cls" parameter.
                             if (
-                                FunctionType.isInstanceMethod(functionType.functionType) ||
-                                FunctionType.isClassMethod(functionType.functionType)
+                                FunctionType.isInstanceMethod(functionTypeResult.functionType) ||
+                                FunctionType.isClassMethod(functionTypeResult.functionType)
                             ) {
-                                if (functionType.functionType.shared.parameters.length > 0) {
+                                if (functionTypeResult.functionType.shared.parameters.length > 0) {
                                     if (functionNode.d.params[0].d.name) {
-                                        paramType = functionType.functionType.shared.parameters[0].type;
+                                        paramType = FunctionType.getParamType(functionTypeResult.functionType, 0);
                                     }
                                 }
                             }
@@ -22387,7 +22394,7 @@ export function createTypeEvaluator(
                 if (!allArgTypesAreUnknown) {
                     // See if the return type is already cached. If so, skip the
                     // inference step, which is potentially very expensive.
-                    const cacheEntry = functionType.functionType.priv.callSiteReturnTypeCache?.find((entry) => {
+                    const cacheEntry = functionTypeResult.functionType.priv.callSiteReturnTypeCache?.find((entry) => {
                         return (
                             entry.paramTypes.length === paramTypes.length &&
                             entry.paramTypes.every((t, i) => isTypeSame(t, paramTypes[i]))
@@ -22415,14 +22422,17 @@ export function createTypeEvaluator(
 
             if (!isResultFromCache) {
                 // Cache the resulting type.
-                if (!functionType.functionType.priv.callSiteReturnTypeCache) {
-                    functionType.functionType.priv.callSiteReturnTypeCache = [];
+                if (!functionTypeResult.functionType.priv.callSiteReturnTypeCache) {
+                    functionTypeResult.functionType.priv.callSiteReturnTypeCache = [];
                 }
-                if (functionType.functionType.priv.callSiteReturnTypeCache.length >= maxCallSiteReturnTypeCacheSize) {
-                    functionType.functionType.priv.callSiteReturnTypeCache =
-                        functionType.functionType.priv.callSiteReturnTypeCache.slice(1);
+                if (
+                    functionTypeResult.functionType.priv.callSiteReturnTypeCache.length >=
+                    maxCallSiteReturnTypeCacheSize
+                ) {
+                    functionTypeResult.functionType.priv.callSiteReturnTypeCache =
+                        functionTypeResult.functionType.priv.callSiteReturnTypeCache.slice(1);
                 }
-                functionType.functionType.priv.callSiteReturnTypeCache.push({
+                functionTypeResult.functionType.priv.callSiteReturnTypeCache.push({
                     paramTypes,
                     returnType: contextualReturnType,
                 });
@@ -24966,7 +24976,7 @@ export function createTypeEvaluator(
                     srcTupleTypes.push({ type: entry.type, isUnbounded: true });
                 }
             } else {
-                srcTupleTypes.push({ type: entry.type, isUnbounded: false, isOptional: !!entry.param.defaultType });
+                srcTupleTypes.push({ type: entry.type, isUnbounded: false, isOptional: !!entry.defaultType });
             }
         });
 
@@ -24986,6 +24996,7 @@ export function createTypeEvaluator(
                         '_arg_combined'
                     ),
                     type: srcPositionalsType,
+                    declaredType: srcPositionalsType,
                     index: -1,
                     kind: ParamKind.Positional,
                 },
@@ -25010,9 +25021,7 @@ export function createTypeEvaluator(
                 0,
                 srcDetails.params.findIndex(
                     (p) =>
-                        p.kind !== ParamKind.Positional ||
-                        p.param.category !== ParamCategory.Simple ||
-                        !!p.param.defaultType
+                        p.kind !== ParamKind.Positional || p.param.category !== ParamCategory.Simple || !!p.defaultType
                 )
             );
         }
@@ -25109,11 +25118,7 @@ export function createTypeEvaluator(
                 }
             }
 
-            if (
-                destParam.param.defaultType &&
-                !srcParam.param.defaultType &&
-                paramIndex !== srcParamDetails.argsIndex
-            ) {
+            if (destParam.defaultType && !srcParam.defaultType && paramIndex !== srcParamDetails.argsIndex) {
                 diag?.createAddendum().addMessage(
                     LocAddendum.functionParamDefaultMissing().format({
                         name: srcParamName,
@@ -25222,11 +25227,11 @@ export function createTypeEvaluator(
                 // corresponding dest parameter to be missing.
                 const srcParam = srcParamDetails.params[i];
 
-                if (srcParam.param.defaultType) {
+                if (srcParam.defaultType) {
                     // Assign default arg value in case it is needed for
                     // populating TypeVar constraints.
                     const paramInfo = srcParamDetails.params[i];
-                    const defaultArgType = paramInfo.defaultArgType ?? paramInfo.param.defaultType;
+                    const defaultArgType = paramInfo.defaultType ?? paramInfo.defaultType;
 
                     if (
                         defaultArgType &&
@@ -25259,7 +25264,7 @@ export function createTypeEvaluator(
                 }
 
                 const nonDefaultSrcParamCount = srcParamDetails.params.filter(
-                    (p) => !!p.param.name && !p.param.defaultType && p.param.category === ParamCategory.Simple
+                    (p) => !!p.param.name && !p.defaultType && p.param.category === ParamCategory.Simple
                 ).length;
 
                 diag?.createAddendum().addMessage(
@@ -25423,7 +25428,7 @@ export function createTypeEvaluator(
                             const srcParamType = srcParamInfo.type;
 
                             if (!destParamInfo) {
-                                if (destParamDetails.kwargsIndex === undefined && !srcParamInfo.param.defaultType) {
+                                if (destParamDetails.kwargsIndex === undefined && !srcParamInfo.defaultType) {
                                     if (paramDiag) {
                                         paramDiag.addMessage(
                                             LocAddendum.namedParamMissingInDest().format({
@@ -25448,11 +25453,10 @@ export function createTypeEvaluator(
                                     ) {
                                         canAssign = false;
                                     }
-                                } else if (srcParamInfo.param.defaultType) {
+                                } else if (srcParamInfo.defaultType) {
                                     // Assign default arg values in case they are needed for
                                     // populating TypeVar constraints.
-                                    const defaultArgType =
-                                        srcParamInfo.defaultArgType ?? srcParamInfo.param.defaultType;
+                                    const defaultArgType = srcParamInfo.defaultType ?? srcParamInfo.defaultType;
 
                                     if (
                                         defaultArgType &&
@@ -25499,7 +25503,7 @@ export function createTypeEvaluator(
                                     canAssign = false;
                                 }
 
-                                if (destParamInfo.param.defaultType && !srcParamInfo.param.defaultType) {
+                                if (destParamInfo.defaultType && !srcParamInfo.defaultType) {
                                     diag?.createAddendum().addMessage(
                                         LocAddendum.functionParamDefaultMissing().format({
                                             name: srcParamInfo.param.name,
@@ -25521,7 +25525,7 @@ export function createTypeEvaluator(
                     // Make sure the src kwargs type is compatible.
                     if (
                         !assignParam(
-                            destParamInfo.param.type,
+                            destParamInfo.type,
                             srcParamDetails.params[srcParamDetails.kwargsIndex].type,
                             destParamInfo.index,
                             diag?.createAddendum(),
@@ -25617,12 +25621,13 @@ export function createTypeEvaluator(
             const effectiveDestParamSpec = reverseMatching ? srcParamSpec : destParamSpec;
 
             if (effectiveDestParamSpec) {
-                const requiredMatchParamCount = effectiveDestType.shared.parameters.filter((p) => {
+                const requiredMatchParamCount = effectiveDestType.shared.parameters.filter((p, i) => {
                     if (!p.name) {
                         return false;
                     }
 
-                    if (p.category === ParamCategory.Simple && isParamSpec(p.type)) {
+                    const paramType = FunctionType.getParamType(effectiveDestType, i);
+                    if (p.category === ParamCategory.Simple && isParamSpec(paramType)) {
                         return false;
                     }
                     return true;
@@ -25645,10 +25650,12 @@ export function createTypeEvaluator(
                         remainingParams.push(
                             FunctionParam.create(
                                 p.category,
-                                FunctionType.getEffectiveParamType(effectiveSrcType, index),
+                                FunctionType.getParamType(effectiveSrcType, index),
                                 p.flags,
                                 p.name,
-                                p.defaultType ? AnyType.create(/* isEllipsis */ true) : undefined
+                                FunctionType.getParamDefaultType(effectiveSrcType, index)
+                                    ? AnyType.create(/* isEllipsis */ true)
+                                    : undefined
                             )
                         );
                     }
@@ -26146,7 +26153,7 @@ export function createTypeEvaluator(
             : childClass;
 
         return assignType(
-            baseParamType.type,
+            baseParamDetails.params[0].type,
             childSelfOrClsType,
             /* diag */ undefined,
             /* destConstraints */ undefined,
@@ -26237,7 +26244,7 @@ export function createTypeEvaluator(
                     if (
                         overrideParam.category === ParamCategory.Simple &&
                         overrideParam.name &&
-                        !overrideParam.defaultType
+                        !overrideParamDetails.params[i].defaultType
                     ) {
                         foundParamCountMismatch = true;
                     }
@@ -26351,10 +26358,7 @@ export function createTypeEvaluator(
                         }
                     }
 
-                    if (
-                        baseParamDetails.params[i].param.defaultType &&
-                        !overrideParamDetails.params[i].param.defaultType
-                    ) {
+                    if (baseParamDetails.params[i].defaultType && !overrideParamDetails.params[i].defaultType) {
                         diag?.addMessage(
                             LocAddendum.overrideParamNoDefault().format({
                                 index: i + 1,
@@ -26463,7 +26467,7 @@ export function createTypeEvaluator(
                     }
 
                     if (overrideParamInfo) {
-                        if (paramInfo.param.defaultType && !overrideParamInfo.param.defaultType) {
+                        if (paramInfo.defaultType && !overrideParamInfo.defaultType) {
                             diag?.addMessage(
                                 LocAddendum.overrideParamKeywordNoDefault().format({
                                     name: overrideParamInfo.param.name ?? '?',
@@ -26482,7 +26486,7 @@ export function createTypeEvaluator(
 
                 if (!baseParamInfo) {
                     if (baseParamDetails.kwargsIndex === undefined) {
-                        if (!paramInfo.param.defaultType) {
+                        if (!paramInfo.defaultType) {
                             diag?.addMessage(
                                 LocAddendum.overrideParamNameExtra().format({
                                     name: paramInfo.param.name ?? '?',
@@ -26805,7 +26809,7 @@ export function createTypeEvaluator(
 
         if (firstParamType && memberType.shared.parameters.length > 0) {
             const memberTypeFirstParam = memberType.shared.parameters[0];
-            const memberTypeFirstParamType = FunctionType.getEffectiveParamType(memberType, 0);
+            const memberTypeFirstParamType = FunctionType.getParamType(memberType, 0);
 
             if (
                 isTypeVar(memberTypeFirstParamType) &&
