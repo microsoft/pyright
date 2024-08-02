@@ -55,7 +55,7 @@ export class ConstraintSet {
         const constraintSet = new ConstraintSet();
 
         this._typeVarMap.forEach((value) => {
-            constraintSet.setConstraints(value.typeVar, value.lowerBound, value.lowerBoundNoLiterals, value.upperBound);
+            constraintSet.setBounds(value.typeVar, value.lowerBound, value.lowerBoundNoLiterals, value.upperBound);
         });
 
         if (this._scopeIds) {
@@ -119,12 +119,7 @@ export class ConstraintSet {
         return score;
     }
 
-    setConstraints(
-        reference: TypeVarType,
-        lowerBound: Type | undefined,
-        lowerBoundNoLiterals?: Type,
-        upperBound?: Type
-    ) {
+    setBounds(reference: TypeVarType, lowerBound: Type | undefined, lowerBoundNoLiterals?: Type, upperBound?: Type) {
         const key = TypeVarType.getNameWithScope(reference);
         this._typeVarMap.set(key, {
             typeVar: reference,
@@ -263,16 +258,11 @@ export class ConstraintTracker {
         return this._constraintSets.every((set) => set.isEmpty());
     }
 
-    setConstraints(
-        reference: TypeVarType,
-        lowerBound: Type | undefined,
-        lowerBoundNoLiterals?: Type,
-        upperBound?: Type
-    ) {
+    setBounds(reference: TypeVarType, lowerBound: Type | undefined, lowerBoundNoLiterals?: Type, upperBound?: Type) {
         assert(!this._isLocked);
 
         return this._constraintSets.forEach((set) => {
-            set.setConstraints(reference, lowerBound, lowerBoundNoLiterals, upperBound);
+            set.setBounds(reference, lowerBound, lowerBoundNoLiterals, upperBound);
         });
     }
 

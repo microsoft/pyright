@@ -5001,7 +5001,7 @@ export function createTypeEvaluator(
                 }
 
                 defaultTypeArgs.push(defaultType);
-                constraints.setConstraints(param, defaultType);
+                constraints.setBounds(param, defaultType);
             });
 
             if (reportMissingTypeArgs) {
@@ -7015,7 +7015,7 @@ export function createTypeEvaluator(
             // Fill in any unsolved type arguments with unknown.
             if (!typeVarType) {
                 typeVarType = getUnknownForTypeVar(typeParam, getTupleClassType());
-                constraints.setConstraints(typeParam, typeVarType);
+                constraints.setBounds(typeParam, typeVarType);
             }
 
             aliasTypeArgs.push(typeVarType);
@@ -11403,7 +11403,7 @@ export function createTypeEvaluator(
                 if (index < typeParams.length) {
                     const typeParam = typeParams[index];
                     if (!isTypeSame(typeParam, typeArg, { ignorePseudoGeneric: true })) {
-                        constraints.setConstraints(typeParams[index], typeArg);
+                        constraints.setBounds(typeParams[index], typeArg);
                     }
                 }
             });
@@ -20328,7 +20328,7 @@ export function createTypeEvaluator(
                         FunctionType.addDefaultParams(functionType);
                         functionType.shared.flags |= FunctionTypeFlags.GradualCallableForm;
                         typeArgTypes.push(functionType);
-                        constraints.setConstraints(typeParam, functionType);
+                        constraints.setBounds(typeParam, functionType);
                         return;
                     }
 
@@ -20350,7 +20350,7 @@ export function createTypeEvaluator(
                         }
 
                         typeArgTypes.push(functionType);
-                        constraints.setConstraints(typeParam, functionType);
+                        constraints.setBounds(typeParam, functionType);
                         return;
                     }
 
@@ -20386,7 +20386,7 @@ export function createTypeEvaluator(
 
                 const typeArgType = convertToInstance(typeArgs[index].type);
                 typeArgTypes.push(typeArgType);
-                constraints.setConstraints(typeParam, typeArgType);
+                constraints.setBounds(typeParam, typeArgType);
                 return;
             }
 
@@ -20397,7 +20397,7 @@ export function createTypeEvaluator(
                 },
             });
             typeArgTypes.push(solvedDefaultType);
-            constraints.setConstraints(typeParam, solvedDefaultType);
+            constraints.setBounds(typeParam, solvedDefaultType);
         });
 
         typeArgTypes = typeArgTypes.map((typeArgType, index) => {
@@ -26827,7 +26827,7 @@ export function createTypeEvaluator(
                 // we attempt to call assignType, we'll risk infinite recursion.
                 // Instead, we'll assume it's assignable.
                 if (!constraints.isLocked()) {
-                    constraints.setConstraints(
+                    constraints.setBounds(
                         memberTypeFirstParamType,
                         TypeBase.isInstantiable(memberTypeFirstParamType)
                             ? convertToInstance(firstParamType)

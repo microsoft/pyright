@@ -1534,7 +1534,7 @@ export function applySourceContextTypeVarsToSignature(set: ConstraintSet, srcSol
             : undefined;
         const newUpperBound = entry.upperBound ? applySolvedTypeVars(entry.upperBound, srcSolution) : undefined;
 
-        set.setConstraints(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
+        set.setBounds(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
     });
 }
 
@@ -2102,7 +2102,7 @@ export function setTypeArgsRecursive(
 
         case TypeCategory.TypeVar:
             if (!constraints.getMainConstraintSet().getTypeVar(destType)) {
-                constraints.setConstraints(destType, srcType);
+                constraints.setBounds(destType, srcType);
             }
             break;
     }

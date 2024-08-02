@@ -985,7 +985,7 @@ export class Checker extends ParseTreeWalker {
                                         TypeVarType.cloneAsBound(typeVar)
                                     );
                                     if (narrowedType) {
-                                        constraints.setConstraints(typeVar, narrowedType);
+                                        constraints.setBounds(typeVar, narrowedType);
                                     }
                                 }
                             }

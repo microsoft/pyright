@@ -258,7 +258,7 @@ export function updateTypeVarType(
         }
     }
 
-    constraints.setConstraints(destType, lowerBound, lowerBoundNoLiterals, upperBound);
+    constraints.setBounds(destType, lowerBound, lowerBoundNoLiterals, upperBound);
 }
 
 // In cases where the expected type is a specialized base class of the
@@ -479,7 +479,7 @@ export function applyUnificationVars(evaluator: TypeEvaluator, constraints: Cons
                     ? applyUnificationVarsToType(evaluator, entry.upperBound, constraintSet)
                     : undefined;
 
-                constraintSet.setConstraints(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
+                constraintSet.setBounds(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
             }
         });
     });
@@ -1218,7 +1218,7 @@ function assignParamSpec(
                 }
             } else {
                 if (!constraints.isLocked()) {
-                    constraintSet.setConstraints(destType, adjSrcType);
+                    constraintSet.setBounds(destType, adjSrcType);
                 }
                 return;
             }
@@ -1277,7 +1277,7 @@ function assignParamSpec(
 
             if (updateContextWithNewFunction) {
                 if (!constraints.isLocked()) {
-                    constraintSet.setConstraints(destType, newFunction);
+                    constraintSet.setBounds(destType, newFunction);
                 }
                 return;
             }
