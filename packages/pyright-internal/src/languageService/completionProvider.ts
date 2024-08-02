@@ -2051,7 +2051,7 @@ export class CompletionProvider {
                 return undefined;
             }
 
-            const paramType = type.shared.parameters[paramIndex].type;
+            const paramType = FunctionType.getParamType(type, paramIndex);
             this._addLiteralValuesForTargetType(paramType, priorWord, priorText, postText, completionMap);
             return undefined;
         });
@@ -2144,7 +2144,7 @@ export class CompletionProvider {
                     signature.shared.parameters.length >= 1 &&
                     signature.shared.parameters[0].category === ParamCategory.Simple
                 ) {
-                    typesToCombine.push(FunctionType.getEffectiveParamType(signature, 0));
+                    typesToCombine.push(FunctionType.getParamType(signature, 0));
                 }
             });
 

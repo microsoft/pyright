@@ -314,7 +314,7 @@ function addGetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
     );
 
-    const objType = fget.shared.parameters.length > 0 ? FunctionType.getEffectiveParamType(fget, 0) : AnyType.create();
+    const objType = fget.shared.parameters.length > 0 ? FunctionType.getParamType(fget, 0) : AnyType.create();
 
     FunctionType.addParam(
         getFunction2,
@@ -358,7 +358,7 @@ function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         FunctionParam.create(ParamCategory.Simple, AnyType.create(), FunctionParamFlags.TypeDeclared, 'self')
     );
 
-    let objType = fset.shared.parameters.length > 0 ? FunctionType.getEffectiveParamType(fset, 0) : AnyType.create();
+    let objType = fset.shared.parameters.length > 0 ? FunctionType.getParamType(fset, 0) : AnyType.create();
     if (isTypeVar(objType) && TypeVarType.isSelf(objType)) {
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);
     }
@@ -388,7 +388,7 @@ function addSetMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
         fset.shared.parameters[1].category === ParamCategory.Simple &&
         fset.shared.parameters[1].name
     ) {
-        setParamType = fset.shared.parameters[1].type;
+        setParamType = FunctionType.getParamType(fset, 1);
     }
     FunctionType.addParam(
         setFunction,
@@ -413,7 +413,7 @@ function addDelMethodToPropertySymbolTable(evaluator: TypeEvaluator, propertyObj
     delFunction.shared.deprecatedMessage = fdel.shared.deprecatedMessage;
     delFunction.shared.methodClass = fdel.shared.methodClass;
 
-    let objType = fdel.shared.parameters.length > 0 ? FunctionType.getEffectiveParamType(fdel, 0) : AnyType.create();
+    let objType = fdel.shared.parameters.length > 0 ? FunctionType.getParamType(fdel, 0) : AnyType.create();
 
     if (isTypeVar(objType) && TypeVarType.isSelf(objType)) {
         objType = evaluator.makeTopLevelTypeVarsConcrete(objType);

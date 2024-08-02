@@ -824,7 +824,7 @@ function createFunctionFromNewMethod(
                 return false;
             }
 
-            const paramType = FunctionType.getEffectiveParamType(newSubtype, index);
+            const paramType = FunctionType.getParamType(newSubtype, index);
             const typeVars = getTypeVarArgsRecursive(paramType);
             return typeVars.some((typeVar) => typeVar.priv.scopeId === getTypeVarScopeId(classType));
         });
@@ -953,7 +953,7 @@ function createFunctionFromInitMethod(
                 const typeVarsInParams: TypeVarType[] = [];
 
                 convertedInit.shared.parameters.forEach((param, index) => {
-                    const paramType = FunctionType.getEffectiveParamType(convertedInit, index);
+                    const paramType = FunctionType.getParamType(convertedInit, index);
                     addTypeVarsToListIfUnique(typeVarsInParams, getTypeVarArgsRecursive(paramType));
                 });
 

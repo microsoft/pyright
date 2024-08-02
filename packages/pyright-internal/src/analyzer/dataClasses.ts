@@ -536,7 +536,7 @@ export function synthesizeDataClassMethods(
                         );
                     }
 
-                    const functionParam = FunctionParam.create(
+                    const param = FunctionParam.create(
                         ParamCategory.Simple,
                         effectiveType,
                         FunctionParamFlags.TypeDeclared,
@@ -545,16 +545,20 @@ export function synthesizeDataClassMethods(
                     );
 
                     if (entry.isKeywordOnly) {
-                        keywordOnlyParams.push(functionParam);
+                        keywordOnlyParams.push(param);
                     } else {
-                        FunctionType.addParam(constructorType, functionParam);
+                        FunctionType.addParam(constructorType, param);
                     }
 
                     if (replaceType) {
-                        const paramWithDefault = {
-                            ...functionParam,
-                            defaultType: AnyType.create(/* isEllipsis */ true),
-                        };
+                        const paramWithDefault = FunctionParam.create(
+                            param.category,
+                            param._type,
+                            param.flags,
+                            param.name,
+                            AnyType.create(/* isEllipsis */ true)
+                        );
+
                         FunctionType.addParam(replaceType, paramWithDefault);
                     }
                 }
@@ -743,24 +747,28 @@ function getDefaultArgValueForFieldSpecifier(
     }
 
     if (callTarget) {
-        const initParam = callTarget.shared.parameters.find((p) => p.name === paramName);
-        if (initParam) {
+        const initParamIndex = callTarget.shared.parameters.findIndex((p) => p.name === paramName);
+        if (initParamIndex >= 0) {
+            const initParam = callTarget.shared.parameters[initParamIndex];
+
             // Is the parameter type a literal bool?
+            const initParamType = FunctionType.getParamType(callTarget, initParamIndex);
             if (
                 FunctionParam.isTypeDeclared(initParam) &&
-                isClass(initParam.type) &&
-                typeof initParam.type.priv.literalValue === 'boolean'
+                isClass(initParamType) &&
+                typeof initParamType.priv.literalValue === 'boolean'
             ) {
-                return initParam.type.priv.literalValue;
+                return initParamType.priv.literalValue;
             }
 
             // Is the default argument value a literal bool?
+            const initParamDefaultType = FunctionType.getParamDefaultType(callTarget, initParamIndex);
             if (
-                initParam.defaultType &&
-                isClass(initParam.defaultType) &&
-                typeof initParam.defaultType.priv.literalValue === 'boolean'
+                initParamDefaultType &&
+                isClass(initParamDefaultType) &&
+                typeof initParamDefaultType.priv.literalValue === 'boolean'
             ) {
-                return initParam.defaultType.priv.literalValue;
+                return initParamDefaultType.priv.literalValue;
             }
         }
     }
@@ -984,7 +992,7 @@ function transformDescriptorType(evaluator: TypeEvaluator, type: Type): Type {
     }
 
     // The value parameter for a bound __set__ method is parameter index 1.
-    return FunctionType.getEffectiveParamType(setMethodType, 1);
+    return FunctionType.getParamType(setMethodType, 1);
 }
 
 // Builds a sorted list of dataclass entries that are inherited by
