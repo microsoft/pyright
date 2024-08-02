@@ -3264,7 +3264,7 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
                 FunctionParam.create(
                     param.category,
                     FunctionType.getParamType(type, index),
-                    param.flags & FunctionParamFlags.NameSynthesized,
+                    param.flags,
                     param.name,
                     FunctionType.getParamDefaultType(type, index)
                 )
@@ -3282,7 +3282,7 @@ export function convertTypeToParamSpecValue(type: Type): FunctionType {
 
 // Converts a FunctionType into a ParamSpec if it consists only of
 // (* args: P.args, ** kwargs: P.kwargs). Otherwise returns the original type.
-export function convertParamSpecValueToType(type: FunctionType): Type {
+export function simplifyFunctionToParamSpec(type: FunctionType): FunctionType | ParamSpecType {
     const paramSpec = FunctionType.getParamSpecFromArgsKwargs(type);
     const withoutParamSpec = FunctionType.cloneRemoveParamSpecArgsKwargs(type);
 
@@ -3302,39 +3302,7 @@ export function convertParamSpecValueToType(type: FunctionType): Type {
         return paramSpec;
     }
 
-    // Create a function type from the param spec entries.
-    const functionType = FunctionType.createInstance(
-        '',
-        '',
-        '',
-        FunctionTypeFlags.ParamSpecValue | withoutParamSpec.shared.flags
-    );
-
-    functionType.shared.typeVarScopeId = withoutParamSpec.shared.typeVarScopeId;
-    functionType.priv.constructorTypeVarScopeId = withoutParamSpec.priv.constructorTypeVarScopeId;
-
-    withoutParamSpec.shared.parameters.forEach((entry, index) => {
-        FunctionType.addParam(
-            functionType,
-            FunctionParam.create(
-                entry.category,
-                FunctionType.getParamType(withoutParamSpec, index),
-                (entry.flags & FunctionParamFlags.NameSynthesized) | FunctionParamFlags.TypeDeclared,
-                entry.name,
-                FunctionType.getParamDefaultType(withoutParamSpec, index)
-            )
-        );
-    });
-
-    if (paramSpec) {
-        FunctionType.addParamSpecVariadics(functionType, paramSpec);
-    }
-
-    functionType.shared.docString = withoutParamSpec.shared.docString;
-    functionType.shared.deprecatedMessage = withoutParamSpec.shared.deprecatedMessage;
-    functionType.shared.methodClass = withoutParamSpec.shared.methodClass;
-
-    return functionType;
+    return type;
 }
 
 // Recursively walks a type and calls a callback for each TypeVar, allowing
@@ -3418,7 +3386,7 @@ export class TypeVarTransformer {
                 replacementType = this.transformTypeVar(type, recursionCount) ?? type;
 
                 if (isParamSpec(type) && replacementType !== type) {
-                    replacementType = convertParamSpecValueToType(convertTypeToParamSpecValue(replacementType));
+                    replacementType = simplifyFunctionToParamSpec(convertTypeToParamSpecValue(replacementType));
                 }
 
                 // If the original type was a ParamSpec with a ".args" or ".kwargs" access,

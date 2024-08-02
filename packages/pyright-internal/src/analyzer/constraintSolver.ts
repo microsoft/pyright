@@ -47,7 +47,6 @@ import {
     addConditionToType,
     AssignTypeFlags,
     buildSolutionFromSpecializedClass,
-    convertParamSpecValueToType,
     convertToInstance,
     convertToInstantiable,
     convertTypeToParamSpecValue,
@@ -57,6 +56,7 @@ import {
     isLiteralTypeOrUnion,
     isPartlyUnknown,
     mapSubtypes,
+    simplifyFunctionToParamSpec,
     sortTypes,
     specializeTupleClass,
     specializeWithDefaultTypeArgs,
@@ -382,7 +382,7 @@ export function addConstraintsForExpectedType(
             // the remaining subtypes to the "otherSubtypes" array.
             if (synthTypeVar) {
                 if (isParamSpec(typeVar) && isFunction(synthTypeVar)) {
-                    synthTypeVar = convertParamSpecValueToType(synthTypeVar);
+                    synthTypeVar = simplifyFunctionToParamSpec(synthTypeVar);
                 }
 
                 if (isUnion(synthTypeVar)) {
@@ -1197,7 +1197,10 @@ function assignParamSpec(
     }
 
     let isAssignable = true;
-    const adjSrcType = isFunction(srcType) ? convertParamSpecValueToType(srcType) : srcType;
+    let adjSrcType = isParamSpec(srcType) ? srcType : convertTypeToParamSpecValue(srcType);
+    if (isFunction(adjSrcType)) {
+        adjSrcType = simplifyFunctionToParamSpec(adjSrcType);
+    }
 
     constraints.doForEachConstraintSet((constraintSet) => {
         if (isParamSpec(adjSrcType)) {
@@ -1227,8 +1230,7 @@ function assignParamSpec(
             if (existingType) {
                 // Convert the remaining portion of the signature to a function
                 // for comparison purposes.
-                const paramSpecValue = convertTypeToParamSpecValue(existingType);
-                const existingFunction = convertParamSpecValueToType(paramSpecValue);
+                const existingFunction = simplifyFunctionToParamSpec(convertTypeToParamSpecValue(existingType));
 
                 const isNewNarrower = evaluator.assignType(
                     existingFunction,
