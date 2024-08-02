@@ -132,7 +132,7 @@ export function assignTypeVar(
         // Handle ParamSpecs specially.
         isAssignable = assignParamSpec(evaluator, destType, srcType, diag, constraints, recursionCount);
     } else {
-        if (isTypeVarTuple(destType) && !destType.priv.isVariadicInUnion) {
+        if (isTypeVarTuple(destType) && !destType.priv.isInUnion) {
             const tupleClassType = evaluator.getTupleClassType();
             if (!isUnpacked(srcType) && tupleClassType) {
                 // Package up the type into a tuple.
@@ -151,8 +151,8 @@ export function assignTypeVar(
         // we need to treat it as a union of the unpacked TypeVarTuple.
         if (
             isTypeVarTuple(srcType) &&
-            srcType.priv.isVariadicUnpacked &&
-            !srcType.priv.isVariadicInUnion &&
+            srcType.priv.isUnpacked &&
+            !srcType.priv.isInUnion &&
             !isTypeVarTuple(destType)
         ) {
             srcType = TypeVarType.cloneForUnpacked(srcType, /* isInUnion */ true);

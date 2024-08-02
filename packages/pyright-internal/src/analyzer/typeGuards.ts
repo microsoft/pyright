@@ -1943,7 +1943,7 @@ function narrowTypeForTupleLength(
             return subtype;
         }
 
-        // If the tuple contains a variadic TypeVar, we can't narrow it.
+        // If the tuple contains a TypeVarTuple, we can't narrow it.
         if (concreteSubtype.priv.tupleTypeArgs.some((typeArg) => isUnpackedTypeVarTuple(typeArg.type))) {
             return subtype;
         }

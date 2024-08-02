@@ -593,8 +593,7 @@ export const enum ClassTypeFlags {
     // semantics.
     HasCustomClassGetItem = 1 << 14,
 
-    // The tuple class uses a variadic type parameter and requires
-    // special-case handling of its type arguments.
+    // The tuple class requires special-case handling for its type arguments.
     TupleClass = 1 << 15,
 
     // The class has a metaclass of EnumMeta or derives from
@@ -2748,12 +2747,12 @@ export namespace ParamSpecType {
 }
 
 export interface TypeVarTupleDetailsPriv extends TypeVarDetailsPriv {
-    // Is this variadic TypeVar unpacked (i.e. Unpack or * operator applied)?
-    isVariadicUnpacked?: boolean | undefined;
+    // Is this TypeVarTuple unpacked (i.e. Unpack or * operator applied)?
+    isUnpacked?: boolean | undefined;
 
-    // Is this variadic TypeVar included in a Union[]? This allows us to
+    // Is this TypeVarTuple included in a Union[]? This allows us to
     // differentiate between Unpack[Vs] and Union[Unpack[Vs]].
-    isVariadicInUnion?: boolean | undefined;
+    isInUnion?: boolean | undefined;
 
     freeTypeVar?: TypeVarTupleType | undefined;
 }
@@ -2833,8 +2832,8 @@ export namespace TypeVarType {
 
     export function cloneForUnpacked(type: TypeVarTupleType, isInUnion = false) {
         const newInstance = TypeBase.cloneType(type);
-        newInstance.priv.isVariadicUnpacked = true;
-        newInstance.priv.isVariadicInUnion = isInUnion;
+        newInstance.priv.isUnpacked = true;
+        newInstance.priv.isInUnion = isInUnion;
 
         if (newInstance.priv.freeTypeVar) {
             newInstance.priv.freeTypeVar = TypeVarType.cloneForUnpacked(newInstance.priv.freeTypeVar, isInUnion);
@@ -2844,8 +2843,8 @@ export namespace TypeVarType {
 
     export function cloneForPacked(type: TypeVarTupleType) {
         const newInstance = TypeBase.cloneType(type);
-        newInstance.priv.isVariadicUnpacked = false;
-        newInstance.priv.isVariadicInUnion = false;
+        newInstance.priv.isUnpacked = false;
+        newInstance.priv.isInUnion = false;
 
         if (newInstance.priv.freeTypeVar) {
             newInstance.priv.freeTypeVar = TypeVarType.cloneForPacked(newInstance.priv.freeTypeVar);
@@ -2854,7 +2853,7 @@ export namespace TypeVarType {
     }
 
     // Creates a "simplified" version of the TypeVar with invariance
-    // and no bound or constraints. ParamSpecs and variadics are left
+    // and no bound or constraints. ParamSpecs and TypeVarTuples are left
     // unmodified. So are auto-variant type variables.
     export function cloneAsInvariant(type: TypeVarType): TypeVarType {
         if (isParamSpec(type) || isTypeVarTuple(type)) {
@@ -3114,7 +3113,7 @@ export function isTypeVarTuple(type: Type): type is TypeVarTupleType {
 }
 
 export function isUnpackedTypeVarTuple(type: Type): type is TypeVarTupleType {
-    return isTypeVarTuple(type) && !!type.priv.isVariadicUnpacked && !type.priv.isVariadicInUnion;
+    return isTypeVarTuple(type) && !!type.priv.isUnpacked && !type.priv.isInUnion;
 }
 
 export function isUnpackedClass(type: Type): type is ClassType {
@@ -3401,7 +3400,7 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
             }
 
             if (isTypeVarTuple(type1) && isTypeVarTuple(type2TypeVar)) {
-                if (!type1.priv.isVariadicInUnion !== !type2TypeVar.priv.isVariadicInUnion) {
+                if (!type1.priv.isInUnion !== !type2TypeVar.priv.isInUnion) {
                     return false;
                 }
             }

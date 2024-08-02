@@ -272,7 +272,7 @@ function printTypeInternal(
                                 const typeParam =
                                     index < typeParams.length ? typeParams[index] : typeParams[typeParams.length - 1];
 
-                                // If this type argument maps to a variadic type parameter, unpack it.
+                                // If this type argument maps to a TypeVarTuple, unpack it.
                                 if (
                                     isTypeVarTuple(typeParam) &&
                                     isClassInstance(typeArg) &&
@@ -762,11 +762,11 @@ function printTypeInternal(
                 let typeVarName = _getReadableTypeVarName(type, (printTypeFlags & PrintTypeFlags.PythonSyntax) !== 0);
 
                 if (isTypeVarTuple(type)) {
-                    if (type.priv.isVariadicUnpacked) {
+                    if (type.priv.isUnpacked) {
                         typeVarName = _printUnpack(typeVarName, printTypeFlags);
                     }
 
-                    if (type.priv.isVariadicInUnion) {
+                    if (type.priv.isInUnion) {
                         typeVarName = `Union[${typeVarName}]`;
                     }
                 }
@@ -960,7 +960,7 @@ function printObjectTypeForClassInternal(
                         ClassType.isBuiltIn(typeArg.type, 'tuple') &&
                         typeArg.type.priv.tupleTypeArgs
                     ) {
-                        // Expand the tuple type that maps to the variadic type parameter.
+                        // Expand the tuple type that maps to the TypeVarTuple.
                         if (typeArg.type.priv.tupleTypeArgs.length === 0) {
                             if (!isUnknown(typeArg.type)) {
                                 isAllUnknown = false;
@@ -1098,7 +1098,7 @@ function printFunctionPartsInternal(
         const paramType = FunctionType.getParamType(type, index);
         const defaultType = FunctionType.getParamDefaultType(type, index);
 
-        // Handle specialized variadic type parameters specially.
+        // Handle specialized TypeVarTuples specially.
         if (
             index === type.shared.parameters.length - 1 &&
             param.category === ParamCategory.ArgsList &&

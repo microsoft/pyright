@@ -211,7 +211,7 @@ export interface TypeResult<T extends Type = Type> {
     // that declares the member.
     classType?: ClassType | UnknownType | AnyType;
 
-    // Variadic type arguments allow the shorthand "()" to
+    // Tuple type arguments allow the shorthand "()" to
     // represent an empty tuple (i.e. Tuple[()]).
     isEmptyTupleShorthand?: boolean | undefined;
 

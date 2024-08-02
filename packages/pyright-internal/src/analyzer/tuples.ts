@@ -54,8 +54,8 @@ export function assignTupleTypeArgs(
             // and the source is a `*tuple[Any, ...]`. This is allowed.
             if (
                 isTypeVarTuple(destArgType) &&
-                destArgType.priv.isVariadicUnpacked &&
-                !destArgType.priv.isVariadicInUnion &&
+                destArgType.priv.isUnpacked &&
+                !destArgType.priv.isInUnion &&
                 isTupleGradualForm(srcArgType)
             ) {
                 return true;
@@ -125,8 +125,9 @@ export function assignTupleTypeArgs(
 
 // Adjusts the source and/or dest type arguments list to attempt to match
 // the length of the src type arguments list if the dest or source contain
-// entries with indeterminate length or variadic entries. It returns true
-// if the source is potentially compatible with the dest type, false otherwise.
+// entries with indeterminate length or unpacked TypeVarTuple entries.
+// It returns true if the source is potentially compatible with the dest
+// type, false otherwise.
 export function adjustTupleTypeArgs(
     evaluator: TypeEvaluator,
     destTypeArgs: TupleTypeArg[],
@@ -178,8 +179,8 @@ export function adjustTupleTypeArgs(
     const srcArgsToCapture = srcTypeArgs.length - destTypeArgs.length + 1;
     let skipAdjustSrc = false;
 
-    // If we're doing reverse type mappings and the source contains a variadic
-    // TypeVar, we need to adjust the dest so the reverse type mapping assignment
+    // If we're doing reverse type mappings and the source contains a TypeVarTuple,
+    // we need to adjust the dest so the reverse type mapping assignment
     // can be performed.
     if ((flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0) {
         const destArgsToCapture = destTypeArgs.length - srcTypeArgs.length + 1;
@@ -272,7 +273,7 @@ export function adjustTupleTypeArgs(
                 srcUnboundedIndex < destUnboundedOrVariadicIndex + srcArgsToCapture)
         ) {
             const removedArgTypes = srcTypeArgs.splice(destUnboundedOrVariadicIndex, srcArgsToCapture).map((t) => {
-                if (isTypeVar(t.type) && isUnpackedTypeVarTuple(t.type) && !t.type.priv.isVariadicInUnion) {
+                if (isTypeVar(t.type) && isUnpackedTypeVarTuple(t.type) && !t.type.priv.isInUnion) {
                     return TypeVarType.cloneForUnpacked(t.type, /* isInUnion */ true);
                 }
                 return t.type;

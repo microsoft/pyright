@@ -5519,7 +5519,7 @@ export class Checker extends ParseTreeWalker {
         );
 
         classType.shared.typeParams.forEach((param, paramIndex) => {
-            // Skip variadics and ParamSpecs.
+            // Skip TypeVarTuples and ParamSpecs.
             if (isTypeVarTuple(param) || isParamSpec(param)) {
                 return;
             }

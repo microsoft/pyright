@@ -1623,11 +1623,11 @@ function getTypeOfPatternSequenceEntry(
         const starEntryTypes = sequenceInfo.entryTypes
             .slice(starEntryIndex, starEntryIndex + sequenceInfo.entryTypes.length - entryCount + 1)
             .map((type) => {
-                // If this is a variadic TypeVar, there's not much we can say about
+                // If this is a TypeVarTuple, there's not much we can say about
                 // its type other than it's "Unknown". We could evaluate it as an
                 // "object", but that will cause problems given that this type will
                 // be wrapped in a "list" below, and lists are invariant.
-                if (isTypeVarTuple(type) && !type.priv.isVariadicInUnion) {
+                if (isTypeVarTuple(type) && !type.priv.isInUnion) {
                     return UnknownType.create();
                 }
 

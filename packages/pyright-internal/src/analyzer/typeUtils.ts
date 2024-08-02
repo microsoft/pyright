@@ -2766,7 +2766,7 @@ export function specializeTupleClass(
     return clonedClassType;
 }
 
-function _expandVariadicUnpackedUnion(type: Type) {
+function _expandUnpackedTypeVarTupleUnion(type: Type) {
     if (isClassInstance(type) && isTupleClass(type) && type.priv.tupleTypeArgs && type.priv.isUnpacked) {
         return combineTypes(type.priv.tupleTypeArgs.map((t) => t.type));
     }
@@ -3401,8 +3401,8 @@ export class TypeVarTransformer {
 
                 // If we're transforming a TypeVarTuple that was in a union,
                 // expand the union types.
-                if (isTypeVarTuple(type) && type.priv.isVariadicInUnion) {
-                    replacementType = _expandVariadicUnpackedUnion(replacementType);
+                if (isTypeVarTuple(type) && type.priv.isInUnion) {
+                    replacementType = _expandUnpackedTypeVarTupleUnion(replacementType);
                 }
 
                 if (type.priv.scopeId) {
@@ -3421,12 +3421,12 @@ export class TypeVarTransformer {
                 (subtype) => {
                     let transformedType: Type = this.apply(subtype, recursionCount);
 
-                    // If we're transforming a variadic type variable within a union,
-                    // combine the individual types within the variadic type variable.
+                    // If we're transforming a TypeVarTuple within a union,
+                    // combine the individual types within the TypeVarTuple.
                     if (isTypeVarTuple(subtype) && !isTypeVarTuple(transformedType)) {
                         const subtypesToCombine: Type[] = [];
                         doForEachSubtype(transformedType, (transformedSubtype) => {
-                            subtypesToCombine.push(_expandVariadicUnpackedUnion(transformedSubtype));
+                            subtypesToCombine.push(_expandUnpackedTypeVarTupleUnion(transformedSubtype));
                         });
 
                         transformedType = combineTypes(subtypesToCombine);
@@ -3616,14 +3616,10 @@ export class TypeVarTransformer {
                 if (newTypeArgType !== oldTypeArgType) {
                     specializationNeeded = true;
 
-                    // If this was a variadic type variable that was part of a union
+                    // If this was a TypeVarTuple that was part of a union
                     // (e.g. Union[Unpack[Vs]]), expand the subtypes into a union here.
-                    if (
-                        isTypeVar(oldTypeArgType) &&
-                        isTypeVarTuple(oldTypeArgType) &&
-                        oldTypeArgType.priv.isVariadicInUnion
-                    ) {
-                        newTypeArgType = _expandVariadicUnpackedUnion(newTypeArgType);
+                    if (isTypeVar(oldTypeArgType) && isTypeVarTuple(oldTypeArgType) && oldTypeArgType.priv.isInUnion) {
+                        newTypeArgType = _expandUnpackedTypeVarTupleUnion(newTypeArgType);
                     }
                 }
                 return newTypeArgType;
@@ -3805,7 +3801,7 @@ export class TypeVarTransformer {
                     }
 
                     // Insert a keyword-only separator parameter if we previously
-                    // unpacked a variadic TypeVar.
+                    // unpacked a TypeVarTuple.
                     if (param.category === ParamCategory.Simple && param.name && insertKeywordOnlySeparator) {
                         FunctionType.addKeywordOnlyParamSeparator(newFunctionType);
                         insertKeywordOnlySeparator = false;
@@ -4055,8 +4051,8 @@ class ApplySolvedTypeVarsTransformer extends TypeVarTransformer {
                 });
             }
 
-            if (isTypeVarTuple(replacement) && isTypeVarTuple(typeVar) && typeVar.priv.isVariadicUnpacked) {
-                return TypeVarType.cloneForUnpacked(replacement, typeVar.priv.isVariadicInUnion);
+            if (isTypeVarTuple(replacement) && isTypeVarTuple(typeVar) && typeVar.priv.isUnpacked) {
+                return TypeVarType.cloneForUnpacked(replacement, typeVar.priv.isInUnion);
             }
 
             // If this isn't a TypeVarTuple, combine all of the tuple
