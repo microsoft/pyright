@@ -289,7 +289,6 @@ import {
     containsAnyRecursive,
     containsLiteralType,
     convertNodeToArg,
-    convertParamSpecValueToType,
     convertToInstance,
     convertToInstantiable,
     convertTypeToParamSpecValue,
@@ -344,6 +343,7 @@ import {
     requiresTypeArgs,
     selfSpecializeClass,
     setTypeArgsRecursive,
+    simplifyFunctionToParamSpec,
     sortTypes,
     specializeClassType,
     specializeForBaseClass,
@@ -3839,11 +3839,11 @@ export function createTypeEvaluator(
             }
 
             // If this is a function that contains only a ParamSpec (no additional
-            // parameters), convert it to a concrete type of (*args: Any, **kwargs: Any).
+            // parameters), convert it to a concrete type of (*args: Unknown, **kwargs: Unknown).
             if (makeParamSpecsConcrete && isFunction(subtype)) {
-                const convertedType = convertParamSpecValueToType(subtype);
+                const convertedType = simplifyFunctionToParamSpec(subtype);
                 if (isParamSpec(convertedType)) {
-                    return FunctionType.applyParamSpecValue(subtype, getUnknownTypeForCallable());
+                    return ParamSpecType.getUnknown();
                 }
             }
 
@@ -22159,6 +22159,11 @@ export function createTypeEvaluator(
 
         // Don't attempt to infer the return type for a stub file.
         if (FunctionType.isStubDefinition(type)) {
+            return UnknownType.create();
+        }
+
+        // Don't infer the return type for a ParamSpec value.
+        if (FunctionType.isParamSpecValue(type)) {
             return UnknownType.create();
         }
 
