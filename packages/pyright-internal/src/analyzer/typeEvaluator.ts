@@ -22838,6 +22838,7 @@ export function createTypeEvaluator(
                     if (
                         primaryDecl?.type === DeclarationType.Variable &&
                         !isFinalVariableDeclaration(primaryDecl) &&
+                        !ClassType.isReadOnlyInstanceVariables(destType) &&
                         !ClassType.isDataClassFrozen(destType)
                     ) {
                         // Class and instance variables that are mutable need to
