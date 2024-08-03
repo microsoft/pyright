@@ -2149,6 +2149,12 @@ export class Checker extends ParseTreeWalker {
                     }
                 });
 
+                doForEachSubtype(rightType, (rightSubtype) => {
+                    if (this._evaluator.assignType(leftType, rightSubtype)) {
+                        isPossiblyTrue = true;
+                    }
+                });
+
                 if (!isPossiblyTrue) {
                     this._evaluator.addDiagnostic(
                         DiagnosticRule.reportUnnecessaryComparison,
