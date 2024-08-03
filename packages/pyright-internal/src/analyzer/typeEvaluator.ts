@@ -23979,6 +23979,15 @@ export function createTypeEvaluator(
             }
 
             if (isOverloadedFunction(concreteSrcType)) {
+                // If this is the first pass of an argument assignment, skip
+                // all attempts to assign an overloaded function to a function
+                // because we probably don't have enough information to properly
+                // filter the overloads at this time. We will do this work on
+                // subsequent passes.
+                if ((flags & AssignTypeFlags.ArgAssignmentFirstPass) !== 0) {
+                    return true;
+                }
+
                 // Find all of the overloaded functions that match the parameters.
                 const overloads = OverloadedFunctionType.getOverloads(concreteSrcType);
                 const filteredOverloads: FunctionType[] = [];
