@@ -1087,9 +1087,11 @@ export namespace ClassType {
 
         if (className !== undefined) {
             const classArray = Array.isArray(className) ? className : [className];
-            return (
-                classArray.some((name) => name === classType.shared.name) ||
-                classArray.some((name) => name === classType.priv.aliasName)
+            return classArray.some(
+                (name) =>
+                    name === classType.shared.name ||
+                    name === classType.shared.fullName ||
+                    name === classType.priv.aliasName
             );
         }
 
@@ -2179,7 +2181,7 @@ export namespace FunctionType {
 
         if (name !== undefined) {
             const functionArray = Array.isArray(name) ? name : [name];
-            return functionArray.some((name) => name === type.shared.name);
+            return functionArray.some((name) => name === type.shared.name || name === type.shared.fullName);
         }
 
         return true;
