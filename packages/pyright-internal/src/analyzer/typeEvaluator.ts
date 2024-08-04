@@ -9669,7 +9669,10 @@ export function createTypeEvaluator(
         inferenceContext: InferenceContext | undefined
     ): CallResult {
         // Handle the 'cast' call as a special case.
-        if (FunctionType.isBuiltIn(expandedCallType.priv.overloads[0], 'cast') && argList.length === 2) {
+        if (
+            FunctionType.isBuiltIn(expandedCallType.priv.overloads[0], ['typing.cast', 'typing_extensions.cast']) &&
+            argList.length === 2
+        ) {
             return { returnType: evaluateCastCall(argList, errorNode) };
         }
 
@@ -11411,7 +11414,14 @@ export function createTypeEvaluator(
 
         // Special-case a few built-in calls that are often used for
         // casting or checking for unknown types.
-        if (FunctionType.isBuiltIn(type, ['cast', 'isinstance', 'issubclass'])) {
+        if (
+            FunctionType.isBuiltIn(type, [
+                'typing.cast',
+                'typing_extensions.cast',
+                'builtins.isinstance',
+                'builtins.issubclass',
+            ])
+        ) {
             skipUnknownArgCheck = true;
         }
 
