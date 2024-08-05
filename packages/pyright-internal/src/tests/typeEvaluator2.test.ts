@@ -554,6 +554,12 @@ test('ConstrainedTypeVar19', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('ConstrainedTypeVar20', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constrainedTypeVar20.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('MissingTypeArg1', () => {
     const configOptions = new ConfigOptions(Uri.empty());
 

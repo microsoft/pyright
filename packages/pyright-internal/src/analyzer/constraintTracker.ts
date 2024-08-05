@@ -27,10 +27,12 @@ const maxConstraintSetCount = 1024;
 export interface TypeVarConstraints {
     typeVar: TypeVarType;
 
-    // Running constraints for the solved type variable as constraints are added.
+    // Bounds for solved type variable as constraints are added.
     lowerBound?: Type | undefined;
-    lowerBoundNoLiterals?: Type | undefined;
     upperBound?: Type | undefined;
+
+    // Should the lower bound include literal values?
+    retainLiterals?: boolean;
 }
 
 // Records the constraints information for a set of type variables
@@ -55,7 +57,7 @@ export class ConstraintSet {
         const constraintSet = new ConstraintSet();
 
         this._typeVarMap.forEach((value) => {
-            constraintSet.setBounds(value.typeVar, value.lowerBound, value.lowerBoundNoLiterals, value.upperBound);
+            constraintSet.setBounds(value.typeVar, value.lowerBound, value.upperBound, value.retainLiterals);
         });
 
         if (this._scopeIds) {
@@ -119,13 +121,13 @@ export class ConstraintSet {
         return score;
     }
 
-    setBounds(reference: TypeVarType, lowerBound: Type | undefined, lowerBoundNoLiterals?: Type, upperBound?: Type) {
-        const key = TypeVarType.getNameWithScope(reference);
+    setBounds(typeVar: TypeVarType, lowerBound: Type | undefined, upperBound?: Type, retainLiterals?: boolean) {
+        const key = TypeVarType.getNameWithScope(typeVar);
         this._typeVarMap.set(key, {
-            typeVar: reference,
+            typeVar,
             lowerBound,
-            lowerBoundNoLiterals,
             upperBound,
+            retainLiterals,
         });
     }
 
@@ -133,8 +135,8 @@ export class ConstraintSet {
         this._typeVarMap.forEach(cb);
     }
 
-    getTypeVar(reference: TypeVarType): TypeVarConstraints | undefined {
-        const key = TypeVarType.getNameWithScope(reference);
+    getTypeVar(typeVar: TypeVarType): TypeVarConstraints | undefined {
+        const key = TypeVarType.getNameWithScope(typeVar);
         return this._typeVarMap.get(key);
     }
 
@@ -220,6 +222,12 @@ export class ConstraintTracker {
         this._isLocked = clone._isLocked;
     }
 
+    copyBounds(entry: TypeVarConstraints) {
+        this._constraintSets.forEach((set) => {
+            set.setBounds(entry.typeVar, entry.lowerBound, entry.upperBound, entry.retainLiterals);
+        });
+    }
+
     // Copy the specified constraint sets into this type var context.
     addConstraintSets(contexts: ConstraintSet[]) {
         assert(contexts.length > 0);
@@ -258,11 +266,11 @@ export class ConstraintTracker {
         return this._constraintSets.every((set) => set.isEmpty());
     }
 
-    setBounds(reference: TypeVarType, lowerBound: Type | undefined, lowerBoundNoLiterals?: Type, upperBound?: Type) {
+    setBounds(typeVar: TypeVarType, lowerBound: Type | undefined, upperBound?: Type, retainLiterals?: boolean) {
         assert(!this._isLocked);
 
         return this._constraintSets.forEach((set) => {
-            set.setBounds(reference, lowerBound, lowerBoundNoLiterals, upperBound);
+            set.setBounds(typeVar, lowerBound, upperBound, retainLiterals);
         });
     }
 
