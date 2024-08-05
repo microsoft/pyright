@@ -90,7 +90,8 @@ export class EnumLiteral {
         public classFullName: string,
         public className: string,
         public itemName: string,
-        public itemType: Type
+        public itemType: Type,
+        public isReprEnum: boolean
     ) {}
 
     getName() {

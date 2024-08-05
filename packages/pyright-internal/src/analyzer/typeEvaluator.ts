@@ -1830,11 +1830,18 @@ export function createTypeEvaluator(
                 }
 
                 // Check for bool, int, str and bytes literals that are never falsy.
-                if (
-                    type.priv.literalValue !== undefined &&
-                    ClassType.isBuiltIn(type, ['bool', 'int', 'str', 'bytes'])
-                ) {
-                    return !type.priv.literalValue || type.priv.literalValue === BigInt(0);
+                if (type.priv.literalValue !== undefined) {
+                    if (ClassType.isBuiltIn(type, ['bool', 'int', 'str', 'bytes'])) {
+                        return !type.priv.literalValue || type.priv.literalValue === BigInt(0);
+                    }
+
+                    if (type.priv.literalValue instanceof EnumLiteral) {
+                        // Does the Enum class forward the truthiness check to the
+                        // underlying member type?
+                        if (type.priv.literalValue.isReprEnum) {
+                            return canBeFalsy(type.priv.literalValue.itemType, recursionCount);
+                        }
+                    }
                 }
 
                 // If this is a protocol class, don't make any assumptions about the absence
@@ -1921,11 +1928,18 @@ export function createTypeEvaluator(
                 }
 
                 // Check for bool, int, str and bytes literals that are never falsy.
-                if (
-                    type.priv.literalValue !== undefined &&
-                    ClassType.isBuiltIn(type, ['bool', 'int', 'str', 'bytes'])
-                ) {
-                    return !!type.priv.literalValue && type.priv.literalValue !== BigInt(0);
+                if (type.priv.literalValue !== undefined) {
+                    if (ClassType.isBuiltIn(type, ['bool', 'int', 'str', 'bytes'])) {
+                        return !!type.priv.literalValue && type.priv.literalValue !== BigInt(0);
+                    }
+
+                    if (type.priv.literalValue instanceof EnumLiteral) {
+                        // Does the Enum class forward the truthiness check to the
+                        // underlying member type?
+                        if (type.priv.literalValue.isReprEnum) {
+                            return canBeTruthy(type.priv.literalValue.itemType, recursionCount);
+                        }
+                    }
                 }
 
                 // If this is a protocol class, don't make any assumptions about the absence
