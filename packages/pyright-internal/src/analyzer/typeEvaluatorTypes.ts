@@ -449,7 +449,6 @@ export interface ClassMemberLookup {
 }
 
 export interface SolveConstraintsOptions {
-    applyUnificationVars?: boolean;
     useLowerBoundOnly?: boolean;
 }
 
