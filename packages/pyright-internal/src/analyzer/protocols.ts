@@ -758,12 +758,7 @@ function assignClassToProtocolInternal(
                 const typeArgEntry = protocolConstraints.getMainConstraintSet().getTypeVar(typeParam);
 
                 if (typeArgEntry) {
-                    destConstraints.setBounds(
-                        typeParam,
-                        typeArgEntry?.lowerBound,
-                        typeArgEntry?.lowerBoundNoLiterals,
-                        typeArgEntry?.upperBound
-                    );
+                    destConstraints.copyBounds(typeArgEntry);
                 }
             }
         }
@@ -786,7 +781,7 @@ function createProtocolConstraints(
         const entry = constraints?.getMainConstraintSet().getTypeVar(typeParam);
 
         if (entry) {
-            protocolConstraints.setBounds(typeParam, entry.lowerBound, entry.lowerBoundNoLiterals, entry.upperBound);
+            protocolConstraints.copyBounds(entry);
         } else if (destType.priv.typeArgs && index < destType.priv.typeArgs.length) {
             let typeArg = destType.priv.typeArgs[index];
             let flags: AssignTypeFlags;
