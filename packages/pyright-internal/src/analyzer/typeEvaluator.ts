@@ -101,11 +101,11 @@ import {
 } from './codeFlowTypes';
 import {
     addConstraintsForExpectedType,
+    applySourceSolutionToConstraints,
     applyUnificationVars,
     assignTypeVar,
     solveConstraintSet,
     solveConstraints,
-    updateTypeVarType,
 } from './constraintSolver';
 import { ConstraintSet, ConstraintTracker } from './constraintTracker';
 import { createFunctionFromConstructor, getBoundInitMethod, validateConstructorArgs } from './constructors';
@@ -279,7 +279,6 @@ import {
     addConditionToType,
     addTypeVarsToListIfUnique,
     applySolvedTypeVars,
-    applySourceContextTypeVars,
     areTypesSame,
     buildSolutionFromSpecializedClass,
     combineSameSizedTuples,
@@ -11617,7 +11616,10 @@ export function createTypeEvaluator(
                     // It's possible that one or more of the TypeVars or ParamSpecs
                     // in the constraints refer to TypeVars that were solved in
                     // the paramSpecConstraints. Apply these solved TypeVars accordingly.
-                    applySourceContextTypeVars(constraints, solveConstraints(evaluatorInterface, paramSpecConstraints));
+                    applySourceSolutionToConstraints(
+                        constraints,
+                        solveConstraints(evaluatorInterface, paramSpecConstraints)
+                    );
                 }
             });
         }
@@ -23075,13 +23077,11 @@ export function createTypeEvaluator(
                     typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
                 }
 
-                updateTypeVarType(
-                    evaluatorInterface,
-                    destConstraints,
+                destConstraints.setBounds(
                     typeParam,
                     variance !== Variance.Contravariant ? typeArgType : undefined,
                     variance !== Variance.Covariant ? typeArgType : undefined,
-                    /* forceRetainLiterals */ true
+                    /* retainLiterals */ true
                 );
             }
         }
@@ -25835,7 +25835,7 @@ export function createTypeEvaluator(
 
         // Apply any solved source TypeVars to the dest TypeVar solutions. This
         // allows for higher-order functions to accept generic callbacks.
-        applySourceContextTypeVars(destConstraints, solveConstraints(evaluatorInterface, srcConstraints));
+        applySourceSolutionToConstraints(destConstraints, solveConstraints(evaluatorInterface, srcConstraints));
 
         return canAssign;
     }

@@ -11,7 +11,7 @@ import { appendArray } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { ArgumentNode, ParamCategory } from '../parser/parseNodes';
 import { ConstraintSolution, ConstraintSolutionSet } from './constraintSolution';
-import { ConstraintSet, ConstraintTracker } from './constraintTracker';
+import { ConstraintTracker } from './constraintTracker';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isEffectivelyClassVar, isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
@@ -1513,29 +1513,6 @@ export function applySolvedTypeVars(type: Type, solution: ConstraintSolution, op
 
     const transformer = new ApplySolvedTypeVarsTransformer(solution, options);
     return transformer.apply(type, 0);
-}
-
-// Applies solved TypeVars from one context to this context.
-export function applySourceContextTypeVars(destContext: ConstraintTracker, srcSolution: ConstraintSolution) {
-    if (srcSolution.isEmpty()) {
-        return;
-    }
-
-    destContext.doForEachConstraintSet((set) => {
-        applySourceContextTypeVarsToSignature(set, srcSolution);
-    });
-}
-
-export function applySourceContextTypeVarsToSignature(set: ConstraintSet, srcSolution: ConstraintSolution) {
-    set.getTypeVars().forEach((entry) => {
-        const newLowerBound = entry.lowerBound ? applySolvedTypeVars(entry.lowerBound, srcSolution) : undefined;
-        const newLowerBoundNoLiterals = entry.lowerBoundNoLiterals
-            ? applySolvedTypeVars(entry.lowerBoundNoLiterals, srcSolution)
-            : undefined;
-        const newUpperBound = entry.upperBound ? applySolvedTypeVars(entry.upperBound, srcSolution) : undefined;
-
-        set.setBounds(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
-    });
 }
 
 // Validates that a default type associated with a TypeVar does not refer to

@@ -45,6 +45,7 @@ import {
 } from './types';
 import {
     addConditionToType,
+    applySolvedTypeVars,
     AssignTypeFlags,
     buildSolutionFromSpecializedClass,
     convertToInstance,
@@ -212,6 +213,24 @@ export function solveConstraints(
     return new ConstraintSolution(solutionSets);
 }
 
+// Applies solved TypeVars from one context to this context.
+export function applySourceSolutionToConstraints(constraints: ConstraintTracker, srcSolution: ConstraintSolution) {
+    if (srcSolution.isEmpty()) {
+        return;
+    }
+
+    constraints.doForEachConstraintSet((constraintSet) => {
+        constraintSet.getTypeVars().forEach((entry) => {
+            constraintSet.setBounds(
+                entry.typeVar,
+                entry.lowerBound ? applySolvedTypeVars(entry.lowerBound, srcSolution) : undefined,
+                entry.upperBound ? applySolvedTypeVars(entry.upperBound, srcSolution) : undefined,
+                entry.retainLiterals
+            );
+        });
+    });
+}
+
 export function solveConstraintSet(
     evaluator: TypeEvaluator,
     constraintSet: ConstraintSet,
@@ -227,38 +246,6 @@ export function solveConstraintSet(
     });
 
     return solutionSet;
-}
-
-// Updates the lower and upper bounds for a type variable. It also calculates the
-// lowerBoundNoLiterals, which is a variant of the lower bound that has
-// literals stripped. By default, the constraint solver always uses the "no literals"
-// type in its solutions unless the version with literals is required to satisfy
-// the upper bound.
-export function updateTypeVarType(
-    evaluator: TypeEvaluator,
-    constraints: ConstraintTracker,
-    destType: TypeVarType,
-    lowerBound: Type | undefined,
-    upperBound: Type | undefined,
-    forceRetainLiterals = false
-) {
-    let lowerBoundNoLiterals: Type | undefined;
-
-    if (lowerBound && !forceRetainLiterals) {
-        const strippedLiteral = isTypeVarTuple(destType)
-            ? stripLiteralValueForUnpackedTuple(evaluator, lowerBound)
-            : evaluator.stripLiteralValue(lowerBound);
-
-        // Strip the literals from the lower bound and see if it is still
-        // narrower than the upper bound.
-        if (strippedLiteral !== lowerBound) {
-            if (!upperBound || evaluator.assignType(upperBound, strippedLiteral)) {
-                lowerBoundNoLiterals = strippedLiteral;
-            }
-        }
-    }
-
-    constraints.setBounds(destType, lowerBound, lowerBoundNoLiterals, upperBound);
 }
 
 // In cases where the expected type is a specialized base class of the
@@ -277,7 +264,7 @@ export function addConstraintsForExpectedType(
 ): boolean {
     if (isAny(expectedType)) {
         type.shared.typeParams.forEach((typeParam) => {
-            updateTypeVarType(evaluator, constraints, typeParam, expectedType, expectedType);
+            constraints.setBounds(typeParam, expectedType, expectedType);
         });
         return true;
     }
@@ -320,9 +307,7 @@ export function addConstraintsForExpectedType(
             if (typeArgValue) {
                 const variance = TypeVarType.getVariance(typeParam);
 
-                updateTypeVarType(
-                    evaluator,
-                    constraints,
+                constraints.setBounds(
                     typeParam,
                     variance === Variance.Covariant ? undefined : typeArgValue,
                     variance === Variance.Contravariant ? undefined : typeArgValue
@@ -438,9 +423,7 @@ export function addConstraintsForExpectedType(
                             typeArgValue = UnknownType.create();
                         }
 
-                        updateTypeVarType(
-                            evaluator,
-                            constraints,
+                        constraints.setBounds(
                             targetTypeVar,
                             variance === Variance.Covariant ? undefined : typeArgValue,
                             variance === Variance.Contravariant ? undefined : typeArgValue
@@ -472,17 +455,20 @@ export function applyUnificationVars(evaluator: TypeEvaluator, constraints: Cons
                 const newLowerBound = entry.lowerBound
                     ? applyUnificationVarsToType(evaluator, entry.lowerBound, constraintSet)
                     : undefined;
-                const newLowerBoundNoLiterals = entry.lowerBoundNoLiterals
-                    ? applyUnificationVarsToType(evaluator, entry.lowerBoundNoLiterals, constraintSet)
-                    : undefined;
                 const newUpperBound = entry.upperBound
                     ? applyUnificationVarsToType(evaluator, entry.upperBound, constraintSet)
                     : undefined;
 
-                constraintSet.setBounds(entry.typeVar, newLowerBound, newLowerBoundNoLiterals, newUpperBound);
+                constraintSet.setBounds(entry.typeVar, newLowerBound, newUpperBound, entry.retainLiterals);
             }
         });
     });
+}
+
+function stripLiteralsForLowerBound(evaluator: TypeEvaluator, typeVar: TypeVarType, lowerBound: Type) {
+    return isTypeVarTuple(typeVar)
+        ? stripLiteralValueForUnpackedTuple(evaluator, lowerBound)
+        : evaluator.stripLiteralValue(lowerBound);
 }
 
 function getTypeVarType(
@@ -514,10 +500,28 @@ function getTypeVarType(
         return entry.lowerBound;
     }
 
-    // Prefer the lower bound with no literals. It will be undefined
-    // if the literal type couldn't be widened due to constraints imposed
-    // by the upper bound.
-    return entry.lowerBoundNoLiterals ?? entry.lowerBound ?? entry.upperBound;
+    let result: Type | undefined;
+
+    let lowerBound = entry.lowerBound;
+    if (lowerBound) {
+        if (!entry.retainLiterals && !TypeVarType.hasConstraints(typeVar)) {
+            const lowerNoLiterals = stripLiteralsForLowerBound(evaluator, typeVar, lowerBound);
+
+            // If we can widen the lower bound to a non-literal type without
+            // exceeding the upper bound, use the widened type.
+            if (lowerNoLiterals !== lowerBound) {
+                if (!entry.upperBound || evaluator.assignType(entry.upperBound, lowerNoLiterals)) {
+                    lowerBound = lowerNoLiterals;
+                }
+            }
+        }
+
+        result = lowerBound;
+    } else {
+        result = entry.upperBound;
+    }
+
+    return result;
 }
 
 // Handles an assignment to a TypeVar that is "bound" rather than "free".
@@ -723,8 +727,8 @@ function assignUnconstrainedTypeVar(
             // If this is an invariant context and there is currently no upper bound
             // established, use the "no literals" version of the lower bound rather
             // than a version that has literals.
-            if (!newUpperTypeBound && isInvariant && curEntry?.lowerBoundNoLiterals) {
-                newLowerBound = curEntry.lowerBoundNoLiterals;
+            if (!newUpperTypeBound && isInvariant && curEntry && !curEntry.retainLiterals) {
+                newLowerBound = stripLiteralsForLowerBound(evaluator, destType, curLowerBound);
             }
         } else {
             if (
@@ -820,8 +824,8 @@ function assignUnconstrainedTypeVar(
                     // If this is an invariant context and there is currently no upper bound
                     // established, use the "no literals" version of the lower bound rather
                     // than a version that has literals.
-                    if (!newUpperTypeBound && isInvariant && curEntry?.lowerBoundNoLiterals) {
-                        curLowerBound = curEntry.lowerBoundNoLiterals;
+                    if (!newUpperTypeBound && isInvariant && curEntry && !curEntry.retainLiterals) {
+                        curLowerBound = stripLiteralsForLowerBound(evaluator, destType, curLowerBound);
                     }
 
                     let curSolvedLowerBound = curLowerBound;
@@ -965,9 +969,7 @@ function assignUnconstrainedTypeVar(
     }
 
     if (constraints && !constraints.isLocked()) {
-        updateTypeVarType(
-            evaluator,
-            constraints,
+        constraints.setBounds(
             destType,
             newLowerBound,
             newUpperTypeBound,
@@ -994,7 +996,7 @@ function assignConstrainedTypeVar(
 
     const curUpperBound = curEntry?.upperBound;
     const curLowerBound = curEntry?.lowerBound;
-    let forceRetainLiterals = false;
+    let retainLiterals = false;
 
     if (isTypeVar(srcType)) {
         if (
@@ -1129,7 +1131,7 @@ function assignConstrainedTypeVar(
         );
         return false;
     } else if (isLiteralTypeOrUnion(constrainedType)) {
-        forceRetainLiterals = true;
+        retainLiterals = true;
     }
 
     if (curLowerBound && !isAnyOrUnknown(curLowerBound)) {
@@ -1159,7 +1161,7 @@ function assignConstrainedTypeVar(
                 )
             ) {
                 if (constraints && !constraints.isLocked()) {
-                    updateTypeVarType(evaluator, constraints, destType, constrainedType, curUpperBound);
+                    constraints.setBounds(destType, constrainedType, curUpperBound);
                 }
             } else {
                 diag?.addMessage(
@@ -1174,7 +1176,7 @@ function assignConstrainedTypeVar(
     } else {
         // Assign the type to the type var.
         if (constraints && !constraints.isLocked()) {
-            updateTypeVarType(evaluator, constraints, destType, constrainedType, curUpperBound, forceRetainLiterals);
+            constraints.setBounds(destType, constrainedType, curUpperBound, retainLiterals);
         }
     }
 
@@ -1400,7 +1402,7 @@ function logTypeVarConstraintSet(evaluator: TypeEvaluator, context: ConstraintSe
 
     context.getTypeVars().forEach((entry) => {
         const typeVarName = `${indent}${entry.typeVar.shared.name}`;
-        const lowerBound = entry.lowerBoundNoLiterals ?? entry.lowerBound;
+        const lowerBound = entry.lowerBound;
         const upperBound = entry.upperBound;
 
         // Log the lower and upper bounds.
