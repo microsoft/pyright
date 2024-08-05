@@ -597,17 +597,12 @@ function applyExpectedSubtypeForConstructor(
     expectedSubtype: Type,
     constraints: ConstraintTracker
 ): Type | undefined {
-    const specializedType = evaluator.solveAndApplyConstraints(
-        ClassType.cloneAsInstance(type),
-        constraints,
-        {
-            replaceUnsolved: {
-                scopeIds: [],
-                tupleClassType: evaluator.getTupleClassType(),
-            },
+    const specializedType = evaluator.solveAndApplyConstraints(ClassType.cloneAsInstance(type), constraints, {
+        replaceUnsolved: {
+            scopeIds: [],
+            tupleClassType: evaluator.getTupleClassType(),
         },
-        { applyUnificationVars: true }
-    );
+    });
 
     if (!evaluator.assignType(expectedSubtype, specializedType)) {
         return undefined;
@@ -634,17 +629,12 @@ function applyExpectedTypeForConstructor(
     // If this isn't a generic type or it's a type that has already been
     // explicitly specialized, the expected type isn't applicable.
     if (type.shared.typeParams.length === 0 || type.priv.typeArgs) {
-        return evaluator.solveAndApplyConstraints(
-            ClassType.cloneAsInstance(type),
-            constraints,
-            {
-                replaceUnsolved: {
-                    scopeIds: [],
-                    tupleClassType: evaluator.getTupleClassType(),
-                },
+        return evaluator.solveAndApplyConstraints(ClassType.cloneAsInstance(type), constraints, {
+            replaceUnsolved: {
+                scopeIds: [],
+                tupleClassType: evaluator.getTupleClassType(),
             },
-            { applyUnificationVars: true }
-        );
+        });
     }
 
     if (inferenceContext) {

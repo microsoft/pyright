@@ -12,7 +12,7 @@
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { LocAddendum } from '../localization/localize';
 import { ConstraintSolution, ConstraintSolutionSet } from './constraintSolution';
-import { ConstraintSet, ConstraintTracker } from './constraintTracker';
+import { ConstraintSet, ConstraintTracker, TypeVarConstraints } from './constraintTracker';
 import { maxSubtypesForInferredType, SolveConstraintsOptions, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
@@ -52,6 +52,7 @@ import {
     convertToInstantiable,
     convertTypeToParamSpecValue,
     getTypeCondition,
+    getTypeVarArgsRecursive,
     getTypeVarScopeId,
     isEffectivelyInstantiable,
     isLiteralTypeOrUnion,
@@ -63,7 +64,6 @@ import {
     specializeWithDefaultTypeArgs,
     transformExpectedType,
     transformPossibleRecursiveTypeAlias,
-    TypeVarTransformer,
 } from './typeUtils';
 
 // As we widen the lower bound of a type variable, we may end up with
@@ -239,13 +239,53 @@ export function solveConstraintSet(
     const solutionSet = new ConstraintSolutionSet(constraintSet.getScopeIds());
 
     constraintSet.doForEachTypeVar((entry) => {
-        const value = getTypeVarType(evaluator, constraintSet, entry.typeVar, options?.useLowerBoundOnly);
-        if (value) {
-            solutionSet.setType(entry.typeVar, value);
-        }
+        solveTypeVarRecursive(evaluator, constraintSet, options, solutionSet, entry);
     });
 
     return solutionSet;
+}
+
+function solveTypeVarRecursive(
+    evaluator: TypeEvaluator,
+    constraintSet: ConstraintSet,
+    options: SolveConstraintsOptions | undefined,
+    solutionSet: ConstraintSolutionSet,
+    entry: TypeVarConstraints
+) {
+    // If this TypeVar already has a solution, don't attempt to re-solve it.
+    if (solutionSet.hasType(entry.typeVar)) {
+        return;
+    }
+
+    // Protect against infinite recursion by setting the initial value to undefined.
+    solutionSet.setType(entry.typeVar, undefined);
+    let value = getTypeVarType(evaluator, constraintSet, entry.typeVar, options?.useLowerBoundOnly);
+
+    if (value) {
+        // Are there any unsolved TypeVars in this type?
+        const typeVars = getTypeVarArgsRecursive(value);
+
+        if (typeVars.length > 0) {
+            const dependentSolution = new ConstraintSolution();
+
+            for (const typeVar of typeVars) {
+                const dependentEntry = constraintSet.getTypeVar(typeVar);
+                if (dependentEntry) {
+                    solveTypeVarRecursive(evaluator, constraintSet, options, solutionSet, dependentEntry);
+                }
+
+                const dependentType = getTypeVarType(evaluator, constraintSet, typeVar, options?.useLowerBoundOnly);
+                if (dependentType) {
+                    dependentSolution.setType(typeVar, dependentType);
+                }
+            }
+
+            // Apply the dependent TypeVar values to the current TypeVar value.
+            value = applySolvedTypeVars(value, dependentSolution);
+        }
+    }
+
+    solutionSet.setType(entry.typeVar, value);
 }
 
 // In cases where the expected type is a specialized base class of the
@@ -439,30 +479,6 @@ export function addConstraintsForExpectedType(
     }
 
     return false;
-}
-
-// If the constraint tracker contains any type variables whose types depend on
-// unification vars used for bidirectional type inference, replace those
-// with the solved type associated with those unification vars.
-export function applyUnificationVars(evaluator: TypeEvaluator, constraints: ConstraintTracker) {
-    constraints.doForEachConstraintSet((constraintSet) => {
-        if (!constraintSet.hasUnificationVars()) {
-            return;
-        }
-
-        constraintSet.getTypeVars().forEach((entry) => {
-            if (!TypeVarType.isUnification(entry.typeVar)) {
-                const newLowerBound = entry.lowerBound
-                    ? applyUnificationVarsToType(evaluator, entry.lowerBound, constraintSet)
-                    : undefined;
-                const newUpperBound = entry.upperBound
-                    ? applyUnificationVarsToType(evaluator, entry.upperBound, constraintSet)
-                    : undefined;
-
-                constraintSet.setBounds(entry.typeVar, newLowerBound, newUpperBound, entry.retainLiterals);
-            }
-        });
-    });
 }
 
 function stripLiteralsForLowerBound(evaluator: TypeEvaluator, typeVar: TypeVarType, lowerBound: Type) {
@@ -1305,25 +1321,6 @@ function assignParamSpec(
     });
 
     return isAssignable;
-}
-
-class UnificationVarTransformer extends TypeVarTransformer {
-    constructor(private _evaluator: TypeEvaluator, private _constraintSet: ConstraintSet) {
-        super();
-    }
-
-    override transformTypeVar(typeVar: TypeVarType) {
-        if (TypeVarType.isUnification(typeVar)) {
-            return getTypeVarType(this._evaluator, this._constraintSet, typeVar) ?? typeVar;
-        }
-
-        return undefined;
-    }
-}
-
-function applyUnificationVarsToType(evaluator: TypeEvaluator, type: Type, constraintSet: ConstraintSet): Type {
-    const transformer = new UnificationVarTransformer(evaluator, constraintSet);
-    return transformer.apply(type, 0);
 }
 
 // For normal TypeVars, the constraint solver can widen a type by combining
