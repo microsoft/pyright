@@ -4,7 +4,6 @@
 
 from typing import Iterable, Tuple, TypeVar, overload
 
-
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
 
@@ -30,7 +29,7 @@ def func1(*iterables: Iterable[_T1]) -> Tuple[_T1, ...] | float:
     ...
 
 
-def func2(x: Iterable[int]):
+def test1(x: Iterable[int]):
     v1 = func1(x)
     reveal_type(v1, expected_text="Tuple[int]")
 
@@ -46,3 +45,28 @@ def func2(x: Iterable[int]):
 
     v4 = func1(*z)
     reveal_type(v4, expected_text="Tuple[int, int]")
+
+
+@overload
+def func2() -> tuple[()]:
+    ...
+
+
+@overload
+def func2(x: int, /) -> tuple[int]:
+    ...
+
+
+@overload
+def func2(*x: int) -> tuple[int, ...]:
+    ...
+
+
+def func2(*x: int) -> tuple[int, ...]:
+    return x
+
+
+reveal_type(func2(), expected_text="tuple[()]")
+reveal_type(func2(1), expected_text="tuple[int]")
+reveal_type(func2(1, 2), expected_text="tuple[int, ...]")
+reveal_type(func2(*[1, 2, 3]), expected_text="tuple[int, ...]")

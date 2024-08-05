@@ -10341,6 +10341,8 @@ export function createTypeEvaluator(
                             argType.priv.tupleTypeArgs.length > 0
                         ) {
                             tooManyPositionals = true;
+                        } else {
+                            matchedUnpackedListOfUnknownLength = true;
                         }
                     } else {
                         tooManyPositionals = true;
