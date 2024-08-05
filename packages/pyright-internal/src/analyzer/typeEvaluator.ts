@@ -102,7 +102,6 @@ import {
 import {
     addConstraintsForExpectedType,
     applySourceSolutionToConstraints,
-    applyUnificationVars,
     assignTypeVar,
     solveConstraintSet,
     solveConstraints,
@@ -2095,10 +2094,6 @@ export function createTypeEvaluator(
         applyOptions?: ApplyTypeVarOptions,
         solveOptions?: SolveConstraintsOptions
     ): Type {
-        if (solveOptions?.applyUnificationVars) {
-            applyUnificationVars(evaluatorInterface, constraints);
-        }
-
         const solution = solveConstraints(evaluatorInterface, constraints, solveOptions);
         return applySolvedTypeVars(type, solution, applyOptions);
     }
@@ -11605,19 +11600,14 @@ export function createTypeEvaluator(
             eliminateUnsolvedInUnions = false;
         }
 
-        let specializedReturnType = solveAndApplyConstraints(
-            returnType,
-            constraints,
-            {
-                replaceUnsolved: {
-                    scopeIds: getTypeVarScopeIds(type),
-                    unsolvedExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
-                    tupleClassType: getTupleClassType(),
-                    eliminateUnsolvedInUnions,
-                },
+        let specializedReturnType = solveAndApplyConstraints(returnType, constraints, {
+            replaceUnsolved: {
+                scopeIds: getTypeVarScopeIds(type),
+                unsolvedExemptTypeVars: getUnknownExemptTypeVarsForReturnType(type, returnType),
+                tupleClassType: getTupleClassType(),
+                eliminateUnsolvedInUnions,
             },
-            { applyUnificationVars: true }
-        );
+        });
         specializedReturnType = addConditionToType(specializedReturnType, typeCondition);
 
         // If the function includes a ParamSpec and the captured signature(s) includes
@@ -14080,17 +14070,12 @@ export function createTypeEvaluator(
         }
 
         return mapSubtypes(
-            solveAndApplyConstraints(
-                inferenceContext.expectedType,
-                constraints,
-                {
-                    replaceUnsolved: {
-                        scopeIds: [],
-                        tupleClassType: getTupleClassType(),
-                    },
+            solveAndApplyConstraints(inferenceContext.expectedType, constraints, {
+                replaceUnsolved: {
+                    scopeIds: [],
+                    tupleClassType: getTupleClassType(),
                 },
-                { applyUnificationVars: true }
-            ),
+            }),
             (subtype) => {
                 if (entryTypes.length !== 1) {
                     return subtype;
@@ -14384,17 +14369,12 @@ export function createTypeEvaluator(
                             if (
                                 assignType(expectedReturnType, returnTypeResult.type, /* diag */ undefined, constraints)
                             ) {
-                                functionType = solveAndApplyConstraints(
-                                    functionType,
-                                    constraints,
-                                    {
-                                        replaceUnsolved: {
-                                            scopeIds: [],
-                                            tupleClassType: getTupleClassType(),
-                                        },
+                                functionType = solveAndApplyConstraints(functionType, constraints, {
+                                    replaceUnsolved: {
+                                        scopeIds: [],
+                                        tupleClassType: getTupleClassType(),
                                     },
-                                    { applyUnificationVars: true }
-                                ) as FunctionType;
+                                }) as FunctionType;
                             }
                         }
                     }

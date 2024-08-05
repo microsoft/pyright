@@ -14,7 +14,7 @@ import { FunctionType, ParamSpecType, Type, TypeVarType } from './types';
 // Records the types associated with a set of type variables.
 export class ConstraintSolutionSet {
     // Indexed by TypeVar ID.
-    private _typeVarMap: Map<string, Type>;
+    private _typeVarMap: Map<string, Type | undefined>;
 
     // See the comment in constraintTracker for details about identifying
     // solution sets by scope ID.
@@ -39,14 +39,21 @@ export class ConstraintSolutionSet {
         return this._typeVarMap.get(key);
     }
 
-    setType(typeVar: TypeVarType, type: Type) {
+    setType(typeVar: TypeVarType, type: Type | undefined) {
         const key = TypeVarType.getNameWithScope(typeVar);
         return this._typeVarMap.set(key, type);
     }
 
+    hasType(typeVar: TypeVarType): boolean {
+        const key = TypeVarType.getNameWithScope(typeVar);
+        return this._typeVarMap.has(key);
+    }
+
     doForEachTypeVar(callback: (type: Type, typeVarId: string) => void) {
         this._typeVarMap.forEach((type, key) => {
-            callback(type, key);
+            if (type) {
+                callback(type, key);
+            }
         });
     }
 }
