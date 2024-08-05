@@ -1,7 +1,7 @@
-from _typeshed import Incomplete
+from _typeshed import Incomplete, Unused
 from collections.abc import Callable, Iterable
 from types import TracebackType
-from typing import Any, ClassVar, Final, Literal
+from typing import ClassVar, Final, Literal
 
 from setuptools import Command
 
@@ -19,14 +19,14 @@ def get_abi_tag() -> str | None: ...
 def safer_name(name: str) -> str: ...
 def safer_version(version: str) -> str: ...
 def remove_readonly(
-    func: Callable[..., object], path: str, excinfo: tuple[type[Exception], Exception, TracebackType]
+    func: Callable[[str], Unused], path: str, excinfo: tuple[type[Exception], Exception, TracebackType]
 ) -> None: ...
-def remove_readonly_exc(func: Callable[..., object], path: str, exc: Exception) -> None: ...
+def remove_readonly_exc(func: Callable[[str], Unused], path: str, exc: Exception) -> None: ...
 
 class bdist_wheel(Command):
     description: ClassVar[str]
     supported_compressions: ClassVar[dict[str, int]]
-    user_options: ClassVar[list[tuple[Any, ...]]]
+    user_options: ClassVar[list[tuple[str, str | None, str]]]
     boolean_options: ClassVar[list[str]]
 
     bdist_dir: str | None

@@ -239,13 +239,13 @@ class ColumnBase(Node):
     def __invert__(self): ...
     __and__: Incomplete
     __or__: Incomplete
-    __add__: Callable[[Self, Any], Expression]
+    def __add__(self, rhs: Any) -> Expression: ...
     __sub__: Incomplete
     __mul__: Callable[[Self, Any], Expression]
     __div__: Callable[[Self, Any], Expression]
     __truediv__: Callable[[Self, Any], Expression]
     __xor__: Callable[[Self, Any], Expression]
-    __radd__: Callable[[Self, Any], Expression]
+    def __radd__(self, rhs: Any) -> Expression: ...
     __rsub__: Callable[[Self, Any], Expression]
     __rmul__: Callable[[Self, Any], Expression]
     __rdiv__: Callable[[Self, Any], Expression]
