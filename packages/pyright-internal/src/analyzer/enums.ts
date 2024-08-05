@@ -72,6 +72,7 @@ export function createEnumType(
     argList: Arg[]
 ): ClassType | undefined {
     const fileInfo = getFileInfo(errorNode);
+    const isReprEnum = isReprEnumClass(enumClass);
 
     if (argList.length === 0) {
         return undefined;
@@ -152,7 +153,13 @@ export function createEnumType(
 
             const valueType = ClassType.cloneWithLiteral(ClassType.cloneAsInstance(intClassType), index + 1);
 
-            const enumLiteral = new EnumLiteral(classType.shared.fullName, classType.shared.name, entryName, valueType);
+            const enumLiteral = new EnumLiteral(
+                classType.shared.fullName,
+                classType.shared.name,
+                entryName,
+                valueType,
+                isReprEnum
+            );
 
             const newSymbol = Symbol.createWithType(
                 SymbolFlags.ClassMember,
@@ -220,7 +227,13 @@ export function createEnumType(
 
             const entryName = nameNode.d.strings[0].d.value;
 
-            const enumLiteral = new EnumLiteral(classType.shared.fullName, classType.shared.name, entryName, valueType);
+            const enumLiteral = new EnumLiteral(
+                classType.shared.fullName,
+                classType.shared.name,
+                entryName,
+                valueType,
+                isReprEnum
+            );
 
             const newSymbol = Symbol.createWithType(
                 SymbolFlags.ClassMember,
@@ -255,7 +268,13 @@ export function createEnumType(
             }
 
             const entryName = nameNode.d.strings[0].d.value;
-            const enumLiteral = new EnumLiteral(classType.shared.fullName, classType.shared.name, entryName, valueType);
+            const enumLiteral = new EnumLiteral(
+                classType.shared.fullName,
+                classType.shared.name,
+                entryName,
+                valueType,
+                isReprEnum
+            );
 
             const newSymbol = Symbol.createWithType(
                 SymbolFlags.ClassMember,
@@ -475,7 +494,8 @@ export function transformTypeForEnumMember(
         memberInfo.classType.shared.fullName,
         memberInfo.classType.shared.name,
         memberName,
-        valueType
+        valueType,
+        isReprEnumClass(classType)
     );
 
     return ClassType.cloneAsInstance(ClassType.cloneWithLiteral(memberInfo.classType, enumLiteral));
@@ -690,4 +710,8 @@ export function getEnumAutoValueType(evaluator: TypeEvaluator, node: ExpressionN
     }
 
     return evaluator.getBuiltInObject(node, 'int');
+}
+
+function isReprEnumClass(enumClass: ClassType) {
+    return enumClass.shared.mro.some((mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'ReprEnum'));
 }

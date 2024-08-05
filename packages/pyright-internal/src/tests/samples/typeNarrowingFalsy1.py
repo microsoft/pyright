@@ -184,3 +184,15 @@ def func17(x: Enum3):
         reveal_type(x, expected_text="Enum3")
     else:
         reveal_type(x, expected_text="Enum3")
+
+
+def func18(x: Literal[Enum3.A], y: Literal[Enum3.B]):
+    if x:
+        reveal_type(x, expected_text="Never")
+    else:
+        reveal_type(x, expected_text="Literal[Enum3.A]")
+
+    if y:
+        reveal_type(y, expected_text="Literal[Enum3.B]")
+    else:
+        reveal_type(y, expected_text="Never")
