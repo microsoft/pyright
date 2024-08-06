@@ -11,6 +11,7 @@ class A:
     b: Final[str] = ""
     c: ClassVar[Final[int]] = 0
     d: ClassVar[Final] = 0
+    e: Final[ClassVar[int]] = 0
 
 
 a = A(1)
@@ -29,3 +30,6 @@ A.c = 0
 
 # This should generate an error.
 A.d = 0
+
+# This should generate an error.
+A.e = 0
