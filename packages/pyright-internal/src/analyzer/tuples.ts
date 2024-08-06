@@ -36,8 +36,7 @@ export function assignTupleTypeArgs(
     destType: ClassType,
     srcType: ClassType,
     diag: DiagnosticAddendum | undefined,
-    destConstraints: ConstraintTracker | undefined,
-    srcConstraints: ConstraintTracker | undefined,
+    constraints: ConstraintTracker | undefined,
     flags: AssignTypeFlags,
     recursionCount: number
 ) {
@@ -66,8 +65,7 @@ export function assignTupleTypeArgs(
                     destArgType,
                     srcArgType,
                     entryDiag?.createAddendum(),
-                    destConstraints,
-                    srcConstraints,
+                    constraints,
                     flags,
                     recursionCount
                 )
@@ -182,7 +180,7 @@ export function adjustTupleTypeArgs(
     // If we're doing reverse type mappings and the source contains a TypeVarTuple,
     // we need to adjust the dest so the reverse type mapping assignment
     // can be performed.
-    if ((flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0) {
+    if ((flags & AssignTypeFlags.Contravariant) !== 0) {
         const destArgsToCapture = destTypeArgs.length - srcTypeArgs.length + 1;
 
         if (srcVariadicIndex >= 0 && destArgsToCapture >= 0) {
