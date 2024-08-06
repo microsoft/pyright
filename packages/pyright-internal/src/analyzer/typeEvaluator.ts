@@ -4065,6 +4065,12 @@ export function createTypeEvaluator(
                     return typeArg;
                 }
 
+                // Don't expand recursive type aliases because they can
+                // cause infinite recursion.
+                if (isTypeVar(typeArg) && typeArg.shared.recursiveAlias) {
+                    return typeArg;
+                }
+
                 const filteredTypeArg = mapSubtypesExpandTypeVars(
                     typeArg,
                     { conditionFilter },
