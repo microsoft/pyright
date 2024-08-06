@@ -656,39 +656,35 @@ function narrowTypeBasedOnLiteralPattern(
     const literalType = evaluator.getTypeOfExpression(pattern.d.expr).type;
 
     if (!isPositiveTest) {
-        return evaluator.mapSubtypesExpandTypeVars(
-            type,
-            /* options */ undefined,
-            (expandedSubtype, unexpandedSubtype) => {
-                if (
-                    isClassInstance(literalType) &&
-                    isLiteralType(literalType) &&
-                    isClassInstance(expandedSubtype) &&
-                    isLiteralType(expandedSubtype) &&
-                    evaluator.assignType(literalType, expandedSubtype)
-                ) {
-                    return undefined;
-                }
-
-                if (isNoneInstance(expandedSubtype) && isNoneInstance(literalType)) {
-                    return undefined;
-                }
-
-                // Narrow a non-literal bool based on a literal bool pattern.
-                if (
-                    isClassInstance(expandedSubtype) &&
-                    ClassType.isBuiltIn(expandedSubtype, 'bool') &&
-                    expandedSubtype.priv.literalValue === undefined &&
-                    isClassInstance(literalType) &&
-                    ClassType.isBuiltIn(literalType, 'bool') &&
-                    literalType.priv.literalValue !== undefined
-                ) {
-                    return ClassType.cloneWithLiteral(literalType, !(literalType.priv.literalValue as boolean));
-                }
-
-                return expandedSubtype;
+        return evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (expandedSubtype) => {
+            if (
+                isClassInstance(literalType) &&
+                isLiteralType(literalType) &&
+                isClassInstance(expandedSubtype) &&
+                isLiteralType(expandedSubtype) &&
+                evaluator.assignType(literalType, expandedSubtype)
+            ) {
+                return undefined;
             }
-        );
+
+            if (isNoneInstance(expandedSubtype) && isNoneInstance(literalType)) {
+                return undefined;
+            }
+
+            // Narrow a non-literal bool based on a literal bool pattern.
+            if (
+                isClassInstance(expandedSubtype) &&
+                ClassType.isBuiltIn(expandedSubtype, 'bool') &&
+                expandedSubtype.priv.literalValue === undefined &&
+                isClassInstance(literalType) &&
+                ClassType.isBuiltIn(literalType, 'bool') &&
+                literalType.priv.literalValue !== undefined
+            ) {
+                return ClassType.cloneWithLiteral(literalType, !(literalType.priv.literalValue as boolean));
+            }
+
+            return expandedSubtype;
+        });
     }
 
     return evaluator.mapSubtypesExpandTypeVars(type, /* options */ undefined, (expandedSubtype, unexpandedSubtype) => {
@@ -1145,12 +1141,12 @@ function narrowTypeBasedOnValuePattern(
                     (subjectSubtypeExpanded) => {
                         // If this is a negative test, see if it's an enum value.
                         if (!isPositiveTest) {
-                            if (isClassInstance(subjectSubtypeExpanded) && isClassInstance(valueSubtypeExpanded)) {
-                                if (
-                                    !isLiteralType(subjectSubtypeExpanded) &&
-                                    isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded) &&
-                                    isLiteralType(valueSubtypeExpanded)
-                                ) {
+                            if (
+                                isClassInstance(subjectSubtypeExpanded) &&
+                                isClassInstance(valueSubtypeExpanded) &&
+                                isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded)
+                            ) {
+                                if (!isLiteralType(subjectSubtypeExpanded) && isLiteralType(valueSubtypeExpanded)) {
                                     const expandedLiterals = enumerateLiteralsForType(
                                         evaluator,
                                         subjectSubtypeExpanded
@@ -1194,7 +1190,8 @@ function narrowTypeBasedOnValuePattern(
                             isClassInstance(valueSubtypeExpanded) &&
                             isLiteralType(valueSubtypeExpanded)
                         ) {
-                            return ClassType.isLiteralValueSame(valueSubtypeExpanded, subjectSubtypeExpanded)
+                            return isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded) &&
+                                ClassType.isLiteralValueSame(valueSubtypeExpanded, subjectSubtypeExpanded)
                                 ? valueSubtypeUnexpanded
                                 : undefined;
                         }
