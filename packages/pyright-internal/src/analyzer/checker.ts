@@ -2775,8 +2775,10 @@ export class Checker extends ParseTreeWalker {
         );
 
         // Now check the return types.
-        let overloadReturnType =
-            overload.shared.declaredReturnType ?? this._evaluator.getFunctionInferredReturnType(overload);
+        let overloadReturnType = this._evaluator.solveAndApplyConstraints(
+            overload.shared.declaredReturnType ?? this._evaluator.getFunctionInferredReturnType(overload),
+            constraints
+        );
         let implementationReturnType = this._evaluator.solveAndApplyConstraints(
             implementation.shared.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation),
             constraints
