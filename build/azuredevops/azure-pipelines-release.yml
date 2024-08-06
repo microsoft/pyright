@@ -20,12 +20,15 @@ extends:
   template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
   parameters:
     sdl:
+      codeql:
+        compiled:
+          enabled: false
+          justificationForDisabling: 'Running a scan on the Pyright-Build'
       sourceAnalysisPool: VSEngSS-MicroBuild2022-1ES
     pool:
-      name: AzurePipelines-EO
-      demands:
-        - ImageOverride -equals 1ESPT-Ubuntu22.04
-      os: Linux
+      pool:
+      name: VSEngSS-MicroBuild2022-1ES
+      os: windows
     customBuildTags:
       - ES365AIMigrationTooling
     stages:
@@ -46,9 +49,10 @@ extends:
                   artifactName: $(ARTIFACT_NAME_VSIX)
             steps:
               - checkout: self
+                fetchDepth: 1
                 clean: true
                 submodules: true
-                fetchTags: true
+                fetchTags: false
                 persistCredentials: True
               - task: NodeTool@0
                 displayName: Use Node 18.x
@@ -63,7 +67,7 @@ extends:
                 inputs:
                   script: |
                     npm run package
-                    mv pyright-*.vsix $(VSIX_NAME)
+                    move pyright-*.vsix %VSIX_NAME%
                   workingDirectory: packages/vscode-pyright
               - task: CopyFiles@2
                 displayName: 'Copy vsix to: build_output'
