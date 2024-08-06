@@ -288,12 +288,6 @@ test('TypeNarrowing7', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('TypeNarrowingIsinstance1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance1.py']);
-
-    TestUtils.validateResults(analysisResults, 8);
-});
-
 test('TypeNarrowingAssert1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingAssert1.py']);
 
@@ -370,6 +364,12 @@ test('TypeNarrowingEnum2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingEnum2.py']);
 
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('TypeNarrowingIsinstance1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowingIsinstance1.py']);
+
+    TestUtils.validateResults(analysisResults, 9);
 });
 
 test('TypeNarrowingIsinstance2', () => {
