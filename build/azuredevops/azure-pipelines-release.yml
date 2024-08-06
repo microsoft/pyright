@@ -16,7 +16,7 @@ variables:
   - name: ARTIFACT_NAME_VSIX
     value: vsix
   - name: 'TagOverride'
-    value: '1.1.375-test'
+    value: '1.1.375'
   - name: 'customTagName'
     value: $[ coalesce(variables['TagOverride'], variables['Build.SourceBranchName']) ]
 
