@@ -6,7 +6,7 @@ from typing import Callable, Generic, Protocol, TypeVar
 T = TypeVar("T")
 S = TypeVar("S")
 T_contra = TypeVar("T_contra", contravariant=True)
-TResult = TypeVar("TResult")
+R = TypeVar("R")
 
 
 class ResolveFunc(Protocol[T_contra]):
@@ -14,8 +14,8 @@ class ResolveFunc(Protocol[T_contra]):
         ...
 
 
-FullfillFunc = Callable[[T], TResult | "Promise[TResult]"]
-ExecutorFunc = Callable[[ResolveFunc[T]], None]
+TA1 = Callable[[T], R | "Promise[R]"]
+TA2 = Callable[[ResolveFunc[T]], None]
 
 
 class Promise(Generic[T]):
@@ -23,10 +23,10 @@ class Promise(Generic[T]):
     def resolve(resolve_value: S) -> "Promise[S]":
         ...
 
-    def __init__(self, executor_func: ExecutorFunc[T]) -> None:
+    def __init__(self, executor_func: TA2[T]) -> None:
         ...
 
-    def then(self, onfullfilled: FullfillFunc[T, TResult]) -> "Promise[TResult]":
+    def then(self, onfullfilled: TA1[T, R]) -> "Promise[R]":
         ...
 
 
@@ -36,10 +36,10 @@ Promise.resolve(1).then(lambda result: "abc").then(
     lambda result: reveal_type(result, expected_text="str")
 )
 
-Promise.resolve(None).then(lambda result: Promise.resolve("abc" or 123)).then(
-    lambda result: reveal_type(result, expected_text="str | int")
-)
+Promise.resolve(None).then(
+    lambda result: Promise.resolve("abc" if 1 < 2 else 123)
+).then(lambda result: reveal_type(result, expected_text="str | int"))
 
-Promise.resolve(None).then(lambda result: "abc" or 123).then(
+Promise.resolve(None).then(lambda result: "abc" if 1 < 2 else 123).then(
     lambda result: reveal_type(result, expected_text="int | str")
 )

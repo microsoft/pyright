@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"Concatenar\" requiere al menos dos argumentos de tipo",
         "conditionalOperandInvalid": "Operando condicional no válido de tipo \"{type}\"",
         "constantRedefinition": "\"{name}\" es constante (porque está en mayúsculas) y no se puede volver a definir",
-        "constructorNoArgs": "No se esperaban argumentos para el constructor \"{type}\"",
         "constructorParametersMismatch": "Error de coincidencia entre la firma de __new__ y __init__ en la clase \"{classType}\"",
         "containmentAlwaysFalse": "La expresión siempre se evaluará como False, ya que los tipos \"{leftType}\" y \"{rightType}\" no tienen superposición",
         "containmentAlwaysTrue": "La expresión siempre se evaluará como True, ya que los tipos \"{leftType}\" y \"{rightType}\" no tienen superposición",
@@ -496,7 +495,7 @@
         "typeCallNotAllowed": "la llamada a type() no debe utilizarse en la anotación de tipo",
         "typeCheckOnly": "\"{name}\" está marcado como @type_check_only y solo se puede usar en anotaciones de tipo",
         "typeCommentDeprecated": "El uso de comentarios de tipo está obsoleto; utilice en su lugar anotaciones de tipo.",
-        "typeExpectedClass": "Se esperaba una expresión de tipo pero se ha recibido \"{type}\"",
+        "typeExpectedClass": "Se esperaba la clase pero se recibió \"{type}\"",
         "typeGuardArgCount": "Se esperaba un único argumento de tipo después de \"TypeGuard\" o \"TypeIs\"",
         "typeGuardParamCount": "Las funciones y métodos de protección de tipo definidos por el usuario deben tener al menos un parámetro de entrada",
         "typeIsReturnType": "El tipo de valor devuelto de TypeIs (\"{returnType}\") no es coherente con el tipo de parámetro de valor (\"{type}\")",
@@ -670,6 +669,7 @@
         "invariantSuggestionDict": "Considere cambiar de \"predicción\" a \" Asignación\" que es covariante en el tipo de valor",
         "invariantSuggestionList": "Considere la posibilidad de cambiar de \"lista\" a \"Secuencia\" que es covariante",
         "invariantSuggestionSet": "Considere la posibilidad de cambiar de \"conjunto\" a \"Contenedor\" que es covariante",
+        "isinstanceClassNotSupported": "\"{type}\" no se admite para las comprobaciones de instancia y clase",
         "keyNotRequired": "\"{name}\" no es una clave necesaria en \"{type}\", por lo que el acceso puede dar lugar a una excepción en tiempo de ejecución",
         "keyReadOnly": "\"{name}\" es una clave de solo lectura en \"{type}\"",
         "keyRequiredDeleted": "\"{name}\" es una clave necesaria y no se puede eliminar",
@@ -804,5 +804,8 @@
         "useTypeInstead": "Utilice Type[T] en su lugar",
         "varianceMismatchForClass": "La varianza del argumento de tipo \"{typeVarName}\" no es compatible con la clase base \"{className}\"",
         "varianceMismatchForTypeAlias": "La varianza del argumento de tipo \"{typeVarName}\" no es compatible con \"{typeAliasParam}\""
+    },
+    "Service": {
+        "longOperation": "La enumeración de los archivos de origen del área de trabajo está tardando mucho tiempo. Considere la posibilidad de abrir una subcarpeta en su lugar. [Más información](https://aka.ms/workspace-too-many-files)"
     }
 }

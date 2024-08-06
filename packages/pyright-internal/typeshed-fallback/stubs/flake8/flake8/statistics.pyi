@@ -1,4 +1,3 @@
-from _typeshed import Incomplete
 from collections.abc import Generator
 from typing import NamedTuple
 
@@ -18,10 +17,10 @@ class Key(NamedTuple):
     def matches(self, prefix: str, filename: str | None) -> bool: ...
 
 class Statistic:
-    error_code: Incomplete
-    filename: Incomplete
-    message: Incomplete
-    count: Incomplete
+    error_code: str
+    filename: str
+    message: str
+    count: int
     def __init__(self, error_code: str, filename: str, message: str, count: int) -> None: ...
     @classmethod
     def create_from(cls, error: Violation) -> Statistic: ...

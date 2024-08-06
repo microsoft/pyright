@@ -15,7 +15,7 @@ from .blob import BlobIO as BlobIO
 from .callbacks import (
     CheckoutCallbacks as CheckoutCallbacks,
     Payload as Payload,
-    RemoteCallbacks,
+    RemoteCallbacks as RemoteCallbacks,
     StashApplyCallbacks as StashApplyCallbacks,
     get_credentials as get_credentials,
 )

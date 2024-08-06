@@ -250,7 +250,7 @@ export class CallHierarchyProvider {
         // This simplifies our code and ensures compatibility with the LSP specification.
         let callItemUri: Uri;
         if (targetDecl.type === DeclarationType.Alias) {
-            symbolName = (referencesResult.nodeAtOffset as NameNode).value;
+            symbolName = (referencesResult.nodeAtOffset as NameNode).d.value;
             callItemUri = this._fileUri;
         } else {
             symbolName = DeclarationUtils.getNameFromDeclaration(targetDecl) || referencesResult.symbolNames[0];
@@ -308,10 +308,10 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
 
         let nameNode: NameNode | undefined;
 
-        if (node.leftExpression.nodeType === ParseNodeType.Name) {
-            nameNode = node.leftExpression;
-        } else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
-            nameNode = node.leftExpression.memberName;
+        if (node.d.leftExpr.nodeType === ParseNodeType.Name) {
+            nameNode = node.d.leftExpr;
+        } else if (node.d.leftExpr.nodeType === ParseNodeType.MemberAccess) {
+            nameNode = node.d.leftExpr.d.member;
         }
 
         if (nameNode) {
@@ -336,7 +336,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
         // Determine whether the member corresponds to a property.
         // If so, we'll treat it as a function call for purposes of
         // finding outgoing calls.
-        const leftHandType = this._evaluator.getType(node.leftExpression);
+        const leftHandType = this._evaluator.getType(node.d.leftExpr);
         if (leftHandType) {
             doForEachSubtype(leftHandType, (subtype) => {
                 let baseType = subtype;
@@ -348,7 +348,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
                     return;
                 }
 
-                const memberInfo = lookUpObjectMember(baseType, node.memberName.value);
+                const memberInfo = lookUpObjectMember(baseType, node.d.member.d.value);
                 if (!memberInfo) {
                     return;
                 }
@@ -362,7 +362,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
 
                 if (isClassInstance(memberType) && ClassType.isPropertyClass(memberType)) {
                     propertyDecls.forEach((decl) => {
-                        this._addOutgoingCallForDeclaration(node.memberName, decl);
+                        this._addOutgoingCallForDeclaration(node.d.member, decl);
                     });
                 }
             });
@@ -382,8 +382,8 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
         }
 
         const callDest: CallHierarchyItem = {
-            name: nameNode.value,
-            kind: getSymbolKind(resolvedDecl, this._evaluator, nameNode.value) ?? SymbolKind.Module,
+            name: nameNode.d.value,
+            kind: getSymbolKind(resolvedDecl, this._evaluator, nameNode.d.value) ?? SymbolKind.Module,
             uri: convertUriToLspUriString(this._fs, resolvedDecl.uri),
             range: resolvedDecl.range,
             selectionRange: resolvedDecl.range,
@@ -403,10 +403,10 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
             this._outgoingCalls.push(outgoingCall);
         }
 
-        if (outgoingCall && outgoingCall.to.name !== nameNode.value) {
+        if (outgoingCall && outgoingCall.to.name !== nameNode.d.value) {
             // If both the function and its alias are called in the same function,
             // the name of the call item will be the resolved declaration name, not the alias.
-            outgoingCall.to.name = DeclarationUtils.getNameFromDeclaration(resolvedDecl) ?? nameNode.value;
+            outgoingCall.to.name = DeclarationUtils.getNameFromDeclaration(resolvedDecl) ?? nameNode.d.value;
         }
 
         const fromRange: Range = convertOffsetsToRange(
@@ -454,14 +454,14 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
         throwIfCancellationRequested(this._cancellationToken);
 
         let nameNode: NameNode | undefined;
-        if (node.leftExpression.nodeType === ParseNodeType.Name) {
-            nameNode = node.leftExpression;
-        } else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
-            nameNode = node.leftExpression.memberName;
+        if (node.d.leftExpr.nodeType === ParseNodeType.Name) {
+            nameNode = node.d.leftExpr;
+        } else if (node.d.leftExpr.nodeType === ParseNodeType.MemberAccess) {
+            nameNode = node.d.leftExpr.d.member;
         }
 
         // Don't bother doing any more work if the name doesn't match.
-        if (nameNode && nameNode.value === this._symbolName) {
+        if (nameNode && nameNode.d.value === this._symbolName) {
             const declarations = this._getDeclarations(nameNode);
             if (declarations) {
                 if (this._targetDeclaration.type === DeclarationType.Alias) {
@@ -491,11 +491,11 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
     override visitMemberAccess(node: MemberAccessNode): boolean {
         throwIfCancellationRequested(this._cancellationToken);
 
-        if (node.memberName.value === this._symbolName) {
+        if (node.d.member.d.value === this._symbolName) {
             // Determine whether the member corresponds to a property.
             // If so, we'll treat it as a function call for purposes of
             // finding outgoing calls.
-            const leftHandType = this._evaluator.getType(node.leftExpression);
+            const leftHandType = this._evaluator.getType(node.d.leftExpr);
             if (leftHandType) {
                 doForEachSubtype(leftHandType, (subtype) => {
                     let baseType = subtype;
@@ -507,7 +507,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                         return;
                     }
 
-                    const memberInfo = lookUpObjectMember(baseType, node.memberName.value);
+                    const memberInfo = lookUpObjectMember(baseType, node.d.member.d.value);
                     if (!memberInfo) {
                         return;
                     }
@@ -524,7 +524,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                             DeclarationUtils.areDeclarationsSame(decl!, this._targetDeclaration)
                         )
                     ) {
-                        this._addIncomingCallForDeclaration(node.memberName);
+                        this._addIncomingCallForDeclaration(node.d.member);
                     }
                 });
             }
@@ -589,13 +589,13 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
             };
         } else {
             const functionRange = convertOffsetsToRange(
-                executionNode.name.start,
-                executionNode.name.start + executionNode.name.length,
+                executionNode.d.name.start,
+                executionNode.d.name.start + executionNode.d.name.length,
                 this._parseResults.tokenizerOutput.lines
             );
 
             callSource = {
-                name: executionNode.name.value,
+                name: executionNode.d.name.d.value,
                 kind: SymbolKind.Function,
                 uri: convertUriToLspUriString(this._program.fileSystem, this._fileUri),
                 range: functionRange,

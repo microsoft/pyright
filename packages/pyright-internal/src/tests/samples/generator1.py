@@ -1,7 +1,20 @@
 # This sample tests various type checking operations relating to
 # generator functions (those with a "yield" method).
 
-from typing import Any, Awaitable, Generator, Iterable, Iterator, Protocol, TypedDict
+from typing import (
+    Any,
+    Awaitable,
+    Generator,
+    Generic,
+    Iterable,
+    Iterator,
+    NamedTuple,
+    Protocol,
+    TypedDict,
+    TypeVar,
+)
+
+T = TypeVar("T")
 
 
 class ClassA:
@@ -19,6 +32,18 @@ class ClassB:
 
 class ClassC:
     pass
+
+
+class NT1(NamedTuple, Generic[T]):
+    value: T
+
+
+class ClassD(Generic[T]):
+    def __init__(self, obj: T) -> None:
+        self.obj = obj
+
+    def ingest(self) -> Generator[NT1[T], None, None]:
+        yield NT1(self.obj)
 
 
 def generator1() -> Generator[ClassA, ClassB, ClassC]:

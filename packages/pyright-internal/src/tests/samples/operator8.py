@@ -31,6 +31,27 @@ def func1(a: Literal[1, 2], b: Literal[0, 4], c: Literal[3, 4]):
     c1 = +c1
     reveal_type(c1, expected_text="Literal[2, 1, -2, -3, -6, -7]")
 
+    c1 = ~c1
+    reveal_type(c1, expected_text="Literal[-3, -2, 1, 2, 5, 6]")
+
+    c1 = (-5 & 1) ^ (4 | 2)
+    reveal_type(c1, expected_text="Literal[7]")
+
+    c1 = 1 << 128
+    reveal_type(c1, expected_text="Literal[340282366920938463463374607431768211456]")
+
+    c1 = 2**10
+    reveal_type(c1, expected_text="Literal[1024]")
+
+    c1 = (-1) ** 10
+    reveal_type(c1, expected_text="Literal[1]")
+
+    c1 = (2 - 3) ** 100001
+    reveal_type(c1, expected_text="Literal[-1]")
+
+    c1 = 2**100
+    reveal_type(c1, expected_text="Literal[1267650600228229401496703205376]")
+
     c6 = 1
     for _ in range(100):
         c6 += a

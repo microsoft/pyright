@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"Concatena\" richiede almeno due argomenti tipo",
         "conditionalOperandInvalid": "Operando condizionale non valido di tipo \"{type}\"",
         "constantRedefinition": "\"{name}\" è costante (perché è in maiuscolo) e non può essere ridefinita",
-        "constructorNoArgs": "Nessun argomento previsto per il costruttore \"{type}\"",
         "constructorParametersMismatch": "Mancata corrispondenza tra firma di __new__ e __init__ nella classe \"{classType}\"",
         "containmentAlwaysFalse": "L'espressione restituisce sempre False perché i tipi \"{leftType}\" e \"{rightType}\" non si sovrappongono",
         "containmentAlwaysTrue": "L'espressione restituisce sempre True perché i tipi \"{leftType}\" e \"{rightType}\" non si sovrappongono",
@@ -496,7 +495,7 @@
         "typeCallNotAllowed": "la chiamata type() non deve essere usata nell'annotazione di tipo",
         "typeCheckOnly": "\"{name}\" è contrassegnato come @type_check_only e può essere utilizzato solo nelle annotazioni tipo",
         "typeCommentDeprecated": "L'uso dei commenti di tipo è deprecato. Usare l'annotazione di tipo",
-        "typeExpectedClass": "È prevista un'espressione di tipo ma è stato ricevuto \"{type}\"",
+        "typeExpectedClass": "Classe prevista ma ricevuta \"{type}\"",
         "typeGuardArgCount": "È previsto un singolo argomento di tipo dopo \"TypeGuard\" o \"TypeIs\"",
         "typeGuardParamCount": "Le funzioni e i metodi di protezione dei tipi definiti dall'utente devono avere almeno un parametro di input",
         "typeIsReturnType": "Il tipo restituito di TypeIs (\"{returnType}\") non è coerente con il tipo di parametro di valore (\"{type}\")",
@@ -670,6 +669,7 @@
         "invariantSuggestionDict": "Prova a passare da \"dict\" a \"Mapping\", che è covariante nel tipo di valore",
         "invariantSuggestionList": "Prova a passare da \"list\" a \"Sequence\", che è covariante",
         "invariantSuggestionSet": "Provare a passare da \"ste\" a \"contenitore\" che è covariante",
+        "isinstanceClassNotSupported": "\"{type}\" non è supportata per i controlli delle istanze e delle classi",
         "keyNotRequired": "\"{name}\" non è una chiave obbligatoria in \"{type}\", quindi l'accesso potrebbe causare un'eccezione di runtime",
         "keyReadOnly": "\"{name}\" è una chiave di sola lettura in \"{type}\"",
         "keyRequiredDeleted": "\"{name}\" è una chiave obbligatoria e non può essere eliminata",
@@ -804,5 +804,8 @@
         "useTypeInstead": "In alternativa, usare Type[T]",
         "varianceMismatchForClass": "La varianza dell'argomento tipo \"{typeVarName}\" non è compatibile con la classe di base \"{className}\"",
         "varianceMismatchForTypeAlias": "La varianza dell'argomento tipo \"{typeVarName}\" non è compatibile con \"{typeAliasParam}\""
+    },
+    "Service": {
+        "longOperation": "L’enumerazione dei file di origine dell’area di lavoro sta richiedendo tempo. Provare ad aprire una sottocartella. [Altre informazioni](https://aka.ms/workspace-too-many-files)"
     }
 }

@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"Concaténation\" nécessite au moins deux arguments de type",
         "conditionalOperandInvalid": "Opérande conditionnel non valide de type \"{type}\"",
         "constantRedefinition": "\"{name}\" est constant (car il est en majuscule) et ne peut pas être redéfini",
-        "constructorNoArgs": "Aucun argument attendu pour le constructeur « {type} »",
         "constructorParametersMismatch": "Non-concordance entre la signature de __new__ et __init__ dans la classe \"{classType}\"",
         "containmentAlwaysFalse": "L'expression sera toujours évaluée à False car les types \"{leftType}\" et \"{rightType}\" ne se chevauchent pas",
         "containmentAlwaysTrue": "L'expression sera toujours évaluée à True puisque les types \"{leftType}\" et \"{rightType}\" ne se chevauchent pas",
@@ -496,7 +495,7 @@
         "typeCallNotAllowed": "l’appel type() ne doit pas être utilisé dans l’annotation de type",
         "typeCheckOnly": "\"{name}\" est marqué comme @type_check_only et ne peut être utilisé que dans les annotations de type",
         "typeCommentDeprecated": "L’utilisation de commentaires de type est déconseillée ; utiliser l’annotation de type à la place",
-        "typeExpectedClass": "Expression de type attendue mais « {type} » reçue",
+        "typeExpectedClass": "Classe attendue mais « {type} » reçu",
         "typeGuardArgCount": "Argument de type unique attendu après « TypeGuard » ou « Typels »",
         "typeGuardParamCount": "Les méthodes et fonctions de protection de type définies par l’utilisateur doivent avoir au moins un paramètre d’entrée",
         "typeIsReturnType": "Le type de retour des TypesIs (« {returnType} ») n’est pas cohérent avec le type de paramètre de valeur (« {type} »)",
@@ -670,6 +669,7 @@
         "invariantSuggestionDict": "Envisagez de passer de « dict » à « Mapping », qui est covariant dans le type valeur",
         "invariantSuggestionList": "Envisagez de passer de « list » à « Sequence » qui est covariant",
         "invariantSuggestionSet": "Pensez à passer de \"set\" à \"Container\" qui est covariant",
+        "isinstanceClassNotSupported": "« {type} » n’est pas pris en charge pour les vérifications d’instance et de classe",
         "keyNotRequired": "\"{name}\" n'est pas une clé requise dans \"{type}\", donc l'accès peut entraîner une exception d'exécution",
         "keyReadOnly": "« {name} » est une clé en lecture seule dans « {type} »",
         "keyRequiredDeleted": "« {name} » est une clé obligatoire et ne peut pas être supprimée",
@@ -804,5 +804,8 @@
         "useTypeInstead": "Utiliser le type[T] à la place",
         "varianceMismatchForClass": "La variance de l'argument de type \"{typeVarName}\" est incompatible avec la classe de base \"{className}\"",
         "varianceMismatchForTypeAlias": "La variance de l'argument de type \"{typeVarName}\" est incompatible avec \"{typeAliasParam}\""
+    },
+    "Service": {
+        "longOperation": "L’énumération des fichiers sources de l’espace de travail prend beaucoup de temps. Envisagez plutôt d’ouvrir un sous-dossier. [En savoir plus](https://aka.ms/workspace-too-many-files)"
     }
 }

@@ -16,21 +16,22 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { LocAddendum, LocMessage } from '../localization/localize';
 import {
-    ArgumentCategory,
+    ArgCategory,
     ClassNode,
     DictionaryNode,
     ExpressionNode,
     IndexNode,
-    ParameterCategory,
+    ParamCategory,
     ParseNodeType,
 } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { ConstraintTracker } from './constraintTracker';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { getLastTypedDeclarationForSymbol } from './symbolUtils';
-import { EvaluatorUsage, FunctionArgument, TypeEvaluator, TypeResult, TypeResultWithNode } from './typeEvaluatorTypes';
+import { Arg, EvaluatorUsage, TypeEvaluator, TypeResult, TypeResultWithNode } from './typeEvaluatorTypes';
 import {
     AnyType,
     ClassType,
@@ -58,7 +59,7 @@ import {
 import {
     applySolvedTypeVars,
     AssignTypeFlags,
-    buildTypeVarContextFromSpecializedClass,
+    buildSolutionFromSpecializedClass,
     computeMroLinearization,
     getTypeVarScopeId,
     isLiteralType,
@@ -66,14 +67,13 @@ import {
     partiallySpecializeType,
     specializeTupleClass,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 
 // Creates a new custom TypedDict "alternate syntax" factory class.
 export function createTypedDictType(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
     typedDictClass: ClassType,
-    argList: FunctionArgument[]
+    argList: Arg[]
 ): ClassType {
     const fileInfo = AnalyzerNodeInfo.getFileInfo(errorNode);
 
@@ -86,7 +86,7 @@ export function createTypedDictType(
     } else {
         const nameArg = argList[0];
         if (
-            nameArg.argumentCategory !== ArgumentCategory.Simple ||
+            nameArg.argCategory !== ArgCategory.Simple ||
             !nameArg.valueExpression ||
             nameArg.valueExpression.nodeType !== ParseNodeType.StringList
         ) {
@@ -96,7 +96,7 @@ export function createTypedDictType(
                 argList[0].valueExpression || errorNode
             );
         } else {
-            className = nameArg.valueExpression.strings.map((s) => s.value).join('');
+            className = nameArg.valueExpression.d.strings.map((s) => s.d.value).join('');
         }
     }
 
@@ -109,9 +109,9 @@ export function createTypedDictType(
         ClassTypeFlags.TypedDictClass | ClassTypeFlags.ValidTypeAliasClass,
         ParseTreeUtils.getTypeSourceId(errorNode),
         /* declaredMetaclass */ undefined,
-        typedDictClass.details.effectiveMetaclass
+        typedDictClass.shared.effectiveMetaclass
     );
-    classType.details.baseClasses.push(typedDictClass);
+    classType.shared.baseClasses.push(typedDictClass);
     computeMroLinearization(classType);
 
     const classFields = ClassType.getSymbolTable(classType);
@@ -127,7 +127,7 @@ export function createTypedDictType(
         const entriesArg = argList[1];
 
         if (
-            entriesArg.argumentCategory === ArgumentCategory.Simple &&
+            entriesArg.argCategory === ArgCategory.Simple &&
             entriesArg.valueExpression &&
             entriesArg.valueExpression.nodeType === ParseNodeType.Dictionary
         ) {
@@ -142,7 +142,7 @@ export function createTypedDictType(
                     continue;
                 }
 
-                if (entrySet.has(entry.name.value)) {
+                if (entrySet.has(entry.name.d.value)) {
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
                         LocMessage.typedDictEntryUnique(),
@@ -152,7 +152,7 @@ export function createTypedDictType(
                 }
 
                 // Record names in a map to detect duplicates.
-                entrySet.add(entry.name.value);
+                entrySet.add(entry.name.d.value);
 
                 const newSymbol = new Symbol(SymbolFlags.InstanceMember);
                 const declaration: VariableDeclaration = {
@@ -171,7 +171,7 @@ export function createTypedDictType(
                 };
                 newSymbol.addDeclaration(declaration);
 
-                classFields.set(entry.name.value, newSymbol);
+                classFields.set(entry.name.d.value, newSymbol);
             }
         } else {
             evaluator.addDiagnostic(DiagnosticRule.reportArgumentType, LocMessage.typedDictSecondArgDict(), errorNode);
@@ -180,26 +180,26 @@ export function createTypedDictType(
 
     if (usingDictSyntax) {
         for (const arg of argList.slice(2)) {
-            if (arg.name?.value === 'total' || arg.name?.value === 'closed') {
+            if (arg.name?.d.value === 'total' || arg.name?.d.value === 'closed') {
                 if (
                     !arg.valueExpression ||
                     arg.valueExpression.nodeType !== ParseNodeType.Constant ||
                     !(
-                        arg.valueExpression.constType === KeywordType.False ||
-                        arg.valueExpression.constType === KeywordType.True
+                        arg.valueExpression.d.constType === KeywordType.False ||
+                        arg.valueExpression.d.constType === KeywordType.True
                     )
                 ) {
                     evaluator.addDiagnostic(
                         DiagnosticRule.reportGeneralTypeIssues,
-                        LocMessage.typedDictBoolParam().format({ name: arg.name.value }),
+                        LocMessage.typedDictBoolParam().format({ name: arg.name.d.value }),
                         arg.valueExpression || errorNode
                     );
-                } else if (arg.name.value === 'total' && arg.valueExpression.constType === KeywordType.False) {
-                    classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
-                } else if (arg.name.value === 'closed' && arg.valueExpression.constType === KeywordType.True) {
+                } else if (arg.name.d.value === 'total' && arg.valueExpression.d.constType === KeywordType.False) {
+                    classType.shared.flags |= ClassTypeFlags.CanOmitDictValues;
+                } else if (arg.name.d.value === 'closed' && arg.valueExpression.d.constType === KeywordType.True) {
                     // This is an experimental feature because PEP 728 hasn't been accepted yet.
                     if (AnalyzerNodeInfo.getFileInfo(errorNode).diagnosticRuleSet.enableExperimentalFeatures) {
-                        classType.details.flags |=
+                        classType.shared.flags |=
                             ClassTypeFlags.TypedDictMarkedClosed | ClassTypeFlags.TypedDictEffectivelyClosed;
                     }
                 }
@@ -217,11 +217,11 @@ export function createTypedDictType(
 
     // Validate that the assigned variable name is consistent with the provided name.
     if (errorNode.parent?.nodeType === ParseNodeType.Assignment && className) {
-        const target = errorNode.parent.leftExpression;
-        const typedDictTarget = target.nodeType === ParseNodeType.TypeAnnotation ? target.valueExpression : target;
+        const target = errorNode.parent.d.leftExpr;
+        const typedDictTarget = target.nodeType === ParseNodeType.TypeAnnotation ? target.d.valueExpr : target;
 
         if (typedDictTarget.nodeType === ParseNodeType.Name) {
-            if (typedDictTarget.value !== className) {
+            if (typedDictTarget.d.value !== className) {
                 evaluator.addDiagnostic(
                     DiagnosticRule.reportGeneralTypeIssues,
                     LocMessage.typedDictAssignedName().format({
@@ -245,68 +245,68 @@ export function synthesizeTypedDictClassMethods(
 
     // Synthesize a __new__ method.
     const newType = FunctionType.createSynthesizedInstance('__new__', FunctionTypeFlags.ConstructorMethod);
-    FunctionType.addParameter(
+    FunctionType.addParam(
         newType,
-        FunctionParam.create(ParameterCategory.Simple, classType, FunctionParamFlags.TypeDeclared, 'cls')
+        FunctionParam.create(ParamCategory.Simple, classType, FunctionParamFlags.TypeDeclared, 'cls')
     );
-    FunctionType.addDefaultParameters(newType);
-    newType.details.declaredReturnType = ClassType.cloneAsInstance(classType);
-    newType.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+    FunctionType.addDefaultParams(newType);
+    newType.shared.declaredReturnType = ClassType.cloneAsInstance(classType);
+    newType.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     // Synthesize an __init__ method with two overrides.
     const initOverride1 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
-    FunctionType.addParameter(
+    FunctionType.addParam(
         initOverride1,
         FunctionParam.create(
-            ParameterCategory.Simple,
+            ParamCategory.Simple,
             ClassType.cloneAsInstance(classType),
             FunctionParamFlags.TypeDeclared,
             'self'
         )
     );
-    initOverride1.details.declaredReturnType = evaluator.getNoneType();
-    initOverride1.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+    initOverride1.shared.declaredReturnType = evaluator.getNoneType();
+    initOverride1.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     // The first parameter must be positional-only.
-    FunctionType.addParameter(
+    FunctionType.addParam(
         initOverride1,
         FunctionParam.create(
-            ParameterCategory.Simple,
+            ParamCategory.Simple,
             ClassType.cloneAsInstance(classType),
             FunctionParamFlags.TypeDeclared,
             '__map'
         )
     );
-    FunctionType.addPositionOnlyParameterSeparator(initOverride1);
+    FunctionType.addPositionOnlyParamSeparator(initOverride1);
 
     // All subsequent parameters must be named, so insert an empty "*".
-    FunctionType.addKeywordOnlyParameterSeparator(initOverride1);
+    FunctionType.addKeywordOnlyParamSeparator(initOverride1);
 
     const initOverride2 = FunctionType.createSynthesizedInstance('__init__', FunctionTypeFlags.Overloaded);
-    FunctionType.addParameter(
+    FunctionType.addParam(
         initOverride2,
         FunctionParam.create(
-            ParameterCategory.Simple,
+            ParamCategory.Simple,
             ClassType.cloneAsInstance(classType),
             FunctionParamFlags.TypeDeclared,
             'self'
         )
     );
-    initOverride2.details.declaredReturnType = evaluator.getNoneType();
-    initOverride2.details.constructorTypeVarScopeId = getTypeVarScopeId(classType);
+    initOverride2.shared.declaredReturnType = evaluator.getNoneType();
+    initOverride2.priv.constructorTypeVarScopeId = getTypeVarScopeId(classType);
 
     // All parameters must be named, so insert an empty "*".
-    FunctionType.addKeywordOnlyParameterSeparator(initOverride2);
+    FunctionType.addKeywordOnlyParamSeparator(initOverride2);
 
     const entries = getTypedDictMembersForClass(evaluator, classType);
     const extraEntriesInfo = entries.extraItems ?? getEffectiveExtraItemsEntryType(evaluator, classType);
     let allEntriesAreReadOnly = entries.knownItems.size > 0;
 
     entries.knownItems.forEach((entry, name) => {
-        FunctionType.addParameter(
+        FunctionType.addParam(
             initOverride1,
             FunctionParam.create(
-                ParameterCategory.Simple,
+                ParamCategory.Simple,
                 entry.valueType,
                 FunctionParamFlags.TypeDeclared,
                 name,
@@ -314,10 +314,10 @@ export function synthesizeTypedDictClassMethods(
             )
         );
 
-        FunctionType.addParameter(
+        FunctionType.addParam(
             initOverride2,
             FunctionParam.create(
-                ParameterCategory.Simple,
+                ParamCategory.Simple,
                 entry.valueType,
                 FunctionParamFlags.TypeDeclared,
                 name,
@@ -331,20 +331,20 @@ export function synthesizeTypedDictClassMethods(
     });
 
     if (entries.extraItems && !isNever(entries.extraItems.valueType)) {
-        FunctionType.addParameter(
+        FunctionType.addParam(
             initOverride1,
             FunctionParam.create(
-                ParameterCategory.KwargsDict,
+                ParamCategory.KwargsDict,
                 entries.extraItems.valueType,
                 FunctionParamFlags.TypeDeclared,
                 'kwargs'
             )
         );
 
-        FunctionType.addParameter(
+        FunctionType.addParam(
             initOverride2,
             FunctionParam.create(
-                ParameterCategory.KwargsDict,
+                ParamCategory.KwargsDict,
                 entries.extraItems.valueType,
                 FunctionParamFlags.TypeDeclared,
                 'kwargs'
@@ -362,7 +362,7 @@ export function synthesizeTypedDictClassMethods(
     // Synthesize a "get", pop, and setdefault method for each named entry.
     if (isInstantiableClass(strClass)) {
         const selfParam = FunctionParam.create(
-            ParameterCategory.Simple,
+            ParamCategory.Simple,
             ClassType.cloneAsInstance(classType),
             FunctionParamFlags.TypeDeclared,
             'self'
@@ -372,8 +372,8 @@ export function synthesizeTypedDictClassMethods(
             let defaultTypeVar = TypeVarType.createInstance(`__TDefault`);
             defaultTypeVar = TypeVarType.cloneForScopeId(
                 defaultTypeVar,
-                func.details.typeVarScopeId!,
-                classType.details.name,
+                func.shared.typeVarScopeId!,
+                classType.shared.name,
                 TypeVarScopeType.Function
             );
             return defaultTypeVar;
@@ -387,11 +387,11 @@ export function synthesizeTypedDictClassMethods(
             defaultTypeMatchesField = false
         ) {
             const getOverload = FunctionType.createSynthesizedInstance('get', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(getOverload, selfParam);
-            getOverload.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
-            FunctionType.addParameter(
+            FunctionType.addParam(getOverload, selfParam);
+            getOverload.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
+            FunctionType.addParam(
                 getOverload,
-                FunctionParam.create(ParameterCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
+                FunctionParam.create(ParamCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
             );
 
             if (includeDefault) {
@@ -414,18 +414,18 @@ export function synthesizeTypedDictClassMethods(
                     returnType = defaultParamType;
                 }
 
-                FunctionType.addParameter(
+                FunctionType.addParam(
                     getOverload,
                     FunctionParam.create(
-                        ParameterCategory.Simple,
+                        ParamCategory.Simple,
                         defaultParamType,
                         FunctionParamFlags.TypeDeclared,
                         'default'
                     )
                 );
-                getOverload.details.declaredReturnType = returnType;
+                getOverload.shared.declaredReturnType = returnType;
             } else {
-                getOverload.details.declaredReturnType = isEntryRequired
+                getOverload.shared.declaredReturnType = isEntryRequired
                     ? valueType
                     : combineTypes([valueType, evaluator.getNoneType()]);
             }
@@ -433,22 +433,17 @@ export function synthesizeTypedDictClassMethods(
         }
 
         function createPopMethods(keyType: Type, valueType: Type, isEntryRequired: boolean) {
-            const keyParam = FunctionParam.create(
-                ParameterCategory.Simple,
-                keyType,
-                FunctionParamFlags.TypeDeclared,
-                'k'
-            );
+            const keyParam = FunctionParam.create(ParamCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k');
 
             const popOverload1 = FunctionType.createSynthesizedInstance('pop', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(popOverload1, selfParam);
-            FunctionType.addParameter(popOverload1, keyParam);
-            popOverload1.details.declaredReturnType = valueType;
+            FunctionType.addParam(popOverload1, selfParam);
+            FunctionType.addParam(popOverload1, keyParam);
+            popOverload1.shared.declaredReturnType = valueType;
 
             const popOverload2 = FunctionType.createSynthesizedInstance('pop', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(popOverload2, selfParam);
-            FunctionType.addParameter(popOverload2, keyParam);
-            popOverload2.details.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
+            FunctionType.addParam(popOverload2, selfParam);
+            FunctionType.addParam(popOverload2, keyParam);
+            popOverload2.shared.typeVarScopeId = ParseTreeUtils.getScopeIdForNode(node);
             const defaultTypeVar = createDefaultTypeVar(popOverload2);
 
             let defaultParamType: Type;
@@ -464,17 +459,17 @@ export function synthesizeTypedDictClassMethods(
                 returnType = defaultParamType;
             }
 
-            FunctionType.addParameter(
+            FunctionType.addParam(
                 popOverload2,
                 FunctionParam.create(
-                    ParameterCategory.Simple,
+                    ParamCategory.Simple,
                     defaultParamType,
                     FunctionParamFlags.TypeDeclared,
                     'default',
                     defaultParamType
                 )
             );
-            popOverload2.details.declaredReturnType = returnType;
+            popOverload2.shared.declaredReturnType = returnType;
             return [popOverload1, popOverload2];
         }
 
@@ -483,48 +478,48 @@ export function synthesizeTypedDictClassMethods(
                 'setdefault',
                 FunctionTypeFlags.Overloaded
             );
-            FunctionType.addParameter(setDefaultOverload, selfParam);
-            FunctionType.addParameter(
+            FunctionType.addParam(setDefaultOverload, selfParam);
+            FunctionType.addParam(
                 setDefaultOverload,
-                FunctionParam.create(ParameterCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
+                FunctionParam.create(ParamCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
             );
-            FunctionType.addParameter(
+            FunctionType.addParam(
                 setDefaultOverload,
-                FunctionParam.create(ParameterCategory.Simple, valueType, FunctionParamFlags.TypeDeclared, 'default')
+                FunctionParam.create(ParamCategory.Simple, valueType, FunctionParamFlags.TypeDeclared, 'default')
             );
-            setDefaultOverload.details.declaredReturnType = valueType;
+            setDefaultOverload.shared.declaredReturnType = valueType;
             return setDefaultOverload;
         }
 
         function createDelItemMethod(keyType: Type) {
             const delItemOverload = FunctionType.createSynthesizedInstance('delitem', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(delItemOverload, selfParam);
-            FunctionType.addParameter(
+            FunctionType.addParam(delItemOverload, selfParam);
+            FunctionType.addParam(
                 delItemOverload,
-                FunctionParam.create(ParameterCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
+                FunctionParam.create(ParamCategory.Simple, keyType, FunctionParamFlags.TypeDeclared, 'k')
             );
-            delItemOverload.details.declaredReturnType = evaluator.getNoneType();
+            delItemOverload.shared.declaredReturnType = evaluator.getNoneType();
             return delItemOverload;
         }
 
         function createUpdateMethod() {
             // Overload 1: update(__m: Partial[<writable fields>], /)
             const updateMethod1 = FunctionType.createSynthesizedInstance('update', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(updateMethod1, selfParam);
+            FunctionType.addParam(updateMethod1, selfParam);
 
             // Overload 2: update(__m: Iterable[tuple[<name>, <type>]], /)
             const updateMethod2 = FunctionType.createSynthesizedInstance('update', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(updateMethod2, selfParam);
+            FunctionType.addParam(updateMethod2, selfParam);
 
             // Overload 3: update(*, <name>: <type>, ...)
             const updateMethod3 = FunctionType.createSynthesizedInstance('update', FunctionTypeFlags.Overloaded);
-            FunctionType.addParameter(updateMethod3, selfParam);
+            FunctionType.addParam(updateMethod3, selfParam);
 
             // If all entries are read-only, don't allow updates.
-            FunctionType.addParameter(
+            FunctionType.addParam(
                 updateMethod1,
                 FunctionParam.create(
-                    ParameterCategory.Simple,
+                    ParamCategory.Simple,
                     allEntriesAreReadOnly
                         ? NeverType.createNever()
                         : ClassType.cloneAsInstance(ClassType.cloneForPartialTypedDict(classType)),
@@ -533,12 +528,12 @@ export function synthesizeTypedDictClassMethods(
                 )
             );
 
-            FunctionType.addPositionOnlyParameterSeparator(updateMethod1);
-            FunctionType.addKeywordOnlyParameterSeparator(updateMethod3);
+            FunctionType.addPositionOnlyParamSeparator(updateMethod1);
+            FunctionType.addKeywordOnlyParamSeparator(updateMethod3);
 
-            updateMethod1.details.declaredReturnType = evaluator.getNoneType();
-            updateMethod2.details.declaredReturnType = evaluator.getNoneType();
-            updateMethod3.details.declaredReturnType = evaluator.getNoneType();
+            updateMethod1.shared.declaredReturnType = evaluator.getNoneType();
+            updateMethod2.shared.declaredReturnType = evaluator.getNoneType();
+            updateMethod3.shared.declaredReturnType = evaluator.getNoneType();
 
             const tuplesToCombine: Type[] = [];
             const tupleClass = evaluator.getBuiltInType(node, 'tuple');
@@ -559,10 +554,10 @@ export function synthesizeTypedDictClassMethods(
                     }
 
                     // For writable entries, add a keyword argument.
-                    FunctionType.addParameter(
+                    FunctionType.addParam(
                         updateMethod3,
                         FunctionParam.create(
-                            ParameterCategory.Simple,
+                            ParamCategory.Simple,
                             entry.valueType,
                             FunctionParamFlags.TypeDeclared,
                             name,
@@ -576,22 +571,18 @@ export function synthesizeTypedDictClassMethods(
             if (iterableClass && isInstantiableClass(iterableClass)) {
                 const iterableType = ClassType.cloneAsInstance(iterableClass);
 
-                FunctionType.addParameter(
+                FunctionType.addParam(
                     updateMethod2,
                     FunctionParam.create(
-                        ParameterCategory.Simple,
-                        ClassType.cloneForSpecialization(
-                            iterableType,
-                            [combineTypes(tuplesToCombine)],
-                            /* isTypeArgumentExplicit */ true
-                        ),
+                        ParamCategory.Simple,
+                        ClassType.specialize(iterableType, [combineTypes(tuplesToCombine)]),
                         FunctionParamFlags.TypeDeclared,
                         '__m'
                     )
                 );
             }
 
-            FunctionType.addPositionOnlyParameterSeparator(updateMethod2);
+            FunctionType.addPositionOnlyParamSeparator(updateMethod2);
 
             // Note that the order of method1 and method2 is swapped. This is done so
             // the method1 signature is used in the error message when neither method2
@@ -686,12 +677,12 @@ export function synthesizeTypedDictClassMethods(
 
         if (dictValueType) {
             const clearMethod = FunctionType.createSynthesizedInstance('clear');
-            FunctionType.addParameter(clearMethod, selfParam);
-            clearMethod.details.declaredReturnType = evaluator.getNoneType();
+            FunctionType.addParam(clearMethod, selfParam);
+            clearMethod.shared.declaredReturnType = evaluator.getNoneType();
             symbolTable.set('clear', Symbol.createWithType(SymbolFlags.ClassMember, clearMethod));
 
             const popItemMethod = FunctionType.createSynthesizedInstance('popitem');
-            FunctionType.addParameter(popItemMethod, selfParam);
+            FunctionType.addParam(popItemMethod, selfParam);
             let tupleType: Type | undefined = evaluator.getTupleClassType();
 
             if (tupleType && isInstantiableClass(tupleType)) {
@@ -701,13 +692,13 @@ export function synthesizeTypedDictClassMethods(
                         { type: strType, isUnbounded: false },
                         { type: dictValueType, isUnbounded: false },
                     ],
-                    /* isTypeArgumentExplicit */ true
+                    /* isTypeArgExplicit */ true
                 );
             } else {
                 tupleType = UnknownType.create();
             }
 
-            popItemMethod.details.declaredReturnType = tupleType;
+            popItemMethod.shared.declaredReturnType = tupleType;
             symbolTable.set('popitem', Symbol.createWithType(SymbolFlags.ClassMember, popItemMethod));
         }
 
@@ -718,18 +709,17 @@ export function synthesizeTypedDictClassMethods(
         if (mappingValueType) {
             ['items', 'keys', 'values'].forEach((methodName) => {
                 const method = FunctionType.createSynthesizedInstance(methodName);
-                FunctionType.addParameter(method, selfParam);
+                FunctionType.addParam(method, selfParam);
 
                 const returnTypeClass = evaluator.getTypingType(node, `dict_${methodName}`);
                 if (
                     returnTypeClass &&
                     isInstantiableClass(returnTypeClass) &&
-                    returnTypeClass.details.typeParameters.length === 2
+                    returnTypeClass.shared.typeParams.length === 2
                 ) {
-                    method.details.declaredReturnType = ClassType.cloneForSpecialization(
+                    method.shared.declaredReturnType = ClassType.specialize(
                         ClassType.cloneAsInstance(returnTypeClass),
-                        [strType, mappingValueType],
-                        /* isTypeArgumentExplicit */ true
+                        [strType, mappingValueType]
                     );
 
                     symbolTable.set(methodName, Symbol.createWithType(SymbolFlags.ClassMember, method));
@@ -745,7 +735,7 @@ export function getTypedDictMembersForClass(
     allowNarrowed = false
 ): TypedDictEntries {
     // Were the entries already calculated and cached?
-    if (!classType.details.typedDictEntries) {
+    if (!classType.shared.typedDictEntries) {
         const entries: TypedDictEntries = {
             knownItems: new Map<string, TypedDictEntry>(),
             extraItems: undefined,
@@ -762,20 +752,20 @@ export function getTypedDictMembersForClass(
         }
 
         // Cache the entries for next time.
-        classType.details.typedDictEntries = entries;
+        classType.shared.typedDictEntries = entries;
     }
 
-    const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
+    const solution = buildSolutionFromSpecializedClass(classType);
 
     // Create a specialized copy of the entries so the caller can mutate them.
     const entries = new Map<string, TypedDictEntry>();
-    classType.details.typedDictEntries!.knownItems.forEach((value, key) => {
+    classType.shared.typedDictEntries!.knownItems.forEach((value, key) => {
         const tdEntry = { ...value };
-        tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, typeVarContext);
+        tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, solution);
 
         // If the class is "Partial", make all entries optional and convert all
         // read-only entries to Never.
-        if (classType.isTypedDictPartial) {
+        if (classType.priv.isTypedDictPartial) {
             tdEntry.isRequired = false;
 
             if (tdEntry.isReadOnly) {
@@ -789,17 +779,17 @@ export function getTypedDictMembersForClass(
     });
 
     // Apply narrowed types on top of existing entries if present.
-    if (allowNarrowed && classType.typedDictNarrowedEntries) {
-        classType.typedDictNarrowedEntries.forEach((value, key) => {
+    if (allowNarrowed && classType.priv.typedDictNarrowedEntries) {
+        classType.priv.typedDictNarrowedEntries.forEach((value, key) => {
             const tdEntry = { ...value };
-            tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, typeVarContext);
+            tdEntry.valueType = applySolvedTypeVars(tdEntry.valueType, solution);
             entries.set(key, tdEntry);
         });
     }
 
     return {
         knownItems: entries,
-        extraItems: classType.details.typedDictEntries?.extraItems,
+        extraItems: classType.shared.typedDictEntries?.extraItems,
     };
 }
 
@@ -872,8 +862,8 @@ export function getTypedDictDictEquivalent(
                 dictValueType,
                 entry.valueType,
                 /* diag */ undefined,
-                /* destTypeVarContext */ undefined,
-                /* srcTypeVarContext */ undefined,
+                /* destConstraints */ undefined,
+                /* srcConstraints */ undefined,
                 AssignTypeFlags.EnforceInvariance,
                 recursionCount + 1
             )
@@ -898,7 +888,7 @@ function getTypedDictFieldsFromDictSyntax(
     const entrySet = new Set<string>();
     const fileInfo = AnalyzerNodeInfo.getFileInfo(entryDict);
 
-    entryDict.entries.forEach((entry) => {
+    entryDict.d.items.forEach((entry) => {
         if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -908,21 +898,21 @@ function getTypedDictFieldsFromDictSyntax(
             return;
         }
 
-        if (entry.keyExpression.nodeType !== ParseNodeType.StringList) {
+        if (entry.d.keyExpr.nodeType !== ParseNodeType.StringList) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.typedDictEntryName(),
-                entry.keyExpression
+                entry.d.keyExpr
             );
             return;
         }
 
-        const entryName = entry.keyExpression.strings.map((s) => s.value).join('');
+        const entryName = entry.d.keyExpr.d.strings.map((s) => s.d.value).join('');
         if (!entryName) {
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.typedDictEmptyName(),
-                entry.keyExpression
+                entry.d.keyExpr
             );
             return;
         }
@@ -931,7 +921,7 @@ function getTypedDictFieldsFromDictSyntax(
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.typedDictEntryUnique(),
-                entry.keyExpression
+                entry.d.keyExpr
             );
             return;
         }
@@ -942,15 +932,11 @@ function getTypedDictFieldsFromDictSyntax(
         const newSymbol = new Symbol(SymbolFlags.InstanceMember);
         const declaration: VariableDeclaration = {
             type: DeclarationType.Variable,
-            node: entry.keyExpression,
+            node: entry.d.keyExpr,
             uri: fileInfo.fileUri,
-            typeAnnotationNode: entry.valueExpression,
+            typeAnnotationNode: entry.d.valueExpr,
             isRuntimeTypeExpression: !isInline,
-            range: convertOffsetsToRange(
-                entry.keyExpression.start,
-                TextRange.getEnd(entry.keyExpression),
-                fileInfo.lines
-            ),
+            range: convertOffsetsToRange(entry.d.keyExpr.start, TextRange.getEnd(entry.d.keyExpr), fileInfo.lines),
             moduleName: fileInfo.moduleName,
             isInExceptSuite: false,
         };
@@ -976,9 +962,13 @@ function getTypedDictMembersForClassRecursive(
     }
     recursionCount++;
 
-    classType.details.baseClasses.forEach((baseClassType) => {
+    classType.shared.baseClasses.forEach((baseClassType) => {
         if (isInstantiableClass(baseClassType) && ClassType.isTypedDictClass(baseClassType)) {
-            const specializedBaseClassType = partiallySpecializeType(baseClassType, classType);
+            const specializedBaseClassType = partiallySpecializeType(
+                baseClassType,
+                classType,
+                evaluator.getTypeClassType()
+            );
             assert(isClass(specializedBaseClassType));
 
             // Recursively gather keys from parent classes. Don't report any errors
@@ -987,7 +977,7 @@ function getTypedDictMembersForClassRecursive(
         }
     });
 
-    const typeVarContext = buildTypeVarContextFromSpecializedClass(classType);
+    const solution = buildSolutionFromSpecializedClass(classType);
 
     // Add any new typed dict entries from this class.
     ClassType.getSymbolTable(classType).forEach((symbol, name) => {
@@ -997,7 +987,7 @@ function getTypedDictMembersForClassRecursive(
 
             if (lastDecl && lastDecl.type === DeclarationType.Variable) {
                 let valueType = evaluator.getEffectiveTypeOfSymbol(symbol);
-                valueType = applySolvedTypeVars(valueType, typeVarContext);
+                valueType = applySolvedTypeVars(valueType, solution);
 
                 const allowRequired = !ClassType.isTypedDictMarkedClosed(classType) || name !== '__extra_items__';
                 let isRequired = !ClassType.isCanOmitDictValues(classType);
@@ -1045,8 +1035,8 @@ export function getEffectiveExtraItemsEntryType(evaluator: TypeEvaluator, classT
         };
     }
 
-    if (classType.details.typedDictEntries?.extraItems) {
-        return classType.details.typedDictEntries.extraItems;
+    if (classType.shared.typedDictEntries?.extraItems) {
+        return classType.shared.typedDictEntries.extraItems;
     }
 
     return {
@@ -1062,7 +1052,7 @@ export function assignTypedDictToTypedDict(
     destType: ClassType,
     srcType: ClassType,
     diag: DiagnosticAddendum | undefined,
-    typeVarContext: TypeVarContext | undefined,
+    constraints: ConstraintTracker | undefined,
     flags: AssignTypeFlags,
     recursionCount = 0
 ) {
@@ -1096,8 +1086,8 @@ export function assignTypedDictToTypedDict(
                             destEntry.valueType,
                             extraSrcEntries.valueType,
                             subDiag?.createAddendum(),
-                            typeVarContext,
-                            /* srcTypeVarContext */ undefined,
+                            constraints,
+                            /* srcConstraints */ undefined,
                             flags,
                             recursionCount
                         )
@@ -1138,8 +1128,8 @@ export function assignTypedDictToTypedDict(
                     destEntry.valueType,
                     srcEntry.valueType,
                     subDiag?.createAddendum(),
-                    typeVarContext,
-                    /* srcTypeVarContext */ undefined,
+                    constraints,
+                    /* srcConstraints */ undefined,
                     destEntry.isReadOnly ? flags : flags | AssignTypeFlags.EnforceInvariance,
                     recursionCount
                 )
@@ -1194,8 +1184,8 @@ export function assignTypedDictToTypedDict(
                         destEntries.extraItems.valueType,
                         srcEntry.valueType,
                         subDiag?.createAddendum(),
-                        typeVarContext,
-                        /* srcTypeVarContext */ undefined,
+                        constraints,
+                        /* srcConstraints */ undefined,
                         destEntries.extraItems.isReadOnly ? flags : flags | AssignTypeFlags.EnforceInvariance,
                         recursionCount
                     )
@@ -1225,8 +1215,8 @@ export function assignTypedDictToTypedDict(
                 extraDestEntries.valueType,
                 extraSrcEntries.valueType,
                 subDiag?.createAddendum(),
-                typeVarContext,
-                /* srcTypeVarContext */ undefined,
+                constraints,
+                /* srcConstraints */ undefined,
                 extraDestEntries.isReadOnly ? flags : flags | AssignTypeFlags.EnforceInvariance,
                 recursionCount
             )
@@ -1272,19 +1262,15 @@ export function assignToTypedDict(
     let isMatch = true;
     const narrowedEntries = new Map<string, TypedDictEntry>();
 
-    let typeVarContext: TypeVarContext | undefined;
+    let constraints: ConstraintTracker | undefined;
     let genericClassType = classType;
 
-    if (classType.details.typeParameters.length > 0) {
-        typeVarContext = new TypeVarContext(getTypeVarScopeId(classType));
+    if (classType.shared.typeParams.length > 0) {
+        constraints = new ConstraintTracker();
 
         // Create a generic (nonspecialized version) of the class.
-        if (classType.typeArguments) {
-            genericClassType = ClassType.cloneForSpecialization(
-                classType,
-                /* typeArguments */ undefined,
-                /* isTypeArgumentExplicit */ false
-            );
+        if (classType.priv.typeArgs) {
+            genericClassType = ClassType.specialize(classType, /* typeArgs */ undefined);
         }
     }
 
@@ -1295,7 +1281,7 @@ export function assignToTypedDict(
         if (!isClassInstance(keyType) || !ClassType.isBuiltIn(keyType, 'str') || !isLiteralType(keyType)) {
             isMatch = false;
         } else {
-            const keyValue = keyType.literalValue as string;
+            const keyValue = keyType.priv.literalValue as string;
             const symbolEntry = tdEntries.knownItems.get(keyValue);
 
             if (!symbolEntry) {
@@ -1306,8 +1292,8 @@ export function assignToTypedDict(
                             tdEntries.extraItems.valueType,
                             valueTypes[index].type,
                             subDiag?.createAddendum(),
-                            typeVarContext,
-                            /* srcTypeVarContext */ undefined,
+                            constraints,
+                            /* srcConstraints */ undefined,
                             AssignTypeFlags.RetainLiteralsForTypeVar
                         )
                     ) {
@@ -1330,7 +1316,7 @@ export function assignToTypedDict(
                         const subDiag = diagAddendum?.createAddendum();
                         subDiag.addMessage(
                             LocAddendum.typedDictFieldUndefined().format({
-                                name: keyType.literalValue as string,
+                                name: keyType.priv.literalValue as string,
                                 type: evaluator.printType(ClassType.cloneAsInstance(classType)),
                             })
                         );
@@ -1346,15 +1332,15 @@ export function assignToTypedDict(
                         symbolEntry.valueType,
                         valueTypes[index].type,
                         subDiag?.createAddendum(),
-                        typeVarContext,
-                        /* srcTypeVarContext */ undefined,
+                        constraints,
+                        /* srcConstraints */ undefined,
                         AssignTypeFlags.RetainLiteralsForTypeVar
                     )
                 ) {
                     if (subDiag) {
                         subDiag.addMessage(
                             LocAddendum.typedDictFieldTypeMismatch().format({
-                                name: keyType.literalValue as string,
+                                name: keyType.priv.literalValue as string,
                                 type: evaluator.printType(valueTypes[index].type),
                             })
                         );
@@ -1401,8 +1387,8 @@ export function assignToTypedDict(
         return undefined;
     }
 
-    const specializedClassType = typeVarContext
-        ? (applySolvedTypeVars(genericClassType, typeVarContext) as ClassType)
+    const specializedClassType = constraints
+        ? (evaluator.solveAndApplyConstraints(genericClassType, constraints) as ClassType)
         : classType;
 
     return narrowedEntries.size === 0
@@ -1416,23 +1402,23 @@ export function getTypeOfIndexedTypedDict(
     baseType: ClassType,
     usage: EvaluatorUsage
 ): TypeResult | undefined {
-    if (node.items.length !== 1) {
+    if (node.d.items.length !== 1) {
         evaluator.addDiagnostic(
             DiagnosticRule.reportGeneralTypeIssues,
-            LocMessage.typeArgsMismatchOne().format({ received: node.items.length }),
+            LocMessage.typeArgsMismatchOne().format({ received: node.d.items.length }),
             node
         );
         return { type: UnknownType.create() };
     }
 
     // Look for subscript types that are not supported by TypedDict.
-    if (node.trailingComma || node.items[0].name || node.items[0].argumentCategory !== ArgumentCategory.Simple) {
+    if (node.d.trailingComma || node.d.items[0].d.name || node.d.items[0].d.argCategory !== ArgCategory.Simple) {
         return undefined;
     }
 
     const entries = getTypedDictMembersForClass(evaluator, baseType, /* allowNarrowed */ usage.method === 'get');
 
-    const indexTypeResult = evaluator.getTypeOfExpression(node.items[0].valueExpression);
+    const indexTypeResult = evaluator.getTypeOfExpression(node.d.items[0].d.valueExpr);
     const indexType = indexTypeResult.type;
     let diag = new DiagnosticAddendum();
     let allDiagsInvolveNotRequiredKeys = true;
@@ -1443,14 +1429,14 @@ export function getTypeOfIndexedTypedDict(
         }
 
         if (isClassInstance(subtype) && ClassType.isBuiltIn(subtype, 'str')) {
-            if (subtype.literalValue === undefined) {
+            if (subtype.priv.literalValue === undefined) {
                 // If it's a plain str with no literal value, we can't
                 // make any determination about the resulting type.
                 return UnknownType.create();
             }
 
             // Look up the entry in the typed dict to get its type.
-            const entryName = subtype.literalValue as string;
+            const entryName = subtype.priv.literalValue as string;
             const entry = entries.knownItems.get(entryName) ?? entries.extraItems;
             if (!entry) {
                 diag.addMessage(
@@ -1533,22 +1519,22 @@ export function narrowForKeyAssignment(classType: ClassType, key: string) {
     // We should never be called if the classType is not a TypedDict or if typedDictEntries
     // is empty, but this can theoretically happen in the presence of certain circular
     // dependencies.
-    if (!ClassType.isTypedDictClass(classType) || !classType.details.typedDictEntries) {
+    if (!ClassType.isTypedDictClass(classType) || !classType.shared.typedDictEntries) {
         return classType;
     }
 
-    const tdEntry = classType.details.typedDictEntries.knownItems.get(key);
+    const tdEntry = classType.shared.typedDictEntries.knownItems.get(key);
     if (!tdEntry || tdEntry.isRequired) {
         return classType;
     }
 
-    const narrowedTdEntry = classType.typedDictNarrowedEntries?.get(key);
+    const narrowedTdEntry = classType.priv.typedDictNarrowedEntries?.get(key);
     if (narrowedTdEntry?.isProvided) {
         return classType;
     }
 
-    const narrowedEntries = classType.typedDictNarrowedEntries
-        ? new Map<string, TypedDictEntry>(classType.typedDictNarrowedEntries)
+    const narrowedEntries = classType.priv.typedDictNarrowedEntries
+        ? new Map<string, TypedDictEntry>(classType.priv.typedDictNarrowedEntries)
         : new Map<string, TypedDictEntry>();
     narrowedEntries.set(key, {
         isProvided: true,

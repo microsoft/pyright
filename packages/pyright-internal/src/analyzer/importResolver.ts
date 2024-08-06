@@ -1189,10 +1189,12 @@ export class ImportResolver {
             let current: Uri | undefined = fileUri.getDirectory();
             while (this._shouldWalkUp(current, root, execEnv)) {
                 const pyTypedInfo = this._getPyTypedInfo(current!);
-                if (pyTypedInfo && !pyTypedInfo.isPartiallyTyped) {
-                    isThirdPartyPyTypedPresent = true;
+                if (pyTypedInfo) {
+                    if (!pyTypedInfo.isPartiallyTyped) {
+                        isThirdPartyPyTypedPresent = true;
+                    }
+                    break;
                 }
-                break;
 
                 current = this._tryWalkUp(current);
             }
@@ -1318,18 +1320,13 @@ export class ImportResolver {
                         pyTypedInfo = this._getPyTypedInfo(dirPath);
                     }
 
-                    if (!isLastPart) {
-                        // We are not at the last part, and we found a directory,
-                        // so continue to look for the next part.
-                        if (!isInitFilePresent) {
-                            resolvedPaths.push(Uri.empty());
-                            isNamespacePackage = true;
-                            pyTypedInfo = undefined;
-                        }
-                        continue;
-                    }
-
                     if (isInitFilePresent) {
+                        if (!isLastPart) {
+                            // We are not at the last part, and we found a directory,
+                            // so continue to look for the next part.
+                            continue;
+                        }
+
                         implicitImports = this._findImplicitImports(moduleDescriptor.nameParts.join('.'), dirPath, [
                             pyFilePath,
                             pyiFilePath,
@@ -1354,33 +1351,37 @@ export class ImportResolver {
                 } else if (this.fileExistsCached(pyFilePath)) {
                     importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
                     resolvedPaths.push(pyFilePath);
-                } else {
-                    if (allowNativeLib && this.dirExistsCached(fileDirectory)) {
-                        const filesInDir = this._getFilesInDirectory(fileDirectory);
-                        const dirName = dirPath.fileName;
-                        const nativeLibPath = filesInDir.find((f) => this._isNativeModuleFileName(dirName, f));
-                        if (nativeLibPath) {
-                            // Try resolving native library to a custom stub.
-                            isNativeLib = this._resolveNativeModuleStub(
-                                nativeLibPath,
-                                execEnv,
-                                importName,
-                                moduleDescriptor,
-                                importFailureInfo,
-                                resolvedPaths
-                            );
-                        }
+                } else if (
+                    allowNativeLib &&
+                    this._findAndResolveNativeModule(
+                        fileDirectory,
+                        dirPath,
+                        execEnv,
+                        importName,
+                        moduleDescriptor,
+                        importFailureInfo,
+                        resolvedPaths
+                    )
+                ) {
+                    isNativeLib = true;
+                    importFailureInfo.push(`Did not find file '${pyiFilePath}' or '${pyFilePath}'`);
+                } else if (foundDirectory) {
+                    if (!isLastPart) {
+                        // We are not at the last part, and we found a directory,
+                        // so continue to look for the next part assuming this is
+                        // a namespace package.
+                        resolvedPaths.push(Uri.empty());
+                        isNamespacePackage = true;
+                        pyTypedInfo = undefined;
+                        continue;
                     }
 
-                    if (!isNativeLib && foundDirectory) {
-                        importFailureInfo.push(`Partially resolved import with directory '${dirPath}'`);
-                        resolvedPaths.push(Uri.empty());
-                        if (isLastPart) {
-                            implicitImports = this._findImplicitImports(importName, dirPath, [pyFilePath, pyiFilePath]);
-                            isNamespacePackage = true;
-                        }
-                    } else if (isNativeLib) {
-                        importFailureInfo.push(`Did not find file '${pyiFilePath}' or '${pyFilePath}'`);
+                    importFailureInfo.push(`Partially resolved import with directory '${dirPath}'`);
+                    resolvedPaths.push(Uri.empty());
+
+                    if (isLastPart) {
+                        implicitImports = this._findImplicitImports(importName, dirPath, [pyFilePath, pyiFilePath]);
+                        isNamespacePackage = true;
                     }
                 }
 
@@ -2648,7 +2649,43 @@ export class ImportResolver {
         return getPyTypedInfoForPyTypedFile(this.fileSystem, filePath.pytypedUri);
     }
 
-    private _resolveNativeModuleStub(
+    private _findAndResolveNativeModule(
+        fileDirectory: Uri,
+        dirPath: Uri,
+        execEnv: ExecutionEnvironment,
+        importName: string,
+        moduleDescriptor: ImportedModuleDescriptor,
+        importFailureInfo: string[],
+        resolvedPaths: Uri[]
+    ): boolean {
+        let isNativeLib = false;
+
+        if (this.dirExistsCached(fileDirectory)) {
+            const filesInDir = this._getFilesInDirectory(fileDirectory);
+            const dirName = dirPath.fileName;
+            const nativeLibPath = filesInDir.find((f) => this._isNativeModuleFileName(dirName, f));
+
+            if (nativeLibPath) {
+                // Try resolving native library to a custom stub.
+                isNativeLib = this._resolveNativeModuleWithStub(
+                    nativeLibPath,
+                    execEnv,
+                    importName,
+                    moduleDescriptor,
+                    importFailureInfo,
+                    resolvedPaths
+                );
+
+                if (isNativeLib) {
+                    importFailureInfo.push(`Resolved with native lib '${nativeLibPath.toUserVisibleString()}'`);
+                }
+            }
+        }
+
+        return isNativeLib;
+    }
+
+    private _resolveNativeModuleWithStub(
         nativeLibPath: Uri,
         execEnv: ExecutionEnvironment,
         importName: string,

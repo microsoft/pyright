@@ -3,7 +3,6 @@
 
 from typing import Callable, Generic, Literal, TypeVar
 
-
 FileChanges = dict[str, Literal["created", "edited", "removed"]]
 
 changes: FileChanges = {}
@@ -66,6 +65,4 @@ def func8(a: _T, b: Callable[[list[_T]], None]) -> _T:
 def func9(v: Callable[[list[int]], None]):
     func8(b=v, a=1)
 
-    # This should also type check without error, but it doesn't currently.
-    # See issue #8048.
-    # func8(a=1, b=v)
+    func8(a=1, b=v)

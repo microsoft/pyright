@@ -1,4 +1,5 @@
 from _typeshed import Unused
+from collections.abc import Callable
 from typing import ClassVar
 from typing_extensions import deprecated
 
@@ -12,9 +13,9 @@ class ListCompat(dict[str, tuple[str, str]]):
 
 class bdist(Command):
     description: ClassVar[str]
-    user_options: ClassVar[list[tuple[str | None, str | None, str | None]]]
+    user_options: ClassVar[list[tuple[str, str | None, str | None]]]
     boolean_options: ClassVar[list[str]]
-    help_options: ClassVar[list[tuple[str | None, ...]]]
+    help_options: ClassVar[list[tuple[str, str | None, str, Callable[[], Unused]]]]
     no_format_option: ClassVar[tuple[str, ...]]
     default_format: ClassVar[dict[str, str]]
     format_commands: ClassVar[ListCompat]

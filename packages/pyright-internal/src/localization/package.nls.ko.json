@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "‘연결’에는 적어도 두 개의 형식 인수가 필요합니다.",
         "conditionalOperandInvalid": "’{type}’ 형식의 조건부 피연산자입니다.",
         "constantRedefinition": "‘{name}’은(는) 대문자이므로 상수이고 다시 정의할 수 없습니다.",
-        "constructorNoArgs": "\"{type}\" 생성자에 인수가 필요하지 않습니다.",
         "constructorParametersMismatch": "‘{classType}’ 클래스에서 __new__ 서명과 __init__가 불일치합니다.",
         "containmentAlwaysFalse": "‘{leftType}’ 및 ‘{rightType}’ 형식이 겹치지 않으므로 식은 항상 False로 평가됩니다.",
         "containmentAlwaysTrue": "‘{leftType}’ 및 ‘{rightType}’ 형식이 겹치지 않으므로 식은 항상 True로 평가됩니다.",
@@ -496,7 +495,7 @@
         "typeCallNotAllowed": "type() 호출은 형식 주석에 사용하면 안 됩니다.",
         "typeCheckOnly": "\"{name}\"이(가) @type_check_only로 표시되어 있으므로 형식 주석에서만 사용할 수 있습니다.",
         "typeCommentDeprecated": "형식 주석의 사용은 더 이상 사용되지 않습니다. 대신 형식 주석 사용",
-        "typeExpectedClass": "형식 식이 필요하지만 \"{type}\"을(를) 받았습니다.",
+        "typeExpectedClass": "클래스가 필요하지만 \"{type}\"이(가) 수신됨",
         "typeGuardArgCount": "\"TypeGuard\" 또는 \"TypeIs\" 뒤에 단일 형식 인수가 필요합니다.",
         "typeGuardParamCount": "사용자 정의 type guard 함수 및 메서드에는 하나 이상의 입력 매개 변수가 있어야 합니다.",
         "typeIsReturnType": "TypeIs의 반환 형식(\"{returnType}\")이 값 매개 변수 형식(\"{type}\")과 일치하지 않습니다.",
@@ -670,6 +669,7 @@
         "invariantSuggestionDict": "값 형식에서 공변(covariant)인 \"dict\"에서 \"Mapping\"(매핑)으로 전환하는 것이 좋습니다.",
         "invariantSuggestionList": "공변(covariant)인 \"list\"에서 \"Sequence\"로 전환하는 것이 좋습니다.",
         "invariantSuggestionSet": "공변(covariant)인 \"set\"에서 \"Container\"로 전환하는 것이 좋습니다.",
+        "isinstanceClassNotSupported": "\"{type}\"은(는) 인스턴스 및 클래스 검사에 지원되지 않음",
         "keyNotRequired": "‘{name}’은(는) ‘{type}’에서 필수 키가 아니므로 액세스로 인해 런타임 예외가 발생할 수 있습니다.",
         "keyReadOnly": "\"{name}\"은(는) \"{type}\"의 읽기 전용 키입니다.",
         "keyRequiredDeleted": "\"{name}\"은(는) 필수 키이므로 삭제할 수 없습니다.",
@@ -804,5 +804,8 @@
         "useTypeInstead": "대신 Type[T] 사용",
         "varianceMismatchForClass": "‘{typeVarName}’ 형식 인수의 차이는 ‘{className}’ 기본 클래스와 호환되지 않습니다.",
         "varianceMismatchForTypeAlias": "‘{typeVarName}’ 형식 인수의 차이는 ‘{typeAliasParam}’와(과) 호환되지 않습니다."
+    },
+    "Service": {
+        "longOperation": "작업 영역 소스 파일을 열거하는 데는 시간이 오래 걸립니다. 대신 하위 폴더를 여는 것이 좋습니다. [자세히 알아보기](https://aka.ms/workspace-too-many-files)"
     }
 }

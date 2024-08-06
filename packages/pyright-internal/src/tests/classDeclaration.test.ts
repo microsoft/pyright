@@ -137,11 +137,11 @@ test('property', () => {
         assert(isProperty(result.decoratedType));
         assert(isClassInstance(result.decoratedType));
 
-        assert(result.decoratedType.details.declaration);
-        assert(isClassDeclaration(result.decoratedType.details.declaration));
+        assert(result.decoratedType.shared.declaration);
+        assert(isClassDeclaration(result.decoratedType.shared.declaration));
 
-        assert(result.decoratedType.details.declaration.moduleName === 'builtins');
-        assert(result.decoratedType.details.declaration.node.name.value === 'property');
+        assert(result.decoratedType.shared.declaration.moduleName === 'builtins');
+        assert(result.decoratedType.shared.declaration.node.d.name.d.value === 'property');
     });
 });
 
@@ -154,13 +154,13 @@ function checkSpecialBuiltInClassDetail(code: string) {
     const type = state.program.evaluator!.getType(node);
     assert(type?.category === TypeCategory.Class);
 
-    assert.strictEqual(node.value, type.aliasName ?? type.details.name);
+    assert.strictEqual(node.d.value, type.priv.aliasName ?? type.shared.name);
 
-    assert(type.details.declaration);
-    if (type.aliasName) {
-        assert(isClassDeclaration(type.details.declaration));
+    assert(type.shared.declaration);
+    if (type.priv.aliasName) {
+        assert(isClassDeclaration(type.shared.declaration));
     } else {
-        assert(isSpecialBuiltInClassDeclaration(type.details.declaration));
+        assert(isSpecialBuiltInClassDeclaration(type.shared.declaration));
     }
 }
 
@@ -181,18 +181,18 @@ function _checkClassDetail(state: TestState, range: Range | undefined, name?: st
     const type = state.program.evaluator!.getType(node);
     assert(type?.category === TypeCategory.Class);
 
-    assert.strictEqual(name ?? node.value, type.aliasName ?? type.details.name);
+    assert.strictEqual(name ?? node.d.value, type.priv.aliasName ?? type.shared.name);
 
     if (range) {
-        assert(type.details.declaration);
-        assert(isClassDeclaration(type.details.declaration));
+        assert(type.shared.declaration);
+        assert(isClassDeclaration(type.shared.declaration));
 
         assert.deepStrictEqual(
-            TextRange.create(type.details.declaration.node.start, type.details.declaration.node.length),
+            TextRange.create(type.shared.declaration.node.start, type.shared.declaration.node.length),
             TextRange.fromBounds(range.pos, range.end)
         );
     } else {
         // There should be no decl.
-        assert(!type.details.declaration);
+        assert(!type.shared.declaration);
     }
 }

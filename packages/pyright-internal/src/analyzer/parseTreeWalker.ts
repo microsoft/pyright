@@ -96,49 +96,49 @@ import {
 export function getChildNodes(node: ParseNode): (ParseNode | undefined)[] {
     switch (node.nodeType) {
         case ParseNodeType.Error:
-            return [node.child, ...(node.decorators ?? [])];
+            return [node.d.child, ...(node.d.decorators ?? [])];
 
         case ParseNodeType.Argument:
-            return [node.name, node.valueExpression];
+            return [node.d.name, node.d.valueExpr];
 
         case ParseNodeType.Assert:
-            return [node.testExpression, node.exceptionExpression];
+            return [node.d.testExpr, node.d.exceptionExpr];
 
         case ParseNodeType.AssignmentExpression:
-            return [node.name, node.rightExpression];
+            return [node.d.name, node.d.rightExpr];
 
         case ParseNodeType.Assignment:
-            return [node.leftExpression, node.rightExpression, node.typeAnnotationComment];
+            return [node.d.leftExpr, node.d.rightExpr, node.d.annotationComment];
 
         case ParseNodeType.AugmentedAssignment:
-            return [node.leftExpression, node.rightExpression];
+            return [node.d.leftExpr, node.d.rightExpr];
 
         case ParseNodeType.Await:
-            return [node.expression];
+            return [node.d.expr];
 
         case ParseNodeType.BinaryOperation:
-            return [node.leftExpression, node.rightExpression];
+            return [node.d.leftExpr, node.d.rightExpr];
 
         case ParseNodeType.Break:
             return [];
 
         case ParseNodeType.Call:
-            return [node.leftExpression, ...node.arguments];
+            return [node.d.leftExpr, ...node.d.args];
 
         case ParseNodeType.Case:
-            return [node.pattern, node.guardExpression, node.suite];
+            return [node.d.pattern, node.d.guardExpr, node.d.suite];
 
         case ParseNodeType.Class:
-            return [...node.decorators, node.name, node.typeParameters, ...node.arguments, node.suite];
+            return [...node.d.decorators, node.d.name, node.d.typeParams, ...node.d.arguments, node.d.suite];
 
         case ParseNodeType.Comprehension:
-            return [node.expression, ...node.forIfNodes];
+            return [node.d.expr, ...node.d.forIfNodes];
 
         case ParseNodeType.ComprehensionFor:
-            return [node.targetExpression, node.iterableExpression];
+            return [node.d.targetExpr, node.d.iterableExpr];
 
         case ParseNodeType.ComprehensionIf:
-            return [node.testExpression];
+            return [node.d.testExpr];
 
         case ParseNodeType.Constant:
             return [];
@@ -147,195 +147,195 @@ export function getChildNodes(node: ParseNode): (ParseNode | undefined)[] {
             return [];
 
         case ParseNodeType.Decorator:
-            return [node.expression];
+            return [node.d.expr];
 
         case ParseNodeType.Del:
-            return node.expressions;
+            return node.d.targets;
 
         case ParseNodeType.Dictionary:
-            return node.entries;
+            return node.d.items;
 
         case ParseNodeType.DictionaryExpandEntry:
-            return [node.expandExpression];
+            return [node.d.expr];
 
         case ParseNodeType.DictionaryKeyEntry:
-            return [node.keyExpression, node.valueExpression];
+            return [node.d.keyExpr, node.d.valueExpr];
 
         case ParseNodeType.Ellipsis:
             return [];
 
         case ParseNodeType.If:
-            return [node.testExpression, node.ifSuite, node.elseSuite];
+            return [node.d.testExpr, node.d.ifSuite, node.d.elseSuite];
 
         case ParseNodeType.Import:
-            return node.list;
+            return node.d.list;
 
         case ParseNodeType.ImportAs:
-            return [node.module, node.alias];
+            return [node.d.module, node.d.alias];
 
         case ParseNodeType.ImportFrom:
-            return [node.module, ...node.imports];
+            return [node.d.module, ...node.d.imports];
 
         case ParseNodeType.ImportFromAs:
-            return [node.name, node.alias];
+            return [node.d.name, node.d.alias];
 
         case ParseNodeType.Index:
-            return [node.baseExpression, ...node.items];
+            return [node.d.leftExpr, ...node.d.items];
 
         case ParseNodeType.Except:
-            return [node.typeExpression, node.name, node.exceptSuite];
+            return [node.d.typeExpr, node.d.name, node.d.exceptSuite];
 
         case ParseNodeType.For:
-            return [node.targetExpression, node.iterableExpression, node.forSuite, node.elseSuite];
+            return [node.d.targetExpr, node.d.iterableExpr, node.d.forSuite, node.d.elseSuite];
 
         case ParseNodeType.FormatString:
-            return [...node.fieldExpressions, ...(node.formatExpressions ?? [])];
+            return [...node.d.fieldExprs, ...(node.d.formatExprs ?? [])];
 
         case ParseNodeType.Function:
             return [
-                ...node.decorators,
-                node.name,
-                node.typeParameters,
-                ...node.parameters,
-                node.returnTypeAnnotation,
-                node.functionAnnotationComment,
-                node.suite,
+                ...node.d.decorators,
+                node.d.name,
+                node.d.typeParams,
+                ...node.d.params,
+                node.d.returnAnnotation,
+                node.d.funcAnnotationComment,
+                node.d.suite,
             ];
 
         case ParseNodeType.FunctionAnnotation:
-            return [...node.paramTypeAnnotations, node.returnTypeAnnotation];
+            return [...node.d.paramAnnotations, node.d.returnAnnotation];
 
         case ParseNodeType.Global:
-            return node.nameList;
+            return node.d.targets;
 
         case ParseNodeType.Lambda:
-            return [...node.parameters, node.expression];
+            return [...node.d.params, node.d.expr];
 
         case ParseNodeType.List:
-            return node.entries;
+            return node.d.items;
 
         case ParseNodeType.Match:
-            return [node.subjectExpression, ...node.cases];
+            return [node.d.expr, ...node.d.cases];
 
         case ParseNodeType.MemberAccess:
-            return [node.leftExpression, node.memberName];
+            return [node.d.leftExpr, node.d.member];
 
         case ParseNodeType.ModuleName:
-            return node.nameParts;
+            return node.d.nameParts;
 
         case ParseNodeType.Module:
-            return [...node.statements];
+            return [...node.d.statements];
 
         case ParseNodeType.Name:
             return [];
 
         case ParseNodeType.Nonlocal:
-            return node.nameList;
+            return node.d.targets;
 
         case ParseNodeType.Number:
             return [];
 
         case ParseNodeType.Parameter:
-            return [node.name, node.typeAnnotation, node.typeAnnotationComment, node.defaultValue];
+            return [node.d.name, node.d.annotation, node.d.annotationComment, node.d.defaultValue];
 
         case ParseNodeType.Pass:
             return [];
 
         case ParseNodeType.PatternAs:
-            return [...node.orPatterns, node.target];
+            return [...node.d.orPatterns, node.d.target];
 
         case ParseNodeType.PatternClass:
-            return [node.className, ...node.arguments];
+            return [node.d.className, ...node.d.args];
 
         case ParseNodeType.PatternClassArgument:
-            return [node.name, node.pattern];
+            return [node.d.name, node.d.pattern];
 
         case ParseNodeType.PatternCapture:
-            return [node.target];
+            return [node.d.target];
 
         case ParseNodeType.PatternLiteral:
-            return [node.expression];
+            return [node.d.expr];
 
         case ParseNodeType.PatternMappingExpandEntry:
-            return [node.target];
+            return [node.d.target];
 
         case ParseNodeType.PatternMappingKeyEntry:
-            return [node.keyPattern, node.valuePattern];
+            return [node.d.keyPattern, node.d.valuePattern];
 
         case ParseNodeType.PatternMapping:
-            return [...node.entries];
+            return [...node.d.entries];
 
         case ParseNodeType.PatternSequence:
-            return [...node.entries];
+            return [...node.d.entries];
 
         case ParseNodeType.PatternValue:
-            return [node.expression];
+            return [node.d.expr];
 
         case ParseNodeType.Raise:
-            return [node.typeExpression, node.valueExpression, node.tracebackExpression];
+            return [node.d.typeExpression, node.d.valueExpression, node.d.tracebackExpression];
 
         case ParseNodeType.Return:
-            return [node.returnExpression];
+            return [node.d.expr];
 
         case ParseNodeType.Set:
-            return node.entries;
+            return node.d.items;
 
         case ParseNodeType.Slice:
-            return [node.startValue, node.endValue, node.stepValue];
+            return [node.d.startValue, node.d.endValue, node.d.stepValue];
 
         case ParseNodeType.StatementList:
-            return node.statements;
+            return node.d.statements;
 
         case ParseNodeType.StringList:
-            return [node.typeAnnotation, ...node.strings];
+            return [node.d.annotation, ...node.d.strings];
 
         case ParseNodeType.String:
             return [];
 
         case ParseNodeType.Suite:
-            return [...node.statements];
+            return [...node.d.statements];
 
         case ParseNodeType.Ternary:
-            return [node.ifExpression, node.testExpression, node.elseExpression];
+            return [node.d.ifExpr, node.d.testExpr, node.d.elseExpr];
 
         case ParseNodeType.Tuple:
-            return node.expressions;
+            return node.d.items;
 
         case ParseNodeType.Try:
-            return [node.trySuite, ...node.exceptClauses, node.elseSuite, node.finallySuite];
+            return [node.d.trySuite, ...node.d.exceptClauses, node.d.elseSuite, node.d.finallySuite];
 
         case ParseNodeType.TypeAlias:
-            return [node.name, node.typeParameters, node.expression];
+            return [node.d.name, node.d.typeParams, node.d.expr];
 
         case ParseNodeType.TypeAnnotation:
-            return [node.valueExpression, node.typeAnnotation];
+            return [node.d.valueExpr, node.d.annotation];
 
         case ParseNodeType.TypeParameter:
-            return [node.name, node.boundExpression, node.defaultExpression];
+            return [node.d.name, node.d.boundExpr, node.d.defaultExpr];
 
         case ParseNodeType.TypeParameterList:
-            return [...node.parameters];
+            return [...node.d.params];
 
         case ParseNodeType.UnaryOperation:
-            return [node.expression];
+            return [node.d.expr];
 
         case ParseNodeType.Unpack:
-            return [node.expression];
+            return [node.d.expr];
 
         case ParseNodeType.While:
-            return [node.testExpression, node.whileSuite, node.elseSuite];
+            return [node.d.testExpr, node.d.whileSuite, node.d.elseSuite];
 
         case ParseNodeType.With:
-            return [...node.withItems, node.suite];
+            return [...node.d.withItems, node.d.suite];
 
         case ParseNodeType.WithItem:
-            return [node.expression, node.target];
+            return [node.d.expr, node.d.target];
 
         case ParseNodeType.Yield:
-            return [node.expression];
+            return [node.d.expr];
 
         case ParseNodeType.YieldFrom:
-            return [node.expression];
+            return [node.d.expr];
 
         default:
             debug.assertNever(node, `Unknown node type ${node}`);

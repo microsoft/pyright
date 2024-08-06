@@ -159,7 +159,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
 
         const collector = new DocumentSymbolCollector(
             program,
-            [node.value],
+            [node.d.value],
             declarations,
             startingNode,
             cancellationToken,
@@ -208,7 +208,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
             // Add declarations from chained source files
             let builtinsScope = fileInfo.builtinsScope;
             while (builtinsScope && builtinsScope.type === ScopeType.Module) {
-                const symbol = builtinsScope?.lookUpSymbol(node.value);
+                const symbol = builtinsScope?.lookUpSymbol(node.d.value);
                 appendSymbolDeclarations(symbol, resolvedDeclarations);
                 builtinsScope = builtinsScope?.parent;
             }
@@ -219,7 +219,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
                 const parseTree = program.getParseResults(implicitImport.sourceFile.getUri())?.parserOutput.parseTree;
                 if (parseTree) {
                     const scope = AnalyzerNodeInfo.getScope(parseTree);
-                    const symbol = scope?.lookUpSymbol(node.value);
+                    const symbol = scope?.lookUpSymbol(node.d.value);
                     appendSymbolDeclarations(symbol, resolvedDeclarations);
                 }
             });
@@ -255,7 +255,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         throwIfCancellationRequested(this._cancellationToken);
 
         // No need to do any more work if the symbol name doesn't match.
-        if (!this._symbolNames.has(node.value)) {
+        if (!this._symbolNames.has(node.d.value)) {
             return false;
         }
 
@@ -279,7 +279,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         // See if we have reference that matches this node.
         if (this._declarations.some((d) => d.node?.id === node.id)) {
             // Then the matching string should be included
-            const matching = node.strings.find((s) => this._symbolNames.has(s.value));
+            const matching = node.d.strings.find((s) => this._symbolNames.has(s.d.value));
             if (matching && matching.nodeType === ParseNodeType.String) {
                 this._addResult(matching);
             }
@@ -303,7 +303,7 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
     }
 
     private _addResult(node: NameNode | StringNode) {
-        const range: TextRange = node.nodeType === ParseNodeType.Name ? node.token : getStringNodeValueRange(node);
+        const range: TextRange = node.nodeType === ParseNodeType.Name ? node.d.token : getStringNodeValueRange(node);
         this._results.push({ node, range });
     }
 
@@ -386,11 +386,11 @@ export class DocumentSymbolCollector extends ParseTreeWalker {
         }
 
         dunderAllInfo.stringNodes.forEach((stringNode) => {
-            if (!this._symbolNames.has(stringNode.value)) {
+            if (!this._symbolNames.has(stringNode.d.value)) {
                 return;
             }
 
-            const symbolInScope = moduleScope.lookUpSymbolRecursive(stringNode.value);
+            const symbolInScope = moduleScope.lookUpSymbolRecursive(stringNode.d.value);
             if (!symbolInScope) {
                 return;
             }
@@ -450,7 +450,7 @@ function _getDeclarationsForNonModuleNameNode(
         const type = evaluator.getType(node);
         if (type?.category === TypeCategory.Module) {
             // Synthesize decl for the module.
-            return [createSynthesizedAliasDeclaration(type.fileUri)];
+            return [createSynthesizedAliasDeclaration(type.priv.fileUri)];
         }
     }
 
@@ -465,7 +465,10 @@ function _getDeclarationsForNonModuleNameNode(
             continue;
         }
 
-        appendArray(decls, evaluator.getDeclarationsForNameNode(node.module.nameParts[0], skipUnreachableCode) || []);
+        appendArray(
+            decls,
+            evaluator.getDeclarationsForNameNode(node.d.module.d.nameParts[0], skipUnreachableCode) || []
+        );
     }
 
     return decls;
@@ -483,7 +486,7 @@ function _getDeclarationsForModuleNameNode(evaluator: TypeEvaluator, node: NameN
         moduleName.parent?.nodeType === ParseNodeType.ImportAs ||
         moduleName.parent?.nodeType === ParseNodeType.ImportFrom
     ) {
-        const index = moduleName.nameParts.findIndex((n) => n === node);
+        const index = moduleName.d.nameParts.findIndex((n) => n === node);
 
         // Special case, first module name part.
         if (index === 0) {
@@ -494,7 +497,7 @@ function _getDeclarationsForModuleNameNode(evaluator: TypeEvaluator, node: NameN
             // we can match both "import X" and "from X import ..."
             appendArray(
                 decls,
-                evaluator.getDeclarationsForNameNode(moduleName.nameParts[0])?.filter((d) => isAliasDeclaration(d)) ||
+                evaluator.getDeclarationsForNameNode(moduleName.d.nameParts[0])?.filter((d) => isAliasDeclaration(d)) ||
                     []
             );
 
@@ -507,20 +510,20 @@ function _getDeclarationsForModuleNameNode(evaluator: TypeEvaluator, node: NameN
             // from symbol as well.
             // ex, import X as x
             const isImportAsWithAlias =
-                moduleName.nameParts.length === 1 &&
+                moduleName.d.nameParts.length === 1 &&
                 moduleName.parent.nodeType === ParseNodeType.ImportAs &&
-                !!moduleName.parent.alias;
+                !!moduleName.parent.d.alias;
 
             // if "import" has alias, symbol is assigned to alias, not the module.
             const importName = isImportAsWithAlias
-                ? (moduleName.parent as ImportAsNode).alias!.value
-                : moduleName.nameParts[0].value;
+                ? (moduleName.parent as ImportAsNode).d.alias!.d.value
+                : moduleName.d.nameParts[0].d.value;
 
             // And we also need to re-use "decls for X" binder has created
             // so that it matches with decls type evaluator returns for "references for X".
             // ex) import X or from .X import ... in init file and etc.
             const symbolWithScope = ScopeUtils.getScopeForNode(node)?.lookUpSymbolRecursive(importName);
-            if (symbolWithScope && moduleName.nameParts.length === 1) {
+            if (symbolWithScope && moduleName.d.nameParts.length === 1) {
                 let declsFromSymbol: Declaration[] = [];
 
                 appendArray(
@@ -538,7 +541,7 @@ function _getDeclarationsForModuleNameNode(evaluator: TypeEvaluator, node: NameN
                             // ex) import X.Y and import X.Z or from .X import ... in init file.
                             // Decls for X will be reused for both import statements, and node will point
                             // to first import statement. For those case, use firstNamePart instead to check.
-                            return d.firstNamePart === moduleName.nameParts[0].value;
+                            return d.firstNamePart === moduleName.d.nameParts[0].d.value;
                         }
 
                         return d.node === moduleName.parent;
@@ -564,7 +567,7 @@ function _getDeclarationsForModuleNameNode(evaluator: TypeEvaluator, node: NameN
             // "import X.Y" hold onto synthesized module type (without any decl).
             // And "from X.Y import ..." doesn't have any symbol associated module names.
             // they can't be referenced in the module.
-            return evaluator.getDeclarationsForNameNode(moduleName.nameParts[index]) || [];
+            return evaluator.getDeclarationsForNameNode(moduleName.d.nameParts[index]) || [];
         }
 
         return [];

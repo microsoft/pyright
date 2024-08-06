@@ -8,7 +8,7 @@ v0: Mapping[str, int | str] | None = dict([("test1", 1), ("test2", 2)])
 v1: Mapping[str, float] | None = dict([("test1", 1), ("test2", 2)])
 
 # This should generate an error because of a type mismatch.
-v2: Mapping[str, str] = dict([("test1", 1), ("test2", 2)])
+v2: Mapping[str, str] = dict([("test1", 1), ("test2", "2")])
 
 
 options: dict[int | str, int] = {}

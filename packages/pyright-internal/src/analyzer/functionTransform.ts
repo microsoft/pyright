@@ -10,9 +10,9 @@
 
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { LocMessage } from '../localization/localize';
-import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
+import { ExpressionNode, ParamCategory } from '../parser/parseNodes';
 import { Symbol, SymbolFlags } from './symbol';
-import { FunctionArgument, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
+import { Arg, FunctionResult, TypeEvaluator } from './typeEvaluatorTypes';
 import {
     ClassType,
     FunctionParam,
@@ -29,12 +29,12 @@ import { ClassMember, lookUpObjectMember, MemberAccessFlags, synthesizeTypeVarFo
 export function applyFunctionTransform(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
-    argList: FunctionArgument[],
+    argList: Arg[],
     functionType: FunctionType | OverloadedFunctionType,
     result: FunctionResult
 ): FunctionResult {
     if (isFunction(functionType)) {
-        if (functionType.details.fullName === 'functools.total_ordering') {
+        if (functionType.shared.fullName === 'functools.total_ordering') {
             return applyTotalOrderingTransform(evaluator, errorNode, argList, result);
         }
     }
@@ -46,7 +46,7 @@ export function applyFunctionTransform(
 function applyTotalOrderingTransform(
     evaluator: TypeEvaluator,
     errorNode: ExpressionNode,
-    argList: FunctionArgument[],
+    argList: Arg[],
     result: FunctionResult
 ) {
     if (argList.length !== 1) {
@@ -55,7 +55,7 @@ function applyTotalOrderingTransform(
 
     // This function is meant to apply to a concrete instantiable class.
     const classType = argList[0].typeResult?.type;
-    if (!classType || !isInstantiableClass(classType) || classType.includeSubclasses) {
+    if (!classType || !isInstantiableClass(classType) || classType.priv.includeSubclasses) {
         return result;
     }
 
@@ -88,10 +88,10 @@ function applyTotalOrderingTransform(
     const firstMemberType = evaluator.getTypeOfMember(firstMemberFound);
     if (
         isFunction(firstMemberType) &&
-        firstMemberType.details.parameters.length >= 2 &&
-        FunctionParam.isTypeDeclared(firstMemberType.details.parameters[1])
+        firstMemberType.shared.parameters.length >= 2 &&
+        FunctionParam.isTypeDeclared(firstMemberType.shared.parameters[1])
     ) {
-        operandType = firstMemberType.details.parameters[1].type;
+        operandType = FunctionType.getParamType(firstMemberType, 1);
     }
 
     // If there was no provided operand type, fall back to object.
@@ -109,14 +109,14 @@ function applyTotalOrderingTransform(
     }
 
     const selfParam = FunctionParam.create(
-        ParameterCategory.Simple,
+        ParamCategory.Simple,
         synthesizeTypeVarForSelfCls(classType, /* isClsParam */ false),
         FunctionParamFlags.TypeDeclared,
         'self'
     );
 
     const objParam = FunctionParam.create(
-        ParameterCategory.Simple,
+        ParamCategory.Simple,
         operandType,
         FunctionParamFlags.TypeDeclared,
         '__value'
@@ -125,9 +125,9 @@ function applyTotalOrderingTransform(
     // Add the missing members to the class's symbol table.
     missingMethods.forEach((methodName) => {
         const methodToAdd = FunctionType.createSynthesizedInstance(methodName);
-        FunctionType.addParameter(methodToAdd, selfParam);
-        FunctionType.addParameter(methodToAdd, objParam);
-        methodToAdd.details.declaredReturnType = boolType;
+        FunctionType.addParam(methodToAdd, selfParam);
+        FunctionType.addParam(methodToAdd, objParam);
+        methodToAdd.shared.declaredReturnType = boolType;
 
         ClassType.getSymbolTable(classType).set(
             methodName,

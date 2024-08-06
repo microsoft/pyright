@@ -1,6 +1,11 @@
 # This sample tests the type analyzer's handling of the super() call.
 
 
+from typing import Generic, TypeVar
+
+T = TypeVar("T")
+
+
 class ClassA:
     @staticmethod
     def method1():
@@ -32,7 +37,7 @@ class ClassC(ClassA):
         super().method1()
 
 
-class Bar(ClassB, ClassC):
+class ClassD(ClassB, ClassC):
     def __init__(self):
         super().method2()
         super().method3()
@@ -45,19 +50,19 @@ class Bar(ClassB, ClassC):
             super().method1()
 
 
-super(Bar)
+super(ClassD)
 
 # This should generate an error
-super(Bar).non_method2()
+super(ClassD).non_method2()
 
 
-super(ClassB, Bar).method1()
+super(ClassB, ClassD).method1()
 
 # This should generate an error because Foo2
 # is not a subclass of Foo1.
 super(ClassB, ClassC).method1()
 
-v1 = Bar()
+v1 = ClassD()
 super(ClassB, v1).method1()
 
 v2 = ClassC()
@@ -66,10 +71,20 @@ v2 = ClassC()
 super(ClassB, v2).method1()
 
 
-class ClassD(ClassA):
+class ClassE(ClassA):
     def method5(self):
         class ClassDInner(super().method5()):
             # This should generate an error.
             x = super().method5()
 
         return ClassDInner
+
+
+class ClassF(Generic[T]):
+    def __init__(self, val: T):
+        pass
+
+
+class ClassG(ClassF[T]):
+    def __init__(self, val: T) -> None:
+        super().__init__(val)

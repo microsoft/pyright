@@ -522,7 +522,7 @@ export async function initializeLanguageServer(info: PyrightServerInfo) {
     info.connection.sendNotification(InitializedNotification.type, {});
 
     if (params.workspaceFolders?.length) {
-        info.connection.sendNotification(DidChangeWorkspaceFoldersNotification.type, {
+        await info.connection.sendNotification(DidChangeWorkspaceFoldersNotification.type, {
             event: {
                 added: params.workspaceFolders!,
                 removed: [],

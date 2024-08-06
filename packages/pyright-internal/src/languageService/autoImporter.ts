@@ -6,7 +6,7 @@
  * Logic for performing auto-import completions.
  */
 
-import { CancellationToken, CompletionItemKind, SymbolKind } from 'vscode-languageserver';
+import { CancellationToken, CompletionItem, CompletionItemKind, SymbolKind } from 'vscode-languageserver';
 
 import { DeclarationType } from '../analyzer/declaration';
 import { ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
@@ -37,8 +37,9 @@ import { Position } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
-import { CompletionMap } from './completionProvider';
+import { CompletionItemData, CompletionMap } from './completionProvider';
 import { IndexAliasData } from './symbolIndexer';
+import { fromLSPAny } from '../common/lspUtils';
 
 export interface AutoImportSymbol {
     readonly importAlias?: IndexAliasData;
@@ -191,6 +192,10 @@ export class AutoImporter {
         return results;
     }
 
+    protected getCompletionItemData(item: CompletionItem): CompletionItemData | undefined {
+        return fromLSPAny<CompletionItemData>(item.data);
+    }
+
     protected getCandidates(
         word: string,
         similarityLimit: number,
@@ -266,7 +271,9 @@ export class AutoImporter {
                         if (
                             imported &&
                             imported.node.nodeType === ParseNodeType.ImportFrom &&
-                            imported.node.imports.some((i) => i.name.value === importAliasData.importParts.symbolName)
+                            imported.node.d.imports.some(
+                                (i) => i.d.name.d.value === importAliasData.importParts.symbolName
+                            )
                         ) {
                             return;
                         }
@@ -596,7 +603,9 @@ export class AutoImporter {
     }
 
     private _shouldExclude(name: string) {
-        return this._excludes.has(name, CompletionMap.labelOnlyIgnoringAutoImports);
+        return this._excludes.has(name, (i) =>
+            CompletionMap.labelOnlyIgnoringAutoImports(i, this.getCompletionItemData.bind(this))
+        );
     }
 
     private _containsName(name: string, source: string | undefined, results: AutoImportResultMap) {
@@ -633,7 +642,7 @@ export class AutoImporter {
             if (importStatement.node.nodeType === ParseNodeType.Import) {
                 // For now, we don't check whether alias or moduleName got overwritten at
                 // given position
-                const importAlias = importStatement.subnode?.alias?.value;
+                const importAlias = importStatement.subnode?.d.alias?.d.value;
                 if (importNameInfo.name) {
                     // ex) import module
                     //     method | <= auto-import
@@ -655,14 +664,14 @@ export class AutoImporter {
             if (
                 importNameInfo.name &&
                 importStatement.node.nodeType === ParseNodeType.ImportFrom &&
-                !importStatement.node.isWildcardImport
+                !importStatement.node.d.isWildcardImport
             ) {
                 // If so, see whether what we want already exist.
-                const importNode = importStatement.node.imports.find((i) => i.name.value === importNameInfo.name);
+                const importNode = importStatement.node.d.imports.find((i) => i.d.name.d.value === importNameInfo.name);
                 if (importNode) {
                     // For now, we don't check whether alias or moduleName got overwritten at
                     // given position
-                    const importAlias = importNode.alias?.value;
+                    const importAlias = importNode.d.alias?.d.value;
                     return {
                         insertionText: `${importAlias ?? importNameInfo.name}`,
                         edits: [],
@@ -689,12 +698,12 @@ export class AutoImporter {
             // If it is the module itself that got imported, make sure we don't import it again.
             // ex) from module import submodule
             const imported = this._importStatements.orderedImports.find((i) => i.moduleName === moduleNameInfo.name);
-            if (imported && imported.node.nodeType === ParseNodeType.ImportFrom && !imported.node.isWildcardImport) {
-                const importFrom = imported.node.imports.find((i) => i.name.value === importNameInfo.name);
+            if (imported && imported.node.nodeType === ParseNodeType.ImportFrom && !imported.node.d.isWildcardImport) {
+                const importFrom = imported.node.d.imports.find((i) => i.d.name.d.value === importNameInfo.name);
                 if (importFrom) {
                     // For now, we don't check whether alias or moduleName got overwritten at
                     // given position. only move to alias, but not the other way around
-                    const importAlias = importFrom.alias?.value;
+                    const importAlias = importFrom.d.alias?.d.value;
                     if (importAlias) {
                         return {
                             insertionText: `${importAlias}`,
@@ -717,9 +726,9 @@ export class AutoImporter {
             if (importFrom) {
                 // For now, we don't check whether alias or moduleName got overwritten at
                 // given position
-                const importAlias = importFrom.alias?.value;
+                const importAlias = importFrom.d.alias?.d.value;
                 return {
-                    insertionText: `${importAlias ?? importFrom.name.value}.${importNameInfo.name}`,
+                    insertionText: `${importAlias ?? importFrom.d.name.d.value}.${importNameInfo.name}`,
                     edits: [],
                 };
             }

@@ -9,6 +9,7 @@
 import { InsertTextFormat, MarkupContent, MarkupKind, TextEdit } from 'vscode-languageserver-types';
 
 import { Declaration, DeclarationType } from '../analyzer/declaration';
+import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { isProperty } from '../analyzer/typeUtils';
 import {
@@ -25,10 +26,9 @@ import {
 } from '../analyzer/types';
 import { SignatureDisplayType } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
+import { ServiceProvider } from '../common/serviceProvider';
 import { Uri } from '../common/uri/uri';
 import { getToolTipForType } from './tooltipUtils';
-import { ServiceProvider } from '../common/serviceProvider';
-import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
 
 export interface Edits {
     format?: InsertTextFormat;
@@ -85,8 +85,8 @@ export function getTypeDetail(
     switch (primaryDecl.type) {
         case DeclarationType.Intrinsic:
         case DeclarationType.Variable:
-        case DeclarationType.Parameter:
-        case DeclarationType.TypeParameter: {
+        case DeclarationType.Param:
+        case DeclarationType.TypeParam: {
             let expandTypeAlias = false;
             if (type && TypeBase.isInstantiable(type)) {
                 const typeAliasInfo = getTypeAliasInfo(type);

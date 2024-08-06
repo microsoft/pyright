@@ -20,12 +20,15 @@ import {
     SignatureInformation,
 } from 'vscode-languageserver';
 
+import { getFileInfo } from '../analyzer/analyzerNodeInfo';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
+import { getCallNodeAndActiveParamIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
+import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluatorTypes';
 import { PrintTypeFlags } from '../analyzer/typePrinter';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { DocStringService } from '../common/docStringService';
 import { ProgramView } from '../common/extensibility';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
@@ -33,9 +36,6 @@ import { Uri } from '../common/uri/uri';
 import { CallNode, NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
 import { getDocumentationPartsForTypeAndDecl, getFunctionDocStringFromType } from './tooltipUtils';
-import { DocStringService } from '../common/docStringService';
-import { getFileInfo } from '../analyzer/analyzerNodeInfo';
-import { isBuiltInModule } from '../analyzer/typeDocStringUtils';
 
 export class SignatureHelpProvider {
     private readonly _parseResults: ParseFileResults | undefined;
@@ -107,7 +107,7 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        const callInfo = getCallNodeAndActiveParameterIndex(node, offset, this._parseResults.tokenizerOutput.tokens);
+        const callInfo = getCallNodeAndActiveParamIndex(node, offset, this._parseResults.tokenizerOutput.tokens);
         if (!callInfo) {
             return;
         }
@@ -125,7 +125,7 @@ export class SignatureHelpProvider {
             this._makeSignature(callSignatureInfo.callNode, sig)
         );
 
-        const callHasParameters = !!callSignatureInfo.callNode.arguments?.length;
+        const callHasParameters = !!callSignatureInfo.callNode.d.args?.length;
         return {
             signatures,
             callHasParameters,
@@ -235,7 +235,7 @@ export class SignatureHelpProvider {
 
         let label = '(';
         let activeParameter: number | undefined;
-        const params = functionType.details.parameters;
+        const params = functionType.shared.parameters;
 
         stringParts[0].forEach((paramString: string, paramIndex) => {
             let paramName = '';
@@ -315,11 +315,11 @@ export class SignatureHelpProvider {
         // from call node when all other methods failed.
         // It only works if call is off a name node.
         let name: NameNode | undefined;
-        const expr = callNode.leftExpression;
+        const expr = callNode.d.leftExpr;
         if (expr.nodeType === ParseNodeType.Name) {
             name = expr;
         } else if (expr.nodeType === ParseNodeType.MemberAccess) {
-            name = expr.memberName;
+            name = expr.d.member;
         }
 
         if (!name) {

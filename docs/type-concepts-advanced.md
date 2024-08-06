@@ -545,3 +545,115 @@ self._target = 3 # type: int | str
 
 Future versions of Python will likely deprecate support for type annotation comments. The “reportTypeCommentUsage” diagnostic will report usage of such comments so they can be replaced with inline type annotations.
 
+
+### Literal Math Inference
+When inferring the type of some unary and binary operations that involve operands with literal types, pyright computes the result of operations on the literal values, producing a new literal type in the process. For example:
+
+```python
+def func(x: Literal[1, 3], y: Literal[4, 7]):
+    z = x + y
+    reveal_type(z) # Literal[5, 8, 7, 10]
+
+    z = x * y
+    reveal_type(z) # Literal[4, 7, 12, 21]
+
+    z = (x | y) ^ 1
+    reveal_type(z) # Literal[4, 6]
+
+    z = x ** y
+    reveal_type(z) # Literal[1, 81, 2187]
+```
+
+Literal math also works on `str` literals.
+
+```python
+reveal_type("a" + "b") # Literal["ab"]
+```
+
+The result of a literal math operation can result in large unions. Pyright limits the number of subtypes in the resulting union to 64. If the union grows beyond that, the corresponding non-literal type is inferred.
+
+```python
+def func(x: Literal[1, 2, 3, 4, 5]):
+    y = x * x
+    reveal_type(y) # Literal[1, 2, 3, 4, 5, 6, 8, 10, 9, 12, 15, 16, 20, 25]
+    z = y * x
+    reveal_type(z) # int
+```
+
+Literal math inference is disabled within loops and lambda expressions.
+
+
+### Static Conditional Evaluation
+Pyright performs static evaluation of several conditional expression forms. This includes several forms that are mandated by the [Python typing spec](https://typing.readthedocs.io/en/latest/spec/directives.html#version-and-platform-checking).
+
+* `sys.version_info <comparison> <tuple>`
+* `sys.version_info[0] >= <number>`
+* `sys.platform == <string literal>`
+* `os.name == <string literal>`
+* `typing.TYPE_CHECKING` or `typing_extensions.TYPE_CHECKING`
+* `True` or `False`
+* An identifier defined with the "defineConstant" configuration option
+* A `not` unary operator with any of the above forms
+* An  `and` or `or` binary operator with any of the above forms
+
+If one of these conditional expressions evaluates statically to false, pyright does not analyze any of the code within it other than checking for and reporting syntax errors.
+
+
+### Reachability
+Pyright performs “reachability analysis” to determine whether statements will be executed at runtime.
+
+Reachability analysis is based on both non-type and type information. Non-type information includes statements that unconditionally affect code flow such as `continue`, `raise` and `return`. It also includes conditional statements (`if`, `elif`, or `while`) where the conditional expression is one of these [supported expression forms](type-concepts-advanced#static-conditional-evaluation). Type analysis is not performed on code determined to be unreachable using non-type information. Therefore, language server features like completion suggestions are not available for this code.
+
+Here are some examples of code determined to be unreachable using non-type information.
+
+```python
+from typing import TYPE_CHECKING
+import sys
+
+if False:
+    print('unreachable')
+
+if not TYPE_CHECKING:
+    print('unreachable')
+
+if sys.version_info < (3, 0):
+    print('unreachable')
+
+if sys.platform == 'ENIAC':
+    print('unreachable')
+
+def func1():
+    return
+    print('unreachable')
+
+def func2():
+    raise NotImplemented
+    print('unreachable')
+```
+
+Pyright can also detect code that is unreachable based on static type analysis. This analysis is based on the assumption that any provided type annotations are accurate.
+
+Here are some examples of code determined to be unreachable using type analysis.
+
+```python
+from typing import Literal, NoReturn
+
+def always_raise() -> NoReturn:
+    raise ValueError
+
+def func1():
+    always_raise()
+    print('unreachable')
+
+def func2(x: str):
+    if not isinstance(x, str):
+        print('unreachable')
+
+def func3(x: Literal[1, 2]):
+    if x == 1 or x == 2:
+        return
+
+    print("unreachable")
+```
+
+Code that is determined to be unreachable is reported through the use of “tagged hints”. These are special diagnostics that tell a language client to display the code in a visually distinctive manner, typically with a grayed-out appearance. Code determined to be unreachable using non-type information is always reported through this mechanism. Code determined to be unreachable using type analysis is reported only if “enableReachabilityAnalysis” is enabled in the configuration.

@@ -149,6 +149,10 @@ class Child(Parent):
 
 
 # Test 1: Literal subtype
+
+
+# This should generate an error because the overload is overlapping
+# in an unsafe way (i.e. returns an incompatible type).
 @overload
 def func10(x: Literal[3]) -> int:
     ...
@@ -164,6 +168,10 @@ def func10(*args: Any, **kwargs: Any) -> Any:
 
 
 # Test 2: Subclass subtype
+
+
+# This should generate an error because the overload is overlapping
+# in an unsafe way (i.e. returns an incompatible type).
 @overload
 def func11(x: Child) -> str:
     ...
@@ -179,6 +187,10 @@ def func11(*args: Any, **kwargs: Any) -> Any:
 
 
 # Test 3: Implicit subtype
+
+
+# This should generate an error because the overload is overlapping
+# in an unsafe way (i.e. returns an incompatible type).
 @overload
 def func12(x: int) -> str:
     ...
@@ -194,6 +206,10 @@ def func12(*args: Any, **kwargs: Any) -> Any:
 
 
 # Test 4: Union subtype
+
+
+# This should generate an error because the overload is overlapping
+# in an unsafe way (i.e. returns an incompatible type).
 @overload
 def func13(x: int) -> str:
     ...
@@ -209,6 +225,10 @@ def func13(*args: Any, **kwargs: Any) -> Any:
 
 
 # Test 5: non-matching keyword argument
+
+
+# This should generate an error because the overload is overlapping
+# in an unsafe way (i.e. returns an incompatible type).
 @overload
 def func14(x: int, *, cls: str, **kwargs: Any) -> int:
     ...
@@ -281,20 +301,6 @@ class ClassA(Generic[_T1]):
 
 class ClassB:
     @overload
-    def __call__(self, f: _T1) -> _T1:
-        ...
-
-    # This should generate an error because the overload is overlapped.
-    @overload
-    def __call__(self, f: _T1 | None) -> _T1:
-        ...
-
-    def __call__(self, f: _T1 | None) -> _T1:
-        ...
-
-
-class ClassC:
-    @overload
     def method1(self, x: type[Any]) -> bool:
         ...
 
@@ -306,7 +312,7 @@ class ClassC:
         ...
 
 
-class ClassD:
+class ClassC:
     @overload
     def method1(self, x: type) -> bool:
         ...
@@ -420,3 +426,84 @@ def func23(f: Callable[_P, _T2]) -> int:
 
 def func23(f: Any) -> int:
     return 1
+
+
+class E1:
+    ...
+
+
+TE1 = TypeVar("TE1", bound=E1)
+
+
+class E2(E1, Generic[TE1]):
+    ...
+
+
+class E3(E1):
+    ...
+
+
+TE3 = TypeVar("TE3", bound=E3)
+
+
+class E4(E1):
+    ...
+
+
+class ClassE(E2[E4], Generic[TE1]):
+    @overload
+    def unpack(self: "ClassE[E2[TE3]]") -> Sequence[TE3]:
+        ...
+
+    @overload
+    def unpack(self) -> Sequence[Any]:
+        ...
+
+    def unpack(self) -> Sequence[Any]:
+        ...
+
+
+@overload
+def func24(f: Callable[[int], str]) -> int:
+    ...
+
+
+@overload
+def func24(f: Callable[[_T1], str]) -> float:
+    ...
+
+
+def func24(f: Any) -> Any:
+    return f
+
+
+_TInt = TypeVar("_TInt", bound=int)
+
+
+@overload
+def func25(val: _TInt) -> list[_TInt]:
+    ...
+
+
+@overload
+def func25(val: str) -> int:
+    ...
+
+
+def func25(val: Any) -> Any:
+    ...
+
+
+@overload
+def func26(val: _T1) -> list[_T1]:
+    ...
+
+
+# This should generate an error because it will never be used.
+@overload
+def func26(val: str) -> int:
+    ...
+
+
+def func26(val: Any) -> Any:
+    ...

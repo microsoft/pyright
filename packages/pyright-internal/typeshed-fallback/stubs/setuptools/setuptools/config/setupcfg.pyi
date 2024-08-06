@@ -1,12 +1,13 @@
 from _typeshed import Incomplete, StrPath
-from typing import Generic, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar
+from typing_extensions import TypeAlias
 
 from .._distutils.dist import DistributionMetadata
 from ..dist import Distribution
 from . import expand
 
-SingleCommandOptions: Incomplete
-AllCommandOptions: Incomplete
+SingleCommandOptions: TypeAlias = dict[str, tuple[str, Any]]
+AllCommandOptions: TypeAlias = dict[str, SingleCommandOptions]
 Target = TypeVar("Target", bound=Distribution | DistributionMetadata)  # noqa: Y001 # Exists at runtime
 
 def read_configuration(
@@ -22,12 +23,12 @@ def parse_configuration(
 
 class ConfigHandler(Generic[Target]):
     section_prefix: str
-    aliases: dict[str, str]
+    aliases: ClassVar[dict[str, str]]
     ignore_option_errors: Incomplete
-    target_obj: Incomplete
-    sections: Incomplete
-    set_options: Incomplete
-    ensure_discovered: Incomplete
+    target_obj: Target
+    sections: dict[str, SingleCommandOptions]
+    set_options: list[str]
+    ensure_discovered: expand.EnsurePackagesDiscovered
     def __init__(
         self,
         target_obj: Target,
@@ -43,10 +44,10 @@ class ConfigHandler(Generic[Target]):
 
 class ConfigMetadataHandler(ConfigHandler[DistributionMetadata]):
     section_prefix: str
-    aliases: Incomplete
+    aliases: ClassVar[dict[str, str]]
     strict_mode: bool
-    package_dir: Incomplete
-    root_dir: Incomplete
+    package_dir: dict[Incomplete, Incomplete] | None
+    root_dir: StrPath
     def __init__(
         self,
         target_obj: DistributionMetadata,
@@ -61,8 +62,8 @@ class ConfigMetadataHandler(ConfigHandler[DistributionMetadata]):
 
 class ConfigOptionsHandler(ConfigHandler[Distribution]):
     section_prefix: str
-    root_dir: Incomplete
-    package_dir: Incomplete
+    root_dir: str | None
+    package_dir: dict[str, str]
     def __init__(
         self,
         target_obj: Distribution,

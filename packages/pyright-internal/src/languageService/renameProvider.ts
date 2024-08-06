@@ -19,6 +19,7 @@ import { Position, Range } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
 import { convertToWorkspaceEdit } from '../common/workspaceEditUtils';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
+import { ParseNodeType } from '../parser/parseNodes';
 import { ParseFileResults } from '../parser/parser';
 
 export class RenameProvider {
@@ -119,11 +120,30 @@ export class RenameProvider {
         }
 
         const edits: FileEditAction[] = [];
-        referencesResult.locations.forEach((loc) => {
+        referencesResult.results.forEach((result) => {
+            // Special case the renames of keyword arguments.
+            const node = result.node;
+            let range = result.location.range;
+            let replacementText = newName;
+
+            if (
+                node.nodeType === ParseNodeType.Name &&
+                node.parent?.nodeType === ParseNodeType.Argument &&
+                node.parent.d.isNameSameAsValue &&
+                result.parentRange
+            ) {
+                range = result.parentRange;
+                if (node === node.parent.d.valueExpr) {
+                    replacementText = `${node.d.value}=${newName}`;
+                } else {
+                    replacementText = `${newName}=${node.d.value}`;
+                }
+            }
+
             edits.push({
-                fileUri: loc.uri,
-                range: loc.range,
-                replacementText: newName,
+                fileUri: result.location.uri,
+                range,
+                replacementText,
             });
         });
 

@@ -90,7 +90,7 @@ export class Scope {
     readonly parent: Scope | undefined;
 
     // An alternate parent scope that can be used to resolve symbols
-    // in certain contexts. Used for TypeParameter scopes.
+    // in certain contexts. Used for TypeParam scopes.
     readonly proxy: Scope | undefined;
 
     // Association between names and symbols.

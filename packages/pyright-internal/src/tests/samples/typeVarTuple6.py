@@ -1,13 +1,11 @@
 # This sample tests the handling of generic type aliases with
 # variadic type variables.
 
-# pyright: reportMissingTypeArgument=true
+# pyright: reportMissingTypeArgument=true, reportMissingModuleSource=false
 
 from typing import Callable, Generic, TypeVar
-from typing_extensions import (  # pyright: ignore[reportMissingModuleSource]
-    TypeVarTuple,
-    Unpack,
-)
+
+from typing_extensions import TypeVarTuple, Unpack
 
 _Xs = TypeVarTuple("_Xs")
 _T = TypeVar("_T")

@@ -1,4 +1,4 @@
-version = "1.15.0"
+version = "1.15.*"
 upstream_repository = "https://github.com/libgit2/pygit2"
 requires = ["types-cffi"]
 

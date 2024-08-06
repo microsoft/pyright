@@ -680,7 +680,7 @@ export class PackageTypeVerifier {
     }
 
     private _reportMissingClassDocstring(symbolInfo: SymbolInfo, type: ClassType, report: PackageTypeReport) {
-        if (type.details.docString) {
+        if (type.shared.docString) {
             return;
         }
 
@@ -701,7 +701,12 @@ export class PackageTypeVerifier {
         declFileUri: Uri | undefined,
         report: PackageTypeReport
     ) {
-        if (type.details.parameters.find((param) => param.defaultType && isEllipsisType(param.defaultType))) {
+        if (
+            type.shared.parameters.find((_, index) => {
+                const defaultType = FunctionType.getParamDefaultType(type, index);
+                return defaultType && isEllipsisType(defaultType);
+            })
+        ) {
             if (symbolInfo) {
                 this._addSymbolWarning(
                     symbolInfo,
@@ -714,7 +719,7 @@ export class PackageTypeVerifier {
             report.missingDefaultParamCount++;
         }
 
-        if (type.details.docString) {
+        if (type.shared.docString) {
             return;
         }
 
@@ -753,12 +758,13 @@ export class PackageTypeVerifier {
     ): TypeKnownStatus {
         let knownStatus = TypeKnownStatus.Known;
 
-        if (type.typeAliasInfo && type.typeAliasInfo.typeArguments) {
-            type.typeAliasInfo.typeArguments.forEach((typeArg, index) => {
+        const aliasInfo = type.props?.typeAliasInfo;
+        if (aliasInfo?.typeArgs) {
+            aliasInfo.typeArgs.forEach((typeArg, index) => {
                 if (isUnknown(typeArg)) {
                     this._addSymbolError(
                         symbolInfo,
-                        `Type argument ${index + 1} for type alias "${type.typeAliasInfo!.name}" has unknown type`,
+                        `Type argument ${index + 1} for type alias "${aliasInfo!.name}" has unknown type`,
                         declRange,
                         declFileUri
                     );
@@ -766,9 +772,7 @@ export class PackageTypeVerifier {
                 } else if (isPartlyUnknown(typeArg)) {
                     this._addSymbolError(
                         symbolInfo,
-                        `Type argument ${index + 1} for type alias "${
-                            type.typeAliasInfo!.name
-                        }" has partially unknown type`,
+                        `Type argument ${index + 1} for type alias "${aliasInfo!.name}" has partially unknown type`,
                         declRange,
                         declFileUri
                     );
@@ -828,7 +832,7 @@ export class PackageTypeVerifier {
             }
 
             case TypeCategory.OverloadedFunction: {
-                for (const overload of type.overloads) {
+                for (const overload of type.priv.overloads) {
                     knownStatus = this._updateKnownStatusIfWorse(
                         knownStatus,
                         this._getSymbolTypeKnownStatus(
@@ -845,7 +849,7 @@ export class PackageTypeVerifier {
             }
 
             case TypeCategory.Function: {
-                if (!this._shouldIgnoreType(report, type.details.fullName)) {
+                if (!this._shouldIgnoreType(report, type.shared.fullName)) {
                     knownStatus = this._updateKnownStatusIfWorse(
                         knownStatus,
                         this._getFunctionTypeKnownStatus(
@@ -867,9 +871,9 @@ export class PackageTypeVerifier {
                 // Properties require special handling.
                 if (TypeBase.isInstance(type) && ClassType.isPropertyClass(type)) {
                     const propMethodInfo: [string, (c: ClassType) => FunctionType | undefined][] = [
-                        ['fget', (c) => c.fgetInfo?.methodType],
-                        ['fset', (c) => c.fsetInfo?.methodType],
-                        ['fdel', (c) => c.fdelInfo?.methodType],
+                        ['fget', (c) => c.priv.fgetInfo?.methodType],
+                        ['fset', (c) => c.priv.fsetInfo?.methodType],
+                        ['fdel', (c) => c.priv.fdelInfo?.methodType],
                     ];
 
                     const propertyClass = type;
@@ -889,7 +893,7 @@ export class PackageTypeVerifier {
                             // static. Otherwise we'll incorrectly report that "self" is not annotated.
                             accessType = FunctionType.cloneWithNewFlags(
                                 accessType,
-                                accessType.details.flags & ~FunctionTypeFlags.StaticMethod
+                                accessType.shared.flags & ~FunctionTypeFlags.StaticMethod
                             );
                         }
 
@@ -909,7 +913,7 @@ export class PackageTypeVerifier {
                     break;
                 }
 
-                if (!this._shouldIgnoreType(report, type.details.fullName)) {
+                if (!this._shouldIgnoreType(report, type.shared.fullName)) {
                     // Don't bother type-checking built-in types.
                     if (!ClassType.isBuiltIn(type)) {
                         const symbolInfo = this._getSymbolForClass(report, type, publicSymbols);
@@ -918,12 +922,12 @@ export class PackageTypeVerifier {
                 }
 
                 // Analyze type arguments if present to make sure they are known.
-                if (type.typeArguments) {
-                    type.typeArguments!.forEach((typeArg, index) => {
+                if (type.priv.typeArgs) {
+                    type.priv.typeArgs!.forEach((typeArg, index) => {
                         if (isUnknown(typeArg)) {
                             this._addSymbolError(
                                 symbolInfo,
-                                `Type argument ${index + 1} for class "${type.details.name}" has unknown type`,
+                                `Type argument ${index + 1} for class "${type.shared.name}" has unknown type`,
                                 declRange,
                                 declFileUri
                             );
@@ -934,7 +938,7 @@ export class PackageTypeVerifier {
                             this._addSymbolError(
                                 symbolInfo,
                                 `Type argument ${index + 1} for class "${
-                                    type.details.name
+                                    type.shared.name
                                 }" has partially unknown type` + diag.getString(),
                                 declRange,
                                 declFileUri
@@ -948,7 +952,7 @@ export class PackageTypeVerifier {
             }
 
             case TypeCategory.Module: {
-                if (!this._shouldIgnoreType(report, type.moduleName)) {
+                if (!this._shouldIgnoreType(report, type.priv.moduleName)) {
                     const moduleSymbol = this._getSymbolForModule(report, type, publicSymbols);
                     if (moduleSymbol.typeKnownStatus !== TypeKnownStatus.Known) {
                         this._addSymbolError(
@@ -983,11 +987,13 @@ export class PackageTypeVerifier {
         let knownStatus = TypeKnownStatus.Known;
 
         // If the file path wasn't provided, try to get it from the type.
-        if (type.details.declaration && !declFileUri) {
-            declFileUri = type.details.declaration.uri;
+        if (type.shared.declaration && !declFileUri) {
+            declFileUri = type.shared.declaration.uri;
         }
 
-        type.details.parameters.forEach((param, index) => {
+        type.shared.parameters.forEach((param, index) => {
+            const paramType = FunctionType.getParamType(type, index);
+
             // Skip nameless parameters like "*" and "/".
             if (param.name) {
                 if (!FunctionParam.isTypeDeclared(param)) {
@@ -1012,7 +1018,7 @@ export class PackageTypeVerifier {
                         diag?.createAddendum().addMessage(`Type annotation for parameter "${param.name}" is missing`);
                         knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                     }
-                } else if (isUnknown(param.type)) {
+                } else if (isUnknown(paramType)) {
                     if (symbolInfo) {
                         this._addSymbolError(
                             symbolInfo,
@@ -1027,13 +1033,13 @@ export class PackageTypeVerifier {
                     const extraInfo = new DiagnosticAddendum();
                     const paramKnownStatus = this._getTypeKnownStatus(
                         report,
-                        param.type,
+                        paramType,
                         publicSymbols,
                         extraInfo.createAddendum()
                     );
 
                     if (paramKnownStatus !== TypeKnownStatus.Known) {
-                        extraInfo.addMessage(`Parameter type is "${this._program.printType(param.type)}"`);
+                        extraInfo.addMessage(`Parameter type is "${this._program.printType(paramType)}"`);
 
                         if (symbolInfo) {
                             this._addSymbolError(
@@ -1056,8 +1062,8 @@ export class PackageTypeVerifier {
             }
         });
 
-        if (type.details.declaredReturnType) {
-            if (isUnknown(type.details.declaredReturnType)) {
+        if (type.shared.declaredReturnType) {
+            if (isUnknown(type.shared.declaredReturnType)) {
                 if (symbolInfo) {
                     this._addSymbolError(
                         symbolInfo,
@@ -1071,15 +1077,13 @@ export class PackageTypeVerifier {
                 const extraInfo = new DiagnosticAddendum();
                 const returnTypeKnownStatus = this._getTypeKnownStatus(
                     report,
-                    type.details.declaredReturnType,
+                    type.shared.declaredReturnType,
                     publicSymbols,
                     extraInfo.createAddendum()
                 );
 
                 if (returnTypeKnownStatus !== TypeKnownStatus.Known) {
-                    extraInfo.addMessage(
-                        `Return type is "${this._program.printType(type.details.declaredReturnType)}"`
-                    );
+                    extraInfo.addMessage(`Return type is "${this._program.printType(type.shared.declaredReturnType)}"`);
 
                     if (symbolInfo) {
                         this._addSymbolError(
@@ -1101,7 +1105,7 @@ export class PackageTypeVerifier {
             }
         } else {
             // Init methods have an implied return type.
-            if (type.details.name !== '__init__') {
+            if (type.shared.name !== '__init__') {
                 if (symbolInfo) {
                     this._addSymbolError(
                         symbolInfo,
@@ -1124,7 +1128,7 @@ export class PackageTypeVerifier {
 
     private _getSymbolForClass(report: PackageTypeReport, type: ClassType, publicSymbols: PublicSymbolSet): SymbolInfo {
         // See if this type is already analyzed.
-        const cachedType = report.symbols.get(type.details.fullName);
+        const cachedType = report.symbols.get(type.shared.fullName);
         if (cachedType) {
             cachedType.referenceCount++;
             return cachedType;
@@ -1132,10 +1136,10 @@ export class PackageTypeVerifier {
 
         const symbolInfo: SymbolInfo = {
             category: SymbolCategory.Class,
-            name: type.details.name,
-            fullName: type.details.fullName,
-            fileUri: type.details.fileUri,
-            isExported: publicSymbols.has(type.details.fullName),
+            name: type.shared.name,
+            fullName: type.shared.fullName,
+            fileUri: type.shared.fileUri,
+            isExported: publicSymbols.has(type.shared.fullName),
             typeKnownStatus: TypeKnownStatus.Known,
             referenceCount: 1,
             diagnostics: [],
@@ -1149,7 +1153,7 @@ export class PackageTypeVerifier {
 
         const symbolTableTypeKnownStatus = this._getTypeKnownStatusForSymbolTable(
             report,
-            type.details.fullName,
+            type.shared.fullName,
             ClassType.getSymbolTable(type),
             ScopeType.Class,
             publicSymbols,
@@ -1158,7 +1162,7 @@ export class PackageTypeVerifier {
                 // see if we can find a same-named symbol in a parent class with
                 // a type declaration.
                 if (!symbol.hasTypedDeclarations()) {
-                    for (const mroClass of type.details.mro.slice(1)) {
+                    for (const mroClass of type.shared.mro.slice(1)) {
                         if (isClass(mroClass)) {
                             const overrideSymbol = ClassType.getSymbolTable(mroClass).get(name);
                             if (overrideSymbol && overrideSymbol.hasTypedDeclarations()) {
@@ -1178,8 +1182,8 @@ export class PackageTypeVerifier {
         );
 
         // Add information for the metaclass.
-        if (type.details.effectiveMetaclass) {
-            if (!isInstantiableClass(type.details.effectiveMetaclass)) {
+        if (type.shared.effectiveMetaclass) {
+            if (!isInstantiableClass(type.shared.effectiveMetaclass)) {
                 this._addSymbolError(symbolInfo, `Type of metaclass unknown`, getEmptyRange(), Uri.empty());
                 symbolInfo.typeKnownStatus = this._updateKnownStatusIfWorse(
                     symbolInfo.typeKnownStatus,
@@ -1189,7 +1193,7 @@ export class PackageTypeVerifier {
                 const diag = new DiagnosticAddendum();
                 const metaclassKnownStatus = this._getTypeKnownStatus(
                     report,
-                    type.details.effectiveMetaclass,
+                    type.shared.effectiveMetaclass,
                     publicSymbols,
                     diag
                 );
@@ -1197,8 +1201,7 @@ export class PackageTypeVerifier {
                 if (metaclassKnownStatus !== TypeKnownStatus.Known) {
                     this._addSymbolError(
                         symbolInfo,
-                        `Type of metaclass "${type.details.effectiveMetaclass}" is partially unknown` +
-                            diag.getString(),
+                        `Type of metaclass "${type.shared.effectiveMetaclass}" is partially unknown` + diag.getString(),
                         getEmptyRange(),
                         Uri.empty()
                     );
@@ -1211,7 +1214,7 @@ export class PackageTypeVerifier {
         }
 
         // Add information for base classes.
-        type.details.baseClasses.forEach((baseClass) => {
+        type.shared.baseClasses.forEach((baseClass) => {
             if (!isInstantiableClass(baseClass)) {
                 this._addSymbolError(symbolInfo, `Type of base class unknown`, getEmptyRange(), Uri.empty());
                 symbolInfo.typeKnownStatus = this._updateKnownStatusIfWorse(
@@ -1231,7 +1234,7 @@ export class PackageTypeVerifier {
                 if (baseClassTypeStatus !== TypeKnownStatus.Known) {
                     this._addSymbolError(
                         symbolInfo,
-                        `Type of base class "${baseClass.details.fullName}" is partially unknown` + diag.getString(),
+                        `Type of base class "${baseClass.shared.fullName}" is partially unknown` + diag.getString(),
                         getEmptyRange(),
                         Uri.empty()
                     );
@@ -1253,7 +1256,7 @@ export class PackageTypeVerifier {
         publicSymbols: PublicSymbolSet
     ): SymbolInfo {
         // See if this type is already analyzed.
-        const cachedType = report.symbols.get(type.moduleName);
+        const cachedType = report.symbols.get(type.priv.moduleName);
         if (cachedType) {
             cachedType.referenceCount++;
             return cachedType;
@@ -1261,10 +1264,10 @@ export class PackageTypeVerifier {
 
         const symbolInfo: SymbolInfo = {
             category: SymbolCategory.Module,
-            name: type.moduleName,
-            fullName: type.moduleName,
-            fileUri: type.fileUri,
-            isExported: publicSymbols.has(type.moduleName),
+            name: type.priv.moduleName,
+            fullName: type.priv.moduleName,
+            fileUri: type.priv.fileUri,
+            isExported: publicSymbols.has(type.priv.moduleName),
             typeKnownStatus: TypeKnownStatus.Known,
             referenceCount: 1,
             diagnostics: [],
@@ -1272,14 +1275,14 @@ export class PackageTypeVerifier {
         };
 
         // Add the symbol for the module if the name isn't relative.
-        if (!type.moduleName.startsWith('.')) {
+        if (!type.priv.moduleName.startsWith('.')) {
             this._addSymbol(report, symbolInfo);
         }
 
         const symbolTableTypeKnownStatus = this._getTypeKnownStatusForSymbolTable(
             report,
-            type.moduleName,
-            type.fields,
+            type.priv.moduleName,
+            type.priv.fields,
             ScopeType.Module,
             publicSymbols
         );
@@ -1300,18 +1303,15 @@ export class PackageTypeVerifier {
     ): TypeKnownStatus {
         let knownStatus = TypeKnownStatus.Known;
 
-        if (type.typeAliasInfo && type.typeAliasInfo.typeArguments) {
-            type.typeAliasInfo.typeArguments.forEach((typeArg, index) => {
+        const aliasInfo = type.props?.typeAliasInfo;
+        if (aliasInfo?.typeArgs) {
+            aliasInfo.typeArgs.forEach((typeArg, index) => {
                 if (isUnknown(typeArg)) {
-                    diag.addMessage(
-                        `Type argument ${index + 1} for type alias "${type.typeAliasInfo!.name}" has unknown type`
-                    );
+                    diag.addMessage(`Type argument ${index + 1} for type alias "${aliasInfo!.name}" has unknown type`);
                     knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                 } else if (isPartlyUnknown(typeArg)) {
                     diag.addMessage(
-                        `Type argument ${index + 1} for type alias "${
-                            type.typeAliasInfo!.name
-                        }" has partially unknown type`
+                        `Type argument ${index + 1} for type alias "${aliasInfo!.name}" has partially unknown type`
                     );
                     knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.PartiallyUnknown);
                 }
@@ -1346,7 +1346,7 @@ export class PackageTypeVerifier {
             }
 
             case TypeCategory.OverloadedFunction: {
-                for (const overload of type.overloads) {
+                for (const overload of type.priv.overloads) {
                     knownStatus = this._updateKnownStatusIfWorse(
                         knownStatus,
                         this._getTypeKnownStatus(report, overload, publicSymbols, diag.createAddendum())
@@ -1357,7 +1357,7 @@ export class PackageTypeVerifier {
             }
 
             case TypeCategory.Function: {
-                if (!this._shouldIgnoreType(report, type.details.fullName)) {
+                if (!this._shouldIgnoreType(report, type.shared.fullName)) {
                     knownStatus = this._updateKnownStatusIfWorse(
                         knownStatus,
                         this._getFunctionTypeKnownStatus(
@@ -1376,7 +1376,7 @@ export class PackageTypeVerifier {
             }
 
             case TypeCategory.Class: {
-                if (!this._shouldIgnoreType(report, type.details.fullName)) {
+                if (!this._shouldIgnoreType(report, type.shared.fullName)) {
                     // Don't bother type-checking built-in types.
                     if (!ClassType.isBuiltIn(type)) {
                         const symbolInfo = this._getSymbolForClass(report, type, publicSymbols);
@@ -1385,16 +1385,16 @@ export class PackageTypeVerifier {
                 }
 
                 // Analyze type arguments if present to make sure they are known.
-                if (type.typeArguments) {
-                    type.typeArguments!.forEach((typeArg, index) => {
+                if (type.priv.typeArgs) {
+                    type.priv.typeArgs!.forEach((typeArg, index) => {
                         if (isUnknown(typeArg)) {
                             diag.addMessage(
-                                `Type argument ${index + 1} for class "${type.details.name}" has unknown type`
+                                `Type argument ${index + 1} for class "${type.shared.name}" has unknown type`
                             );
                             knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.Unknown);
                         } else if (isPartlyUnknown(typeArg)) {
                             diag.addMessage(
-                                `Type argument ${index + 1} for class "${type.details.name}" has partially unknown type`
+                                `Type argument ${index + 1} for class "${type.shared.name}" has partially unknown type`
                             );
                             knownStatus = this._updateKnownStatusIfWorse(knownStatus, TypeKnownStatus.PartiallyUnknown);
                         }
@@ -1405,7 +1405,7 @@ export class PackageTypeVerifier {
             }
 
             case TypeCategory.Module: {
-                if (!this._shouldIgnoreType(report, type.moduleName)) {
+                if (!this._shouldIgnoreType(report, type.priv.moduleName)) {
                     const moduleSymbol = this._getSymbolForModule(report, type, publicSymbols);
                     knownStatus = this._updateKnownStatusIfWorse(knownStatus, moduleSymbol.typeKnownStatus);
                 }
@@ -1418,7 +1418,7 @@ export class PackageTypeVerifier {
     }
 
     private _getSymbolCategory(symbol: Symbol, type: Type): SymbolCategory {
-        if (type.typeAliasInfo) {
+        if (type.props?.typeAliasInfo) {
             return SymbolCategory.TypeAlias;
         }
 

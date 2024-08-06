@@ -37,8 +37,8 @@ export const UnresolvedModuleMarker = Uri.constant('*** unresolved module ***');
 export const enum DeclarationType {
     Intrinsic,
     Variable,
-    Parameter,
-    TypeParameter,
+    Param,
+    TypeParam,
     TypeAlias,
     Function,
     Class,
@@ -102,8 +102,8 @@ export interface FunctionDeclaration extends DeclarationBase {
     raiseStatements?: RaiseNode[];
 }
 
-export interface ParameterDeclaration extends DeclarationBase {
-    type: DeclarationType.Parameter;
+export interface ParamDeclaration extends DeclarationBase {
+    type: DeclarationType.Param;
     node: ParameterNode;
 
     // Documentation specified in the function's docstring (if any) can be
@@ -118,8 +118,8 @@ export interface ParameterDeclaration extends DeclarationBase {
     inferredTypeNodes?: ExpressionNode[];
 }
 
-export interface TypeParameterDeclaration extends DeclarationBase {
-    type: DeclarationType.TypeParameter;
+export interface TypeParamDeclaration extends DeclarationBase {
+    type: DeclarationType.TypeParam;
     node: TypeParameterNode;
 }
 
@@ -246,8 +246,8 @@ export type Declaration =
     | ClassDeclaration
     | SpecialBuiltInClassDeclaration
     | FunctionDeclaration
-    | ParameterDeclaration
-    | TypeParameterDeclaration
+    | ParamDeclaration
+    | TypeParamDeclaration
     | TypeAliasDeclaration
     | VariableDeclaration
     | AliasDeclaration;
@@ -260,12 +260,12 @@ export function isClassDeclaration(decl: Declaration): decl is ClassDeclaration 
     return decl.type === DeclarationType.Class;
 }
 
-export function isParameterDeclaration(decl: Declaration): decl is ParameterDeclaration {
-    return decl.type === DeclarationType.Parameter;
+export function isParamDeclaration(decl: Declaration): decl is ParamDeclaration {
+    return decl.type === DeclarationType.Param;
 }
 
-export function isTypeParameterDeclaration(decl: Declaration): decl is TypeParameterDeclaration {
-    return decl.type === DeclarationType.TypeParameter;
+export function isTypeParamDeclaration(decl: Declaration): decl is TypeParamDeclaration {
+    return decl.type === DeclarationType.TypeParam;
 }
 
 export function isTypeAliasDeclaration(decl: Declaration): decl is TypeAliasDeclaration {

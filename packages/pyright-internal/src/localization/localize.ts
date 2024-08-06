@@ -329,8 +329,6 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.conditionalOperandInvalid'));
         export const constantRedefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.constantRedefinition'));
-        export const constructorNoArgs = () =>
-            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.constructorNoArgs'));
         export const coroutineInConditionalExpression = () =>
             getRawString('Diagnostic.coroutineInConditionalExpression');
         export const constructorParametersMismatch = () =>
@@ -499,6 +497,7 @@ export namespace Localizer {
         export const finalClassIsAbstract = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.finalClassIsAbstract'));
         export const finalContext = () => getRawString('Diagnostic.finalContext');
+        export const finalInLoop = () => getRawString('Diagnostic.finalInLoop');
         export const finalMethodOverride = () =>
             new ParameterizedString<{ name: string; className: string }>(
                 getRawString('Diagnostic.finalMethodOverride')
@@ -603,6 +602,7 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.isSubclassInvalidType'));
         export const keyValueInSet = () => getRawString('Diagnostic.keyValueInSet');
         export const keywordArgInTypeArgument = () => getRawString('Diagnostic.keywordArgInTypeArgument');
+        export const keywordArgShortcutIllegal = () => getRawString('Diagnostic.keywordArgShortcutIllegal');
         export const keywordOnlyAfterArgs = () => getRawString('Diagnostic.keywordOnlyAfterArgs');
         export const keywordParameterMissing = () => getRawString('Diagnostic.keywordParameterMissing');
         export const keywordSubscriptIllegal = () => getRawString('Diagnostic.keywordSubscriptIllegal');
@@ -1054,6 +1054,8 @@ export namespace Localizer {
         export const typeVarDefaultInvalidTypeVar = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarDefaultInvalidTypeVar'));
         export const typeVarFirstArg = () => getRawString('Diagnostic.typeVarFirstArg');
+        export const typeVarInvalidForMemberVariable = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarInvalidForMemberVariable'));
         export const typeVarNoMember = () =>
             new ParameterizedString<{ type: string; name: string }>(getRawString('Diagnostic.typeVarNoMember'));
         export const typeVarNotSubscriptable = () =>
@@ -1148,6 +1150,7 @@ export namespace Localizer {
         export const unpackOperatorNotAllowed = () => getRawString('Diagnostic.unpackOperatorNotAllowed');
         export const unpackTuplesIllegal = () => getRawString('Diagnostic.unpackTuplesIllegal');
         export const unreachableCode = () => getRawString('Diagnostic.unreachableCode');
+        export const unreachableCodeType = () => getRawString('Diagnostic.unreachableCodeType');
         export const unreachableExcept = () => getRawString('Diagnostic.unreachableExcept');
         export const unsupportedDunderAllOperation = () => getRawString('Diagnostic.unsupportedDunderAllOperation');
         export const unusedCallResult = () =>
@@ -1607,6 +1610,10 @@ export namespace Localizer {
     export namespace Completion {
         export const autoImportDetail = () => getRawString('Completion.autoImportDetail');
         export const indexValueDetail = () => getRawString('Completion.indexValueDetail');
+    }
+
+    export namespace Service {
+        export const longOperation = () => getRawString('Service.longOperation');
     }
 }
 

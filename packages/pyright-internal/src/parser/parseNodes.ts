@@ -127,6 +127,7 @@ export const enum ErrorExpressionCategory {
     MissingPattern,
     MissingPatternSubject,
     MissingDictValue,
+    MissingKeywordArgValue,
     MaxDepthExceeded,
 }
 
@@ -138,13 +139,13 @@ export interface ParseNodeBase<T extends ParseNodeType> {
     // A unique ID given to each parse node.
     id: number;
 
-    parent?: ParseNode | undefined;
+    parent: ParseNode | undefined;
 
-    // For some parse nodes, each child's depth is calculated,
-    // and the max child depth is recorded here. This is used
-    // to detect long chains of operations that can result in
-    // stack overflows during evaluation.
-    maxChildDepth?: number;
+    // A reference to information computed in later passes.
+    a: object | undefined;
+
+    // Additional details that are specific to the parse node type.
+    d: object;
 }
 
 let _nextNodeId = 1;
@@ -163,7 +164,9 @@ export function extendRange(node: ParseNodeBase<any>, newRange: TextRange) {
 export type ParseNodeArray = (ParseNode | undefined)[];
 
 export interface ModuleNode extends ParseNodeBase<ParseNodeType.Module> {
-    statements: StatementNode[];
+    d: {
+        statements: StatementNode[];
+    };
 }
 
 export namespace ModuleNode {
@@ -173,7 +176,9 @@ export namespace ModuleNode {
             length: range.length,
             nodeType: ParseNodeType.Module,
             id: _nextNodeId++,
-            statements: [],
+            parent: undefined,
+            a: undefined,
+            d: { statements: [] },
         };
 
         return node;
@@ -181,8 +186,10 @@ export namespace ModuleNode {
 }
 
 export interface SuiteNode extends ParseNodeBase<ParseNodeType.Suite> {
-    statements: StatementNode[];
-    typeComment?: StringToken;
+    d: {
+        statements: StatementNode[];
+        typeComment: StringToken | undefined;
+    };
 }
 
 export namespace SuiteNode {
@@ -192,7 +199,12 @@ export namespace SuiteNode {
             length: range.length,
             nodeType: ParseNodeType.Suite,
             id: _nextNodeId++,
-            statements: [],
+            parent: undefined,
+            a: undefined,
+            d: {
+                statements: [],
+                typeComment: undefined,
+            },
         };
 
         return node;
@@ -200,32 +212,33 @@ export namespace SuiteNode {
 }
 
 export interface IfNode extends ParseNodeBase<ParseNodeType.If> {
-    testExpression: ExpressionNode;
-    ifSuite: SuiteNode;
-    elseSuite?: SuiteNode | IfNode | undefined;
+    d: {
+        testExpr: ExpressionNode;
+        ifSuite: SuiteNode;
+        elseSuite: SuiteNode | IfNode | undefined;
+    };
 }
 
 export namespace IfNode {
-    export function create(
-        ifOrElifToken: Token,
-        testExpression: ExpressionNode,
-        ifSuite: SuiteNode,
-        elseSuite?: SuiteNode
-    ) {
+    export function create(ifOrElifToken: Token, testExpr: ExpressionNode, ifSuite: SuiteNode, elseSuite?: SuiteNode) {
         const node: IfNode = {
             start: ifOrElifToken.start,
             length: ifOrElifToken.length,
             nodeType: ParseNodeType.If,
             id: _nextNodeId++,
-            testExpression,
-            ifSuite,
-            elseSuite,
+            parent: undefined,
+            a: undefined,
+            d: {
+                testExpr,
+                ifSuite: ifSuite,
+                elseSuite: elseSuite,
+            },
         };
 
-        testExpression.parent = node;
+        testExpr.parent = node;
         ifSuite.parent = node;
 
-        extendRange(node, testExpression);
+        extendRange(node, testExpr);
         extendRange(node, ifSuite);
         if (elseSuite) {
             extendRange(node, elseSuite);
@@ -237,23 +250,29 @@ export namespace IfNode {
 }
 
 export interface WhileNode extends ParseNodeBase<ParseNodeType.While> {
-    testExpression: ExpressionNode;
-    whileSuite: SuiteNode;
-    elseSuite?: SuiteNode | undefined;
+    d: {
+        testExpr: ExpressionNode;
+        whileSuite: SuiteNode;
+        elseSuite?: SuiteNode | undefined;
+    };
 }
 
 export namespace WhileNode {
-    export function create(whileToken: Token, testExpression: ExpressionNode, whileSuite: SuiteNode) {
+    export function create(whileToken: Token, testExpr: ExpressionNode, whileSuite: SuiteNode) {
         const node: WhileNode = {
             start: whileToken.start,
             length: whileToken.length,
             nodeType: ParseNodeType.While,
             id: _nextNodeId++,
-            testExpression,
-            whileSuite,
+            parent: undefined,
+            a: undefined,
+            d: {
+                testExpr,
+                whileSuite,
+            },
         };
 
-        testExpression.parent = node;
+        testExpr.parent = node;
         whileSuite.parent = node;
 
         extendRange(node, whileSuite);
@@ -263,20 +282,22 @@ export namespace WhileNode {
 }
 
 export interface ForNode extends ParseNodeBase<ParseNodeType.For> {
-    isAsync?: boolean;
-    asyncToken?: Token;
-    targetExpression: ExpressionNode;
-    iterableExpression: ExpressionNode;
-    forSuite: SuiteNode;
-    elseSuite?: SuiteNode | undefined;
-    typeComment?: StringToken;
+    d: {
+        isAsync?: boolean;
+        asyncToken?: Token;
+        targetExpr: ExpressionNode;
+        iterableExpr: ExpressionNode;
+        forSuite: SuiteNode;
+        elseSuite?: SuiteNode | undefined;
+        typeComment?: StringToken;
+    };
 }
 
 export namespace ForNode {
     export function create(
         forToken: Token,
-        targetExpression: ExpressionNode,
-        iterableExpression: ExpressionNode,
+        targetExpr: ExpressionNode,
+        iterableExpr: ExpressionNode,
         forSuite: SuiteNode
     ) {
         const node: ForNode = {
@@ -284,13 +305,17 @@ export namespace ForNode {
             length: forToken.length,
             nodeType: ParseNodeType.For,
             id: _nextNodeId++,
-            targetExpression,
-            iterableExpression,
-            forSuite,
+            parent: undefined,
+            a: undefined,
+            d: {
+                targetExpr,
+                iterableExpr,
+                forSuite,
+            },
         };
 
-        targetExpression.parent = node;
-        iterableExpression.parent = node;
+        targetExpr.parent = node;
+        iterableExpr.parent = node;
         forSuite.parent = node;
 
         extendRange(node, forSuite);
@@ -302,60 +327,72 @@ export namespace ForNode {
 export type ComprehensionForIfNode = ComprehensionForNode | ComprehensionIfNode;
 
 export interface ComprehensionForNode extends ParseNodeBase<ParseNodeType.ComprehensionFor> {
-    isAsync?: boolean;
-    asyncToken?: Token;
-    targetExpression: ExpressionNode;
-    iterableExpression: ExpressionNode;
+    d: {
+        isAsync?: boolean;
+        asyncToken?: Token;
+        targetExpr: ExpressionNode;
+        iterableExpr: ExpressionNode;
+    };
 }
 
 export namespace ComprehensionForNode {
-    export function create(startToken: Token, targetExpression: ExpressionNode, iterableExpression: ExpressionNode) {
+    export function create(startToken: Token, targetExpr: ExpressionNode, iterableExpr: ExpressionNode) {
         const node: ComprehensionForNode = {
             start: startToken.start,
             length: startToken.length,
             nodeType: ParseNodeType.ComprehensionFor,
             id: _nextNodeId++,
-            targetExpression,
-            iterableExpression,
+            parent: undefined,
+            a: undefined,
+            d: {
+                targetExpr,
+                iterableExpr,
+            },
         };
 
-        targetExpression.parent = node;
-        iterableExpression.parent = node;
+        targetExpr.parent = node;
+        iterableExpr.parent = node;
 
-        extendRange(node, targetExpression);
-        extendRange(node, iterableExpression);
+        extendRange(node, targetExpr);
+        extendRange(node, iterableExpr);
 
         return node;
     }
 }
 
 export interface ComprehensionIfNode extends ParseNodeBase<ParseNodeType.ComprehensionIf> {
-    testExpression: ExpressionNode;
+    d: {
+        testExpr: ExpressionNode;
+    };
 }
 
 export namespace ComprehensionIfNode {
-    export function create(ifToken: Token, testExpression: ExpressionNode) {
+    export function create(ifToken: Token, testExpr: ExpressionNode) {
         const node: ComprehensionIfNode = {
             start: ifToken.start,
             length: ifToken.length,
             nodeType: ParseNodeType.ComprehensionIf,
             id: _nextNodeId++,
-            testExpression,
+            parent: undefined,
+            a: undefined,
+            d: { testExpr },
         };
 
-        testExpression.parent = node;
+        testExpr.parent = node;
 
-        extendRange(node, testExpression);
+        extendRange(node, testExpr);
 
         return node;
     }
 }
 
 export interface TryNode extends ParseNodeBase<ParseNodeType.Try> {
-    trySuite: SuiteNode;
-    exceptClauses: ExceptNode[];
-    elseSuite?: SuiteNode | undefined;
-    finallySuite?: SuiteNode | undefined;
+    d: {
+        trySuite: SuiteNode;
+        exceptClauses: ExceptNode[];
+        elseSuite?: SuiteNode | undefined;
+        finallySuite?: SuiteNode | undefined;
+    };
 }
 
 export namespace TryNode {
@@ -365,8 +402,12 @@ export namespace TryNode {
             length: tryToken.length,
             nodeType: ParseNodeType.Try,
             id: _nextNodeId++,
-            trySuite,
-            exceptClauses: [],
+            parent: undefined,
+            a: undefined,
+            d: {
+                trySuite: trySuite,
+                exceptClauses: [],
+            },
         };
 
         trySuite.parent = node;
@@ -378,10 +419,12 @@ export namespace TryNode {
 }
 
 export interface ExceptNode extends ParseNodeBase<ParseNodeType.Except> {
-    typeExpression?: ExpressionNode | undefined;
-    name?: NameNode | undefined;
-    exceptSuite: SuiteNode;
-    isExceptGroup: boolean;
+    d: {
+        typeExpr?: ExpressionNode | undefined;
+        name?: NameNode | undefined;
+        exceptSuite: SuiteNode;
+        isExceptGroup: boolean;
+    };
 }
 
 export namespace ExceptNode {
@@ -391,8 +434,12 @@ export namespace ExceptNode {
             length: exceptToken.length,
             nodeType: ParseNodeType.Except,
             id: _nextNodeId++,
-            exceptSuite,
-            isExceptGroup,
+            parent: undefined,
+            a: undefined,
+            d: {
+                exceptSuite: exceptSuite,
+                isExceptGroup: isExceptGroup,
+            },
         };
 
         exceptSuite.parent = node;
@@ -404,35 +451,44 @@ export namespace ExceptNode {
 }
 
 export interface FunctionNode extends ParseNodeBase<ParseNodeType.Function> {
-    decorators: DecoratorNode[];
-    isAsync?: boolean;
-    name: NameNode;
-    typeParameters?: TypeParameterListNode;
-    parameters: ParameterNode[];
-    returnTypeAnnotation?: ExpressionNode | undefined;
-    functionAnnotationComment?: FunctionAnnotationNode | undefined;
-    suite: SuiteNode;
+    d: {
+        decorators: DecoratorNode[];
+        isAsync: boolean;
+        name: NameNode;
+        typeParams: TypeParameterListNode | undefined;
+        params: ParameterNode[];
+        returnAnnotation: ExpressionNode | undefined;
+        funcAnnotationComment: FunctionAnnotationNode | undefined;
+        suite: SuiteNode;
+    };
 }
 
 export namespace FunctionNode {
-    export function create(defToken: Token, name: NameNode, suite: SuiteNode, typeParameters?: TypeParameterListNode) {
+    export function create(defToken: Token, name: NameNode, suite: SuiteNode, typeParams?: TypeParameterListNode) {
         const node: FunctionNode = {
             start: defToken.start,
             length: defToken.length,
             nodeType: ParseNodeType.Function,
             id: _nextNodeId++,
-            decorators: [],
-            name,
-            typeParameters,
-            parameters: [],
-            suite,
+            parent: undefined,
+            a: undefined,
+            d: {
+                decorators: [],
+                isAsync: false,
+                name: name,
+                typeParams,
+                params: [],
+                returnAnnotation: undefined,
+                funcAnnotationComment: undefined,
+                suite: suite,
+            },
         };
 
         name.parent = node;
         suite.parent = node;
 
-        if (typeParameters) {
-            typeParameters.parent = node;
+        if (typeParams) {
+            typeParams.parent = node;
         }
 
         extendRange(node, suite);
@@ -441,28 +497,38 @@ export namespace FunctionNode {
     }
 }
 
-export const enum ParameterCategory {
+export const enum ParamCategory {
     Simple,
     ArgsList,
     KwargsDict,
 }
 
 export interface ParameterNode extends ParseNodeBase<ParseNodeType.Parameter> {
-    category: ParameterCategory;
-    name?: NameNode | undefined;
-    typeAnnotation?: ExpressionNode | undefined;
-    typeAnnotationComment?: ExpressionNode | undefined;
-    defaultValue?: ExpressionNode | undefined;
+    d: {
+        category: ParamCategory;
+        name: NameNode | undefined;
+        annotation: ExpressionNode | undefined;
+        annotationComment: ExpressionNode | undefined;
+        defaultValue: ExpressionNode | undefined;
+    };
 }
 
 export namespace ParameterNode {
-    export function create(startToken: Token, paramCategory: ParameterCategory) {
+    export function create(startToken: Token, paramCategory: ParamCategory) {
         const node: ParameterNode = {
             start: startToken.start,
             length: startToken.length,
             nodeType: ParseNodeType.Parameter,
             id: _nextNodeId++,
-            category: paramCategory,
+            parent: undefined,
+            a: undefined,
+            d: {
+                category: paramCategory,
+                name: undefined,
+                annotation: undefined,
+                annotationComment: undefined,
+                defaultValue: undefined,
+            },
         };
 
         return node;
@@ -470,37 +536,38 @@ export namespace ParameterNode {
 }
 
 export interface ClassNode extends ParseNodeBase<ParseNodeType.Class> {
-    decorators: DecoratorNode[];
-    name: NameNode;
-    typeParameters?: TypeParameterListNode;
-    arguments: ArgumentNode[];
-    suite: SuiteNode;
+    d: {
+        decorators: DecoratorNode[];
+        name: NameNode;
+        typeParams: TypeParameterListNode | undefined;
+        arguments: ArgumentNode[];
+        suite: SuiteNode;
+    };
 }
 
 export namespace ClassNode {
-    export function create(
-        classToken: Token,
-        name: NameNode,
-        suite: SuiteNode,
-        typeParameters?: TypeParameterListNode
-    ) {
+    export function create(classToken: Token, name: NameNode, suite: SuiteNode, typeParams?: TypeParameterListNode) {
         const node: ClassNode = {
             start: classToken.start,
             length: classToken.length,
             nodeType: ParseNodeType.Class,
             id: _nextNodeId++,
-            decorators: [],
-            name,
-            typeParameters,
-            arguments: [],
-            suite,
+            parent: undefined,
+            a: undefined,
+            d: {
+                decorators: [],
+                name: name,
+                typeParams,
+                arguments: [],
+                suite: suite,
+            },
         };
 
         name.parent = node;
         suite.parent = node;
 
-        if (typeParameters) {
-            typeParameters.parent = node;
+        if (typeParams) {
+            typeParams.parent = node;
         }
 
         extendRange(node, suite);
@@ -517,28 +584,39 @@ export namespace ClassNode {
             length: 0,
             nodeType: ParseNodeType.Class,
             id: _nextNodeId++,
-            decorators,
-            name: {
-                start: decorators[0].start,
-                length: 0,
-                id: 0,
-                nodeType: ParseNodeType.Name,
-                token: {
-                    type: TokenType.Identifier,
-                    start: 0,
+            parent: undefined,
+            a: undefined,
+            d: {
+                decorators,
+                name: {
+                    start: decorators[0].start,
                     length: 0,
-                    comments: [],
-                    value: '',
+                    nodeType: ParseNodeType.Name,
+                    id: 0,
+                    parent: undefined,
+                    a: undefined,
+                    d: {
+                        token: {
+                            type: TokenType.Identifier,
+                            start: 0,
+                            length: 0,
+                            comments: [],
+                            value: '',
+                        },
+                        value: '',
+                    },
                 },
-                value: '',
-            },
-            arguments: [],
-            suite: {
-                start: decorators[0].start,
-                length: 0,
-                id: 0,
-                nodeType: ParseNodeType.Suite,
-                statements: [],
+                typeParams: undefined,
+                arguments: [],
+                suite: {
+                    start: decorators[0].start,
+                    length: 0,
+                    nodeType: ParseNodeType.Suite,
+                    id: 0,
+                    parent: undefined,
+                    a: undefined,
+                    d: { statements: [], typeComment: undefined },
+                },
             },
         };
 
@@ -547,19 +625,21 @@ export namespace ClassNode {
             extendRange(node, decorator);
         });
 
-        node.name.parent = node;
-        node.suite.parent = node;
+        node.d.name.parent = node;
+        node.d.suite.parent = node;
 
         return node;
     }
 }
 
 export interface WithNode extends ParseNodeBase<ParseNodeType.With> {
-    isAsync?: boolean;
-    asyncToken?: Token;
-    withItems: WithItemNode[];
-    suite: SuiteNode;
-    typeComment?: StringToken;
+    d: {
+        isAsync?: boolean;
+        asyncToken?: Token;
+        withItems: WithItemNode[];
+        suite: SuiteNode;
+        typeComment?: StringToken;
+    };
 }
 
 export namespace WithNode {
@@ -569,8 +649,12 @@ export namespace WithNode {
             length: withToken.length,
             nodeType: ParseNodeType.With,
             id: _nextNodeId++,
-            withItems: [],
-            suite,
+            parent: undefined,
+            a: undefined,
+            d: {
+                withItems: [],
+                suite: suite,
+            },
         };
 
         suite.parent = node;
@@ -582,50 +666,60 @@ export namespace WithNode {
 }
 
 export interface WithItemNode extends ParseNodeBase<ParseNodeType.WithItem> {
-    expression: ExpressionNode;
-    target?: ExpressionNode | undefined;
+    d: {
+        expr: ExpressionNode;
+        target?: ExpressionNode | undefined;
+    };
 }
 
 export namespace WithItemNode {
-    export function create(expression: ExpressionNode) {
+    export function create(expr: ExpressionNode) {
         const node: WithItemNode = {
-            start: expression.start,
-            length: expression.length,
+            start: expr.start,
+            length: expr.length,
             nodeType: ParseNodeType.WithItem,
             id: _nextNodeId++,
-            expression,
+            parent: undefined,
+            a: undefined,
+            d: { expr },
         };
 
-        expression.parent = node;
+        expr.parent = node;
 
         return node;
     }
 }
 
 export interface DecoratorNode extends ParseNodeBase<ParseNodeType.Decorator> {
-    expression: ExpressionNode;
+    d: {
+        expr: ExpressionNode;
+    };
 }
 
 export namespace DecoratorNode {
-    export function create(atToken: Token, expression: ExpressionNode) {
+    export function create(atToken: Token, expr: ExpressionNode) {
         const node: DecoratorNode = {
             start: atToken.start,
             length: atToken.length,
             nodeType: ParseNodeType.Decorator,
             id: _nextNodeId++,
-            expression,
+            parent: undefined,
+            a: undefined,
+            d: { expr },
         };
 
-        expression.parent = node;
+        expr.parent = node;
 
-        extendRange(node, expression);
+        extendRange(node, expr);
 
         return node;
     }
 }
 
 export interface StatementListNode extends ParseNodeBase<ParseNodeType.StatementList> {
-    statements: ParseNode[];
+    d: {
+        statements: ParseNode[];
+    };
 }
 
 export namespace StatementListNode {
@@ -635,7 +729,9 @@ export namespace StatementListNode {
             length: atToken.length,
             nodeType: ParseNodeType.StatementList,
             id: _nextNodeId++,
-            statements: [],
+            parent: undefined,
+            a: undefined,
+            d: { statements: [] },
         };
 
         return node;
@@ -732,9 +828,11 @@ export function isExpressionNode(node: ParseNode): node is ExpressionNode {
 }
 
 export interface ErrorNode extends ParseNodeBase<ParseNodeType.Error> {
-    readonly category: ErrorExpressionCategory;
-    readonly child?: ExpressionNode | undefined;
-    readonly decorators?: DecoratorNode[] | undefined;
+    d: {
+        readonly category: ErrorExpressionCategory;
+        readonly child: ExpressionNode | undefined;
+        readonly decorators?: DecoratorNode[] | undefined;
+    };
 }
 
 export namespace ErrorNode {
@@ -749,9 +847,13 @@ export namespace ErrorNode {
             length: initialRange.length,
             nodeType: ParseNodeType.Error,
             id: _nextNodeId++,
-            category,
-            child,
-            decorators,
+            parent: undefined,
+            a: undefined,
+            d: {
+                category,
+                child,
+                decorators,
+            },
         };
 
         if (child) {
@@ -774,167 +876,196 @@ export namespace ErrorNode {
 }
 
 export interface UnaryOperationNode extends ParseNodeBase<ParseNodeType.UnaryOperation> {
-    expression: ExpressionNode;
-    operatorToken: Token;
-    operator: OperatorType;
-    isParenthesized?: boolean;
+    d: {
+        expr: ExpressionNode;
+        operatorToken: Token;
+        operator: OperatorType;
+        hasParens: boolean;
+    };
 }
 
 export namespace UnaryOperationNode {
-    export function create(operatorToken: Token, expression: ExpressionNode, operator: OperatorType) {
+    export function create(operatorToken: Token, expr: ExpressionNode, operator: OperatorType) {
         const node: UnaryOperationNode = {
             start: operatorToken.start,
             length: operatorToken.length,
             nodeType: ParseNodeType.UnaryOperation,
             id: _nextNodeId++,
-            operator,
-            operatorToken,
-            expression,
+            parent: undefined,
+            a: undefined,
+            d: {
+                operator,
+                operatorToken,
+                expr,
+                hasParens: false,
+            },
         };
 
-        expression.parent = node;
-        node.maxChildDepth = 1 + (expression.maxChildDepth ?? 0);
+        expr.parent = node;
 
-        extendRange(node, expression);
+        extendRange(node, expr);
 
         return node;
     }
 }
 
 export interface BinaryOperationNode extends ParseNodeBase<ParseNodeType.BinaryOperation> {
-    leftExpression: ExpressionNode;
-    operatorToken: Token;
-    operator: OperatorType;
-    rightExpression: ExpressionNode;
-    isParenthesized?: boolean;
+    d: {
+        leftExpr: ExpressionNode;
+        operatorToken: Token;
+        operator: OperatorType;
+        rightExpr: ExpressionNode;
+        hasParens: boolean;
+    };
 }
 
 export namespace BinaryOperationNode {
     export function create(
-        leftExpression: ExpressionNode,
-        rightExpression: ExpressionNode,
+        leftExpr: ExpressionNode,
+        rightExpr: ExpressionNode,
         operatorToken: Token,
         operator: OperatorType
     ) {
         const node: BinaryOperationNode = {
-            start: leftExpression.start,
-            length: leftExpression.length,
+            start: leftExpr.start,
+            length: leftExpr.length,
             nodeType: ParseNodeType.BinaryOperation,
             id: _nextNodeId++,
-            leftExpression,
-            operatorToken,
-            operator,
-            rightExpression,
+            parent: undefined,
+            a: undefined,
+            d: {
+                leftExpr,
+                operatorToken,
+                operator,
+                rightExpr,
+                hasParens: false,
+            },
         };
 
-        leftExpression.parent = node;
-        rightExpression.parent = node;
+        leftExpr.parent = node;
+        rightExpr.parent = node;
 
-        node.maxChildDepth = 1 + Math.max(leftExpression.maxChildDepth ?? 0, rightExpression.maxChildDepth ?? 0);
-
-        extendRange(node, rightExpression);
+        extendRange(node, rightExpr);
 
         return node;
     }
 }
 
 export interface AssignmentExpressionNode extends ParseNodeBase<ParseNodeType.AssignmentExpression> {
-    name: NameNode;
-    walrusToken: Token;
-    rightExpression: ExpressionNode;
-    isParenthesized: boolean;
+    d: {
+        name: NameNode;
+        walrusToken: Token;
+        rightExpr: ExpressionNode;
+        hasParens: boolean;
+    };
 }
 
 export namespace AssignmentExpressionNode {
-    export function create(name: NameNode, walrusToken: Token, rightExpression: ExpressionNode) {
+    export function create(name: NameNode, walrusToken: Token, rightExpr: ExpressionNode) {
         const node: AssignmentExpressionNode = {
             start: name.start,
             length: name.length,
             nodeType: ParseNodeType.AssignmentExpression,
             id: _nextNodeId++,
-            name,
-            walrusToken,
-            rightExpression,
-            isParenthesized: false,
+            parent: undefined,
+            a: undefined,
+            d: {
+                name,
+                walrusToken,
+                rightExpr,
+                hasParens: false,
+            },
         };
 
         name.parent = node;
-        rightExpression.parent = node;
+        rightExpr.parent = node;
 
-        extendRange(node, rightExpression);
+        extendRange(node, rightExpr);
 
         return node;
     }
 }
 
 export interface AssignmentNode extends ParseNodeBase<ParseNodeType.Assignment> {
-    leftExpression: ExpressionNode;
-    rightExpression: ExpressionNode;
-    typeAnnotationComment?: ExpressionNode | undefined;
-    chainedTypeAnnotationComment?: ExpressionNode | undefined;
+    d: {
+        leftExpr: ExpressionNode;
+        rightExpr: ExpressionNode;
+        annotationComment?: ExpressionNode | undefined;
+        chainedAnnotationComment?: ExpressionNode | undefined;
+    };
 }
 
 export namespace AssignmentNode {
-    export function create(leftExpression: ExpressionNode, rightExpression: ExpressionNode) {
+    export function create(leftExpr: ExpressionNode, rightExpr: ExpressionNode) {
         const node: AssignmentNode = {
-            start: leftExpression.start,
-            length: leftExpression.length,
+            start: leftExpr.start,
+            length: leftExpr.length,
             nodeType: ParseNodeType.Assignment,
             id: _nextNodeId++,
-            leftExpression,
-            rightExpression,
+            parent: undefined,
+            a: undefined,
+            d: {
+                leftExpr,
+                rightExpr,
+            },
         };
 
-        leftExpression.parent = node;
-        rightExpression.parent = node;
+        leftExpr.parent = node;
+        rightExpr.parent = node;
 
-        extendRange(node, rightExpression);
+        extendRange(node, rightExpr);
 
         return node;
     }
 }
 
-export enum TypeParameterCategory {
+export enum TypeParamKind {
     TypeVar,
     TypeVarTuple,
     ParamSpec,
 }
 
 export interface TypeParameterNode extends ParseNodeBase<ParseNodeType.TypeParameter> {
-    name: NameNode;
-    typeParamCategory: TypeParameterCategory;
-    boundExpression?: ExpressionNode;
-    defaultExpression?: ExpressionNode;
+    d: {
+        name: NameNode;
+        typeParamKind: TypeParamKind;
+        boundExpr?: ExpressionNode;
+        defaultExpr?: ExpressionNode;
+    };
 }
 
 export namespace TypeParameterNode {
     export function create(
         name: NameNode,
-        typeParamCategory: TypeParameterCategory,
-        boundExpression?: ExpressionNode,
-        defaultExpression?: ExpressionNode
+        typeParamKind: TypeParamKind,
+        boundExpr?: ExpressionNode,
+        defaultExpr?: ExpressionNode
     ) {
         const node: TypeParameterNode = {
             start: name.start,
             length: name.length,
             nodeType: ParseNodeType.TypeParameter,
             id: _nextNodeId++,
-            name,
-            typeParamCategory,
-            boundExpression,
-            defaultExpression,
+            parent: undefined,
+            a: undefined,
+            d: {
+                name,
+                typeParamKind,
+                boundExpr,
+                defaultExpr,
+            },
         };
 
         name.parent = node;
 
-        if (boundExpression) {
-            boundExpression.parent = node;
-            extendRange(node, boundExpression);
+        if (boundExpr) {
+            boundExpr.parent = node;
+            extendRange(node, boundExpr);
         }
 
-        if (defaultExpression) {
-            defaultExpression.parent = node;
-            extendRange(node, defaultExpression);
+        if (defaultExpr) {
+            defaultExpr.parent = node;
+            extendRange(node, defaultExpr);
         }
 
         return node;
@@ -942,22 +1073,26 @@ export namespace TypeParameterNode {
 }
 
 export interface TypeParameterListNode extends ParseNodeBase<ParseNodeType.TypeParameterList> {
-    parameters: TypeParameterNode[];
+    d: {
+        params: TypeParameterNode[];
+    };
 }
 
 export namespace TypeParameterListNode {
-    export function create(startToken: Token, endToken: Token, parameters: TypeParameterNode[]) {
+    export function create(startToken: Token, endToken: Token, params: TypeParameterNode[]) {
         const node: TypeParameterListNode = {
             start: startToken.start,
             length: startToken.length,
             nodeType: ParseNodeType.TypeParameterList,
             id: _nextNodeId++,
-            parameters,
+            parent: undefined,
+            a: undefined,
+            d: { params },
         };
 
         extendRange(node, endToken);
 
-        parameters.forEach((param) => {
+        params.forEach((param) => {
             extendRange(node, param);
             param.parent = node;
         });
@@ -967,232 +1102,274 @@ export namespace TypeParameterListNode {
 }
 
 export interface TypeAliasNode extends ParseNodeBase<ParseNodeType.TypeAlias> {
-    name: NameNode;
-    typeParameters?: TypeParameterListNode;
-    expression: ExpressionNode;
+    d: {
+        name: NameNode;
+        typeParams?: TypeParameterListNode;
+        expr: ExpressionNode;
+    };
 }
 
 export namespace TypeAliasNode {
     export function create(
         typeToken: KeywordToken,
         name: NameNode,
-        expression: ExpressionNode,
-        typeParameters?: TypeParameterListNode
+        expr: ExpressionNode,
+        typeParams?: TypeParameterListNode
     ) {
         const node: TypeAliasNode = {
             start: typeToken.start,
             length: typeToken.length,
             nodeType: ParseNodeType.TypeAlias,
             id: _nextNodeId++,
-            name,
-            typeParameters,
-            expression,
+            parent: undefined,
+            a: undefined,
+            d: {
+                name,
+                typeParams,
+                expr,
+            },
         };
 
         name.parent = node;
-        expression.parent = node;
+        expr.parent = node;
 
-        if (typeParameters) {
-            typeParameters.parent = node;
+        if (typeParams) {
+            typeParams.parent = node;
         }
 
-        extendRange(node, expression);
+        extendRange(node, expr);
 
         return node;
     }
 }
 
 export interface TypeAnnotationNode extends ParseNodeBase<ParseNodeType.TypeAnnotation> {
-    valueExpression: ExpressionNode;
-    typeAnnotation: ExpressionNode;
+    d: {
+        valueExpr: ExpressionNode;
+        annotation: ExpressionNode;
+    };
 }
 
 export namespace TypeAnnotationNode {
-    export function create(valueExpression: ExpressionNode, typeAnnotation: ExpressionNode) {
+    export function create(valueExpr: ExpressionNode, annotation: ExpressionNode) {
         const node: TypeAnnotationNode = {
-            start: valueExpression.start,
-            length: valueExpression.length,
+            start: valueExpr.start,
+            length: valueExpr.length,
             nodeType: ParseNodeType.TypeAnnotation,
             id: _nextNodeId++,
-            valueExpression,
-            typeAnnotation,
+            parent: undefined,
+            a: undefined,
+            d: {
+                valueExpr,
+                annotation,
+            },
         };
 
-        valueExpression.parent = node;
-        typeAnnotation.parent = node;
+        valueExpr.parent = node;
+        annotation.parent = node;
 
-        extendRange(node, typeAnnotation);
+        extendRange(node, annotation);
 
         return node;
     }
 }
 
 export interface FunctionAnnotationNode extends ParseNodeBase<ParseNodeType.FunctionAnnotation> {
-    isParamListEllipsis: boolean;
-    paramTypeAnnotations: ExpressionNode[];
-    returnTypeAnnotation: ExpressionNode;
+    d: {
+        isEllipsis: boolean;
+        paramAnnotations: ExpressionNode[];
+        returnAnnotation: ExpressionNode;
+    };
 }
 
 export namespace FunctionAnnotationNode {
     export function create(
         openParenToken: Token,
-        isParamListEllipsis: boolean,
-        paramTypeAnnotations: ExpressionNode[],
-        returnTypeAnnotation: ExpressionNode
+        isEllipsis: boolean,
+        paramAnnotations: ExpressionNode[],
+        returnAnnotation: ExpressionNode
     ) {
         const node: FunctionAnnotationNode = {
             start: openParenToken.start,
             length: openParenToken.length,
             nodeType: ParseNodeType.FunctionAnnotation,
             id: _nextNodeId++,
-            isParamListEllipsis,
-            paramTypeAnnotations,
-            returnTypeAnnotation,
+            parent: undefined,
+            a: undefined,
+            d: {
+                isEllipsis,
+                paramAnnotations,
+                returnAnnotation,
+            },
         };
 
-        paramTypeAnnotations.forEach((p) => {
+        paramAnnotations.forEach((p) => {
             p.parent = node;
         });
-        returnTypeAnnotation.parent = node;
+        returnAnnotation.parent = node;
 
-        extendRange(node, returnTypeAnnotation);
+        extendRange(node, returnAnnotation);
 
         return node;
     }
 }
 
 export interface AugmentedAssignmentNode extends ParseNodeBase<ParseNodeType.AugmentedAssignment> {
-    leftExpression: ExpressionNode;
-    operator: OperatorType;
-    rightExpression: ExpressionNode;
+    d: {
+        leftExpr: ExpressionNode;
+        operator: OperatorType;
+        rightExpr: ExpressionNode;
 
-    // The destExpression is a copy of the leftExpression
-    // node. We use it as a place to hang the result type,
-    // as opposed to the source type.
-    destExpression: ExpressionNode;
+        // The destExpression is a copy of the leftExpression
+        // node. We use it as a place to hang the result type,
+        // as opposed to the source type.
+        destExpr: ExpressionNode;
+    };
 }
 
 export namespace AugmentedAssignmentNode {
     export function create(
-        leftExpression: ExpressionNode,
-        rightExpression: ExpressionNode,
+        leftExpr: ExpressionNode,
+        rightExpr: ExpressionNode,
         operator: OperatorType,
-        destExpression: ExpressionNode
+        destExpr: ExpressionNode
     ) {
         const node: AugmentedAssignmentNode = {
-            start: leftExpression.start,
-            length: leftExpression.length,
+            start: leftExpr.start,
+            length: leftExpr.length,
             nodeType: ParseNodeType.AugmentedAssignment,
             id: _nextNodeId++,
-            leftExpression,
-            operator,
-            rightExpression,
-            destExpression,
+            parent: undefined,
+            a: undefined,
+            d: {
+                leftExpr,
+                operator,
+                rightExpr,
+                destExpr,
+            },
         };
 
-        leftExpression.parent = node;
-        rightExpression.parent = node;
-        destExpression.parent = node;
+        leftExpr.parent = node;
+        rightExpr.parent = node;
+        destExpr.parent = node;
 
-        extendRange(node, rightExpression);
+        extendRange(node, rightExpr);
 
         return node;
     }
 }
 
 export interface AwaitNode extends ParseNodeBase<ParseNodeType.Await> {
-    expression: ExpressionNode;
-    isParenthesized?: boolean;
+    d: {
+        expr: ExpressionNode;
+        hasParens?: boolean;
+    };
 }
 
 export namespace AwaitNode {
-    export function create(awaitToken: Token, expression: ExpressionNode) {
+    export function create(awaitToken: Token, expr: ExpressionNode) {
         const node: AwaitNode = {
             start: awaitToken.start,
             length: awaitToken.length,
             nodeType: ParseNodeType.Await,
             id: _nextNodeId++,
-            expression,
+            parent: undefined,
+            a: undefined,
+            d: { expr },
         };
 
-        expression.parent = node;
+        expr.parent = node;
 
-        extendRange(node, expression);
+        extendRange(node, expr);
 
         return node;
     }
 }
 
 export interface TernaryNode extends ParseNodeBase<ParseNodeType.Ternary> {
-    ifExpression: ExpressionNode;
-    testExpression: ExpressionNode;
-    elseExpression: ExpressionNode;
+    d: {
+        ifExpr: ExpressionNode;
+        testExpr: ExpressionNode;
+        elseExpr: ExpressionNode;
+    };
 }
 
 export namespace TernaryNode {
-    export function create(
-        ifExpression: ExpressionNode,
-        testExpression: ExpressionNode,
-        elseExpression: ExpressionNode
-    ) {
+    export function create(ifExpr: ExpressionNode, testExpr: ExpressionNode, elseExpr: ExpressionNode) {
         const node: TernaryNode = {
-            start: ifExpression.start,
-            length: ifExpression.length,
+            start: ifExpr.start,
+            length: ifExpr.length,
             nodeType: ParseNodeType.Ternary,
             id: _nextNodeId++,
-            ifExpression,
-            testExpression,
-            elseExpression,
+            parent: undefined,
+            a: undefined,
+            d: {
+                ifExpr,
+                testExpr,
+                elseExpr,
+            },
         };
 
-        ifExpression.parent = node;
-        testExpression.parent = node;
-        elseExpression.parent = node;
+        ifExpr.parent = node;
+        testExpr.parent = node;
+        elseExpr.parent = node;
 
-        extendRange(node, elseExpression);
+        extendRange(node, elseExpr);
 
         return node;
     }
 }
 
 export interface UnpackNode extends ParseNodeBase<ParseNodeType.Unpack> {
-    expression: ExpressionNode;
-    starToken: Token;
+    d: {
+        expr: ExpressionNode;
+        starToken: Token;
+    };
 }
 
 export namespace UnpackNode {
-    export function create(starToken: Token, expression: ExpressionNode) {
+    export function create(starToken: Token, expr: ExpressionNode) {
         const node: UnpackNode = {
             start: starToken.start,
             length: starToken.length,
             nodeType: ParseNodeType.Unpack,
             id: _nextNodeId++,
-            expression,
-            starToken,
+            parent: undefined,
+            a: undefined,
+            d: {
+                expr,
+                starToken,
+            },
         };
 
-        expression.parent = node;
+        expr.parent = node;
 
-        extendRange(node, expression);
+        extendRange(node, expr);
 
         return node;
     }
 }
 
 export interface TupleNode extends ParseNodeBase<ParseNodeType.Tuple> {
-    expressions: ExpressionNode[];
-    enclosedInParens: boolean;
+    d: {
+        items: ExpressionNode[];
+        hasParens: boolean;
+    };
 }
 
 export namespace TupleNode {
-    export function create(range: TextRange, enclosedInParens: boolean) {
+    export function create(range: TextRange, hasParens: boolean) {
         const node: TupleNode = {
             start: range.start,
             length: range.length,
             nodeType: ParseNodeType.Tuple,
             id: _nextNodeId++,
-            expressions: [],
-            enclosedInParens,
+            parent: undefined,
+            a: undefined,
+            d: {
+                items: [],
+                hasParens,
+            },
         };
 
         return node;
@@ -1200,32 +1377,36 @@ export namespace TupleNode {
 }
 
 export interface CallNode extends ParseNodeBase<ParseNodeType.Call> {
-    leftExpression: ExpressionNode;
-    arguments: ArgumentNode[];
-    trailingComma: boolean;
+    d: {
+        leftExpr: ExpressionNode;
+        args: ArgumentNode[];
+        trailingComma: boolean;
+    };
 }
 
 export namespace CallNode {
-    export function create(leftExpression: ExpressionNode, argList: ArgumentNode[], trailingComma: boolean) {
+    export function create(leftExpr: ExpressionNode, args: ArgumentNode[], trailingComma: boolean) {
         const node: CallNode = {
-            start: leftExpression.start,
-            length: leftExpression.length,
+            start: leftExpr.start,
+            length: leftExpr.length,
             nodeType: ParseNodeType.Call,
             id: _nextNodeId++,
-            leftExpression,
-            arguments: argList,
-            trailingComma,
+            parent: undefined,
+            a: undefined,
+            d: {
+                leftExpr,
+                args,
+                trailingComma,
+            },
         };
 
-        leftExpression.parent = node;
+        leftExpr.parent = node;
 
-        node.maxChildDepth = 1 + (leftExpression.maxChildDepth ?? 0);
-
-        if (argList.length > 0) {
-            argList.forEach((arg) => {
+        if (args.length > 0) {
+            args.forEach((arg) => {
                 arg.parent = node;
             });
-            extendRange(node, argList[argList.length - 1]);
+            extendRange(node, args[args.length - 1]);
         }
 
         return node;
@@ -1233,70 +1414,82 @@ export namespace CallNode {
 }
 
 export interface ComprehensionNode extends ParseNodeBase<ParseNodeType.Comprehension> {
-    expression: ParseNode;
-    forIfNodes: ComprehensionForIfNode[];
-    isGenerator: boolean;
-    isParenthesized?: boolean;
+    d: {
+        expr: ParseNode;
+        forIfNodes: ComprehensionForIfNode[];
+        isGenerator: boolean;
+        hasParens?: boolean;
+    };
 }
 
 export namespace ComprehensionNode {
-    export function create(expression: ParseNode, isGenerator: boolean) {
+    export function create(expr: ParseNode, isGenerator: boolean) {
         const node: ComprehensionNode = {
-            start: expression.start,
-            length: expression.length,
+            start: expr.start,
+            length: expr.length,
             nodeType: ParseNodeType.Comprehension,
             id: _nextNodeId++,
-            expression,
-            forIfNodes: [],
-            isGenerator,
+            parent: undefined,
+            a: undefined,
+            d: {
+                expr,
+                forIfNodes: [],
+                isGenerator,
+            },
         };
 
-        expression.parent = node;
+        expr.parent = node;
 
         return node;
     }
 }
 
 export interface IndexNode extends ParseNodeBase<ParseNodeType.Index> {
-    baseExpression: ExpressionNode;
-    items: ArgumentNode[];
-    trailingComma: boolean;
+    d: {
+        leftExpr: ExpressionNode;
+        items: ArgumentNode[];
+        trailingComma: boolean;
+    };
 }
 
 export namespace IndexNode {
     export function create(
-        baseExpression: ExpressionNode,
+        leftExpr: ExpressionNode,
         items: ArgumentNode[],
         trailingComma: boolean,
         closeBracketToken: Token
     ) {
         const node: IndexNode = {
-            start: baseExpression.start,
-            length: baseExpression.length,
+            start: leftExpr.start,
+            length: leftExpr.length,
             nodeType: ParseNodeType.Index,
             id: _nextNodeId++,
-            baseExpression,
-            items,
-            trailingComma,
+            parent: undefined,
+            a: undefined,
+            d: {
+                leftExpr,
+                items,
+                trailingComma,
+            },
         };
 
-        baseExpression.parent = node;
+        leftExpr.parent = node;
         items.forEach((item) => {
             item.parent = node;
         });
 
         extendRange(node, closeBracketToken);
 
-        node.maxChildDepth = 1 + (baseExpression.maxChildDepth ?? 0);
-
         return node;
     }
 }
 
 export interface SliceNode extends ParseNodeBase<ParseNodeType.Slice> {
-    startValue?: ExpressionNode | undefined;
-    endValue?: ExpressionNode | undefined;
-    stepValue?: ExpressionNode | undefined;
+    d: {
+        startValue?: ExpressionNode | undefined;
+        endValue?: ExpressionNode | undefined;
+        stepValue?: ExpressionNode | undefined;
+    };
 }
 
 export namespace SliceNode {
@@ -1306,6 +1499,9 @@ export namespace SliceNode {
             length: range.length,
             nodeType: ParseNodeType.Slice,
             id: _nextNodeId++,
+            parent: undefined,
+            a: undefined,
+            d: {},
         };
 
         return node;
@@ -1313,22 +1509,26 @@ export namespace SliceNode {
 }
 
 export interface YieldNode extends ParseNodeBase<ParseNodeType.Yield> {
-    expression?: ExpressionNode | undefined;
+    d: {
+        expr?: ExpressionNode | undefined;
+    };
 }
 
 export namespace YieldNode {
-    export function create(yieldToken: Token, expression?: ExpressionNode) {
+    export function create(yieldToken: Token, expr?: ExpressionNode) {
         const node: YieldNode = {
             start: yieldToken.start,
             length: yieldToken.length,
             nodeType: ParseNodeType.Yield,
             id: _nextNodeId++,
-            expression,
+            parent: undefined,
+            a: undefined,
+            d: { expr },
         };
 
-        if (expression) {
-            expression.parent = node;
-            extendRange(node, expression);
+        if (expr) {
+            expr.parent = node;
+            extendRange(node, expr);
         }
 
         return node;
@@ -1336,81 +1536,97 @@ export namespace YieldNode {
 }
 
 export interface YieldFromNode extends ParseNodeBase<ParseNodeType.YieldFrom> {
-    expression: ExpressionNode;
+    d: {
+        expr: ExpressionNode;
+    };
 }
 
 export namespace YieldFromNode {
-    export function create(yieldToken: Token, expression: ExpressionNode) {
+    export function create(yieldToken: Token, expr: ExpressionNode) {
         const node: YieldFromNode = {
             start: yieldToken.start,
             length: yieldToken.length,
             nodeType: ParseNodeType.YieldFrom,
             id: _nextNodeId++,
-            expression,
+            parent: undefined,
+            a: undefined,
+            d: { expr },
         };
 
-        expression.parent = node;
+        expr.parent = node;
 
-        extendRange(node, expression);
+        extendRange(node, expr);
 
         return node;
     }
 }
 
 export interface MemberAccessNode extends ParseNodeBase<ParseNodeType.MemberAccess> {
-    leftExpression: ExpressionNode;
-    memberName: NameNode;
+    d: {
+        leftExpr: ExpressionNode;
+        member: NameNode;
+    };
 }
 
 export namespace MemberAccessNode {
-    export function create(leftExpression: ExpressionNode, memberName: NameNode) {
+    export function create(leftExpr: ExpressionNode, member: NameNode) {
         const node: MemberAccessNode = {
-            start: leftExpression.start,
-            length: leftExpression.length,
+            start: leftExpr.start,
+            length: leftExpr.length,
             nodeType: ParseNodeType.MemberAccess,
             id: _nextNodeId++,
-            leftExpression,
-            memberName,
+            parent: undefined,
+            a: undefined,
+            d: {
+                leftExpr: leftExpr,
+                member: member,
+            },
         };
 
-        leftExpression.parent = node;
-        memberName.parent = node;
+        leftExpr.parent = node;
+        member.parent = node;
 
-        extendRange(node, memberName);
-
-        node.maxChildDepth = 1 + (leftExpression.maxChildDepth ?? 0);
+        extendRange(node, member);
 
         return node;
     }
 }
 
 export interface LambdaNode extends ParseNodeBase<ParseNodeType.Lambda> {
-    parameters: ParameterNode[];
-    expression: ExpressionNode;
+    d: {
+        params: ParameterNode[];
+        expr: ExpressionNode;
+    };
 }
 
 export namespace LambdaNode {
-    export function create(lambdaToken: Token, expression: ExpressionNode) {
+    export function create(lambdaToken: Token, expr: ExpressionNode) {
         const node: LambdaNode = {
             start: lambdaToken.start,
             length: lambdaToken.length,
             nodeType: ParseNodeType.Lambda,
             id: _nextNodeId++,
-            parameters: [],
-            expression,
+            parent: undefined,
+            a: undefined,
+            d: {
+                params: [],
+                expr,
+            },
         };
 
-        expression.parent = node;
+        expr.parent = node;
 
-        extendRange(node, expression);
+        extendRange(node, expr);
 
         return node;
     }
 }
 
 export interface NameNode extends ParseNodeBase<ParseNodeType.Name> {
-    token: IdentifierToken;
-    value: string;
+    d: {
+        token: IdentifierToken;
+        value: string;
+    };
 }
 
 export namespace NameNode {
@@ -1420,8 +1636,12 @@ export namespace NameNode {
             length: nameToken.length,
             nodeType: ParseNodeType.Name,
             id: _nextNodeId++,
-            token: nameToken,
-            value: nameToken.value,
+            parent: undefined,
+            a: undefined,
+            d: {
+                token: nameToken,
+                value: nameToken.value,
+            },
         };
 
         return node;
@@ -1429,7 +1649,9 @@ export namespace NameNode {
 }
 
 export interface ConstantNode extends ParseNodeBase<ParseNodeType.Constant> {
-    constType: KeywordType;
+    d: {
+        constType: KeywordType;
+    };
 }
 
 export namespace ConstantNode {
@@ -1439,7 +1661,9 @@ export namespace ConstantNode {
             length: token.length,
             nodeType: ParseNodeType.Constant,
             id: _nextNodeId++,
-            constType: token.keywordType,
+            parent: undefined,
+            a: undefined,
+            d: { constType: token.keywordType },
         };
 
         return node;
@@ -1455,6 +1679,9 @@ export namespace EllipsisNode {
             length: range.length,
             nodeType: ParseNodeType.Ellipsis,
             id: _nextNodeId++,
+            parent: undefined,
+            a: undefined,
+            d: {},
         };
 
         return node;
@@ -1462,9 +1689,11 @@ export namespace EllipsisNode {
 }
 
 export interface NumberNode extends ParseNodeBase<ParseNodeType.Number> {
-    value: number | bigint;
-    isInteger: boolean;
-    isImaginary: boolean;
+    d: {
+        value: number | bigint;
+        isInteger: boolean;
+        isImaginary: boolean;
+    };
 }
 
 export namespace NumberNode {
@@ -1474,9 +1703,13 @@ export namespace NumberNode {
             length: token.length,
             nodeType: ParseNodeType.Number,
             id: _nextNodeId++,
-            value: token.value,
-            isInteger: token.isInteger,
-            isImaginary: token.isImaginary,
+            parent: undefined,
+            a: undefined,
+            d: {
+                value: token.value,
+                isInteger: token.isInteger,
+                isImaginary: token.isImaginary,
+            },
         };
 
         return node;
@@ -1484,19 +1717,25 @@ export namespace NumberNode {
 }
 
 export interface StringNode extends ParseNodeBase<ParseNodeType.String> {
-    token: StringToken;
-    value: string;
+    d: {
+        token: StringToken;
+        value: string;
+    };
 }
 
 export namespace StringNode {
-    export function create(token: StringToken, unescapedValue: string) {
+    export function create(token: StringToken, value: string) {
         const node: StringNode = {
             start: token.start,
             length: token.length,
             nodeType: ParseNodeType.String,
             id: _nextNodeId++,
-            token,
-            value: unescapedValue,
+            parent: undefined,
+            a: undefined,
+            d: {
+                token,
+                value,
+            },
         };
 
         return node;
@@ -1504,13 +1743,15 @@ export namespace StringNode {
 }
 
 export interface FormatStringNode extends ParseNodeBase<ParseNodeType.FormatString> {
-    token: FStringStartToken;
-    middleTokens: FStringMiddleToken[];
-    fieldExpressions: ExpressionNode[];
-    formatExpressions: ExpressionNode[];
+    d: {
+        token: FStringStartToken;
+        middleTokens: FStringMiddleToken[];
+        fieldExprs: ExpressionNode[];
+        formatExprs: ExpressionNode[];
 
-    // Include a dummy "value" to simplify other code.
-    value: '';
+        // Include a dummy "value" to simplify other code.
+        value: '';
+    };
 }
 
 export namespace FormatStringNode {
@@ -1518,28 +1759,32 @@ export namespace FormatStringNode {
         startToken: FStringStartToken,
         endToken: FStringEndToken | undefined,
         middleTokens: FStringMiddleToken[],
-        fieldExpressions: ExpressionNode[],
-        formatExpressions: ExpressionNode[]
+        fieldExprs: ExpressionNode[],
+        formatExprs: ExpressionNode[]
     ) {
         const node: FormatStringNode = {
             start: startToken.start,
             length: startToken.length,
             nodeType: ParseNodeType.FormatString,
             id: _nextNodeId++,
-            token: startToken,
-            middleTokens,
-            fieldExpressions,
-            formatExpressions,
-            value: '',
+            parent: undefined,
+            a: undefined,
+            d: {
+                token: startToken,
+                middleTokens,
+                fieldExprs,
+                formatExprs,
+                value: '',
+            },
         };
 
-        fieldExpressions.forEach((expr) => {
+        fieldExprs.forEach((expr) => {
             expr.parent = node;
             extendRange(node, expr);
         });
 
-        if (formatExpressions) {
-            formatExpressions.forEach((expr) => {
+        if (formatExprs) {
+            formatExprs.forEach((expr) => {
                 expr.parent = node;
                 extendRange(node, expr);
             });
@@ -1554,15 +1799,17 @@ export namespace FormatStringNode {
 }
 
 export interface StringListNode extends ParseNodeBase<ParseNodeType.StringList> {
-    strings: (StringNode | FormatStringNode)[];
+    d: {
+        strings: (StringNode | FormatStringNode)[];
 
-    // If strings are found within the context of
-    // a type annotation, they are further parsed
-    // into an expression.
-    typeAnnotation?: ExpressionNode;
+        // If strings are found within the context of
+        // a type annotation, they are further parsed
+        // into an expression.
+        annotation: ExpressionNode | undefined;
 
-    // Indicates that the string list is enclosed in parens.
-    isParenthesized?: boolean;
+        // Indicates that the string list is enclosed in parens.
+        hasParens: boolean;
+    };
 }
 
 export namespace StringListNode {
@@ -1572,7 +1819,13 @@ export namespace StringListNode {
             length: strings[0].length,
             nodeType: ParseNodeType.StringList,
             id: _nextNodeId++,
-            strings,
+            parent: undefined,
+            a: undefined,
+            d: {
+                strings,
+                annotation: undefined,
+                hasParens: false,
+            },
         };
 
         if (strings.length > 0) {
@@ -1587,8 +1840,10 @@ export namespace StringListNode {
 }
 
 export interface DictionaryNode extends ParseNodeBase<ParseNodeType.Dictionary> {
-    entries: DictionaryEntryNode[];
-    trailingCommaToken?: Token;
+    d: {
+        items: DictionaryEntryNode[];
+        trailingCommaToken: Token | undefined;
+    };
 }
 
 export namespace DictionaryNode {
@@ -1598,7 +1853,12 @@ export namespace DictionaryNode {
             length: range.length,
             nodeType: ParseNodeType.Dictionary,
             id: _nextNodeId++,
-            entries: [],
+            parent: undefined,
+            a: undefined,
+            d: {
+                items: [],
+                trailingCommaToken: undefined,
+            },
         };
 
         return node;
@@ -1606,45 +1866,55 @@ export namespace DictionaryNode {
 }
 
 export interface DictionaryKeyEntryNode extends ParseNodeBase<ParseNodeType.DictionaryKeyEntry> {
-    keyExpression: ExpressionNode;
-    valueExpression: ExpressionNode;
+    d: {
+        keyExpr: ExpressionNode;
+        valueExpr: ExpressionNode;
+    };
 }
 
 export namespace DictionaryKeyEntryNode {
-    export function create(keyExpression: ExpressionNode, valueExpression: ExpressionNode) {
+    export function create(keyExpr: ExpressionNode, valueExpr: ExpressionNode) {
         const node: DictionaryKeyEntryNode = {
-            start: keyExpression.start,
-            length: keyExpression.length,
+            start: keyExpr.start,
+            length: keyExpr.length,
             nodeType: ParseNodeType.DictionaryKeyEntry,
             id: _nextNodeId++,
-            keyExpression,
-            valueExpression,
+            parent: undefined,
+            a: undefined,
+            d: {
+                keyExpr,
+                valueExpr,
+            },
         };
 
-        keyExpression.parent = node;
-        valueExpression.parent = node;
+        keyExpr.parent = node;
+        valueExpr.parent = node;
 
-        extendRange(node, valueExpression);
+        extendRange(node, valueExpr);
 
         return node;
     }
 }
 
 export interface DictionaryExpandEntryNode extends ParseNodeBase<ParseNodeType.DictionaryExpandEntry> {
-    expandExpression: ExpressionNode;
+    d: {
+        expr: ExpressionNode;
+    };
 }
 
 export namespace DictionaryExpandEntryNode {
-    export function create(expandExpression: ExpressionNode) {
+    export function create(expr: ExpressionNode) {
         const node: DictionaryExpandEntryNode = {
-            start: expandExpression.start,
-            length: expandExpression.length,
+            start: expr.start,
+            length: expr.length,
             nodeType: ParseNodeType.DictionaryExpandEntry,
             id: _nextNodeId++,
-            expandExpression,
+            parent: undefined,
+            a: undefined,
+            d: { expr },
         };
 
-        expandExpression.parent = node;
+        expr.parent = node;
 
         return node;
     }
@@ -1653,7 +1923,7 @@ export namespace DictionaryExpandEntryNode {
 export type DictionaryEntryNode = DictionaryKeyEntryNode | DictionaryExpandEntryNode | ComprehensionNode;
 
 export interface SetNode extends ParseNodeBase<ParseNodeType.Set> {
-    entries: ExpressionNode[];
+    d: { items: ExpressionNode[] };
 }
 
 export namespace SetNode {
@@ -1663,7 +1933,9 @@ export namespace SetNode {
             length: range.length,
             nodeType: ParseNodeType.Set,
             id: _nextNodeId++,
-            entries: [],
+            parent: undefined,
+            a: undefined,
+            d: { items: [] },
         };
 
         return node;
@@ -1671,7 +1943,9 @@ export namespace SetNode {
 }
 
 export interface ListNode extends ParseNodeBase<ParseNodeType.List> {
-    entries: ExpressionNode[];
+    d: {
+        items: ExpressionNode[];
+    };
 }
 
 export namespace ListNode {
@@ -1681,51 +1955,61 @@ export namespace ListNode {
             length: range.length,
             nodeType: ParseNodeType.List,
             id: _nextNodeId++,
-            entries: [],
+            parent: undefined,
+            a: undefined,
+            d: { items: [] },
         };
 
         return node;
     }
 }
 
-export const enum ArgumentCategory {
+export const enum ArgCategory {
     Simple,
     UnpackedList,
     UnpackedDictionary,
 }
 
 export interface ArgumentNode extends ParseNodeBase<ParseNodeType.Argument> {
-    argumentCategory: ArgumentCategory;
-    name?: NameNode | undefined;
-    valueExpression: ExpressionNode;
+    d: {
+        argCategory: ArgCategory;
+        name: NameNode | undefined;
+        valueExpr: ExpressionNode;
+
+        // Is this an argument of the form "x=" as introduced in PEP 736?
+        isNameSameAsValue: boolean;
+    };
 }
 
 export namespace ArgumentNode {
-    export function create(
-        startToken: Token | undefined,
-        valueExpression: ExpressionNode,
-        argCategory: ArgumentCategory
-    ) {
+    export function create(startToken: Token | undefined, valueExpr: ExpressionNode, argCategory: ArgCategory) {
         const node: ArgumentNode = {
-            start: startToken ? startToken.start : valueExpression.start,
-            length: startToken ? startToken.length : valueExpression.length,
+            start: startToken ? startToken.start : valueExpr.start,
+            length: startToken ? startToken.length : valueExpr.length,
             nodeType: ParseNodeType.Argument,
             id: _nextNodeId++,
-            valueExpression,
-            argumentCategory: argCategory,
+            parent: undefined,
+            a: undefined,
+            d: {
+                argCategory,
+                name: undefined,
+                valueExpr,
+                isNameSameAsValue: false,
+            },
         };
 
-        valueExpression.parent = node;
+        valueExpr.parent = node;
 
-        extendRange(node, valueExpression);
+        extendRange(node, valueExpr);
 
         return node;
     }
 }
 
 export interface DelNode extends ParseNodeBase<ParseNodeType.Del> {
-    readonly nodeType: ParseNodeType.Del;
-    expressions: ExpressionNode[];
+    d: {
+        targets: ExpressionNode[];
+    };
 }
 
 export namespace DelNode {
@@ -1735,7 +2019,9 @@ export namespace DelNode {
             length: delToken.length,
             nodeType: ParseNodeType.Del,
             id: _nextNodeId++,
-            expressions: [],
+            parent: undefined,
+            a: undefined,
+            d: { targets: [] },
         };
 
         return node;
@@ -1751,6 +2037,9 @@ export namespace PassNode {
             length: passToken.length,
             nodeType: ParseNodeType.Pass,
             id: _nextNodeId++,
+            parent: undefined,
+            a: undefined,
+            d: {},
         };
 
         return node;
@@ -1758,7 +2047,9 @@ export namespace PassNode {
 }
 
 export interface ImportNode extends ParseNodeBase<ParseNodeType.Import> {
-    list: ImportAsNode[];
+    d: {
+        list: ImportAsNode[];
+    };
 }
 
 export namespace ImportNode {
@@ -1768,7 +2059,9 @@ export namespace ImportNode {
             length: importToken.length,
             nodeType: ParseNodeType.Import,
             id: _nextNodeId++,
-            list: [],
+            parent: undefined,
+            a: undefined,
+            d: { list: [] },
         };
 
         return node;
@@ -1776,11 +2069,13 @@ export namespace ImportNode {
 }
 
 export interface ModuleNameNode extends ParseNodeBase<ParseNodeType.ModuleName> {
-    leadingDots: number;
-    nameParts: NameNode[];
+    d: {
+        leadingDots: number;
+        nameParts: NameNode[];
 
-    // This is an error condition used only for type completion.
-    hasTrailingDot?: boolean;
+        // This is an error condition used only for type completion.
+        hasTrailingDot?: boolean;
+    };
 }
 
 export namespace ModuleNameNode {
@@ -1790,8 +2085,12 @@ export namespace ModuleNameNode {
             length: range.length,
             nodeType: ParseNodeType.ModuleName,
             id: _nextNodeId++,
-            leadingDots: 0,
-            nameParts: [],
+            parent: undefined,
+            a: undefined,
+            d: {
+                leadingDots: 0,
+                nameParts: [],
+            },
         };
 
         return node;
@@ -1799,8 +2098,10 @@ export namespace ModuleNameNode {
 }
 
 export interface ImportAsNode extends ParseNodeBase<ParseNodeType.ImportAs> {
-    module: ModuleNameNode;
-    alias?: NameNode | undefined;
+    d: {
+        module: ModuleNameNode;
+        alias?: NameNode | undefined;
+    };
 }
 
 export namespace ImportAsNode {
@@ -1810,7 +2111,9 @@ export namespace ImportAsNode {
             length: module.length,
             nodeType: ParseNodeType.ImportAs,
             id: _nextNodeId++,
-            module,
+            parent: undefined,
+            a: undefined,
+            d: { module: module },
         };
 
         module.parent = node;
@@ -1820,12 +2123,14 @@ export namespace ImportAsNode {
 }
 
 export interface ImportFromNode extends ParseNodeBase<ParseNodeType.ImportFrom> {
-    module: ModuleNameNode;
-    imports: ImportFromAsNode[];
-    isWildcardImport: boolean;
-    usesParens: boolean;
-    wildcardToken?: Token;
-    missingImportKeyword?: boolean;
+    d: {
+        module: ModuleNameNode;
+        imports: ImportFromAsNode[];
+        isWildcardImport: boolean;
+        usesParens: boolean;
+        wildcardToken?: Token;
+        missingImport?: boolean;
+    };
 }
 
 export namespace ImportFromNode {
@@ -1835,10 +2140,14 @@ export namespace ImportFromNode {
             length: fromToken.length,
             nodeType: ParseNodeType.ImportFrom,
             id: _nextNodeId++,
-            module,
-            imports: [],
-            isWildcardImport: false,
-            usesParens: false,
+            parent: undefined,
+            a: undefined,
+            d: {
+                module,
+                imports: [],
+                isWildcardImport: false,
+                usesParens: false,
+            },
         };
 
         module.parent = node;
@@ -1850,8 +2159,10 @@ export namespace ImportFromNode {
 }
 
 export interface ImportFromAsNode extends ParseNodeBase<ParseNodeType.ImportFromAs> {
-    name: NameNode;
-    alias?: NameNode | undefined;
+    d: {
+        name: NameNode;
+        alias?: NameNode | undefined;
+    };
 }
 
 export namespace ImportFromAsNode {
@@ -1861,7 +2172,9 @@ export namespace ImportFromAsNode {
             length: name.length,
             nodeType: ParseNodeType.ImportFromAs,
             id: _nextNodeId++,
-            name,
+            parent: undefined,
+            a: undefined,
+            d: { name: name },
         };
 
         name.parent = node;
@@ -1871,7 +2184,9 @@ export namespace ImportFromAsNode {
 }
 
 export interface GlobalNode extends ParseNodeBase<ParseNodeType.Global> {
-    nameList: NameNode[];
+    d: {
+        targets: NameNode[];
+    };
 }
 
 export namespace GlobalNode {
@@ -1881,7 +2196,9 @@ export namespace GlobalNode {
             length: range.length,
             nodeType: ParseNodeType.Global,
             id: _nextNodeId++,
-            nameList: [],
+            parent: undefined,
+            a: undefined,
+            d: { targets: [] },
         };
 
         return node;
@@ -1889,7 +2206,9 @@ export namespace GlobalNode {
 }
 
 export interface NonlocalNode extends ParseNodeBase<ParseNodeType.Nonlocal> {
-    nameList: NameNode[];
+    d: {
+        targets: NameNode[];
+    };
 }
 
 export namespace NonlocalNode {
@@ -1899,7 +2218,9 @@ export namespace NonlocalNode {
             length: range.length,
             nodeType: ParseNodeType.Nonlocal,
             id: _nextNodeId++,
-            nameList: [],
+            parent: undefined,
+            a: undefined,
+            d: { targets: [] },
         };
 
         return node;
@@ -1907,23 +2228,27 @@ export namespace NonlocalNode {
 }
 
 export interface AssertNode extends ParseNodeBase<ParseNodeType.Assert> {
-    testExpression: ExpressionNode;
-    exceptionExpression?: ExpressionNode | undefined;
+    d: {
+        testExpr: ExpressionNode;
+        exceptionExpr?: ExpressionNode | undefined;
+    };
 }
 
 export namespace AssertNode {
-    export function create(assertToken: Token, testExpression: ExpressionNode) {
+    export function create(assertToken: Token, testExpr: ExpressionNode) {
         const node: AssertNode = {
             start: assertToken.start,
             length: assertToken.length,
             nodeType: ParseNodeType.Assert,
             id: _nextNodeId++,
-            testExpression,
+            parent: undefined,
+            a: undefined,
+            d: { testExpr },
         };
 
-        testExpression.parent = node;
+        testExpr.parent = node;
 
-        extendRange(node, testExpression);
+        extendRange(node, testExpr);
 
         return node;
     }
@@ -1938,6 +2263,9 @@ export namespace BreakNode {
             length: range.length,
             nodeType: ParseNodeType.Break,
             id: _nextNodeId++,
+            parent: undefined,
+            a: undefined,
+            d: {},
         };
 
         return node;
@@ -1953,6 +2281,9 @@ export namespace ContinueNode {
             length: range.length,
             nodeType: ParseNodeType.Continue,
             id: _nextNodeId++,
+            parent: undefined,
+            a: undefined,
+            d: {},
         };
 
         return node;
@@ -1960,7 +2291,9 @@ export namespace ContinueNode {
 }
 
 export interface ReturnNode extends ParseNodeBase<ParseNodeType.Return> {
-    returnExpression?: ExpressionNode | undefined;
+    d: {
+        expr?: ExpressionNode | undefined;
+    };
 }
 
 export namespace ReturnNode {
@@ -1970,6 +2303,9 @@ export namespace ReturnNode {
             length: range.length,
             nodeType: ParseNodeType.Return,
             id: _nextNodeId++,
+            parent: undefined,
+            a: undefined,
+            d: {},
         };
 
         return node;
@@ -1977,9 +2313,11 @@ export namespace ReturnNode {
 }
 
 export interface RaiseNode extends ParseNodeBase<ParseNodeType.Raise> {
-    typeExpression?: ExpressionNode | undefined;
-    valueExpression?: ExpressionNode | undefined;
-    tracebackExpression?: ExpressionNode | undefined;
+    d: {
+        typeExpression?: ExpressionNode | undefined;
+        valueExpression?: ExpressionNode | undefined;
+        tracebackExpression?: ExpressionNode | undefined;
+    };
 }
 
 export namespace RaiseNode {
@@ -1989,6 +2327,9 @@ export namespace RaiseNode {
             length: range.length,
             nodeType: ParseNodeType.Raise,
             id: _nextNodeId++,
+            parent: undefined,
+            a: undefined,
+            d: {},
         };
 
         return node;
@@ -1996,34 +2337,42 @@ export namespace RaiseNode {
 }
 
 export interface MatchNode extends ParseNodeBase<ParseNodeType.Match> {
-    subjectExpression: ExpressionNode;
-    cases: CaseNode[];
+    d: {
+        expr: ExpressionNode;
+        cases: CaseNode[];
+    };
 }
 
 export namespace MatchNode {
-    export function create(matchToken: TextRange, subjectExpression: ExpressionNode) {
+    export function create(matchToken: TextRange, expr: ExpressionNode) {
         const node: MatchNode = {
             start: matchToken.start,
             length: matchToken.length,
             nodeType: ParseNodeType.Match,
             id: _nextNodeId++,
-            subjectExpression,
-            cases: [],
+            parent: undefined,
+            a: undefined,
+            d: {
+                expr,
+                cases: [],
+            },
         };
 
-        subjectExpression.parent = node;
+        expr.parent = node;
 
-        extendRange(node, subjectExpression);
+        extendRange(node, expr);
 
         return node;
     }
 }
 
 export interface CaseNode extends ParseNodeBase<ParseNodeType.Case> {
-    pattern: PatternAtomNode;
-    isIrrefutable: boolean;
-    guardExpression?: ExpressionNode | undefined;
-    suite: SuiteNode;
+    d: {
+        pattern: PatternAtomNode;
+        isIrrefutable: boolean;
+        guardExpr?: ExpressionNode | undefined;
+        suite: SuiteNode;
+    };
 }
 
 export namespace CaseNode {
@@ -2031,7 +2380,7 @@ export namespace CaseNode {
         caseToken: TextRange,
         pattern: PatternAtomNode,
         isIrrefutable: boolean,
-        guardExpression: ExpressionNode | undefined,
+        guardExpr: ExpressionNode | undefined,
         suite: SuiteNode
     ) {
         const node: CaseNode = {
@@ -2039,10 +2388,14 @@ export namespace CaseNode {
             length: caseToken.length,
             nodeType: ParseNodeType.Case,
             id: _nextNodeId++,
-            pattern,
-            isIrrefutable,
-            guardExpression,
-            suite,
+            parent: undefined,
+            a: undefined,
+            d: {
+                pattern,
+                isIrrefutable,
+                guardExpr,
+                suite,
+            },
         };
 
         extendRange(node, suite);
@@ -2050,8 +2403,8 @@ export namespace CaseNode {
         pattern.parent = node;
         suite.parent = node;
 
-        if (guardExpression) {
-            guardExpression.parent = node;
+        if (guardExpr) {
+            guardExpr.parent = node;
         }
 
         return node;
@@ -2059,17 +2412,19 @@ export namespace CaseNode {
 }
 
 export interface PatternSequenceNode extends ParseNodeBase<ParseNodeType.PatternSequence> {
-    entries: PatternAsNode[];
-    starEntryIndex: number | undefined;
+    d: {
+        entries: PatternAsNode[];
+        starEntryIndex: number | undefined;
+    };
 }
 
 export namespace PatternSequenceNode {
     export function create(firstToken: TextRange, entries: PatternAsNode[]) {
         const starEntryIndex = entries.findIndex(
             (entry) =>
-                entry.orPatterns.length === 1 &&
-                entry.orPatterns[0].nodeType === ParseNodeType.PatternCapture &&
-                entry.orPatterns[0].isStar
+                entry.d.orPatterns.length === 1 &&
+                entry.d.orPatterns[0].nodeType === ParseNodeType.PatternCapture &&
+                entry.d.orPatterns[0].d.isStar
         );
 
         const node: PatternSequenceNode = {
@@ -2077,8 +2432,12 @@ export namespace PatternSequenceNode {
             length: firstToken.length,
             nodeType: ParseNodeType.PatternSequence,
             id: _nextNodeId++,
-            entries,
-            starEntryIndex: starEntryIndex >= 0 ? starEntryIndex : undefined,
+            parent: undefined,
+            a: undefined,
+            d: {
+                entries,
+                starEntryIndex: starEntryIndex >= 0 ? starEntryIndex : undefined,
+            },
         };
 
         if (entries.length > 0) {
@@ -2094,8 +2453,10 @@ export namespace PatternSequenceNode {
 }
 
 export interface PatternAsNode extends ParseNodeBase<ParseNodeType.PatternAs> {
-    orPatterns: PatternAtomNode[];
-    target?: NameNode | undefined;
+    d: {
+        orPatterns: PatternAtomNode[];
+        target?: NameNode | undefined;
+    };
 }
 
 export namespace PatternAsNode {
@@ -2105,8 +2466,12 @@ export namespace PatternAsNode {
             length: orPatterns[0].length,
             nodeType: ParseNodeType.PatternAs,
             id: _nextNodeId++,
-            orPatterns,
-            target,
+            parent: undefined,
+            a: undefined,
+            d: {
+                orPatterns,
+                target,
+            },
         };
 
         if (orPatterns.length > 1) {
@@ -2127,28 +2492,34 @@ export namespace PatternAsNode {
 }
 
 export interface PatternLiteralNode extends ParseNodeBase<ParseNodeType.PatternLiteral> {
-    expression: ExpressionNode;
+    d: {
+        expr: ExpressionNode;
+    };
 }
 
 export namespace PatternLiteralNode {
-    export function create(expression: ExpressionNode) {
+    export function create(expr: ExpressionNode) {
         const node: PatternLiteralNode = {
-            start: expression.start,
-            length: expression.length,
+            start: expr.start,
+            length: expr.length,
             nodeType: ParseNodeType.PatternLiteral,
             id: _nextNodeId++,
-            expression,
+            parent: undefined,
+            a: undefined,
+            d: { expr },
         };
 
-        expression.parent = node;
+        expr.parent = node;
 
         return node;
     }
 }
 
 export interface PatternClassNode extends ParseNodeBase<ParseNodeType.PatternClass> {
-    className: NameNode | MemberAccessNode;
-    arguments: PatternClassArgumentNode[];
+    d: {
+        className: NameNode | MemberAccessNode;
+        args: PatternClassArgumentNode[];
+    };
 }
 
 export namespace PatternClassNode {
@@ -2158,8 +2529,12 @@ export namespace PatternClassNode {
             length: className.length,
             nodeType: ParseNodeType.PatternClass,
             id: _nextNodeId++,
-            className,
-            arguments: args,
+            parent: undefined,
+            a: undefined,
+            d: {
+                className,
+                args,
+            },
         };
 
         className.parent = node;
@@ -2176,8 +2551,10 @@ export namespace PatternClassNode {
 }
 
 export interface PatternClassArgumentNode extends ParseNodeBase<ParseNodeType.PatternClassArgument> {
-    name?: NameNode | undefined;
-    pattern: PatternAsNode;
+    d: {
+        name?: NameNode | undefined;
+        pattern: PatternAsNode;
+    };
 }
 
 export namespace PatternClassArgumentNode {
@@ -2187,8 +2564,12 @@ export namespace PatternClassArgumentNode {
             length: pattern.length,
             nodeType: ParseNodeType.PatternClassArgument,
             id: _nextNodeId++,
-            pattern,
-            name,
+            parent: undefined,
+            a: undefined,
+            d: {
+                pattern,
+                name,
+            },
         };
 
         pattern.parent = node;
@@ -2203,9 +2584,11 @@ export namespace PatternClassArgumentNode {
 }
 
 export interface PatternCaptureNode extends ParseNodeBase<ParseNodeType.PatternCapture> {
-    target: NameNode;
-    isStar: boolean;
-    isWildcard: boolean;
+    d: {
+        target: NameNode;
+        isStar: boolean;
+        isWildcard: boolean;
+    };
 }
 
 export namespace PatternCaptureNode {
@@ -2215,9 +2598,13 @@ export namespace PatternCaptureNode {
             length: target.length,
             nodeType: ParseNodeType.PatternCapture,
             id: _nextNodeId++,
-            target,
-            isStar: starToken !== undefined,
-            isWildcard: target.value === '_',
+            parent: undefined,
+            a: undefined,
+            d: {
+                target,
+                isStar: starToken !== undefined,
+                isWildcard: target.d.value === '_',
+            },
         };
 
         target.parent = node;
@@ -2231,7 +2618,9 @@ export namespace PatternCaptureNode {
 }
 
 export interface PatternMappingNode extends ParseNodeBase<ParseNodeType.PatternMapping> {
-    entries: PatternMappingEntryNode[];
+    d: {
+        entries: PatternMappingEntryNode[];
+    };
 }
 
 export namespace PatternMappingNode {
@@ -2241,7 +2630,9 @@ export namespace PatternMappingNode {
             length: startToken.length,
             nodeType: ParseNodeType.PatternMapping,
             id: _nextNodeId++,
-            entries,
+            parent: undefined,
+            a: undefined,
+            d: { entries },
         };
 
         if (entries.length > 0) {
@@ -2259,8 +2650,10 @@ export namespace PatternMappingNode {
 export type PatternMappingEntryNode = PatternMappingKeyEntryNode | PatternMappingExpandEntryNode;
 
 export interface PatternMappingKeyEntryNode extends ParseNodeBase<ParseNodeType.PatternMappingKeyEntry> {
-    keyPattern: PatternLiteralNode | PatternValueNode | ErrorNode;
-    valuePattern: PatternAsNode | ErrorNode;
+    d: {
+        keyPattern: PatternLiteralNode | PatternValueNode | ErrorNode;
+        valuePattern: PatternAsNode | ErrorNode;
+    };
 }
 
 export namespace PatternMappingKeyEntryNode {
@@ -2273,8 +2666,12 @@ export namespace PatternMappingKeyEntryNode {
             length: keyPattern.length,
             nodeType: ParseNodeType.PatternMappingKeyEntry,
             id: _nextNodeId++,
-            keyPattern,
-            valuePattern,
+            parent: undefined,
+            a: undefined,
+            d: {
+                keyPattern,
+                valuePattern,
+            },
         };
 
         keyPattern.parent = node;
@@ -2287,7 +2684,9 @@ export namespace PatternMappingKeyEntryNode {
 }
 
 export interface PatternMappingExpandEntryNode extends ParseNodeBase<ParseNodeType.PatternMappingExpandEntry> {
-    target: NameNode;
+    d: {
+        target: NameNode;
+    };
 }
 
 export namespace PatternMappingExpandEntryNode {
@@ -2297,7 +2696,9 @@ export namespace PatternMappingExpandEntryNode {
             length: starStarToken.length,
             nodeType: ParseNodeType.PatternMappingExpandEntry,
             id: _nextNodeId++,
-            target,
+            parent: undefined,
+            a: undefined,
+            d: { target },
         };
 
         target.parent = node;
@@ -2309,20 +2710,24 @@ export namespace PatternMappingExpandEntryNode {
 }
 
 export interface PatternValueNode extends ParseNodeBase<ParseNodeType.PatternValue> {
-    expression: MemberAccessNode;
+    d: {
+        expr: MemberAccessNode;
+    };
 }
 
 export namespace PatternValueNode {
-    export function create(expression: MemberAccessNode) {
+    export function create(expr: MemberAccessNode) {
         const node: PatternValueNode = {
-            start: expression.start,
-            length: expression.length,
+            start: expr.start,
+            length: expr.length,
             nodeType: ParseNodeType.PatternValue,
             id: _nextNodeId++,
-            expression,
+            parent: undefined,
+            a: undefined,
+            d: { expr },
         };
 
-        expression.parent = node;
+        expr.parent = node;
 
         return node;
     }

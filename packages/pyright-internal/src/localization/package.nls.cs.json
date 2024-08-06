@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "Možnost „Concatenate“ vyžaduje alespoň dva argumenty typu",
         "conditionalOperandInvalid": "Neplatný podmíněný operand typu {type}",
         "constantRedefinition": "„{name}“ je konstanta (protože je velkými písmeny) a nedá se předefinovat",
-        "constructorNoArgs": "Pro konstruktor {type} nebyly očekávány žádné argumenty",
         "constructorParametersMismatch": "Neshoda mezi signaturou __new__ a __init__ ve třídě“ {classType}“",
         "containmentAlwaysFalse": "Výraz se vždy vyhodnotí jako False, protože typy „{leftType}“ a „{rightType}“ se nepřekrývají",
         "containmentAlwaysTrue": "Výraz se vždy vyhodnotí jako True, protože typy „{leftType}“ a „{rightType}“ se nepřekrývají.",
@@ -496,7 +495,7 @@
         "typeCallNotAllowed": "Volání type() by se nemělo používat v poznámce typu",
         "typeCheckOnly": "Název {name} je označený jako @type_check_only a dá se použít jenom v poznámkách typu",
         "typeCommentDeprecated": "Použití komentářů typu je zastaralé místo toho použít anotaci typu",
-        "typeExpectedClass": "Očekával se výraz typu, ale přijal se {type}",
+        "typeExpectedClass": "Očekávala se třída, ale byl přijat typ {type}.",
         "typeGuardArgCount": "Za TypeGuard nebo TypeIs byl očekáván jeden argument typu.",
         "typeGuardParamCount": "Funkce a metody ochrany typů definované uživatelem musí mít alespoň jeden vstupní parametr",
         "typeIsReturnType": "Návratový typ TypeIs ({returnType}) není konzistentní s typem parametru hodnoty ({type}).",
@@ -670,6 +669,7 @@
         "invariantSuggestionDict": "Zvažte přepnutí z „diktování“ na „mapování“, které je v typu hodnoty kovariantní",
         "invariantSuggestionList": "Zvažte přepnutí ze „seznamu“ na „sekvenci“, která je kovavariantní",
         "invariantSuggestionSet": "Zvažte přepnutí ze „seznamu“ na „sekvenci“, která je kovavariantní",
+        "isinstanceClassNotSupported": "{type} se pro kontroly instancí a tříd nepodporuje.",
         "keyNotRequired": "„{name}! není v typu „{type}“ povinný klíč, takže přístup může vést k výjimce modulu runtime",
         "keyReadOnly": "{name} je klíč jen pro čtení v {type}",
         "keyRequiredDeleted": "{name} je povinný klíč a nedá se odstranit",
@@ -804,5 +804,8 @@
         "useTypeInstead": "Místo toho použít Type[T]",
         "varianceMismatchForClass": "Odchylka argumentu typu „{typeVarName}“ není kompatibilní se základní třídou „{className}“",
         "varianceMismatchForTypeAlias": "Rozptyl argumentu typu „{typeVarName}“ není kompatibilní s typem „{typeAliasParam}“"
+    },
+    "Service": {
+        "longOperation": "Výčet zdrojových souborů pracovního prostoru trvá dlouho. Zvažte raději otevření podsložky. [Další informace](https://aka.ms/workspace-too-many-files)"
     }
 }

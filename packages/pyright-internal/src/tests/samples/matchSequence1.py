@@ -497,10 +497,18 @@ def test_negative_narrowing6(a: str | None, b: str | None):
     match (a, b):
         case (None, None) as x:
             reveal_type(x, expected_text="tuple[None, None]")
+            reveal_type(a, expected_text="None")
+            reveal_type(b, expected_text="None")
         case (None, _) as x if 2 > 1:
-            reveal_type(x, expected_text="tuple[None, str | None]")
+            reveal_type(x, expected_text="tuple[None, str]")
+            reveal_type(a, expected_text="None")
+            reveal_type(b, expected_text="str")
         case (a, b) as x:
-            reveal_type(x, expected_text="tuple[str | None, str | None]")
+            reveal_type(
+                x, expected_text="tuple[str, str | None] | tuple[str | None, str]"
+            )
+            reveal_type(a, expected_text="str | None")
+            reveal_type(b, expected_text="str | None")
 
 
 def test_negative_narrowing7(a: tuple[str, str] | str):
@@ -509,6 +517,21 @@ def test_negative_narrowing7(a: tuple[str, str] | str):
             reveal_type(a, expected_text="tuple[str, str]")
         case _:
             reveal_type(a, expected_text="str")
+
+
+def test_negative_narrowing8(a: str | int, b: str | int):
+    t = a, b
+    match t:
+        case int(), int():
+            reveal_type(t, expected_text="tuple[int, int]")
+        case str(), int():
+            reveal_type(t, expected_text="tuple[str, int]")
+        case int(), str():
+            reveal_type(t, expected_text="tuple[int, str]")
+        case x, y:
+            reveal_type(t, expected_text="tuple[str, str]")
+            reveal_type(x, expected_text="str")
+            reveal_type(y, expected_text="str")
 
 
 class MyEnum(Enum):

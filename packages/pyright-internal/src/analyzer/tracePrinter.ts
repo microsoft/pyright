@@ -59,38 +59,38 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
         if (type) {
             switch (type.category) {
                 case TypeCategory.Any:
-                    return `Any ${wrap(type.typeAliasInfo?.fullName)}`;
+                    return `Any ${wrap(type.props?.typeAliasInfo?.fullName)}`;
 
                 case TypeCategory.Class:
                     if (TypeBase.isInstantiable(type)) {
-                        return `Class '${type.details.name}' (${type.details.moduleName})`;
+                        return `Class '${type.shared.name}' (${type.shared.moduleName})`;
                     } else {
-                        return `Object '${type.details.name}' (${type.details.moduleName})`;
+                        return `Object '${type.shared.name}' (${type.shared.moduleName})`;
                     }
 
                 case TypeCategory.Function:
-                    return `Function '${type.details.name}' (${type.details.moduleName})`;
+                    return `Function '${type.shared.name}' (${type.shared.moduleName})`;
 
                 case TypeCategory.Module:
-                    return `Module '${type.moduleName}' (${type.moduleName})`;
+                    return `Module '${type.priv.moduleName}' (${type.priv.moduleName})`;
 
                 case TypeCategory.Never:
-                    return `Never ${wrap(type.typeAliasInfo?.fullName)}`;
+                    return `Never ${wrap(type.props?.typeAliasInfo?.fullName)}`;
 
                 case TypeCategory.OverloadedFunction:
-                    return `OverloadedFunction [${type.overloads.map((o) => wrap(printType(o), '"')).join(',')}]`;
+                    return `OverloadedFunction [${type.priv.overloads.map((o) => wrap(printType(o), '"')).join(',')}]`;
 
                 case TypeCategory.TypeVar:
-                    return `TypeVar '${type.details.name}' ${wrap(type.typeAliasInfo?.fullName)}`;
+                    return `TypeVar '${type.shared.name}' ${wrap(type.props?.typeAliasInfo?.fullName)}`;
 
                 case TypeCategory.Unbound:
-                    return `Unbound ${wrap(type.typeAliasInfo?.fullName)}`;
+                    return `Unbound ${wrap(type.props?.typeAliasInfo?.fullName)}`;
 
                 case TypeCategory.Union:
-                    return `Union [${type.subtypes.map((o) => wrap(printType(o), '"')).join(',')}]`;
+                    return `Union [${type.priv.subtypes.map((o) => wrap(printType(o), '"')).join(',')}]`;
 
                 case TypeCategory.Unknown:
-                    return `Unknown ${wrap(type.typeAliasInfo?.fullName)}`;
+                    return `Unknown ${wrap(type.props?.typeAliasInfo?.fullName)}`;
 
                 default:
                     assertNever(type);
@@ -128,11 +128,11 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
                         decl.uri
                     )})`;
 
-                case DeclarationType.Parameter:
-                    return `Parameter, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
+                case DeclarationType.Param:
+                    return `Param, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
 
-                case DeclarationType.TypeParameter:
-                    return `TypeParameter, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
+                case DeclarationType.TypeParam:
+                    return `TypeParam, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
 
                 case DeclarationType.SpecialBuiltInClass:
                     return `SpecialBuiltInClass, ${printNode(decl.node)} (${printFileOrModuleName(decl.uri)})`;
@@ -186,33 +186,35 @@ export function createTracePrinter(roots: Uri[]): TracePrinter {
 
         switch (node.nodeType) {
             case ParseNodeType.ImportAs:
-                return `importAs '${printNode(node.module)}' ${wrap(node.alias ? printNode(node.alias) : '')} ${path}`;
+                return `importAs '${printNode(node.d.module)}' ${wrap(
+                    node.d.alias ? printNode(node.d.alias) : ''
+                )} ${path}`;
 
             case ParseNodeType.ImportFrom:
-                return `importFrom [${node.imports.map((i) => wrap(printNode(i), '"')).join(',')}]`;
+                return `importFrom [${node.d.imports.map((i) => wrap(printNode(i), '"')).join(',')}]`;
 
             case ParseNodeType.ImportFromAs:
-                return `ImportFromAs '${printNode(node.name)}' ${wrap(
-                    node.alias ? printNode(node.alias) : ''
+                return `ImportFromAs '${printNode(node.d.name)}' ${wrap(
+                    node.d.alias ? printNode(node.d.alias) : ''
                 )} ${path}`;
 
             case ParseNodeType.Module:
                 return `module ${path}`;
 
             case ParseNodeType.Class:
-                return `class '${printNode(node.name)}' ${path}`;
+                return `class '${printNode(node.d.name)}' ${path}`;
 
             case ParseNodeType.Function:
-                return `function '${printNode(node.name)}' ${path}`;
+                return `function '${printNode(node.d.name)}' ${path}`;
 
             case ParseNodeType.ModuleName:
-                return `moduleName '${node.nameParts.map((n) => printNode(n)).join('.')}' ${path}`;
+                return `moduleName '${node.d.nameParts.map((n) => printNode(n)).join('.')}' ${path}`;
 
             case ParseNodeType.Argument:
-                return `argument '${node.name ? printNode(node.name) : 'N/A'}' ${path}`;
+                return `argument '${node.d.name ? printNode(node.d.name) : 'N/A'}' ${path}`;
 
             case ParseNodeType.Parameter:
-                return `parameter '${node.name ? printNode(node.name) : 'N/A'}' ${path}`;
+                return `parameter '${node.d.name ? printNode(node.d.name) : 'N/A'}' ${path}`;
 
             default:
                 return `${ParseTreeUtils.printParseNodeType(node.nodeType)} ${path}`;

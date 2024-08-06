@@ -20,7 +20,7 @@ import {
     TypeBase,
     TypeCategory,
     TypeFlags,
-    TypeVarDetails,
+    TypeVarDetailsShared,
     TypeVarType,
     Variance,
 } from '../analyzer/types';
@@ -32,7 +32,7 @@ import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Uri } from '../common/uri/uri';
 import {
-    ArgumentCategory,
+    ArgCategory,
     ArgumentNode,
     AssertNode,
     AssignmentExpressionNode,
@@ -79,7 +79,7 @@ import {
     NameNode,
     NonlocalNode,
     NumberNode,
-    ParameterCategory,
+    ParamCategory,
     ParameterNode,
     ParseNode,
     ParseNodeType,
@@ -107,7 +107,7 @@ import {
     TupleNode,
     TypeAliasNode,
     TypeAnnotationNode,
-    TypeParameterCategory,
+    TypeParamKind,
     TypeParameterListNode,
     TypeParameterNode,
     UnaryOperationNode,
@@ -272,7 +272,7 @@ function getTypeEvaluatorString(
         switch (node.parent?.nodeType) {
             case ParseNodeType.Class: {
                 const result = cacheOnly
-                    ? evaluator.getCachedType(node.parent.name)
+                    ? evaluator.getCachedType(node.parent.d.name)
                     : evaluator.getTypeOfClass(node.parent as ClassNode);
                 if (!result) {
                     return 'N/A';
@@ -282,7 +282,7 @@ function getTypeEvaluatorString(
             }
             case ParseNodeType.Function: {
                 const result = cacheOnly
-                    ? evaluator.getCachedType(node.parent.name)
+                    ? evaluator.getCachedType(node.parent.d.name)
                     : evaluator.getTypeOfFunction(node.parent as FunctionNode);
                 if (!result) {
                     return 'N/A';
@@ -337,15 +337,15 @@ function getTypeEvaluatorString(
         if (!isNumber(value) && !isString(value)) {
             if (set.has(value)) {
                 if (isClassType(value)) {
-                    return `<cycle> class '${value.details.fullName}' typeSourceId:${value.details.typeSourceId}`;
+                    return `<cycle> class '${value.shared.fullName}' typeSourceId:${value.shared.typeSourceId}`;
                 }
 
                 if (isFunctionType(value)) {
-                    return `<cycle> function '${value.details.fullName}' parameter count:${value.details.parameters.length}`;
+                    return `<cycle> function '${value.shared.fullName}' parameter count:${value.shared.parameters.length}`;
                 }
 
                 if (isTypeVarType(value)) {
-                    return `<cycle> function '${value.details.name}' scope id:${value.nameWithScope}`;
+                    return `<cycle> function '${value.shared.name}' scope id:${value.priv.nameWithScope}`;
                 }
 
                 return undefined;
@@ -417,7 +417,7 @@ function getTypeEvaluatorString(
         return isTypeBase(type) && type.details && isTypeVarDetails(type.details);
     }
 
-    function isTypeVarDetails(type: any): type is TypeVarDetails {
+    function isTypeVarDetails(type: any): type is TypeVarDetailsShared {
         return type.name !== undefined && type.constraints && type.variance !== undefined;
     }
 
@@ -578,7 +578,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitArgument(node: ArgumentNode) {
-        this._log(`${this._getPrefix(node)} ${getArgumentCategoryString(node.argumentCategory)}`);
+        this._log(`${this._getPrefix(node)} ${getArgCategoryString(node.d.argCategory)}`);
         return true;
     }
 
@@ -598,7 +598,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitAugmentedAssignment(node: AugmentedAssignmentNode) {
-        this._log(`${this._getPrefix(node)} ${getOperatorTypeString(node.operator)}`);
+        this._log(`${this._getPrefix(node)} ${getOperatorTypeString(node.d.operator)}`);
         return true;
     }
 
@@ -611,9 +611,9 @@ class TreeDumper extends ParseTreeWalker {
         this._log(
             `${this._getPrefix(node)} ${getTokenString(
                 this._uri,
-                node.operatorToken,
+                node.d.operatorToken,
                 this._lines
-            )} ${getOperatorTypeString(node.operator)}} parenthesized:(${node.isParenthesized})`
+            )} ${getOperatorTypeString(node.d.operator)}} parenthesized:(${node.d.hasParens})`
         );
         return true;
     }
@@ -639,7 +639,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitComprehensionFor(node: ComprehensionForNode) {
-        this._log(`${this._getPrefix(node)} async:(${node.isAsync})`);
+        this._log(`${this._getPrefix(node)} async:(${node.d.isAsync})`);
         return true;
     }
 
@@ -654,7 +654,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitConstant(node: ConstantNode) {
-        this._log(`${this._getPrefix(node)} ${getKeywordTypeString(node.constType)}`);
+        this._log(`${this._getPrefix(node)} ${getKeywordTypeString(node.d.constType)}`);
         return true;
     }
 
@@ -684,7 +684,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitError(node: ErrorNode) {
-        this._log(`${this._getPrefix(node)} ${getErrorExpressionCategoryString(node.category)}`);
+        this._log(`${this._getPrefix(node)} ${getErrorExpressionCategoryString(node.d.category)}`);
         return true;
     }
 
@@ -710,11 +710,11 @@ class TreeDumper extends ParseTreeWalker {
 
     override visitImportFrom(node: ImportFromNode) {
         this._log(
-            `${this._getPrefix(node)} wildcard import:(${node.isWildcardImport}) paren:(${
-                node.usesParens
+            `${this._getPrefix(node)} wildcard import:(${node.d.isWildcardImport}) paren:(${
+                node.d.usesParens
             }) wildcard token:(${
-                node.wildcardToken ? getTokenString(this._uri, node.wildcardToken, this._lines) : 'N/A'
-            }) missing import keyword:(${node.missingImportKeyword})`
+                node.d.wildcardToken ? getTokenString(this._uri, node.d.wildcardToken, this._lines) : 'N/A'
+            }) missing import keyword:(${node.d.missingImport})`
         );
         return true;
     }
@@ -735,7 +735,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitFor(node: ForNode) {
-        this._log(`${this._getPrefix(node)} async:(${node.isAsync})`);
+        this._log(`${this._getPrefix(node)} async:(${node.d.isAsync})`);
         return true;
     }
 
@@ -745,12 +745,12 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitFunction(node: FunctionNode) {
-        this._log(`${this._getPrefix(node)} async:(${node.isAsync})`);
+        this._log(`${this._getPrefix(node)} async:(${node.d.isAsync})`);
         return true;
     }
 
     override visitFunctionAnnotation(node: FunctionAnnotationNode) {
-        this._log(`${this._getPrefix(node)} ellipsis:(${node.isParamListEllipsis})`);
+        this._log(`${this._getPrefix(node)} ellipsis:(${node.d.isEllipsis})`);
         return true;
     }
 
@@ -780,12 +780,14 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitModuleName(node: ModuleNameNode) {
-        this._log(`${this._getPrefix(node)} leading dots:(${node.leadingDots}) trailing dot:(${node.hasTrailingDot})`);
+        this._log(
+            `${this._getPrefix(node)} leading dots:(${node.d.leadingDots}) trailing dot:(${node.d.hasTrailingDot})`
+        );
         return true;
     }
 
     override visitName(node: NameNode) {
-        this._log(`${this._getPrefix(node)} ${getTokenString(this._uri, node.token, this._lines)} ${node.value}`);
+        this._log(`${this._getPrefix(node)} ${getTokenString(this._uri, node.d.token, this._lines)} ${node.d.value}`);
         return true;
     }
 
@@ -795,12 +797,14 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitNumber(node: NumberNode) {
-        this._log(`${this._getPrefix(node)} ${node.value} int:(${node.isInteger}) imaginary:(${node.isImaginary})`);
+        this._log(
+            `${this._getPrefix(node)} ${node.d.value} int:(${node.d.isInteger}) imaginary:(${node.d.isImaginary})`
+        );
         return true;
     }
 
     override visitParameter(node: ParameterNode) {
-        this._log(`${this._getPrefix(node)} ${getParameterCategoryString(node.category)}`);
+        this._log(`${this._getPrefix(node)} ${getParameterCategoryString(node.d.category)}`);
         return true;
     }
 
@@ -835,7 +839,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitString(node: StringNode) {
-        this._log(`${this._getPrefix(node)} ${getTokenString(this._uri, node.token, this._lines)} ${node.value}`);
+        this._log(`${this._getPrefix(node)} ${getTokenString(this._uri, node.d.token, this._lines)} ${node.d.value}`);
         return true;
     }
 
@@ -855,7 +859,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitTuple(node: TupleNode) {
-        this._log(`${this._getPrefix(node)} paren:(${node.enclosedInParens})`);
+        this._log(`${this._getPrefix(node)} paren:(${node.d.hasParens})`);
         return true;
     }
 
@@ -873,9 +877,9 @@ class TreeDumper extends ParseTreeWalker {
         this._log(
             `${this._getPrefix(node)} ${getTokenString(
                 this._uri,
-                node.operatorToken,
+                node.d.operatorToken,
                 this._lines
-            )} ${getOperatorTypeString(node.operator)}`
+            )} ${getOperatorTypeString(node.d.operator)}`
         );
         return true;
     }
@@ -891,7 +895,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitWith(node: WithNode) {
-        this._log(`${this._getPrefix(node)} async:(${node.isAsync})`);
+        this._log(`${this._getPrefix(node)} async:(${node.d.isAsync})`);
         return true;
     }
 
@@ -911,7 +915,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitCase(node: CaseNode): boolean {
-        this._log(`${this._getPrefix(node)} isIrrefutable: ${node.isIrrefutable}`);
+        this._log(`${this._getPrefix(node)} isIrrefutable: ${node.d.isIrrefutable}`);
         return true;
     }
 
@@ -926,7 +930,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitPatternCapture(node: PatternCaptureNode): boolean {
-        this._log(`${this._getPrefix(node)} isStar:${node.isStar} isWildcard:${node.isWildcard}`);
+        this._log(`${this._getPrefix(node)} isStar:${node.d.isStar} isWildcard:${node.d.isWildcard}`);
         return true;
     }
 
@@ -961,7 +965,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitPatternSequence(node: PatternSequenceNode): boolean {
-        this._log(`${this._getPrefix(node)} starEntryIndex: ${node.starEntryIndex}`);
+        this._log(`${this._getPrefix(node)} starEntryIndex: ${node.d.starEntryIndex}`);
         return true;
     }
 
@@ -976,9 +980,7 @@ class TreeDumper extends ParseTreeWalker {
     }
 
     override visitTypeParameter(node: TypeParameterNode): boolean {
-        this._log(
-            `${this._getPrefix(node)} typeParamCategory:${getTypeParameterCategoryString(node.typeParamCategory)}`
-        );
+        this._log(`${this._getPrefix(node)} typeParamCategory:${getTypeParameterCategoryString(node.d.typeParamKind)}`);
         return true;
     }
 
@@ -1000,35 +1002,35 @@ class TreeDumper extends ParseTreeWalker {
     }
 }
 
-function getTypeParameterCategoryString(type: TypeParameterCategory) {
+function getTypeParameterCategoryString(type: TypeParamKind) {
     switch (type) {
-        case TypeParameterCategory.TypeVar:
+        case TypeParamKind.TypeVar:
             return 'TypeVar';
-        case TypeParameterCategory.TypeVarTuple:
+        case TypeParamKind.TypeVarTuple:
             return 'TypeVarTuple';
-        case TypeParameterCategory.ParamSpec:
+        case TypeParamKind.ParamSpec:
             return 'ParamSpec';
     }
 }
 
-function getParameterCategoryString(type: ParameterCategory) {
+function getParameterCategoryString(type: ParamCategory) {
     switch (type) {
-        case ParameterCategory.Simple:
+        case ParamCategory.Simple:
             return 'Simple';
-        case ParameterCategory.ArgsList:
+        case ParamCategory.ArgsList:
             return 'ArgsList';
-        case ParameterCategory.KwargsDict:
+        case ParamCategory.KwargsDict:
             return 'KwargsDict';
     }
 }
 
-function getArgumentCategoryString(type: ArgumentCategory) {
+function getArgCategoryString(type: ArgCategory) {
     switch (type) {
-        case ArgumentCategory.Simple:
+        case ArgCategory.Simple:
             return 'Simple';
-        case ArgumentCategory.UnpackedList:
+        case ArgCategory.UnpackedList:
             return 'UnpackedList';
-        case ArgumentCategory.UnpackedDictionary:
+        case ArgCategory.UnpackedDictionary:
             return 'UnpackedDictionary';
         default:
             return `Unknown Value!! (${type})`;

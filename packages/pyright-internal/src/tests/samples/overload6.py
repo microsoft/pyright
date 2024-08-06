@@ -11,7 +11,6 @@ v1 = round(Fraction(1))
 
 
 _T_co = TypeVar("_T_co", covariant=True)
-_T = TypeVar("_T")
 
 
 class SupportsRound1(Protocol[_T_co]):

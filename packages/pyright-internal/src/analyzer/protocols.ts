@@ -11,7 +11,9 @@
 import { assert } from '../common/debug';
 import { defaultMaxDiagnosticDepth, DiagnosticAddendum } from '../common/diagnostic';
 import { LocAddendum } from '../localization/localize';
-import { assignTypeToTypeVar } from './constraintSolver';
+import { ConstraintSolution } from './constraintSolution';
+import { assignTypeVar } from './constraintSolver';
+import { ConstraintTracker } from './constraintTracker';
 import { DeclarationType } from './declaration';
 import { assignProperty } from './properties';
 import { Symbol } from './symbol';
@@ -35,19 +37,17 @@ import {
     Variance,
 } from './types';
 import {
+    addSolutionForSelfType,
     applySolvedTypeVars,
     AssignTypeFlags,
     ClassMember,
     containsLiteralType,
-    getTypeVarScopeId,
     lookUpClassMember,
     MemberAccessFlags,
     partiallySpecializeType,
-    populateTypeVarContextForSelfType,
     requiresSpecialization,
     synthesizeTypeVarForSelfCls,
 } from './typeUtils';
-import { TypeVarContext } from './typeVarContext';
 
 interface ProtocolAssignmentStackEntry {
     srcType: ClassType;
@@ -58,7 +58,7 @@ interface ProtocolCompatibility {
     srcType: Type;
     destType: Type;
     flags: AssignTypeFlags;
-    typeVarContext: TypeVarContext | undefined;
+    constraints: ConstraintTracker | undefined;
     isCompatible: boolean;
 }
 
@@ -72,8 +72,8 @@ export function assignClassToProtocol(
     destType: ClassType,
     srcType: ClassType,
     diag: DiagnosticAddendum | undefined,
-    destTypeVarContext: TypeVarContext | undefined,
-    srcTypeVarContext: TypeVarContext | undefined,
+    destConstraints: ConstraintTracker | undefined,
+    srcConstraints: ConstraintTracker | undefined,
     flags: AssignTypeFlags,
     recursionCount: number
 ): boolean {
@@ -95,14 +95,14 @@ export function assignClassToProtocol(
 
     // See if we've already determined that this class is compatible with this protocol.
     if (!enforceInvariance) {
-        const compatibility = getProtocolCompatibility(destType, srcType, flags, destTypeVarContext);
+        const compatibility = getProtocolCompatibility(destType, srcType, flags, destConstraints);
 
         if (compatibility !== undefined) {
             if (compatibility) {
                 // If the caller has provided a destination type var context,
                 // we can't use the cached value unless the dest has no type
                 // parameters to solve.
-                if (!destTypeVarContext || !requiresSpecialization(destType)) {
+                if (!destConstraints || !requiresSpecialization(destType)) {
                     return true;
                 }
             }
@@ -121,7 +121,7 @@ export function assignClassToProtocol(
 
     protocolAssignmentStack.push({ srcType, destType });
     let isCompatible = true;
-    const clonedTypeVarContext = destTypeVarContext?.clone();
+    const clonedConstraints = destConstraints?.clone();
 
     try {
         isCompatible = assignClassToProtocolInternal(
@@ -129,8 +129,8 @@ export function assignClassToProtocol(
             destType,
             srcType,
             diag,
-            destTypeVarContext,
-            srcTypeVarContext,
+            destConstraints,
+            srcConstraints,
             flags,
             recursionCount
         );
@@ -144,7 +144,7 @@ export function assignClassToProtocol(
     protocolAssignmentStack.pop();
 
     // Cache the results for next time.
-    setProtocolCompatibility(destType, srcType, flags, clonedTypeVarContext, isCompatible);
+    setProtocolCompatibility(destType, srcType, flags, clonedConstraints, isCompatible);
 
     return isCompatible;
 }
@@ -154,7 +154,7 @@ export function assignModuleToProtocol(
     destType: ClassType,
     srcType: ModuleType,
     diag: DiagnosticAddendum | undefined,
-    destTypeVarContext: TypeVarContext | undefined,
+    destConstraints: ConstraintTracker | undefined,
     flags: AssignTypeFlags,
     recursionCount: number
 ): boolean {
@@ -163,8 +163,8 @@ export function assignModuleToProtocol(
         destType,
         srcType,
         diag,
-        destTypeVarContext,
-        /* srcTypeVarContext */ undefined,
+        destConstraints,
+        /* srcConstraints */ undefined,
         flags,
         recursionCount
     );
@@ -178,7 +178,7 @@ export function isMethodOnlyProtocol(classType: ClassType): boolean {
     }
 
     // First check for data members in any protocol base classes.
-    for (const baseClass of classType.details.baseClasses) {
+    for (const baseClass of classType.shared.baseClasses) {
         if (isClass(baseClass) && ClassType.isProtocolClass(baseClass) && !isMethodOnlyProtocol(baseClass)) {
             return false;
         }
@@ -208,7 +208,7 @@ export function isProtocolUnsafeOverlap(evaluator: TypeEvaluator, protocol: Clas
 
     let isUnsafeOverlap = true;
 
-    protocol.details.mro.forEach((mroClass) => {
+    protocol.shared.mro.forEach((mroClass) => {
         if (!isUnsafeOverlap || !isInstantiableClass(mroClass) || !ClassType.isProtocolClass(mroClass)) {
             return;
         }
@@ -235,10 +235,10 @@ function getProtocolCompatibility(
     destType: ClassType,
     srcType: ClassType,
     flags: AssignTypeFlags,
-    typeVarContext: TypeVarContext | undefined
+    constraints: ConstraintTracker | undefined
 ): boolean | undefined {
-    const map = srcType.details.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
-    const entries = map?.get(destType.details.fullName);
+    const map = srcType.shared.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
+    const entries = map?.get(destType.shared.fullName);
     if (entries === undefined) {
         return undefined;
     }
@@ -248,7 +248,7 @@ function getProtocolCompatibility(
             isTypeSame(entry.destType, destType) &&
             isTypeSame(entry.srcType, srcType) &&
             entry.flags === flags &&
-            isTypeVarContextSame(typeVarContext, entry.typeVarContext)
+            isConstraintTrackerSame(constraints, entry.constraints)
         );
     });
 
@@ -259,26 +259,26 @@ function setProtocolCompatibility(
     destType: ClassType,
     srcType: ClassType,
     flags: AssignTypeFlags,
-    typeVarContext: TypeVarContext | undefined,
+    constraints: ConstraintTracker | undefined,
     isCompatible: boolean
 ) {
-    let map = srcType.details.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
+    let map = srcType.shared.protocolCompatibility as Map<string, ProtocolCompatibility[]> | undefined;
     if (!map) {
         map = new Map<string, ProtocolCompatibility[]>();
-        srcType.details.protocolCompatibility = map;
+        srcType.shared.protocolCompatibility = map;
     }
 
-    let entries = map.get(destType.details.fullName);
+    let entries = map.get(destType.shared.fullName);
     if (!entries) {
         entries = [];
-        map.set(destType.details.fullName, entries);
+        map.set(destType.shared.fullName, entries);
     }
 
     entries.push({
         destType,
         srcType,
         flags,
-        typeVarContext,
+        constraints: constraints,
         isCompatible,
     });
 
@@ -287,7 +287,7 @@ function setProtocolCompatibility(
     }
 }
 
-function isTypeVarContextSame(context1: TypeVarContext | undefined, context2: TypeVarContext | undefined) {
+function isConstraintTrackerSame(context1: ConstraintTracker | undefined, context2: ConstraintTracker | undefined) {
     if (!context1 || !context2) {
         return context1 === context2;
     }
@@ -300,8 +300,8 @@ function assignClassToProtocolInternal(
     destType: ClassType,
     srcType: ClassType | ModuleType,
     diag: DiagnosticAddendum | undefined,
-    destTypeVarContext: TypeVarContext | undefined,
-    srcTypeVarContext: TypeVarContext | undefined,
+    destConstraints: ConstraintTracker | undefined,
+    srcConstraints: ConstraintTracker | undefined,
     flags: AssignTypeFlags,
     recursionCount: number
 ): boolean {
@@ -309,26 +309,31 @@ function assignClassToProtocolInternal(
         return isTypeSame(destType, srcType);
     }
 
-    evaluator.inferTypeParameterVarianceForClass(destType);
+    evaluator.inferVarianceForClass(destType);
 
     const sourceIsClassObject = isClass(srcType) && TypeBase.isInstantiable(srcType);
-    const protocolTypeVarContext = createProtocolTypeVarContext(evaluator, destType, destTypeVarContext);
-    const selfTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
+    const protocolConstraints = createProtocolConstraints(evaluator, destType, destConstraints);
+    const selfSolution = new ConstraintSolution();
 
     let selfType: ClassType | TypeVarType | undefined;
     if (isClass(srcType)) {
         // If the srcType is conditioned on "self", use "Self" as the selfType.
         // Otherwise use the class type for selfType.
-        if (srcType.condition?.some((c) => c.typeVar.details.isSynthesizedSelf)) {
+        const synthCond = srcType.props?.condition?.find((c) => TypeVarType.isSelf(c.typeVar));
+        if (synthCond) {
             selfType = synthesizeTypeVarForSelfCls(
                 TypeBase.cloneForCondition(srcType, undefined),
                 /* isClsType */ false
             );
+
+            if (TypeVarType.isBound(synthCond.typeVar)) {
+                selfType = TypeVarType.cloneAsBound(selfType);
+            }
         } else {
             selfType = srcType;
         }
 
-        populateTypeVarContextForSelfType(selfTypeVarContext, destType, selfType);
+        addSolutionForSelfType(selfSolution, destType, selfType);
     }
 
     // If the source is a TypedDict, use the _TypedDict placeholder class
@@ -343,13 +348,13 @@ function assignClassToProtocolInternal(
 
     let typesAreConsistent = true;
     const checkedSymbolSet = new Set<string>();
-    let assignTypeFlags = flags & (AssignTypeFlags.OverloadOverlapCheck | AssignTypeFlags.PartialOverloadOverlapCheck);
+    let assignTypeFlags = flags & (AssignTypeFlags.OverloadOverlap | AssignTypeFlags.PartialOverloadOverlap);
 
     assignTypeFlags |= containsLiteralType(srcType, /* includeTypeArgs */ true)
         ? AssignTypeFlags.RetainLiteralsForTypeVar
         : AssignTypeFlags.Default;
 
-    destType.details.mro.forEach((mroClass) => {
+    destType.shared.mro.forEach((mroClass) => {
         if (!isInstantiableClass(mroClass) || !ClassType.isProtocolClass(mroClass)) {
             return;
         }
@@ -403,10 +408,10 @@ function assignClassToProtocolInternal(
                 // Look in the metaclass first if we're treating the source as an instantiable class.
                 if (
                     sourceIsClassObject &&
-                    srcType.details.effectiveMetaclass &&
-                    isInstantiableClass(srcType.details.effectiveMetaclass)
+                    srcType.shared.effectiveMetaclass &&
+                    isInstantiableClass(srcType.shared.effectiveMetaclass)
                 ) {
-                    srcMemberInfo = lookUpClassMember(srcType.details.effectiveMetaclass, name);
+                    srcMemberInfo = lookUpClassMember(srcType.shared.effectiveMetaclass, name);
                     if (srcMemberInfo) {
                         isMemberFromMetaclass = true;
                     }
@@ -428,7 +433,12 @@ function assignClassToProtocolInternal(
                 // We can skip this if it's the dest class because it is already
                 // specialized.
                 if (!ClassType.isSameGenericClass(mroClass, destType)) {
-                    destMemberType = partiallySpecializeType(destMemberType, mroClass, selfType);
+                    destMemberType = partiallySpecializeType(
+                        destMemberType,
+                        mroClass,
+                        evaluator.getTypeClassType(),
+                        selfType
+                    );
                 }
 
                 if (isInstantiableClass(srcMemberInfo.classType)) {
@@ -439,7 +449,12 @@ function assignClassToProtocolInternal(
                         evaluator.inferReturnTypeIfNecessary(symbolType);
                     }
 
-                    srcMemberType = partiallySpecializeType(symbolType, srcMemberInfo.classType, selfType);
+                    srcMemberType = partiallySpecializeType(
+                        symbolType,
+                        srcMemberInfo.classType,
+                        evaluator.getTypeClassType(),
+                        selfType
+                    );
                 } else {
                     srcMemberType = UnknownType.create();
                 }
@@ -490,7 +505,7 @@ function assignClassToProtocolInternal(
                     isSrcReadOnly = true;
                 }
             } else {
-                srcSymbol = srcType.fields.get(name);
+                srcSymbol = srcType.priv.fields.get(name);
 
                 if (!srcSymbol) {
                     diag?.addMessage(LocAddendum.protocolMemberMissing().format({ name }));
@@ -502,7 +517,7 @@ function assignClassToProtocolInternal(
             }
 
             // Replace any "Self" TypeVar within the dest with the source type.
-            destMemberType = applySolvedTypeVars(destMemberType, selfTypeVarContext);
+            destMemberType = applySolvedTypeVars(destMemberType, selfSolution);
 
             // If the dest is a method, bind it.
             if (isFunction(destMemberType) || isOverloadedFunction(destMemberType)) {
@@ -559,8 +574,8 @@ function assignClassToProtocolInternal(
                             mroClass,
                             srcType,
                             subDiag?.createAddendum(),
-                            protocolTypeVarContext,
-                            selfTypeVarContext,
+                            protocolConstraints,
+                            selfSolution,
                             recursionCount
                         )
                     ) {
@@ -574,7 +589,7 @@ function assignClassToProtocolInternal(
                     let getterType = evaluator.getGetterTypeFromProperty(destMemberType, /* inferTypeIfNeeded */ true);
 
                     if (getterType) {
-                        getterType = partiallySpecializeType(getterType, mroClass);
+                        getterType = partiallySpecializeType(getterType, mroClass, evaluator.getTypeClassType());
                     }
 
                     if (
@@ -583,8 +598,8 @@ function assignClassToProtocolInternal(
                             getterType,
                             srcMemberType,
                             subDiag?.createAddendum(),
-                            protocolTypeVarContext,
-                            /* srcTypeVarContext */ undefined,
+                            protocolConstraints,
+                            /* srcConstraints */ undefined,
                             assignTypeFlags,
                             recursionCount
                         )
@@ -612,16 +627,15 @@ function assignClassToProtocolInternal(
                 const isInvariant = primaryDecl?.type === DeclarationType.Variable && !primaryDecl.isFinal;
 
                 // Temporarily add the TypeVar scope ID for this method to handle method-scoped TypeVars.
-                const protocolTypeVarContextClone = protocolTypeVarContext.clone();
-                protocolTypeVarContextClone.addSolveForScope(getTypeVarScopeId(destMemberType));
+                const protocolConstraintsClone = protocolConstraints.clone();
 
                 if (
                     !evaluator.assignType(
                         destMemberType,
                         srcMemberType,
                         subDiag?.createAddendum(),
-                        protocolTypeVarContextClone,
-                        /* srcTypeVarContext */ undefined,
+                        protocolConstraintsClone,
+                        /* srcConstraints */ undefined,
                         isInvariant ? assignTypeFlags | AssignTypeFlags.EnforceInvariance : assignTypeFlags,
                         recursionCount
                     )
@@ -634,7 +648,7 @@ function assignClassToProtocolInternal(
                     }
                     typesAreConsistent = false;
                 } else {
-                    protocolTypeVarContext.copyFromClone(protocolTypeVarContextClone);
+                    protocolConstraints.copyFromClone(protocolConstraintsClone);
                 }
             }
 
@@ -716,41 +730,35 @@ function assignClassToProtocolInternal(
     });
 
     // If the dest protocol has type parameters, make sure the source type arguments match.
-    if (typesAreConsistent && destType.details.typeParameters.length > 0) {
+    if (typesAreConsistent && destType.shared.typeParams.length > 0) {
         // Create a specialized version of the protocol defined by the dest and
         // make sure the resulting type args can be assigned.
-        const genericProtocolType = ClassType.cloneForSpecialization(
-            destType,
-            undefined,
-            /* isTypeArgumentExplicit */ false
-        );
-        const specializedProtocolType = applySolvedTypeVars(genericProtocolType, protocolTypeVarContext) as ClassType;
+        const genericProtocolType = ClassType.specialize(destType, undefined);
+        const specializedProtocolType = evaluator.solveAndApplyConstraints(
+            genericProtocolType,
+            protocolConstraints
+        ) as ClassType;
 
-        if (destType.typeArguments) {
+        if (destType.priv.typeArgs) {
             if (
-                !evaluator.assignTypeArguments(
+                !evaluator.assignTypeArgs(
                     destType,
                     specializedProtocolType,
                     diag,
-                    destTypeVarContext,
-                    srcTypeVarContext,
+                    destConstraints,
+                    srcConstraints,
                     flags,
                     recursionCount
                 )
             ) {
                 typesAreConsistent = false;
             }
-        } else if (destTypeVarContext && !destTypeVarContext.isLocked()) {
-            for (const typeParam of destType.details.typeParameters) {
-                const typeArgEntry = protocolTypeVarContext.getPrimarySignature().getTypeVar(typeParam);
+        } else if (destConstraints && !destConstraints.isLocked()) {
+            for (const typeParam of destType.shared.typeParams) {
+                const typeArgEntry = protocolConstraints.getMainConstraintSet().getTypeVar(typeParam);
 
                 if (typeArgEntry) {
-                    destTypeVarContext.setTypeVarType(
-                        typeParam,
-                        typeArgEntry?.narrowBound,
-                        typeArgEntry?.narrowBoundNoLiterals,
-                        typeArgEntry?.wideBound
-                    );
+                    destConstraints.copyBounds(typeArgEntry);
                 }
             }
         }
@@ -759,35 +767,32 @@ function assignClassToProtocolInternal(
     return typesAreConsistent;
 }
 
-// Given a (possibly-specialized) destType and an optional typeVarContext, creates
-// a new typeVarContext that combines the constraints from both the destType and
-// the destTypeVarContext.
-function createProtocolTypeVarContext(
+// Given a (possibly-specialized) destType and an optional constraint tracker,
+// creates a new constraint tracker that combines the constraints from both the
+// destType and the destConstraints.
+function createProtocolConstraints(
     evaluator: TypeEvaluator,
     destType: ClassType,
-    destTypeVarContext: TypeVarContext | undefined
-): TypeVarContext {
-    const protocolTypeVarContext = new TypeVarContext(getTypeVarScopeId(destType));
+    constraints: ConstraintTracker | undefined
+): ConstraintTracker {
+    const protocolConstraints = new ConstraintTracker();
 
-    destType.details.typeParameters.forEach((typeParam, index) => {
-        const entry = destTypeVarContext?.getPrimarySignature().getTypeVar(typeParam);
+    destType.shared.typeParams.forEach((typeParam, index) => {
+        const entry = constraints?.getMainConstraintSet().getTypeVar(typeParam);
 
         if (entry) {
-            protocolTypeVarContext.setTypeVarType(
-                typeParam,
-                entry.narrowBound,
-                entry.narrowBoundNoLiterals,
-                entry.wideBound
-            );
-        } else if (destType.typeArguments && index < destType.typeArguments.length) {
-            let typeArg = destType.typeArguments[index];
+            protocolConstraints.copyBounds(entry);
+        } else if (destType.priv.typeArgs && index < destType.priv.typeArgs.length) {
+            let typeArg = destType.priv.typeArgs[index];
             let flags: AssignTypeFlags;
             let hasUnsolvedTypeVars = requiresSpecialization(typeArg);
 
             // If the type argument has unsolved TypeVars, see if they have
-            // solved values in the destTypeVarContext.
-            if (hasUnsolvedTypeVars && destTypeVarContext) {
-                typeArg = applySolvedTypeVars(typeArg, destTypeVarContext, { useNarrowBoundOnly: true });
+            // solved values in the destConstraints.
+            if (hasUnsolvedTypeVars && constraints) {
+                typeArg = evaluator.solveAndApplyConstraints(typeArg, constraints, /* applyOptions */ undefined, {
+                    useLowerBoundOnly: true,
+                });
                 flags = AssignTypeFlags.Default;
                 hasUnsolvedTypeVars = requiresSpecialization(typeArg);
             } else {
@@ -802,10 +807,10 @@ function createProtocolTypeVarContext(
             }
 
             if (!hasUnsolvedTypeVars) {
-                assignTypeToTypeVar(evaluator, typeParam, typeArg, /* diag */ undefined, protocolTypeVarContext, flags);
+                assignTypeVar(evaluator, typeParam, typeArg, /* diag */ undefined, protocolConstraints, flags);
             }
         }
     });
 
-    return protocolTypeVarContext;
+    return protocolConstraints;
 }

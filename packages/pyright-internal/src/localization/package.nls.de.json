@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "\"Verketten\" erfordert mindestens zwei Typargumente.",
         "conditionalOperandInvalid": "Ungültiger bedingter Operand vom Typ \"{type}\"",
         "constantRedefinition": "\"{name}\" ist konstant (da es sich um Großbuchstaben handelt) und kann nicht neu definiert werden.",
-        "constructorNoArgs": "Es wurden keine Argumente für \"{type}\" Konstruktor erwartet.",
         "constructorParametersMismatch": "Keine Übereinstimmung zwischen der Signatur von __new__ und __init__ in der Klasse \"{classType}\"",
         "containmentAlwaysFalse": "Der Ausdruck wird immer als False ausgewertet, da die Typen \"{leftType}\" und \"{rightType}\" keine Überlappung aufweisen.",
         "containmentAlwaysTrue": "Der Ausdruck wird immer als True ausgewertet, da die Typen \"{leftType}\" und \"{rightType}\" keine Überlappung aufweisen.",
@@ -496,7 +495,7 @@
         "typeCallNotAllowed": "Der type()-Aufruf darf nicht in der Typanmerkung verwendet werden.",
         "typeCheckOnly": "\"{name}\" ist als @type_check_only markiert und kann nur in Typanmerkungen verwendet werden.",
         "typeCommentDeprecated": "Die Verwendung von Typkommentaren ist veraltet; verwenden Sie stattdessen Typanmerkung",
-        "typeExpectedClass": "Typausdruck erwartet, aber \"{type}\" empfangen",
+        "typeExpectedClass": "Die Klasse wurde erwartet, aber „{type}“ wurde empfangen.",
         "typeGuardArgCount": "Nach \"TypeGuard\" oder \"TypeIs\" wurde ein einzelnes Typargument erwartet.",
         "typeGuardParamCount": "Benutzerdefinierte Typenschutzfunktionen und -methoden müssen mindestens einen Eingabeparameter aufweisen.",
         "typeIsReturnType": "Der Rückgabetyp von TypeIs (\"{returnType}\") ist nicht konsistent mit dem Wertparametertyp (\"{type}\").",
@@ -670,6 +669,7 @@
         "invariantSuggestionDict": "Erwägen Sie den Wechsel von \"dict\" zu \"Mapping\" (im Werttyp covariant).",
         "invariantSuggestionList": "Erwägen Sie den Wechsel von \"list\" zu \"Sequence\" (covariant).",
         "invariantSuggestionSet": "Erwägen Sie den Wechsel von „set“ zu „Container“, der Kovariante ist.",
+        "isinstanceClassNotSupported": "„{type}“ wird für Instanz- und Klassenüberprüfungen nicht unterstützt.",
         "keyNotRequired": "\"{name}\" ist kein erforderlicher Schlüssel in \"{type}\". Der Zugriff kann daher zu einer Laufzeitausnahme führen.",
         "keyReadOnly": "\"{name}\" ist ein schreibgeschützter Schlüssel in \"{type}\"",
         "keyRequiredDeleted": "\"{name}\" ist ein erforderlicher Schlüssel und kann nicht gelöscht werden.",
@@ -804,5 +804,8 @@
         "useTypeInstead": "Stattdessen Typ[T] verwenden",
         "varianceMismatchForClass": "Die Varianz des Typarguments \"{typeVarName}\" ist nicht mit der Basisklasse \"{className}\" kompatibel",
         "varianceMismatchForTypeAlias": "Die Varianz des Typarguments \"{typeVarName}\" ist nicht mit \"{typeAliasParam}\" kompatibel"
+    },
+    "Service": {
+        "longOperation": "Das Aufzählen von Arbeitsbereichsquelldateien nimmt viel Zeit in Anspruch. Erwägen Sie stattdessen, einen Unterordner zu öffnen. [Weitere Informationen](https://aka.ms/workspace-too-many-files)"
     }
 }

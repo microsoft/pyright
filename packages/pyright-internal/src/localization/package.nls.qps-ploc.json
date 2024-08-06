@@ -93,7 +93,6 @@
         "concatenateTypeArgsMissing": "[aH5g8][นั้\"Çøñçætëñætë\" rëqµïrës æt lëæst twø tÿpë ærgµmëñtsẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰนั้ढूँ]",
         "conditionalOperandInvalid": "[HnbrG][นั้Ïñvælïð çøñðïtïøñæl øpëræñð øf tÿpë \"{tÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
         "constantRedefinition": "[oRKBh][นั้\"{ñæmë}\" ïs çøñstæñt (þëçæµsë ït ïs µppërçæsë) æñð çæññøt þë rëðëfïñëðẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまนั้ढूँ]",
-        "constructorNoArgs": "[2g3jZ][นั้Ëxpëçtëð ñø ærgµmëñts tø \"{tÿpë}\" çøñstrµçtørẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
         "constructorParametersMismatch": "[WWloK][นั้Mïsmætçh þëtwëëñ sïgñætµrë øf __ñëw__ æñð __ïñït__ ïñ çlæss \"{çlæssTÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤนั้ढूँ]",
         "containmentAlwaysFalse": "[e6PIv][นั้Ëxprëssïøñ wïll ælwæÿs ëvælµætë tø Fælsë sïñçë thë tÿpës \"{lëftTÿpë}\" æñð \"{rïghtTÿpë}\" hævë ñø øvërlæpẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
         "containmentAlwaysTrue": "[8OhUO][นั้Ëxprëssïøñ wïll ælwæÿs ëvælµætë tø Trµë sïñçë thë tÿpës \"{lëftTÿpë}\" æñð \"{rïghtTÿpë}\" hævë ñø øvërlæpẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
@@ -496,7 +495,7 @@
         "typeCallNotAllowed": "[OGMmG][นั้tÿpë() çæll shøµlð ñøt þë µsëð ïñ tÿpë æññøtætïøñẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰนั้ढूँ]",
         "typeCheckOnly": "[cSmKj][นั้\"{ñæmë}\" ïs mærkëð æs @tÿpë_çhëçk_øñlÿ æñð çæñ þë µsëð øñlÿ ïñ tÿpë æññøtætïøñsẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
         "typeCommentDeprecated": "[SRhVz][นั้Üsë øf tÿpë çømmëñts ïs ðëprëçætëð; µsë tÿpë æññøtætïøñ ïñstëæðẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
-        "typeExpectedClass": "[r0pdu][นั้Ëxpëçtëð tÿpë ëxprëssïøñ þµt rëçëïvëð \"{tÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
+        "typeExpectedClass": "[r0pdu][นั้Ëxpëçtëð çlæss þµt rëçëïvëð \"{tÿpë}\"Ấğ倪İЂҰक्र्तिृまนั้ढूँ]",
         "typeGuardArgCount": "[Zl47K][นั้Ëxpëçtëð æ sïñglë tÿpë ærgµmëñt æftër \"TÿpëGµærð\" ør \"TÿpëÏs\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्นั้ढूँ]",
         "typeGuardParamCount": "[I3HUH][นั้Üsër-ðëfïñëð tÿpë gµærð fµñçtïøñs æñð mëthøðs mµst hævë æt lëæst øñë ïñpµt pæræmëtërẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰนั้ढूँ]",
         "typeIsReturnType": "[5bBbd][นั้Rëtµrñ tÿpë øf TÿpëÏs (\"{rëtµrñTÿpë}\") ïs ñøt çøñsïstëñt wïth vælµë pæræmëtër tÿpë (\"{tÿpë}\")Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्นั้ढूँ]",
@@ -670,6 +669,7 @@
         "invariantSuggestionDict": "[OIoHo][นั้Çøñsïðër swïtçhïñg frøm \"ðïçt\" tø \"Mæppïñg\" whïçh ïs çøværïæñt ïñ thë vælµë tÿpëẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]",
         "invariantSuggestionList": "[irYWI][นั้Çøñsïðër swïtçhïñg frøm \"lïst\" tø \"§ëqµëñçë\" whïçh ïs çøværïæñtẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
         "invariantSuggestionSet": "[64U47][นั้Çøñsïðër swïtçhïñg frøm \"sët\" tø \"Çøñtæïñër\" whïçh ïs çøværïæñtẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृนั้ढूँ]",
+        "isinstanceClassNotSupported": "[uTDu4][นั้\"{tÿpë}\" ïs ñøt sµppørtëð før ïñstæñçë æñð çlæss çhëçksẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
         "keyNotRequired": "[K1bDP][นั้\"{ñæmë}\" ïs ñøt æ rëqµïrëð këÿ ïñ \"{tÿpë}\", sø æççëss mæÿ rësµlt ïñ rµñtïmë ëxçëptïøñẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰนั้ढूँ]",
         "keyReadOnly": "[dhAH3][นั้\"{ñæmë}\" ïs æ rëæð-øñlÿ këÿ ïñ \"{tÿpë}\"Ấğ倪İЂҰक्र्तिृまẤğนั้ढूँ]",
         "keyRequiredDeleted": "[YeZa5][นั้\"{ñæmë}\" ïs æ rëqµïrëð këÿ æñð çæññøt þë ðëlëtëðẤğ倪İЂҰक्र्तिृまẤğ倪İЂนั้ढूँ]",
@@ -804,5 +804,8 @@
         "useTypeInstead": "[Zig8D][นั้Üsë Tÿpë[T] ïñstëæðẤğ倪İЂҰक्นั้ढूँ]",
         "varianceMismatchForClass": "[fqhIl][นั้Værïæñçë øf tÿpë ærgµmëñt \"{tÿpëVærÑæmë}\" ïs ïñçømpætïþlë wïth þæsë çlæss \"{çlæssÑæmë}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्นั้ढूँ]",
         "varianceMismatchForTypeAlias": "[YSiVx][นั้Værïæñçë øf tÿpë ærgµmëñt \"{tÿpëVærÑæmë}\" ïs ïñçømpætïþlë wïth \"{tÿpëÆlïæsPæræm}\"Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İนั้ढूँ]"
+    },
+    "Service": {
+        "longOperation": "[Mvrp3][นั้Ëñµmërætïøñ øf wørkspæçë søµrçë fïlës ïs tækïñg æ løñg tïmë. Çøñsïðër øpëñïñg æ sµþ-følðër ïñstëæð. [£ëærñ mørë](https://ækæ.ms/wørkspæçë-tøø-mæñÿ-fïlës)Ấğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂҰक्र्तिृまẤğ倪İЂนั้ढूँ]"
     }
 }

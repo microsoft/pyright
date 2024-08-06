@@ -18,7 +18,7 @@ def func2(x: T, y: T) -> T:
 
 
 reveal_type(
-    func2(func1, func2), expected_text="(x: T@func1, y: U@func1) -> (T@func1 | U@func1)"
+    func2(func1, func2), expected_text="(x: T(1)@func2, y: T(1)@func2) -> T(1)@func2"
 )
 
 
