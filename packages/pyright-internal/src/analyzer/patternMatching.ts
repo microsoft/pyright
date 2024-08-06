@@ -1145,29 +1145,32 @@ function narrowTypeBasedOnValuePattern(
                     (subjectSubtypeExpanded) => {
                         // If this is a negative test, see if it's an enum value.
                         if (!isPositiveTest) {
-                            if (
-                                isClassInstance(subjectSubtypeExpanded) &&
-                                ClassType.isEnumClass(subjectSubtypeExpanded) &&
-                                !isLiteralType(subjectSubtypeExpanded) &&
-                                isClassInstance(valueSubtypeExpanded) &&
-                                isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded) &&
-                                isLiteralType(valueSubtypeExpanded)
-                            ) {
-                                const allEnumTypes = enumerateLiteralsForType(evaluator, subjectSubtypeExpanded);
-                                if (allEnumTypes) {
-                                    return combineTypes(
-                                        allEnumTypes.filter(
-                                            (enumType) => !ClassType.isLiteralValueSame(valueSubtypeExpanded, enumType)
-                                        )
+                            if (isClassInstance(subjectSubtypeExpanded) && isClassInstance(valueSubtypeExpanded)) {
+                                if (
+                                    !isLiteralType(subjectSubtypeExpanded) &&
+                                    isSameWithoutLiteralValue(subjectSubtypeExpanded, valueSubtypeExpanded) &&
+                                    isLiteralType(valueSubtypeExpanded)
+                                ) {
+                                    const expandedLiterals = enumerateLiteralsForType(
+                                        evaluator,
+                                        subjectSubtypeExpanded
                                     );
+                                    if (expandedLiterals) {
+                                        return combineTypes(
+                                            expandedLiterals.filter(
+                                                (enumType) =>
+                                                    !ClassType.isLiteralValueSame(valueSubtypeExpanded, enumType)
+                                            )
+                                        );
+                                    }
                                 }
-                            } else if (
-                                isClassInstance(subjectSubtypeExpanded) &&
-                                isClassInstance(valueSubtypeExpanded) &&
-                                isLiteralType(subjectSubtypeExpanded) &&
-                                ClassType.isLiteralValueSame(valueSubtypeExpanded, subjectSubtypeExpanded)
-                            ) {
-                                return undefined;
+
+                                if (
+                                    isLiteralType(subjectSubtypeExpanded) &&
+                                    ClassType.isLiteralValueSame(valueSubtypeExpanded, subjectSubtypeExpanded)
+                                ) {
+                                    return undefined;
+                                }
                             }
 
                             return subjectSubtypeExpanded;

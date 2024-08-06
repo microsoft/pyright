@@ -3,8 +3,8 @@
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Annotated, TypeVar
 from http import HTTPStatus
+from typing import Annotated, Literal, TypeVar
 
 # pyright: reportIncompatibleMethodOverride=false
 
@@ -141,3 +141,17 @@ def test_enum_narrowing_with_inf(subj: float):
             reveal_type(subj, expected_text="float")
         case f:
             reveal_type(subj, expected_text="float")
+
+
+@dataclass
+class DC2:
+    a: Literal[False]
+
+
+def test_bool_expansion(subj: bool):
+    match subj:
+        case DC2.a:
+            reveal_type(subj, expected_text="Literal[False]")
+
+        case x:
+            reveal_type(subj, expected_text="Literal[True]")
