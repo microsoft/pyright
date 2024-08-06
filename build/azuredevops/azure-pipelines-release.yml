@@ -15,10 +15,6 @@ variables:
     value: vscode-pyright.vsix
   - name: ARTIFACT_NAME_VSIX
     value: vsix
-  - name: 'TagOverride'
-    value: '1.1.375'
-  - name: 'customTagName'
-    value: $[ coalesce(variables['TagOverride'], variables['Build.SourceBranchName']) ]
 
 extends:
   template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
@@ -97,7 +93,7 @@ extends:
                   isDraft: true
                   isPreRelease: false
                   addChangeLog: true
-                  title: 'Published $(customTagName)'
+                  title: 'Published $(Build.SourceBranchName)'
                   assets: |
                     $(Pipeline.Workspace)/$(ARTIFACT_NAME_VSIX)/$(VSIX_NAME)
       - stage: WaitForValidation
@@ -133,7 +129,7 @@ extends:
                   connection: 'Github-Pylance'
                   userRepository: 'microsoft/pyright'
                   defaultVersionType: 'specificTag'
-                  version: $(customTagName)
+                  version: $(Build.SourceBranchName)
                   downloadPath: '$(System.ArtifactsDirectory)'
               # https://code.visualstudio.com/api/working-with-extensions/publishing-extension
               # Install dependencies and VS Code Extension Manager (vsce >= v2.26.1 needed)
