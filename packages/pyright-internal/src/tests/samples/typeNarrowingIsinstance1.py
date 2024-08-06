@@ -1,7 +1,17 @@
 # This sample exercises the type analyzer's isinstance type narrowing logic.
 
 from types import NoneType
-from typing import Any, Generic, Iterable, Iterator, Protocol, Sized, TypeVar, Union, runtime_checkable
+from typing import (
+    Any,
+    Generic,
+    Iterable,
+    Iterator,
+    Protocol,
+    Sized,
+    TypeVar,
+    Union,
+    runtime_checkable,
+)
 
 S = TypeVar("S")
 T = TypeVar("T")
@@ -233,3 +243,21 @@ def func13(x: object | type[object]) -> None:
 def func14(x: Iterable[T]):
     if isinstance(x, Iterator):
         reveal_type(x, expected_text="Iterator[T@func14]")
+
+
+class Base15(Generic[T]):
+    value: T
+
+
+class Child15(Base15[int]):
+    value: int
+
+
+def func15(x: Base15[T]):
+    if isinstance(x, Child15):
+        # This should generate an error. It's here just to ensure that
+        # this code branch isn't marked unreachable.
+        reveal_type(x, expected_text="Never")
+
+        reveal_type(x, expected_text="Child15")
+        reveal_type(x.value, expected_text="int")
