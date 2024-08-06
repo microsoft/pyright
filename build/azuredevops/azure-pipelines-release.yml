@@ -112,7 +112,6 @@ extends:
                   onTimeout: 'resume'
 
       - stage: PublishExtension
-        condition: false
         dependsOn:
           - WaitForValidation
         jobs:
