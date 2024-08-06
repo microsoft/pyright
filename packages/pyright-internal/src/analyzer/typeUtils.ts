@@ -177,12 +177,12 @@ export const enum AssignTypeFlags {
 
     // Require invariance with respect to class matching? Normally
     // subclasses are allowed.
-    EnforceInvariance = 1 << 0,
+    Invariant = 1 << 0,
 
     // The caller has swapped the source and dest types because
     // the types are contravariant. Perform type var matching
     // on dest type vars rather than source type var.
-    ReverseTypeVarMatching = 1 << 1,
+    Contravariant = 1 << 1,
 
     // We're comparing type compatibility of two distinct recursive types.
     // This has the potential of recursing infinitely. This flag allows us

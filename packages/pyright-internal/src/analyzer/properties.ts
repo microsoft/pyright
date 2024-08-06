@@ -569,7 +569,6 @@ export function assignProperty(
                     boundSrcAccessType,
                     diag,
                     constraints,
-                    /* srcConstraints */ undefined,
                     AssignTypeFlags.Default,
                     recursionCount
                 )
