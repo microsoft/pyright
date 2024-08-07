@@ -271,7 +271,7 @@ The following is an example of a pyright config file:
 
   "stubPath": "src/stubs",
 
-  "reportMissingImports": true,
+  "reportMissingImports": "error",
   "reportMissingTypeStubs": false,
 
   "pythonVersion": "3.6",
@@ -284,7 +284,8 @@ The following is an example of a pyright config file:
       "pythonPlatform": "Windows",
       "extraPaths": [
         "src/service_libs"
-      ]
+      ],
+      "reportMissingImports": "warning"
     },
     {
       "root": "src/sdk",
@@ -320,14 +321,14 @@ ignore = ["src/oldstuff"]
 defineConstant = { DEBUG = true }
 stubPath = "src/stubs"
 
-reportMissingImports = true
+reportMissingImports = "error"
 reportMissingTypeStubs = false
 
 pythonVersion = "3.6"
 pythonPlatform = "Linux"
 
 executionEnvironments = [
-  { root = "src/web", pythonVersion = "3.5", pythonPlatform = "Windows", extraPaths = [ "src/service_libs" ] },
+  { root = "src/web", pythonVersion = "3.5", pythonPlatform = "Windows", extraPaths = [ "src/service_libs" ], reportMissingImports = "warning" },
   { root = "src/sdk", pythonVersion = "3.0", extraPaths = [ "src/backend" ] },
   { root = "src/tests", extraPaths = ["src/tests/e2e", "src/sdk" ]},
   { root = "src" }
