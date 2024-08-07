@@ -3211,6 +3211,10 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        if (this._fileInfo.diagnosticRuleSet.reportInconsistentOverload === 'none') {
+            return;
+        }
+
         // Verify that all overload signatures are assignable to implementation signature.
         OverloadedFunctionType.getOverloads(type).forEach((overload, index) => {
             const diag = new DiagnosticAddendum();
