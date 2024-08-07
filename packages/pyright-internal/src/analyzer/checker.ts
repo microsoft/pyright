@@ -2606,6 +2606,11 @@ export class Checker extends ParseTreeWalker {
 
     // Validates that overloads use @staticmethod and @classmethod consistently.
     private _validateOverloadAttributeConsistency(node: FunctionNode, functionType: OverloadedFunctionType) {
+        // Don't bother with the check if it's suppressed.
+        if (this._fileInfo.diagnosticRuleSet.reportInconsistentOverload === 'none') {
+            return;
+        }
+
         let staticMethodCount = 0;
         let classMethodCount = 0;
 
@@ -2646,6 +2651,11 @@ export class Checker extends ParseTreeWalker {
         functionType: FunctionType,
         prevOverloads: FunctionType[]
     ) {
+        // Skip the check entirely if it's disabled.
+        if (this._fileInfo.diagnosticRuleSet.reportOverlappingOverload === 'none') {
+            return;
+        }
+
         for (let i = 0; i < prevOverloads.length; i++) {
             const prevOverload = prevOverloads[i];
             if (this._isOverlappingOverload(functionType, prevOverload, /* partialOverlap */ false)) {
