@@ -2796,10 +2796,25 @@ export class Checker extends ParseTreeWalker {
         const implConstraints = new ConstraintTracker();
         const overloadConstraints = new ConstraintTracker();
 
+        let implBound = implementation;
+        let overloadBound = overload;
+
+        const implNode = implementation.shared.declaration?.node?.parent;
+        if (implNode) {
+            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(implNode);
+            implBound = makeTypeVarsBound(implementation, liveScopeIds);
+        }
+
+        const overloadNode = overload.shared.declaration?.node;
+        if (overloadNode) {
+            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(overloadNode);
+            overloadBound = makeTypeVarsBound(overload, liveScopeIds);
+        }
+
         // First check the parameters to see if they are assignable.
-        let isLegal = this._evaluator.assignType(
-            overload,
-            implementation,
+        let isConsistent = this._evaluator.assignType(
+            overloadBound,
+            implBound,
             diag,
             overloadConstraints,
             implConstraints,
@@ -2809,27 +2824,21 @@ export class Checker extends ParseTreeWalker {
         );
 
         // Now check the return types.
-        let overloadReturnType =
-            overload.shared.declaredReturnType ?? this._evaluator.getFunctionInferredReturnType(overload);
-        let implementationReturnType = this._evaluator.solveAndApplyConstraints(
-            implementation.shared.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation),
+        const overloadReturnType = this._evaluator.solveAndApplyConstraints(
+            FunctionType.getEffectiveReturnType(overloadBound) ??
+                this._evaluator.getFunctionInferredReturnType(overloadBound),
+            overloadConstraints
+        );
+        const implReturnType = this._evaluator.solveAndApplyConstraints(
+            FunctionType.getEffectiveReturnType(implBound) ?? this._evaluator.getFunctionInferredReturnType(implBound),
             implConstraints
         );
-
-        if (implementation.shared.declaration?.node?.parent) {
-            // Use the parent node of the implementation to determine which type variables
-            // are live. This will include any class-scoped type variables if this is an
-            // overloaded method.
-            const liveScopeIds = ParseTreeUtils.getTypeVarScopesForNode(implementation.shared.declaration.node.parent);
-            implementationReturnType = makeTypeVarsBound(implementationReturnType, liveScopeIds);
-            overloadReturnType = makeTypeVarsBound(overloadReturnType, liveScopeIds);
-        }
 
         const returnDiag = new DiagnosticAddendum();
         if (
             !isNever(overloadReturnType) &&
             !this._evaluator.assignType(
-                implementationReturnType,
+                implReturnType,
                 overloadReturnType,
                 returnDiag.createAddendum(),
                 implConstraints,
@@ -2840,14 +2849,14 @@ export class Checker extends ParseTreeWalker {
             returnDiag.addMessage(
                 LocAddendum.functionReturnTypeMismatch().format({
                     sourceType: this._evaluator.printType(overloadReturnType),
-                    destType: this._evaluator.printType(implementationReturnType),
+                    destType: this._evaluator.printType(implReturnType),
                 })
             );
             diag?.addAddendum(returnDiag);
-            isLegal = false;
+            isConsistent = false;
         }
 
-        return isLegal;
+        return isConsistent;
     }
 
     private _walkStatementsAndReportUnreachable(statements: StatementNode[]) {
