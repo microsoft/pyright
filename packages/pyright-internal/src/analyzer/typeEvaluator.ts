@@ -6814,7 +6814,7 @@ export function createTypeEvaluator(
                 typeArgs = [
                     {
                         type: UnknownType.create(),
-                        node: typeArgs[0].node,
+                        node: typeArgs.length > 0 ? typeArgs[0].node : node,
                         typeList: typeArgs,
                     },
                 ];
