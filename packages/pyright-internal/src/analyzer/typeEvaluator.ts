@@ -340,7 +340,6 @@ import {
     requiresSpecialization,
     requiresTypeArgs,
     selfSpecializeClass,
-    setTypeArgsRecursive,
     simplifyFunctionToParamSpec,
     sortTypes,
     specializeClassType,
@@ -23572,7 +23571,7 @@ export function createTypeEvaluator(
                 // type. These are functionally equivalent, but "Any" looks
                 // better in the text representation.
                 const typeVarSubstitution = isEllipsisType(srcType) ? AnyType.create() : srcType;
-                setTypeArgsRecursive(destType, typeVarSubstitution, targetConstraints, recursionCount);
+                setConstraintsForFreeTypeVars(destType, typeVarSubstitution, targetConstraints);
             }
             if ((flags & AssignTypeFlags.OverloadOverlap) === 0) {
                 return true;
@@ -23593,7 +23592,7 @@ export function createTypeEvaluator(
                 (flags & AssignTypeFlags.ReverseTypeVarMatching) === 0 ? destConstraints : srcConstraints;
 
             if (targetConstraints) {
-                setTypeArgsRecursive(destType, UnknownType.create(), targetConstraints, recursionCount);
+                setConstraintsForFreeTypeVars(destType, UnknownType.create(), targetConstraints);
             }
             return true;
         }
@@ -24507,6 +24506,28 @@ export function createTypeEvaluator(
         }
 
         return ClassType.isSpecialFormClass(classType);
+    }
+
+    // Finds unsolved type variables in the destType and establishes constraints
+    // in the constraint tracker for them based on the srcType.
+    function setConstraintsForFreeTypeVars(
+        destType: Type,
+        srcType: UnknownType | AnyType,
+        constraints: ConstraintTracker
+    ) {
+        if (constraints.isLocked()) {
+            return;
+        }
+
+        const typeVars = getTypeVarArgsRecursive(destType);
+        typeVars.forEach((typeVar) => {
+            if (!TypeVarType.isBound(typeVar) && !constraints.getMainConstraintSet().getTypeVar(typeVar)) {
+                // Don't set ParamSpecs or TypeVarTuples.
+                if (!isParamSpec(srcType) && !isTypeVarTuple(srcType)) {
+                    constraints.setBounds(typeVar, srcType);
+                }
+            }
+        });
     }
 
     // Determines whether a type is "subsumed by" (i.e. is a proper subtype of) another type.
