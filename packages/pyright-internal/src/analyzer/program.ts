@@ -2032,6 +2032,10 @@ export class Program {
             }
 
             // We might not have the file info if binding failed for whatever reasons.
+            if (!AnalyzerNodeInfo.hasAnalyzerInfo(parseResults.parseTree)) {
+                continue;
+            }
+            
             const fileInfo = AnalyzerNodeInfo.getFileInfo(parseResults.parseTree);
             if (fileInfo && fileInfo.accessedSymbolSet) {
                 dependentFiles.push(parseResults);
