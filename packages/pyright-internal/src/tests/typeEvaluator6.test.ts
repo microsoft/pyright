@@ -40,15 +40,8 @@ test('Overload4', () => {
 });
 
 test('Overload5', () => {
-    const configOptions = new ConfigOptions(Uri.empty());
-
-    configOptions.diagnosticRuleSet.reportOverlappingOverload = 'none';
-    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 0);
-
-    configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
-    analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 12);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py']);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Overload6', () => {
@@ -58,7 +51,7 @@ test('Overload6', () => {
 
 test('Overload7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload7.py']);
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Overload8', () => {
@@ -101,9 +94,21 @@ test('Overload16', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
-test('Overload17', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload17.py']);
-    TestUtils.validateResults(analysisResults, 3);
+test('OverloadImpl1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadImpl1.py']);
+    TestUtils.validateResults(analysisResults, 7);
+});
+
+test('OverloadOverlap1', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+
+    configOptions.diagnosticRuleSet.reportOverlappingOverload = 'none';
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverlap1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['overloadOverlap1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 12);
 });
 
 test('TypeGuard1', () => {

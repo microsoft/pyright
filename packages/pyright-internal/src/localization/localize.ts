@@ -722,6 +722,8 @@ export namespace Localizer {
             );
         export const overloadAbstractMismatch = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadAbstractMismatch'));
+        export const overloadAbstractImplMismatch = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadAbstractImplMismatch'));
         export const overloadClassMethodInconsistent = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadClassMethodInconsistent'));
         export const overloadFinalInconsistencyImpl = () =>
