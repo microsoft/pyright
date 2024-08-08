@@ -345,7 +345,6 @@ export function addConstraintsForExpectedType(
             expectedType,
             /* diag */ undefined,
             constraints,
-            /* srcConstraints */ undefined,
             AssignTypeFlags.PopulatingExpectedType
         );
     }
@@ -413,7 +412,6 @@ export function addConstraintsForExpectedType(
             specializedType,
             /* diag */ undefined,
             syntheticConstraints,
-            /* srcConstraints */ undefined,
             AssignTypeFlags.PopulatingExpectedType
         )
     ) {
@@ -588,7 +586,7 @@ function assignBoundTypeVar(
     }
 
     // Never is always assignable in a covariant context.
-    const isCovariant = (flags & (AssignTypeFlags.EnforceInvariance | AssignTypeFlags.ReverseTypeVarMatching)) === 0;
+    const isCovariant = (flags & (AssignTypeFlags.Invariant | AssignTypeFlags.Contravariant)) === 0;
     if (isNever(srcType) && isCovariant) {
         return true;
     }
@@ -622,8 +620,8 @@ function assignUnconstrainedTypeVar(
     flags: AssignTypeFlags,
     recursionCount: number
 ) {
-    const isInvariant = (flags & AssignTypeFlags.EnforceInvariance) !== 0;
-    const isContravariant = (flags & AssignTypeFlags.ReverseTypeVarMatching) !== 0 && !isInvariant;
+    const isInvariant = (flags & AssignTypeFlags.Invariant) !== 0;
+    const isContravariant = (flags & AssignTypeFlags.Contravariant) !== 0 && !isInvariant;
 
     // Handle the unconstrained (but possibly bound) case.
     const curEntry = constraints?.getMainConstraintSet().getTypeVar(destType);
@@ -634,7 +632,7 @@ function assignUnconstrainedTypeVar(
     }
     let curLowerBound = curEntry?.lowerBound;
     let newLowerBound = curLowerBound;
-    let newUpperTypeBound = curUpperBound;
+    let newUpperBound = curUpperBound;
     const diagAddendum = diag ? new DiagnosticAddendum() : undefined;
 
     let adjSrcType = srcType;
@@ -685,38 +683,36 @@ function assignUnconstrainedTypeVar(
         if (!curEntry) {
             if (isInvariant) {
                 newLowerBound = adjSrcType;
-                newUpperTypeBound = adjSrcType;
+                newUpperBound = adjSrcType;
             } else if (isContravariant) {
                 newLowerBound = adjSrcType;
             } else {
-                newUpperTypeBound = adjSrcType;
+                newUpperBound = adjSrcType;
             }
         }
     } else if (isContravariant) {
         // Update the upper bound.
         if (!curUpperBound || isTypeSame(destType, curUpperBound)) {
-            newUpperTypeBound = adjSrcType;
+            newUpperBound = adjSrcType;
         } else if (!isTypeSame(curUpperBound, adjSrcType, {}, recursionCount)) {
             if (
                 evaluator.assignType(
                     curUpperBound,
                     evaluator.makeTopLevelTypeVarsConcrete(adjSrcType),
                     diagAddendum,
-                    /* destConstraints */ undefined,
-                    /* srcConstraints */ undefined,
+                    /* constraints */ undefined,
                     AssignTypeFlags.Default,
                     recursionCount
                 )
             ) {
                 // The srcType is narrower than the current upper bound, so replace it.
-                newUpperTypeBound = adjSrcType;
+                newUpperBound = adjSrcType;
             } else if (
                 !evaluator.assignType(
                     adjSrcType,
                     curUpperBound,
                     diagAddendum,
-                    /* destConstraints */ undefined,
-                    /* srcConstraints */ undefined,
+                    /* constraints */ undefined,
                     AssignTypeFlags.Default,
                     recursionCount
                 )
@@ -737,11 +733,10 @@ function assignUnconstrainedTypeVar(
         if (curLowerBound) {
             if (
                 !evaluator.assignType(
-                    newUpperTypeBound!,
+                    newUpperBound!,
                     curLowerBound,
                     /* diag */ undefined,
-                    /* destConstraints */ undefined,
-                    /* srcConstraints */ undefined,
+                    /* constraints */ undefined,
                     AssignTypeFlags.Default,
                     recursionCount
                 )
@@ -749,7 +744,7 @@ function assignUnconstrainedTypeVar(
                 if (diag && diagAddendum) {
                     diag.addMessage(
                         LocAddendum.typeAssignmentMismatch().format(
-                            evaluator.printSrcDestTypes(curLowerBound, newUpperTypeBound!)
+                            evaluator.printSrcDestTypes(curLowerBound, newUpperBound!)
                         )
                     );
                     diag.addAddendum(diagAddendum);
@@ -765,21 +760,11 @@ function assignUnconstrainedTypeVar(
             // If this is an invariant context and there is currently no upper bound
             // established, use the "no literals" version of the lower bound rather
             // than a version that has literals.
-            if (!newUpperTypeBound && isInvariant && curEntry && !curEntry.retainLiterals) {
+            if (!newUpperBound && isInvariant && curEntry && !curEntry.retainLiterals) {
                 newLowerBound = stripLiteralsForLowerBound(evaluator, destType, curLowerBound);
             }
         } else {
-            if (
-                evaluator.assignType(
-                    curLowerBound,
-                    adjSrcType,
-                    diagAddendum,
-                    constraints,
-                    /* srcConstraints */ undefined,
-                    flags,
-                    recursionCount
-                )
-            ) {
+            if (evaluator.assignType(curLowerBound, adjSrcType, diagAddendum, constraints, flags, recursionCount)) {
                 // No need to widen. Stick with the existing type unless it's unknown
                 // or partly unknown, in which case we'll replace it with a known type
                 // as long as it doesn't violate the current lower bound.
@@ -791,7 +776,6 @@ function assignUnconstrainedTypeVar(
                         curLowerBound,
                         /* diag */ undefined,
                         constraints,
-                        /* srcConstraints */ undefined,
                         AssignTypeFlags.Default,
                         recursionCount
                     )
@@ -812,7 +796,6 @@ function assignUnconstrainedTypeVar(
                     adjSrcType,
                     diagAddendum,
                     constraints,
-                    /* srcConstraints */ undefined,
                     flags,
                     recursionCount
                 )
@@ -838,7 +821,6 @@ function assignUnconstrainedTypeVar(
                         curLowerBound,
                         /* diag */ undefined,
                         constraints,
-                        /* srcConstraints */ undefined,
                         AssignTypeFlags.Default,
                         recursionCount
                     )
@@ -862,7 +844,7 @@ function assignUnconstrainedTypeVar(
                     // If this is an invariant context and there is currently no upper bound
                     // established, use the "no literals" version of the lower bound rather
                     // than a version that has literals.
-                    if (!newUpperTypeBound && isInvariant && curEntry && !curEntry.retainLiterals) {
+                    if (!newUpperBound && isInvariant && curEntry && !curEntry.retainLiterals) {
                         curLowerBound = stripLiteralsForLowerBound(evaluator, destType, curLowerBound);
                     }
 
@@ -903,8 +885,7 @@ function assignUnconstrainedTypeVar(
                     adjSrcType,
                     newLowerBound,
                     diag?.createAddendum(),
-                    /* destConstraints */ undefined,
-                    /* srcConstraints */ undefined,
+                    /* constraints */ undefined,
                     AssignTypeFlags.Default,
                     recursionCount
                 )
@@ -923,26 +904,12 @@ function assignUnconstrainedTypeVar(
         // Make sure we don't exceed the upper bound.
         if (curUpperBound && newLowerBound) {
             if (!isTypeSame(curUpperBound, newLowerBound, {}, recursionCount)) {
-                let adjUpperBound = evaluator.makeTopLevelTypeVarsConcrete(
-                    curUpperBound,
-                    /* makeParamSpecsConcrete */ true
-                );
-
-                // Convert any remaining (non-top-level) TypeVars in the upper
-                // bound to unification vars.
-                adjUpperBound = transformExpectedType(
-                    adjUpperBound,
-                    /* liveTypeVarScopes */ [],
-                    /* usageOffset */ undefined
-                );
-
                 if (
                     !evaluator.assignType(
-                        adjUpperBound,
+                        curUpperBound,
                         newLowerBound,
                         diag?.createAddendum(),
-                        /* destConstraints */ undefined,
-                        /* srcConstraints */ undefined,
+                        /* constraints */ undefined,
                         AssignTypeFlags.Default,
                         recursionCount
                     )
@@ -950,7 +917,7 @@ function assignUnconstrainedTypeVar(
                     if (diag && diagAddendum) {
                         diag.addMessage(
                             LocAddendum.typeAssignmentMismatch().format(
-                                evaluator.printSrcDestTypes(newLowerBound, adjUpperBound)
+                                evaluator.printSrcDestTypes(newLowerBound, curUpperBound)
                             )
                         );
                     }
@@ -960,13 +927,13 @@ function assignUnconstrainedTypeVar(
         }
     }
 
-    if (!newUpperTypeBound && isInvariant) {
-        newUpperTypeBound = newLowerBound;
+    if (!newUpperBound && isInvariant) {
+        newUpperBound = newLowerBound;
     }
 
     // If there's a bound type, make sure the source is assignable to it.
     if (destType.shared.boundType) {
-        const updatedType = (newLowerBound || newUpperTypeBound)!;
+        const updatedType = (newLowerBound || newUpperBound)!;
 
         // If the dest is a Type[T] but the source is not a valid Type,
         // skip the assignType check and the diagnostic addendum, which will
@@ -986,7 +953,6 @@ function assignUnconstrainedTypeVar(
                 evaluator.makeTopLevelTypeVarsConcrete(updatedType),
                 diag?.createAddendum(),
                 effectiveConstraints,
-                /* srcConstraints */ undefined,
                 AssignTypeFlags.Default,
                 recursionCount
             )
@@ -1010,7 +976,7 @@ function assignUnconstrainedTypeVar(
         constraints.setBounds(
             destType,
             newLowerBound,
-            newUpperTypeBound,
+            newUpperBound,
             (flags & (AssignTypeFlags.PopulatingExpectedType | AssignTypeFlags.RetainLiteralsForTypeVar)) !== 0
         );
     }
@@ -1042,8 +1008,7 @@ function assignConstrainedTypeVar(
                 destType,
                 concreteSrcType,
                 /* diag */ undefined,
-                /* destConstraints */ undefined,
-                /* srcConstraints */ undefined,
+                /* constraints */ undefined,
                 AssignTypeFlags.Default,
                 recursionCount
             )
@@ -1082,8 +1047,7 @@ function assignConstrainedTypeVar(
                         adjustedConstraint,
                         srcSubtype,
                         /* diag */ undefined,
-                        /* destConstraints */ undefined,
-                        /* srcConstraints */ undefined,
+                        /* constraints */ undefined,
                         AssignTypeFlags.Default,
                         recursionCount
                     )
@@ -1096,8 +1060,7 @@ function assignConstrainedTypeVar(
                                 : constrainedSubtype,
                             adjustedConstraint,
                             /* diag */ undefined,
-                            /* destConstraints */ undefined,
-                            /* srcConstraints */ undefined,
+                            /* constraints */ undefined,
                             AssignTypeFlags.Default,
                             recursionCount
                         )
@@ -1112,7 +1075,7 @@ function assignConstrainedTypeVar(
                 // We found a source subtype that is not compatible with the dest.
                 // This is OK if we're handling the contravariant case because only
                 // one subtype needs to be assignable in that case.
-                if ((flags & AssignTypeFlags.ReverseTypeVarMatching) === 0) {
+                if ((flags & AssignTypeFlags.Contravariant) === 0) {
                     isCompatible = false;
                 }
             }
@@ -1148,8 +1111,7 @@ function assignConstrainedTypeVar(
                     adjustedConstraint,
                     concreteSrcType,
                     /* diag */ undefined,
-                    /* destConstraints */ undefined,
-                    /* srcConstraints */ undefined,
+                    /* constraints */ undefined,
                     AssignTypeFlags.Default,
                     recursionCount
                 );
@@ -1178,8 +1140,7 @@ function assignConstrainedTypeVar(
                 curLowerBound,
                 constrainedType,
                 /* diag */ undefined,
-                /* destConstraints */ undefined,
-                /* srcConstraints */ undefined,
+                /* constraints */ undefined,
                 AssignTypeFlags.Default,
                 recursionCount
             )
@@ -1192,8 +1153,7 @@ function assignConstrainedTypeVar(
                     constrainedType,
                     curLowerBound,
                     /* diag */ undefined,
-                    /* destConstraints */ undefined,
-                    /* srcConstraints */ undefined,
+                    /* constraints */ undefined,
                     AssignTypeFlags.Default,
                     recursionCount
                 )
@@ -1276,8 +1236,7 @@ function assignParamSpec(
                     existingFunction,
                     newFunction,
                     /* diag */ undefined,
-                    /* destConstraints */ undefined,
-                    /* srcConstraints */ undefined,
+                    /* constraints */ undefined,
                     AssignTypeFlags.SkipReturnTypeCheck,
                     recursionCount
                 );
@@ -1286,8 +1245,7 @@ function assignParamSpec(
                     newFunction,
                     existingFunction,
                     /* diag */ undefined,
-                    /* destConstraints */ undefined,
-                    /* srcConstraints */ undefined,
+                    /* constraints */ undefined,
                     AssignTypeFlags.SkipReturnTypeCheck,
                     recursionCount
                 );

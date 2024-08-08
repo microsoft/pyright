@@ -1458,8 +1458,7 @@ function narrowTypeForIsInstanceInternal(
                                 convertToInstance(convertVarTypeToFree(concreteVarType)),
                                 convertToInstance(concreteFilterType),
                                 /* diag */ undefined,
-                                /* destConstraints */ undefined,
-                                /* srcConstraints */ undefined,
+                                /* constraints */ undefined,
                                 AssignTypeFlags.AllowIsinstanceSpecialForms
                             )
                         ) {
@@ -1612,8 +1611,7 @@ function narrowTypeForIsInstanceInternal(
                             convertVarTypeToFree(concreteVarType),
                             filterType,
                             /* diag */ undefined,
-                            /* destConstraints */ undefined,
-                            /* srcConstraints */ undefined,
+                            /* constraints */ undefined,
                             AssignTypeFlags.AllowIsinstanceSpecialForms
                         )
                     ) {
