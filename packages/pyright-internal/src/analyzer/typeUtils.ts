@@ -687,14 +687,16 @@ function compareTypes(a: Type, b: Type, recursionCount = 0): number {
         case TypeCategory.OverloadedFunction: {
             const bOver = b as OverloadedFunctionType;
 
-            const aOverloadCount = a.priv.overloads.length;
-            const bOverloadCount = bOver.priv.overloads.length;
+            const aOverloads = OverloadedFunctionType.getOverloads(a);
+            const bOverloads = OverloadedFunctionType.getOverloads(bOver);
+            const aOverloadCount = aOverloads.length;
+            const bOverloadCount = bOverloads.length;
             if (aOverloadCount !== bOverloadCount) {
                 return bOverloadCount - aOverloadCount;
             }
 
             for (let i = 0; i < aOverloadCount; i++) {
-                const typeComparison = compareTypes(a.priv.overloads[i], bOver.priv.overloads[i]);
+                const typeComparison = compareTypes(aOverloads[i], bOverloads[i]);
                 if (typeComparison !== 0) {
                     return typeComparison;
                 }
@@ -918,8 +920,17 @@ export function getFullNameOfType(type: Type): string | undefined {
         case TypeCategory.Module:
             return type.priv.moduleName;
 
-        case TypeCategory.OverloadedFunction:
-            return type.priv.overloads[0].shared.fullName;
+        case TypeCategory.OverloadedFunction: {
+            const overloads = OverloadedFunctionType.getOverloads(type);
+            if (overloads.length > 0) {
+                return overloads[0].shared.fullName;
+            }
+
+            const impl = OverloadedFunctionType.getImplementation(type);
+            if (impl && isFunction(impl)) {
+                return impl.shared.fullName;
+            }
+        }
     }
 
     return undefined;
@@ -954,7 +965,9 @@ export function addConditionToType<T extends Type>(
             return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
 
         case TypeCategory.OverloadedFunction:
-            return OverloadedFunctionType.create(type.priv.overloads.map((t) => addConditionToType(t, condition))) as T;
+            return OverloadedFunctionType.create(
+                OverloadedFunctionType.getOverloads(type).map((t) => addConditionToType(t, condition))
+            ) as T;
 
         case TypeCategory.Class:
             return TypeBase.cloneForCondition(type, TypeCondition.combine(type.props?.condition, condition));
@@ -2072,7 +2085,7 @@ export function setTypeArgsRecursive(
             break;
 
         case TypeCategory.OverloadedFunction:
-            destType.priv.overloads.forEach((subtype) => {
+            OverloadedFunctionType.getOverloads(destType).forEach((subtype) => {
                 setTypeArgsRecursive(subtype, srcType, constraints, recursionCount);
             });
             break;
@@ -2887,7 +2900,17 @@ function _requiresSpecialization(type: Type, options?: RequiresSpecializationOpt
         }
 
         case TypeCategory.OverloadedFunction: {
-            return type.priv.overloads.some((overload) => requiresSpecialization(overload, options, recursionCount));
+            const overloads = OverloadedFunctionType.getOverloads(type);
+            if (overloads.some((overload) => requiresSpecialization(overload, options, recursionCount))) {
+                return true;
+            }
+
+            const impl = OverloadedFunctionType.getImplementation(type);
+            if (impl) {
+                return requiresSpecialization(impl, options, recursionCount);
+            }
+
+            return false;
         }
 
         case TypeCategory.Union: {
@@ -3188,9 +3211,14 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
         }
 
         case TypeCategory.OverloadedFunction: {
-            type.priv.overloads.forEach((overload) => {
+            const overloads = OverloadedFunctionType.getOverloads(type);
+            overloads.forEach((overload) => {
                 addDeclaringModuleNamesForType(overload, moduleList, recursionCount);
             });
+            const impl = OverloadedFunctionType.getImplementation(type);
+            if (impl) {
+                addDeclaringModuleNamesForType(impl, moduleList, recursionCount);
+            }
             break;
         }
 
@@ -3449,20 +3477,36 @@ export class TypeVarTransformer {
             let requiresUpdate = false;
 
             // Specialize each of the functions in the overload.
+            const overloads = OverloadedFunctionType.getOverloads(type);
             const newOverloads: FunctionType[] = [];
-            type.priv.overloads.forEach((entry) => {
+
+            overloads.forEach((entry) => {
                 const replacementType = this.transformTypeVarsInFunctionType(entry, recursionCount);
 
                 if (isFunction(replacementType)) {
                     newOverloads.push(replacementType);
                 } else {
-                    appendArray(newOverloads, replacementType.priv.overloads);
+                    appendArray(newOverloads, OverloadedFunctionType.getOverloads(replacementType));
                 }
 
                 if (replacementType !== entry) {
                     requiresUpdate = true;
                 }
             });
+
+            const impl = OverloadedFunctionType.getImplementation(type);
+            if (impl && isFunction(impl)) {
+                const replacementType = this.transformTypeVarsInFunctionType(impl, recursionCount);
+                if (isFunction(replacementType)) {
+                    newOverloads.push(replacementType);
+                } else {
+                    appendArray(newOverloads, OverloadedFunctionType.getOverloads(replacementType));
+                }
+
+                if (replacementType !== impl) {
+                    requiresUpdate = true;
+                }
+            }
 
             this._pendingFunctionTransformations.pop();
 

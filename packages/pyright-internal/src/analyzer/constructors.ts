@@ -855,7 +855,7 @@ function createFunctionFromNewMethod(
     }
 
     const newOverloads: FunctionType[] = [];
-    newType.priv.overloads.forEach((overload) => {
+    OverloadedFunctionType.getOverloads(newType).forEach((overload) => {
         const converted = convertNewToConstructor(overload);
         if (converted) {
             newOverloads.push(converted);
@@ -985,7 +985,7 @@ function createFunctionFromInitMethod(
     }
 
     const initOverloads: FunctionType[] = [];
-    initType.priv.overloads.forEach((overload) => {
+    OverloadedFunctionType.getOverloads(initType).forEach((overload) => {
         const converted = convertInitToConstructor(overload);
         if (converted) {
             initOverloads.push(converted);

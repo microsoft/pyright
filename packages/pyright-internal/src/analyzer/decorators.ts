@@ -509,7 +509,10 @@ export function addOverloadsToFunctionType(evaluator: TypeEvaluator, node: Funct
                     } else if (isOverloadedFunction(prevDeclDeclTypeInfo.decoratedType)) {
                         // If the previous declaration was itself an overloaded function,
                         // copy the entries from it.
-                        appendArray(overloadedTypes, prevDeclDeclTypeInfo.decoratedType.priv.overloads);
+                        appendArray(
+                            overloadedTypes,
+                            OverloadedFunctionType.getOverloads(prevDeclDeclTypeInfo.decoratedType)
+                        );
                     }
                 }
             }

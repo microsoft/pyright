@@ -49,6 +49,7 @@ import {
     isTypeSame,
     isUnknown,
     ModuleType,
+    OverloadedFunctionType,
     Type,
     TypeBase,
     TypeCategory,
@@ -832,7 +833,7 @@ export class PackageTypeVerifier {
             }
 
             case TypeCategory.OverloadedFunction: {
-                for (const overload of type.priv.overloads) {
+                for (const overload of OverloadedFunctionType.getOverloads(type)) {
                     knownStatus = this._updateKnownStatusIfWorse(
                         knownStatus,
                         this._getSymbolTypeKnownStatus(
@@ -1346,7 +1347,7 @@ export class PackageTypeVerifier {
             }
 
             case TypeCategory.OverloadedFunction: {
-                for (const overload of type.priv.overloads) {
+                for (const overload of OverloadedFunctionType.getOverloads(type)) {
                     knownStatus = this._updateKnownStatusIfWorse(
                         knownStatus,
                         this._getTypeKnownStatus(report, overload, publicSymbols, diag.createAddendum())

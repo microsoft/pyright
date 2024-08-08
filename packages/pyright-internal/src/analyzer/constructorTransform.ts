@@ -139,10 +139,11 @@ function applyPartialTransform(
 
     if (isOverloadedFunction(origFunctionType)) {
         const applicableOverloads: FunctionType[] = [];
+        const overloads = OverloadedFunctionType.getOverloads(origFunctionType);
         let sawArgErrors = false;
 
         // Apply the partial transform to each of the functions in the overload.
-        OverloadedFunctionType.getOverloads(origFunctionType).forEach((overload) => {
+        overloads.forEach((overload) => {
             // Apply the transform to this overload, but don't report errors.
             const transformResult = applyPartialTransformToFunction(
                 evaluator,
@@ -162,11 +163,11 @@ function applyPartialTransform(
         });
 
         if (applicableOverloads.length === 0) {
-            if (sawArgErrors) {
+            if (sawArgErrors && overloads.length > 0) {
                 evaluator.addDiagnostic(
                     DiagnosticRule.reportCallIssue,
                     LocMessage.noOverload().format({
-                        name: origFunctionType.priv.overloads[0].shared.name,
+                        name: overloads[0].shared.name,
                     }),
                     errorNode
                 );
