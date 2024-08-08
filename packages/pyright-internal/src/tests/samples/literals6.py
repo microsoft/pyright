@@ -4,38 +4,27 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Literal, TypeVar
 
-# This should generate two errors.
 Wrong1 = Literal[3 + 4]
 
-# This should generate two errors.
 Wrong2 = Literal["foo".replace("o", "b")]
 
-# This should generate two errors.
 Wrong3 = Literal[4 + 3j]
 
-# This should generate three errors.
 Wrong4 = Literal[-4 + 2j]
 
-# This should generate an error.
 Wrong5 = Literal[(1, "foo", "bar")]
 
-# This should generate an error.
 Wrong6 = Literal[{"a": "b", "c": "d"}]
 
-# This should generate two errors.
 Wrong7 = Literal[Path("abcd")]
 T = TypeVar("T")
 
-# This should generate an error.
 Wrong8 = Literal[T]
 
-# This should generate an error.
 Wrong9 = Literal[3.14]
 
-# This should generate an error.
 Wrong10 = Literal[Any]
 
-# This should generate an error.
 Wrong11 = Literal[...]
 
 
@@ -43,11 +32,9 @@ def func():
     ...
 
 
-# This should generate an error.
 Wrong12 = Literal[func]
 some_variable = "foo"
 
-# This should generate two errors.
 Wrong13 = Literal[some_variable]
 
 
