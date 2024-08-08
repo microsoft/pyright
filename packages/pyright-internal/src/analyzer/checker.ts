@@ -2614,7 +2614,13 @@ export class Checker extends ParseTreeWalker {
         let staticMethodCount = 0;
         let classMethodCount = 0;
 
-        functionType.priv.overloads.forEach((overload) => {
+        const overloads = OverloadedFunctionType.getOverloads(functionType);
+        if (overloads.length === 0) {
+            return;
+        }
+        let totalMethods = overloads.length;
+
+        overloads.forEach((overload) => {
             if (FunctionType.isStaticMethod(overload)) {
                 staticMethodCount++;
             }
@@ -2624,23 +2630,35 @@ export class Checker extends ParseTreeWalker {
             }
         });
 
-        if (staticMethodCount > 0 && staticMethodCount < functionType.priv.overloads.length) {
+        const impl = OverloadedFunctionType.getImplementation(functionType);
+        if (impl && isFunction(impl)) {
+            totalMethods += 1;
+            if (FunctionType.isStaticMethod(impl)) {
+                staticMethodCount++;
+            }
+
+            if (FunctionType.isClassMethod(impl)) {
+                classMethodCount++;
+            }
+        }
+
+        if (staticMethodCount > 0 && staticMethodCount < totalMethods) {
             this._evaluator.addDiagnostic(
                 DiagnosticRule.reportInconsistentOverload,
                 LocMessage.overloadStaticMethodInconsistent().format({
                     name: node.d.name.d.value,
                 }),
-                functionType.priv.overloads[0]?.shared.declaration?.node.d.name ?? node.d.name
+                overloads[0]?.shared.declaration?.node.d.name ?? node.d.name
             );
         }
 
-        if (classMethodCount > 0 && classMethodCount < functionType.priv.overloads.length) {
+        if (classMethodCount > 0 && classMethodCount < totalMethods) {
             this._evaluator.addDiagnostic(
                 DiagnosticRule.reportInconsistentOverload,
                 LocMessage.overloadClassMethodInconsistent().format({
                     name: node.d.name.d.value,
                 }),
-                functionType.priv.overloads[0]?.shared.declaration?.node.d.name ?? node.d.name
+                overloads[0]?.shared.declaration?.node.d.name ?? node.d.name
             );
         }
     }
@@ -6717,11 +6735,17 @@ export class Checker extends ParseTreeWalker {
             if (!SymbolNameUtils.isPrivateName(memberName)) {
                 if (isFunction(baseType) && FunctionType.isFinal(baseType)) {
                     reportFinalMethodOverride = true;
-                } else if (
-                    isOverloadedFunction(baseType) &&
-                    baseType.priv.overloads.some((overload) => FunctionType.isFinal(overload))
-                ) {
-                    reportFinalMethodOverride = true;
+                } else if (isOverloadedFunction(baseType)) {
+                    const overloads = OverloadedFunctionType.getOverloads(baseType);
+                    const impl = OverloadedFunctionType.getImplementation(baseType);
+
+                    if (overloads.some((overload) => FunctionType.isFinal(overload))) {
+                        reportFinalMethodOverride = true;
+                    }
+
+                    if (impl && isFunction(impl) && FunctionType.isFinal(impl)) {
+                        reportFinalMethodOverride = true;
+                    }
                 }
             }
 

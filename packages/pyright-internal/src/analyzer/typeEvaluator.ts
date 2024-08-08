@@ -5649,8 +5649,19 @@ export function createTypeEvaluator(
                 if (memberName === '__self__') {
                     // The "__self__" member is not currently defined in the "function"
                     // class, so we'll special-case it here.
-                    const functionType = isFunction(baseType) ? baseType : baseType.priv.overloads[0];
+                    let functionType: FunctionType | undefined;
+
+                    if (isFunction(baseType)) {
+                        functionType = baseType;
+                    } else {
+                        const overloads = OverloadedFunctionType.getOverloads(baseType);
+                        if (overloads.length > 0) {
+                            functionType = overloads[0];
+                        }
+                    }
+
                     if (
+                        functionType &&
                         functionType.priv.preBoundFlags !== undefined &&
                         (functionType.priv.preBoundFlags & FunctionTypeFlags.StaticMethod) === 0
                     ) {
@@ -9092,7 +9103,11 @@ export function createTypeEvaluator(
             // Skip the error message if we're in speculative mode because it's very
             // expensive, and we're going to suppress the diagnostic anyway.
             if (!canSkipDiagnosticForNode(errorNode)) {
-                const functionName = type.priv.overloads[0].shared.name || '<anonymous function>';
+                const overloads = OverloadedFunctionType.getOverloads(type);
+                const functionName =
+                    overloads.length > 0 && overloads[0].shared.name
+                        ? overloads[0].shared.name
+                        : '<anonymous function>';
                 const diagAddendum = new DiagnosticAddendum();
                 const argTypes = argList.map((t) => {
                     const typeString = printType(getTypeOfArg(t, /* inferenceContext */ undefined).type);
@@ -9688,9 +9703,11 @@ export function createTypeEvaluator(
         skipUnknownArgCheck: boolean | undefined,
         inferenceContext: InferenceContext | undefined
     ): CallResult {
+        const overloads = OverloadedFunctionType.getOverloads(expandedCallType);
         // Handle the 'cast' call as a special case.
         if (
-            FunctionType.isBuiltIn(expandedCallType.priv.overloads[0], ['typing.cast', 'typing_extensions.cast']) &&
+            overloads.length > 0 &&
+            FunctionType.isBuiltIn(overloads[0], ['typing.cast', 'typing_extensions.cast']) &&
             argList.length === 2
         ) {
             return { returnType: evaluateCastCall(argList, errorNode) };
@@ -21044,7 +21061,7 @@ export function createTypeEvaluator(
                             declarations.push(paramDecl);
                         }
                     } else if (isOverloadedFunction(baseType)) {
-                        baseType.priv.overloads.forEach((f) => {
+                        OverloadedFunctionType.getOverloads(baseType).forEach((f) => {
                             const paramDecl = getDeclarationFromKeywordParam(f, paramName);
                             if (paramDecl) {
                                 declarations.push(paramDecl);
@@ -22141,9 +22158,14 @@ export function createTypeEvaluator(
         if (isFunction(type)) {
             getFunctionEffectiveReturnType(type);
         } else if (isOverloadedFunction(type)) {
-            type.priv.overloads.forEach((overload) => {
+            OverloadedFunctionType.getOverloads(type).forEach((overload) => {
                 getFunctionEffectiveReturnType(overload);
             });
+
+            const impl = OverloadedFunctionType.getImplementation(type);
+            if (impl && isFunction(impl)) {
+                getFunctionEffectiveReturnType(impl);
+            }
         }
     }
 
@@ -24120,10 +24142,12 @@ export function createTypeEvaluator(
             });
 
             if (!isAssignable) {
-                if (overloadDiag) {
+                const overloads = OverloadedFunctionType.getOverloads(destType);
+
+                if (overloadDiag && overloads.length > 0) {
                     overloadDiag.addMessage(
                         LocAddendum.overloadNotAssignable().format({
-                            name: destType.priv.overloads[0].shared.name,
+                            name: overloads[0].shared.name,
                         })
                     );
                 }
@@ -26059,10 +26083,16 @@ export function createTypeEvaluator(
                 return validateOverrideMethodInternal(baseMethod, overrideMethod, diag, enforceParamNames);
             }
 
+            const overloadsAndImpl = [...OverloadedFunctionType.getOverloads(overrideMethod)];
+            const impl = OverloadedFunctionType.getImplementation(overrideMethod);
+            if (impl && isFunction(impl)) {
+                overloadsAndImpl.push(impl);
+            }
+
             // For an overload overriding a base method, at least one overload
             // or the implementation must be compatible with the base method.
             if (
-                overrideMethod.priv.overloads.some((overrideOverload) => {
+                overloadsAndImpl.some((overrideOverload) => {
                     return validateOverrideMethodInternal(
                         baseMethod,
                         overrideOverload,

@@ -858,10 +858,14 @@ function getConverterInputType(
                 diagAddendum.getEffectiveTextRange() ?? converterNode
             );
         } else {
+            const overloads = OverloadedFunctionType.getOverloads(converterType);
             evaluator.addDiagnostic(
                 DiagnosticRule.reportGeneralTypeIssues,
                 LocMessage.dataClassConverterOverloads().format({
-                    funcName: converterType.priv.overloads[0].shared.name || '<anonymous function>',
+                    funcName:
+                        overloads.length > 0 && overloads[0].shared.name
+                            ? overloads[0].shared.name
+                            : '<anonymous function>',
                     fieldType: evaluator.printType(fieldType),
                     fieldName: fieldName,
                 }) + diagAddendum.getString(),
@@ -1043,7 +1047,10 @@ function isDataclassFieldConstructor(type: Type, fieldDescriptorNames: string[])
     if (isFunction(type)) {
         callName = type.shared.fullName;
     } else if (isOverloadedFunction(type)) {
-        callName = type.priv.overloads[0].shared.fullName;
+        const overloads = OverloadedFunctionType.getOverloads(type);
+        if (overloads.length > 0) {
+            callName = overloads[0].shared.fullName;
+        }
     } else if (isInstantiableClass(type)) {
         callName = type.shared.fullName;
     }
@@ -1198,7 +1205,10 @@ export function validateDataClassTransformDecorator(
                     if (isInstantiableClass(arg.type) || isFunction(arg.type)) {
                         behaviors.fieldDescriptorNames.push(arg.type.shared.fullName);
                     } else if (isOverloadedFunction(arg.type)) {
-                        behaviors.fieldDescriptorNames.push(arg.type.priv.overloads[0].shared.fullName);
+                        const overloads = OverloadedFunctionType.getOverloads(arg.type);
+                        if (overloads.length > 0) {
+                            behaviors.fieldDescriptorNames.push(overloads[0].shared.fullName);
+                        }
                     }
                 });
                 break;
@@ -1225,9 +1235,18 @@ export function getDataclassDecoratorBehaviors(type: Type): DataClassBehaviors |
         // Find the first overload or implementation that contains a
         // dataclass_transform decorator. If more than one have such a decorator,
         // only the first one will be honored, as per PEP 681.
-        functionType =
-            type.priv.overloads.find((overload) => !!overload.shared.decoratorDataClassBehaviors) ??
-            type.priv.overloads[0];
+        const overloads = OverloadedFunctionType.getOverloads(type);
+        const impl = OverloadedFunctionType.getImplementation(type);
+
+        functionType = overloads.find((overload) => !!overload.shared.decoratorDataClassBehaviors);
+
+        if (!functionType && impl && isFunction(impl) && impl.shared.decoratorDataClassBehaviors) {
+            functionType = impl;
+        }
+
+        if (!functionType && overloads.length > 0) {
+            functionType = overloads[0];
+        }
     }
 
     if (!functionType) {

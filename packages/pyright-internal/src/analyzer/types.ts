@@ -2252,7 +2252,8 @@ export namespace FunctionType {
 }
 
 export interface OverloadedFunctionDetailsPriv {
-    overloads: FunctionType[];
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    _overloads: FunctionType[];
 }
 
 export interface OverloadedFunctionType extends TypeBase<TypeCategory.OverloadedFunction> {
@@ -2268,7 +2269,7 @@ export namespace OverloadedFunctionType {
             cached: undefined,
             shared: undefined,
             priv: {
-                overloads: [],
+                _overloads: [],
             },
         };
 
@@ -2282,15 +2283,15 @@ export namespace OverloadedFunctionType {
     // Adds a new overload or an implementation.
     export function addOverload(type: OverloadedFunctionType, functionType: FunctionType) {
         functionType.priv.overloaded = type;
-        type.priv.overloads.push(functionType);
+        type.priv._overloads.push(functionType);
     }
 
     export function getOverloads(type: OverloadedFunctionType): FunctionType[] {
-        return type.priv.overloads.filter((func) => FunctionType.isOverloaded(func));
+        return type.priv._overloads.filter((func) => FunctionType.isOverloaded(func));
     }
 
     export function getImplementation(type: OverloadedFunctionType): FunctionType | undefined {
-        return type.priv.overloads.find((func) => !FunctionType.isOverloaded(func));
+        return type.priv._overloads.find((func) => !FunctionType.isOverloaded(func));
     }
 }
 
@@ -3342,14 +3343,14 @@ export function isTypeSame(type1: Type, type2: Type, options: TypeSameOptions = 
         case TypeCategory.OverloadedFunction: {
             // Make sure the overload counts match.
             const functionType2 = type2 as OverloadedFunctionType;
-            if (type1.priv.overloads.length !== functionType2.priv.overloads.length) {
+            if (type1.priv._overloads.length !== functionType2.priv._overloads.length) {
                 return false;
             }
 
             // We assume here that overloaded functions always appear
             // in the same order from one analysis pass to another.
-            for (let i = 0; i < type1.priv.overloads.length; i++) {
-                if (!isTypeSame(type1.priv.overloads[i], functionType2.priv.overloads[i], options, recursionCount)) {
+            for (let i = 0; i < type1.priv._overloads.length; i++) {
+                if (!isTypeSame(type1.priv._overloads[i], functionType2.priv._overloads[i], options, recursionCount)) {
                     return false;
                 }
             }
